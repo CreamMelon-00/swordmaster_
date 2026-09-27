@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
@@ -13,201 +14,164 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class MobStudentAnimationPlayModeTests
     {
         [UnityTest]
-        public IEnumerator AllFortyNineFrames_LoadWithCommonCanvasFootPivotAndPointFiltering()
+        public IEnumerator SwordGirl_All44CelsHaveCorrectImportAndSharedGroundOrigin()
         {
             using (var animations = new MobStudentAnimationSet())
             {
-                Assert.That(animations.MissingResources, Is.Empty);
-                Assert.That(animations.HasRequiredAssets, Is.True);
-                Assert.That(animations.LoadedSpriteCount, Is.EqualTo(49));
-                var textures = new HashSet<Texture2D>();
-                foreach (string path in ResourcePaths())
-                {
-                    Sprite sprite = Resources.Load<Sprite>("MobStudent/Animations/" + path);
-                    Assert.That(sprite, Is.Not.Null, path);
-                    Assert.That(sprite.rect.size, Is.EqualTo(new Vector2(1024, 768)), path);
-                    Assert.That(sprite.pivot.x, Is.EqualTo(448f).Within(.001f), path);
-                    Assert.That(sprite.pivot.y, Is.EqualTo(64f).Within(.001f), path);
-                    Assert.That(sprite.pixelsPerUnit, Is.EqualTo(150f), path);
-                    Assert.That(sprite.texture.filterMode, Is.EqualTo(FilterMode.Point), path);
-                    textures.Add(sprite.texture);
-                }
-                Assert.That(textures.Count, Is.EqualTo(49));
-                Sprite source = Resources.Load<Sprite>("MobStudent/Animations/idle/upper-1");
-                Sprite upper = animations.GetIdleUpper(0f);
-                Assert.That(upper.texture, Is.SameAs(source.texture), "Adapting the old arena origin must not copy textures.");
-                Assert.That(upper.pivot.y - source.pivot.y,
-                    Is.EqualTo(-MobStudentAnimationSet.GroundOffset * 150f).Within(.001f));
+                Assert.That(animations.HasRequiredAssets, Is.True, string.Join(", ", animations.MissingResources));
+                Assert.That(animations.LoadedSpriteCount, Is.EqualTo(44));
+                foreach (string key in new[] { "idle", "slash", "pierce", "blunt" })
+                    for (int i = 1; i <= (key == "idle" ? 8 : 12); i++)
+                    {
+                        Sprite sprite = Resources.Load<Sprite>(MobStudentAnimationSet.ResourceRoot + key + "/frame-" + i.ToString("00"));
+                        Assert.That(sprite, Is.Not.Null);
+                        Assert.That(sprite.rect.size, Is.EqualTo(new Vector2(256, 224)));
+                        Assert.That(sprite.pivot.x, Is.EqualTo(101f).Within(.001f));
+                        Assert.That(sprite.pivot.y, Is.EqualTo(22f).Within(.001f));
+                        Assert.That(sprite.pixelsPerUnit, Is.EqualTo(40f));
+                        Assert.That(sprite.texture.filterMode, Is.EqualTo(FilterMode.Point));
+                        Assert.That(sprite.texture.mipmapCount, Is.EqualTo(1));
+                    }
+                Sprite source = Resources.Load<Sprite>(MobStudentAnimationSet.ResourceRoot + "idle/frame-01");
+                Sprite adapted = animations.GetIdleUpper(0f);
+                Assert.That(adapted.texture, Is.SameAs(source.texture));
+                Assert.That((source.pivot.y - adapted.pivot.y) / adapted.pixelsPerUnit,
+                    Is.EqualTo(MobStudentAnimationSet.GroundOffset).Within(.0001f));
+                Assert.That(animations.GetLower(1f, true), Is.Null, "Full-body art must not double-render old legs.");
             }
             yield return null;
         }
 
         [UnityTest]
-        public IEnumerator NineAttacks_ShowFourDistinctFrames_ContactThird_AndFourthHitCyclesToFirstVariant()
+        public IEnumerator SwordGirl_AuthoredTimingLoopsAndEveryAttackContactsAtTheAuthoritativeImpact()
         {
             using (var animations = new MobStudentAnimationSet())
             {
-                Assert.That(animations.HasRequiredAssets, Is.True);
-                var allFrames = new HashSet<Sprite>();
-                foreach (LegacySkillProperty type in AttackTypes)
+                int[] durations = { 180, 140, 160, 140, 160, 140, 160, 180 };
+                float time = 0f;
+                for (int i = 0; i < durations.Length; i++)
                 {
-                    for (int hit = 0; hit < 3; hit++)
+                    Assert.That(animations.GetIdleUpper(time + .00001f).name, Is.EqualTo("idle-frame-" + (i + 1).ToString("00")));
+                    time += durations[i] / 1000f;
+                }
+                Assert.That(animations.GetIdleUpper(time + .00001f).name, Is.EqualTo("idle-frame-01"));
+                foreach (LegacySkillProperty property in Types)
+                {
+                    string key = MobStudentAnimationSet.AttackKey(property, 0);
+                    var frames = new HashSet<Sprite>();
+                    for (int sample = 0; sample <= 1000; sample++) frames.Add(animations.GetAttackUpper(property, 0, sample / 1000f));
+                    Assert.That(frames.Count, Is.EqualTo(12));
+                    Assert.That(animations.GetAttackUpper(property, 0, .5f - .001f).name, Is.EqualTo(key + "-frame-04"));
+                    Assert.That(animations.GetAttackUpper(property, 0, .5f).name, Is.EqualTo(key + "-frame-05"));
+                    Assert.That(animations.GetAttackUpper(property, 0, 1f).name, Is.EqualTo(key + "-frame-12"));
+                    for (int hit = 1; hit < 5; hit++)
+                        Assert.That(animations.GetAttackUpper(property, hit, .5f), Is.SameAs(animations.GetAttackUpper(property, 0, .5f)));
+                }
+                Assert.That(animations.GetAttackUpper(LegacySkillProperty.Defence, 0, .5f), Is.Null);
+                animations.Dispose();
+                Assert.That(animations.HasRequiredAssets, Is.False);
+                Assert.That(animations.GetIdleUpper(0), Is.Null);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SwordGirl_StepsAndHitStopKeepWholeBodyPoseAndAfterimageFacingTheOpponent()
+        {
+            yield return null;
+            var controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            Assert.That(controller, Is.Not.Null);
+            controller.RestartMatch(); controller.enabled = false;
+            try
+            {
+                var arena = controller.ArenaView;
+                Assert.That(arena.PlayerLowerRenderer.enabled, Is.False);
+                Assert.That(arena.PlayerLowerRenderer.sprite, Is.Null);
+                Sprite enemyIdle = arena.EnemyRenderer.sprite;
+                arena.CloseDistance(1f);
+                arena.BeginSlot(Attack(LegacySkillProperty.Penetrate, 3), null);
+                Hold(arena, LegacyArenaView.OriginalImpactTime);
+                Sprite contact = arena.PlayerRenderer.sprite;
+                arena.Tick(0, .5f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(contact));
+                float start = arena.PlayerRenderer.transform.localPosition.x;
+                arena.PerformStep(LegacyStepAction.Pressure);
+                arena.Tick(0f, .1f);
+                Assert.That(arena.PlayerRenderer.transform.localPosition.x, Is.GreaterThan(start));
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(contact));
+                Assert.That(arena.PlayerRenderer.flipX, Is.False);
+                int inspectedGhosts = 0;
+                foreach (var ghost in arena.PlayerRenderer.transform.parent.GetComponentsInChildren<SpriteRenderer>(true))
+                    if (ghost.name.StartsWith("Step Afterimage") && ghost.gameObject.activeSelf)
                     {
-                        for (int frame = 0; frame < 4; frame++)
+                        inspectedGhosts++;
+                        Assert.That(ghost.sprite, Is.SameAs(contact));
+                        Assert.That(ghost.flipX, Is.False);
+                        Assert.That(ghost.transform.Find("Lower Body"), Is.Null);
+                    }
+                Assert.That(inspectedGhosts, Is.GreaterThan(0));
+                arena.PerformStep(LegacyStepAction.Dodge); arena.Tick(0f, .15f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(contact));
+                Assert.That(arena.PlayerRenderer.flipX, Is.False);
+                arena.Reset();
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("idle-frame-01"));
+                Assert.That(arena.PlayerLowerRenderer.enabled, Is.False);
+                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyIdle));
+            }
+            finally { controller.RestartMatch(); controller.enabled = true; }
+        }
+
+        [UnityTest]
+        public IEnumerator SwordGirl_RealArenaRendersAllThreeContactPosesAndIdle()
+        {
+            yield return null;
+            var controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            Assert.That(controller, Is.Not.Null);
+            controller.RestartMatch(); controller.enabled = false;
+            var arena = controller.ArenaView;
+            string directory = Environment.GetEnvironmentVariable("SWORDGIRL_VALIDATION_OUTPUT");
+            var target = new RenderTexture(1600, 900, 24);
+            var camera = arena.ArenaCamera;
+            RenderTexture previous = camera.targetTexture;
+            try
+            {
+                arena.CloseDistance(1f);
+                camera.targetTexture = target;
+                foreach (var property in new[] { LegacySkillProperty.None, LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit })
+                {
+                    arena.BeginSlot(property == LegacySkillProperty.None ? null : Attack(property, 1), null);
+                    arena.Tick(0f, 1f);
+                    if (property != LegacySkillProperty.None) Hold(arena, LegacyArenaView.OriginalImpactTime);
+                    string key = property == LegacySkillProperty.None ? "idle" : MobStudentAnimationSet.AttackKey(property, 0);
+                    Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo(key + (key == "idle" ? "-frame-01" : "-frame-05")));
+                    yield return null;
+                    yield return null;
+                    if (!string.IsNullOrEmpty(directory))
+                    {
+                        Directory.CreateDirectory(directory);
+                        var active = RenderTexture.active;
+                        var capture = new Texture2D(target.width, target.height, TextureFormat.RGB24, false);
+                        try
                         {
-                            Sprite sprite = animations.GetAttackUpper(type, hit, frame / 4f);
-                            Assert.That(sprite, Is.Not.Null);
-                            Assert.That(sprite.name, Is.EqualTo(MobStudentAnimationSet.AttackKey(type, hit) + "-upper-" + (frame + 1)));
-                            allFrames.Add(sprite);
+                            RenderTexture.active = target;
+                            capture.ReadPixels(new Rect(0, 0, target.width, target.height), 0, 0); capture.Apply();
+                            File.WriteAllBytes(Path.Combine(directory, "unity-" + key + ".png"), capture.EncodeToPNG());
                         }
-                        Assert.That(animations.GetAttackUpper(type, hit,
-                            LegacyArenaView.OriginalImpactTime / LegacyArenaView.OriginalClipDuration).name,
-                            Does.EndWith("-upper-3"));
+                        finally { RenderTexture.active = active; Object.Destroy(capture); }
                     }
-                    Assert.That(animations.GetAttackUpper(type, 3, 0f), Is.SameAs(animations.GetAttackUpper(type, 0, 0f)));
                 }
-                Assert.That(allFrames.Count, Is.EqualTo(36), "All nine attacks must be actual loaded clips, not a fallback frame.");
             }
-            yield return null;
-        }
-
-        [UnityTest]
-        public IEnumerator PlayerMovesEightLowerFrames_WhileUpperRemainsAtTheHeldAttackContact()
-        {
-            var host = new GameObject("Mob Student Layer Test");
-            using (var art = new LegacyDuelArt())
+            finally
             {
-                var arena = LegacyArenaView.Create(host.transform, art);
-                try
-                {
-                    Assert.That(arena.HasMobStudentAnimations, Is.True);
-                    arena.BeginSlot(Attack(LegacySkillProperty.Slash, 3), null);
-                    Action<float> hold = BindHold(arena);
-                    var lowerFrames = new HashSet<Sprite>();
-                    Sprite enemyIdle = arena.EnemyRenderer.sprite;
-                    for (int frame = 1; frame <= 8; frame++)
-                    {
-                        // Actual displacement supplies movement without changing the combat clock's ownership.
-                        arena.PlayerRenderer.transform.localPosition += Vector3.right * .01f;
-                        arena.Tick(MobStudentAnimationSet.MoveFrameDuration + .00001f, 0f);
-                        hold(LegacyArenaView.OriginalImpactTime);
-                        lowerFrames.Add(arena.PlayerLowerRenderer.sprite);
-                        Assert.That(arena.PlayerLowerRenderer.sprite.name, Is.EqualTo("move-lower-" + (frame % 8 + 1)));
-                        Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("slash-1-upper-3"));
-                        Assert.That(arena.PlayerRenderer.flipX, Is.False);
-                        Assert.That(arena.PlayerLowerRenderer.flipX, Is.False);
-                        Assert.That(arena.PlayerLowerRenderer.transform.localPosition, Is.EqualTo(Vector3.zero));
-                        Assert.That(arena.PlayerRenderer.sprite.pivot, Is.EqualTo(arena.PlayerLowerRenderer.sprite.pivot));
-                    }
-                    Assert.That(lowerFrames.Count, Is.EqualTo(8));
-                    Sprite upperHeld = arena.PlayerRenderer.sprite;
-                    Sprite lowerHeld = arena.PlayerLowerRenderer.sprite;
-                    arena.Tick(0f, .5f);
-                    Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(upperHeld));
-                    Assert.That(arena.PlayerLowerRenderer.sprite, Is.SameAs(lowerHeld));
-                    arena.Tick(.001f, 0f);
-                    Assert.That(arena.PlayerLowerRenderer.sprite.name, Is.EqualTo("idle-lower-1"));
-                    arena.Reset();
-                    Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("idle-upper-1"));
-                    Assert.That(arena.PlayerLowerRenderer.sprite.name, Is.EqualTo("idle-lower-1"));
-                    Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyIdle));
-                }
-                finally { arena.Dispose(); Object.Destroy(host); }
+                camera.targetTexture = previous; target.Release(); Object.Destroy(target);
+                controller.RestartMatch(); controller.enabled = true;
             }
-            yield return null;
         }
 
-        [UnityTest]
-        public IEnumerator BriefStepAndApproach_AdvanceLowerPosesWithoutChangingTheirMovementOrAttackClock()
-        {
-            var host = new GameObject("Mob Student Short Motion Test");
-            using (var art = new LegacyDuelArt())
-            {
-                var arena = LegacyArenaView.Create(host.transform, art);
-                try
-                {
-                    var approachPoses = new HashSet<Sprite>();
-                    arena.BeginApproach();
-                    for (int frame = 0; frame < 6; frame++)
-                    {
-                        arena.Tick(.015f, .015f);
-                        approachPoses.Add(arena.PlayerLowerRenderer.sprite);
-                    }
-                    Assert.That(approachPoses.Count, Is.GreaterThanOrEqualTo(4),
-                        "A short approach must progress through footwork rather than show only its first pose.");
-                    arena.Reset();
-                    arena.BeginSlot(Attack(LegacySkillProperty.Slash, 3), null);
-                    Sprite upper = arena.PlayerRenderer.sprite;
-                    float startX = arena.PlayerRenderer.transform.localPosition.x;
-                    var stepPoses = new HashSet<Sprite>();
-                    arena.PerformStep(LegacyStepAction.Pressure);
-                    for (int frame = 0; frame < 4; frame++)
-                    {
-                        arena.Tick(0f, .01f);
-                        stepPoses.Add(arena.PlayerLowerRenderer.sprite);
-                        Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(upper));
-                    }
-                    Assert.That(stepPoses.Count, Is.GreaterThanOrEqualTo(3));
-                    Assert.That(arena.PlayerRenderer.transform.localPosition.x, Is.GreaterThan(startX));
-                    arena.Tick(0f, .1f);
-                    Assert.That(arena.IsStepping, Is.False);
-                    Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(upper));
-                    arena.Tick(.001f, 0f);
-                    Assert.That(arena.PlayerLowerRenderer.sprite.name, Is.EqualTo("idle-lower-1"));
-                }
-                finally { arena.Dispose(); Object.Destroy(host); }
-            }
-            yield return null;
-        }
-
-        [UnityTest]
-        public IEnumerator PressureAfterimages_IncludeBothCurrentLayers_AndRetreatDoesNotMirrorEitherFoot()
-        {
-            var host = new GameObject("Mob Student Trail Test");
-            using (var art = new LegacyDuelArt())
-            {
-                var arena = LegacyArenaView.Create(host.transform, art);
-                try
-                {
-                    arena.CloseDistance(1f);
-                    arena.BeginSlot(Attack(LegacySkillProperty.Penetrate, 3), null);
-                    arena.PerformStep(LegacyStepAction.Pressure);
-                    Transform ghost = host.transform.Find("Legacy Duel Arena/Duel Step Afterimages").GetChild(0);
-                    Assert.That(ghost.GetComponent<SpriteRenderer>().sprite, Is.SameAs(arena.PlayerRenderer.sprite));
-                    Assert.That(ghost.Find("Lower Body").GetComponent<SpriteRenderer>().sprite,
-                        Is.SameAs(arena.PlayerLowerRenderer.sprite));
-                    arena.Tick(0f, .1f);
-                    arena.PerformStep(LegacyStepAction.Dodge);
-                    arena.Tick(0f, .15f);
-                    Assert.That(arena.PlayerLowerRenderer.sprite.name, Does.StartWith("move-lower-"));
-                    Assert.That(arena.PlayerRenderer.flipX, Is.False);
-                    Assert.That(arena.PlayerLowerRenderer.flipX, Is.False);
-                    Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("pierce-1-upper-1"),
-                        "Real-time displacement must not advance the paused combat attack clock.");
-                }
-                finally { arena.Dispose(); Object.Destroy(host); }
-            }
-            yield return null;
-        }
-
-        private static readonly LegacySkillProperty[] AttackTypes =
-            { LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit };
-
-        private static LegacySkill Attack(LegacySkillProperty type, int count) =>
-            new LegacySkill(101, "Animation Test", 1, 1, 1, LegacySkillKind.Attack, type, count, 0, string.Empty);
-
-        private static Action<float> BindHold(LegacyArenaView arena) =>
-            (Action<float>)Delegate.CreateDelegate(typeof(Action<float>), arena,
-                typeof(LegacyArenaView).GetMethod("HoldSlotAtTime", BindingFlags.Instance | BindingFlags.NonPublic));
-
-        private static IEnumerable<string> ResourcePaths()
-        {
-            for (int frame = 1; frame <= 4; frame++) yield return "idle/upper-" + frame;
-            yield return "idle/lower-1";
-            for (int frame = 1; frame <= 8; frame++) yield return "move/lower-" + frame;
-            foreach (string type in new[] { "slash", "pierce", "blunt" })
-                for (int hit = 1; hit <= 3; hit++)
-                    for (int frame = 1; frame <= 4; frame++) yield return type + "-" + hit + "/upper-" + frame;
-        }
+        private static readonly LegacySkillProperty[] Types = { LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit };
+        private static LegacySkill Attack(LegacySkillProperty property, int count) =>
+            new LegacySkill(101, "SwordGirl check", 1, 1, 1, LegacySkillKind.Attack, property, count, 0, string.Empty);
+        private static void Hold(LegacyArenaView arena, float time) =>
+            typeof(LegacyArenaView).GetMethod("HoldSlotAtTime", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(arena, new object[] { time });
     }
 }

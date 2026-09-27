@@ -323,7 +323,8 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (SpriteRenderer actor in new[] { arena.PlayerRenderer, arena.EnemyRenderer })
                 {
                     Assert.That(actor.transform.localScale, Is.EqualTo(Vector3.one));
-                    Assert.That(actor.sprite.pixelsPerUnit, Is.EqualTo(18f));
+                    Assert.That(actor.sprite.pixelsPerUnit, Is.EqualTo(
+                        actor == arena.PlayerRenderer ? MobStudentAnimationSet.PixelsPerUnit : 18f));
                     Assert.That(actor.bounds.min.y, Is.InRange(groundFront, groundBack),
                         "Both idle actors' feet must sit inside the broad belt floor, not on a distant narrow ledge.");
                 }

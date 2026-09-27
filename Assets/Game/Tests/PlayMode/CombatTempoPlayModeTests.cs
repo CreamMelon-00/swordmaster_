@@ -30,10 +30,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.Zero);
                 Assert.That(controller.Session.Player.Resistance, Is.EqualTo(1000));
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(1000));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-1-upper-2"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-04"));
                 scope.Advance(.002f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-1-upper-3"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-05"));
                 scope.Until(() => controller.IsBetweenSlots);
                 Assert.That(controller.Session.CurrentSlot, Is.Null);
                 Assert.That(controller.Session.LastResolvedSlot, Is.Zero);
@@ -69,11 +69,11 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(slot.HitsResolved, Is.EqualTo(hit));
                     scope.Advance(.002f);
                     Assert.That(slot.HitsResolved, Is.EqualTo(hit + 1));
-                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-" + (hit + 1) + "-upper-3"));
+                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-05"));
                     if (hit < 2)
                     {
                         scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
-                        Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-upper-"),
+                        Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                             "The attack gap is idle time, not a stretched attack pose.");
                     }
                 }
@@ -184,7 +184,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.CurrentSlot, Is.SameAs(slot));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-1-upper-3"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-05"));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }
@@ -205,7 +205,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(999));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-1-upper-3"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-05"));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }
@@ -226,7 +226,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));
             Assert.That(controller.Campaign.Currency, Is.Zero);
             Assert.That(controller.TurnTimeRemaining, Is.EqualTo(10f));
-            Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-upper-"));
+            Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
         }
 
         /// <summary>Run the real presentation clock deterministically, without changing the shared settings asset.</summary>

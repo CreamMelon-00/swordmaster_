@@ -26,7 +26,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.GreaterThan(0),
                     "Pressure must continue after the dash and all of its original snapshots have expired.");
                 SpriteRenderer source = fixture.Arena.PlayerRenderer;
-                Assert.That(source.sprite.name, Is.EqualTo("slash-1-upper-3"));
+                // At 0.2 s with half-speed playback, the authored recovery has reached frame 7.
+                Assert.That(source.sprite.name, Is.EqualTo("slash-frame-07"));
                 Assert.That(source.sprite, Is.Not.SameAs(movementPose));
                 fixture.Advance(0f, .04f);
                 bool currentPoseFound = false;
@@ -58,7 +59,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Advance(0f, .04f);
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.GreaterThan(0));
                 fixture.Hold(.18f);
-                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Does.StartWith("idle-upper-"));
+                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
                 fixture.Advance(0f, DuelStepAfterimages.Lifetime + .02f);
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.Zero,
                     "Inter-hit idle must not leave an endlessly refreshed stationary ghost.");
@@ -66,7 +67,8 @@ namespace TurnLimbo.Presentation.Tests
                     "The same skill retains its armed feedback for the next strike.");
                 fixture.Hold(.5f);
                 fixture.Advance(0f, .04f);
-                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Is.EqualTo("slash-2-upper-1"));
+                // Second hit: (0.5 - (1/6 + 0.3)) / (1/6) = 0.2, authored frame 2.
+                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-02"));
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.EqualTo(1));
                 float lastClipEnd = LegacyArenaView.OriginalClipDuration * 3f + .3f * 2f;
                 fixture.Hold(lastClipEnd + .0001f);

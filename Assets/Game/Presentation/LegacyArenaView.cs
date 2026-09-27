@@ -205,9 +205,9 @@ namespace TurnLimbo.Presentation
             player = CreateActor("Player", mobAnimations.HasRequiredAssets ? mobAnimations.GetIdleUpper(0f) : art.GetPlayerSprite(0f));
             player.LowerRenderer = CreateSprite("Mob Student Lower Body", player.Renderer.transform,
                 mobAnimations.GetLower(0f, false), -1);
-            player.LowerRenderer.enabled = mobAnimations.HasRequiredAssets;
+            player.LowerRenderer.enabled = mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames;
             enemy = CreateActor("Enemy0", art.GetEnemySprite(0f));
-            stepAfterimages = new DuelStepAfterimages(arenaRoot.transform, spriteMaterial, ArenaLayer, mobAnimations.HasRequiredAssets);
+            stepAfterimages = new DuelStepAfterimages(arenaRoot.transform, spriteMaterial, ArenaLayer, mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames);
             var shadowSprites = Resources.LoadAll<Sprite>("LegacyArena/Shadow/Circle");
             var shadow = shadowSprites.Length > 0 ? shadowSprites[0] : null;
             CreateShadow(player, shadow, mobAnimations.HasRequiredAssets ? 0f : -0.882f);
@@ -713,7 +713,7 @@ namespace TurnLimbo.Presentation
 
         private void SamplePlayerLowerBody(float scaledDelta, float movementDelta, bool stepProgress = false)
         {
-            if (!mobAnimations.HasRequiredAssets) return;
+            if (!mobAnimations.HasRequiredAssets || mobAnimations.UsesFullBodyFrames) return;
             Vector3 position = player.Renderer.transform.localPosition;
             float displacement = position.x - player.LastVisualPosition.x;
             bool moving = Mathf.Abs(displacement) > .00001f;

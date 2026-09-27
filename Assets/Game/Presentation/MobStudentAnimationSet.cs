@@ -6,102 +6,89 @@ using Object = UnityEngine.Object;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Two sprite layers share one canvas; combat remains authoritative over attack timing.</summary>
+    /// <summary>Full-body SwordGirl cels, sampled on the existing authoritative combat clock.
+    /// The historical class/API name is retained for arena callers; no separate lower body is rendered.</summary>
     public sealed class MobStudentAnimationSet : IDisposable
     {
-        public const float PixelsPerUnit = 150f;
-        public const float IdleFrameDuration = .14f;
-        public const float MoveFrameDuration = .14f;
-        public const int AttackFrameCount = 4;
-        public const int AttackVariationCount = 3;
-        public const int RequiredSpriteCount = 49;
+        public const float PixelsPerUnit = 40f;
         public const float GroundOffset = -2.23f;
-        private const string ResourceRoot = "MobStudent/Animations/";
-        private static readonly string[,] AttackKeys =
-        {
-            { "slash-1", "slash-2", "slash-3" },
-            { "pierce-1", "pierce-2", "pierce-3" },
-            { "blunt-1", "blunt-2", "blunt-3" }
-        };
-        private readonly Sprite[] idleUpper = new Sprite[4];
-        private readonly Sprite[] movingLower = new Sprite[8];
-        private readonly Dictionary<string, Sprite[]> attacks = new Dictionary<string, Sprite[]>(9);
+        public const int IdleFrameCount = 8;
+        public const int AttackFrameCount = 12;
+        public const int AttackVariationCount = 1;
+        public const int RequiredSpriteCount = 44;
+        // Retained for the inactive legacy lower-body travel clock in LegacyArenaView.
+        public const float MoveFrameDuration = .14f;
+        public const string ResourceRoot = "SwordGirl/Animations/";
+        private readonly Dictionary<string, Sequence> clips = new Dictionary<string, Sequence>();
         private readonly List<Sprite> ownedSprites = new List<Sprite>(RequiredSpriteCount);
         private readonly List<string> missingResources = new List<string>();
-        private readonly Sprite idleLower;
         private bool disposed;
 
-        public bool HasRequiredAssets => !disposed && ownedSprites.Count == RequiredSpriteCount && missingResources.Count == 0;
+        public bool UsesFullBodyFrames => true;
+        public bool HasRequiredAssets => !disposed && clips.Count == 4 &&
+            ownedSprites.Count == RequiredSpriteCount && missingResources.Count == 0;
         public int LoadedSpriteCount => ownedSprites.Count;
         public IReadOnlyList<string> MissingResources => missingResources;
 
         public MobStudentAnimationSet()
         {
-            for (int frame = 0; frame < idleUpper.Length; frame++)
-                idleUpper[frame] = Load("idle/upper-" + (frame + 1));
-            idleLower = Load("idle/lower-1");
-            for (int frame = 0; frame < movingLower.Length; frame++)
-                movingLower[frame] = Load("move/lower-" + (frame + 1));
-            foreach (string type in new[] { "slash", "pierce", "blunt" })
+            TextAsset asset = Resources.Load<TextAsset>(ResourceRoot + "timing");
+            if (asset == null) { missingResources.Add(ResourceRoot + "timing"); return; }
+            Manifest manifest;
+            try { manifest = JsonUtility.FromJson<Manifest>(asset.text); }
+            catch (Exception error) { missingResources.Add("Invalid SwordGirl timing: " + error.Message); return; }
+            if (manifest?.clips == null) { missingResources.Add("SwordGirl timing has no clips"); return; }
+            foreach (string key in new[] { "idle", "slash", "pierce", "blunt" })
             {
-                for (int hit = 1; hit <= AttackVariationCount; hit++)
-                {
-                    string key = type + "-" + hit;
-                    var frames = new Sprite[AttackFrameCount];
-                    for (int frame = 0; frame < frames.Length; frame++)
-                        frames[frame] = Load(key + "/upper-" + (frame + 1));
-                    attacks.Add(key, frames);
-                }
+                ClipDefinition definition = Array.Find(manifest.clips, item => item != null && item.key == key);
+                int expected = key == "idle" ? IdleFrameCount : AttackFrameCount;
+                if (definition?.durationsMs == null || definition.durationsMs.Length != expected ||
+                    Array.Exists(definition.durationsMs, duration => duration <= 0) ||
+                    (key != "idle" && (definition.impactFrame < 2 || definition.impactFrame >= expected)))
+                { missingResources.Add("Invalid SwordGirl clip: " + key); continue; }
+                var sequence = new Sequence(definition);
+                for (int i = 0; i < expected; i++) sequence.Frames[i] = Load(key + "/frame-" + (i + 1).ToString("00"));
+                clips.Add(key, sequence);
             }
         }
 
-        public Sprite GetIdleUpper(float elapsed) => disposed ? null
-            : idleUpper[LoopFrame(elapsed, IdleFrameDuration, idleUpper.Length)];
-
-        public Sprite GetLower(float elapsed, bool moving, bool retreating = false)
+        // Historical upper-body API now returns the complete character.
+        public Sprite GetIdleUpper(float elapsed)
         {
-            if (disposed) return null;
-            if (!moving) return idleLower;
-            int frame = LoopFrame(elapsed, MoveFrameDuration, movingLower.Length);
-            // Reverse the footwork cycle for retreat; the torso and both shoes keep facing the opponent.
-            if (retreating) frame = (movingLower.Length - frame) % movingLower.Length;
-            return movingLower[frame];
+            if (disposed || !clips.TryGetValue("idle", out var clip)) return null;
+            return clip.Sample(Mathf.Max(0f, elapsed) % clip.Duration);
         }
+
+        public Sprite GetLower(float elapsed, bool moving, bool retreating = false) => null;
 
         public Sprite GetAttackUpper(LegacySkillProperty property, int hitIndex, float normalizedTime)
         {
-            if (disposed) return null;
             string key = AttackKey(property, hitIndex);
-            if (key == null || !attacks.TryGetValue(key, out var frames)) return null;
-            // Modulo on a later combo hit can put an exact contact a few float ULPs below .5.
-            int frame = Mathf.Clamp(Mathf.FloorToInt(Mathf.Clamp01(normalizedTime) * frames.Length + .00001f), 0, frames.Length - 1);
-            return frames[frame];
+            if (disposed || key == null || !clips.TryGetValue(key, out var clip)) return null;
+            float phase = Mathf.Clamp01(normalizedTime);
+            // Map the authored contact (frame 5 at 420 ms) to the game's half-cycle strike.
+            // This preserves hit stop, combo gaps, playback multipliers, and authoritative damage timing.
+            float elapsed = phase <= .5f ? phase * 2f * clip.ImpactTime
+                : clip.ImpactTime + (phase - .5f) * 2f * (clip.Duration - clip.ImpactTime);
+            return clip.Sample(elapsed);
         }
 
         public static string AttackKey(LegacySkillProperty property, int hitIndex)
         {
-            int type;
             switch (property)
             {
-                case LegacySkillProperty.Slash: type = 0; break;
-                case LegacySkillProperty.Penetrate: type = 1; break;
-                case LegacySkillProperty.Hit: type = 2; break;
+                case LegacySkillProperty.Slash: return "slash";
+                case LegacySkillProperty.Penetrate: return "pierce";
+                case LegacySkillProperty.Hit: return "blunt";
                 default: return null;
             }
-            return AttackKeys[type, Mathf.Max(0, hitIndex) % AttackVariationCount];
         }
 
         private Sprite Load(string relativePath)
         {
             string path = ResourceRoot + relativePath;
             Sprite source = Resources.Load<Sprite>(path);
-            if (source == null)
-            {
-                missingResources.Add(path);
-                return null;
-            }
-            // Imported art retains its foot pivot. Adapt only the render origin to the legacy actor's
-            // centre and ground shadow, keeping combat/HUD transforms and the shared source texture intact.
+            if (source == null) { missingResources.Add(path); return null; }
             Vector2 pivot = source.pivot;
             pivot.y -= GroundOffset * source.pixelsPerUnit;
             var sprite = Sprite.Create(source.texture, source.rect,
@@ -113,9 +100,6 @@ namespace TurnLimbo.Presentation
             return sprite;
         }
 
-        private static int LoopFrame(float elapsed, float frameDuration, int frameCount) =>
-            Mathf.FloorToInt(Mathf.Max(0f, elapsed) / frameDuration) % frameCount;
-
         public void Dispose()
         {
             if (disposed) return;
@@ -126,6 +110,42 @@ namespace TurnLimbo.Presentation
                 else Object.DestroyImmediate(sprite);
             }
             ownedSprites.Clear();
+            clips.Clear();
+        }
+
+        [Serializable] private sealed class Manifest { public ClipDefinition[] clips; }
+        [Serializable] private sealed class ClipDefinition
+        {
+            public string key;
+            public int impactFrame;
+            public int[] durationsMs;
+        }
+        private sealed class Sequence
+        {
+            public readonly Sprite[] Frames;
+            public readonly float Duration;
+            public readonly float ImpactTime;
+            private readonly float[] ends;
+            public Sequence(ClipDefinition definition)
+            {
+                Frames = new Sprite[definition.durationsMs.Length];
+                ends = new float[Frames.Length];
+                float time = 0f;
+                for (int i = 0; i < Frames.Length; i++)
+                {
+                    if (i == definition.impactFrame - 1) ImpactTime = time;
+                    time += definition.durationsMs[i] / 1000f;
+                    ends[i] = time;
+                }
+                Duration = time;
+            }
+            public Sprite Sample(float time)
+            {
+                // Tolerate a few float ULPs at exact multi-hit boundaries, not a visible time span.
+                for (int i = 0; i < ends.Length - 1; i++)
+                    if (time + .000001f < ends[i]) return Frames[i];
+                return Frames[Frames.Length - 1];
+            }
         }
     }
 }
