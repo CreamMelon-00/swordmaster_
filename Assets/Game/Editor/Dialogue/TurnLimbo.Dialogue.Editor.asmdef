@@ -1,0 +1,19 @@
+{
+  "name": "TurnLimbo.Dialogue.Editor",
+  "rootNamespace": "TurnLimbo.EditorTools.Dialogue",
+  "references": [
+    "TurnLimbo.Runtime",
+    "TurnLimbo.Presentation"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

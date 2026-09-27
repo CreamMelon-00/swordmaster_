@@ -1,0 +1,538 @@
+{
+  "attacks": [
+    {
+      "id": "slash-1",
+      "label": "diagonal descending cut",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-78389236-b0cb-4803-824b-1d1b74da9cee.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.6787330316742082,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            342,
+            541
+          ],
+          "bladeBase": [
+            535.0213864944425,
+            257.65466544530676
+          ],
+          "bladeAngleDegrees": -48.3463082180279
+        },
+        {
+          "cell": 1,
+          "waist": [
+            268.5,
+            542
+          ],
+          "bladeBase": [
+            516.2756018482536,
+            418.8694816634477
+          ],
+          "bladeAngleDegrees": -14.851207968564879
+        },
+        {
+          "cell": 2,
+          "waist": [
+            333.5,
+            482
+          ],
+          "bladeBase": [
+            585.1033466845477,
+            418.0278089050081
+          ],
+          "bladeAngleDegrees": 12.245167102159968
+        },
+        {
+          "cell": 3,
+          "waist": [
+            289,
+            482
+          ],
+          "bladeBase": [
+            486.42127950492977,
+            464.7979609574357
+          ],
+          "bladeAngleDegrees": 17.612016491516073
+        }
+      ]
+    },
+    {
+      "id": "pierce-1",
+      "label": "middle straight thrust",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-2334cb52-1e69-480d-b0bf-9861ffb08064.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.6912442396313364,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            330.5,
+            534
+          ],
+          "bladeBase": [
+            479.81698913708175,
+            466.2718253436071
+          ],
+          "bladeAngleDegrees": -7.143223778135152
+        },
+        {
+          "cell": 1,
+          "waist": [
+            250,
+            534
+          ],
+          "bladeBase": [
+            495.8284482832734,
+            421.68661171717287
+          ],
+          "bladeAngleDegrees": -5.422486022652123
+        },
+        {
+          "cell": 2,
+          "waist": [
+            257,
+            506
+          ],
+          "bladeBase": [
+            593.3547081856393,
+            378.79838354026225
+          ],
+          "bladeAngleDegrees": -1.0935679486603647
+        },
+        {
+          "cell": 3,
+          "waist": [
+            253.5,
+            506
+          ],
+          "bladeBase": [
+            398.9975062703709,
+            416.29568168073627
+          ],
+          "bladeAngleDegrees": -12.029444556852283
+        }
+      ]
+    },
+    {
+      "id": "pierce-2",
+      "label": "low straight thrust",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-c7d25dbc-63f7-44cd-83d4-a0932d9a0ada.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.7159904534606205,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            314,
+            513
+          ],
+          "bladeBase": [
+            491.1732042853975,
+            467.3535660245484
+          ],
+          "bladeAngleDegrees": -8.808755343371246
+        },
+        {
+          "cell": 1,
+          "waist": [
+            237,
+            519
+          ],
+          "bladeBase": [
+            487.2774192831262,
+            481.61577617218165
+          ],
+          "bladeAngleDegrees": -7.780066955987252
+        },
+        {
+          "cell": 2,
+          "waist": [
+            285.5,
+            477
+          ],
+          "bladeBase": [
+            598.4813420060789,
+            414.9056144835879
+          ],
+          "bladeAngleDegrees": -14.800554170904476
+        },
+        {
+          "cell": 3,
+          "waist": [
+            244,
+            479
+          ],
+          "bladeBase": [
+            425.2943965957007,
+            429.059591788924
+          ],
+          "bladeAngleDegrees": -10.434999013747031
+        }
+      ]
+    },
+    {
+      "id": "pierce-3",
+      "label": "high straight thrust",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-d650f660-e9e8-4585-8430-cbe5f06d04cb.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.6600660066006601,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            274.5,
+            562
+          ],
+          "bladeBase": [
+            480.69182558932323,
+            410.86384979027025
+          ],
+          "bladeAngleDegrees": -28.23120806381589
+        },
+        {
+          "cell": 1,
+          "waist": [
+            193.5,
+            562
+          ],
+          "bladeBase": [
+            531.5000856579069,
+            341.6617598419465
+          ],
+          "bladeAngleDegrees": -29.04459303842725
+        },
+        {
+          "cell": 2,
+          "waist": [
+            198.5,
+            528
+          ],
+          "bladeBase": [
+            608.5997394933576,
+            271.0603522785621
+          ],
+          "bladeAngleDegrees": -28.917010128709798
+        },
+        {
+          "cell": 3,
+          "waist": [
+            240.5,
+            528
+          ],
+          "bladeBase": [
+            483.0211791033259,
+            352.7743800069571
+          ],
+          "bladeAngleDegrees": -28.663826617475976
+        }
+      ]
+    },
+    {
+      "id": "slash-2",
+      "label": "ascending return cut",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-80ad1073-8b47-495e-b6b4-4beb4feb98a6.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.6715165081141579,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            280.5,
+            532
+          ],
+          "bladeBase": [
+            514.0289922975463,
+            534.0812475006377
+          ],
+          "bladeAngleDegrees": 13.254464289946498
+        },
+        {
+          "cell": 1,
+          "waist": [
+            259.5,
+            534
+          ],
+          "bladeBase": [
+            511.66118486940627,
+            432.6713230944845
+          ],
+          "bladeAngleDegrees": -17.428697016394267
+        },
+        {
+          "cell": 2,
+          "waist": [
+            318,
+            497
+          ],
+          "bladeBase": [
+            627.1619091964635,
+            261.76042282814706
+          ],
+          "bladeAngleDegrees": -35.5227482173645
+        },
+        {
+          "cell": 3,
+          "waist": [
+            281.5,
+            498
+          ],
+          "bladeBase": [
+            502.66370358540627,
+            214.99382391453247
+          ],
+          "bladeAngleDegrees": -40.116128128665615
+        }
+      ]
+    },
+    {
+      "id": "slash-3",
+      "label": "overhead finishing cut",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-41373588-d2ed-45d6-83d7-92e07596ea09.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.6960556844547564,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            341.5,
+            516
+          ],
+          "bladeBase": [
+            553.2705949131132,
+            138.9512678494191
+          ],
+          "bladeAngleDegrees": -27.061757492375357
+        },
+        {
+          "cell": 1,
+          "waist": [
+            254,
+            516
+          ],
+          "bladeBase": [
+            516.2247131948291,
+            424.6015278066256
+          ],
+          "bladeAngleDegrees": -17.939741243882736
+        },
+        {
+          "cell": 2,
+          "waist": [
+            328.5,
+            477
+          ],
+          "bladeBase": [
+            583.8796822307739,
+            471.67578098040957
+          ],
+          "bladeAngleDegrees": 30.79519985288647
+        },
+        {
+          "cell": 3,
+          "waist": [
+            273.5,
+            477
+          ],
+          "bladeBase": [
+            498.8876770161836,
+            455.07389321125453
+          ],
+          "bladeAngleDegrees": 21.530321026643563
+        }
+      ]
+    },
+    {
+      "id": "blunt-1",
+      "label": "short pommel shove",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-4e1ba86f-ffa3-4c0c-a487-02483e843943.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.6749156355455568,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            353.5,
+            552
+          ],
+          "bladeBase": [
+            169.76624429377014,
+            341.8064979054898
+          ],
+          "bladeAngleDegrees": -139.00394201368607
+        },
+        {
+          "cell": 1,
+          "waist": [
+            286,
+            552
+          ],
+          "bladeBase": [
+            137.62714429175801,
+            359.8843699715592
+          ],
+          "bladeAngleDegrees": -146.0792934945912
+        },
+        {
+          "cell": 2,
+          "waist": [
+            367.5,
+            499
+          ],
+          "bladeBase": [
+            248.9715148801353,
+            319.76233796869286
+          ],
+          "bladeAngleDegrees": -160.86981031709456
+        },
+        {
+          "cell": 3,
+          "waist": [
+            295.5,
+            499
+          ],
+          "bladeBase": [
+            135.31193892615138,
+            302.10524355254194
+          ],
+          "bladeAngleDegrees": -139.471555233092
+        }
+      ]
+    },
+    {
+      "id": "blunt-2",
+      "label": "crossguard downward blow",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-e0e62ac6-b6a8-488b-a87a-5a2253fbbf32.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.7434944237918215,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            389.5,
+            535
+          ],
+          "bladeBase": [
+            247.77835179642207,
+            204.797190291044
+          ],
+          "bladeAngleDegrees": -133.32013545960575
+        },
+        {
+          "cell": 1,
+          "waist": [
+            316.5,
+            535
+          ],
+          "bladeBase": [
+            166.7481631267833,
+            364.837020076097
+          ],
+          "bladeAngleDegrees": -138.0605689006755
+        },
+        {
+          "cell": 2,
+          "waist": [
+            392.5,
+            474
+          ],
+          "bladeBase": [
+            284.13883109134406,
+            352.9277604022818
+          ],
+          "bladeAngleDegrees": -169.39476853531409
+        },
+        {
+          "cell": 3,
+          "waist": [
+            327.5,
+            474
+          ],
+          "bladeBase": [
+            195.63927957244428,
+            167.67288918525102
+          ],
+          "bladeAngleDegrees": -131.35593357063487
+        }
+      ]
+    },
+    {
+      "id": "blunt-3",
+      "label": "descending pommel finisher",
+      "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-3b8f9ca8-0c4e-47f9-a02e-bfa3816e57b9.png",
+      "columns": 2,
+      "rows": 2,
+      "scale": 0.718562874251497,
+      "frames": [
+        {
+          "cell": 0,
+          "waist": [
+            385.5,
+            539
+          ],
+          "bladeBase": [
+            236.38786771092194,
+            206.60811982264596
+          ],
+          "bladeAngleDegrees": -132.68713751518428
+        },
+        {
+          "cell": 1,
+          "waist": [
+            331.5,
+            538
+          ],
+          "bladeBase": [
+            170.98951308275636,
+            374.41965361236413
+          ],
+          "bladeAngleDegrees": -137.11017260357863
+        },
+        {
+          "cell": 2,
+          "waist": [
+            389.5,
+            492
+          ],
+          "bladeBase": [
+            515.7236260456258,
+            423.85494338360326
+          ],
+          "bladeAngleDegrees": 158.37073993170986
+        },
+        {
+          "cell": 3,
+          "waist": [
+            336,
+            492
+          ],
+          "bladeBase": [
+            470.78516430096903,
+            388.0568691613499
+          ],
+          "bladeAngleDegrees": -29.753780028277184
+        }
+      ]
+    }
+  ],
+  "blade": {
+    "sourcePath": "C:/Users/User/.codex/generated_images/01a0e130-2a6a-7ff0-ac8b-bf1d9b077d86/exec-23515f87-22c5-4ce8-8468-7266f039e795.png",
+    "base": [
+      416,
+      361.5
+    ],
+    "tip": [
+      1755,
+      361.5
+    ],
+    "lengthPx": 300
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "TurnLimbo.Presentation.Tests",
+  "rootNamespace": "TurnLimbo.Presentation.Tests",
+  "references": [
+    "TurnLimbo.Presentation",
+    "TurnLimbo.Runtime",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework",
+    "Unity.ugui",
+    "Unity.RenderPipelines.Universal.Runtime",
+    "Unity.RenderPipelines.Core.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

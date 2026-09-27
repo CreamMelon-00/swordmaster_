@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "assetStatus": "direction-and-motion-draft",
+  "facing": "right",
+  "travel": "right",
+  "frameCount": 8,
+  "uniquePoseCount": 6,
+  "frameDelayMs": 140,
+  "loopDurationMs": 1120,
+  "waistAnchor": [
+    306,
+    456
+  ],
+  "commonPivot": [
+    320,
+    640
+  ],
+  "groundY": 640,
+  "leadFootToeDirection": "right",
+  "rearFootToeDirection": "diagonally right toward camera",
+  "phases": [
+    "guard",
+    "lead heel release",
+    "lead low lift",
+    "lead landing",
+    "rear heel release",
+    "rear recovery",
+    "landing",
+    "settle"
+  ],
+  "rootMotion": null,
+  "rootMotionStatus": "Tune against grounded shoe positions during game integration. Do not reuse v1 travel curve.",
+  "previewRootTranslation": false
+}

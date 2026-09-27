@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9419f02eb36d44c9994729ab021e96ea, type: 3}
+  m_Name: DuelPresentationSettings
+  m_EditorClassIdentifier: 
+  farMistHeight: 14.4
+  farMistY: -0.5
+  farHeight: 14.4
+  farY: -0.5
+  midHeight: 12.6
+  midY: -1.2
+  nearHeight: 12.6
+  nearY: -0.75
+  animationPlaybackSpeed: 1
+  attackInterval: 0.1
+  skillInterval: 0.28
+  hitStopDuration: 0.04
+  glowEnabled: 1
+  glowIntensity: 3
+  glowRadius: 1.1
+  glowDuration: 0.14
+  bloomIntensity: 0.65
+  bloomThreshold: 1.2
+  flashExposure: 0.18

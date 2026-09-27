@@ -1,0 +1,84 @@
+{
+  "frameCount": 4,
+  "frameSize": [
+    800,
+    704
+  ],
+  "sheetSize": [
+    3200,
+    704
+  ],
+  "fps": 4,
+  "loopSeconds": 1,
+  "assembly": "One generated foreground grip layer is reused without per-frame scaling or rotation.",
+  "gif": {
+    "pages": 4,
+    "delay": [
+      250,
+      250,
+      250,
+      250
+    ],
+    "loop": 0,
+    "alpha": true,
+    "identicalBladePixelComparisons": 22968
+  },
+  "audit": [
+    {
+      "frame": 1,
+      "weaponPosition": [
+        319,
+        257
+      ],
+      "weaponSize": [
+        400,
+        214
+      ],
+      "layerSha256": "54953373ca3980facde65e9ae8053c3b3ab4360da09b5f73165aaee694dad15b",
+      "checkedOpaquePixels": 117,
+      "checkedIdenticalBladePixels": 7656
+    },
+    {
+      "frame": 2,
+      "weaponPosition": [
+        319,
+        252
+      ],
+      "weaponSize": [
+        400,
+        214
+      ],
+      "layerSha256": "54953373ca3980facde65e9ae8053c3b3ab4360da09b5f73165aaee694dad15b",
+      "checkedOpaquePixels": 117,
+      "checkedIdenticalBladePixels": 7656
+    },
+    {
+      "frame": 3,
+      "weaponPosition": [
+        319,
+        254
+      ],
+      "weaponSize": [
+        400,
+        214
+      ],
+      "layerSha256": "54953373ca3980facde65e9ae8053c3b3ab4360da09b5f73165aaee694dad15b",
+      "checkedOpaquePixels": 117,
+      "checkedIdenticalBladePixels": 7656
+    },
+    {
+      "frame": 4,
+      "weaponPosition": [
+        319,
+        263
+      ],
+      "weaponSize": [
+        400,
+        214
+      ],
+      "layerSha256": "54953373ca3980facde65e9ae8053c3b3ab4360da09b5f73165aaee694dad15b",
+      "checkedOpaquePixels": 117,
+      "checkedIdenticalBladePixels": 7656
+    }
+  ]
+}

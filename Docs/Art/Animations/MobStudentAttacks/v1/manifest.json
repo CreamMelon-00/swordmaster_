@@ -1,0 +1,1746 @@
+{
+  "frameSize": [
+    1024,
+    768
+  ],
+  "waistAnchor": [
+    434,
+    520
+  ],
+  "footPivotTopLeft": [
+    448,
+    704
+  ],
+  "spritePivot": [
+    0.4375,
+    0.08333333333333337
+  ],
+  "pixelsPerUnit": 150,
+  "bladeSourceSha256": "115396eaa253b509273c9b99decd3b324ff701656451feeb761f22ba2c6c9bc6",
+  "bladeAxisLengthPx": 300,
+  "sampling": "nearest; rigid blade source reused in every frame",
+  "runtimeContactFrame": 3,
+  "runtimeAttackDurationSeconds": 0.16666666666666666,
+  "missing": [],
+  "animations": [
+    {
+      "id": "slash-1",
+      "label": "diagonal descending cut",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            342,
+            541
+          ],
+          "commonScale": 0.6787330316742082,
+          "sourceBladeBase": [
+            535.0213864944425,
+            257.65466544530676
+          ],
+          "bladeAngleDegrees": -48.3463082180279,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 219,
+            "top": 167,
+            "right": 654,
+            "bottom": 550
+          },
+          "bladeBounds": {
+            "left": 557,
+            "top": 102,
+            "right": 766,
+            "bottom": 335
+          },
+          "bladeBaseCanvas": [
+            565.009990833332,
+            327.6841620669503
+          ],
+          "bladeTipCanvas": [
+            764.3979952568925,
+            103.5314826451102
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            268.5,
+            542
+          ],
+          "commonScale": 0.6787330316742082,
+          "sourceBladeBase": [
+            516.2756018482536,
+            418.8694816634477
+          ],
+          "bladeAngleDegrees": -14.851207968564879,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 252,
+            "top": 216,
+            "right": 690,
+            "bottom": 525
+          },
+          "bladeBounds": {
+            "left": 599,
+            "top": 357,
+            "right": 893,
+            "bottom": 456
+          },
+          "bladeBaseCanvas": [
+            602.1734854173667,
+            436.4272499978152
+          ],
+          "bladeTipCanvas": [
+            892.1518949511276,
+            359.5343244176917
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            333.5,
+            482
+          ],
+          "commonScale": 0.6787330316742082,
+          "sourceBladeBase": [
+            585.1033466845477,
+            418.0278089050081
+          ],
+          "bladeAngleDegrees": 12.245167102159968,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 252,
+            "top": 220,
+            "right": 653,
+            "bottom": 568
+          },
+          "bladeBounds": {
+            "left": 602,
+            "top": 466,
+            "right": 899,
+            "bottom": 551
+          },
+          "bladeBaseCanvas": [
+            604.7715022745799,
+            476.57996079525435
+          ],
+          "bladeTipCanvas": [
+            897.9462023251423,
+            540.2085333885697
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            289,
+            482
+          ],
+          "commonScale": 0.6787330316742082,
+          "sourceBladeBase": [
+            486.42127950492977,
+            464.7979609574357
+          ],
+          "bladeAngleDegrees": 17.612016491516073,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 239,
+            "top": 200,
+            "right": 667,
+            "bottom": 556
+          },
+          "bladeBounds": {
+            "left": 565,
+            "top": 498,
+            "right": 855,
+            "bottom": 602
+          },
+          "bladeBaseCanvas": [
+            567.9963435553822,
+            508.3244078896622
+          ],
+          "bladeTipCanvas": [
+            853.9345130344118,
+            599.0953461627774
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    },
+    {
+      "id": "slash-2",
+      "label": "ascending return cut",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            280.5,
+            532
+          ],
+          "commonScale": 0.6715165081141579,
+          "sourceBladeBase": [
+            514.0289922975463,
+            534.0812475006377
+          ],
+          "bladeAngleDegrees": 13.254464289946498,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 246,
+            "top": 197,
+            "right": 693,
+            "bottom": 557
+          },
+          "bladeBounds": {
+            "left": 588,
+            "top": 511,
+            "right": 883,
+            "bottom": 593
+          },
+          "bladeBaseCanvas": [
+            590.8185734510664,
+            521.3975920541495
+          ],
+          "bladeTipCanvas": [
+            882.8269925511114,
+            590.1804618306605
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            259.5,
+            534
+          ],
+          "commonScale": 0.6715165081141579,
+          "sourceBladeBase": [
+            511.66118486940627,
+            432.6713230944845
+          ],
+          "bladeAngleDegrees": -17.428697016394267,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 260,
+            "top": 185,
+            "right": 696,
+            "bottom": 545
+          },
+          "bladeBounds": {
+            "left": 600,
+            "top": 359,
+            "right": 890,
+            "bottom": 493
+          },
+          "bladeBaseCanvas": [
+            603.3303983454323,
+            451.9561207125805
+          ],
+          "bladeTipCanvas": [
+            889.5575279553024,
+            362.10051278912016
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            318,
+            497
+          ],
+          "commonScale": 0.6715165081141579,
+          "sourceBladeBase": [
+            627.1619091964635,
+            261.76042282814706
+          ],
+          "bladeAngleDegrees": -35.5227482173645,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 262,
+            "top": 186,
+            "right": 668,
+            "bottom": 564
+          },
+          "bladeBounds": {
+            "left": 635,
+            "top": 187,
+            "right": 887,
+            "bottom": 371
+          },
+          "bladeBaseCanvas": [
+            641.6073257055156,
+            362.03274056730635
+          ],
+          "bladeTipCanvas": [
+            885.7727947909776,
+            187.72489878651825
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            281.5,
+            498
+          ],
+          "commonScale": 0.6715165081141579,
+          "sourceBladeBase": [
+            502.66370358540627,
+            214.99382391453247
+          ],
+          "bladeAngleDegrees": -40.116128128665615,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 245,
+            "top": 223,
+            "right": 668,
+            "bottom": 542
+          },
+          "bladeBounds": {
+            "left": 576,
+            "top": 135,
+            "right": 813,
+            "bottom": 338
+          },
+          "bladeBaseCanvas": [
+            582.5150779532667,
+            329.95668086034635
+          ],
+          "bladeTipCanvas": [
+            811.9370950333534,
+            136.6550045124565
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    },
+    {
+      "id": "slash-3",
+      "label": "overhead finishing cut",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            341.5,
+            516
+          ],
+          "commonScale": 0.6960556844547564,
+          "sourceBladeBase": [
+            553.2705949131132,
+            138.9512678494191
+          ],
+          "bladeAngleDegrees": -27.061757492375357,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 225,
+            "top": 210,
+            "right": 651,
+            "bottom": 568
+          },
+          "bladeBounds": {
+            "left": 577,
+            "top": 119,
+            "right": 850,
+            "bottom": 267
+          },
+          "bladeBaseCanvas": [
+            581.4041263896379,
+            257.5530866701293
+          ],
+          "bladeTipCanvas": [
+            848.5591253607874,
+            121.06789873852608
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            254,
+            516
+          ],
+          "commonScale": 0.6960556844547564,
+          "sourceBladeBase": [
+            516.2247131948291,
+            424.6015278066256
+          ],
+          "bladeAngleDegrees": -17.939741243882736,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 275,
+            "top": 218,
+            "right": 701,
+            "bottom": 536
+          },
+          "bladeBounds": {
+            "left": 613,
+            "top": 361,
+            "right": 903,
+            "bottom": 468
+          },
+          "bladeBaseCanvas": [
+            616.5230022237789,
+            456.38157387932176
+          ],
+          "bladeTipCanvas": [
+            901.9372985212951,
+            363.97659853170546
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            328.5,
+            477
+          ],
+          "commonScale": 0.6960556844547564,
+          "sourceBladeBase": [
+            583.8796822307739,
+            471.67578098040957
+          ],
+          "bladeAngleDegrees": 30.79519985288647,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 249,
+            "top": 189,
+            "right": 669,
+            "bottom": 561
+          },
+          "bladeBounds": {
+            "left": 607,
+            "top": 507,
+            "right": 870,
+            "bottom": 671
+          },
+          "bladeBaseCanvas": [
+            611.7584795109796,
+            516.294047086132
+          ],
+          "bladeTipCanvas": [
+            869.4593171210713,
+            669.8853173297795
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            273.5,
+            477
+          ],
+          "commonScale": 0.6960556844547564,
+          "sourceBladeBase": [
+            498.8876770161836,
+            455.07389321125453
+          ],
+          "bladeAngleDegrees": 21.530321026643563,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 244,
+            "top": 219,
+            "right": 689,
+            "bottom": 559
+          },
+          "bladeBounds": {
+            "left": 587,
+            "top": 495,
+            "right": 871,
+            "bottom": 617
+          },
+          "bladeBaseCanvas": [
+            590.8823737931673,
+            504.7382087317317
+          ],
+          "bladeTipCanvas": [
+            869.9494191784543,
+            614.8362749269479
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    },
+    {
+      "id": "pierce-1",
+      "label": "middle straight thrust",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            330.5,
+            534
+          ],
+          "commonScale": 0.6912442396313364,
+          "sourceBladeBase": [
+            479.81698913708175,
+            466.2718253436071
+          ],
+          "bladeAngleDegrees": -7.143223778135152,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 223,
+            "top": 172,
+            "right": 666,
+            "bottom": 528
+          },
+          "bladeBounds": {
+            "left": 536,
+            "top": 429,
+            "right": 836,
+            "bottom": 484
+          },
+          "bladeBaseCanvas": [
+            537.2145086201026,
+            473.1832894080233
+          ],
+          "bladeTipCanvas": [
+            834.8860318917202,
+            435.87827321509315
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            250,
+            534
+          ],
+          "commonScale": 0.6912442396313364,
+          "sourceBladeBase": [
+            495.8284482832734,
+            421.68661171717287
+          ],
+          "bladeAngleDegrees": -5.422486022652123,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 261,
+            "top": 177,
+            "right": 635,
+            "bottom": 540
+          },
+          "bladeBounds": {
+            "left": 603,
+            "top": 406,
+            "right": 903,
+            "bottom": 453
+          },
+          "bladeBaseCanvas": [
+            603.9274988133227,
+            442.36401731601813
+          ],
+          "bladeTipCanvas": [
+            902.5849852067813,
+            414.0143114773132
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            257,
+            506
+          ],
+          "commonScale": 0.6912442396313364,
+          "sourceBladeBase": [
+            593.3547081856393,
+            378.79838354026225
+          ],
+          "bladeAngleDegrees": -1.0935679486603647,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 282,
+            "top": 189,
+            "right": 717,
+            "bottom": 576
+          },
+          "bladeBounds": {
+            "left": 666,
+            "top": 416,
+            "right": 967,
+            "bottom": 443
+          },
+          "bladeBaseCanvas": [
+            666.5032545062023,
+            432.0726153504117
+          ],
+          "bladeTipCanvas": [
+            966.4486127868729,
+            426.347054602311
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            253.5,
+            506
+          ],
+          "commonScale": 0.6912442396313364,
+          "sourceBladeBase": [
+            398.9975062703709,
+            416.29568168073627
+          ],
+          "bladeAngleDegrees": -12.029444556852283,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 259,
+            "top": 190,
+            "right": 656,
+            "bottom": 554
+          },
+          "bladeBounds": {
+            "left": 532,
+            "top": 392,
+            "right": 829,
+            "bottom": 468
+          },
+          "bladeBaseCanvas": [
+            534.5743130901182,
+            457.99240669175316
+          ],
+          "bladeTipCanvas": [
+            827.9865005388773,
+            395.4681053639157
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    },
+    {
+      "id": "pierce-2",
+      "label": "low straight thrust",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            314,
+            513
+          ],
+          "commonScale": 0.7159904534606205,
+          "sourceBladeBase": [
+            491.1732042853975,
+            467.3535660245484
+          ],
+          "bladeAngleDegrees": -8.808755343371246,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 237,
+            "top": 182,
+            "right": 687,
+            "bottom": 573
+          },
+          "bladeBounds": {
+            "left": 559,
+            "top": 436,
+            "right": 858,
+            "bottom": 520
+          },
+          "bladeBaseCanvas": [
+            560.8543228773729,
+            487.31758903905614
+          ],
+          "bladeTipCanvas": [
+            857.3158205400724,
+            441.37653546396734
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            237,
+            519
+          ],
+          "commonScale": 0.7159904534606205,
+          "sourceBladeBase": [
+            487.2774192831262,
+            481.61577617218165
+          ],
+          "bladeAngleDegrees": -7.780066955987252,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 264,
+            "top": 164,
+            "right": 710,
+            "bottom": 534
+          },
+          "bladeBounds": {
+            "left": 612,
+            "top": 446,
+            "right": 911,
+            "bottom": 504
+          },
+          "bladeBaseCanvas": [
+            613.1962429234794,
+            493.23325262924703
+          ],
+          "bladeTipCanvas": [
+            910.4347415999714,
+            452.6219868949079
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            285.5,
+            477
+          ],
+          "commonScale": 0.7159904534606205,
+          "sourceBladeBase": [
+            598.4813420060789,
+            414.9056144835879
+          ],
+          "bladeAngleDegrees": -14.800554170904476,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 230,
+            "top": 201,
+            "right": 707,
+            "bottom": 580
+          },
+          "bladeBounds": {
+            "left": 655,
+            "top": 396,
+            "right": 949,
+            "bottom": 486
+          },
+          "bladeBaseCanvas": [
+            658.091652987646,
+            475.5410127567455
+          ],
+          "bladeTipCanvas": [
+            948.1379283458134,
+            398.904480013842
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            244,
+            479
+          ],
+          "commonScale": 0.7159904534606205,
+          "sourceBladeBase": [
+            425.2943965957007,
+            429.059591788924
+          ],
+          "bladeAngleDegrees": -10.434999013747031,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 259,
+            "top": 186,
+            "right": 675,
+            "bottom": 563
+          },
+          "bladeBounds": {
+            "left": 562,
+            "top": 425,
+            "right": 860,
+            "bottom": 525
+          },
+          "bladeBaseCanvas": [
+            563.8050572284253,
+            484.24314447894324
+          ],
+          "bladeTipCanvas": [
+            858.8433624947169,
+            429.90716721162465
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    },
+    {
+      "id": "pierce-3",
+      "label": "high straight thrust",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            274.5,
+            562
+          ],
+          "commonScale": 0.6600660066006601,
+          "sourceBladeBase": [
+            480.69182558932323,
+            410.86384979027025
+          ],
+          "bladeAngleDegrees": -28.23120806381589,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 276,
+            "top": 183,
+            "right": 693,
+            "bottom": 536
+          },
+          "bladeBounds": {
+            "left": 565,
+            "top": 277,
+            "right": 835,
+            "bottom": 430
+          },
+          "bladeBaseCanvas": [
+            570.1002149104444,
+            420.24016487806614
+          ],
+          "bladeTipCanvas": [
+            834.4139941373357,
+            278.3309470280685
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            193.5,
+            562
+          ],
+          "commonScale": 0.6600660066006601,
+          "sourceBladeBase": [
+            531.5000856579069,
+            341.6617598419465
+          ],
+          "bladeAngleDegrees": -29.04459303842725,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 306,
+            "top": 149,
+            "right": 733,
+            "bottom": 526
+          },
+          "bladeBounds": {
+            "left": 652,
+            "top": 227,
+            "right": 921,
+            "bottom": 384
+          },
+          "bladeBaseCanvas": [
+            657.1023667708956,
+            374.5622177174564
+          ],
+          "bladeTipCanvas": [
+            919.3750019337947,
+            228.91516198096429
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            198.5,
+            528
+          ],
+          "commonScale": 0.6600660066006601,
+          "sourceBladeBase": [
+            608.5997394933576,
+            271.0603522785621
+          ],
+          "bladeAngleDegrees": -28.917010128709798,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 303,
+            "top": 172,
+            "right": 734,
+            "bottom": 537
+          },
+          "bladeBounds": {
+            "left": 700,
+            "top": 203,
+            "right": 968,
+            "bottom": 360
+          },
+          "bladeBaseCanvas": [
+            704.6928973553515,
+            350.4028727911301
+          ],
+          "bladeTipCanvas": [
+            967.2892004203503,
+            205.34019110974347
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            240.5,
+            528
+          ],
+          "commonScale": 0.6600660066006601,
+          "sourceBladeBase": [
+            483.0211791033259,
+            352.7743800069571
+          ],
+          "bladeAngleDegrees": -28.663826617475976,
+          "bladeOverBody": false,
+          "bodyBounds": {
+            "left": 276,
+            "top": 190,
+            "right": 671,
+            "bottom": 542
+          },
+          "bladeBounds": {
+            "left": 590,
+            "top": 259,
+            "right": 858,
+            "bottom": 414
+          },
+          "bladeBaseCanvas": [
+            594.0799862068158,
+            404.33952475706735
+          ],
+          "bladeTipCanvas": [
+            857.3147388258112,
+            260.4386386805172
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    },
+    {
+      "id": "blunt-1",
+      "label": "short pommel shove",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            353.5,
+            552
+          ],
+          "commonScale": 0.6749156355455568,
+          "sourceBladeBase": [
+            169.76624429377014,
+            341.8064979054898
+          ],
+          "bladeAngleDegrees": -139.00394201368607,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 197,
+            "top": 160,
+            "right": 642,
+            "bottom": 542
+          },
+          "bladeBounds": {
+            "left": 82,
+            "top": 180,
+            "right": 317,
+            "bottom": 386
+          },
+          "bladeBaseCanvas": [
+            309.9952154963578,
+            378.1371189463373
+          ],
+          "bladeTipCanvas": [
+            83.56880068701344,
+            181.33498817386135
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            286,
+            552
+          ],
+          "commonScale": 0.6749156355455568,
+          "sourceBladeBase": [
+            137.62714429175801,
+            359.8843699715592
+          ],
+          "bladeAngleDegrees": -146.0792934945912,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 243,
+            "top": 174,
+            "right": 661,
+            "bottom": 529
+          },
+          "bladeBounds": {
+            "left": 84,
+            "top": 221,
+            "right": 340,
+            "bottom": 399
+          },
+          "bladeBaseCanvas": [
+            333.8608397919627,
+            390.3381574611198
+          ],
+          "bladeTipCanvas": [
+            84.9176406947922,
+            222.92464658679842
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            367.5,
+            499
+          ],
+          "commonScale": 0.6749156355455568,
+          "sourceBladeBase": [
+            248.9715148801353,
+            319.76233796869286
+          ],
+          "bladeAngleDegrees": -160.86981031709456,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 186,
+            "top": 185,
+            "right": 636,
+            "bottom": 566
+          },
+          "bladeBounds": {
+            "left": 70,
+            "top": 298,
+            "right": 357,
+            "bottom": 409
+          },
+          "bladeBaseCanvas": [
+            354.00327213507444,
+            399.0296994164406
+          ],
+          "bladeTipCanvas": [
+            70.57036209062949,
+            300.71497262671915
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            295.5,
+            499
+          ],
+          "commonScale": 0.6749156355455568,
+          "sourceBladeBase": [
+            135.31193892615138,
+            302.10524355254194
+          ],
+          "bladeAngleDegrees": -139.471555233092,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 235,
+            "top": 192,
+            "right": 653,
+            "bottom": 554
+          },
+          "bladeBounds": {
+            "left": 96,
+            "top": 191,
+            "right": 333,
+            "bottom": 395
+          },
+          "bladeBaseCanvas": [
+            325.886572953533,
+            387.1126503166762
+          ],
+          "bladeTipCanvas": [
+            97.86153786943353,
+            192.16500766641173
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    },
+    {
+      "id": "blunt-2",
+      "label": "crossguard downward blow",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            389.5,
+            535
+          ],
+          "commonScale": 0.7434944237918215,
+          "sourceBladeBase": [
+            247.77835179642207,
+            204.797190291044
+          ],
+          "bladeAngleDegrees": -133.32013545960575,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 229,
+            "top": 163,
+            "right": 640,
+            "bottom": 547
+          },
+          "bladeBounds": {
+            "left": 121,
+            "top": 55,
+            "right": 352,
+            "bottom": 282
+          },
+          "bladeBaseCanvas": [
+            328.6307448300536,
+            274.49605226099925
+          ],
+          "bladeTipCanvas": [
+            122.80852328993194,
+            56.236543601493
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            316.5,
+            535
+          ],
+          "commonScale": 0.7434944237918215,
+          "sourceBladeBase": [
+            166.7481631267833,
+            364.837020076097
+          ],
+          "bladeAngleDegrees": -138.0605689006755,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 200,
+            "top": 139,
+            "right": 608,
+            "bottom": 558
+          },
+          "bladeBounds": {
+            "left": 98,
+            "top": 192,
+            "right": 329,
+            "bottom": 401
+          },
+          "bladeBaseCanvas": [
+            322.6603443321809,
+            393.48477329077843
+          ],
+          "bladeTipCanvas": [
+            99.50481454283431,
+            192.98138298419022
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            392.5,
+            474
+          ],
+          "commonScale": 0.7434944237918215,
+          "sourceBladeBase": [
+            284.13883109134406,
+            352.9277604022818
+          ],
+          "bladeAngleDegrees": -169.39476853531409,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 142,
+            "top": 212,
+            "right": 638,
+            "bottom": 580
+          },
+          "bladeBounds": {
+            "left": 58,
+            "top": 370,
+            "right": 356,
+            "bottom": 440
+          },
+          "bladeBaseCanvas": [
+            353.4340751608506,
+            429.9834649831092
+          ],
+          "bladeTipCanvas": [
+            58.55851041941236,
+            374.77113557727944
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            327.5,
+            474
+          ],
+          "commonScale": 0.7434944237918215,
+          "sourceBladeBase": [
+            195.63927957244428,
+            167.67288918525102
+          ],
+          "bladeAngleDegrees": -131.35593357063487,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 194,
+            "top": 201,
+            "right": 677,
+            "bottom": 523
+          },
+          "bladeBounds": {
+            "left": 136,
+            "top": 66,
+            "right": 344,
+            "bottom": 299
+          },
+          "bladeBaseCanvas": [
+            335.96228964494,
+            292.24750125297476
+          ],
+          "bladeTipCanvas": [
+            137.74186279848922,
+            67.06166159867749
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    },
+    {
+      "id": "blunt-3",
+      "label": "descending pommel finisher",
+      "frames": [
+        {
+          "frame": 1,
+          "sourceCell": 0,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            385.5,
+            539
+          ],
+          "commonScale": 0.718562874251497,
+          "sourceBladeBase": [
+            236.38786771092194,
+            206.60811982264596
+          ],
+          "bladeAngleDegrees": -132.68713751518428,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 179,
+            "top": 148,
+            "right": 635,
+            "bottom": 544
+          },
+          "bladeBounds": {
+            "left": 122,
+            "top": 59,
+            "right": 335,
+            "bottom": 288
+          },
+          "bladeBaseCanvas": [
+            326.8535576365906,
+            281.15553520190133
+          ],
+          "bladeTipCanvas": [
+            123.45515669306326,
+            60.63548964228309
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 2,
+          "sourceCell": 1,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            331.5,
+            538
+          ],
+          "commonScale": 0.718562874251497,
+          "sourceBladeBase": [
+            170.98951308275636,
+            374.41965361236413
+          ],
+          "bladeAngleDegrees": -137.11017260357863,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 217,
+            "top": 183,
+            "right": 574,
+            "bottom": 555
+          },
+          "bladeBounds": {
+            "left": 97,
+            "top": 197,
+            "right": 326,
+            "bottom": 410
+          },
+          "bladeBaseCanvas": [
+            318.6631231732381,
+            402.45723612864487
+          ],
+          "bladeTipCanvas": [
+            98.86399933794993,
+            198.2799965517526
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 3,
+          "sourceCell": 2,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            389.5,
+            492
+          ],
+          "commonScale": 0.718562874251497,
+          "sourceBladeBase": [
+            515.7236260456258,
+            423.85494338360326
+          ],
+          "bladeAngleDegrees": 158.37073993170986,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 154,
+            "top": 177,
+            "right": 630,
+            "bottom": 522
+          },
+          "bladeBounds": {
+            "left": 245,
+            "top": 461,
+            "right": 529,
+            "bottom": 584
+          },
+          "bladeBaseCanvas": [
+            524.699611529791,
+            471.033492251691
+          ],
+          "bladeTipCanvas": [
+            245.8231007879004,
+            581.6132903905379
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        },
+        {
+          "frame": 4,
+          "sourceCell": 3,
+          "sourceCellSize": [
+            668,
+            588
+          ],
+          "sourceWaist": [
+            336,
+            492
+          ],
+          "commonScale": 0.718562874251497,
+          "sourceBladeBase": [
+            470.78516430096903,
+            388.0568691613499
+          ],
+          "bladeAngleDegrees": -29.753780028277184,
+          "bladeOverBody": true,
+          "bodyBounds": {
+            "left": 234,
+            "top": 218,
+            "right": 632,
+            "bottom": 588
+          },
+          "bladeBounds": {
+            "left": 526,
+            "top": 295,
+            "right": 792,
+            "bottom": 454
+          },
+          "bladeBaseCanvas": [
+            530.8516150665646,
+            445.31032514588014
+          ],
+          "bladeTipCanvas": [
+            791.3014376392399,
+            296.4281908185474
+          ],
+          "bladeAxisLengthPx": 300,
+          "clipped": false
+        }
+      ],
+      "previewDurationMs": 440,
+      "upperGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      },
+      "combinedGif": {
+        "pages": 4,
+        "delayMs": [
+          120,
+          80,
+          100,
+          140
+        ],
+        "loop": 0
+      }
+    }
+  ]
+}

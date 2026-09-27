@@ -1,0 +1,22 @@
+{
+  "name": "TurnLimbo.Core.Tests",
+  "rootNamespace": "TurnLimbo.Core.Tests",
+  "references": [
+    "TurnLimbo.Core",
+    "TurnLimbo.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

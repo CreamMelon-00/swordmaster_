@@ -1,0 +1,358 @@
+{
+  "frameCount": 6,
+  "frameSize": [
+    800,
+    704
+  ],
+  "sheetSize": [
+    4800,
+    704
+  ],
+  "delayMs": 150,
+  "loopMs": 900,
+  "waistAnchorTopLeft": [
+    306,
+    464
+  ],
+  "waistSeamInvariant": true,
+  "staticUpperInvariant": true,
+  "commonGroundY": 640,
+  "commonSpritePivotTopLeft": [
+    320,
+    640
+  ],
+  "commonSpritePivotNormalizedBottomLeft": [
+    0.4,
+    0.09090909090909094
+  ],
+  "lowerPreviewCrop": {
+    "left": 144,
+    "top": 452,
+    "width": 400,
+    "height": 232
+  },
+  "layerOrder": [
+    "animated legs",
+    "fixed skirt/waist",
+    "independent upper body"
+  ],
+  "upperSha256": "87a4bb3046f5627adf308dbd14d29ddb573b5e52ae46929c340bddaf8c7d5aaf",
+  "rootMotion": {
+    "units": "pixels in packed preview texture",
+    "xAtFrameBoundaries": [
+      0,
+      4,
+      8,
+      12,
+      16,
+      20,
+      24
+    ],
+    "y": 0,
+    "cycleDisplacementX": 24,
+    "loopMs": 900,
+    "repeatMode": "accumulate cycle displacement; do not reset root to zero",
+    "groundedRearWorldX": [
+      207,
+      207,
+      207,
+      null,
+      231,
+      231
+    ],
+    "groundedLeadWorldX": [
+      409,
+      null,
+      433,
+      433,
+      433,
+      433
+    ]
+  },
+  "lowerGif": {
+    "pages": 6,
+    "loop": 0,
+    "delay": [
+      150,
+      150,
+      150,
+      150,
+      150,
+      150
+    ],
+    "alpha": true
+  },
+  "combinedGif": {
+    "pages": 6,
+    "loop": 0,
+    "delay": [
+      150,
+      150,
+      150,
+      150,
+      150,
+      150
+    ],
+    "alpha": true
+  },
+  "audit": [
+    {
+      "frame": 1,
+      "sourceWaistCenterX": 268,
+      "sourceSkinTop": 223,
+      "legScale": 0.671875,
+      "legPlacement": [
+        126,
+        501
+      ],
+      "legHorizontalCorrection": {
+        "rear": 0,
+        "lead": 0
+      },
+      "lowerBounds": {
+        "left": 174,
+        "top": 464,
+        "right": 452,
+        "bottom": 640
+      },
+      "feet": {
+        "rear": {
+          "centerX": 207,
+          "soleY": 640,
+          "boundsX": [
+            174,
+            239
+          ]
+        },
+        "lead": {
+          "centerX": 409,
+          "soleY": 640,
+          "boundsX": [
+            365,
+            452
+          ]
+        }
+      },
+      "contact": {
+        "rear": true,
+        "lead": true
+      },
+      "rootDisplacementX": 0
+    },
+    {
+      "frame": 2,
+      "sourceWaistCenterX": 245,
+      "sourceSkinTop": 223,
+      "legScale": 0.671875,
+      "legPlacement": [
+        141,
+        501
+      ],
+      "legHorizontalCorrection": {
+        "rear": -7,
+        "lead": -9
+      },
+      "lowerBounds": {
+        "left": 170,
+        "top": 464,
+        "right": 464,
+        "bottom": 640
+      },
+      "feet": {
+        "rear": {
+          "centerX": 203,
+          "soleY": 640,
+          "boundsX": [
+            170,
+            235
+          ]
+        },
+        "lead": {
+          "centerX": 421,
+          "soleY": 631,
+          "boundsX": [
+            377,
+            464
+          ]
+        }
+      },
+      "contact": {
+        "rear": true,
+        "lead": false
+      },
+      "rootDisplacementX": 4
+    },
+    {
+      "frame": 3,
+      "sourceWaistCenterX": 219,
+      "sourceSkinTop": 220,
+      "legScale": 0.671875,
+      "legPlacement": [
+        159,
+        498
+      ],
+      "legHorizontalCorrection": {
+        "rear": -6,
+        "lead": -2
+      },
+      "lowerBounds": {
+        "left": 166,
+        "top": 464,
+        "right": 468,
+        "bottom": 640
+      },
+      "feet": {
+        "rear": {
+          "centerX": 199,
+          "soleY": 640,
+          "boundsX": [
+            166,
+            232
+          ]
+        },
+        "lead": {
+          "centerX": 425,
+          "soleY": 640,
+          "boundsX": [
+            381,
+            468
+          ]
+        }
+      },
+      "contact": {
+        "rear": true,
+        "lead": true
+      },
+      "rootDisplacementX": 8
+    },
+    {
+      "frame": 4,
+      "sourceWaistCenterX": 267,
+      "sourceSkinTop": 184,
+      "legScale": 0.671875,
+      "legPlacement": [
+        127,
+        499
+      ],
+      "legHorizontalCorrection": {
+        "rear": -1,
+        "lead": 14
+      },
+      "lowerBounds": {
+        "left": 180,
+        "top": 464,
+        "right": 464,
+        "bottom": 640
+      },
+      "feet": {
+        "rear": {
+          "centerX": 211,
+          "soleY": 630,
+          "boundsX": [
+            180,
+            242
+          ]
+        },
+        "lead": {
+          "centerX": 421,
+          "soleY": 640,
+          "boundsX": [
+            377,
+            464
+          ]
+        }
+      },
+      "contact": {
+        "rear": false,
+        "lead": true
+      },
+      "rootDisplacementX": 12
+    },
+    {
+      "frame": 5,
+      "sourceWaistCenterX": 245,
+      "sourceSkinTop": 186,
+      "legScale": 0.671875,
+      "legPlacement": [
+        141,
+        501
+      ],
+      "legHorizontalCorrection": {
+        "rear": -10,
+        "lead": 6
+      },
+      "lowerBounds": {
+        "left": 180,
+        "top": 464,
+        "right": 461,
+        "bottom": 640
+      },
+      "feet": {
+        "rear": {
+          "centerX": 215,
+          "soleY": 640,
+          "boundsX": [
+            180,
+            250
+          ]
+        },
+        "lead": {
+          "centerX": 417,
+          "soleY": 640,
+          "boundsX": [
+            373,
+            461
+          ]
+        }
+      },
+      "contact": {
+        "rear": true,
+        "lead": true
+      },
+      "rootDisplacementX": 16
+    },
+    {
+      "frame": 6,
+      "sourceWaistCenterX": 218,
+      "sourceSkinTop": 186,
+      "legScale": 0.671875,
+      "legPlacement": [
+        160,
+        501
+      ],
+      "legHorizontalCorrection": {
+        "rear": -19,
+        "lead": 3
+      },
+      "lowerBounds": {
+        "left": 177,
+        "top": 464,
+        "right": 456,
+        "bottom": 640
+      },
+      "feet": {
+        "rear": {
+          "centerX": 211,
+          "soleY": 640,
+          "boundsX": [
+            177,
+            245
+          ]
+        },
+        "lead": {
+          "centerX": 413,
+          "soleY": 640,
+          "boundsX": [
+            370,
+            456
+          ]
+        }
+      },
+      "contact": {
+        "rear": true,
+        "lead": true
+      },
+      "rootDisplacementX": 20
+    }
+  ]
+}

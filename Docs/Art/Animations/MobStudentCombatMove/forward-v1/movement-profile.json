@@ -1,0 +1,233 @@
+{
+  "clipId": "mob-student-combat-advance-right-v1",
+  "direction": "right",
+  "frameCount": 6,
+  "delayMs": 150,
+  "loopMs": 900,
+  "frameSize": [
+    800,
+    704
+  ],
+  "coordinates": "texture pixels, origin top-left",
+  "waistAnchor": [
+    306,
+    464
+  ],
+  "groundY": 640,
+  "commonSpritePivotTopLeft": [
+    320,
+    640
+  ],
+  "commonSpritePivotNormalizedBottomLeft": [
+    0.4,
+    0.09090909090909094
+  ],
+  "rootMotion": {
+    "units": "pixels in packed preview texture",
+    "xAtFrameBoundaries": [
+      0,
+      4,
+      8,
+      12,
+      16,
+      20,
+      24
+    ],
+    "y": 0,
+    "cycleDisplacementX": 24,
+    "loopMs": 900,
+    "repeatMode": "accumulate cycle displacement; do not reset root to zero",
+    "groundedRearWorldX": [
+      207,
+      207,
+      207,
+      null,
+      231,
+      231
+    ],
+    "groundedLeadWorldX": [
+      409,
+      null,
+      433,
+      433,
+      433,
+      433
+    ]
+  },
+  "frames": [
+    {
+      "frame": 1,
+      "phase": "guard",
+      "texture": "lower-1.png",
+      "rootX": 0,
+      "contacts": {
+        "rear": true,
+        "lead": true
+      },
+      "feet": {
+        "rear": {
+          "centerX": 207,
+          "soleY": 640,
+          "boundsX": [
+            174,
+            239
+          ]
+        },
+        "lead": {
+          "centerX": 409,
+          "soleY": 640,
+          "boundsX": [
+            365,
+            452
+          ]
+        }
+      }
+    },
+    {
+      "frame": 2,
+      "phase": "lead-foot lift",
+      "texture": "lower-2.png",
+      "rootX": 4,
+      "contacts": {
+        "rear": true,
+        "lead": false
+      },
+      "feet": {
+        "rear": {
+          "centerX": 203,
+          "soleY": 640,
+          "boundsX": [
+            170,
+            235
+          ]
+        },
+        "lead": {
+          "centerX": 421,
+          "soleY": 631,
+          "boundsX": [
+            377,
+            464
+          ]
+        }
+      }
+    },
+    {
+      "frame": 3,
+      "phase": "lead-foot land",
+      "texture": "lower-3.png",
+      "rootX": 8,
+      "contacts": {
+        "rear": true,
+        "lead": true
+      },
+      "feet": {
+        "rear": {
+          "centerX": 199,
+          "soleY": 640,
+          "boundsX": [
+            166,
+            232
+          ]
+        },
+        "lead": {
+          "centerX": 425,
+          "soleY": 640,
+          "boundsX": [
+            381,
+            468
+          ]
+        }
+      }
+    },
+    {
+      "frame": 4,
+      "phase": "rear-foot gather",
+      "texture": "lower-4.png",
+      "rootX": 12,
+      "contacts": {
+        "rear": false,
+        "lead": true
+      },
+      "feet": {
+        "rear": {
+          "centerX": 211,
+          "soleY": 630,
+          "boundsX": [
+            180,
+            242
+          ]
+        },
+        "lead": {
+          "centerX": 421,
+          "soleY": 640,
+          "boundsX": [
+            377,
+            464
+          ]
+        }
+      }
+    },
+    {
+      "frame": 5,
+      "phase": "rear-foot land",
+      "texture": "lower-5.png",
+      "rootX": 16,
+      "contacts": {
+        "rear": true,
+        "lead": true
+      },
+      "feet": {
+        "rear": {
+          "centerX": 215,
+          "soleY": 640,
+          "boundsX": [
+            180,
+            250
+          ]
+        },
+        "lead": {
+          "centerX": 417,
+          "soleY": 640,
+          "boundsX": [
+            373,
+            461
+          ]
+        }
+      }
+    },
+    {
+      "frame": 6,
+      "phase": "settle",
+      "texture": "lower-6.png",
+      "rootX": 20,
+      "contacts": {
+        "rear": true,
+        "lead": true
+      },
+      "feet": {
+        "rear": {
+          "centerX": 211,
+          "soleY": 640,
+          "boundsX": [
+            177,
+            245
+          ]
+        },
+        "lead": {
+          "centerX": 413,
+          "soleY": 640,
+          "boundsX": [
+            370,
+            456
+          ]
+        }
+      }
+    }
+  ],
+  "layerOrder": [
+    "lower body",
+    "upper body"
+  ],
+  "upperReference": "upper-body-fixed.png",
+  "integration": "Art and movement profile only; engine playback/attack integration is not installed."
+}

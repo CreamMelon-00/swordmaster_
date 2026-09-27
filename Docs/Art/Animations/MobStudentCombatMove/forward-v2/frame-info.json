@@ -1,0 +1,283 @@
+{
+  "frameCount": 8,
+  "uniquePoseCount": 6,
+  "sourcePoseOrder": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    2,
+    1
+  ],
+  "delayMs": 140,
+  "loopMs": 1120,
+  "frameSize": [
+    800,
+    704
+  ],
+  "sheetSize": [
+    6400,
+    704
+  ],
+  "facing": "three-quarter right",
+  "travel": "right",
+  "leadFoot": "screen-right, toe right",
+  "rearFoot": "screen-left, toe diagonally right and toward camera",
+  "waistAnchorTopLeft": [
+    306,
+    456
+  ],
+  "groundY": 640,
+  "commonSpritePivotTopLeft": [
+    320,
+    640
+  ],
+  "commonSpritePivotNormalizedBottomLeft": [
+    0.4,
+    0.09090909090909094
+  ],
+  "assembly": "hips, skirt and both legs kept together; only garment above waist hidden by upper body",
+  "upperBodyFixed": true,
+  "loopBoundaryIdentical": true,
+  "rootMotion": "not fitted; previous v1 forced foot curve is not reused",
+  "lowerPreviewCrop": {
+    "left": 128,
+    "top": 444,
+    "width": 432,
+    "height": 244
+  },
+  "lowerGif": {
+    "pages": 8,
+    "loop": 0,
+    "delay": [
+      140,
+      140,
+      140,
+      140,
+      140,
+      140,
+      140,
+      140
+    ],
+    "alpha": true
+  },
+  "combinedGif": {
+    "pages": 8,
+    "loop": 0,
+    "delay": [
+      140,
+      140,
+      140,
+      140,
+      140,
+      140,
+      140,
+      140
+    ],
+    "alpha": true
+  },
+  "audit": [
+    {
+      "frame": 1,
+      "sourcePose": 1,
+      "source": "connected 4x2 sheet",
+      "wholeLowerBody": true,
+      "individualLegTranslation": false,
+      "sourceBounds": {
+        "left": 47,
+        "top": 76,
+        "right": 432,
+        "bottom": 382
+      },
+      "normalizationScale": 0.6573604060913706,
+      "componentPlacement": [
+        181,
+        437
+      ],
+      "lowerBounds": {
+        "left": 184,
+        "top": 456,
+        "right": 436,
+        "bottom": 640
+      },
+      "clippedAtCanvasEdges": false
+    },
+    {
+      "frame": 2,
+      "sourcePose": 2,
+      "source": "connected 4x2 sheet",
+      "wholeLowerBody": true,
+      "individualLegTranslation": false,
+      "sourceBounds": {
+        "left": 47,
+        "top": 76,
+        "right": 429,
+        "bottom": 382
+      },
+      "normalizationScale": 0.6572890025575447,
+      "componentPlacement": [
+        181,
+        437
+      ],
+      "lowerBounds": {
+        "left": 184,
+        "top": 456,
+        "right": 434,
+        "bottom": 640
+      },
+      "clippedAtCanvasEdges": false
+    },
+    {
+      "frame": 3,
+      "sourcePose": 3,
+      "source": "connected 4x2 sheet",
+      "wholeLowerBody": true,
+      "individualLegTranslation": false,
+      "sourceBounds": {
+        "left": 49,
+        "top": 76,
+        "right": 438,
+        "bottom": 382
+      },
+      "normalizationScale": 0.6582914572864321,
+      "componentPlacement": [
+        185,
+        436
+      ],
+      "lowerBounds": {
+        "left": 188,
+        "top": 456,
+        "right": 443,
+        "bottom": 640
+      },
+      "clippedAtCanvasEdges": false
+    },
+    {
+      "frame": 4,
+      "sourcePose": 4,
+      "source": "connected 4x2 sheet",
+      "wholeLowerBody": true,
+      "individualLegTranslation": false,
+      "sourceBounds": {
+        "left": 50,
+        "top": 76,
+        "right": 434,
+        "bottom": 382
+      },
+      "normalizationScale": 0.6590330788804071,
+      "componentPlacement": [
+        184,
+        436
+      ],
+      "lowerBounds": {
+        "left": 187,
+        "top": 456,
+        "right": 439,
+        "bottom": 640
+      },
+      "clippedAtCanvasEdges": false
+    },
+    {
+      "frame": 5,
+      "sourcePose": 5,
+      "source": "connected 4x2 sheet",
+      "wholeLowerBody": true,
+      "individualLegTranslation": false,
+      "sourceBounds": {
+        "left": 52,
+        "top": 75,
+        "right": 435,
+        "bottom": 381
+      },
+      "normalizationScale": 0.6581632653061225,
+      "componentPlacement": [
+        187,
+        436
+      ],
+      "lowerBounds": {
+        "left": 190,
+        "top": 456,
+        "right": 441,
+        "bottom": 640
+      },
+      "clippedAtCanvasEdges": false
+    },
+    {
+      "frame": 6,
+      "sourcePose": 6,
+      "source": "corrected connected recovery pose",
+      "wholeLowerBody": true,
+      "individualLegTranslation": false,
+      "sourceBounds": {
+        "left": 353,
+        "top": 757,
+        "right": 727,
+        "bottom": 1064
+      },
+      "normalizationScale": 0.6005221932114883,
+      "componentPlacement": [
+        205,
+        454
+      ],
+      "lowerBounds": {
+        "left": 207,
+        "top": 457,
+        "right": 432,
+        "bottom": 640
+      },
+      "clippedAtCanvasEdges": false
+    },
+    {
+      "frame": 7,
+      "sourcePose": 2,
+      "source": "connected 4x2 sheet",
+      "wholeLowerBody": true,
+      "individualLegTranslation": false,
+      "sourceBounds": {
+        "left": 47,
+        "top": 76,
+        "right": 429,
+        "bottom": 382
+      },
+      "normalizationScale": 0.6572890025575447,
+      "componentPlacement": [
+        181,
+        437
+      ],
+      "lowerBounds": {
+        "left": 184,
+        "top": 456,
+        "right": 434,
+        "bottom": 640
+      },
+      "clippedAtCanvasEdges": false
+    },
+    {
+      "frame": 8,
+      "sourcePose": 1,
+      "source": "connected 4x2 sheet",
+      "wholeLowerBody": true,
+      "individualLegTranslation": false,
+      "sourceBounds": {
+        "left": 47,
+        "top": 76,
+        "right": 432,
+        "bottom": 382
+      },
+      "normalizationScale": 0.6573604060913706,
+      "componentPlacement": [
+        181,
+        437
+      ],
+      "lowerBounds": {
+        "left": 184,
+        "top": 456,
+        "right": 436,
+        "bottom": 640
+      },
+      "clippedAtCanvasEdges": false
+    }
+  ]
+}

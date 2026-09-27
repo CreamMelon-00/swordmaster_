@@ -1,0 +1,154 @@
+{
+  "frameCount": 4,
+  "fps": 4,
+  "loopSeconds": 1,
+  "frameSize": [
+    800,
+    704
+  ],
+  "sheetSize": [
+    3200,
+    704
+  ],
+  "gif": {
+    "pages": 4,
+    "loop": 0,
+    "delay": [
+      250,
+      250,
+      250,
+      250
+    ],
+    "alpha": true
+  },
+  "audit": [
+    {
+      "frame": 1,
+      "original": {
+        "bounds": [
+          145,
+          63,
+          682,
+          547
+        ],
+        "footLeft": 145,
+        "footRight": 423,
+        "footCenter": 284,
+        "baseline": 547
+      },
+      "translation": [
+        36,
+        93
+      ],
+      "aligned": {
+        "bounds": [
+          181,
+          156,
+          718,
+          640
+        ],
+        "footLeft": 181,
+        "footRight": 459,
+        "footCenter": 320,
+        "baseline": 640
+      },
+      "clipped": 0
+    },
+    {
+      "frame": 2,
+      "original": {
+        "bounds": [
+          114,
+          63,
+          653,
+          547
+        ],
+        "footLeft": 114,
+        "footRight": 392,
+        "footCenter": 253,
+        "baseline": 547
+      },
+      "translation": [
+        67,
+        93
+      ],
+      "aligned": {
+        "bounds": [
+          181,
+          156,
+          720,
+          640
+        ],
+        "footLeft": 181,
+        "footRight": 459,
+        "footCenter": 320,
+        "baseline": 640
+      },
+      "clipped": 0
+    },
+    {
+      "frame": 3,
+      "original": {
+        "bounds": [
+          145,
+          34,
+          682,
+          516
+        ],
+        "footLeft": 145,
+        "footRight": 422,
+        "footCenter": 283.5,
+        "baseline": 516
+      },
+      "translation": [
+        37,
+        124
+      ],
+      "aligned": {
+        "bounds": [
+          182,
+          158,
+          719,
+          640
+        ],
+        "footLeft": 182,
+        "footRight": 459,
+        "footCenter": 320.5,
+        "baseline": 640
+      },
+      "clipped": 0
+    },
+    {
+      "frame": 4,
+      "original": {
+        "bounds": [
+          114,
+          35,
+          653,
+          516
+        ],
+        "footLeft": 114,
+        "footRight": 392,
+        "footCenter": 253,
+        "baseline": 516
+      },
+      "translation": [
+        67,
+        124
+      ],
+      "aligned": {
+        "bounds": [
+          181,
+          159,
+          720,
+          640
+        ],
+        "footLeft": 181,
+        "footRight": 459,
+        "footCenter": 320,
+        "baseline": 640
+      },
+      "clipped": 0
+    }
+  ]
+}

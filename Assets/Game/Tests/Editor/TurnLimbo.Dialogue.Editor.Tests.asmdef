@@ -1,0 +1,23 @@
+{
+  "name": "TurnLimbo.Dialogue.Editor.Tests",
+  "rootNamespace": "TurnLimbo.EditorTools.Dialogue.Tests",
+  "references": [
+    "TurnLimbo.Dialogue.Editor",
+    "TurnLimbo.Runtime",
+    "TurnLimbo.Presentation"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": false,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false,
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

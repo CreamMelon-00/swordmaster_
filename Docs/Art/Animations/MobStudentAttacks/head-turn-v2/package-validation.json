@@ -1,0 +1,72 @@
+{
+  "appliedToRuntime": true,
+  "updatedBluntFrames": 12,
+  "unchangedRuntimePngCount": 37,
+  "unchangedSlashPierceDocPngCount": 24,
+  "unchangedSpriteMetaCount": 49,
+  "frameSize": [
+    1024,
+    768
+  ],
+  "commonPixelsPerUnit": 150,
+  "spritePivot": [
+    0.4375,
+    0.08333333333333333
+  ],
+  "waistAnchor": [
+    434,
+    520
+  ],
+  "bladeAxisLengthPx": 300,
+  "bladeSourceSha256": "115396eaa253b509273c9b99decd3b324ff701656451feeb761f22ba2c6c9bc6",
+  "updatedFiles": [
+    {
+      "relative": "blunt-1/upper-1.png",
+      "sha256": "6e1420db7cb603be86e4333a1333c39913d0efd311d497e295892341b6f953e3"
+    },
+    {
+      "relative": "blunt-1/upper-2.png",
+      "sha256": "215f71a0c99c5ede77bb46e8ba147b9f7877ca21143e08b3622ca0e4657d6f2a"
+    },
+    {
+      "relative": "blunt-1/upper-3.png",
+      "sha256": "a178b4e6175907225e0338feb4834d1fe24c91fd6606f0e9ca0bd32e86e6eacc"
+    },
+    {
+      "relative": "blunt-1/upper-4.png",
+      "sha256": "e44f40700472a88a2695608a99e9ce5d4a98b74e7251fce056d59beb102fe247"
+    },
+    {
+      "relative": "blunt-2/upper-1.png",
+      "sha256": "653f7fd7e456a4aaab1599584b3eb36b0ebc361ffec452cc3cbaf6efb0620c35"
+    },
+    {
+      "relative": "blunt-2/upper-2.png",
+      "sha256": "f1464f2050c4f6aee3033bc46add5bc1a15d3f7b2c73aec2586e007c99225ebc"
+    },
+    {
+      "relative": "blunt-2/upper-3.png",
+      "sha256": "c36e6e1f47b01516ab55682fa2af9ac7c9441b663fde4b92f3e9f05d8b56566a"
+    },
+    {
+      "relative": "blunt-2/upper-4.png",
+      "sha256": "402f0ef81c9b900b82fb03823c66b742e127565a465788606571665bb26592bb"
+    },
+    {
+      "relative": "blunt-3/upper-1.png",
+      "sha256": "ad78d333d684d461e35abede1ef532d3d38fd2770ddf136fda030637816c1a55"
+    },
+    {
+      "relative": "blunt-3/upper-2.png",
+      "sha256": "759f65fcfb54394e868cddc1457ca2fcd069a368a288595a7a7931313987f781"
+    },
+    {
+      "relative": "blunt-3/upper-3.png",
+      "sha256": "a7e696c1980d64604166fd608a0fc52e4754617a3a0b832c96197a2a21f5f3fb"
+    },
+    {
+      "relative": "blunt-3/upper-4.png",
+      "sha256": "f7564010d0312549c5c841856de6ef47daa44bc4536eb1c294772fd5eb998435"
+    }
+  ]
+}

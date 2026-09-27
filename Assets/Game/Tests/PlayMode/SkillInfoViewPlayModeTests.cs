@@ -1,0 +1,334 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using NUnit.Framework;
+using TurnLimbo.Runtime.Campaign;
+using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.LegacyCombat;
+using UnityEngine;
+using UnityEngine.TestTools;
+using UnityEngine.UI;
+using Object = UnityEngine.Object;
+
+namespace TurnLimbo.Presentation.Tests
+{
+    public sealed class SkillInfoViewPlayModeTests
+    {
+        private sealed class Fixture : IDisposable
+        {
+            public readonly GameObject CanvasRoot;
+            public readonly SkillInfoView View;
+
+            public Fixture()
+            {
+                CanvasRoot = new GameObject("Skill Information Test Canvas", typeof(RectTransform), typeof(Canvas));
+                CanvasRoot.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                CanvasRoot.GetComponent<Canvas>().sortingOrder = 600;
+                View = new SkillInfoView(CanvasRoot.transform, new LegacyDuelArt().UIFont, Vector2.zero, 334f, "Test");
+            }
+
+            public void Dispose() => Object.Destroy(CanvasRoot);
+        }
+
+        [UnityTest]
+        public IEnumerator EveryImplementedSkill_ShowsItsActualCostPowerAndHitCount()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                // Authored level-zero expectations, not values copied from the view model.
+                int[] ids = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19, 21, 32, 42 };
+                int[] costs = { 1, 2, 1, 2, 1, 3, 1, 1, 1, 1, 1, 1, 1, 5, 2, 2, 3, 2, 1 };
+                string[] powers = { "4–5", "11–15", "5", "11–15", "6–9", "16–20", "5–8", "7–11", "4–6", "2–3", "4–8", "6–12", "7–10", "3–20", "9–12", "7–11", "12–17", "8–12", "4–8" };
+                int[] hits = { 1, 2, 3, 1, 2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1 };
+                for (int index = 0; index < ids.Length; index++)
+                {
+                    LegacySkill skill = Skill(ids[index]);
+                    fixture.View.SetSkill(skill);
+                    Assert.That(fixture.View.Root.activeInHierarchy, Is.True, skill.Name);
+                    Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo(costs[index].ToString()), skill.Name);
+                    Assert.That(fixture.View.PowerText.text, Is.EqualTo(powers[index]), skill.Name);
+                    if (skill.Kind == LegacySkillKind.Attack)
+                    {
+                        Assert.That(Label(fixture.View.Root, "Power Label").text, Is.EqualTo("위력"), skill.Name);
+                        Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo(hits[index] + "회"), skill.Name);
+                    }
+                    else
+                    {
+                        Assert.That(Label(fixture.View.Root, "Power Label").text, Does.Contain("방어"),
+                            "Defense power must not be presented as an attack's total power.");
+                        Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo("같은 칸"), skill.Name);
+                        Assert.That(fixture.View.DamageText.text, Is.Empty, skill.Name);
+                    }
+                    Assert.That(fixture.View.DamageText.text, Is.Empty,
+                        "Shared damage-routing rules belong to the tutorial, not an individual skill card: " + skill.Name);
+                    Assert.That(fixture.View.DamageText.gameObject.activeInHierarchy, Is.False, skill.Name);
+                    foreach (Transform node in fixture.View.Root.GetComponentsInChildren<Transform>(true))
+                        Assert.That(node.name, Is.Not.EqualTo("Damage Routing"), skill.Name);
+                    Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("공격과 대결 → 저항"), skill.Name);
+                    Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("방어·빈칸 → 체력"), skill.Name);
+                }
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator KeywordsAndConditions_ExplainRecoveryFollowupAndMultiHitWithoutChangingRules()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                fixture.View.SetSkill(Skill(3));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("3").And.Contain("10%"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("이번 턴").And.Contain("3"));
+                Assert.That(VisibleText(fixture.View.Root), Does.Contain("분할").And.Contain("버림").And.Contain("최소 1"),
+                    "Three hits divide a rolled total; they do not multiply that total by three.");
+
+                fixture.View.SetSkill(Skill(7));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT").And.Contain("2"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("타격").And.Contain("다음 턴"));
+
+                fixture.View.SetSkill(Skill(8));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("30%"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("이번 턴").And.Contain("10"));
+
+                fixture.View.SetSkill(Skill(9));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("3%"));
+                Assert.That(fixture.View.EffectText.text,
+                    Does.Contain("공격").And.Contain("방어").And.Contain("이번 턴").And.Contain("10"));
+
+                fixture.View.SetSkill(Skill(7), true);
+                Assert.That(VisibleText(fixture.View.Root), Does.Contain("플레이어 전용"),
+                    "An enemy's icon must not promise ACT recovery that the runtime only grants to the player.");
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator AcquiredSkills_DoNotInheritUnimplementedUtilityFromArtworkOrNames()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                foreach (int skillId in new[] { 14, 17, 32 })
+                {
+                    fixture.View.SetSkill(Skill(skillId));
+                    string details = Keywords(fixture.View.Root) + "\n" + fixture.View.EffectText.text;
+                    Assert.That(details, Does.Not.Contain("ACT 회복"), "Skill " + skillId);
+                    Assert.That(details, Does.Not.Contain("후속 위력"), "Skill " + skillId);
+                    Assert.That(details, Does.Not.Contain("피해 감소"), "Skill " + skillId);
+                    Assert.That(details, Does.Not.Contain("회피"), "Skill " + skillId);
+                    Assert.That(details, Does.Not.Contain("방어 무시"), "Skill " + skillId);
+                    Assert.That(details, Is.Not.Empty);
+                }
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator AddedUtilitySkills_ShowTheirOwnConditionsAndEnemyRecoveryLimit()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                fixture.View.SetSkill(Skill(10));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("30%").And.Contain("다음 1칸"));
+                Assert.That(fixture.View.EffectText.text,
+                    Does.Contain("이번 턴").And.Contain("공격·방어").And.Contain("30%"));
+                Assert.That(CampaignSkillText.Effect(Skill(10)), Does.Contain("턴을 넘겨 유지되지"));
+
+                fixture.View.SetSkill(Skill(12));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT +3").And.Contain("배율 +50%"));
+                Assert.That(fixture.View.EffectText.text,
+                    Does.Contain("다음 턴").And.Contain("이번 턴 · 다음 1칸").And.Contain("2회 분할"));
+                Assert.That(CampaignSkillText.Effect(Skill(12)), Does.Contain("받는 피해").And.Contain("50%"));
+
+                fixture.View.SetSkill(Skill(19));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 회복").And.Contain("10%"));
+                Assert.That(fixture.View.EffectText.text,
+                    Does.Contain("기술 시작 시 최대 저항").And.Contain("최대치 제한"));
+                Assert.That(Keywords(fixture.View.Root), Does.Not.Contain("피해 -30%"));
+                Assert.That(CampaignSkillText.Effect(Skill(19)), Does.Contain("최대 저항").And.Contain("최대치를 넘지"));
+
+                fixture.View.SetSkill(Skill(42));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -20").And.Contain("ACT +3"));
+                Assert.That(fixture.View.EffectText.text,
+                    Does.Contain("기술 시작 시 같은 칸 상대가 방어이면").And.Contain("체력 피해 없음"));
+                Assert.That(CampaignSkillText.Effect(Skill(42)), Does.Contain("체력 피해로 이어지지"));
+
+                foreach (int id in new[] { 12, 42 })
+                {
+                    fixture.View.SetSkill(Skill(id), true);
+                    Assert.That(VisibleText(fixture.View.Root), Does.Contain("플레이어 전용"));
+                    Assert.That(Keywords(fixture.View.Root), Does.Contain("플레이어 ACT"));
+                }
+                foreach (int id in new[] { 10, 19 })
+                {
+                    fixture.View.SetSkill(Skill(id), true);
+                    Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("플레이어 전용"));
+                }
+                fixture.View.SetSkill(Skill(17));
+                Assert.That(Keywords(fixture.View.Root), Does.Not.Contain("저항 회복"));
+                Assert.That(CampaignSkillText.Effect(Skill(17)), Does.Not.Contain("회복"));
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator UpgradeUsesTheLiveSkillCopy_AndClearOrNullNeverLeavesVisibleStaleValues()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var run = new CampaignRun();
+                CampaignOwnedSkill owned = run.OwnedSkills[0];
+                fixture.View.SetSkill(owned.Skill);
+                string originalKeywords = Keywords(fixture.View.Root);
+                Assert.That(fixture.View.PowerText.text, Does.Contain("4–5"));
+                Assert.That(run.TryStartStage(1), Is.True);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.ReturnToLobby(), Is.True);
+                Assert.That(run.TryUpgradeSkill(owned.SkillId), Is.True);
+                fixture.View.SetSkill(owned.Skill);
+                Assert.That(fixture.View.PowerText.text, Does.Contain("6–7"));
+                Assert.That(Keywords(fixture.View.Root), Is.EqualTo(originalKeywords));
+                Assert.That(owned.Skill.Id, Is.EqualTo(1));
+                Assert.That(owned.Skill.IconId, Is.EqualTo(1));
+
+                fixture.View.Clear();
+                AssertNoVisibleValues(fixture.View);
+                fixture.View.SetSkill(Skill(8));
+                Assert.That(fixture.View.Root.activeInHierarchy, Is.True);
+                fixture.View.SetSkill(null);
+                AssertNoVisibleValues(fixture.View);
+                fixture.View.SetSkill(Skill(3));
+                Assert.That(fixture.View.PowerText.text, Does.Contain("5"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("10%"));
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RepeatedSelection_ReusesNodesAndDecorativeGlyphsNeverCaptureInput()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                fixture.View.SetSkill(Skill(1));
+                int originalNodeCount = fixture.View.Root.GetComponentsInChildren<Transform>(true).Length;
+                var originalGlyphs = fixture.View.Root.GetComponentsInChildren<SkillInfoGlyph>(true);
+                Assert.That(originalGlyphs, Is.Not.Empty, "The information card should use semantic pictograms, not only text.");
+                for (int iteration = 0; iteration < 40; iteration++)
+                {
+                    fixture.View.SetSkill(Skill(iteration % 2 == 0 ? 3 : 8));
+                    if (iteration % 4 == 0) fixture.View.Clear();
+                }
+                fixture.View.SetSkill(Skill(7));
+                Assert.That(fixture.View.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(originalNodeCount));
+                CollectionAssert.AreEquivalent(originalGlyphs,
+                    fixture.View.Root.GetComponentsInChildren<SkillInfoGlyph>(true));
+                foreach (SkillInfoGlyph glyph in originalGlyphs)
+                {
+                    Assert.That(glyph.GetComponent<CanvasRenderer>(), Is.Not.Null, glyph.name);
+                    Assert.That(glyph.raycastTarget, Is.False, glyph.name + " is a decorative symbol, not an input target.");
+                }
+                foreach (Text text in fixture.View.Root.GetComponentsInChildren<Text>(true))
+                    Assert.That(text.raycastTarget, Is.False, text.name);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ActualLoadoutAndShopSelection_RefreshTheSameInformationCardWithoutTransactions()
+        {
+            yield return null;
+            var parent = new GameObject("Integrated Skill Information Test");
+            CampaignLobbyHud lobby = null;
+            try
+            {
+                var run = new CampaignRun();
+                lobby = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
+                lobby.Show(run);
+                lobby.ShowTab(LobbyTab.Loadout);
+                yield return null;
+                Click(lobby.Root, "Loadout Slot W 1");
+                GameObject detail = Named(lobby.Root, "Loadout Selected Detail").gameObject;
+                Assert.That(Label(detail, "Loadout Detail Name").text, Is.EqualTo("찌르기"));
+                Assert.That(Label(detail, "Loadout Detail Values").text, Does.Contain("5"));
+                Assert.That(Keywords(detail), Does.Contain("10%"));
+                Click(lobby.Root, "Loadout Slot Q 3");
+                Assert.That(Label(detail, "Loadout Detail Name").text, Is.EqualTo("막기"));
+                Assert.That(Keywords(detail), Does.Contain("ACT").And.Contain("2"));
+                Assert.That(run.HasLoadoutChanges, Is.False, "Choosing information must not move or replace a skill.");
+
+                lobby.ShowTab(LobbyTab.Shop);
+                yield return null;
+                Click(lobby.Root, "Shop Skill 16");
+                detail = Named(lobby.Root, "Shop Selected Detail").gameObject;
+                Assert.That(Label(detail, "Shop Detail Name").text, Is.EqualTo("일도양단"));
+                Assert.That(Label(detail, "ACT Value").text, Does.Contain("5"));
+                Assert.That(Label(detail, "Shop Detail Values").text, Does.Contain("3–20"));
+                Assert.That(Keywords(detail), Does.Contain("위력 편차"));
+                foreach (int id in new[] { 10, 12, 19, 42 })
+                {
+                    Click(lobby.Root, "Shop Skill " + id);
+                    Assert.That(Label(detail, "Shop Detail Name").text, Is.EqualTo(Skill(id).Name));
+                    Assert.That(Label(detail, "ACT Value").text, Is.EqualTo(Skill(id).Cost.ToString()));
+                    Assert.That(Label(detail, "Shop Detail Values").text, Is.EqualTo(CampaignSkillText.Power(Skill(id))));
+                    Assert.That(Label(detail, "Shop Detail Effect").text, Is.Not.Empty);
+                }
+                Click(lobby.Root, "Shop Category Upgrade");
+                Click(lobby.Root, "Shop Skill 8");
+                Assert.That(Label(detail, "Shop Detail Name").text, Is.EqualTo("흘리기"));
+                Assert.That(Label(detail, "Power Label").text, Does.Contain("방어"));
+                Assert.That(Keywords(detail), Does.Contain("30%"));
+                Assert.That(run.Currency, Is.Zero);
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.HasLoadoutChanges, Is.False);
+            }
+            finally
+            {
+                lobby?.Dispose();
+                Object.Destroy(parent);
+            }
+            yield return null;
+        }
+
+        private static LegacySkill Skill(int id)
+        {
+            foreach (LegacySkill skill in LegacyInitialSkills.All) if (skill.Id == id) return skill;
+            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills) if (skill.Id == id) return skill;
+            throw new InvalidOperationException("Missing authored skill " + id);
+        }
+
+        private static void AssertNoVisibleValues(SkillInfoView view)
+        {
+            if (!view.Root.activeInHierarchy) return;
+            Assert.That(view.PowerText.text, Is.Empty, "An empty selection must not retain the old skill power.");
+            Assert.That(Label(view.Root, "ACT Value").text, Is.Empty);
+            Assert.That(Label(view.Root, "Hits Value").text, Is.Empty);
+            Assert.That(Keywords(view.Root), Is.Empty);
+        }
+
+        private static string Keywords(GameObject root)
+            => (Label(root, "Keyword 1 Text").text + "\n" + Label(root, "Keyword 2 Text").text).Trim();
+
+        private static string VisibleText(GameObject root)
+        {
+            var lines = new List<string>();
+            foreach (Text text in root.GetComponentsInChildren<Text>()) lines.Add(text.text);
+            return string.Join("\n", lines);
+        }
+
+        private static void Click(GameObject root, string name) => Named(root, name).GetComponent<Button>().onClick.Invoke();
+        private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
+
+        private static Transform Named(GameObject root, string name)
+        {
+            foreach (Transform transform in root.GetComponentsInChildren<Transform>(true))
+                if (transform.name == name) return transform;
+            Assert.Fail("Missing skill information node: " + name);
+            return null;
+        }
+    }
+}
