@@ -27,7 +27,7 @@ namespace TurnLimbo.Presentation.Tests
                     "Pressure must continue after the dash and all of its original snapshots have expired.");
                 SpriteRenderer source = fixture.Arena.PlayerRenderer;
                 // At 0.2 s with half-speed playback, the authored recovery has reached frame 7.
-                Assert.That(source.sprite.name, Is.EqualTo("slash-frame-07"));
+                Assert.That(source.sprite.name, Does.Match("^slash(?:-[23])?-frame-07$"));
                 Assert.That(source.sprite, Is.Not.SameAs(movementPose));
                 fixture.Advance(0f, .04f);
                 bool currentPoseFound = false;
@@ -68,7 +68,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Hold(.5f);
                 fixture.Advance(0f, .04f);
                 // Second hit: (0.5 - (1/6 + 0.3)) / (1/6) = 0.2, authored frame 2.
-                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-02"));
+                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-02$"));
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.EqualTo(1));
                 float lastClipEnd = LegacyArenaView.OriginalClipDuration * 3f + .3f * 2f;
                 fixture.Hold(lastClipEnd + .0001f);

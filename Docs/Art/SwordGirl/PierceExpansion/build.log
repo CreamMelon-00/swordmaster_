@@ -1,0 +1,37 @@
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+pierce-2 pose 1: 5553 pixels, source bounds 74,24-491,496
+pierce-2 pose 2: 5532 pixels, source bounds 558,24-1018,496
+pierce-2 pose 3: 5404 pixels, source bounds 1039,24-1521,496
+pierce-2 pose 4: 5552 pixels, source bounds 38,534-588,1004
+pierce-2 pose 5: 5515 pixels, source bounds 558,534-1038,1004
+pierce-2 pose 6: 5552 pixels, source bounds 1039,534-1473,1004
+pierce-3 pose 1: 5048 pixels, source bounds 62,48-489,490
+pierce-3 pose 2: 5063 pixels, source bounds 554,61-946,488
+pierce-3 pose 3: 5006 pixels, source bounds 1018,65-1522,488
+pierce-3 pose 4: 5069 pixels, source bounds 45,605-682,981
+pierce-3 pose 5: 4716 pixels, source bounds 584,588-1094,981
+pierce-3 pose 6: 5112 pixels, source bounds 1097,549-1497,981
+CLEAN pierce-2/2: head 71 -> 73, center 95.0 -> 99.0, feet 55..147, blade -35.0deg length 73
+CLEAN pierce-2/3: head 71 -> 73, center 95.0 -> 99.0, feet 55..146, blade 0.0deg length 73
+CLEAN pierce-2/4: head 71 -> 73, center 95.5 -> 101.0, feet 55..146, blade 0.0deg length 73
+CLEAN pierce-2/5: head 72 -> 73, center 93.0 -> 104.0, feet 55..147, blade 0.0deg length 73
+CLEAN pierce-2/6: head 72 -> 73, center 93.0 -> 105.0, feet 55..147, blade 0.0deg length 73
+CLEAN pierce-2/7: head 71 -> 73, center 95.5 -> 102.0, feet 55..146, blade 0.0deg length 73
+CLEAN pierce-2/8: head 72 -> 73, center 95.0 -> 100.0, feet 55..146, blade 0.0deg length 73
+CLEAN pierce-2/9: head 72 -> 73, center 95.5 -> 99.0, feet 55..147, blade -45.0deg length 73
+CLEAN pierce-2/10: head 72 -> 73, center 95.5 -> 99.0, feet 55..147, blade -50.0deg length 73
+CLEAN pierce-2/11: head 72 -> 73, center 95.5 -> 99.0, feet 55..147, blade -55.0deg length 73
+CLEAN pierce-3/2: head 80 -> 75, center 92.0 -> 100.0, feet 55..138, blade -18.0deg length 73
+CLEAN pierce-3/3: head 84 -> 78, center 94.0 -> 100.0, feet 56..140, blade 0.0deg length 73
+CLEAN pierce-3/4: head 85 -> 85, center 106.5 -> 106.0, feet 56..149, blade 0.0deg length 73
+CLEAN pierce-3/5: head 98 -> 94, center 124.5 -> 113.0, feet 56..169, blade 0.0deg length 73
+CLEAN pierce-3/6: head 98 -> 94, center 124.5 -> 114.0, feet 56..169, blade 0.0deg length 73
+CLEAN pierce-3/7: head 85 -> 85, center 106.5 -> 107.0, feet 56..149, blade 0.0deg length 73
+CLEAN pierce-3/8: head 94 -> 82, center 102.0 -> 103.0, feet 55..154, blade 0.0deg length 73
+CLEAN pierce-3/9: head 84 -> 74, center 89.5 -> 100.0, feet 55..141, blade -48.0deg length 73
+CLEAN pierce-3/10: head 84 -> 73, center 89.5 -> 99.0, feet 55..141, blade -52.0deg length 73
+CLEAN pierce-3/11: head 84 -> 73, center 89.5 -> 99.0, feet 55..141, blade -56.0deg length 73
+VERIFIED: 96 frames, 12 tags; previous 72 frames unchanged; 24 new character PNGs; contact frame 5.

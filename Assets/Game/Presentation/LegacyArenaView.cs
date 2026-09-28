@@ -24,6 +24,7 @@ namespace TurnLimbo.Presentation
         public const float GuardKnockbackMultiplier = 0.35f;
         public const float OriginalClipDuration = 1f / 6f;
         public const float OriginalImpactTime = 1f / 12f;
+        public const float ReactionPoseDuration = 0.16f;
         public const float StepDuration = 0.08f;
         public const float DodgeDistance = 1.4f;
         public const float PressureDistance = 1.1f;
@@ -37,6 +38,8 @@ namespace TurnLimbo.Presentation
         private readonly Actor player;
         private readonly Actor enemy;
         private readonly MobStudentAnimationSet mobAnimations;
+        private readonly System.Random reactionPoseRandom;
+        private readonly System.Random attackPoseRandom;
         private readonly GameObject effectPrefab;
         private readonly List<ImpactEffect> effects = new List<ImpactEffect>(MaximumEffects);
         private readonly Material spriteMaterial;
@@ -130,11 +133,16 @@ namespace TurnLimbo.Presentation
         public Vector2 PlayerScreenAnchor => ScreenAnchor(player.Renderer.transform.position + Vector3.up * 2f);
         public Vector2 EnemyScreenAnchor => ScreenAnchor(enemy.Renderer.transform.position + Vector3.up * 2f);
 
-        public static LegacyArenaView Create(Transform parent, LegacyDuelArt art, DuelPresentationSettings settings = null) =>
-            new LegacyArenaView(parent, art, settings);
+        public static LegacyArenaView Create(Transform parent, LegacyDuelArt art, DuelPresentationSettings settings = null,
+            System.Random reactionPoseRandom = null, System.Random attackPoseRandom = null) =>
+            new LegacyArenaView(parent, art, settings, reactionPoseRandom, attackPoseRandom);
 
-        private LegacyArenaView(Transform parent, LegacyDuelArt art, DuelPresentationSettings settings)
+        private LegacyArenaView(Transform parent, LegacyDuelArt art, DuelPresentationSettings settings,
+            System.Random reactionPoseRandom, System.Random attackPoseRandom)
         {
+            // Cosmetic rolls must not consume the combat/global Unity random stream.
+            this.reactionPoseRandom = reactionPoseRandom ?? new System.Random();
+            this.attackPoseRandom = attackPoseRandom ?? new System.Random();
             this.art = art ?? throw new ArgumentNullException(nameof(art));
             this.settings = settings != null ? settings : Resources.Load<DuelPresentationSettings>("DuelPresentationSettings");
             if (this.settings == null)
@@ -305,6 +313,9 @@ namespace TurnLimbo.Presentation
             ClearPressureAttackTrail();
             player.Skill = playerSkill;
             enemy.Skill = enemySkill;
+            player.ReactionTime = 0f;
+            player.GuardVariant = 0;
+            player.AttackVariants.Clear();
             player.AnimationTime = enemy.AnimationTime = 0f;
             player.Chasing = enemy.Chasing = false;
             pursuitMovementSpeed = settings.MovementSpeedMultiplier;
@@ -439,6 +450,17 @@ namespace TurnLimbo.Presentation
             var attacker = playerAttacks ? player : enemy;
             var target = playerAttacks ? enemy : player;
             float damage = Mathf.Max(0, hpDamage) + Mathf.Max(0, resistanceDamage);
+            if (target == player && mobAnimations.HasRequiredAssets && (guarded || damage > 0f || fatal))
+            {
+                // A successful guard can spend resistance. HP penetration or a heavy/broken guard recoils.
+                player.ReactionIsBlock = guarded && hpDamage <= 0 && !fatal;
+                // Draw exactly once per incoming hit/guard, including repeated hits in the same slot.
+                // Independent draws intentionally allow the same pose on consecutive impacts.
+                player.ReactionVariant = reactionPoseRandom.Next(MobStudentAnimationSet.ReactionVariationCount);
+                if (player.ReactionIsBlock) player.GuardVariant = player.ReactionVariant;
+                player.ReactionTime = ReactionPoseDuration;
+                SampleActor(player);
+            }
             float rawPower = Mathf.Max(0, pushPower);
             float distance;
             if (guarded && damage <= 0f)
@@ -649,6 +671,8 @@ namespace TurnLimbo.Presentation
         private void TickActor(Actor actor, float delta)
         {
             actor.AnimationTime += delta;
+            // Use combat time so hit stop freezes the reaction and slow playback remains readable.
+            actor.ReactionTime = Mathf.Max(0f, actor.ReactionTime - delta * slotAnimationSpeed);
             actor.ChaseDelay = Mathf.Max(0f, actor.ChaseDelay - delta);
             if (actor.Pushing)
             {
@@ -699,10 +723,22 @@ namespace TurnLimbo.Presentation
             bool active = TryGetSkillFrame(actor, out float clipTime);
             if (actor == player && mobAnimations.HasRequiredAssets)
             {
+                if (actor.ReactionTime > 0f)
+                {
+                    actor.Renderer.sprite = actor.ReactionIsBlock ? mobAnimations.GetBlockPose(actor.ReactionVariant)
+                        : mobAnimations.GetHurtPose(actor.ReactionVariant);
+                    return;
+                }
+                // Defense is a held stance for the entire slot, including gaps between enemy hits.
+                if (actor.Skill?.Kind == LegacySkillKind.Defence)
+                {
+                    actor.Renderer.sprite = mobAnimations.GetBlockPose(actor.GuardVariant);
+                    return;
+                }
                 float cycle = OriginalClipDuration / slotAnimationSpeed + slotAttackInterval;
                 int hitIndex = Mathf.FloorToInt(actor.AnimationTime / cycle);
                 Sprite attack = active && actor.Skill.Kind == LegacySkillKind.Attack
-                    ? mobAnimations.GetAttackUpper(actor.Skill.Property, hitIndex, clipTime / OriginalClipDuration) : null;
+                    ? mobAnimations.GetAttackUpper(actor.Skill.Property, AttackVariant(actor, hitIndex), clipTime / OriginalClipDuration) : null;
                 actor.Renderer.sprite = attack != null ? attack : mobAnimations.GetIdleUpper(idleTime);
                 return;
             }
@@ -736,6 +772,19 @@ namespace TurnLimbo.Presentation
                 player.LowerRenderer.sprite = mobAnimations.GetLower(player.LowerAnimationTime, moving, player.Retreating);
             player.LastVisualPosition = position;
             player.HasLowerTravelProgress = false;
+        }
+
+        private int AttackVariant(Actor actor, int hitIndex)
+        {
+            int count = MobStudentAnimationSet.AttackVariationCount(actor.Skill.Property);
+            if (count <= 1) return 0;
+            // Cache by hit, not by rendered frame. Clock holds/rewinds must keep the same motion.
+            if (!actor.AttackVariants.TryGetValue(hitIndex, out int variant))
+            {
+                variant = attackPoseRandom.Next(count);
+                actor.AttackVariants.Add(hitIndex, variant);
+            }
+            return variant;
         }
 
         private static float LowerCycleTime(float progress) =>
@@ -891,6 +940,10 @@ namespace TurnLimbo.Presentation
             actor.PushTime = 0f;
             actor.PushPlaybackDuration = PushDuration;
             actor.FlashTime = actor.AnimationTime = 0f;
+            actor.ReactionTime = 0f;
+            actor.ReactionIsBlock = false;
+            actor.ReactionVariant = actor.GuardVariant = 0;
+            actor.AttackVariants.Clear();
             actor.Skill = null;
             if (actor.Clips.TryGetValue("Idle", out var idle)) idle.SampleAnimation(actor.Renderer.gameObject, 0f);
         }
@@ -923,6 +976,10 @@ namespace TurnLimbo.Presentation
             public readonly Dictionary<string, AnimationClip> Clips = new Dictionary<string, AnimationClip>(StringComparer.OrdinalIgnoreCase);
             public LegacySkill Skill;
             public float AnimationTime, FlashTime, PushTime, ChaseDelay;
+            public float ReactionTime;
+            public bool ReactionIsBlock;
+            public int ReactionVariant, GuardVariant;
+            public readonly Dictionary<int, int> AttackVariants = new Dictionary<int, int>();
             public float PushPlaybackDuration = PushDuration;
             public Color FlashColor;
             public Vector3 PushStart, PushEnd;

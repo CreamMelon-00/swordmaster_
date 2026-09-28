@@ -14,8 +14,11 @@ namespace TurnLimbo.Presentation
         public const float GroundOffset = -2.23f;
         public const int IdleFrameCount = 8;
         public const int AttackFrameCount = 12;
-        public const int AttackVariationCount = 1;
-        public const int RequiredSpriteCount = 44;
+        public const int SlashVariationCount = 3;
+        public const int PierceVariationCount = 3;
+        public const int BluntVariationCount = 3;
+        public const int ReactionVariationCount = 2;
+        public const int RequiredSpriteCount = 120;
         // Retained for the inactive legacy lower-body travel clock in LegacyArenaView.
         public const float MoveFrameDuration = .14f;
         public const string ResourceRoot = "SwordGirl/Animations/";
@@ -23,9 +26,11 @@ namespace TurnLimbo.Presentation
         private readonly List<Sprite> ownedSprites = new List<Sprite>(RequiredSpriteCount);
         private readonly List<string> missingResources = new List<string>();
         private bool disposed;
+        private readonly Sprite[] blockPoses = new Sprite[ReactionVariationCount];
+        private readonly Sprite[] hurtPoses = new Sprite[ReactionVariationCount];
 
         public bool UsesFullBodyFrames => true;
-        public bool HasRequiredAssets => !disposed && clips.Count == 4 &&
+        public bool HasRequiredAssets => !disposed && clips.Count == 10 &&
             ownedSprites.Count == RequiredSpriteCount && missingResources.Count == 0;
         public int LoadedSpriteCount => ownedSprites.Count;
         public IReadOnlyList<string> MissingResources => missingResources;
@@ -38,7 +43,7 @@ namespace TurnLimbo.Presentation
             try { manifest = JsonUtility.FromJson<Manifest>(asset.text); }
             catch (Exception error) { missingResources.Add("Invalid SwordGirl timing: " + error.Message); return; }
             if (manifest?.clips == null) { missingResources.Add("SwordGirl timing has no clips"); return; }
-            foreach (string key in new[] { "idle", "slash", "pierce", "blunt" })
+            foreach (string key in new[] { "idle", "slash", "slash-2", "slash-3", "pierce", "pierce-2", "pierce-3", "blunt", "blunt-2", "blunt-3" })
             {
                 ClipDefinition definition = Array.Find(manifest.clips, item => item != null && item.key == key);
                 int expected = key == "idle" ? IdleFrameCount : AttackFrameCount;
@@ -50,7 +55,14 @@ namespace TurnLimbo.Presentation
                 for (int i = 0; i < expected; i++) sequence.Frames[i] = Load(key + "/frame-" + (i + 1).ToString("00"));
                 clips.Add(key, sequence);
             }
+            blockPoses[0] = Load("poses/block");
+            blockPoses[1] = Load("poses/block-2");
+            hurtPoses[0] = Load("poses/hurt");
+            hurtPoses[1] = Load("poses/hurt-2");
         }
+
+        public Sprite GetBlockPose(int variant = 0) => disposed ? null : blockPoses[Mathf.Clamp(variant, 0, ReactionVariationCount - 1)];
+        public Sprite GetHurtPose(int variant = 0) => disposed ? null : hurtPoses[Mathf.Clamp(variant, 0, ReactionVariationCount - 1)];
 
         // Historical upper-body API now returns the complete character.
         public Sprite GetIdleUpper(float elapsed)
@@ -61,9 +73,9 @@ namespace TurnLimbo.Presentation
 
         public Sprite GetLower(float elapsed, bool moving, bool retreating = false) => null;
 
-        public Sprite GetAttackUpper(LegacySkillProperty property, int hitIndex, float normalizedTime)
+        public Sprite GetAttackUpper(LegacySkillProperty property, int variantIndex, float normalizedTime)
         {
-            string key = AttackKey(property, hitIndex);
+            string key = AttackKey(property, variantIndex);
             if (disposed || key == null || !clips.TryGetValue(key, out var clip)) return null;
             float phase = Mathf.Clamp01(normalizedTime);
             // Map the authored contact (frame 5 at 420 ms) to the game's half-cycle strike.
@@ -73,13 +85,24 @@ namespace TurnLimbo.Presentation
             return clip.Sample(elapsed);
         }
 
-        public static string AttackKey(LegacySkillProperty property, int hitIndex)
+        public static int AttackVariationCount(LegacySkillProperty property) =>
+            property == LegacySkillProperty.Slash ? SlashVariationCount :
+            property == LegacySkillProperty.Penetrate ? PierceVariationCount :
+            property == LegacySkillProperty.Hit ? BluntVariationCount : 0;
+
+        public static string AttackKey(LegacySkillProperty property, int variantIndex)
         {
             switch (property)
             {
-                case LegacySkillProperty.Slash: return "slash";
-                case LegacySkillProperty.Penetrate: return "pierce";
-                case LegacySkillProperty.Hit: return "blunt";
+                case LegacySkillProperty.Slash:
+                    int variant = Mathf.Max(0, variantIndex) % SlashVariationCount;
+                    return variant == 0 ? "slash" : "slash-" + (variant + 1);
+                case LegacySkillProperty.Penetrate:
+                    int pierceVariant = Mathf.Max(0, variantIndex) % PierceVariationCount;
+                    return pierceVariant == 0 ? "pierce" : "pierce-" + (pierceVariant + 1);
+                case LegacySkillProperty.Hit:
+                    int bluntVariant = Mathf.Max(0, variantIndex) % BluntVariationCount;
+                    return bluntVariant == 0 ? "blunt" : "blunt-" + (bluntVariant + 1);
                 default: return null;
             }
         }

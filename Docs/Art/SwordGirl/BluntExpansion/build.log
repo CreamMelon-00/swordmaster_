@@ -1,0 +1,35 @@
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+blunt-2 pose 1: 5178 pixels, source bounds 125,8-440,498
+blunt-2 pose 2: 5143 pixels, source bounds 598,20-932,498
+blunt-2 pose 3: 4927 pixels, source bounds 1135,17-1472,498
+blunt-2 pose 4: 5094 pixels, source bounds 154,517-480,1001
+blunt-2 pose 5: 5021 pixels, source bounds 646,530-966,1000
+blunt-2 pose 6: 5134 pixels, source bounds 1115,537-1469,1001
+blunt-3 pose 1: 5118 pixels, source bounds 127,54-455,511
+blunt-3 pose 2: 4924 pixels, source bounds 583,26-916,511
+blunt-3 pose 3: 4772 pixels, source bounds 1068,90-1400,511
+blunt-3 pose 4: 4717 pixels, source bounds 109,554-429,991
+blunt-3 pose 5: 4713 pixels, source bounds 604,549-920,992
+blunt-3 pose 6: 5090 pixels, source bounds 1086,564-1452,992
+CLEAN blunt-2/2: head 75 -> 75, center 95.0 -> 98.0, feet 55..143 -> span 89; weapon occlusion retained
+CLEAN blunt-2/3: head 83 -> 78, center 88.0 -> 97.0, feet 55..139 -> span 91; weapon occlusion retained
+CLEAN blunt-2/4: head 81 -> 75, center 88.0 -> 101.0, feet 55..138 -> span 92; weapon occlusion retained
+CLEAN blunt-2/5: head 80 -> 72, center 100.0 -> 105.0, feet 55..144 -> span 94; weapon occlusion retained
+CLEAN blunt-2/6: head 80 -> 72, center 100.0 -> 106.0, feet 55..144 -> span 94; weapon occlusion retained
+CLEAN blunt-2/7: head 81 -> 74, center 88.0 -> 102.0, feet 55..138 -> span 92; weapon occlusion retained
+CLEAN blunt-2/8: head 82 -> 76, center 93.0 -> 100.0, feet 54..144 -> span 90; weapon occlusion retained
+CLEAN blunt-2/9: head 72 -> 74, center 94.5 -> 99.0, feet 55..155 -> span 89; weapon occlusion retained
+CLEAN blunt-2/10: head 82 -> 73, center 107.0 -> 99.0, feet 55..145 -> span 89; weapon occlusion retained
+CLEAN blunt-3/2: head 78 -> 73, center 104.0 -> 99.0, feet 56..137 -> span 89; weapon occlusion retained
+CLEAN blunt-3/3: head 83 -> 72, center 98.0 -> 98.0, feet 56..138 -> span 91; weapon occlusion retained
+CLEAN blunt-3/4: head 99 -> 82, center 109.5 -> 104.0, feet 56..147 -> span 96; weapon occlusion retained
+CLEAN blunt-3/5: head 102 -> 90, center 106.5 -> 108.0, feet 56..145 -> span 100; weapon occlusion retained
+CLEAN blunt-3/6: head 102 -> 92, center 106.5 -> 109.0, feet 56..145 -> span 100; weapon occlusion retained
+CLEAN blunt-3/7: head 91 -> 88, center 102.0 -> 106.0, feet 56..144 -> span 98; weapon occlusion retained
+CLEAN blunt-3/8: head 91 -> 81, center 102.0 -> 103.0, feet 56..144 -> span 94; weapon occlusion retained
+CLEAN blunt-3/9: head 72 -> 76, center 94.5 -> 100.0, feet 55..155 -> span 91; weapon occlusion retained
+CLEAN blunt-3/10: head 84 -> 74, center 109.5 -> 99.0, feet 56..140 -> span 89; weapon occlusion retained
+VERIFIED: 120 frames, 14 tags; previous 96 frames unchanged; 24 new character PNGs; contact frame 5.

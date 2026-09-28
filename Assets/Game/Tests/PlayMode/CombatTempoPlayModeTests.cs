@@ -30,10 +30,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.Zero);
                 Assert.That(controller.Session.Player.Resistance, Is.EqualTo(1000));
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(1000));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-04"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-04$"));
                 scope.Advance(.002f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-05"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("poses-hurt"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
                 scope.Until(() => controller.IsBetweenSlots);
                 Assert.That(controller.Session.CurrentSlot, Is.Null);
                 Assert.That(controller.Session.LastResolvedSlot, Is.Zero);
@@ -69,10 +70,14 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(slot.HitsResolved, Is.EqualTo(hit));
                     scope.Advance(.002f);
                     Assert.That(slot.HitsResolved, Is.EqualTo(hit + 1));
-                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-05"));
+                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name,
+                        hit == 0 ? Does.StartWith("poses-hurt") : Does.Match("^slash(?:-[23])?-frame-05$"));
                     if (hit < 2)
                     {
-                        scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
+                        // The first exchange also hits the player; let its finite reaction finish.
+                        float gapTime = hit == 0 ? controller.ActiveSlotElapsedTime + LegacyArenaView.ReactionPoseDuration / 2f + .002f
+                            : clip + cycle * hit + .001f;
+                        scope.AdvanceToSlotTime(gapTime);
                         Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                             "The attack gap is idle time, not a stretched attack pose.");
                     }
@@ -184,7 +189,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.CurrentSlot, Is.SameAs(slot));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-05"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("poses-hurt"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }
@@ -205,7 +211,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(999));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-05"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("poses-hurt"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }

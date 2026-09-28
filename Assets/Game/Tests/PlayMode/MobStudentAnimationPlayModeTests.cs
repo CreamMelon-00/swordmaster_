@@ -14,13 +14,13 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class MobStudentAnimationPlayModeTests
     {
         [UnityTest]
-        public IEnumerator SwordGirl_All44CelsHaveCorrectImportAndSharedGroundOrigin()
+        public IEnumerator SwordGirl_AllAttackCelsHaveCorrectImportAndSharedGroundOrigin()
         {
             using (var animations = new MobStudentAnimationSet())
             {
                 Assert.That(animations.HasRequiredAssets, Is.True, string.Join(", ", animations.MissingResources));
-                Assert.That(animations.LoadedSpriteCount, Is.EqualTo(44));
-                foreach (string key in new[] { "idle", "slash", "pierce", "blunt" })
+                Assert.That(animations.LoadedSpriteCount, Is.EqualTo(120));
+                foreach (string key in new[] { "idle", "slash", "slash-2", "slash-3", "pierce", "pierce-2", "pierce-3", "blunt", "blunt-2", "blunt-3" })
                     for (int i = 1; i <= (key == "idle" ? 8 : 12); i++)
                     {
                         Sprite sprite = Resources.Load<Sprite>(MobStudentAnimationSet.ResourceRoot + key + "/frame-" + i.ToString("00"));
@@ -56,16 +56,15 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 Assert.That(animations.GetIdleUpper(time + .00001f).name, Is.EqualTo("idle-frame-01"));
                 foreach (LegacySkillProperty property in Types)
+                for (int variant = 0; variant < MobStudentAnimationSet.AttackVariationCount(property); variant++)
                 {
-                    string key = MobStudentAnimationSet.AttackKey(property, 0);
+                    string key = MobStudentAnimationSet.AttackKey(property, variant);
                     var frames = new HashSet<Sprite>();
-                    for (int sample = 0; sample <= 1000; sample++) frames.Add(animations.GetAttackUpper(property, 0, sample / 1000f));
+                    for (int sample = 0; sample <= 1000; sample++) frames.Add(animations.GetAttackUpper(property, variant, sample / 1000f));
                     Assert.That(frames.Count, Is.EqualTo(12));
-                    Assert.That(animations.GetAttackUpper(property, 0, .5f - .001f).name, Is.EqualTo(key + "-frame-04"));
-                    Assert.That(animations.GetAttackUpper(property, 0, .5f).name, Is.EqualTo(key + "-frame-05"));
-                    Assert.That(animations.GetAttackUpper(property, 0, 1f).name, Is.EqualTo(key + "-frame-12"));
-                    for (int hit = 1; hit < 5; hit++)
-                        Assert.That(animations.GetAttackUpper(property, hit, .5f), Is.SameAs(animations.GetAttackUpper(property, 0, .5f)));
+                    Assert.That(animations.GetAttackUpper(property, variant, .5f - .001f).name, Is.EqualTo(key + "-frame-04"));
+                    Assert.That(animations.GetAttackUpper(property, variant, .5f).name, Is.EqualTo(key + "-frame-05"));
+                    Assert.That(animations.GetAttackUpper(property, variant, 1f).name, Is.EqualTo(key + "-frame-12"));
                 }
                 Assert.That(animations.GetAttackUpper(LegacySkillProperty.Defence, 0, .5f), Is.Null);
                 animations.Dispose();
@@ -143,7 +142,9 @@ namespace TurnLimbo.Presentation.Tests
                     arena.Tick(0f, 1f);
                     if (property != LegacySkillProperty.None) Hold(arena, LegacyArenaView.OriginalImpactTime);
                     string key = property == LegacySkillProperty.None ? "idle" : MobStudentAnimationSet.AttackKey(property, 0);
-                    Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo(key + (key == "idle" ? "-frame-01" : "-frame-05")));
+                    Assert.That(arena.PlayerRenderer.sprite.name, property != LegacySkillProperty.None
+                        ? Does.Match("^" + key + "(?:-[23])?-frame-05$")
+                        : Is.EqualTo(key + (key == "idle" ? "-frame-01" : "-frame-05")));
                     yield return null;
                     yield return null;
                     if (!string.IsNullOrEmpty(directory))

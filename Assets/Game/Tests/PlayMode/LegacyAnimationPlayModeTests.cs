@@ -50,7 +50,8 @@ namespace TurnLimbo.Presentation.Tests
                         AssertFrame(arena, sheets[0], sheets[1], 1, hit);
                         arena.Tick(LegacyArenaView.OriginalImpactTime + .00001f, 0);
                     }
-                    Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                    Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith(
+                        skill.Kind == LegacySkillKind.Defence ? "poses-block" : "idle-frame-"));
                     Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("pa_enemy_1_i-Sheet_"));
                 }
             }
@@ -95,7 +96,7 @@ namespace TurnLimbo.Presentation.Tests
                 var arena = controller.ArenaView;
                 arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
                 arena.Tick(LegacyArenaView.OriginalImpactTime - .001f, 0);
-                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("slash-frame-04"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-04$"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_st-Sheet_0"));
                 arena.Tick(.002f, 0);
                 AssertFrame(arena, "pa_player_slash-Sheet", "pa_enemy_1_st-Sheet", 1);
@@ -130,13 +131,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.PlayerRenderer.sprite.name,
                     Does.StartWith("idle-frame-"));
             else if (playerSheet == "pa_player_g-Sheet")
-                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("poses-block"));
             else
             {
                 string type = playerSheet == "pa_player_slash-Sheet" ? "slash"
                     : playerSheet == "pa_player_sting1-Sheet" ? "pierce" : "blunt";
                 Assert.That(arena.PlayerRenderer.sprite.name,
-                    Is.EqualTo(type + "-frame-" + (frame == 0 ? "01" : "05")));
+                    Does.Match("^" + type + "(?:-[23])?-frame-" + (frame == 0 ? "01" : "05") + "$"));
             }
             Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo(enemySheet + "_" + frame));
         }

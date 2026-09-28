@@ -1,0 +1,49 @@
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+slash-2 pose 1: 5667 pixels, source bounds 87,54-459,471
+slash-2 pose 2: 5157 pixels, source bounds 509,133-880,471
+slash-2 pose 3: 5416 pixels, source bounds 1015,96-1514,471
+slash-2 pose 4: 5733 pixels, source bounds 54,502-485,996
+slash-2 pose 5: 5616 pixels, source bounds 604,462-965,996
+slash-2 pose 6: 5538 pixels, source bounds 1100,595-1471,996
+slash-3-revised pose 1: 5707 pixels, source bounds 39,28-528,491
+slash-3-revised pose 2: 5234 pixels, source bounds 606,28-951,491
+slash-3-revised pose 3: 5598 pixels, source bounds 1045,28-1498,491
+slash-3-revised pose 4: 5575 pixels, source bounds 117,538-531,994
+slash-3-revised pose 5: 5836 pixels, source bounds 592,530-1011,994
+slash-3-revised pose 6: 5778 pixels, source bounds 1058,527-1478,994
+slash-2-inbetweens pose 1: 5389 pixels, source bounds 27,123-461,501
+slash-2-inbetweens pose 2: 5432 pixels, source bounds 612,8-943,499
+slash-2-inbetweens pose 3: 5158 pixels, source bounds 1104,23-1450,501
+slash-2-inbetweens pose 4: 5638 pixels, source bounds 124,531-480,991
+slash-2-inbetweens pose 5: 5649 pixels, source bounds 612,539-987,991
+slash-2-inbetweens pose 6: 5486 pixels, source bounds 1105,555-1465,991
+slash-3-inbetweens pose 1: 6087 pixels, source bounds 21,39-496,488
+slash-3-inbetweens pose 2: 6263 pixels, source bounds 616,39-1062,488
+slash-3-inbetweens pose 3: 5972 pixels, source bounds 1119,12-1485,488
+slash-3-inbetweens pose 4: 6053 pixels, source bounds 128,537-484,998
+slash-3-inbetweens pose 5: 6086 pixels, source bounds 615,537-994,998
+slash-3-inbetweens pose 6: 6013 pixels, source bounds 1090,536-1463,998
+CLEAN slash-2/2: head 83 -> 76, center 99.0 -> 98.0, feet 55..156, blade 135.0deg length 73
+CLEAN slash-2/3: head 95 -> 79, center 114.5 -> 98.0, feet 56..135, blade 135.0deg length 73
+CLEAN slash-2/4: head 84 -> 76, center 117.5 -> 102.0, feet 56..153, blade 0.0deg length 73
+CLEAN slash-2/5: head 80 -> 73, center 108.5 -> 103.0, feet 56..165, blade -48.0deg length 73
+CLEAN slash-2/6: head 81 -> 72, center 98.5 -> 103.0, feet 56..160, blade -58.0deg length 73
+CLEAN slash-2/7: head 76 -> 72, center 96.0 -> 102.0, feet 56..159, blade -60.0deg length 73
+CLEAN slash-2/8: head 85 -> 73, center 98.0 -> 101.0, feet 55..155, blade -59.0deg length 73
+CLEAN slash-2/9: head 77 -> 73, center 100.0 -> 100.0, feet 55..160, blade -58.0deg length 73
+CLEAN slash-2/10: head 77 -> 73, center 96.0 -> 99.0, feet 55..158, blade -58.0deg length 73
+CLEAN slash-2/11: head 78 -> 73, center 96.0 -> 99.0, feet 54..152, blade -58.0deg length 73
+CLEAN slash-3/2: head 69 -> 74, center 95.0 -> 98.0, feet 54..156, blade 177.0deg length 60
+CLEAN slash-3/3: head 74 -> 73, center 99.0 -> 98.0, feet 54..152, blade 180.0deg length 60
+CLEAN slash-3/4: head 75 -> 73, center 100.5 -> 99.0, feet 55..151, blade 32.0deg length 39
+CLEAN slash-3/5: head 75 -> 73, center 93.0 -> 102.0, feet 54..156, blade 0.0deg length 73
+CLEAN slash-3/6: head 76 -> 73, center 101.0 -> 103.0, feet 54..161, blade 4.0deg length 35
+CLEAN slash-3/7: head 74 -> 73, center 95.0 -> 102.0, feet 54..161, blade 20.0deg length 70
+CLEAN slash-3/8: head 73 -> 73, center 95.0 -> 100.0, feet 54..157, blade -46.0deg length 73
+CLEAN slash-3/9: head 72 -> 73, center 97.0 -> 99.0, feet 55..152, blade -51.0deg length 73
+CLEAN slash-3/10: head 72 -> 73, center 97.0 -> 99.0, feet 55..157, blade -55.0deg length 73
+CLEAN slash-3/11: head 72 -> 73, center 95.0 -> 99.0, feet 55..152, blade -58.0deg length 73
+VERIFIED: 72 frames, 10 tags; previous 48 frames unchanged; 24 new character PNGs; contact on frame 5.
