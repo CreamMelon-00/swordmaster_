@@ -11,6 +11,17 @@ namespace TurnLimbo.Presentation
     /// <summary>Inherited actors/effects with travelling forest-duel staging. The session owns combat rules.</summary>
     public sealed class LegacyArenaView : IDisposable
     {
+        /// <summary>How an incoming hit met the target's own action in the rules.</summary>
+        public enum HitExchange
+        {
+            /// <summary>No attack-versus-attack exchange: the body is hit or a defense receives it.</summary>
+            None,
+            /// <summary>The target's attack has finished its strikes, so its blade receives this resistance-only hit.</summary>
+            BladeBlock,
+            /// <summary>Both actors strike on this hit; their contact frames already show the blades meeting.</summary>
+            MutualClash,
+        }
+
         public const float ApproachDuration = 0.18f;
         public const float ReturnDuration = 0.18f;
         public const float ContactDistance = 4f;
@@ -30,6 +41,8 @@ namespace TurnLimbo.Presentation
         public const float PressureDistance = 1.1f;
         public const float MinimumStepSeparation = 2.8f;
         private const float PressureTrailSampleInterval = 0.035f;
+        // Sample just before a looping clip's end so its final keyframe does not wrap to the first.
+        private const float GuardHoldOffset = 0.0001f;
         private const int ArenaLayer = 30;
         private const int MaximumEffects = 24;
         private static readonly Color NormalSkyColor = new Color(0.12f, 0.23f, 0.20f, 1f);
@@ -67,6 +80,8 @@ namespace TurnLimbo.Presentation
         private float stepSlowScale = 1f;
         private LegacyStepAction stepFocusAction;
         private bool stepFeedbackStartedThisSlot;
+        // A successful dodge voids the opponent's remaining hits, so nothing is left to guard.
+        private bool dodgedThisSlot;
         private float slotAnimationSpeed = 1f;
         private float slotAttackInterval;
         private float fatalExposure;
@@ -275,6 +290,7 @@ namespace TurnLimbo.Presentation
             CancelStep();
             player.Skill = enemy.Skill = null;
             player.AnimationTime = enemy.AnimationTime = 0f;
+            player.ReactionTime = enemy.ReactionTime = 0f;
             player.Chasing = enemy.Chasing = false;
         }
 
@@ -309,11 +325,11 @@ namespace TurnLimbo.Presentation
         {
             if (!resolving) combatCameraPivot = DuelCenter;
             resolving = true;
-            stepFeedbackStartedThisSlot = false;
+            stepFeedbackStartedThisSlot = dodgedThisSlot = false;
             ClearPressureAttackTrail();
             player.Skill = playerSkill;
             enemy.Skill = enemySkill;
-            player.ReactionTime = 0f;
+            player.ReactionTime = enemy.ReactionTime = 0f;
             player.GuardVariant = 0;
             player.AttackVariants.Clear();
             player.AnimationTime = enemy.AnimationTime = 0f;
@@ -349,6 +365,8 @@ namespace TurnLimbo.Presentation
             cameraJolt = Vector3.zero;
             CancelStep();
             player.Skill = enemy.Skill = null;
+            // Slow playback can outlast the turn's final hit; a reaction never carries into planning.
+            player.ReactionTime = enemy.ReactionTime = 0f;
             player.Chasing = enemy.Chasing = false;
         }
 
@@ -358,6 +376,7 @@ namespace TurnLimbo.Presentation
             if (disposed || !resolving || approaching || returning ||
                 (action != LegacyStepAction.Dodge && action != LegacyStepAction.Pressure)) return;
             stepAction = action;
+            if (action == LegacyStepAction.Dodge && success) dodgedThisSlot = true;
             stepTime = stepApplied = 0f;
             // Snapshot a gesture's distance and duration together: live tuning
             // takes effect on the next input, never changes a travelled endpoint.
@@ -406,9 +425,25 @@ namespace TurnLimbo.Presentation
         {
             var skill = player.Skill;
             if (skill == null || skill.Kind != LegacySkillKind.Attack) return false;
+            return player.AnimationTime < AttackEnd(skill);
+        }
+
+        private float AttackEnd(LegacySkill skill)
+        {
             float duration = OriginalClipDuration / slotAnimationSpeed;
-            float end = duration + (skill.AttackCount - 1) * (duration + slotAttackInterval);
-            return player.AnimationTime < end;
+            return duration + (skill.AttackCount - 1) * (duration + slotAttackInterval);
+        }
+
+        // The rules keep a finished attack in the exchange: the opponent's later hits
+        // still only trade resistance. Hold a guard instead of idling until they end.
+        private bool IsHoldingExchange(Actor actor)
+        {
+            var own = actor.Skill;
+            var other = (actor == player ? enemy : player).Skill;
+            if (actor == player && dodgedThisSlot) return false;
+            return own != null && own.Kind == LegacySkillKind.Attack &&
+                other != null && other.Kind == LegacySkillKind.Attack && other.AttackCount > own.AttackCount &&
+                actor.AnimationTime >= AttackEnd(own) && actor.AnimationTime < AttackEnd(other);
         }
 
         private void ClearPressureAttackTrail()
@@ -445,21 +480,35 @@ namespace TurnLimbo.Presentation
         }
 
         public void PresentHit(bool playerAttacks, int hpDamage, int resistanceDamage, bool guarded,
-            bool fatal, int pushPower = -1)
+            bool fatal, int pushPower = -1, HitExchange exchange = HitExchange.None)
         {
             var attacker = playerAttacks ? player : enemy;
             var target = playerAttacks ? enemy : player;
             float damage = Mathf.Max(0, hpDamage) + Mathf.Max(0, resistanceDamage);
-            if (target == player && mobAnimations.HasRequiredAssets && (guarded || damage > 0f || fatal))
+            // Attack against attack only trades resistance: blades meet, not bodies.
+            // HP overflow or a resistance break still lands on the body.
+            bool bladeBlock = exchange != HitExchange.None && hpDamage <= 0 && !fatal;
+            // When both strike on this hit, neither flinches out of its contact frame.
+            bool keepsStrike = bladeBlock && exchange == HitExchange.MutualClash;
+            bool blocks = (guarded && hpDamage <= 0 && !fatal) || bladeBlock;
+            if (target == player && mobAnimations.HasRequiredAssets && !keepsStrike && (guarded || damage > 0f || fatal))
             {
                 // A successful guard can spend resistance. HP penetration or a heavy/broken guard recoils.
-                player.ReactionIsBlock = guarded && hpDamage <= 0 && !fatal;
+                player.ReactionIsBlock = blocks;
                 // Draw exactly once per incoming hit/guard, including repeated hits in the same slot.
                 // Independent draws intentionally allow the same pose on consecutive impacts.
                 player.ReactionVariant = reactionPoseRandom.Next(MobStudentAnimationSet.ReactionVariationCount);
                 if (player.ReactionIsBlock) player.GuardVariant = player.ReactionVariant;
                 player.ReactionTime = ReactionPoseDuration;
                 SampleActor(player);
+            }
+            else if (target == enemy && !keepsStrike && blocks)
+            {
+                // The legacy enemy sheet has a single guard frame and no hurt frame,
+                // so only blocks react, without a cosmetic draw.
+                enemy.ReactionIsBlock = true;
+                enemy.ReactionTime = ReactionPoseDuration;
+                SampleActor(enemy);
             }
             float rawPower = Mathf.Max(0, pushPower);
             float distance;
@@ -730,7 +779,8 @@ namespace TurnLimbo.Presentation
                     return;
                 }
                 // Defense is a held stance for the entire slot, including gaps between enemy hits.
-                if (actor.Skill?.Kind == LegacySkillKind.Defence)
+                // A finished attack guards the same way while the opponent is still striking.
+                if (actor.Skill?.Kind == LegacySkillKind.Defence || IsHoldingExchange(actor))
                 {
                     actor.Renderer.sprite = mobAnimations.GetBlockPose(actor.GuardVariant);
                     return;
@@ -740,6 +790,15 @@ namespace TurnLimbo.Presentation
                 Sprite attack = active && actor.Skill.Kind == LegacySkillKind.Attack
                     ? mobAnimations.GetAttackUpper(actor.Skill.Property, AttackVariant(actor, hitIndex), clipTime / OriginalClipDuration) : null;
                 actor.Renderer.sprite = attack != null ? attack : mobAnimations.GetIdleUpper(idleTime);
+                return;
+            }
+            // Legacy clips: after its own frames, a defense or a finished attack still facing
+            // strikes holds the last guard frame, as does a block reaction.
+            bool guards = (actor.ReactionTime > 0f && actor.ReactionIsBlock) ||
+                (!active && (actor.Skill?.Kind == LegacySkillKind.Defence || IsHoldingExchange(actor)));
+            if (guards && actor.Clips.TryGetValue("Defense", out var defense))
+            {
+                defense.SampleAnimation(actor.Renderer.gameObject, Mathf.Max(0f, defense.length - GuardHoldOffset));
                 return;
             }
             var clipName = active ? actor.Skill.AnimationName : "Idle";

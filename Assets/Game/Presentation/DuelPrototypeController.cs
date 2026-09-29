@@ -344,12 +344,14 @@ namespace TurnLimbo.Presentation
                     PresentHit(true, hit.EnemyHealthDamage, hit.EnemyResistanceDamage,
                         hit.EnemyDisplayedDamage, hit.EnemyPushPower,
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
-                        enemyResistanceBefore > 0 && session.Enemy.Resistance <= 0);
+                        enemyResistanceBefore > 0 && session.Enemy.Resistance <= 0,
+                        Exchange(hit.EnemySkill, hit.EnemyAttacked));
                 if (hit.EnemyAttacked && !hit.PlayerDodged)
                     PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
-                        playerResistanceBefore > 0 && session.Player.Resistance <= 0);
+                        playerResistanceBefore > 0 && session.Player.Resistance <= 0,
+                        Exchange(hit.PlayerSkill, hit.PlayerAttacked));
                 // A long frame must not batch several impacts before any push
                 // has been observed, nor immediately finish the final animation.
                 if (phaseTime >= animationClipEnd)
@@ -366,13 +368,22 @@ namespace TurnLimbo.Presentation
             }
         }
 
+        // The rules resolve an attack against the target's attack skill as a resistance
+        // exchange for the whole slot, even after that skill's own hits have ended.
+        private static LegacyArenaView.HitExchange Exchange(LegacySkill targetSkill, bool targetStrikes) =>
+            targetSkill?.Kind != LegacySkillKind.Attack ? LegacyArenaView.HitExchange.None
+                : targetStrikes ? LegacyArenaView.HitExchange.MutualClash : LegacyArenaView.HitExchange.BladeBlock;
+
         private void PresentHit(bool playerAttacks, int healthDamage, int resistanceDamage,
-            int displayedDamage, int pushPower, bool guarded, bool resistanceBroke)
+            int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, LegacyArenaView.HitExchange exchange)
         {
             bool fatal = resistanceBroke || displayedDamage >= 12;
+            // A resistance-only hit displays exactly its resistance loss. Anything more reached
+            // the body, even when the health change was clamped at zero.
+            if (healthDamage > 0 || displayedDamage > resistanceDamage) exchange = LegacyArenaView.HitExchange.None;
             // Both sides of a simultaneous clash share the same real-time stop.
             hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
-            arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded, fatal, pushPower);
+            arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded, fatal, pushPower, exchange);
             if (fatal) hud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
             hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, fatal);

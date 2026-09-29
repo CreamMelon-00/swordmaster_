@@ -33,7 +33,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-04$"));
                 scope.Advance(.002f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("poses-hurt"));
+                // Both strike on this hit: the resistance clash keeps each contact frame.
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
                 Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
                 scope.Until(() => controller.IsBetweenSlots);
                 Assert.That(controller.Session.CurrentSlot, Is.Null);
@@ -70,16 +71,16 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(slot.HitsResolved, Is.EqualTo(hit));
                     scope.Advance(.002f);
                     Assert.That(slot.HitsResolved, Is.EqualTo(hit + 1));
-                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name,
-                        hit == 0 ? Does.StartWith("poses-hurt") : Does.Match("^slash(?:-[23])?-frame-05$"));
+                    // The first hit is a mutual clash and the rest land on the enemy's finished
+                    // attack, so no incoming hit interrupts the player's own strikes.
+                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
                     if (hit < 2)
                     {
-                        // The first exchange also hits the player; let its finite reaction finish.
-                        float gapTime = hit == 0 ? controller.ActiveSlotElapsedTime + LegacyArenaView.ReactionPoseDuration / 2f + .002f
-                            : clip + cycle * hit + .001f;
-                        scope.AdvanceToSlotTime(gapTime);
+                        scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
                         Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                             "The attack gap is idle time, not a stretched attack pose.");
+                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"),
+                            "The enemy's finished one-hit attack guards while the player keeps striking.");
                     }
                 }
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(997));
@@ -189,7 +190,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.CurrentSlot, Is.SameAs(slot));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("poses-hurt"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
                 Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
@@ -211,7 +212,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(999));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("poses-hurt"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
                 Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));

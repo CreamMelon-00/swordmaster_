@@ -192,6 +192,94 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator ClashesKeepStrikes_FinishedAttacksBlock_AndBodyHitsStillHurt()
+        {
+            using (var scope = new ArenaScope(new PoseRandom(1, 0)))
+            {
+                var a = scope.Arena;
+                a.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
+                Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
+                Sprite contact = a.PlayerRenderer.sprite;
+                Sprite enemyContact = a.EnemyRenderer.sprite;
+                a.PresentHit(false, 0, 3, false, false, 3, LegacyArenaView.HitExchange.MutualClash);
+                a.PresentHit(true, 0, 4, false, false, 4, LegacyArenaView.HitExchange.MutualClash);
+                Assert.That(a.PlayerRenderer.sprite, Is.SameAs(contact), "Both striking: the contact frames are the clash.");
+                Assert.That(a.EnemyRenderer.sprite, Is.SameAs(enemyContact));
+
+                Hold(a, LegacyArenaView.OriginalClipDuration + LegacyArenaView.OriginalImpactTime);
+                Assert.That(a.PlayerRenderer.sprite.name, Is.EqualTo("poses-block"));
+                a.PresentHit(false, 0, 3, false, false, 3, LegacyArenaView.HitExchange.BladeBlock);
+                Assert.That(a.PlayerRenderer.sprite.name, Is.EqualTo("poses-block-2"),
+                    "The finished attack receives a resistance-only strike on its blade.");
+                a.Tick(LegacyArenaView.ReactionPoseDuration + .01f, 0);
+                Assert.That(a.PlayerRenderer.sprite.name, Is.EqualTo("poses-block-2"),
+                    "Retain the last guard while the opponent is still striking.");
+                a.PresentHit(false, 2, 1, false, false, 3, LegacyArenaView.HitExchange.BladeBlock);
+                Assert.That(a.PlayerRenderer.sprite.name, Is.EqualTo("poses-hurt"), "Resistance overflow reaches the body.");
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator LegacyEnemyBlocksOnItsGuardFrameWithoutCosmeticDraws()
+        {
+            using (var scope = new ArenaScope(new PoseRandom()))
+            {
+                var a = scope.Arena;
+                a.BeginSlot(LegacyInitialSkills.All[2], LegacyInitialSkills.All[0]);
+                Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
+                a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.MutualClash);
+                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
+                Hold(a, LegacyArenaView.OriginalClipDuration + LegacyArenaView.OriginalImpactTime);
+                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"));
+                a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.BladeBlock);
+                a.PresentHit(true, 3, 0, false, false, 3);
+                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"),
+                    "The legacy sheet has no hurt frame; a body hit keeps the current pose.");
+
+                a.BeginSlot(LegacyInitialSkills.All[0], null);
+                Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
+                a.PresentHit(true, 0, 0, true, false, 2);
+                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"), "A guard reaction uses the guard frame.");
+                a.Tick(LegacyArenaView.ReactionPoseDuration + .01f, 0);
+                Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("pa_enemy_1_i-Sheet_"));
+
+                typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(a, new object[] { .1f, 0f });
+                a.BeginSlot(LegacyInitialSkills.All[2], LegacyInitialSkills.All[0]);
+                Hold(a, LegacyArenaView.OriginalClipDuration / .1f + .01f);
+                a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.BladeBlock);
+                a.EndTurn(); a.Tick(0, 0);
+                Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("pa_enemy_1_i-Sheet_"),
+                    "Slow playback must not carry the last block reaction into planning.");
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SuccessfulDodgeLeavesNoExchangeToGuard()
+        {
+            using (var scope = new ArenaScope())
+            {
+                var a = scope.Arena;
+                float tail = LegacyArenaView.OriginalClipDuration + LegacyArenaView.OriginalImpactTime;
+                a.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
+                a.PerformStep(LegacyStepAction.Dodge, true);
+                Hold(a, tail);
+                Assert.That(a.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
+                    "The dodge voided the opponent's remaining hits, so the finished attack has nothing to receive.");
+                a.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
+                Hold(a, tail);
+                Assert.That(a.PlayerRenderer.sprite.name, Is.EqualTo("poses-block"), "A new slot starts without the previous dodge.");
+            }
+            yield return null;
+        }
+
+        private static void Hold(LegacyArenaView arena, float elapsed) =>
+            typeof(LegacyArenaView).GetMethod("HoldSlotAtTime", BindingFlags.Instance | BindingFlags.NonPublic)
+                .Invoke(arena, new object[] { elapsed });
+
+        [UnityTest]
         public IEnumerator ArenaCameraRendersAllFourReactionPoses()
         {
             yield return null;
