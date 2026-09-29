@@ -1,0 +1,2 @@
+VERIFIED 120 frames, 14 tags; first 117 frames unchanged; original Hurt frame 118 corrected; Block-2/Hurt-2 appended.
+All three edited poses: opaque foreground, transparent background, no canvas-edge clipping.

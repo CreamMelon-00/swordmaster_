@@ -18,7 +18,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new EnemyStudentAnimationSet())
             {
                 Assert.That(set.HasRequiredAssets, Is.True, string.Join(", ", set.MissingResources));
-                Assert.That(set.LoadedSpriteCount, Is.EqualTo(118));
+                Assert.That(set.LoadedSpriteCount, Is.EqualTo(120));
                 Assert.That(set.GetIdle(0).name, Is.EqualTo("enemy-idle-frame-01"));
                 Assert.That(set.GetIdle(.181f).name, Is.EqualTo("enemy-idle-frame-02"));
                 Assert.That(set.GetIdle(1.26f), Is.SameAs(set.GetIdle(0)));

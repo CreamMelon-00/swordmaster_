@@ -20,7 +20,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new EnemyStudentAnimationSet())
             {
                 Assert.That(set.HasRequiredAssets, Is.True, string.Join(", ", set.MissingResources));
-                Assert.That(set.LoadedSpriteCount, Is.EqualTo(118));
+                Assert.That(set.LoadedSpriteCount, Is.EqualTo(120));
                 Assert.That(set.GetHurt().name, Is.EqualTo("enemy-poses-hurt"));
                 var textures = new System.Collections.Generic.HashSet<Texture2D>();
                 foreach (var type in Types) for (int variant = 0; variant < 3; variant++)
@@ -158,9 +158,10 @@ namespace TurnLimbo.Presentation.Tests
         {
             private readonly GameObject host=new GameObject("Enemy variant test");private readonly LegacyDuelArt art=new LegacyDuelArt();
             public LegacyArenaView Arena{get;}
-            public Scope(System.Random enemy,System.Random player=null){Arena=LegacyArenaView.Create(host.transform,art,null,null,player,enemy);}
+            public Scope(System.Random enemy,System.Random player=null){Arena=LegacyArenaView.Create(host.transform,art,null,null,player,enemy,new FirstReaction());}
             public void Dispose(){Arena.Dispose();art.Dispose();Object.Destroy(host);}
         }
+        private sealed class FirstReaction : System.Random { public override int Next(int maxValue) => 0; }
         private sealed class Choices:System.Random
         {
             private readonly int[] values;public int Calls{get;private set;}

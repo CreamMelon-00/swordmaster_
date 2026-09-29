@@ -1,0 +1,25 @@
+Frame 1
+y 65..119 body width 55; pixels 1996
+y 120..145 body width 49; pixels 970
+y 146..166 body width 61; pixels 959
+y 167..201 body width 105; pixels 628
+Frame 45
+y 65..119 body width 54; pixels 1804
+y 120..145 body width 46; pixels 904
+y 146..166 body width 60; pixels 838
+y 167..201 body width 97; pixels 643
+Frame 118
+y 65..119 body width 53; pixels 1582
+y 120..145 body width 46; pixels 801
+y 146..166 body width 55; pixels 832
+y 167..201 body width 63; pixels 475
+Frame 119
+y 65..119 body width 73; pixels 1462
+y 120..145 body width 51; pixels 984
+y 146..166 body width 58; pixels 907
+y 167..201 body width 104; pixels 698
+Frame 120
+y 65..119 body width 54; pixels 1670
+y 120..145 body width 68; pixels 968
+y 146..166 body width 50; pixels 746
+y 167..201 body width 78; pixels 437

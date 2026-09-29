@@ -1,0 +1,272 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="33" result="Passed" total="33" passed="33" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:46Z" duration="1.1412566">
+  <test-suite type="TestSuite" id="1341" name="Turn_Limbo_Next" fullname="Turn_Limbo_Next" runstate="Runnable" testcasecount="283" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:46Z" duration="1.141257" total="33" passed="33" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1334" name="TurnLimbo.Presentation.Tests.dll" fullname="C:/Users/user/Documents/SwordMasterStory/UnityIntegration/ValidationProject/Library/ScriptAssemblies/TurnLimbo.Presentation.Tests.dll" runstate="Runnable" testcasecount="283" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:46Z" duration="1.135170" total="33" passed="33" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="28196" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1335" name="TurnLimbo" fullname="TurnLimbo" runstate="Runnable" testcasecount="283" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:46Z" duration="1.133863" total="33" passed="33" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1336" name="Presentation" fullname="TurnLimbo.Presentation" runstate="Runnable" testcasecount="283" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:46Z" duration="1.132562" total="33" passed="33" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1337" name="Tests" fullname="TurnLimbo.Presentation.Tests" runstate="Runnable" testcasecount="283" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:46Z" duration="1.131328" total="33" passed="33" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1052" name="CombatTempoPlayModeTests" fullname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" classname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.305360" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1055" name="EditingTempoDuringSlot_AppliesOnlyToTheNextSkill" fullname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.EditingTempoDuringSlot_AppliesOnlyToTheNextSkill" methodname="EditingTempoDuringSlot_AppliesOnlyToTheNextSkill" classname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" runstate="Runnable" seed="1410716663" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.158679" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1056" name="HitStop_ConsumesRealTimeExactly_AndSimultaneousHitsDoNotStack" fullname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.HitStop_ConsumesRealTimeExactly_AndSimultaneousHitsDoNotStack" methodname="HitStop_ConsumesRealTimeExactly_AndSimultaneousHitsDoNotStack" classname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" runstate="Runnable" seed="385312316" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.019747" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1058" name="LongFrame_DoesNotBatchMultiHitsOrSkipTheFinalPose" fullname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.LongFrame_DoesNotBatchMultiHitsOrSkipTheFinalPose" methodname="LongFrame_DoesNotBatchMultiHitsOrSkipTheFinalPose" classname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" runstate="Runnable" seed="286933116" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.012326" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1054" name="MultiHit_UsesPlaybackAndAttackGap_ReturnsToIdle_AndFinishesAfterLastClip" fullname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.MultiHit_UsesPlaybackAndAttackGap_ReturnsToIdle_AndFinishesAfterLastClip" methodname="MultiHit_UsesPlaybackAndAttackGap_ReturnsToIdle_AndFinishesAfterLastClip" classname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" runstate="Runnable" seed="59618380" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.033221" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1057" name="Restart_ClearsHitStopAndSkillGap_AndRestoresPlanningImmediately" fullname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.Restart_ClearsHitStopAndSkillGap_AndRestoresPlanningImmediately" methodname="Restart_ClearsHitStopAndSkillGap_AndRestoresPlanningImmediately" classname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" runstate="Runnable" seed="218528244" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.030348" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1059" name="ShortFrameOvershootIntoGap_HoldsTheActualImpactPose" fullname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.ShortFrameOvershootIntoGap_HoldsTheActualImpactPose" methodname="ShortFrameOvershootIntoGap_HoldsTheActualImpactPose" classname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" runstate="Runnable" seed="1448086165" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.010931" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1053" name="SlowPlayback_MovesImpactWithItsPose_AndWaitsBetweenSkills" fullname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.SlowPlayback_MovesImpactWithItsPose_AndWaitsBetweenSkills" methodname="SlowPlayback_MovesImpactWithItsPose_AndWaitsBetweenSkills" classname="TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests" runstate="Runnable" seed="642069567" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.026868" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1115" name="EnemyReactionPlayModeTests" fullname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests" classname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.586128" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1118" name="BladeBlocksBodyDamageFatalHitsAndSlowClockUseTheCorrectReaction" fullname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.BladeBlocksBodyDamageFatalHitsAndSlowClockUseTheCorrectReaction" methodname="BladeBlocksBodyDamageFatalHitsAndSlowClockUseTheCorrectReaction" classname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests" runstate="Runnable" seed="1278770295" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.012837" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1119" name="CameraRendersBothGuardsAndBothHurtPosesBesidePlayer" fullname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.CameraRendersBothGuardsAndBothHurtPosesBesidePlayer" methodname="CameraRendersBothGuardsAndBothHurtPosesBesidePlayer" classname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests" runstate="Runnable" seed="355205111" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.551578" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1117" name="EveryIncomingHitAndGuardDrawsOnceIncludingRepeatedChoices" fullname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.EveryIncomingHitAndGuardDrawsOnceIncludingRepeatedChoices" methodname="EveryIncomingHitAndGuardDrawsOnceIncludingRepeatedChoices" classname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests" runstate="Runnable" seed="902557189" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.015154" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1116" name="FourDistinctReactionAssetsShareDimensionsPaletteImportAndGroundOrigin" fullname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.FourDistinctReactionAssetsShareDimensionsPaletteImportAndGroundOrigin" methodname="FourDistinctReactionAssetsShareDimensionsPaletteImportAndGroundOrigin" classname="TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests" runstate="Runnable" seed="546389592" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.003775" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1120" name="EnemyStudentAnimationPlayModeTests" fullname="TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests" classname="TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.033621" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1123" name="CameraRendersNewEnemyIdleAllAttacksAndGuardBesidePlayer" fullname="TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.CameraRendersNewEnemyIdleAllAttacksAndGuardBesidePlayer" methodname="CameraRendersNewEnemyIdleAllAttacksAndGuardBesidePlayer" classname="TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests" runstate="Runnable" seed="384216429" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.021494" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1121" name="CompleteAssetsHaveSharedDimensionsPivotAndImpactPhase" fullname="TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.CompleteAssetsHaveSharedDimensionsPivotAndImpactPhase" methodname="CompleteAssetsHaveSharedDimensionsPivotAndImpactPhase" classname="TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests" runstate="Runnable" seed="1842544307" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.002800" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1122" name="EnemyRepeatsContactsOnEachHitAndHoldsOnStoppedClock" fullname="TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.EnemyRepeatsContactsOnEachHitAndHoldsOnStoppedClock" methodname="EnemyRepeatsContactsOnEachHitAndHoldsOnStoppedClock" classname="TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests" runstate="Runnable" seed="2093001358" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:45Z" duration="0.007674" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1124" name="EnemyVariantsPlayModeTests" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:46Z" duration="0.063279" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1128" name="CameraRendersAllNineEnemyContactsAndHurt" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.CameraRendersAllNineEnemyContactsAndHurt" methodname="CameraRendersAllNineEnemyContactsAndHurt" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" seed="1415346407" result="Passed" start-time="2026-09-29 14:18:45Z" end-time="2026-09-29 14:18:46Z" duration="0.039830" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1126" name="EveryEnemyHitDrawsOnceAndRetainsItsVariantAcrossHoldsRewindsAndReactions" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.EveryEnemyHitDrawsOnceAndRetainsItsVariantAcrossHoldsRewindsAndReactions" methodname="EveryEnemyHitDrawsOnceAndRetainsItsVariantAcrossHoldsRewindsAndReactions" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" seed="815792025" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.009250" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1125" name="NineMotionsHaveDistinctContactArtAndTheSameImpactPhase" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.NineMotionsHaveDistinctContactArtAndTheSameImpactPhase" methodname="NineMotionsHaveDistinctContactArtAndTheSameImpactPhase" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" seed="1426334037" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.001736" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1127" name="PlayerAndEnemyDrawFromIndependentStreamsAndBodyDamageOverridesGuard" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.PlayerAndEnemyDrawFromIndependentStreamsAndBodyDamageOverridesGuard" methodname="PlayerAndEnemyDrawFromIndependentStreamsAndBodyDamageOverridesGuard" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" seed="505602080" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.010146" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1152" name="LegacyAnimationPlayModeTests" fullname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests" classname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.020172" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1155" name="Animation_UsesScaledClock_AndResetRestoresIdleInsteadOfLeavingAttackPose" fullname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.Animation_UsesScaledClock_AndResetRestoresIdleInsteadOfLeavingAttackPose" methodname="Animation_UsesScaledClock_AndResetRestoresIdleInsteadOfLeavingAttackPose" classname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests" runstate="Runnable" seed="1018752002" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.003290" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1154" name="EveryOriginalSkill_ChangesPoseAtImpact_AndRepeatsEveryHitForBothActors" fullname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.EveryOriginalSkill_ChangesPoseAtImpact_AndRepeatsEveryHitForBothActors" methodname="EveryOriginalSkill_ChangesPoseAtImpact_AndRepeatsEveryHitForBothActors" classname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests" runstate="Runnable" seed="979059348" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.007110" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1153" name="Idle_AdvancesBothRemadeActorLoops" fullname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.Idle_AdvancesBothRemadeActorLoops" methodname="Idle_AdvancesBothRemadeActorLoops" classname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests" runstate="Runnable" seed="1492737041" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.003829" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1156" name="UnequalAttackCounts_FinishedAttackGuardsUntilTheOpponentFinishes" fullname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.UnequalAttackCounts_FinishedAttackGuardsUntilTheOpponentFinishes" methodname="UnequalAttackCounts_FinishedAttackGuardsUntilTheOpponentFinishes" classname="TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests" runstate="Runnable" seed="2125719989" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.003798" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1313" name="SwordGirlReactionPlayModeTests" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" testcasecount="11" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.106062" total="11" passed="11" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1324" name="ArenaCameraRendersAllFourReactionPoses" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.ArenaCameraRendersAllFourReactionPoses" methodname="ArenaCameraRendersAllFourReactionPoses" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="1821919564" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.025257" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1321" name="ClashesKeepStrikes_FinishedAttacksBlock_AndBodyHitsStillHurt" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.ClashesKeepStrikes_FinishedAttacksBlock_AndBodyHitsStillHurt" methodname="ClashesKeepStrikes_FinishedAttacksBlock_AndBodyHitsStillHurt" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="1456916874" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.009121" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1315" name="DefenseHoldsBetweenEnemyHitsAndEndsWithItsSlot" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.DefenseHoldsBetweenEnemyHitsAndEndsWithItsSlot" methodname="DefenseHoldsBetweenEnemyHitsAndEndsWithItsSlot" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="1134537917" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.006570" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1316" name="EnemyDamageReactsImmediatelyFreezesInHitStopAndRecovers" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.EnemyDamageReactsImmediatelyFreezesInHitStopAndRecovers" methodname="EnemyDamageReactsImmediatelyFreezesInHitStopAndRecovers" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="410114801" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.007123" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1320" name="EveryIncomingHitAndGuardDrawsAgainButSamplingNeverRerolls" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.EveryIncomingHitAndGuardDrawsAgainButSamplingNeverRerolls" methodname="EveryIncomingHitAndGuardDrawsAgainButSamplingNeverRerolls" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="471829762" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.010459" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1318" name="OwnAttackAndZeroDamageDoNotHurtPlayer_RepeatedHitsRefreshReaction" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.OwnAttackAndZeroDamageDoNotHurtPlayer_RepeatedHitsRefreshReaction" methodname="OwnAttackAndZeroDamageDoNotHurtPlayer_RepeatedHitsRefreshReaction" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="1484218790" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.009814" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1322" name="RemadeEnemyReactsWithoutConsumingPlayerCosmeticDraws" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.RemadeEnemyReactsWithoutConsumingPlayerCosmeticDraws" methodname="RemadeEnemyReactsWithoutConsumingPlayerCosmeticDraws" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="1062594999" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.008681" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1319" name="SlowPlaybackScalesReactionWithoutChangingGlobalTime" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.SlowPlaybackScalesReactionWithoutChangingGlobalTime" methodname="SlowPlaybackScalesReactionWithoutChangingGlobalTime" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="1471981846" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.007350" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1314" name="StaticPosesShareImportSettingsAndRuntimeGroundOrigin" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.StaticPosesShareImportSettingsAndRuntimeGroundOrigin" methodname="StaticPosesShareImportSettingsAndRuntimeGroundOrigin" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="481556398" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.001918" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1323" name="SuccessfulDodgeLeavesNoExchangeToGuard" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.SuccessfulDodgeLeavesNoExchangeToGuard" methodname="SuccessfulDodgeLeavesNoExchangeToGuard" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="313759147" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.008007" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1317" name="SuccessfulGuardBlocksButHpPenetrationAndGuardBreakHurt" fullname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests.SuccessfulGuardBlocksButHpPenetrationAndGuardBreakHurt" methodname="SuccessfulGuardBlocksButHpPenetrationAndGuardBreakHurt" classname="TurnLimbo.Presentation.Tests.SwordGirlReactionPlayModeTests" runstate="Runnable" seed="1162580154" result="Passed" start-time="2026-09-29 14:18:46Z" end-time="2026-09-29 14:18:46Z" duration="0.007664" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/Turn_Limbo_Next\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

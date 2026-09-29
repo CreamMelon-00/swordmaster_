@@ -10,15 +10,16 @@ namespace TurnLimbo.Presentation
     public sealed class EnemyStudentAnimationSet : IDisposable
     {
         public const string ResourceRoot = "EnemyStudent/Animations/";
-        public const int RequiredSpriteCount = 118;
+        public const int RequiredSpriteCount = 120;
         public const int AttackVariationCount = 3;
+        public const int ReactionVariationCount = 2;
         private static readonly int[] IdleDurations = { 180, 140, 160, 140, 160, 140, 160, 180 };
         private static readonly int[] AttackDurations = { 140, 100, 120, 60, 70, 90, 70, 100, 90, 90, 130, 200 };
         private readonly Dictionary<string, Sprite[]> clips = new Dictionary<string, Sprite[]>();
         private readonly List<Sprite> owned = new List<Sprite>();
         private readonly List<string> missing = new List<string>();
-        private readonly Sprite guard;
-        private readonly Sprite hurt;
+        private readonly Sprite[] guards = new Sprite[ReactionVariationCount];
+        private readonly Sprite[] hurts = new Sprite[ReactionVariationCount];
         private bool disposed;
         public bool HasRequiredAssets => !disposed && missing.Count == 0 && owned.Count == RequiredSpriteCount;
         public IReadOnlyList<string> MissingResources => missing;
@@ -32,12 +33,16 @@ namespace TurnLimbo.Presentation
                 for (int i = 0; i < frames.Length; i++) frames[i] = Load(key + "/frame-" + (i + 1).ToString("00"));
                 clips.Add(key, frames);
             }
-            guard = Load("poses/block");
-            hurt = Load("poses/hurt");
+            for (int i = 0; i < ReactionVariationCount; i++)
+            {
+                string suffix = i == 0 ? string.Empty : "-" + (i + 1);
+                guards[i] = Load("poses/block" + suffix);
+                hurts[i] = Load("poses/hurt" + suffix);
+            }
         }
 
-        public Sprite GetGuard() => disposed ? null : guard;
-        public Sprite GetHurt() => disposed ? null : hurt;
+        public Sprite GetGuard(int variantIndex = 0) => disposed ? null : guards[Mathf.Max(0, variantIndex) % ReactionVariationCount];
+        public Sprite GetHurt(int variantIndex = 0) => disposed ? null : hurts[Mathf.Max(0, variantIndex) % ReactionVariationCount];
         public Sprite GetIdle(float time) => disposed ? null : Sample(clips["idle"], IdleDurations, Mathf.Max(0f, time) % 1.26f);
         public Sprite GetAttack(LegacySkillProperty property, float phase, int variantIndex = 0)
         {

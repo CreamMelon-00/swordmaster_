@@ -221,7 +221,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator RemadeEnemyBlocksOnItsGuardPoseWithoutCosmeticDraws()
+        public IEnumerator RemadeEnemyReactsWithoutConsumingPlayerCosmeticDraws()
         {
             using (var scope = new ArenaScope(new PoseRandom()))
             {
@@ -231,16 +231,16 @@ namespace TurnLimbo.Presentation.Tests
                 a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.MutualClash);
                 Assert.That(a.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
                 Hold(a, LegacyArenaView.OriginalClipDuration + LegacyArenaView.OriginalImpactTime);
-                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"));
+                Assert.That(a.EnemyRenderer.sprite.name, Does.Match("^enemy-poses-block(?:-2)?$"));
                 a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.BladeBlock);
                 a.PresentHit(true, 3, 0, false, false, 3);
-                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-hurt"),
+                Assert.That(a.EnemyRenderer.sprite.name, Does.Match("^enemy-poses-hurt(?:-2)?$"),
                     "HP damage now displays the enemy hurt pose.");
 
                 a.BeginSlot(LegacyInitialSkills.All[0], null);
                 Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
                 a.PresentHit(true, 0, 0, true, false, 2);
-                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"), "A guard reaction uses the guard frame.");
+                Assert.That(a.EnemyRenderer.sprite.name, Does.Match("^enemy-poses-block(?:-2)?$"), "A guard reaction uses the guard frame.");
                 a.Tick(LegacyArenaView.ReactionPoseDuration + .01f, 0);
                 Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
 

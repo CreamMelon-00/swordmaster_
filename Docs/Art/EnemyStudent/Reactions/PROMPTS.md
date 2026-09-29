@@ -1,0 +1,13 @@
+# Enemy reaction variants — generation prompts
+
+Mode: built-in image_gen; final sprite extraction, palette mapping, sword reconstruction and native assembly in Aseprite Lua.
+
+## Block-2
+Use case: stylized-concept. Create ONE new full-body game sprite pose of the exact auburn bob-haired school-uniform swordswoman in reference 1. Reference 2 is the existing straight-up guard pose: create a distinctly different DIAGONAL HIGH GUARD, facing LEFT, braced knees with equal planted foot baseline, torso slightly crouched, both hands gripping one single straight dark violet longsword in front of chest. Blade points upper LEFT diagonally, held between character and incoming attack from left. Same head size/proportions, green hair bow on right, green eye, brown blazer with thin gold trim, gold ribbon white collar, pleated brown skirt, black knee socks brown loafers. Match fine crisp low-resolution pixel art clusters and limited color shading of reference 1. No armor, no extra weapon, no effects, no shadows or ground, no lettering. Exact sword construction: straight grip through BOTH grasping hands, pommel at lower-right end of grip, crossguard perpendicular, blade continues along the same single straight axis toward upper left. Full character and entire sword visible with generous transparent margins. ONE pose only. Transparent background.
+
+## Hurt-2
+Use case: stylized-concept. ONE full-body pixel-art game sprite of the exact auburn bob-haired school-uniform swordswoman from reference 1, in a NEW HURT REACTION pose. Reference 2 shows existing abdomen clutch bent forward; make this new pose clearly different: torso and head flinch BACK toward the RIGHT after an attack from LEFT, eyes tightly closed in pain, chin slightly raised; left/front arm lifted near upper chest protectively, sword hand extended down-left with a single straight dark violet longsword pointing down-left. Bent knees keep both feet grounded at same baseline, no falling over. Character still faces LEFT, never rear view. Same fine crisp pixel cluster style, same head proportions, auburn bob, green bow, brown blazer thin gold trim, white collar gold ribbon, pleated brown skirt, black knee socks brown loafers. No armor, no blood, no hit effects, no scene, no ground shadow, no lettering. Sword grip and blade absolutely COLLINEAR: one straight axis through pommel, fist, perpendicular crossguard, blade tip. Entire body and entire sword inside image with generous margins. ONE pose only on transparent background.
+
+## Existing Hurt correction
+No regeneration. Reprocessed its original source in Aseprite with head width 56 px, head height 44 px, top y=73, gradual additional body width factor 1.05, grounded y=201; rebuilt sword along one rigid grip/blade axis.
+

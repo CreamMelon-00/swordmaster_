@@ -79,7 +79,7 @@ namespace TurnLimbo.Presentation.Tests
                         scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
                         Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                             "The attack gap is idle time, not a stretched attack pose.");
-                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"),
+                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match("^enemy-poses-block(?:-2)?$"),
                             "The enemy's finished one-hit attack guards while the player keeps striking.");
                     }
                 }

@@ -55,6 +55,7 @@ namespace TurnLimbo.Presentation
         private readonly System.Random reactionPoseRandom;
         private readonly System.Random attackPoseRandom;
         private readonly System.Random enemyAttackPoseRandom;
+        private readonly System.Random enemyReactionPoseRandom;
         private readonly GameObject effectPrefab;
         private readonly List<ImpactEffect> effects = new List<ImpactEffect>(MaximumEffects);
         private readonly Material spriteMaterial;
@@ -152,16 +153,19 @@ namespace TurnLimbo.Presentation
         public Vector2 EnemyScreenAnchor => ScreenAnchor(enemy.Renderer.transform.position + Vector3.up * 2f);
 
         public static LegacyArenaView Create(Transform parent, LegacyDuelArt art, DuelPresentationSettings settings = null,
-            System.Random reactionPoseRandom = null, System.Random attackPoseRandom = null, System.Random enemyAttackPoseRandom = null) =>
-            new LegacyArenaView(parent, art, settings, reactionPoseRandom, attackPoseRandom, enemyAttackPoseRandom);
+            System.Random reactionPoseRandom = null, System.Random attackPoseRandom = null, System.Random enemyAttackPoseRandom = null,
+            System.Random enemyReactionPoseRandom = null) =>
+            new LegacyArenaView(parent, art, settings, reactionPoseRandom, attackPoseRandom, enemyAttackPoseRandom, enemyReactionPoseRandom);
 
         private LegacyArenaView(Transform parent, LegacyDuelArt art, DuelPresentationSettings settings,
-            System.Random reactionPoseRandom, System.Random attackPoseRandom, System.Random enemyAttackPoseRandom)
+            System.Random reactionPoseRandom, System.Random attackPoseRandom, System.Random enemyAttackPoseRandom,
+            System.Random enemyReactionPoseRandom)
         {
             // Cosmetic rolls must not consume the combat/global Unity random stream.
             this.reactionPoseRandom = reactionPoseRandom ?? new System.Random();
             this.attackPoseRandom = attackPoseRandom ?? new System.Random();
             this.enemyAttackPoseRandom = enemyAttackPoseRandom ?? new System.Random();
+            this.enemyReactionPoseRandom = enemyReactionPoseRandom ?? new System.Random();
             this.art = art ?? throw new ArgumentNullException(nameof(art));
             this.settings = settings != null ? settings : Resources.Load<DuelPresentationSettings>("DuelPresentationSettings");
             if (this.settings == null)
@@ -338,7 +342,7 @@ namespace TurnLimbo.Presentation
             player.Skill = playerSkill;
             enemy.Skill = enemySkill;
             player.ReactionTime = enemy.ReactionTime = 0f;
-            player.GuardVariant = 0;
+            player.GuardVariant = enemy.GuardVariant = 0;
             player.AttackVariants.Clear();
             enemy.AttackVariants.Clear();
             player.AnimationTime = enemy.AnimationTime = 0f;
@@ -524,6 +528,9 @@ namespace TurnLimbo.Presentation
             {
                 // HP damage/broken guard recoils; successful guards and blade blocks use the guard.
                 enemy.ReactionIsBlock = blocks;
+                // Draw once per incoming impact; sampling and hit stop retain that selection.
+                enemy.ReactionVariant = enemyReactionPoseRandom.Next(EnemyStudentAnimationSet.ReactionVariationCount);
+                if (enemy.ReactionIsBlock) enemy.GuardVariant = enemy.ReactionVariant;
                 enemy.ReactionTime = ReactionPoseDuration;
                 SampleActor(enemy);
             }
@@ -813,7 +820,8 @@ namespace TurnLimbo.Presentation
             {
                 if (actor.ReactionTime > 0f)
                 {
-                    actor.Renderer.sprite = actor.ReactionIsBlock ? enemyAnimations.GetGuard() : enemyAnimations.GetHurt();
+                    actor.Renderer.sprite = actor.ReactionIsBlock ? enemyAnimations.GetGuard(actor.ReactionVariant)
+                        : enemyAnimations.GetHurt(actor.ReactionVariant);
                     return;
                 }
                 bool guard = actor.Skill?.Kind == LegacySkillKind.Defence || IsHoldingExchange(actor);
@@ -821,7 +829,7 @@ namespace TurnLimbo.Presentation
                 int hitIndex = Mathf.FloorToInt(actor.AnimationTime / cycle);
                 Sprite attack = !guard && active && actor.Skill.Kind == LegacySkillKind.Attack
                     ? enemyAnimations.GetAttack(actor.Skill.Property, clipTime / OriginalClipDuration, AttackVariant(actor, hitIndex)) : null;
-                actor.Renderer.sprite = guard ? enemyAnimations.GetGuard()
+                actor.Renderer.sprite = guard ? enemyAnimations.GetGuard(actor.GuardVariant)
                     : attack != null ? attack : enemyAnimations.GetIdle(idleTime);
                 return;
             }
