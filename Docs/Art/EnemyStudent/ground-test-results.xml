@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-29 13:17:28Z" end-time="2026-09-29 13:17:29Z" duration="0.0577268">
+  <test-suite type="TestSuite" id="1331" name="Turn_Limbo_Next" fullname="Turn_Limbo_Next" runstate="Runnable" testcasecount="275" result="Passed" start-time="2026-09-29 13:17:28Z" end-time="2026-09-29 13:17:29Z" duration="0.057727" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1324" name="TurnLimbo.Presentation.Tests.dll" fullname="C:/Users/user/Documents/SwordMasterStory/UnityIntegration/ValidationProject/Library/ScriptAssemblies/TurnLimbo.Presentation.Tests.dll" runstate="Runnable" testcasecount="275" result="Passed" start-time="2026-09-29 13:17:28Z" end-time="2026-09-29 13:17:29Z" duration="0.051849" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="19128" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1325" name="TurnLimbo" fullname="TurnLimbo" runstate="Runnable" testcasecount="275" result="Passed" start-time="2026-09-29 13:17:28Z" end-time="2026-09-29 13:17:29Z" duration="0.050551" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1326" name="Presentation" fullname="TurnLimbo.Presentation" runstate="Runnable" testcasecount="275" result="Passed" start-time="2026-09-29 13:17:28Z" end-time="2026-09-29 13:17:29Z" duration="0.049652" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1327" name="Tests" fullname="TurnLimbo.Presentation.Tests" runstate="Runnable" testcasecount="275" result="Passed" start-time="2026-09-29 13:17:28Z" end-time="2026-09-29 13:17:29Z" duration="0.048700" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1127" name="ForestDuelPlayModeTests" fullname="TurnLimbo.Presentation.Tests.ForestDuelPlayModeTests" classname="TurnLimbo.Presentation.Tests.ForestDuelPlayModeTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-29 13:17:28Z" end-time="2026-09-29 13:17:29Z" duration="0.044621" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1134" name="BeltForest_ReducesLayerGeometry_AndKeepsActorFeetInsideTheGroundBand" fullname="TurnLimbo.Presentation.Tests.ForestDuelPlayModeTests.BeltForest_ReducesLayerGeometry_AndKeepsActorFeetInsideTheGroundBand" methodname="BeltForest_ReducesLayerGeometry_AndKeepsActorFeetInsideTheGroundBand" classname="TurnLimbo.Presentation.Tests.ForestDuelPlayModeTests" runstate="Runnable" seed="72177955" result="Passed" start-time="2026-09-29 13:17:28Z" end-time="2026-09-29 13:17:29Z" duration="0.035111" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/Turn_Limbo_Next\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

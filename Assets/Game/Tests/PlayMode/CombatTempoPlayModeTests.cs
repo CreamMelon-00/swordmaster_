@@ -35,7 +35,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 // Both strike on this hit: the resistance clash keeps each contact frame.
                 Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
-                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
                 scope.Until(() => controller.IsBetweenSlots);
                 Assert.That(controller.Session.CurrentSlot, Is.Null);
                 Assert.That(controller.Session.LastResolvedSlot, Is.Zero);
@@ -79,7 +79,7 @@ namespace TurnLimbo.Presentation.Tests
                         scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
                         Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                             "The attack gap is idle time, not a stretched attack pose.");
-                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"),
+                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"),
                             "The enemy's finished one-hit attack guards while the player keeps striking.");
                     }
                 }
@@ -191,7 +191,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Session.CurrentSlot, Is.SameAs(slot));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
                 Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
-                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }
@@ -213,7 +213,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(999));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
                 Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
-                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }

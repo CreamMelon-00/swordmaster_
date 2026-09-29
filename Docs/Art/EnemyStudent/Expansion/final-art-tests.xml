@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Passed" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-29 13:46:09Z" end-time="2026-09-29 13:46:10Z" duration="0.9712839">
+  <test-suite type="TestSuite" id="1336" name="Turn_Limbo_Next" fullname="Turn_Limbo_Next" runstate="Runnable" testcasecount="279" result="Passed" start-time="2026-09-29 13:46:09Z" end-time="2026-09-29 13:46:10Z" duration="0.971284" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1329" name="TurnLimbo.Presentation.Tests.dll" fullname="C:/Users/user/Documents/SwordMasterStory/UnityIntegration/ValidationProject/Library/ScriptAssemblies/TurnLimbo.Presentation.Tests.dll" runstate="Runnable" testcasecount="279" result="Passed" start-time="2026-09-29 13:46:09Z" end-time="2026-09-29 13:46:10Z" duration="0.964680" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="22920" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1330" name="TurnLimbo" fullname="TurnLimbo" runstate="Runnable" testcasecount="279" result="Passed" start-time="2026-09-29 13:46:09Z" end-time="2026-09-29 13:46:10Z" duration="0.963344" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1331" name="Presentation" fullname="TurnLimbo.Presentation" runstate="Runnable" testcasecount="279" result="Passed" start-time="2026-09-29 13:46:09Z" end-time="2026-09-29 13:46:10Z" duration="0.961628" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1332" name="Tests" fullname="TurnLimbo.Presentation.Tests" runstate="Runnable" testcasecount="279" result="Passed" start-time="2026-09-29 13:46:09Z" end-time="2026-09-29 13:46:10Z" duration="0.960699" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1119" name="EnemyVariantsPlayModeTests" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-09-29 13:46:09Z" end-time="2026-09-29 13:46:10Z" duration="0.956462" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1123" name="CameraRendersAllNineEnemyContactsAndHurt" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.CameraRendersAllNineEnemyContactsAndHurt" methodname="CameraRendersAllNineEnemyContactsAndHurt" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" seed="275698926" result="Passed" start-time="2026-09-29 13:46:09Z" end-time="2026-09-29 13:46:10Z" duration="0.917851" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1121" name="EveryEnemyHitDrawsOnceAndRetainsItsVariantAcrossHoldsRewindsAndReactions" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.EveryEnemyHitDrawsOnceAndRetainsItsVariantAcrossHoldsRewindsAndReactions" methodname="EveryEnemyHitDrawsOnceAndRetainsItsVariantAcrossHoldsRewindsAndReactions" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" seed="587196329" result="Passed" start-time="2026-09-29 13:46:10Z" end-time="2026-09-29 13:46:10Z" duration="0.011378" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1120" name="NineMotionsHaveDistinctContactArtAndTheSameImpactPhase" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.NineMotionsHaveDistinctContactArtAndTheSameImpactPhase" methodname="NineMotionsHaveDistinctContactArtAndTheSameImpactPhase" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" seed="184609365" result="Passed" start-time="2026-09-29 13:46:10Z" end-time="2026-09-29 13:46:10Z" duration="0.004647" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1122" name="PlayerAndEnemyDrawFromIndependentStreamsAndBodyDamageOverridesGuard" fullname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.PlayerAndEnemyDrawFromIndependentStreamsAndBodyDamageOverridesGuard" methodname="PlayerAndEnemyDrawFromIndependentStreamsAndBodyDamageOverridesGuard" classname="TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests" runstate="Runnable" seed="1322548162" result="Passed" start-time="2026-09-29 13:46:10Z" end-time="2026-09-29 13:46:10Z" duration="0.011080" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/Turn_Limbo_Next\TestResults.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

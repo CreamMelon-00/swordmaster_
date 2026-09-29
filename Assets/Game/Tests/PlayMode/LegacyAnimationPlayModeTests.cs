@@ -9,7 +9,7 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class LegacyAnimationPlayModeTests
     {
         [UnityTest]
-        public IEnumerator Idle_AdvancesNewPlayerLoop_AndPreservesAllOriginalEnemyFrames()
+        public IEnumerator Idle_AdvancesBothRemadeActorLoops()
         {
             yield return null;
             var controller = FindPrototype();
@@ -54,7 +54,7 @@ namespace TurnLimbo.Presentation.Tests
                         skill.Kind == LegacySkillKind.Defence ? "poses-block" : "idle-frame-"));
                     // Like the player, an enemy defense stays in its guard after its own frames.
                     Assert.That(arena.EnemyRenderer.sprite.name, skill.Kind == LegacySkillKind.Defence
-                        ? Is.EqualTo("pa_enemy_1_g-Sheet_1") : Does.StartWith("pa_enemy_1_i-Sheet_"));
+                        ? Is.EqualTo("enemy-poses-block") : Does.StartWith("enemy-idle-frame-"));
                 }
             }
             finally { controller.RestartMatch(); controller.enabled = true; }
@@ -99,27 +99,27 @@ namespace TurnLimbo.Presentation.Tests
                 arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
                 arena.Tick(LegacyArenaView.OriginalImpactTime - .001f, 0);
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-04$"));
-                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_st-Sheet_0"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.Match("^enemy-pierce(?:-[23])?-frame-04$"));
                 arena.Tick(.002f, 0);
                 AssertFrame(arena, "pa_player_slash-Sheet", "pa_enemy_1_st-Sheet", 1);
                 arena.Tick(LegacyArenaView.OriginalImpactTime, 0);
                 // The rules still trade resistance with the finished one-hit attack, so it guards, not idles.
                 Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("poses-block"));
-                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_st-Sheet_0"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.Match("^enemy-pierce(?:-[23])?-frame-01$"));
                 arena.Tick(LegacyArenaView.OriginalImpactTime, 0);
                 Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("poses-block"));
-                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_st-Sheet_1"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.Match("^enemy-pierce(?:-[23])?-frame-05$"));
                 arena.Tick(.26f, 0);
-                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("pa_enemy_1_i-Sheet_"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                     "Once the opponent's strikes end, the exchange is over.");
 
                 arena.BeginSlot(LegacyInitialSkills.All[2], LegacyInitialSkills.All[0]);
                 arena.Tick(LegacyArenaView.OriginalClipDuration + .001f, 0);
-                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"),
-                    "The legacy enemy's finished attack holds its guard frame the same way.");
+                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"),
+                    "The remade enemy holds its guard after a finished attack.");
                 arena.Tick(LegacyArenaView.OriginalClipDuration * 2f, 0);
-                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("pa_enemy_1_i-Sheet_"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
             }
             finally { controller.RestartMatch(); controller.enabled = true; }
         }
@@ -151,7 +151,17 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.PlayerRenderer.sprite.name,
                     Does.Match("^" + type + "(?:-[23])?-frame-" + (frame == 0 ? "01" : "05") + "$"));
             }
-            Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo(enemySheet + "_" + frame));
+            if (enemySheet == "pa_enemy_1_i-Sheet")
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
+            else if (enemySheet == "pa_enemy_1_g-Sheet")
+                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"));
+            else
+            {
+                string type = enemySheet == "pa_enemy_1_s-Sheet" ? "slash"
+                    : enemySheet == "pa_enemy_1_st-Sheet" ? "pierce" : "blunt";
+                Assert.That(arena.EnemyRenderer.sprite.name,
+                    Does.Match("^enemy-" + type + "(?:-[23])?-frame-" + (frame == 0 ? "01" : "05") + "$"));
+            }
         }
 
         private static DuelPrototypeController FindPrototype()

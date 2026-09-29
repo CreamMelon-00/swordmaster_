@@ -221,7 +221,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LegacyEnemyBlocksOnItsGuardFrameWithoutCosmeticDraws()
+        public IEnumerator RemadeEnemyBlocksOnItsGuardPoseWithoutCosmeticDraws()
         {
             using (var scope = new ArenaScope(new PoseRandom()))
             {
@@ -229,20 +229,20 @@ namespace TurnLimbo.Presentation.Tests
                 a.BeginSlot(LegacyInitialSkills.All[2], LegacyInitialSkills.All[0]);
                 Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
                 a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.MutualClash);
-                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_s-Sheet_1"));
+                Assert.That(a.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
                 Hold(a, LegacyArenaView.OriginalClipDuration + LegacyArenaView.OriginalImpactTime);
-                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"));
+                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"));
                 a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.BladeBlock);
                 a.PresentHit(true, 3, 0, false, false, 3);
-                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"),
-                    "The legacy sheet has no hurt frame; a body hit keeps the current pose.");
+                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-hurt"),
+                    "HP damage now displays the enemy hurt pose.");
 
                 a.BeginSlot(LegacyInitialSkills.All[0], null);
                 Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
                 a.PresentHit(true, 0, 0, true, false, 2);
-                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("pa_enemy_1_g-Sheet_1"), "A guard reaction uses the guard frame.");
+                Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"), "A guard reaction uses the guard frame.");
                 a.Tick(LegacyArenaView.ReactionPoseDuration + .01f, 0);
-                Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("pa_enemy_1_i-Sheet_"));
+                Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
 
                 typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", BindingFlags.Instance | BindingFlags.NonPublic)
                     .Invoke(a, new object[] { .1f, 0f });
@@ -250,7 +250,7 @@ namespace TurnLimbo.Presentation.Tests
                 Hold(a, LegacyArenaView.OriginalClipDuration / .1f + .01f);
                 a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.BladeBlock);
                 a.EndTurn(); a.Tick(0, 0);
-                Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("pa_enemy_1_i-Sheet_"),
+                Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"),
                     "Slow playback must not carry the last block reaction into planning.");
             }
             yield return null;

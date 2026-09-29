@@ -1,0 +1,30 @@
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+slash-2 pose 1 source 96,160-600,558 guard 117.4,169.9
+slash-2 pose 2 source 693,113-1187,558 guard 108.7,148.9
+slash-2 pose 3 source 96,585-664,1125 guard 73.7,100.3
+slash-2 pose 4 source 881,579-1248,1124 guard 97.2,115.4
+slash-3 pose 1 source 118,70-711,571 guard 152.1,144.6
+slash-3 pose 2 source 747,78-1222,571 guard 136.9,147.0
+slash-3 pose 3 source 27,629-635,1116 guard 91.7,132.1
+slash-3 pose 4 source 673,629-1258,1116 guard 92.5,156.5
+pierce-2 pose 1 source 96,68-554,556 guard 126.4,109.8
+pierce-2 pose 2 source 681,79-1261,553 guard 97.8,116.3
+pierce-2 pose 3 source 42,626-646,1104 guard 90.7,116.2
+pierce-2 pose 4 source 759,626-1269,1104 guard 110.5,115.7
+pierce-3 pose 1 source 52,112-594,572 guard 123.3,147.6
+pierce-3 pose 2 source 630,142-1287,572 guard 100.2,145.5
+pierce-3 pose 3 source 20,713-764,1091 guard 96.0,144.2
+pierce-3 pose 4 source 801,680-1286,1091 guard 126.0,147.2
+blunt-2 pose 1 source 188,60-624,573 guard 134.9,140.0
+blunt-2 pose 2 source 798,170-1241,582 guard 141.3,161.1
+blunt-2 pose 3 source 151,618-606,1122 guard 92.8,104.5
+blunt-2 pose 4 source 787,618-1227,1122 guard 134.4,142.5
+blunt-3 pose 1 source 199,26-541,618 guard 116.0,61.3
+blunt-3 pose 2 source 796,68-1175,618 guard 121.3,60.4
+blunt-3 pose 3 source 202,678-619,1124 guard 108.7,140.5
+blunt-3 pose 4 source 793,648-1226,1125 guard 137.7,114.8
+hurt pose 1 source 395,308-1253,1078 guard 144.0,162.0
+VERIFIED 118 frames, 12 tags; original 45 frames unchanged; 72 new attack cels and one hurt cel; no clipping.

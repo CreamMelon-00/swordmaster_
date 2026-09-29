@@ -51,8 +51,10 @@ namespace TurnLimbo.Presentation
         private readonly Actor player;
         private readonly Actor enemy;
         private readonly MobStudentAnimationSet mobAnimations;
+        private readonly EnemyStudentAnimationSet enemyAnimations;
         private readonly System.Random reactionPoseRandom;
         private readonly System.Random attackPoseRandom;
+        private readonly System.Random enemyAttackPoseRandom;
         private readonly GameObject effectPrefab;
         private readonly List<ImpactEffect> effects = new List<ImpactEffect>(MaximumEffects);
         private readonly Material spriteMaterial;
@@ -120,6 +122,7 @@ namespace TurnLimbo.Presentation
         public SpriteRenderer PlayerRenderer => player.Renderer;
         public SpriteRenderer PlayerLowerRenderer => player.LowerRenderer;
         public bool HasMobStudentAnimations => mobAnimations.HasRequiredAssets;
+        public bool HasEnemyStudentAnimations => enemyAnimations.HasRequiredAssets;
         public SpriteRenderer EnemyRenderer => enemy.Renderer;
         public bool CameraRotate { get; set; }
         public bool ApproachComplete => !approaching;
@@ -134,7 +137,7 @@ namespace TurnLimbo.Presentation
         public bool ReturnComplete => !returning;
         public bool IsFatalFocus => fatalTime > 0f;
         public bool HasRequiredAssets => art.HasRequiredAssets && ForestBackdrop.HasRequiredAssets && spriteMaterial != null &&
-            effectPrefab != null && impactGlow.HasRequiredAssets && mobAnimations.HasRequiredAssets && enemy.Clips.Count == 5;
+            effectPrefab != null && impactGlow.HasRequiredAssets && mobAnimations.HasRequiredAssets && enemyAnimations.HasRequiredAssets;
         public int ActiveParticleCount
         {
             get
@@ -149,15 +152,16 @@ namespace TurnLimbo.Presentation
         public Vector2 EnemyScreenAnchor => ScreenAnchor(enemy.Renderer.transform.position + Vector3.up * 2f);
 
         public static LegacyArenaView Create(Transform parent, LegacyDuelArt art, DuelPresentationSettings settings = null,
-            System.Random reactionPoseRandom = null, System.Random attackPoseRandom = null) =>
-            new LegacyArenaView(parent, art, settings, reactionPoseRandom, attackPoseRandom);
+            System.Random reactionPoseRandom = null, System.Random attackPoseRandom = null, System.Random enemyAttackPoseRandom = null) =>
+            new LegacyArenaView(parent, art, settings, reactionPoseRandom, attackPoseRandom, enemyAttackPoseRandom);
 
         private LegacyArenaView(Transform parent, LegacyDuelArt art, DuelPresentationSettings settings,
-            System.Random reactionPoseRandom, System.Random attackPoseRandom)
+            System.Random reactionPoseRandom, System.Random attackPoseRandom, System.Random enemyAttackPoseRandom)
         {
             // Cosmetic rolls must not consume the combat/global Unity random stream.
             this.reactionPoseRandom = reactionPoseRandom ?? new System.Random();
             this.attackPoseRandom = attackPoseRandom ?? new System.Random();
+            this.enemyAttackPoseRandom = enemyAttackPoseRandom ?? new System.Random();
             this.art = art ?? throw new ArgumentNullException(nameof(art));
             this.settings = settings != null ? settings : Resources.Load<DuelPresentationSettings>("DuelPresentationSettings");
             if (this.settings == null)
@@ -229,7 +233,10 @@ namespace TurnLimbo.Presentation
             player.LowerRenderer = CreateSprite("Mob Student Lower Body", player.Renderer.transform,
                 mobAnimations.GetLower(0f, false), -1);
             player.LowerRenderer.enabled = mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames;
-            enemy = CreateActor("Enemy0", art.GetEnemySprite(0f));
+            enemyAnimations = new EnemyStudentAnimationSet();
+            if (!enemyAnimations.HasRequiredAssets)
+                Debug.LogWarning("Enemy animation resources are incomplete: " + string.Join(", ", enemyAnimations.MissingResources));
+            enemy = CreateActor("Enemy0", enemyAnimations.HasRequiredAssets ? enemyAnimations.GetIdle(0f) : art.GetEnemySprite(0f));
             stepAfterimages = new DuelStepAfterimages(arenaRoot.transform, spriteMaterial, ArenaLayer, mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames);
             var shadowSprites = Resources.LoadAll<Sprite>("LegacyArena/Shadow/Circle");
             var shadow = shadowSprites.Length > 0 ? shadowSprites[0] : null;
@@ -262,6 +269,7 @@ namespace TurnLimbo.Presentation
             player.LowerTravelActive = player.HasLowerTravelProgress = false;
             player.LastVisualPosition = player.Renderer.transform.localPosition;
             SampleActor(player);
+            SampleActor(enemy);
             if (player.LowerRenderer != null) player.LowerRenderer.sprite = mobAnimations.GetLower(0f, false);
             combatCameraPivot = DuelCenter;
             ArenaCamera.transform.localPosition = new Vector3(0f, -1.5f, -10f);
@@ -332,6 +340,7 @@ namespace TurnLimbo.Presentation
             player.ReactionTime = enemy.ReactionTime = 0f;
             player.GuardVariant = 0;
             player.AttackVariants.Clear();
+            enemy.AttackVariants.Clear();
             player.AnimationTime = enemy.AnimationTime = 0f;
             player.Chasing = enemy.Chasing = false;
             pursuitMovementSpeed = settings.MovementSpeedMultiplier;
@@ -511,11 +520,10 @@ namespace TurnLimbo.Presentation
                 player.ReactionTime = ReactionPoseDuration;
                 SampleActor(player);
             }
-            else if (target == enemy && !keepsStrike && blocks)
+            else if (target == enemy && enemyAnimations.HasRequiredAssets && !keepsStrike && (guarded || damage > 0f || fatal))
             {
-                // The legacy enemy sheet has a single guard frame and no hurt frame,
-                // so only blocks react, without a cosmetic draw.
-                enemy.ReactionIsBlock = true;
+                // HP damage/broken guard recoils; successful guards and blade blocks use the guard.
+                enemy.ReactionIsBlock = blocks;
                 enemy.ReactionTime = ReactionPoseDuration;
                 SampleActor(enemy);
             }
@@ -801,6 +809,22 @@ namespace TurnLimbo.Presentation
                 actor.Renderer.sprite = attack != null ? attack : mobAnimations.GetIdleUpper(idleTime);
                 return;
             }
+            if (actor == enemy && enemyAnimations.HasRequiredAssets)
+            {
+                if (actor.ReactionTime > 0f)
+                {
+                    actor.Renderer.sprite = actor.ReactionIsBlock ? enemyAnimations.GetGuard() : enemyAnimations.GetHurt();
+                    return;
+                }
+                bool guard = actor.Skill?.Kind == LegacySkillKind.Defence || IsHoldingExchange(actor);
+                float cycle = OriginalClipDuration / slotAnimationSpeed + slotAttackInterval;
+                int hitIndex = Mathf.FloorToInt(actor.AnimationTime / cycle);
+                Sprite attack = !guard && active && actor.Skill.Kind == LegacySkillKind.Attack
+                    ? enemyAnimations.GetAttack(actor.Skill.Property, clipTime / OriginalClipDuration, AttackVariant(actor, hitIndex)) : null;
+                actor.Renderer.sprite = guard ? enemyAnimations.GetGuard()
+                    : attack != null ? attack : enemyAnimations.GetIdle(idleTime);
+                return;
+            }
             // Legacy clips: after its own frames, a defense or a finished attack still facing
             // strikes holds the last guard frame, as does a block reaction.
             bool guards = (actor.ReactionTime > 0f && actor.ReactionIsBlock) ||
@@ -844,12 +868,13 @@ namespace TurnLimbo.Presentation
 
         private int AttackVariant(Actor actor, int hitIndex)
         {
-            int count = MobStudentAnimationSet.AttackVariationCount(actor.Skill.Property);
+            int count = actor == enemy ? (EnemyStudentAnimationSet.AttackKey(actor.Skill.Property, 0) != null
+                ? EnemyStudentAnimationSet.AttackVariationCount : 0) : MobStudentAnimationSet.AttackVariationCount(actor.Skill.Property);
             if (count <= 1) return 0;
             // Cache by hit, not by rendered frame. Clock holds/rewinds must keep the same motion.
             if (!actor.AttackVariants.TryGetValue(hitIndex, out int variant))
             {
-                variant = attackPoseRandom.Next(count);
+                variant = (actor == enemy ? enemyAttackPoseRandom : attackPoseRandom).Next(count);
                 actor.AttackVariants.Add(hitIndex, variant);
             }
             return variant;
@@ -1029,6 +1054,7 @@ namespace TurnLimbo.Presentation
             CancelStep();
             stepAfterimages.Dispose();
             mobAnimations.Dispose();
+            enemyAnimations.Dispose();
             impactGlow.Dispose();
             Object.Destroy(arenaRoot);
             if (spriteMaterial != null) Object.Destroy(spriteMaterial);

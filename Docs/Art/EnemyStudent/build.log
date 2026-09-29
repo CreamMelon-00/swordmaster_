@@ -1,0 +1,23 @@
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+C:\Users\user\AppData\Roaming\Aseprite\extensions\pixellab\./handle-pose.lua:58: attempt to index a nil value (local 'dlg')
+slash pose 1 source 100,27-450,512 guard 144.7,86.7
+slash pose 2 source 609,17-961,512 guard 123.8,58.2
+slash pose 3 source 965,152-1471,512 guard 87.0,140.9
+slash pose 4 source 50,619-491,992 guard 111.1,157.0
+slash pose 5 source 609,619-1088,992 guard 152.6,150.2
+slash pose 6 source 1168,529-1481,992 guard 113.3,111.0
+pierce pose 1 source 82,88-588,492 guard 152.4,151.5
+pierce pose 2 source 569,85-981,492 guard 114.4,133.6
+pierce pose 3 source 1030,85-1528,492 guard 85.9,132.5
+pierce pose 4 source 5,567-565,966 guard 84.1,134.7
+pierce pose 5 source 564,566-1035,966 guard 90.1,130.3
+pierce pose 6 source 1120,568-1529,966 guard 148.6,149.5
+blunt pose 1 source 100,114-552,498 guard 151.6,154.8
+blunt pose 2 source 585,58-970,498 guard 135.2,115.1
+blunt pose 3 source 1080,91-1471,498 guard 104.9,124.0
+blunt pose 4 source 89,549-503,979 guard 92.1,122.0
+blunt pose 5 source 583,552-970,979 guard 131.2,117.6
+blunt pose 6 source 1058,594-1515,979 guard 151.3,155.1
+VERIFIED 45 frames, 5 tags, 256x224, opaque alpha, no clipping; approved idle cel retained.
