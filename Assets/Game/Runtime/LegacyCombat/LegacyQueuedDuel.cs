@@ -29,14 +29,23 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private int enemyPatternIndex;
         private int nextSlot;
         private int slotCount;
+        // A pending player counter waits for the first hit, so the slot's buff tick and
+        // initial effects wait with it; the multipliers are snapshotted at slot start.
+        private bool slotStartDeferred;
+        private double deferredPlayerAttackMultiplier;
+        private int deferredPlayerPowerBuffPercent, deferredPlayerProtectionBuffPercent;
+        private int deferredEnemyPowerBuffPercent, deferredEnemyProtectionBuffPercent;
 
         public LegacyQueuedDuel() : this(100, 50, 80, 15, LegacyInitialSkills.All,
             FirstSixSkills(), new[] { 2, 3, 2, 1 }, Environment.TickCount) { }
 
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
-            IReadOnlyList<int> enemyTurnActionCounts, int randomSeed = 1)
+            IReadOnlyList<int> enemyTurnActionCounts, int randomSeed = 1,
+            LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null)
         {
+            PlayerCounter = playerCounter;
+            EnemyCounter = enemyCounter;
             if (playerHealth <= 0 || enemyHealth <= 0 || playerResistance < 0 || enemyResistance < 0)
                 throw new ArgumentOutOfRangeException(nameof(playerHealth));
             initialPlayerSkills = CopySkills(playerSkills, nameof(playerSkills));
@@ -79,6 +88,83 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool IsFinished => Phase == LegacyDuelPhase.Finished;
         public bool IsTurnResolved => Phase == LegacyDuelPhase.Resolving && CurrentSlot == null && nextSlot >= slotCount;
         public bool IsCurrentSlotResolved => CurrentSlot != null && CurrentSlot.IsResolved;
+        public LegacyCounter PlayerCounter { get; }
+        public LegacyCounter EnemyCounter { get; }
+        public int PlayerCountersRemaining { get; private set; }
+        public int EnemyCountersRemaining { get; private set; }
+
+        /// <summary>This turn's slots whose one-sided player attack the enemy's counter answers, in order:
+        /// the current slot while its counter plays, then the upcoming ones. The enemy never steps, so this is exact.</summary>
+        public IReadOnlyList<int> ForecastEnemyCounterSlots()
+        {
+            var slots = new List<int>();
+            ForecastEnemyCounterSlots(slots);
+            return slots;
+        }
+
+        /// <summary>Allocation-free form for per-frame presentation; clears <paramref name="slots"/> first.</summary>
+        public void ForecastEnemyCounterSlots(List<int> slots) => ForecastCounterSlots(false, slots);
+
+        /// <summary>This turn's slots whose one-sided enemy attack the player's counter answers, in order:
+        /// the current slot while its counter is pending or plays, then the upcoming ones.
+        /// A dodge attempt keeps that use for the next such slot.</summary>
+        public IReadOnlyList<int> ForecastPlayerCounterSlots()
+        {
+            var slots = new List<int>();
+            ForecastPlayerCounterSlots(slots);
+            return slots;
+        }
+
+        /// <summary>Allocation-free form for per-frame presentation; clears <paramref name="slots"/> first.</summary>
+        public void ForecastPlayerCounterSlots(List<int> slots) => ForecastCounterSlots(true, slots);
+
+        /// <summary>The enemy counter that would meet <paramref name="skill"/> if the player queued it next, or null.</summary>
+        public LegacySkill EnemyCounterFacing(LegacySkill skill)
+        {
+            if (Phase != LegacyDuelPhase.Planning || EnemyCounter == null || !IsAttack(skill) ||
+                playerQueue.Count < enemyQueue.Count) return null;
+            int answered = 0;
+            for (int i = enemyQueue.Count; i < playerQueue.Count; i++)
+                if (IsAttack(playerQueue[i])) answered++;
+            return answered < EnemyCountersRemaining ? EnemyCounter.Skill : null;
+        }
+
+        private IReadOnlyList<LegacySkill> QueueForForecast(bool player) => Phase == LegacyDuelPhase.Planning
+            ? (player ? PlayerQueue : EnemyQueue)
+            : (IReadOnlyList<LegacySkill>)(player ? committedPlayerQueue : committedEnemyQueue) ?? Array.Empty<LegacySkill>();
+
+        private void ForecastCounterSlots(bool playerCounter, List<int> slots)
+        {
+            if (slots == null) throw new ArgumentNullException(nameof(slots));
+            slots.Clear();
+            if (Phase == LegacyDuelPhase.Finished) return;
+            int uses = playerCounter ? PlayerCountersRemaining : EnemyCountersRemaining;
+            int start = 0;
+            if (Phase != LegacyDuelPhase.Planning)
+            {
+                start = nextSlot;
+                LegacyCurrentSlot current = CurrentSlot;
+                if (current != null)
+                {
+                    start++;
+                    bool pending = playerCounter && current.PendingPlayerCounter != null;
+                    if (pending || (playerCounter ? current.PlayerCountered : current.EnemyCountered))
+                        slots.Add(current.SlotIndex);
+                    // A pending counter still holds its use until it settles or a dodge releases it.
+                    if (pending) uses--;
+                }
+            }
+            IReadOnlyList<LegacySkill> defenders = QueueForForecast(playerCounter);
+            IReadOnlyList<LegacySkill> attackers = QueueForForecast(!playerCounter);
+            for (int i = start, found = 0; i < attackers.Count && found < uses; i++)
+                if (i >= defenders.Count && IsAttack(attackers[i]))
+                {
+                    slots.Add(i);
+                    found++;
+                }
+        }
+
+        private static bool IsAttack(LegacySkill skill) => skill != null && skill.Kind == LegacySkillKind.Attack;
 
         public IReadOnlyList<LegacySkill> GetLane(int laneIndex)
         {
@@ -127,6 +213,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // of succeeding. Gaps between skills and repeated inputs still count.
             UsedStepThisTurn = true;
             LegacyCurrentSlot slot = CurrentSlot;
+            if (action == LegacyStepAction.Dodge && slot != null && slot.HitsResolved == 0)
+            {
+                // Choosing to evade forgoes the counter, whatever the timing. Its use is kept.
+                slot.DodgeAttempted = true;
+                if (slot.PendingPlayerCounter != null)
+                {
+                    slot.PendingPlayerCounter = null;
+                    slot.PressureSucceeded = false;
+                    slot.HitCount = Math.Max(1, slot.EnemySkill?.AttackCount ?? 0);
+                }
+            }
             if (!timingSuccessful || slot == null || slot.HitsResolved != 0) return true;
             if (action == LegacyStepAction.Dodge)
             {
@@ -136,7 +233,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             else
             {
-                if (slot.PlayerSkill == null || slot.PlayerSkill.IsWait || slot.PressureSucceeded) return true;
+                // Pressure may back a pending counter; it applies once the counter strikes.
+                LegacySkill skill = slot.PlayerSkill ?? slot.PendingPlayerCounter;
+                if (skill == null || skill.IsWait || slot.PressureSucceeded) return true;
                 slot.PressureSucceeded = success = true;
             }
             return true;
@@ -155,6 +254,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 throw new InvalidOperationException("A committed slot must be available and the previous slot must be complete.");
             LegacySkill playerSkill = nextSlot < committedPlayerQueue.Length ? committedPlayerQueue[nextSlot] : null;
             LegacySkill enemySkill = nextSlot < committedEnemyQueue.Length ? committedEnemyQueue[nextSlot] : null;
+            // A one-sided attack on a truly empty slot draws that side's counter (breathing is a skill).
+            // A counter never answers a counter: each side's trigger requires its own empty slot.
+            bool enemyCounters = enemySkill == null && IsAttack(playerSkill) && EnemyCountersRemaining > 0;
+            if (enemyCounters)
+            {
+                enemySkill = EnemyCounter.Skill;
+                EnemyCountersRemaining--;
+            }
+            LegacySkill pendingCounter = playerSkill == null && IsAttack(enemySkill) && PlayerCountersRemaining > 0
+                ? PlayerCounter.Skill : null;
             double playerAttackMultiplier = AttackMultiplier(playerBuffs, out int playerPowerBuffPercent);
             double enemyAttackMultiplier = AttackMultiplier(enemyBuffs, out int enemyPowerBuffPercent);
             double playerReceivedMultiplier = ReceivedMultiplier(playerBuffs, out int playerProtectionBuffPercent);
@@ -165,15 +274,53 @@ namespace TurnLimbo.Runtime.LegacyCombat
             CurrentSlot = new LegacyCurrentSlot(nextSlot, playerSkill, enemySkill,
                 playerPower, enemyPower, playerTotalPower,
                 playerReceivedMultiplier, enemyReceivedMultiplier, Player, Enemy);
+            CurrentSlot.EnemyCountered = enemyCounters;
+            if (pendingCounter != null)
+            {
+                CurrentSlot.PendingPlayerCounter = pendingCounter;
+                CurrentSlot.HitCount = Math.Max(CurrentSlot.HitCount, pendingCounter.AttackCount);
+                slotStartDeferred = true;
+                deferredPlayerAttackMultiplier = playerAttackMultiplier;
+                deferredPlayerPowerBuffPercent = playerPowerBuffPercent;
+                deferredPlayerProtectionBuffPercent = playerProtectionBuffPercent;
+                deferredEnemyPowerBuffPercent = enemyPowerBuffPercent;
+                deferredEnemyProtectionBuffPercent = enemyProtectionBuffPercent;
+                return CurrentSlot;
+            }
+            ApplySlotStart(CurrentSlot, playerPowerBuffPercent, playerProtectionBuffPercent,
+                enemyPowerBuffPercent, enemyProtectionBuffPercent);
+            return CurrentSlot;
+        }
+
+        private void ApplySlotStart(LegacyCurrentSlot slot, int playerPowerBuffPercent, int playerProtectionBuffPercent,
+            int enemyPowerBuffPercent, int enemyProtectionBuffPercent)
+        {
             // Original UseBuff/AttackStart/End/BuffClear initializes power once
             // and applies effects before animation events deal individual hits.
             TickBuffs(playerBuffs);
             TickBuffs(enemyBuffs);
-            CurrentSlot.PlayerFeedback = ApplyInitialSkillEffects(playerSkill, enemySkill, playerBuffs, true,
+            slot.PlayerFeedback = ApplyInitialSkillEffects(slot.PlayerSkill, slot.EnemySkill, playerBuffs, true,
                 playerPowerBuffPercent, playerProtectionBuffPercent);
-            CurrentSlot.EnemyFeedback = ApplyInitialSkillEffects(enemySkill, playerSkill, enemyBuffs, false,
+            slot.EnemyFeedback = ApplyInitialSkillEffects(slot.EnemySkill, slot.PlayerSkill, enemyBuffs, false,
                 enemyPowerBuffPercent, enemyProtectionBuffPercent);
-            return CurrentSlot;
+        }
+
+        // The last moment a dodge can be attempted has passed: settle the pending counter.
+        private void CompleteDeferredSlotStart(LegacyCurrentSlot slot)
+        {
+            slotStartDeferred = false;
+            LegacySkill counter = slot.PendingPlayerCounter;
+            if (counter != null)
+            {
+                slot.PendingPlayerCounter = null;
+                slot.PlayerSkill = counter;
+                slot.PlayerCountered = true;
+                PlayerCountersRemaining--;
+                slot.PlayerPower = RollPower(counter, deferredPlayerAttackMultiplier, out int totalPower);
+                slot.PlayerTotalPower = totalPower;
+            }
+            ApplySlotStart(slot, deferredPlayerPowerBuffPercent, deferredPlayerProtectionBuffPercent,
+                deferredEnemyPowerBuffPercent, deferredEnemyProtectionBuffPercent);
         }
 
         public LegacyHitResult ResolveNextHit()
@@ -181,6 +328,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Phase != LegacyDuelPhase.Resolving || CurrentSlot == null || CurrentSlot.IsResolved)
                 throw new InvalidOperationException("There is no unresolved hit in the current slot.");
             LegacyCurrentSlot slot = CurrentSlot;
+            if (slotStartDeferred) CompleteDeferredSlotStart(slot);
             int hitIndex = slot.HitsResolved;
             int playerHealth = Player.Health, enemyHealth = Enemy.Health;
             int playerResistance = Player.Resistance, enemyResistance = Enemy.Resistance;
@@ -265,6 +413,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             NextActGain = BaseActGain;
             UsedStepThisTurn = false;
             BreathsQueuedThisTurn = 0;
+            PlayerCountersRemaining = PlayerCounter?.UsesPerTurn ?? 0;
+            EnemyCountersRemaining = EnemyCounter?.UsesPerTurn ?? 0;
+            slotStartDeferred = false;
             Player.BeginTurn();
             Enemy.BeginTurn();
             playerBuffs.Clear();

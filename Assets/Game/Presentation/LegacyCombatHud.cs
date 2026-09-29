@@ -68,7 +68,10 @@ namespace TurnLimbo.Presentation
         private readonly RectTransform outcomePanel;
         private readonly Text outcomeText, outcomeTurns;
         private readonly List<DamageView> damageTexts = new List<DamageView>();
+        private readonly List<DamageView> calloutTexts = new List<DamageView>();
+        private readonly List<int> counterForecast = new List<int>();
         private const int MaximumDamageTexts = 32;
+        private const int MaximumCalloutTexts = 4;
         private int playerDamageSequence, enemyDamageSequence;
         private LegacySkill explainedPlayer, explainedEnemy;
         private LegacySkill conditionPreview;
@@ -261,8 +264,8 @@ namespace TurnLimbo.Presentation
 
             playerStatus = BuildStatus(false);
             enemyStatus = BuildStatus(true);
-            playerQueue = new QueueView(Rect("Player Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), true, white);
-            enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white);
+            playerQueue = new QueueView(Rect("Player Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), true, white, art.UIFont);
+            enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
             tutorialEnemyFocus = TutorialFocusFrame("Tutorial Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
 
             var playerExplanationImage = Panel("Skill Explain", root, Vector2.zero, new Vector2(460, 368), DuelVisualTheme.Paper);
@@ -486,6 +489,13 @@ namespace TurnLimbo.Presentation
             float activeScale = ActiveIconScale();
             // Queues and status share a stable head attachment, but keep UI size.
             int queueColumns = Mathf.Clamp(Mathf.FloorToInt((root.rect.width / 2 - 48) / 72), 1, 5);
+            // Mark each queued attack the opponent's counter will answer, forecast at planning.
+            session.ForecastEnemyCounterSlots(counterForecast);
+            playerQueue.SetCounterMarks(counterForecast);
+            session.ForecastPlayerCounterSlots(counterForecast);
+            enemyQueue.SetCounterMarks(counterForecast);
+            playerStatus.SetCounter(session.PlayerCounter, session.PlayerCountersRemaining);
+            enemyStatus.SetCounter(session.EnemyCounter, session.EnemyCountersRemaining);
             playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale, queueColumns);
             enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale, queueColumns);
             UpdateConditionPreview();
@@ -539,6 +549,9 @@ namespace TurnLimbo.Presentation
             slotAnimation = player != null || enemy != null;
             SetViewAngle(0);
         }
+
+        /// <summary>Retimes the current slot's queue pulse without restarting it, e.g. after a dodge withdraws a counter.</summary>
+        public void SetCurrentSlotDuration(float duration) => slotDuration = Mathf.Max(.4f, duration);
 
         /// <summary>Uses the immutable combat snapshot; presentation never evaluates or consumes a buff.</summary>
         public void SetSkillFeedback(LegacyCurrentSlot slot)
@@ -633,9 +646,12 @@ namespace TurnLimbo.Presentation
             int nextSlot = displayedSession != null ? displayedSession.PlayerQueue.Count : -1;
             bool opponentCondition = LegacySkillConditions.HasOpponentCondition(skill);
             enemyQueue.SetConditionPreview(opponentCondition ? skill : null, nextSlot);
+            // Past the enemy's queue, an attack may meet the enemy's counter instead of an empty slot.
+            LegacySkill opponent = displayedSession == null || !opponentCondition ? null
+                : nextSlot < displayedSession.EnemyQueue.Count ? displayedSession.EnemyQueue[nextSlot]
+                : displayedSession.EnemyCounterFacing(skill);
             bool ready = displayedSession != null && (opponentCondition
-                ? nextSlot < displayedSession.EnemyQueue.Count &&
-                    LegacySkillConditions.MatchesOpponent(skill, displayedSession.EnemyQueue[nextSlot])
+                ? opponent != null && LegacySkillConditions.MatchesOpponent(skill, opponent)
                 : LegacySkillConditions.MatchesSelfCondition(skill, displayedSession.Player));
             for (int lane = 0; lane < laneFeedback.Length; lane++)
                 laneFeedback[lane].SetState(false, ready && skill != null && skill.LaneIndex == lane, false);
@@ -705,32 +721,7 @@ namespace TurnLimbo.Presentation
         public void ShowHitDamage(bool targetPlayer, int damage, Vector3 worldPosition, bool critical = false)
         {
             if (disposed || worldCamera == null) return;
-            DamageView view = null;
-            for (int i = 0; i < damageTexts.Count; i++)
-                if (damageTexts[i].Remaining <= 0) { view = damageTexts[i]; break; }
-            if (view == null && damageTexts.Count < MaximumDamageTexts)
-            {
-                var text = Text("Damage", root, Vector2.zero, new Vector2(640, 280), 168, TextAnchor.MiddleCenter);
-                text.fontStyle = FontStyle.Bold;
-                text.horizontalOverflow = HorizontalWrapMode.Overflow;
-                text.supportRichText = false;
-                var shadow = text.gameObject.AddComponent<Shadow>();
-                shadow.effectColor = new Color(0.08f, 0.025f, 0.02f, 0.85f);
-                shadow.effectDistance = new Vector2(4f, -5f);
-                shadow.useGraphicAlpha = true;
-                var outline = text.gameObject.AddComponent<Outline>();
-                outline.effectDistance = new Vector2(3f, -3f);
-                outline.useGraphicAlpha = true;
-                view = new DamageView(text, outline);
-                damageTexts.Add(view);
-            }
-            if (view == null)
-            {
-                // Keep the existing pool bounded even under unusually fast bursts.
-                view = damageTexts[0];
-                for (int i = 1; i < damageTexts.Count; i++)
-                    if (damageTexts[i].Remaining < view.Remaining) view = damageTexts[i];
-            }
+            DamageView view = AcquireDamageView();
             damage = Mathf.Max(0, damage);
             critical &= damage > 0;
             int sequence = targetPlayer ? playerDamageSequence : enemyDamageSequence;
@@ -752,6 +743,59 @@ namespace TurnLimbo.Presentation
             ApplyDamageFrame(view);
         }
 
+        /// <summary>Calls out a counter over the fighter who answers, rising like a damage number.</summary>
+        public void ShowCounterCallout(bool playerSide, Vector3 worldPosition)
+        {
+            if (disposed || worldCamera == null) return;
+            // A separate small pool: callouts are never counted as damage numbers.
+            DamageView view = AcquireDamageView(calloutTexts, "Counter Callout", MaximumCalloutTexts);
+            view.Direction = playerSide ? -1f : 1f;
+            // On the side facing the opponent, below the head status/queue stack and away from
+            // the outward damage numbers, so it covers neither gauges nor cards.
+            view.StartOffset = new Vector2(-view.Direction * 170f, 60f);
+            view.WorldPosition = worldPosition;
+            view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
+            view.Text.text = "반격";
+            view.Text.fontSize = 96;
+            view.Duration = view.Remaining = .9f;
+            view.Scale = .8f;
+            view.Color = Accent;
+            view.Outline.effectColor = new Color(.24f, .1f, .03f);
+            view.Text.gameObject.SetActive(true);
+            view.Text.transform.SetAsLastSibling();
+            ApplyDamageFrame(view);
+        }
+
+        private DamageView AcquireDamageView() => AcquireDamageView(damageTexts, "Damage", MaximumDamageTexts);
+
+        private DamageView AcquireDamageView(List<DamageView> pool, string name, int maximum)
+        {
+            for (int i = 0; i < pool.Count; i++)
+                if (pool[i].Remaining <= 0) return pool[i];
+            if (pool.Count < maximum)
+            {
+                var text = Text(name, root, Vector2.zero, new Vector2(640, 280), 168, TextAnchor.MiddleCenter);
+                text.fontStyle = FontStyle.Bold;
+                text.horizontalOverflow = HorizontalWrapMode.Overflow;
+                text.supportRichText = false;
+                var shadow = text.gameObject.AddComponent<Shadow>();
+                shadow.effectColor = new Color(0.08f, 0.025f, 0.02f, 0.85f);
+                shadow.effectDistance = new Vector2(4f, -5f);
+                shadow.useGraphicAlpha = true;
+                var outline = text.gameObject.AddComponent<Outline>();
+                outline.effectDistance = new Vector2(3f, -3f);
+                outline.useGraphicAlpha = true;
+                var created = new DamageView(text, outline);
+                pool.Add(created);
+                return created;
+            }
+            // Keep the existing pool bounded even under unusually fast bursts.
+            DamageView oldest = pool[0];
+            for (int i = 1; i < pool.Count; i++)
+                if (pool[i].Remaining < oldest.Remaining) oldest = pool[i];
+            return oldest;
+        }
+
         public void Reset()
         {
             if (disposed) return;
@@ -769,6 +813,7 @@ namespace TurnLimbo.Presentation
             SetHoldProgress(-1, 0);
             outcomePanel.gameObject.SetActive(false);
             foreach (var damage in damageTexts) { damage.Remaining = 0; damage.Text.gameObject.SetActive(false); }
+            foreach (var callout in calloutTexts) { callout.Remaining = 0; callout.Text.gameObject.SetActive(false); }
             playerDamageSequence = enemyDamageSequence = 0;
             CloseLog(true);
             foreach (var row in logRows)
@@ -806,7 +851,13 @@ namespace TurnLimbo.Presentation
         private void UpdateDamage(float delta)
         {
             delta = delta > 0f && !float.IsInfinity(delta) ? delta : 0f;
-            foreach (var damage in damageTexts)
+            TickDamageViews(damageTexts, delta);
+            TickDamageViews(calloutTexts, delta);
+        }
+
+        private void TickDamageViews(List<DamageView> pool, float delta)
+        {
+            foreach (var damage in pool)
             {
                 if (damage.Remaining <= 0) continue;
                 damage.Remaining = Mathf.Max(0, damage.Remaining - delta);
@@ -876,6 +927,10 @@ namespace TurnLimbo.Presentation
             result.Resistance = Image("Resistance", status, white, new Vector2(0, -19), new Vector2(196, 6), DuelVisualTheme.Steel);
             foreach (var gauge in new[] { result.Health, result.HealthLag, result.Resistance, result.ResistanceLag })
                 Filled(gauge, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
+            // Below the gauges: this fighter's counter and its remaining uses this turn.
+            result.Counter = Text("Counter", status, new Vector2(0, -35), new Vector2(212, 18), 14, TextAnchor.MiddleCenter);
+            result.Counter.color = Accent;
+            result.Counter.supportRichText = false;
             // Keep gauges at their original height above the actor as buff rows extend the panel upward.
             foreach (RectTransform child in status)
             {
@@ -1205,9 +1260,21 @@ namespace TurnLimbo.Presentation
             public readonly RectTransform Root;
             public Image Health, HealthLag, Resistance, ResistanceLag;
             public Text ActivePowerBuff, ActiveProtectionBuff, GrantedPowerBuff, GrantedProtectionBuff;
+            public Text Counter;
             private LegacySkillFeedback shownBuffFeedback;
+            private LegacyCounter shownCounter;
+            private int shownCounterUses = -1;
             private float delay;
             public StatusView(RectTransform root) { Root = root; }
+
+            public void SetCounter(LegacyCounter counter, int remaining)
+            {
+                if (ReferenceEquals(shownCounter, counter) && shownCounterUses == remaining) return;
+                shownCounter = counter;
+                shownCounterUses = remaining;
+                Counter.text = counter == null ? string.Empty
+                    : $"반격 · {counter.Skill.Name} {remaining}/{counter.UsesPerTurn}";
+            }
 
             public void SetBuffFeedback(LegacySkillFeedback value)
             {
@@ -1251,6 +1318,7 @@ namespace TurnLimbo.Presentation
             public void Reset()
             {
                 SetBuffFeedback(null);
+                SetCounter(null, 0);
                 delay = 0;
                 Health.fillAmount = HealthLag.fillAmount = Resistance.fillAmount = ResistanceLag.fillAmount = 1;
             }
@@ -1262,13 +1330,19 @@ namespace TurnLimbo.Presentation
             public Vector2 DisplaySize { get; private set; }
             private readonly bool player;
             private readonly Sprite white;
+            private readonly Font font;
             private readonly List<Image> icons = new List<Image>(), highlights = new List<Image>();
             private readonly List<SkillCardFeedbackGraphic> feedback = new List<SkillCardFeedbackGraphic>();
+            private readonly List<GameObject> counterMarks = new List<GameObject>();
+            private readonly List<int> counterSlots = new List<int>();
             private IReadOnlyList<LegacySkill> displayedQueue;
             private LegacySkill preview;
             private LegacySkillFeedback currentFeedback;
             private int previewSlot = -1, feedbackSlot = -1;
-            public QueueView(RectTransform root, bool player, Sprite white) { Root = root; this.player = player; this.white = white; }
+            public QueueView(RectTransform root, bool player, Sprite white, Font font)
+            {
+                Root = root; this.player = player; this.white = white; this.font = font;
+            }
             public void Refresh(IReadOnlyList<LegacySkill> queue, Func<int, Sprite> iconFor, int activeSlot, bool resolving, int selected, float scale, int columns)
             {
                 while (icons.Count < queue.Count)
@@ -1280,6 +1354,7 @@ namespace TurnLimbo.Presentation
                     icon.preserveAspect = true;
                     icons.Add(icon); highlights.Add(highlight);
                     feedback.Add(SkillCardFeedbackGraphic.Create(item, "Skill Condition Feedback", 3f));
+                    counterMarks.Add(CreateCounterMark(item));
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
@@ -1301,7 +1376,33 @@ namespace TurnLimbo.Presentation
                     item.localScale = Vector3.one * (resolving && i == activeSlot ? Mathf.Min(scale, 1.2f) : 1);
                     highlights[i].enabled = !resolving && i == selected;
                 }
+                for (int i = 0; i < counterMarks.Count; i++)
+                    counterMarks[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && counterSlots.Contains(i));
                 UpdateFeedback();
+            }
+            /// <summary>Queue indices whose attack the opponent's counter will answer.</summary>
+            public void SetCounterMarks(List<int> slots)
+            {
+                counterSlots.Clear();
+                counterSlots.AddRange(slots);
+            }
+            private GameObject CreateCounterMark(RectTransform item)
+            {
+                // A small tab over the card's top edge, readable without opening the detail view.
+                var badge = Image("Counter Mark", item, white, new Vector2(0, 30), new Vector2(46, 17),
+                    new Color(DuelVisualTheme.Danger.r, DuelVisualTheme.Danger.g, DuelVisualTheme.Danger.b, .92f));
+                var label = Rect("Label", badge.transform, Vector2.zero, new Vector2(46, 17), Vector2.one * .5f)
+                    .gameObject.AddComponent<Text>();
+                label.font = font;
+                label.fontSize = 12;
+                label.alignment = TextAnchor.MiddleCenter;
+                label.horizontalOverflow = HorizontalWrapMode.Overflow;
+                label.supportRichText = false;
+                label.raycastTarget = false;
+                label.color = Foreground;
+                label.text = "반격";
+                badge.gameObject.SetActive(false);
+                return badge.gameObject;
             }
             public void SetConditionPreview(LegacySkill skill, int slot)
             {
@@ -1342,8 +1443,10 @@ namespace TurnLimbo.Presentation
                 preview = null;
                 previewSlot = feedbackSlot = -1;
                 currentFeedback = null;
+                counterSlots.Clear();
                 foreach (var view in feedback) view.Clear();
                 foreach (var icon in icons) icon.transform.parent.gameObject.SetActive(false);
+                foreach (var mark in counterMarks) mark.SetActive(false);
             }
             public RectTransform GetAnchor(int index)
             {

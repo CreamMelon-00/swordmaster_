@@ -217,6 +217,36 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void LaterStages_GiveTheEnemyAPlaceholderCounterWithTheStagePowerBonus()
+        {
+            var run = NewBattleRun();
+            for (int number = 1; number <= 8; number++)
+            {
+                CampaignStage stage = run.CurrentStage;
+                LegacyQueuedDuel duel = run.CreateDuel(number);
+                Assert.That(duel.PlayerCounter, Is.Null, "The player earns counters later.");
+                int expectedId = number >= 7 ? 6 : number >= 5 ? 7 : 0;
+                if (expectedId == 0)
+                {
+                    Assert.That(stage.EnemyCounterBasis, Is.Null);
+                    Assert.That(duel.EnemyCounter, Is.Null);
+                }
+                else
+                {
+                    LegacySkill basis = LegacyInitialSkills.All[expectedId == 6 ? 5 : 6];
+                    Assert.That(stage.EnemyCounterBasis, Is.SameAs(basis));
+                    Assert.That(duel.EnemyCounter.UsesPerTurn, Is.EqualTo(1));
+                    Assert.That(duel.EnemyCounter.Skill.Id, Is.EqualTo(expectedId));
+                    Assert.That(duel.EnemyCounter.Skill.MinPower, Is.EqualTo(basis.MinPower + stage.EnemyPowerBonus));
+                    Assert.That(duel.EnemyCounter.Skill.MaxPower, Is.EqualTo(basis.MaxPower + stage.EnemyPowerBonus));
+                    Assert.That(duel.EnemyCountersRemaining, Is.EqualTo(1));
+                }
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                if (number < 8) Assert.That(run.TryStartNextStage(), Is.True);
+            }
+        }
+
+        [Test]
         public void AllStages_IncreaseStatsAndEnemyPowerWithoutChangingPatternOrPlayerRecovery()
         {
             var run = NewBattleRun();

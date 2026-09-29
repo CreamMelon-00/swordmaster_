@@ -355,6 +355,15 @@ namespace TurnLimbo.Presentation
                 ? 0f : Mathf.Clamp(attackInterval, 0f, 1f);
         }
 
+        /// <summary>Changes the player's action inside the current slot, e.g. when a dodge withdraws a pending counter.</summary>
+        public void SetPlayerSlotSkill(LegacySkill skill)
+        {
+            if (disposed || ReferenceEquals(player.Skill, skill)) return;
+            player.Skill = skill;
+            player.AttackVariants.Clear();
+            SampleActor(player);
+        }
+
         public void EndTurn()
         {
             returning = true;

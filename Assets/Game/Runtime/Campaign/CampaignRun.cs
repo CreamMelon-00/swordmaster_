@@ -306,15 +306,21 @@ namespace TurnLimbo.Runtime.Campaign
             {
                 // From stage three, one forecasted guard in the six-action
                 // cycle gives the imported guard counter an actual opponent.
-                LegacySkill basis = LegacyInitialSkills.All[CurrentStage.Number >= 3 && i == 4 ? 6 : i];
-                int bonus = CurrentStage.EnemyPowerBonus;
-                enemySkills[i] = new LegacySkill(basis.Id, basis.Name, basis.Cost,
-                    basis.MinPower + bonus, basis.MaxPower + bonus, basis.Kind, basis.Property,
-                    basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId);
+                enemySkills[i] = WithStagePower(LegacyInitialSkills.All[CurrentStage.Number >= 3 && i == 4 ? 6 : i]);
             }
+            LegacyCounter enemyCounter = CurrentStage.EnemyCounterBasis == null ? null
+                : new LegacyCounter(WithStagePower(CurrentStage.EnemyCounterBasis), CurrentStage.EnemyCountersPerTurn);
 
             return new LegacyQueuedDuel(100, 50, CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
-                playerSkills, enemySkills, new[] { 2, 3, 2, 1 }, randomSeed);
+                playerSkills, enemySkills, new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter);
+        }
+
+        private LegacySkill WithStagePower(LegacySkill basis)
+        {
+            int bonus = CurrentStage.EnemyPowerBonus;
+            return new LegacySkill(basis.Id, basis.Name, basis.Cost,
+                basis.MinPower + bonus, basis.MaxPower + bonus, basis.Kind, basis.Property,
+                basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId);
         }
 
         public void Reset()
@@ -400,6 +406,10 @@ namespace TurnLimbo.Runtime.Campaign
             EnemyResistance = 15 + 3 * (number - 1);
             EnemyPowerBonus = number - 1;
             Reward = 60 + 10 * (number - 1);
+            // Placeholder counters until enemy archetypes exist: a guard that taxes a
+            // one-sided attack from stage five, a heavy smash that clashes with it from seven.
+            EnemyCounterBasis = number >= 7 ? LegacyInitialSkills.All[5] : number >= 5 ? LegacyInitialSkills.All[6] : null;
+            EnemyCountersPerTurn = EnemyCounterBasis == null ? 0 : 1;
         }
 
         public int Number { get; }
@@ -407,6 +417,9 @@ namespace TurnLimbo.Runtime.Campaign
         public int EnemyHealth { get; }
         public int EnemyResistance { get; }
         public int EnemyPowerBonus { get; }
+        /// <summary>The enemy counter before this stage's power bonus, or null when it has none.</summary>
+        public LegacySkill EnemyCounterBasis { get; }
+        public int EnemyCountersPerTurn { get; }
         public int Reward { get; }
     }
 

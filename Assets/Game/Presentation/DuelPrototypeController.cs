@@ -42,6 +42,8 @@ namespace TurnLimbo.Presentation
         private ViewPhase viewPhase;
         private float phaseTime;
         private float slotDuration;
+        // A pending player counter defers the slot's initial effects to its first hit.
+        private bool slotStartDeferred;
         private float slotPlaybackSpeed = 1f;
         private float slotAttackInterval;
         private float slotImpactTime;
@@ -288,6 +290,13 @@ namespace TurnLimbo.Presentation
             if (arena.IsInRange) BeginSlotAnimation();
         }
 
+        // Uses the playback speed and attack gap snapshotted when the slot began.
+        private float SlotDurationFor(int hits)
+        {
+            float clipDuration = OriginalClipDuration / slotPlaybackSpeed;
+            return clipDuration * hits + slotAttackInterval * (hits - 1) + 0.01f;
+        }
+
         private void BeginSlotAnimation()
         {
             int playerResistanceBefore = session.Player.Resistance;
@@ -301,12 +310,16 @@ namespace TurnLimbo.Presentation
             slotCycleDuration = clipDuration + slotAttackInterval;
             slotAnticipationDuration = IsTutorial ? 0f : presentationSettings.StepAnticipationDuration;
             slotStepWindow = presentationSettings.StepTimingWindow;
-            slotDuration = clipDuration * slot.HitCount + slotAttackInterval * (slot.HitCount - 1) + 0.01f;
+            slotDuration = SlotDurationFor(slot.HitCount);
             playerSlotDamage = enemySlotDamage = 0;
             arena.ConfigureSlotTiming(slotPlaybackSpeed, slotAttackInterval);
-            arena.BeginSlot(slot.PlayerSkill, slot.EnemySkill);
-            hud.SetCurrentSkills(slot.PlayerSkill, slot.EnemySkill, slotDuration + slotAnticipationDuration);
+            // A pending player counter plays from the windup; a dodge attempt withdraws it.
+            LegacySkill playerAction = slot.PlayerSkill ?? slot.PendingPlayerCounter;
+            slotStartDeferred = slot.PendingPlayerCounter != null;
+            arena.BeginSlot(playerAction, slot.EnemySkill);
+            hud.SetCurrentSkills(playerAction, slot.EnemySkill, slotDuration + slotAnticipationDuration);
             hud.SetSkillFeedback(slot);
+            if (slot.EnemyCountered) hud.ShowCounterCallout(false, arena.EnemyRenderer.transform.position);
             // Report the actual capped change without treating recovery or
             // direct resistance loss as an animation hit or knockback.
             resistanceFeedback.Show(true, session.Player.Resistance - playerResistanceBefore);
@@ -338,6 +351,16 @@ namespace TurnLimbo.Presentation
                 int playerResistanceBefore = session.Player.Resistance;
                 int enemyResistanceBefore = session.Enemy.Resistance;
                 LegacyHitResult hit = session.ResolveNextHit();
+                if (hit.HitIndex == 0 && slotStartDeferred)
+                {
+                    // The slot's initial effects waited for the counter decision; report them now,
+                    // excluding this hit's own resistance loss, which the hit presents itself.
+                    slotStartDeferred = false;
+                    hud.SetSkillFeedback(slot);
+                    resistanceFeedback.Show(true, session.Player.Resistance - playerResistanceBefore + hit.PlayerResistanceDamage);
+                    resistanceFeedback.Show(false, session.Enemy.Resistance - enemyResistanceBefore + hit.EnemyResistanceDamage);
+                    if (slot.PlayerCountered) hud.ShowCounterCallout(true, arena.PlayerRenderer.transform.position);
+                }
                 if (hit.PlayerAttacked) playerSlotDamage = hit.EnemyDisplayedDamage;
                 if (hit.EnemyAttacked) enemySlotDamage = hit.PlayerDisplayedDamage;
                 if (hit.PlayerAttacked)
@@ -411,7 +434,19 @@ namespace TurnLimbo.Presentation
         public bool TryStep(LegacyStepAction action, out bool success)
         {
             success = false;
+            LegacyCurrentSlot slot = session?.CurrentSlot;
+            bool counterPending = slot?.PendingPlayerCounter != null;
+            bool pressureBacked = counterPending && slot.PressureSucceeded;
             if (!CanStep || !session.TryStep(action, IsStepTimingWindow, out success)) return false;
+            if (counterPending && slot.PendingPlayerCounter == null && slot.PlayerSkill == null)
+            {
+                // Evading forgoes the counter: its strikes no longer lengthen the slot,
+                // and pressure that backed it is withdrawn with it.
+                slotDuration = SlotDurationFor(slot.HitCount);
+                arena.SetPlayerSlotSkill(null);
+                hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
+                if (pressureBacked) stepHud.ClearFeedback(LegacyStepAction.Pressure);
+            }
             arena.PerformStep(action, success);
             stepHud.ShowFeedback(action, success);
             stepAudio.Play(action, success, presentationSettings.StepSoundVolume);

@@ -82,10 +82,21 @@ namespace TurnLimbo.Presentation
             bool anchored = TryProjectActor(out Vector2 center, out float targetRadius);
             UpdateCue(dodge, pending && slot.EnemySkill?.Kind == LegacySkillKind.Attack,
                 slot?.DodgeSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
-            UpdateCue(pressure, pending && slot.PlayerSkill != null && !slot.PlayerSkill.IsWait,
+            // A pending counter can already be backed by pressure before it strikes.
+            LegacySkill own = slot?.PlayerSkill ?? slot?.PendingPlayerCounter;
+            UpdateCue(pressure, pending && own != null && !own.IsWait,
                 slot?.PressureSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
             recovery.text = usedStep ? "스텝 사용 · 다음 턴 ACT 자연 회복 없음" : "A 회피 · D 압박  /  Shift 느리게 보기";
             recovery.color = usedStep ? DuelVisualTheme.Danger : DuelVisualTheme.Foreground;
+        }
+
+        /// <summary>Withdraws a cue's result, e.g. pressure cancelled together with the counter it backed.</summary>
+        public void ClearFeedback(LegacyStepAction action)
+        {
+            if (disposed) return;
+            Cue cue = action == LegacyStepAction.Dodge ? dodge : pressure;
+            cue.FeedbackTime = 0f;
+            cue.FeedbackSuccess = false;
         }
 
         public void ShowFeedback(LegacyStepAction action, bool success)

@@ -158,18 +158,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         public int SlotIndex { get; }
-        public LegacySkill PlayerSkill { get; }
+        /// <summary>Null for an empty slot, including while <see cref="PendingPlayerCounter"/> awaits the first hit.</summary>
+        public LegacySkill PlayerSkill { get; internal set; }
         public LegacySkill EnemySkill { get; }
-        public int HitCount { get; }
+        /// <summary>Counts a pending counter's hits; shrinks if a dodge attempt cancels it.</summary>
+        public int HitCount { get; internal set; }
         public int HitsResolved { get; internal set; }
         public bool IsResolved => HitsResolved >= HitCount;
         public bool DodgeSucceeded { get; internal set; }
         public bool PressureSucceeded { get; internal set; }
+        /// <summary>Any dodge input during this slot before its first hit, successful or not.</summary>
+        public bool DodgeAttempted { get; internal set; }
+        /// <summary>The player's counter answering this one-sided attack. It becomes <see cref="PlayerSkill"/>
+        /// at the first hit unless a dodge is attempted first.</summary>
+        public LegacySkill PendingPlayerCounter { get; internal set; }
+        public bool PlayerCountered { get; internal set; }
+        /// <summary>The enemy's counter fills its empty slot; <see cref="EnemySkill"/> is that counter.</summary>
+        public bool EnemyCountered { get; internal set; }
         public LegacySkillFeedback PlayerFeedback { get; internal set; } = LegacySkillFeedback.None;
         public LegacySkillFeedback EnemyFeedback { get; internal set; } = LegacySkillFeedback.None;
-        internal int PlayerPower { get; }
+        internal int PlayerPower { get; set; }
         internal int EnemyPower { get; }
-        internal int PlayerTotalPower { get; }
+        internal int PlayerTotalPower { get; set; }
         internal double PlayerReceivedMultiplier { get; }
         internal double EnemyReceivedMultiplier { get; }
         internal int PlayerStartingHealth { get; }
