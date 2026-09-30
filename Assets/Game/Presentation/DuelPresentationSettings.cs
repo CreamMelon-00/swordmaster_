@@ -1,3 +1,4 @@
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 
 namespace TurnLimbo.Presentation
@@ -47,14 +48,18 @@ namespace TurnLimbo.Presentation
         [Header("피해 숫자 — 다음 표시부터 적용")]
         [SerializeField, Range(80, 240), Tooltip("기본 글자 크기. 작은 피해도 읽을 수 있는 크기를 유지합니다.")]
         private int damageTextFontSize = 168;
-        [SerializeField, Range(1f, 1.8f), Tooltip("기존 저항 붕괴·큰 타격 연출에 연결되는 숫자의 추가 크기 배율. 새로운 치명타 판정을 만들지 않습니다.")]
+        [SerializeField, Range(1f, 1.8f), Tooltip("저항 붕괴·마무리 일격·큰 타격(표시 피해 12 이상) 숫자의 추가 크기 배율. 새로운 치명타 판정을 만들지 않습니다.")]
         private float criticalDamageScale = 1.3f;
 
         [Header("스텝 — 다음 스킬부터 적용")]
         [SerializeField, Range(0f, 1f), Tooltip("첫 타격 전 예고 시간(게임 시계 초). 연타의 동작·타격 간격은 유지합니다.")]
         private float stepAnticipationDuration = 0.24f;
-        [SerializeField, Range(0.03f, 0.25f), Tooltip("첫 타격 직전 회피·압박이 성공하는 구간(게임 시계 초). 연타는 기술 전체에 한 번 적용합니다.")]
+        [SerializeField, Range(0.03f, 0.25f), Tooltip("첫 타격 직전 회피·압박이 성공하는 구간(게임 시계 초). 턴의 첫 시도 기준이며 시도할 때마다 좁아집니다. 연타는 기술 전체에 한 번 적용합니다.")]
         private float stepTimingWindow = 0.1f;
+        [SerializeField, Range(0.3f, 1f), Tooltip("이번 턴 스텝을 시도할 때마다(회피·압박, 성공·실패 무관) 다음 성공 구간에 곱하는 값. 턴마다 초기화됩니다.")]
+        private float stepWindowDecay = LegacyStepTiming.DefaultDecay;
+        [SerializeField, Range(0.02f, 0.1f), Tooltip("아무리 연속으로 써도 성공 구간이 이보다 좁아지지 않는 하한(게임 시계 초).")]
+        private float stepMinimumWindow = LegacyStepTiming.DefaultMinimumWindow;
 
         [Header("스텝 연출 — 다음 입력부터 적용")]
         [SerializeField, Range(0f, 3f), Tooltip("회피의 뒤 이동 거리(월드 단위). 전투 판정이 아니라 위치 연출입니다.")]
@@ -65,6 +70,10 @@ namespace TurnLimbo.Presentation
         private float stepSlowMotionDuration = 0.28f;
         [SerializeField, Range(0.05f, 1f), Tooltip("성공 순간 전투 시계 속도. 1이면 슬로모션 없음. 이동·카메라·잔상은 실제 시간을 사용합니다.")]
         private float stepSlowMotionScale = 0.25f;
+        [SerializeField, Range(0.5f, 1f), Tooltip("이번 턴 연속 성공 한 번마다 성공 슬로모션 속도에 곱하는 값(더 느려짐). 5연속까지 적용하며, 붕괴·마무리 일격의 0.15배보다 느려지지 않습니다.")]
+        private float stepStreakSlowScaleFactor = 0.88f;
+        [SerializeField, Range(0f, 0.2f), Tooltip("이번 턴 연속 성공 한 번마다 성공 슬로모션에 더하는 시간(실제 초). 5연속까지 적용합니다.")]
+        private float stepStreakSlowDurationStep = 0.05f;
         [SerializeField, Range(0.05f, 2f), Tooltip("플레이어 카메라 집중·배경 암전 지속 시간(실제 초).")]
         private float stepFocusDuration = 0.36f;
         [SerializeField, Range(0f, 1.5f), Tooltip("성공 순간 카메라가 추가로 당겨지는 양. 0이면 추가 확대 없음.")]
@@ -112,10 +121,14 @@ namespace TurnLimbo.Presentation
         public float CriticalDamageScale => Safe(criticalDamageScale, 1f, 1.8f, 1.3f);
         public float StepAnticipationDuration => Safe(stepAnticipationDuration, 0f, 1f, 0.24f);
         public float StepTimingWindow => Safe(stepTimingWindow, 0.03f, 0.25f, 0.1f);
+        public float StepWindowDecay => Safe(stepWindowDecay, 0.3f, 1f, LegacyStepTiming.DefaultDecay);
+        public float StepMinimumWindow => Safe(stepMinimumWindow, 0.02f, 0.1f, LegacyStepTiming.DefaultMinimumWindow);
         public float StepDodgeDistance => Safe(stepDodgeDistance, 0f, 3f, 1.4f);
         public float StepPressureDistance => Safe(stepPressureDistance, 0f, 3f, 1.1f);
         public float StepSlowMotionDuration => Safe(stepSlowMotionDuration, 0f, 1f, 0.28f);
         public float StepSlowMotionScale => Safe(stepSlowMotionScale, 0.05f, 1f, 0.25f);
+        public float StepStreakSlowScaleFactor => Safe(stepStreakSlowScaleFactor, 0.5f, 1f, 0.88f);
+        public float StepStreakSlowDurationStep => Safe(stepStreakSlowDurationStep, 0f, 0.2f, 0.05f);
         public float StepFocusDuration => Safe(stepFocusDuration, 0.05f, 2f, 0.36f);
         public float StepCameraZoom => Safe(stepCameraZoom, 0f, 1.5f, 0.5f);
         public float StepBackdropDarkening => Safe(stepBackdropDarkening, 0f, 0.85f, 0.55f);
@@ -146,8 +159,10 @@ namespace TurnLimbo.Presentation
             movementDistanceMultiplier = MovementDistanceMultiplier; movementSpeedMultiplier = MovementSpeedMultiplier;
             damageTextFontSize = DamageTextFontSize; criticalDamageScale = CriticalDamageScale;
             stepAnticipationDuration = StepAnticipationDuration; stepTimingWindow = StepTimingWindow;
+            stepWindowDecay = StepWindowDecay; stepMinimumWindow = StepMinimumWindow;
             stepDodgeDistance = StepDodgeDistance; stepPressureDistance = StepPressureDistance;
             stepSlowMotionDuration = StepSlowMotionDuration; stepSlowMotionScale = StepSlowMotionScale;
+            stepStreakSlowScaleFactor = StepStreakSlowScaleFactor; stepStreakSlowDurationStep = StepStreakSlowDurationStep;
             stepFocusDuration = StepFocusDuration; stepCameraZoom = StepCameraZoom;
             stepBackdropDarkening = StepBackdropDarkening;
             stepSoundVolume = StepSoundVolume; stepRingGlowIntensity = StepRingGlowIntensity;

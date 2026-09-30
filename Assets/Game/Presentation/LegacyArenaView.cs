@@ -407,7 +407,9 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>Presentation only: the session/controller owns timing and step effects.</summary>
-        public void PerformStep(LegacyStepAction action, bool success = false)
+        /// <param name="successStreak">Consecutive successes this turn including this one; a longer
+        /// streak deepens and lengthens the success slow motion (up to <see cref="MaximumSlowStreak"/>).</param>
+        public void PerformStep(LegacyStepAction action, bool success = false, int successStreak = 1)
         {
             if (disposed || !resolving || approaching || returning ||
                 (action != LegacyStepAction.Dodge && action != LegacyStepAction.Pressure)) return;
@@ -428,7 +430,28 @@ namespace TurnLimbo.Presentation
                 pressureAttackTrail = true;
                 pressureTrailSampleTime = 0f;
             }
-            PresentStepFeedback(action, success);
+            PresentStepFeedback(action, success, successStreak);
+        }
+
+        public const int MaximumSlowStreak = 5;
+        /// <summary>Combat-clock speed of the decisive close-up; step slow motion never goes deeper.</summary>
+        public const float DecisiveSlowMotionScale = 0.15f;
+
+        /// <summary>The success slow motion for a streak: deeper and longer with each consecutive success.
+        /// A switched-off base (duration 0 or scale 1) stays off, and the streak stops at the decisive tier.</summary>
+        public static void StepSlowMotionFor(DuelPresentationSettings settings, int successStreak, out float duration, out float scale)
+        {
+            float baseDuration = settings.StepSlowMotionDuration, baseScale = settings.StepSlowMotionScale;
+            if (baseDuration <= 0f || baseScale >= 1f)
+            {
+                duration = baseDuration;
+                scale = baseScale;
+                return;
+            }
+            int extra = Mathf.Clamp(successStreak, 1, MaximumSlowStreak) - 1;
+            duration = baseDuration + settings.StepStreakSlowDurationStep * extra;
+            scale = Mathf.Max(Mathf.Min(baseScale, DecisiveSlowMotionScale),
+                baseScale * Mathf.Pow(settings.StepStreakSlowScaleFactor, extra));
         }
 
         // Called after the controller's windup/contact holds: sample the pose
@@ -488,7 +511,7 @@ namespace TurnLimbo.Presentation
             pressureTrailSampleTime = 0f;
         }
 
-        private void PresentStepFeedback(LegacyStepAction action, bool success)
+        private void PresentStepFeedback(LegacyStepAction action, bool success, int successStreak)
         {
             if (success)
             {
@@ -497,8 +520,7 @@ namespace TurnLimbo.Presentation
                 // freeze combat or continually renew the same successful cue.
                 if (stepFeedbackStartedThisSlot) return;
                 stepFeedbackStartedThisSlot = true;
-                stepSlowTime = settings.StepSlowMotionDuration;
-                stepSlowScale = settings.StepSlowMotionScale;
+                StepSlowMotionFor(settings, successStreak, out stepSlowTime, out stepSlowScale);
                 stepFocusDuration = settings.StepFocusDuration;
                 stepFocusStrength = 1f;
             }
@@ -515,8 +537,11 @@ namespace TurnLimbo.Presentation
             RefreshStepBackdrop();
         }
 
+        /// <param name="fatal">A heavy hit: it lands on the body, shakes twice as hard and glows gold.</param>
+        /// <param name="closeUp">With <paramref name="fatal"/>, also starts the slow close-up and colour flash.
+        /// The controller reserves it for decisive moments: a resistance break or a finishing blow.</param>
         public void PresentHit(bool playerAttacks, int hpDamage, int resistanceDamage, bool guarded,
-            bool fatal, int pushPower = -1, HitExchange exchange = HitExchange.None)
+            bool fatal, int pushPower = -1, HitExchange exchange = HitExchange.None, bool closeUp = true)
         {
             var attacker = playerAttacks ? player : enemy;
             var target = playerAttacks ? enemy : player;
@@ -588,13 +613,13 @@ namespace TurnLimbo.Presentation
             impactGlow.Emit(impactPosition, guarded, fatal);
             if (settings.GlowEnabled && settings.FlashExposure > 0f)
                 impactFlashTime = Mathf.Min(0.12f, settings.GlowDuration);
-            if (fatal && fatalTime <= 0f)
+            if (fatal && closeUp && fatalTime <= 0f)
             {
                 fatalTime = 0.75f;
                 fatalTarget = target.Renderer.transform;
                 cameraRotation = UnityEngine.Random.Range(5f, 10f) * (UnityEngine.Random.value > 0.5f ? 1f : -1f);
             }
-            if (fatal)
+            if (fatal && closeUp)
             {
                 aberration.intensity.value = 1f;
                 fatalExposure = 1f;

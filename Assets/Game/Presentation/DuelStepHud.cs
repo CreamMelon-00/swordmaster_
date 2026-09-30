@@ -16,6 +16,7 @@ namespace TurnLimbo.Presentation
             public bool Left;
             public float FeedbackTime;
             public bool FeedbackSuccess;
+            public int FeedbackStreak;
         }
         private readonly RectTransform root;
         private readonly LegacyDuelArt art;
@@ -26,6 +27,8 @@ namespace TurnLimbo.Presentation
         private Camera actorCamera;
         private Transform actor;
         private LegacyCurrentSlot shownSlot;
+        private int shownAttempts = -1;
+        private bool shownMissed;
         private bool disposed;
         private const float FeedbackDuration = .35f;
         public const float ActorTargetWorldRadius = 1.5f;
@@ -50,7 +53,7 @@ namespace TurnLimbo.Presentation
             group.interactable = group.blocksRaycasts = false;
             dodge = BuildCue("Dodge Cue", "A  회피", true);
             pressure = BuildCue("Pressure Cue", "D  압박", false);
-            // A small cost reminder, not another timing panel or gauge.
+            // A small key and window reminder, not another timing panel or gauge.
             recovery = Label("ACT Recovery Notice", root, new Vector2(0f, 30f), new Vector2(650f, 22f));
             recovery.rectTransform.anchorMin = recovery.rectTransform.anchorMax = new Vector2(.5f, 0f);
             Reset();
@@ -62,8 +65,12 @@ namespace TurnLimbo.Presentation
             actor = player;
         }
 
+        public const string KeyHint = "A 회피 · D 압박";
+
+        /// <param name="attemptsThisTurn">Steps attempted this turn; each one narrowed the success window.</param>
+        /// <param name="missedThisTurn">A step missed this turn, so next turn's natural ACT recovery is lost.</param>
         public void Refresh(bool visible, LegacyCurrentSlot slot, float progress, bool timingWindow,
-            float windowFraction, bool usedStep)
+            float windowFraction, bool usedStep, int attemptsThisTurn = 0, bool missedThisTurn = false)
         {
             if (disposed) return;
             root.gameObject.SetActive(visible);
@@ -86,8 +93,16 @@ namespace TurnLimbo.Presentation
             LegacySkill own = slot?.PlayerSkill ?? slot?.PendingPlayerCounter;
             UpdateCue(pressure, pending && own != null && !own.IsWait,
                 slot?.PressureSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
-            recovery.text = usedStep ? "스텝 사용 · 다음 턴 ACT 자연 회복 없음" : "A 회피 · D 압박  /  Shift 느리게 보기";
-            recovery.color = usedStep ? DuelVisualTheme.Danger : DuelVisualTheme.Foreground;
+            int attempts = Math.Max(attemptsThisTurn, usedStep ? 1 : 0);
+            if (attempts != shownAttempts || missedThisTurn != shownMissed)
+            {
+                shownAttempts = attempts;
+                shownMissed = missedThisTurn;
+                recovery.text = attempts == 0 ? KeyHint : missedThisTurn
+                    ? KeyHint + "  ·  이번 턴 " + attempts + "회 · 빗나감: 다음 턴 ACT 자연 회복 없음"
+                    : KeyHint + "  ·  이번 턴 " + attempts + "회 · 성공 구간이 좁아졌습니다";
+                recovery.color = missedThisTurn ? DuelVisualTheme.Danger : DuelVisualTheme.Foreground;
+            }
         }
 
         /// <summary>Withdraws a cue's result, e.g. pressure cancelled together with the counter it backed.</summary>
@@ -97,14 +112,17 @@ namespace TurnLimbo.Presentation
             Cue cue = action == LegacyStepAction.Dodge ? dodge : pressure;
             cue.FeedbackTime = 0f;
             cue.FeedbackSuccess = false;
+            cue.FeedbackStreak = 0;
         }
 
-        public void ShowFeedback(LegacyStepAction action, bool success)
+        /// <param name="successStreak">Consecutive successes this turn; from two on the cue reads "연속 N".</param>
+        public void ShowFeedback(LegacyStepAction action, bool success, int successStreak = 1)
         {
             if (disposed) return;
             Cue cue = action == LegacyStepAction.Dodge ? dodge : pressure;
             cue.FeedbackTime = FeedbackDuration;
             cue.FeedbackSuccess = success;
+            cue.FeedbackStreak = success ? Math.Max(1, successStreak) : 0;
         }
 
         public void Tick(float realDelta)
@@ -121,6 +139,8 @@ namespace TurnLimbo.Presentation
             actor = null;
             actorCamera = null;
             shownSlot = null;
+            shownAttempts = -1;
+            shownMissed = false;
             HideCue(dodge);
             HideCue(pressure);
             root.gameObject.SetActive(false);
@@ -174,7 +194,8 @@ namespace TurnLimbo.Presentation
             cue.Ring.color = new Color(1f, 1f, 1f, !pending && pulse ? cue.FeedbackTime / FeedbackDuration : 1f);
             cue.WindowMarker.gameObject.SetActive(pending && cue.Ring.HasSuccessBand);
             cue.WindowMarker.color = timingWindow ? Color.white : new Color(1f, 1f, 1f, .65f);
-            cue.Status.text = feedback ? cue.FeedbackSuccess ? "성공" : "빗나감" : string.Empty;
+            cue.Status.text = !feedback ? string.Empty : !cue.FeedbackSuccess ? "빗나감"
+                : cue.FeedbackStreak >= 2 ? "연속 " + cue.FeedbackStreak : "성공";
             cue.Status.color = feedback && !cue.FeedbackSuccess ? DuelVisualTheme.Danger : Color.white;
         }
 
@@ -182,6 +203,7 @@ namespace TurnLimbo.Presentation
         {
             cue.FeedbackTime = 0f;
             cue.FeedbackSuccess = false;
+            cue.FeedbackStreak = 0;
             cue.Root.gameObject.SetActive(false);
             cue.Ring.gameObject.SetActive(false);
             cue.Ring.Configure(0f, false, false, cue.Left, 0f, 1f);

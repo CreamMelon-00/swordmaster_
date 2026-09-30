@@ -207,18 +207,22 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void AttemptsInSkillGaps_HaveNoLimitOrActCostButSkipOnlyOneNaturalRecovery()
+        public void AttemptsInSkillGaps_HaveNoLimitAreCountedAndMissOnlyTheFollowingNaturalRecovery()
         {
             var duel = Duel(new[] { Attack(100, 1) }, new[] { Guard(101, 1) });
             duel.Commit();
             for (int i = 0; i < 20; i++) AssertStep(duel, LegacyStepAction.Dodge, false, false);
             Assert.That(duel.CurrentSlot, Is.Null);
             Assert.That(duel.Act, Is.EqualTo(3));
+            Assert.That(duel.StepAttemptsThisTurn, Is.EqualTo(20));
             duel.ResolveNextSlot();
             AssertStep(duel, LegacyStepAction.Pressure, true, false);
+            Assert.That(duel.StepAttemptsThisTurn, Is.EqualTo(21));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(3));
+            Assert.That(duel.Act, Is.EqualTo(3), "Gap inputs are misses and cost the next natural recovery.");
             Assert.That(duel.UsedStepThisTurn, Is.False);
+            Assert.That(duel.StepAttemptsThisTurn, Is.Zero);
+            Assert.That(duel.StepMissedThisTurn, Is.False);
             ResolveTurn(duel);
             duel.BeginNextTurn();
             Assert.That(duel.Act, Is.EqualTo(6));
@@ -226,7 +230,7 @@ namespace TurnLimbo.Core.Tests
 
         [TestCase(1, 1)]
         [TestCase(7, 2)]
-        public void StepPenalty_PreservesResidualActAndSkillGrantedRecovery(int skillId, int bonus)
+        public void MissedStep_KeepsResidualActAndSkillGrantedRecovery(int skillId, int bonus)
         {
             LegacySkill skill = skillId == 1 ? Attack(1, 1) : Guard(7, 10);
             LegacySkill enemy = new LegacySkill(101, "hit", 1, 1, 1,
@@ -243,7 +247,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void NewSlotAndTurn_ClearSuccessFlagsButKeepTheTurnPenaltyUntilRecovery()
+        public void NewSlotAndTurn_ClearSuccessFlagsWhileTheTurnKeepsCountingAttempts()
         {
             var duel = Duel(new[] { Attack(100, 1) }, new[] { Attack(101, 1) }, count: 2);
             duel.TryQueueLane(0);
@@ -261,8 +265,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(hit.PlayerDodged, Is.False);
             Assert.That(hit.PlayerPressured, Is.False);
             duel.CompleteCurrentSlot();
+            Assert.That(duel.StepAttemptsThisTurn, Is.EqualTo(2));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(1));
+            Assert.That(duel.Act, Is.EqualTo(4));
             Assert.That(duel.UsedStepThisTurn, Is.False);
         }
 
@@ -371,6 +376,93 @@ namespace TurnLimbo.Core.Tests
             Assert.That(mistimed.Player.Health, Is.EqualTo(baseline.Player.Health));
             Assert.That(mistimed.Enemy.Health, Is.EqualTo(baseline.Enemy.Health));
             Assert.That(mistimed.NextActGain, Is.EqualTo(baseline.NextActGain));
+        }
+
+        [TestCase(0, .1f)]
+        [TestCase(1, .065f)]
+        [TestCase(2, .04225f)]
+        [TestCase(3, .04f)]
+        [TestCase(20, .04f)]
+        public void StepWindow_NarrowsPerAttemptDownToAHumanFloor(int attempts, float expected)
+        {
+            Assert.That(LegacyStepTiming.Window(.1f, attempts, .65f, .04f), Is.EqualTo(expected).Within(.00001f));
+        }
+
+        [Test]
+        public void StepWindow_NeverWidensAndIgnoresInvalidTuning()
+        {
+            Assert.That(LegacyStepTiming.Window(.03f, 5, .65f, .04f), Is.EqualTo(.03f), "The floor never widens a smaller base.");
+            Assert.That(LegacyStepTiming.Window(.1f, 1, 0f, .04f), Is.EqualTo(.1f * LegacyStepTiming.DefaultDecay).Within(.00001f));
+            Assert.That(LegacyStepTiming.Window(.1f, 1, 1.5f, .04f), Is.EqualTo(.1f * LegacyStepTiming.DefaultDecay).Within(.00001f));
+            Assert.That(LegacyStepTiming.Window(0f, 0), Is.Zero);
+            Assert.That(LegacyStepTiming.Window(.1f, 4, 1f, .04f), Is.EqualTo(.1f), "A decay of 1 keeps the window.");
+        }
+
+        [Test]
+        public void Reset_AfterAMissRestoresTheOpeningAct()
+        {
+            var duel = Duel(new[] { Attack(100, 1) }, new[] { Attack(101, 1) });
+            QueueAndBegin(duel);
+            AssertStep(duel, LegacyStepAction.Dodge, false, false);
+            Assert.That(duel.StepMissedThisTurn, Is.True);
+            duel.Reset();
+            Assert.That(duel.Act, Is.EqualTo(3));
+            Assert.That(duel.StepMissedThisTurn, Is.False);
+            Assert.That(duel.StepAttemptsThisTurn, Is.Zero);
+        }
+
+        [Test]
+        public void OnlyAMissCostsTheNaturalRecovery_SuccessesAreFree()
+        {
+            var clean = Duel(new[] { Attack(100, 1) }, new[] { Attack(101, 1) });
+            QueueAndBegin(clean);
+            AssertStep(clean, LegacyStepAction.Dodge, true, true);
+            AssertStep(clean, LegacyStepAction.Pressure, true, true);
+            Assert.That(clean.StepMissedThisTurn, Is.False);
+            clean.ResolveNextSlot();
+            clean.BeginNextTurn();
+            Assert.That(clean.Act, Is.EqualTo(2 + 3), "Clean steps keep the natural recovery.");
+
+            var missed = Duel(new[] { Attack(100, 1) }, new[] { Attack(101, 1) });
+            QueueAndBegin(missed);
+            AssertStep(missed, LegacyStepAction.Dodge, true, true);
+            AssertStep(missed, LegacyStepAction.Dodge, true, false);
+            Assert.That(missed.StepMissedThisTurn, Is.True, "Repeating a won dodge is a miss.");
+            missed.ResolveNextSlot();
+            missed.BeginNextTurn();
+            Assert.That(missed.Act, Is.EqualTo(2));
+            Assert.That(missed.StepMissedThisTurn, Is.False);
+        }
+
+        [Test]
+        public void SuccessStreak_CountsConsecutiveSuccessesAndAnyMissOrNewTurnRestartsIt()
+        {
+            var duel = Duel(new[] { Attack(100, 1) }, new[] { Attack(101, 1) }, count: 3);
+            for (int i = 0; i < 3; i++) Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            duel.BeginNextSlot();
+            AssertStep(duel, LegacyStepAction.Dodge, true, true);
+            AssertStep(duel, LegacyStepAction.Pressure, true, true);
+            Assert.That(duel.StepSuccessStreak, Is.EqualTo(2));
+            AssertStep(duel, LegacyStepAction.Dodge, true, false);
+            Assert.That(duel.StepSuccessStreak, Is.Zero, "Repeating an effect already won counts as a miss.");
+            duel.ResolveNextSlot();
+            duel.BeginNextSlot();
+            AssertStep(duel, LegacyStepAction.Dodge, true, true);
+            Assert.That(duel.StepSuccessStreak, Is.EqualTo(1));
+            Assert.That(duel.StepAttemptsThisTurn, Is.EqualTo(4));
+            duel.ResolveNextSlot();
+            duel.BeginNextSlot();
+            AssertStep(duel, LegacyStepAction.Dodge, false, false);
+            Assert.That(duel.StepSuccessStreak, Is.Zero);
+            AssertStep(duel, LegacyStepAction.Pressure, true, true);
+            Assert.That(duel.StepSuccessStreak, Is.EqualTo(1));
+            duel.ResolveNextSlot();
+            duel.BeginNextTurn();
+            Assert.That(duel.StepSuccessStreak, Is.Zero);
+            Assert.That(duel.StepAttemptsThisTurn, Is.Zero);
+            duel.Reset();
+            Assert.That(duel.StepSuccessStreak, Is.Zero);
         }
 
         private static LegacyQueuedDuel Duel(LegacySkill[] player, LegacySkill[] enemy,

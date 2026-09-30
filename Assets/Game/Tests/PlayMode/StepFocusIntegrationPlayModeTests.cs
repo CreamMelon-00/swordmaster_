@@ -55,7 +55,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator SuccessfulStepAndHeldShift_UseTheSlowerSpeed_WithoutMultiplyingIt()
+        public IEnumerator HeldShift_NoLongerSlowsCombat_OnlyTheStepSuccessDoes()
         {
             yield return null;
             using (var scope = new FocusScope())
@@ -73,14 +73,14 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(.05f, keyboard);
                 Release(keyboard.leftShiftKey);
                 Assert.That(controller.ActiveSlotElapsedTime - before,
-                    Is.EqualTo(.05f * Mathf.Min(.4f, stepSpeed)).Within(.0001f),
-                    "Held Shift must not multiply an already successful step's cinematic slow motion.");
+                    Is.EqualTo(.05f * stepSpeed).Within(.0001f),
+                    "Shift no longer slows combat; slow motion is kept for decisive moments and step successes.");
                 Assert.That(Time.timeScale, Is.EqualTo(globalScale));
             }
         }
 
         [UnityTest]
-        public IEnumerator RepeatingTheSameSuccessfulAction_DoesNotRenewExpiredFocus_ButStillMovesAndPaysACTPenalty()
+        public IEnumerator RepeatingTheSameSuccessfulAction_DoesNotRenewExpiredFocus_ButStillMoves()
         {
             yield return null;
             using (var scope = new FocusScope())
@@ -98,6 +98,9 @@ namespace TurnLimbo.Presentation.Tests
                 controller.ArenaView.Tick(0f, 10f);
                 Assert.That(controller.ArenaView.StepPresentationSpeed, Is.EqualTo(1f));
                 Assert.That(controller.ArenaView.StepFocusAmount, Is.Zero);
+                // The first attempt narrowed the window; repeat inside the narrower one.
+                for (int frame = 0; frame < 2000 && !controller.IsStepTimingWindow && slot.HitsResolved == 0; frame++)
+                    scope.Advance(.0005f);
                 Assert.That(controller.IsStepTimingWindow, Is.True);
                 Assert.That(slot.HitsResolved, Is.Zero);
                 Assert.That(slot.PressureSucceeded, Is.True);

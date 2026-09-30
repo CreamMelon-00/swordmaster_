@@ -200,8 +200,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.TryStep(LegacyStepAction.Pressure, out bool gapAttempt), Is.True);
                 Assert.That(gapAttempt, Is.False, "The gap accepts steps but has no skill timing success.");
                 scope.Until(() => controller.CanChoose && controller.Session.RoundNumber == 2);
-                Assert.That(controller.Session.Act, Is.EqualTo(2), "A miss also pays the natural ACT recovery cost.");
+                Assert.That(controller.Session.Act, Is.EqualTo(2), "A miss costs the next natural ACT recovery.");
                 Assert.That(controller.Session.UsedStepThisTurn, Is.False);
+                Assert.That(controller.Session.StepAttemptsThisTurn, Is.Zero, "The narrowing restarts every turn.");
                 scope.BeginWindup();
                 scope.Until(() => controller.CanChoose && controller.Session.RoundNumber == 3);
                 Assert.That(controller.Session.Act, Is.EqualTo(4),
@@ -249,10 +250,12 @@ namespace TurnLimbo.Presentation.Tests
                 var controller = scope.Controller;
                 scope.BeginWindup();
                 scope.EnterWindow();
-                Assert.That(controller.TryStep(LegacyStepAction.Dodge, out bool dodge), Is.True);
-                Assert.That(dodge, Is.False, "There is no enemy attack to evade when the opponent guards.");
+                // Pressure first: a missed dodge steps back out of range, and later presses judge a narrower window.
                 Assert.That(controller.TryStep(LegacyStepAction.Pressure, out bool pressure), Is.True);
                 Assert.That(pressure, Is.True, "Own guard skills are valid pressure targets.");
+                scope.EnterWindow();
+                Assert.That(controller.TryStep(LegacyStepAction.Dodge, out bool dodge), Is.True);
+                Assert.That(dodge, Is.False, "There is no enemy attack to evade when the opponent guards.");
             }
             using (var scope = new StepScope())
             {
@@ -262,6 +265,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Session.CurrentSlot.PlayerSkill, Is.Null);
                 Assert.That(controller.TryStep(LegacyStepAction.Pressure, out bool pressure), Is.True);
                 Assert.That(pressure, Is.False, "An empty player slot cannot gain pressure damage.");
+                scope.EnterWindow();
                 Assert.That(controller.TryStep(LegacyStepAction.Dodge, out bool dodge), Is.True);
                 Assert.That(dodge, Is.True);
             }
@@ -312,7 +316,68 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator HoldingSpace_DoesNotSlowCombat_HoldingShiftDoes()
+        public IEnumerator EachAttempt_NarrowsTheWindowForTheTurn_AndConsecutiveSuccessesCountOnTheCue()
+        {
+            yield return null;
+            using (var scope = new StepScope())
+            {
+                var controller = scope.Controller;
+                scope.BeginWindup();
+                float fresh = controller.CurrentStepWindow;
+                float freshFraction = controller.StepWindowFraction;
+                scope.EnterWindow();
+                Assert.That(controller.TryStep(LegacyStepAction.Dodge, out bool dodged), Is.True);
+                Assert.That(dodged, Is.True);
+                DuelPresentationSettings settings = controller.PresentationSettings;
+                Assert.That(controller.CurrentStepWindow, Is.EqualTo(LegacyStepTiming.Window(fresh, 1,
+                    settings.StepWindowDecay, settings.StepMinimumWindow)).Within(.0001f));
+                Assert.That(controller.CurrentStepWindow, Is.LessThan(fresh));
+                Assert.That(controller.StepWindowFraction, Is.LessThan(freshFraction), "The success band on the ring narrows too.");
+                Transform root = controller.StepHud.Root.transform;
+                Assert.That(root.Find("Dodge Cue/Timing Status").GetComponent<Text>().text, Is.EqualTo("성공"));
+                scope.EnterWindow();
+                Assert.That(controller.TryStep(LegacyStepAction.Pressure, out bool pressed), Is.True);
+                Assert.That(pressed, Is.True);
+                Assert.That(controller.Session.StepSuccessStreak, Is.EqualTo(2));
+                Assert.That(root.Find("Pressure Cue/Timing Status").GetComponent<Text>().text, Is.EqualTo("연속 2"));
+                Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text, Does.Contain("이번 턴 2회"));
+                scope.Until(() => controller.CanChoose && controller.Session.RoundNumber == 2);
+                Assert.That(controller.CurrentStepWindow, Is.EqualTo(fresh).Within(.0001f), "A new turn restores the full window.");
+                Assert.That(controller.Session.StepSuccessStreak, Is.Zero);
+            }
+        }
+
+        [Test]
+        public void StreakSlowMotion_DeepensAndLengthensUpToItsCap()
+        {
+            var settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
+            try
+            {
+                LegacyArenaView.StepSlowMotionFor(settings, 1, out float duration, out float scale);
+                Assert.That(duration, Is.EqualTo(settings.StepSlowMotionDuration));
+                Assert.That(scale, Is.EqualTo(settings.StepSlowMotionScale));
+                for (int streak = 2; streak <= LegacyArenaView.MaximumSlowStreak; streak++)
+                {
+                    LegacyArenaView.StepSlowMotionFor(settings, streak, out float longer, out float slower);
+                    Assert.That(longer, Is.GreaterThan(duration));
+                    Assert.That(slower, Is.LessThan(scale));
+                    duration = longer;
+                    scale = slower;
+                }
+                LegacyArenaView.StepSlowMotionFor(settings, 99, out float capped, out float cappedScale);
+                Assert.That(capped, Is.EqualTo(duration));
+                Assert.That(cappedScale, Is.EqualTo(scale));
+                Assert.That(cappedScale, Is.GreaterThanOrEqualTo(LegacyArenaView.DecisiveSlowMotionScale),
+                    "A step streak never slows combat more than a decisive close-up.");
+                JsonUtility.FromJsonOverwrite("{\"stepSlowMotionDuration\":0}", settings);
+                LegacyArenaView.StepSlowMotionFor(settings, 5, out float offDuration, out _);
+                Assert.That(offDuration, Is.Zero, "A switched-off step slow motion stays off on a streak.");
+            }
+            finally { Object.DestroyImmediate(settings); }
+        }
+
+        [UnityTest]
+        public IEnumerator HoldingSpaceOrShift_DoesNotSlowCombat()
         {
             yield return null;
             using (var scope = new StepScope())
@@ -335,7 +400,8 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 scope.Advance(.01f, keyboard);
                 Release(keyboard.leftShiftKey);
-                Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(before + .004f).Within(.0001f));
+                Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(before + .01f).Within(.0001f),
+                    "Shift no longer offers slow viewing.");
                 Assert.That(Time.timeScale, Is.EqualTo(globalScale));
             }
         }
@@ -403,7 +469,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.TryStep(LegacyStepAction.Pressure, out bool success), Is.True);
                 Assert.That(success, Is.True);
                 Assert.That(root.Find("Pressure Cue/Timing Status").GetComponent<Text>().text, Does.Contain("성공"));
-                Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text, Does.Contain("자연 회복 없음"));
+                Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text, Does.Contain("성공 구간이 좁아졌습니다"));
                 LegacyCurrentSlot first = controller.Session.CurrentSlot;
                 scope.Until(() => controller.Session.CurrentSlot != null &&
                     !ReferenceEquals(controller.Session.CurrentSlot, first));
@@ -434,6 +500,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.TryStep(LegacyStepAction.Dodge, out bool evaded), Is.True);
                 Assert.That(evaded, Is.True);
                 Assert.That(dodge.clip.name, Is.EqualTo("Step Dodge Success"));
+                scope.EnterWindow();
                 Assert.That(controller.TryStep(LegacyStepAction.Pressure, out bool pressed), Is.True);
                 Assert.That(pressed, Is.True);
                 Assert.That(pressure.clip.name, Is.EqualTo("Step Pressure Success"));

@@ -86,7 +86,7 @@ namespace TurnLimbo.Runtime.Tutorial
                     case TutorialStep.TurnRecovery:
                         return "ACT가 6으로 회복됐습니다: 기본 3 + 베기의 회복 1 + 내려치기를 막은 막기의 조건부 회복 2. 남은 ACT도 다음 턴에 이월되며 최대 10까지 모입니다.";
                     case TutorialStep.FreeBattle:
-                        return "Q / W / E로 원하는 기술을 예약하고 Space로 확정하세요. 저항이 무너지면 체력 피해가 2배가 되며, 다음 한 턴이 지난 뒤 저항이 회복됩니다. L로 전투 기록, Shift를 누르면 재생 중 느리게 볼 수 있습니다.";
+                        return "Q / W / E로 원하는 기술을 예약하고 Space로 확정하세요. 저항이 무너지면 체력 피해가 2배가 되며, 다음 한 턴이 지난 뒤 저항이 회복됩니다. L로 전투 기록을 볼 수 있습니다.";
                     default:
                         return "큐와 ACT, 기술열 회전, 방어와 저항을 직접 경험했습니다. 로비에서 편성과 상점을 둘러본 뒤 첫 스테이지에 도전해보세요.";
                 }
@@ -105,7 +105,7 @@ namespace TurnLimbo.Runtime.Tutorial
                     case TutorialStep.QueueGuard: return "Q 짧게 누르기 / 막기 카드 클릭";
                     case TutorialStep.InspectEnemy: return "Tab 누르고 있기 · ← / → 순번 확인";
                     case TutorialStep.CommitQueue: return "Space / Enter / 확정 버튼";
-                    case TutorialStep.WatchClash: return "전투를 지켜보세요 · Shift로 느리게 보기";
+                    case TutorialStep.WatchClash: return "전투를 지켜보세요";
                     case TutorialStep.TurnRecovery: return "계속 버튼";
                     case TutorialStep.FreeBattle: return "Q / W / E 예약 · Space 확정 · L 기록 · Escape 로비";
                     default: return "결과 창에서 로비로 돌아가세요";

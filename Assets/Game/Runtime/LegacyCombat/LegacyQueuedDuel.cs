@@ -80,7 +80,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacySkill> PlayerQueue { get; }
         public IReadOnlyList<LegacySkill> EnemyQueue { get; }
         public LegacyCurrentSlot CurrentSlot { get; private set; }
-        public bool UsedStepThisTurn { get; private set; }
+        /// <summary>Whether any step was attempted this turn.</summary>
+        public bool UsedStepThisTurn => StepAttemptsThisTurn > 0;
+        /// <summary>Dodge and pressure attempts this turn, hit or miss; each one narrows the next
+        /// success window (<see cref="LegacyStepTiming"/>). Restarts every turn.</summary>
+        public int StepAttemptsThisTurn { get; private set; }
+        /// <summary>Consecutive successful steps this turn; any miss or a new turn restarts it.</summary>
+        public int StepSuccessStreak { get; private set; }
+        /// <summary>Whether any step missed this turn. A miss, not an attempt, costs the next turn's natural ACT
+        /// recovery: success is free, so skilled play can step without limit but guessing is not free.</summary>
+        public bool StepMissedThisTurn { get; private set; }
         public int BreathsQueuedThisTurn { get; private set; }
         public int BreathsRemainingThisTurn => MaximumBreathsPerTurn - BreathsQueuedThisTurn;
         public int LastResolvedSlot { get; private set; }
@@ -209,9 +218,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Phase != LegacyDuelPhase.Resolving ||
                 (action != LegacyStepAction.Dodge && action != LegacyStepAction.Pressure)) return false;
 
-            // The natural ACT recovery is the price of attempting a step, not
-            // of succeeding. Gaps between skills and repeated inputs still count.
-            UsedStepThisTurn = true;
+            // Every attempt, including gaps between skills and repeated inputs, narrows the
+            // next window. Any miss (mistimed, no target, repeated, or in a gap) breaks the
+            // streak and costs the next turn's natural ACT recovery; successes cost nothing.
+            StepAttemptsThisTurn++;
+            success = ApplyStep(action, timingSuccessful);
+            StepSuccessStreak = success ? StepSuccessStreak + 1 : 0;
+            if (!success) StepMissedThisTurn = true;
+            return true;
+        }
+
+        private bool ApplyStep(LegacyStepAction action, bool timingSuccessful)
+        {
             LegacyCurrentSlot slot = CurrentSlot;
             if (action == LegacyStepAction.Dodge && slot != null && slot.HitsResolved == 0)
             {
@@ -224,20 +242,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     slot.HitCount = Math.Max(1, slot.EnemySkill?.AttackCount ?? 0);
                 }
             }
-            if (!timingSuccessful || slot == null || slot.HitsResolved != 0) return true;
+            if (!timingSuccessful || slot == null || slot.HitsResolved != 0) return false;
             if (action == LegacyStepAction.Dodge)
             {
                 if (slot.EnemySkill == null || slot.EnemySkill.Kind != LegacySkillKind.Attack || slot.DodgeSucceeded)
-                    return true;
-                slot.DodgeSucceeded = success = true;
+                    return false;
+                slot.DodgeSucceeded = true;
+                return true;
             }
-            else
-            {
-                // Pressure may back a pending counter; it applies once the counter strikes.
-                LegacySkill skill = slot.PlayerSkill ?? slot.PendingPlayerCounter;
-                if (skill == null || skill.IsWait || slot.PressureSucceeded) return true;
-                slot.PressureSucceeded = success = true;
-            }
+            // Pressure may back a pending counter; it applies once the counter strikes.
+            LegacySkill skill = slot.PlayerSkill ?? slot.PendingPlayerCounter;
+            if (skill == null || skill.IsWait || slot.PressureSucceeded) return false;
+            slot.PressureSucceeded = true;
             return true;
         }
 
@@ -401,17 +417,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
             RoundNumber = 1;
             Act = 0;
             NextActGain = BaseActGain;
-            UsedStepThisTurn = false;
+            // A miss in the abandoned match must not cost the new match its opening ACT.
+            StepMissedThisTurn = false;
+            StepAttemptsThisTurn = StepSuccessStreak = 0;
             Outcome = DuelMatchOutcome.InProgress;
             StartPlanningTurn();
         }
 
         private void StartPlanningTurn()
         {
-            int actGain = NextActGain - (UsedStepThisTurn ? BaseActGain : 0);
-            Act = Math.Min(MaximumAct, Act + actGain);
+            Act = Math.Min(MaximumAct, Act + NextActGain - (StepMissedThisTurn ? BaseActGain : 0));
             NextActGain = BaseActGain;
-            UsedStepThisTurn = false;
+            StepAttemptsThisTurn = StepSuccessStreak = 0;
+            StepMissedThisTurn = false;
             BreathsQueuedThisTurn = 0;
             PlayerCountersRemaining = PlayerCounter?.UsesPerTurn ?? 0;
             EnemyCountersRemaining = EnemyCounter?.UsesPerTurn ?? 0;

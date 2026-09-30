@@ -221,7 +221,7 @@ namespace TurnLimbo.Core.Tests
 
         [TestCase(12)]
         [TestCase(42)]
-        public void LastSlotActBonus_SurvivesStepPenaltyAndDoesNotRefundCurrentAct(int id)
+        public void LastSlotActBonus_SurvivesAMissedStepAndDoesNotRefundCurrentAct(int id)
         {
             var duel = Duel(new[] { Imported(id, 4, cost: 1) }, new[] { Guard(900, 100) }, new[] { 1 });
             Queue(duel, 0);
@@ -234,7 +234,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.Act, Is.EqualTo(2));
             Assert.That(duel.NextActGain, Is.EqualTo(6));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(5));
+            Assert.That(duel.Act, Is.EqualTo(5), "The miss costs only the natural three, not the skill bonus.");
             Assert.That(duel.NextActGain, Is.EqualTo(3));
         }
 

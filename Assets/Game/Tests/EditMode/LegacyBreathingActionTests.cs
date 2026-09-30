@@ -220,7 +220,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void PressureOnBreath_NeverSucceedsOrGuardsAndItsAttemptKeepsTheStepPenalty()
+        public void PressureOnBreath_NeverSucceedsOrGuardsAndItsMissCostsTheNaturalRecovery()
         {
             var duel = Duel(new[] { Attack(100, 1) }, new[] { Attack(900, 8) });
             Assert.That(duel.TryQueueBreath(), Is.True);
@@ -238,7 +238,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void DodgeDuringBreath_StillAvoidsEveryEnemyHitAndSkipsNaturalActRecovery()
+        public void DodgeDuringBreath_StillAvoidsEveryEnemyHitAndASuccessCostsNoAct()
         {
             var duel = Duel(new[] { Attack(100, 1) }, new[] { Attack(900, 12, hits: 3) });
             Assert.That(duel.TryQueueBreath(), Is.True);
@@ -256,7 +256,7 @@ namespace TurnLimbo.Core.Tests
             }
             duel.CompleteCurrentSlot();
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(3));
+            Assert.That(duel.Act, Is.EqualTo(6));
             Assert.That(duel.BreathsRemainingThisTurn, Is.EqualTo(3));
         }
 

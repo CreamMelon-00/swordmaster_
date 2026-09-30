@@ -206,6 +206,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(clash.Enemy.IsResistanceBroken, Is.True);
                 Assert.That(ActiveTexts(controller.Hud.Root, "State Callout"), Is.EqualTo(new[] { LegacyCombatHud.BreakCalloutText }));
                 Assert.That(controller.ArenaView.EnemyBreakAura.IsBroken, Is.True);
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.True, "A break is a decisive moment.");
                 Text playerLoss = Number(controller.Hud, "1");
                 Assert.That(playerLoss.color.b, Is.GreaterThan(playerLoss.color.r), "The player's resistance loss is steel.");
                 Text enemyOverflow = Number(controller.Hud, "20");
@@ -225,6 +226,56 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(clash.Enemy.Resistance, Is.EqualTo(10));
                 Assert.That(ActiveTexts(controller.Hud.Root, "State Callout"), Is.EqualTo(new[] { LegacyCombatHud.RecoveryCalloutText }));
                 Assert.That(controller.ArenaView.EnemyBreakAura.IsBroken, Is.False);
+            }
+            finally
+            {
+                sessionField.SetValue(controller, originalSession);
+                controller.RestartMatch();
+                controller.enabled = originalEnabled;
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ActualController_ClosesUpOnlyOnBreaksAndFinishingBlows()
+        {
+            yield return null;
+            DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            Assert.That(controller, Is.Not.Null);
+            bool originalEnabled = controller.enabled;
+            LegacyQueuedDuel originalSession = controller.Session;
+            controller.enabled = false;
+            FieldInfo sessionField = typeof(DuelPrototypeController).GetField("session", PrivateInstance);
+            MethodInfo reset = typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance);
+            MethodInfo begin = typeof(DuelPrototypeController).GetMethod("BeginSlotAnimation", PrivateInstance);
+            MethodInfo advance = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
+            try
+            {
+                // A big hit into a guard: still a gold, larger number, but no slow close-up.
+                var big = new LegacyQueuedDuel(100, 50, 100, 50,
+                    new[] { Attack(900, 20) }, new[] { Guard(901, 1) }, new[] { 1 });
+                sessionField.SetValue(controller, big);
+                reset.Invoke(controller, null);
+                big.TryQueueLane(0); big.Commit();
+                begin.Invoke(controller, null);
+                for (int i = 0; i < 400 && big.Enemy.Health == 100; i++)
+                    advance.Invoke(controller, new object[] { .02f, null });
+                Assert.That(big.Enemy.Health, Is.EqualTo(81));
+                Text bigNumber = Number(controller.Hud, "19");
+                Assert.That(bigNumber.color.r, Is.GreaterThan(bigNumber.color.b + .3f), "Big hits keep the gold number.");
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.False, "A big number alone is not a decisive moment.");
+
+                // The finishing blow gets the close-up.
+                var finish = new LegacyQueuedDuel(100, 50, 10, 50,
+                    new[] { Attack(900, 20) }, new[] { Guard(901, 1) }, new[] { 1 });
+                sessionField.SetValue(controller, finish);
+                reset.Invoke(controller, null);
+                finish.TryQueueLane(0); finish.Commit();
+                begin.Invoke(controller, null);
+                for (int i = 0; i < 400 && finish.Enemy.Health > 0; i++)
+                    advance.Invoke(controller, new object[] { .02f, null });
+                Assert.That(finish.Enemy.Health, Is.Zero);
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.True);
             }
             finally
             {

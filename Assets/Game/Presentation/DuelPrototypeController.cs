@@ -50,6 +50,9 @@ namespace TurnLimbo.Presentation
         private float slotCycleDuration;
         private float slotAnticipationDuration;
         private float slotStepWindow;
+        // Snapshotted with the base window at slot start, so live tuning never changes a skill mid-cue.
+        private float slotStepWindowDecay = LegacyStepTiming.DefaultDecay;
+        private float slotStepMinimumWindow = LegacyStepTiming.DefaultMinimumWindow;
         private float betweenSlotsDuration;
         private float hitStopRemaining;
         private float planningTime;
@@ -99,11 +102,14 @@ namespace TurnLimbo.Presentation
         public bool IsStepTimingWindow => CanStep && session.CurrentSlot != null &&
             session.CurrentSlot.HitsResolved == 0 &&
             (viewPhase == ViewPhase.SkillWindup || viewPhase == ViewPhase.PlayingSlot) &&
-            TimeUntilFirstImpact >= 0f && TimeUntilFirstImpact <= slotStepWindow &&
+            TimeUntilFirstImpact >= 0f && TimeUntilFirstImpact <= CurrentStepWindow &&
             (arena.IsInRange || session.CurrentSlot.DodgeSucceeded || session.CurrentSlot.PressureSucceeded);
         public float StepCueProgress => session?.CurrentSlot == null ? 0f : session.CurrentSlot.HitsResolved > 0 ? 1f :
             Mathf.Clamp01(1f - TimeUntilFirstImpact / Mathf.Max(.001f, slotAnticipationDuration + slotImpactTime));
-        public float StepWindowFraction => slotStepWindow / Mathf.Max(.001f, slotAnticipationDuration + slotImpactTime);
+        public float StepWindowFraction => CurrentStepWindow / Mathf.Max(.001f, slotAnticipationDuration + slotImpactTime);
+        /// <summary>The success window for the next attempt: it narrows with each attempt this turn.</summary>
+        public float CurrentStepWindow => LegacyStepTiming.Window(slotStepWindow, session?.StepAttemptsThisTurn ?? 0,
+            slotStepWindowDecay, slotStepMinimumWindow);
         public bool HasRequiredArt => art != null && art.HasRequiredAssets &&
             arena != null && arena.HasRequiredAssets && hud != null && hud.HasRequiredAssets &&
             lobbyHud != null && lobbyHud.HasRequiredAssets;
@@ -194,12 +200,14 @@ namespace TurnLimbo.Presentation
             // Judge the cue the player saw, before this frame advances or resolves its impact.
             if (CanStep && keyboard != null)
             {
-                if (keyboard.aKey.wasPressedThisFrame) TryStep(LegacyStepAction.Dodge, out _);
-                if (keyboard.dKey.wasPressedThisFrame) TryStep(LegacyStepAction.Pressure, out _);
+                // Keys pressed together share the window shown on this frame; each still
+                // counts as an attempt and narrows the window for later frames.
+                bool timing = IsStepTimingWindow;
+                if (keyboard.aKey.wasPressedThisFrame) TryStep(LegacyStepAction.Dodge, timing, out _);
+                if (keyboard.dKey.wasPressedThisFrame) TryStep(LegacyStepAction.Pressure, timing, out _);
             }
-            float speed = IsInspecting ? 0.2f :
-                IsResolving && keyboard != null && keyboard.leftShiftKey.isPressed ? 0.4f :
-                IsResolving && arena.IsFatalFocus ? 0.15f : 1f;
+            // Slow motion belongs to decisive moments only: a break or a finishing blow, and step successes.
+            float speed = IsInspecting ? 0.2f : IsResolving && arena.IsFatalFocus ? LegacyArenaView.DecisiveSlowMotionScale : 1f;
             // Keep local cinematic slow motion on the established combat clock;
             // the step gesture, camera and feedback lifetime still use real time.
             if (IsResolving) speed = Mathf.Min(speed, arena.StepPresentationSpeed);
@@ -312,6 +320,8 @@ namespace TurnLimbo.Presentation
             slotCycleDuration = clipDuration + slotAttackInterval;
             slotAnticipationDuration = IsTutorial ? 0f : presentationSettings.StepAnticipationDuration;
             slotStepWindow = presentationSettings.StepTimingWindow;
+            slotStepWindowDecay = presentationSettings.StepWindowDecay;
+            slotStepMinimumWindow = presentationSettings.StepMinimumWindow;
             slotDuration = SlotDurationFor(slot.HitCount);
             playerSlotDamage = enemySlotDamage = 0;
             arena.ConfigureSlotTiming(slotPlaybackSpeed, slotAttackInterval);
@@ -353,6 +363,8 @@ namespace TurnLimbo.Presentation
                 }
                 int playerResistanceBefore = session.Player.Resistance;
                 int enemyResistanceBefore = session.Enemy.Resistance;
+                int playerHealthBefore = session.Player.Health;
+                int enemyHealthBefore = session.Enemy.Health;
                 bool playerWasBroken = session.Player.IsResistanceBroken;
                 bool enemyWasBroken = session.Enemy.IsResistanceBroken;
                 LegacyHitResult hit = session.ResolveNextHit();
@@ -373,12 +385,14 @@ namespace TurnLimbo.Presentation
                         hit.EnemyDisplayedDamage, hit.EnemyPushPower,
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyResistanceBefore > 0 && session.Enemy.Resistance <= 0,
+                        enemyHealthBefore > 0 && session.Enemy.Health <= 0,
                         Exchange(hit.EnemySkill, hit.EnemyAttacked));
                 if (hit.EnemyAttacked && !hit.PlayerDodged)
                     PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerResistanceBefore > 0 && session.Player.Resistance <= 0,
+                        playerHealthBefore > 0 && session.Player.Health <= 0,
                         Exchange(hit.PlayerSkill, hit.PlayerAttacked));
                 // Includes a deferred counter slot's start effects, which run inside this hit.
                 AnnounceBreaks(playerWasBroken, enemyWasBroken);
@@ -416,9 +430,13 @@ namespace TurnLimbo.Presentation
                 : targetStrikes ? LegacyArenaView.HitExchange.MutualClash : LegacyArenaView.HitExchange.BladeBlock;
 
         private void PresentHit(bool playerAttacks, int healthDamage, int resistanceDamage,
-            int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, LegacyArenaView.HitExchange exchange)
+            int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, bool finishingBlow,
+            LegacyArenaView.HitExchange exchange)
         {
-            bool fatal = resistanceBroke || displayedDamage >= 12;
+            // Only decisive moments (a break or the finishing blow) get the slow close-up, tilt and
+            // critical sound; a merely big number is still gold and larger.
+            bool decisive = resistanceBroke || finishingBlow;
+            bool emphasised = decisive || displayedDamage >= 12;
             // A resistance-only hit displays exactly its resistance loss. Anything more reached
             // the body, even when the health change was clamped at zero.
             bool bodyHit = healthDamage > 0 || displayedDamage > resistanceDamage;
@@ -428,13 +446,13 @@ namespace TurnLimbo.Presentation
             bool resistanceNumber = !bodyHit && resistanceDamage > 0 && displayedDamage == resistanceDamage;
             // Both sides of a simultaneous clash share the same real-time stop.
             hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
-            arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded, fatal, pushPower, exchange);
-            if (fatal) hud.FatalAttack(playerAttacks);
+            arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded, emphasised, pushPower, exchange, decisive);
+            if (decisive) hud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
-            hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, fatal, resistanceNumber);
+            hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber);
             effectsSource.pitch = Random.Range(0.75f, 1.25f);
             art.PlayClash(effectsSource, false, Random.value >= 0.5f);
-            if (fatal && criticalSound != null)
+            if (decisive && criticalSound != null)
                 effectsSource.PlayOneShot(criticalSound, 0.55f);
         }
 
@@ -461,13 +479,16 @@ namespace TurnLimbo.Presentation
             RefreshTutorial();
         }
 
-        public bool TryStep(LegacyStepAction action, out bool success)
+        public bool TryStep(LegacyStepAction action, out bool success) =>
+            TryStep(action, IsStepTimingWindow, out success);
+
+        private bool TryStep(LegacyStepAction action, bool timingWindow, out bool success)
         {
             success = false;
             LegacyCurrentSlot slot = session?.CurrentSlot;
             bool counterPending = slot?.PendingPlayerCounter != null;
             bool pressureBacked = counterPending && slot.PressureSucceeded;
-            if (!CanStep || !session.TryStep(action, IsStepTimingWindow, out success)) return false;
+            if (!CanStep || !session.TryStep(action, timingWindow, out success)) return false;
             if (counterPending && slot.PendingPlayerCounter == null && slot.PlayerSkill == null)
             {
                 // Evading forgoes the counter: its strikes no longer lengthen the slot,
@@ -477,8 +498,8 @@ namespace TurnLimbo.Presentation
                 hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
                 if (pressureBacked) stepHud.ClearFeedback(LegacyStepAction.Pressure);
             }
-            arena.PerformStep(action, success);
-            stepHud.ShowFeedback(action, success);
+            arena.PerformStep(action, success, session.StepSuccessStreak);
+            stepHud.ShowFeedback(action, success, session.StepSuccessStreak);
             stepAudio.Play(action, success, presentationSettings.StepSoundVolume);
             RefreshHud(0f);
             return true;
@@ -943,7 +964,7 @@ namespace TurnLimbo.Presentation
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.Refresh(CanStep, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,
-                StepWindowFraction, session.UsedStepThisTurn);
+                StepWindowFraction, session.UsedStepThisTurn, session.StepAttemptsThisTurn, session.StepMissedThisTurn);
             resistanceFeedback.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
             if (IsInspecting && session.EnemyQueue.Count > 0)
