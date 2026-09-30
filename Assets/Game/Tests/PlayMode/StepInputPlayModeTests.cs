@@ -272,7 +272,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LobbyAndTutorial_DisableStep_AndRestartClearsItsState()
+        public IEnumerator LobbyAndMissions_DisableStep_AndRestartClearsItsState()
         {
             yield return null;
             using (var scope = new StepScope())
@@ -293,21 +293,23 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.TryStep(LegacyStepAction.Dodge, out success), Is.False);
                 Assert.That(success, Is.False);
 
-                Assert.That(controller.StartTutorial(), Is.True);
-                Assert.That(controller.AdvanceTutorial(), Is.True);
+                controller.StartNewGame();
+                Assert.That(controller.CanStep, Is.False);
+                Assert.That(controller.StartMission(), Is.True);
+                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.AdvanceGuide(), Is.True);
                 Assert.That(controller.QueueLane(0), Is.True);
-                Assert.That(controller.QueueLane(1), Is.True);
                 Assert.That(controller.QueueLane(0), Is.True);
-                Assert.That(controller.InspectTutorialEnemy(), Is.True);
                 controller.CommitTurn();
                 scope.Until(() => controller.Session.CurrentSlot != null);
-                Assert.That(controller.IsTutorial, Is.True);
+                Assert.That(controller.IsMission, Is.True);
                 Assert.That(controller.IsResolving, Is.True);
-                Assert.That(controller.CanStep, Is.False, "The existing tutorial has no step lesson yet.");
+                Assert.That(controller.CanStep, Is.False, "Steps are not open in the opening arc yet.");
                 Assert.That(controller.TryStep(LegacyStepAction.Pressure, out success), Is.False);
                 Assert.That(success, Is.False);
                 Assert.That(controller.Session.UsedStepThisTurn, Is.False);
                 controller.ReturnToLobby();
+                Assert.That(controller.IsInBriefing, Is.True, "Leaving a mission returns to its briefing.");
                 Assert.That(controller.CanStep, Is.False);
                 controller.RestartMatch();
                 Assert.That(controller.CanChoose, Is.True);

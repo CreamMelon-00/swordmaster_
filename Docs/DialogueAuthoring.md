@@ -86,6 +86,8 @@ controller.StartDialogue("Dialogue/chapter-01-intro");
 ```
 
 확장자 `.txt`는 로드 경로에 쓰지 않는다. 현재 로비 홈 화면의 `스토리` 버튼은 `Assets/Game/Resources/Dialogue/dialogue.txt`, 즉 `Dialogue/dialogue`를 연다. 씬이 시작되자마자 자동으로 재생하지는 않는다.
+
+서막 임무는 `Dialogue/mission-NN-intro`(시작)와 `Dialogue/mission-NN-outro`(승리 후)를 자동으로 재생한다(NN은 `01`~`04`). 지금은 모두 `테스트` 한 줄이다. 이 대사는 끝까지 넘기거나 Escape로 건너뛰면 다음 단계(전투 또는 결과)로 넘어간다. 상세는 `PrologueMissions.md`를 따른다.
 첫 버전의 시작 API는 안전한 상태 전환을 위해 로비에서만 대화를 열도록 제한되어 있다.
 
 ## 기본 조작

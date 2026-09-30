@@ -13,7 +13,7 @@ namespace TurnLimbo.Core.Tests
             var result = new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
                 60, 105, 4, 87, 0, true, 2, true);
             Assert.That(result.Victory, Is.True);
-            Assert.That(result.IsTutorial, Is.False);
+            Assert.That(result.IsMission, Is.False);
             Assert.That(result.StageNumber, Is.EqualTo(1));
             Assert.That(result.StageName, Is.EqualTo("숲길 입구"));
             Assert.That(result.Reward, Is.EqualTo(60));
@@ -51,17 +51,18 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void TutorialVictory_CanUseStageZeroWithoutChangingJourney()
+        public void MissionVictory_AdvancesWithoutRewardOrStageUnlock()
         {
-            var result = new BattleResult(DuelMatchOutcome.PlayerVictory, true, 0, "연습 숲길",
-                0, 75, 3, 100, 0, false, 0, false);
+            var result = new BattleResult(DuelMatchOutcome.PlayerVictory, true, 2, "맞서는 검",
+                0, 75, 3, 100, 0, false, 0, true);
             Assert.That(result.Victory, Is.True);
-            Assert.That(result.IsTutorial, Is.True);
+            Assert.That(result.IsMission, Is.True);
+            Assert.That(result.StageNumber, Is.EqualTo(2));
             Assert.That(result.Reward, Is.Zero);
             Assert.That(result.Currency, Is.EqualTo(75));
             Assert.That(result.FirstClear, Is.False);
             Assert.That(result.UnlockedStageNumber, Is.Zero);
-            Assert.That(result.CanAdvance, Is.False);
+            Assert.That(result.CanAdvance, Is.True);
             Assert.That(result.CanRetry, Is.True);
         }
 
@@ -83,12 +84,13 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Tutorial_RejectsCampaignRewardsAndProgress()
+        public void Mission_RejectsCampaignRewardsAndStageUnlocks()
         {
-            Assert.Throws<ArgumentException>(() => Create(isTutorial: true, reward: 1));
-            Assert.Throws<ArgumentException>(() => Create(isTutorial: true, firstClear: true));
-            Assert.Throws<ArgumentException>(() => Create(isTutorial: true, unlockedStageNumber: 2));
-            Assert.Throws<ArgumentException>(() => Create(isTutorial: true, canAdvance: true));
+            Assert.Throws<ArgumentException>(() => Create(isMission: true, reward: 1));
+            Assert.Throws<ArgumentException>(() => Create(isMission: true, firstClear: true));
+            Assert.Throws<ArgumentException>(() => Create(isMission: true, unlockedStageNumber: 2));
+            Assert.DoesNotThrow(() => Create(isMission: true, canAdvance: true));
+            Assert.Throws<ArgumentException>(() => Create(outcome: DuelMatchOutcome.EnemyVictory, isMission: true, canAdvance: true));
         }
 
         [Test]
@@ -102,7 +104,7 @@ namespace TurnLimbo.Core.Tests
         public void InvalidBoundaries_AreRejectedAtConstruction()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => Create(stageNumber: 0));
-            Assert.Throws<ArgumentOutOfRangeException>(() => Create(isTutorial: true, stageNumber: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => Create(isMission: true, stageNumber: 0));
             Assert.Throws<ArgumentException>(() => Create(stageName: null));
             Assert.Throws<ArgumentException>(() => Create(stageName: " "));
             Assert.Throws<ArgumentOutOfRangeException>(() => Create(reward: -1));
@@ -114,10 +116,10 @@ namespace TurnLimbo.Core.Tests
         }
 
         private static BattleResult Create(DuelMatchOutcome outcome = DuelMatchOutcome.PlayerVictory,
-            bool isTutorial = false, int stageNumber = 1, string stageName = "숲길 입구",
+            bool isMission = false, int stageNumber = 1, string stageName = "숲길 입구",
             int reward = 0, int currency = 0, int roundNumber = 1, int playerHealth = 100, int enemyHealth = 0,
             bool firstClear = false, int unlockedStageNumber = 0, bool canAdvance = false)
-            => new BattleResult(outcome, isTutorial, stageNumber, stageName, reward, currency, roundNumber,
+            => new BattleResult(outcome, isMission, stageNumber, stageName, reward, currency, roundNumber,
                 playerHealth, enemyHealth, firstClear, unlockedStageNumber, canAdvance);
     }
 }

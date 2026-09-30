@@ -72,16 +72,16 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator TutorialInspectionEndTurnAndCombat_BlockTheCommonAction()
+        public IEnumerator MissionInspectionEndTurnAndCombat_BlockTheCommonAction()
         {
             yield return null;
             using (var fixture = new HudFixture())
             {
                 fixture.Refresh();
-                fixture.Hud.SetTutorialMode(true);
+                fixture.Hud.SetMissionMode(true);
                 Assert.That(fixture.Button.gameObject.activeSelf, Is.False);
                 fixture.Button.onClick.Invoke();
-                fixture.Hud.SetTutorialMode(false);
+                fixture.Hud.SetMissionMode(false);
                 Assert.That(fixture.Button.gameObject.activeSelf, Is.True);
                 Assert.That(fixture.Button.interactable, Is.True);
                 fixture.Hud.SetInspectedSlot(0);

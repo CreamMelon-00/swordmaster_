@@ -2,7 +2,7 @@ using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Dialogue;
 using TurnLimbo.Runtime.LegacyCombat;
-using TurnLimbo.Runtime.Tutorial;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -32,10 +32,17 @@ namespace TurnLimbo.Presentation
         private CampaignRun campaign;
         private CampaignLobbyHud lobbyHud;
         private BattleResultHud resultHud;
-        private TutorialCoachHud tutorialHud;
+        private MissionCoachHud coachHud;
+        private MissionBriefingHud briefingHud;
         private BattleResult battleResult;
-        private TutorialProgress tutorial;
-        private float tutorialInspectionRemaining;
+        private PrologueRun prologue;
+        // The opening-arc mission being fought, its coach, and whether its briefing is on screen.
+        private PrologueMission mission;
+        private MissionGuide guide;
+        private bool showingBriefing;
+        private float guideInspectionRemaining;
+        // Runs after the player finishes or skips the open dialogue; cleanup closes never run it.
+        private System.Action dialogueContinuation;
         private int dialogueOpenedFrame = -1;
         private AudioSource effectsSource;
         private AudioClip criticalSound;
@@ -67,16 +74,20 @@ namespace TurnLimbo.Presentation
         public CampaignRun Campaign => campaign;
         public CampaignLobbyHud LobbyHud => lobbyHud;
         public BattleResultHud ResultHud => resultHud;
-        public TutorialCoachHud TutorialHud => tutorialHud;
+        public MissionCoachHud CoachHud => coachHud;
+        public MissionBriefingHud BriefingHud => briefingHud;
         public DialogueHud DialogueHud => dialogueHud;
         public DialogueLine CurrentDialogueLine => dialogueSession?.Current;
         public BattleResult Result => battleResult;
-        public TutorialProgress Tutorial => tutorial;
-        public bool IsTutorial => tutorial != null;
+        public PrologueRun Prologue => prologue;
+        public PrologueMission ActiveMission => mission;
+        public MissionGuide Guide => guide;
+        public bool IsMission => mission != null;
         public bool IsShowingResult => viewPhase == ViewPhase.Outcome && battleResult != null;
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
+        public bool IsInBriefing => showingBriefing && !IsShowingDialogue && viewPhase == ViewPhase.Outcome && !IsShowingResult;
         public bool IsInLobby => !IsShowingDialogue && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
-            !IsTutorial && campaign.Phase == CampaignPhase.Lobby;
+            !IsMission && !showingBriefing && campaign.Phase == CampaignPhase.Lobby;
         public DuelPresentationSettings PresentationSettings => presentationSettings;
         public LegacyArenaView ArenaView => arena;
         public LegacyCombatHud Hud => hud;
@@ -94,7 +105,7 @@ namespace TurnLimbo.Presentation
         public float ActiveSlotDuration => slotDuration;
         public float ActiveSlotElapsedTime => viewPhase == ViewPhase.PlayingSlot ? phaseTime : 0f;
         public bool IsSkillWindup => viewPhase == ViewPhase.SkillWindup;
-        public bool CanStep => !IsTutorial && session != null && session.Phase == LegacyDuelPhase.Resolving &&
+        public bool CanStep => (!IsMission || mission.StepsEnabled) && session != null && session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
              viewPhase == ViewPhase.PlayingSlot || viewPhase == ViewPhase.BetweenSlots);
         private float TimeUntilFirstImpact => viewPhase == ViewPhase.SkillWindup
@@ -113,12 +124,15 @@ namespace TurnLimbo.Presentation
         public bool HasRequiredArt => art != null && art.HasRequiredAssets &&
             arena != null && arena.HasRequiredAssets && hud != null && hud.HasRequiredAssets &&
             lobbyHud != null && lobbyHud.HasRequiredAssets;
-        private bool IsInspecting => CanChoose && (tutorialInspectionRemaining > 0f ||
+        private bool IsInspecting => CanChoose && (guideInspectionRemaining > 0f ||
             Keyboard.current != null && Keyboard.current.tabKey.isPressed);
+        // A coached beat never runs out of time; a mission may also have no timer at all.
+        private bool PlanningTimerRuns => !IsMission || mission.PlanningTimer && (guide == null || guide.IsFree);
 
         private void Awake()
         {
             campaign = new CampaignRun();
+            prologue = new PrologueRun();
             art = new LegacyDuelArt();
             effectsSource = gameObject.AddComponent<AudioSource>();
             effectsSource.playOnAwake = false;
@@ -140,18 +154,19 @@ namespace TurnLimbo.Presentation
             stepHud = new DuelStepHud(hud.Root.transform, art, presentationSettings);
             stepAudio = new DuelStepAudio(transform);
             resistanceFeedback = new DuelResistanceFeedback(hud.Root.transform, art.UIFont);
-            dialogueHud = new DialogueHud(transform, art, () => ContinueDialogue(), () => CloseDialogue());
+            dialogueHud = new DialogueHud(transform, art, () => ContinueDialogue(), () => FinishDialogue());
             lobbyHud = new CampaignLobbyHud(transform, art,
                 id => AcquireSkill(id), id => UpgradeSkill(id), id => EquipSkill(id),
                 id => UnequipSkill(id), (id, direction) => MoveEquippedSkill(id, direction),
-                stage => StartCampaignStage(stage), RestartJourney, () => StartTutorial(),
+                stage => StartCampaignStage(stage), RestartJourney,
                 (id, lane, slot) => PlaceLoadoutSkill(id, lane, slot),
                 () => SaveLoadout(), () => ResetLoadout());
             resultHud = new BattleResultHud(transform, art, () => DismissBattleResult(),
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
-            tutorialHud = new TutorialCoachHud(transform, art, () => AdvanceTutorial(),
-                ReturnToLobby, () => InspectTutorialEnemy());
-            RestartJourney();
+            coachHud = new MissionCoachHud(transform, art, () => AdvanceGuide(),
+                ReturnToLobby, () => InspectGuideEnemy());
+            briefingHud = new MissionBriefingHud(transform, art, () => StartMission());
+            StartNewGame();
         }
 
         private void Update()
@@ -166,7 +181,8 @@ namespace TurnLimbo.Presentation
             {
                 if (Time.frameCount > dialogueOpenedFrame && keyboard != null)
                 {
-                    if (keyboard.escapeKey.wasPressedThisFrame) CloseDialogue();
+                    // Escape skips the rest of the scene; the mission flow still continues.
+                    if (keyboard.escapeKey.wasPressedThisFrame) FinishDialogue();
                     else if (keyboard.enterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame)
                         ContinueDialogue();
                 }
@@ -177,6 +193,11 @@ namespace TurnLimbo.Presentation
             {
                 if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))
                     DismissBattleResult();
+                return;
+            }
+            if (IsInBriefing)
+            {
+                if (keyboard != null && keyboard.enterKey.wasPressedThisFrame) StartMission();
                 return;
             }
             if (IsInLobby)
@@ -191,10 +212,10 @@ namespace TurnLimbo.Presentation
                 ReturnToLobby();
                 return;
             }
-            tutorialInspectionRemaining = Mathf.Max(0f, tutorialInspectionRemaining - realDelta);
-            if (IsTutorial && tutorial.CanAdvance && keyboard != null && keyboard.enterKey.wasPressedThisFrame)
+            guideInspectionRemaining = Mathf.Max(0f, guideInspectionRemaining - realDelta);
+            if (guide != null && guide.CanAdvance && keyboard != null && keyboard.enterKey.wasPressedThisFrame)
             {
-                AdvanceTutorial();
+                AdvanceGuide();
                 return;
             }
             // Judge the cue the player saw, before this frame advances or resolves its impact.
@@ -221,7 +242,7 @@ namespace TurnLimbo.Presentation
             {
                 case ViewPhase.Planning:
                     if (keyboard != null) ReadPlanningInput(keyboard);
-                    if (CanChoose && !IsTutorial)
+                    if (CanChoose && PlanningTimerRuns)
                     {
                         planningTime = Mathf.Max(0f, planningTime - delta);
                         if (planningTime <= 0f) CommitTurn();
@@ -318,7 +339,7 @@ namespace TurnLimbo.Presentation
             float clipDuration = OriginalClipDuration / slotPlaybackSpeed;
             slotImpactTime = OriginalAttackEventTime / slotPlaybackSpeed;
             slotCycleDuration = clipDuration + slotAttackInterval;
-            slotAnticipationDuration = IsTutorial ? 0f : presentationSettings.StepAnticipationDuration;
+            slotAnticipationDuration = IsMission && !mission.StepsEnabled ? 0f : presentationSettings.StepAnticipationDuration;
             slotStepWindow = presentationSettings.StepTimingWindow;
             slotStepWindowDecay = presentationSettings.StepWindowDecay;
             slotStepMinimumWindow = presentationSettings.StepMinimumWindow;
@@ -475,8 +496,8 @@ namespace TurnLimbo.Presentation
                 hud.ShowRecoveryCallout(false, arena.EnemyRenderer.transform.position, arena.EnemyRenderer.transform);
             arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
             SetViewPhase(ViewPhase.Planning);
-            tutorial?.NotifyTurnBegan(session.RoundNumber);
-            RefreshTutorial();
+            guide?.NotifyTurnBegan(session.RoundNumber);
+            RefreshGuide();
         }
 
         public bool TryStep(LegacyStepAction action, out bool success) =>
@@ -513,8 +534,8 @@ namespace TurnLimbo.Presentation
 
         private void ReadPlanningInput(Keyboard keyboard)
         {
-            if (IsTutorial && tutorial.Step == TutorialStep.InspectEnemy && keyboard.tabKey.isPressed)
-                InspectTutorialEnemy();
+            if (guide != null && guide.AllowsInspect && keyboard.tabKey.isPressed)
+                InspectGuideEnemy();
             if (IsInspecting)
             {
                 ClearHeldKeys();
@@ -546,9 +567,11 @@ namespace TurnLimbo.Presentation
             {
                 holdTimes[lane] += Time.unscaledDeltaTime;
                 hud.SetHoldProgress(lane, Mathf.Clamp01((holdTimes[lane] - 0.3f) / 0.5f));
-                if (holdTimes[lane] >= 1f)
+                // A lane the duel does not have (e.g. W/E in the Q-only missions) has nothing to explain.
+                var laneSkills = session.GetLane(lane);
+                if (holdTimes[lane] >= 1f && laneSkills.Count > 0)
                 {
-                    explainedSkill = session.GetLane(lane)[0];
+                    explainedSkill = laneSkills[0];
                     explainedLane = lane;
                     holdConsumed[lane] = true;
                 }
@@ -570,19 +593,19 @@ namespace TurnLimbo.Presentation
         public bool QueueLane(int lane)
         {
             if (!CanChoose || IsInspecting || lane < 0 || lane > 2 ||
-                IsTutorial && !tutorial.AllowsQueue(lane) || !session.TryQueueLane(lane)) return false;
-            tutorial?.NotifyQueued(lane);
+                guide != null && !guide.AllowsQueue(lane) || !session.TryQueueLane(lane)) return false;
+            guide?.NotifyQueued(lane);
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             explainedSkill = null;
             RefreshHud(0f);
-            RefreshTutorial();
+            RefreshGuide();
             return true;
         }
 
         public bool QueueBreath()
         {
-            if (!CanChoose || IsInspecting || IsTutorial || !session.TryQueueBreath()) return false;
+            if (!CanChoose || IsInspecting || IsMission && !mission.BreathEnabled || !session.TryQueueBreath()) return false;
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             explainedSkill = null;
@@ -592,39 +615,64 @@ namespace TurnLimbo.Presentation
 
         public void CommitTurn()
         {
-            if (!CanChoose || IsTutorial && !tutorial.AllowsCommit) return;
+            if (!CanChoose || guide != null && !guide.AllowsCommit) return;
             ClearHeldKeys();
             explainedSkill = null;
-            tutorialInspectionRemaining = 0f;
+            guideInspectionRemaining = 0f;
             hud.HideExplanation();
             session.Commit();
             hud.EndTurn();
             arena.BeginApproach();
             highlightedSlot = -1;
             SetViewPhase(ViewPhase.Approaching);
-            tutorial?.NotifyCommitted();
+            guide?.NotifyCommitted();
             RefreshHud(0f);
-            RefreshTutorial();
+            RefreshGuide();
         }
 
         public void RestartMatch()
         {
             CloseDialogue();
-            tutorial = null;
+            ClearMissionState();
             campaign.Reset();
             campaign.TryStartStage(1);
             StartStageBattle();
         }
 
+        /// <summary>Restarts the post-arc journey (the lobby's 여정 초기화): a fresh campaign, back in the lobby.
+        /// The opening arc's progress is kept.</summary>
         public void RestartJourney()
         {
             CloseDialogue();
-            tutorial = null;
+            ClearMissionState();
             campaign.Reset();
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
             lobbyHud.ResetView();
             ShowLobby();
+        }
+
+        /// <summary>A new game: a fresh campaign and the opening arc from its first mission briefing.</summary>
+        public void StartNewGame()
+        {
+            CloseDialogue();
+            ClearMissionState();
+            campaign.Reset();
+            prologue.Reset();
+            session = campaign.CreateDuel(System.Environment.TickCount);
+            ResetBattlePresentation();
+            lobbyHud.ResetView();
+            ShowBriefing();
+        }
+
+        /// <summary>Starts the briefed mission: its intro dialogue first, then the duel. Skipping the intro starts it too.</summary>
+        public bool StartMission()
+        {
+            if (!IsInBriefing || prologue.CurrentMission == null) return false;
+            int number = prologue.CurrentMission.Number;
+            if (!PlayMissionDialogue(prologue.CurrentMission.IntroDialogue, () => BeginMissionBattle(number)))
+                BeginMissionBattle(number);
+            return true;
         }
 
         public bool StartDialogue(string resourcePath)
@@ -664,11 +712,39 @@ namespace TurnLimbo.Presentation
         {
             if (script == null) throw new System.ArgumentNullException(nameof(script));
             if (!IsInLobby) return false;
+            OpenDialogue(script, portraitCatalog, null);
+            return true;
+        }
+
+        private void OpenDialogue(DialogueScript script, DialoguePortraitCatalog portraitCatalog, System.Action continuation)
+        {
+            dialogueContinuation = continuation;
             dialogueSession = new DialogueSession(script);
             activeDialoguePortraitCatalog = portraitCatalog;
             dialogueOpenedFrame = Time.frameCount;
             ShowCurrentDialogueLine();
-            return true;
+        }
+
+        /// <summary>Plays a mission dialogue from Resources, then runs <paramref name="continuation"/> once the player
+        /// reaches its end or skips it. Returns false (and runs nothing) when the file is missing or invalid.</summary>
+        private bool PlayMissionDialogue(string resourcePath, System.Action continuation)
+        {
+            TextAsset source = string.IsNullOrWhiteSpace(resourcePath) ? null : Resources.Load<TextAsset>(resourcePath);
+            if (source == null)
+            {
+                Debug.LogWarning($"Mission dialogue was not found at Resources/{resourcePath}.txt; continuing without it.");
+                return false;
+            }
+            try
+            {
+                OpenDialogue(DialogueScriptParser.Parse(resourcePath, source.text), defaultDialoguePortraitCatalog, continuation);
+                return true;
+            }
+            catch (DialogueParseException exception)
+            {
+                Debug.LogWarning(exception.Message);
+                return false;
+            }
         }
 
         public bool ContinueDialogue()
@@ -676,16 +752,26 @@ namespace TurnLimbo.Presentation
             if (!IsShowingDialogue) return false;
             if (!dialogueSession.MoveNext())
             {
-                CloseDialogue();
+                FinishDialogue();
                 return false;
             }
             ShowCurrentDialogueLine();
             return true;
         }
 
+        /// <summary>The player finished or skipped the dialogue: close it and continue whatever it was guarding.</summary>
+        private void FinishDialogue()
+        {
+            System.Action next = dialogueContinuation;
+            CloseDialogue();
+            next?.Invoke();
+        }
+
+        /// <summary>Closes any dialogue without continuing its flow (cleanup, restarts and tests).</summary>
         public bool CloseDialogue()
         {
             bool wasOpen = IsShowingDialogue;
+            dialogueContinuation = null;
             dialogueSession = null;
             activeDialoguePortraitCatalog = null;
             dialogueOpenedFrame = -1;
@@ -722,54 +808,57 @@ namespace TurnLimbo.Presentation
             else if (IsInLobby) StartCampaignStage(lobbyHud.SelectedStageNumber);
         }
 
-        public bool StartTutorial()
+        public bool AdvanceGuide()
         {
-            if (!IsInLobby) return false;
-            tutorial = new TutorialProgress();
-            session = TutorialStage.CreateDuel();
-            ResetBattlePresentation();
-            return true;
-        }
-
-        public bool AdvanceTutorial()
-        {
-            if (!IsTutorial || IsShowingResult || !CanChoose || !tutorial.TryAdvance()) return false;
+            if (guide == null || IsShowingResult || !CanChoose || !guide.TryAdvance()) return false;
             ClearHeldKeys();
-            RefreshTutorial();
+            RefreshGuide();
             return true;
         }
 
-        public bool InspectTutorialEnemy()
+        public bool InspectGuideEnemy()
         {
-            if (!IsTutorial || !CanChoose || tutorial.Step != TutorialStep.InspectEnemy) return false;
-            tutorial.NotifyInspected();
+            if (guide == null || !CanChoose || !guide.AllowsInspect) return false;
+            guide.NotifyInspected();
             inspectingEnemy = 0;
-            tutorialInspectionRemaining = 2f;
+            guideInspectionRemaining = 2f;
             ClearHeldKeys();
             RefreshHud(0f);
-            RefreshTutorial();
+            RefreshGuide();
             return true;
         }
 
         public bool DismissBattleResult()
         {
             if (!IsShowingResult) return false;
-            ShowLobby();
+            if (battleResult.IsMission) ShowBriefing();
+            else ShowLobby();
             return true;
         }
 
         public bool RetryBattleResult()
         {
             if (!IsShowingResult) return false;
-            bool practice = battleResult.IsTutorial;
             int number = battleResult.StageNumber;
+            // A mission retry skips its intro, as a restarted StarCraft mission does.
+            if (battleResult.IsMission)
+            {
+                BeginMissionBattle(number);
+                return true;
+            }
             ShowLobby();
-            return practice ? StartTutorial() : StartCampaignStage(number);
+            return StartCampaignStage(number);
         }
 
         public bool AdvanceFromBattleResult()
         {
             if (!IsShowingResult || !battleResult.CanAdvance) return false;
+            // The next mission starts from its briefing; after the last one the lobby opens.
+            if (battleResult.IsMission)
+            {
+                ShowBriefing();
+                return true;
+            }
             int number = battleResult.StageNumber + 1;
             ShowLobby();
             return StartCampaignStage(number);
@@ -824,27 +913,56 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
+        /// <summary>Escape or the coach's abandon: a mission goes back to its briefing, a stage to the lobby.</summary>
         public void ReturnToLobby()
         {
-            if (!IsTutorial && campaign.Phase == CampaignPhase.Battle) campaign.TryAbandonBattle();
+            if (IsMission)
+            {
+                ShowBriefing();
+                return;
+            }
+            if (campaign.Phase == CampaignPhase.Battle) campaign.TryAbandonBattle();
             ShowLobby();
         }
 
         private void FinishStage()
         {
             if (IsShowingResult || !session.IsFinished) return;
-            bool firstClear = !IsTutorial && !campaign.IsStageCleared(campaign.StageNumber);
+            if (IsMission)
+            {
+                FinishMission();
+                return;
+            }
+            bool firstClear = !campaign.IsStageCleared(campaign.StageNumber);
             int unlockedBefore = campaign.HighestUnlockedStage;
-            if (IsTutorial) tutorial.Finish();
-            else if (!campaign.TryCompleteBattle(session.Outcome)) return;
+            if (!campaign.TryCompleteBattle(session.Outcome)) return;
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
-            battleResult = new BattleResult(session.Outcome, IsTutorial,
-                IsTutorial ? 0 : campaign.StageNumber, IsTutorial ? TutorialStage.Name : campaign.CurrentStage.Name,
-                IsTutorial ? 0 : campaign.LastReward, campaign.Currency, session.RoundNumber,
+            var result = new BattleResult(session.Outcome, false,
+                campaign.StageNumber, campaign.CurrentStage.Name,
+                campaign.LastReward, campaign.Currency, session.RoundNumber,
                 session.Player.Health, session.Enemy.Health, firstClear && victory,
-                !IsTutorial && campaign.HighestUnlockedStage > unlockedBefore ? campaign.HighestUnlockedStage : 0,
-                !IsTutorial && victory && campaign.StageNumber < campaign.StageCount &&
+                campaign.HighestUnlockedStage > unlockedBefore ? campaign.HighestUnlockedStage : 0,
+                victory && campaign.StageNumber < campaign.StageCount &&
                 campaign.StageNumber + 1 <= campaign.HighestUnlockedStage);
+            EndDuelPresentation();
+            ShowResult(result);
+        }
+
+        /// <summary>A finished mission: record progress, play the outro on a victory, then show the result.</summary>
+        private void FinishMission()
+        {
+            bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
+            guide?.Finish();
+            prologue.TryComplete(mission.Number, session.Outcome);
+            var result = new BattleResult(session.Outcome, true, mission.Number, mission.Title, 0, campaign.Currency,
+                session.RoundNumber, session.Player.Health, session.Enemy.Health, false, 0, victory);
+            EndDuelPresentation();
+            if (victory && PlayMissionDialogue(mission.OutroDialogue, () => ShowResult(result))) return;
+            ShowResult(result);
+        }
+
+        private void EndDuelPresentation()
+        {
             effectsSource.Stop();
             hitStopRemaining = 0f;
             stepAudio.Stop();
@@ -855,21 +973,65 @@ namespace TurnLimbo.Presentation
             hud.ClearSkillFeedback();
             hud.Root.SetActive(false);
             lobbyHud.Hide();
-            tutorialHud.Hide();
-            resultHud.Show(battleResult);
+            coachHud.Hide();
+        }
+
+        private void ShowResult(BattleResult result)
+        {
+            battleResult = result;
+            resultHud.Show(result, result.IsMission && prologue.IsComplete);
+        }
+
+        private void BeginMissionBattle(int number)
+        {
+            PrologueMission next = prologue.Missions[number - 1];
+            CloseDialogue();
+            mission = next;
+            guide = next.CreateGuide();
+            session = next.CreateDuel(System.Environment.TickCount);
+            ResetBattlePresentation();
+        }
+
+        /// <summary>The current mission's briefing; once the arc is complete, the lobby instead.</summary>
+        private void ShowBriefing()
+        {
+            if (prologue.IsComplete)
+            {
+                ShowLobby();
+                return;
+            }
+            ClearBattleScreens();
+            showingBriefing = true;
+            lobbyHud.Hide();
+            briefingHud.Show(prologue.CurrentMission, prologue.MissionCount);
+        }
+
+        private void ClearMissionState()
+        {
+            mission = null;
+            guide = null;
+            showingBriefing = false;
+            guideInspectionRemaining = 0f;
+            briefingHud?.Hide();
         }
 
         private void ShowLobby()
         {
+            ClearBattleScreens();
+            lobbyHud.Show(campaign);
+        }
+
+        /// <summary>Leaves every duel, result, coach and dialogue screen, ready for the lobby or a briefing.</summary>
+        private void ClearBattleScreens()
+        {
             CloseDialogue();
-            tutorial = null;
+            ClearMissionState();
             battleResult = null;
-            tutorialInspectionRemaining = 0f;
             resultHud.Hide();
-            tutorialHud.Hide();
-            hud.SetTutorialMode(false);
-            hud.SetTutorialInput(null);
-            hud.SetTutorialFocus(-1, false, false, false);
+            coachHud.Hide();
+            hud.SetMissionMode(false);
+            hud.SetGuide(null);
+            hud.SetGuideFocus(-1, false, false, false);
             campaign.ReturnToLobby();
             effectsSource.Stop();
             stepAudio.Stop();
@@ -883,7 +1045,6 @@ namespace TurnLimbo.Presentation
             ClearHeldKeys();
             explainedSkill = null;
             hud.Root.SetActive(false);
-            lobbyHud.Show(campaign);
         }
 
         private void StartStageBattle()
@@ -896,9 +1057,11 @@ namespace TurnLimbo.Presentation
         {
             CloseDialogue();
             battleResult = null;
-            tutorialInspectionRemaining = 0f;
+            guideInspectionRemaining = 0f;
+            showingBriefing = false;
+            briefingHud.Hide();
             resultHud.Hide();
-            tutorialHud.Hide();
+            coachHud.Hide();
             effectsSource.Stop();
             effectsSource.pitch = 1f;
             stepAudio.Stop();
@@ -917,29 +1080,28 @@ namespace TurnLimbo.Presentation
             explainedSkill = null;
             arena.Reset();
             hud.Reset();
-            hud.SetTutorialMode(IsTutorial);
-            hud.SetTutorialInput(tutorial);
-            hud.SetStage(IsTutorial ? 0 : campaign.StageNumber, campaign.StageCount,
-                IsTutorial ? TutorialStage.Name : campaign.CurrentStage.Name);
+            hud.SetMissionMode(IsMission, IsMission && mission.PlanningTimer);
+            hud.SetGuide(guide);
+            if (IsMission) hud.SetStage(mission.Number, prologue.MissionCount, mission.Title);
+            else hud.SetStage(campaign.StageNumber, campaign.StageCount, campaign.CurrentStage.Name);
             SetViewPhase(ViewPhase.Planning);
             ClearHeldKeys();
             RefreshHud(0f);
-            RefreshTutorial();
+            RefreshGuide();
         }
 
-        private void RefreshTutorial()
+        private void RefreshGuide()
         {
-            if (!IsTutorial || IsShowingResult)
+            if (guide == null || IsShowingResult || viewPhase == ViewPhase.Outcome)
             {
-                tutorialHud.Hide();
-                hud.SetTutorialInput(null);
-                hud.SetTutorialFocus(-1, false, false, false);
+                coachHud.Hide();
+                hud.SetGuide(null);
+                hud.SetGuideFocus(-1, false, false, false);
                 return;
             }
-            tutorialHud.Show(tutorial);
-            hud.SetTutorialInput(tutorial);
-            hud.SetTutorialFocus(tutorial.ExpectedLane, tutorial.Step == TutorialStep.CommitQueue,
-                tutorial.Step == TutorialStep.InspectEnemy, tutorial.Step == TutorialStep.TurnRecovery);
+            coachHud.Show(guide, $"임무 {mission.Number:00}");
+            hud.SetGuide(guide);
+            hud.SetGuideFocus(guide.ExpectedLane, guide.FocusesCommit, guide.FocusesEnemyQueue, guide.FocusesAct);
         }
 
         private void ClearHeldKeys()
@@ -982,7 +1144,8 @@ namespace TurnLimbo.Presentation
         {
             dialogueHud?.Dispose();
             resultHud?.Dispose();
-            tutorialHud?.Dispose();
+            coachHud?.Dispose();
+            briefingHud?.Dispose();
             lobbyHud?.Dispose();
             stepHud?.Dispose();
             stepAudio?.Dispose();

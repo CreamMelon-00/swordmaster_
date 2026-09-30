@@ -125,7 +125,6 @@ namespace TurnLimbo.Presentation.Tests
         {
             private readonly bool originalEnabled;
             private readonly LegacyQueuedDuel originalSession;
-            private readonly object originalTutorial;
             private readonly Action<float, Keyboard> advance;
             public DuelPrototypeController Controller { get; }
             public Transform Explanation { get; }
@@ -137,9 +136,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Controller, Is.Not.Null);
                 originalEnabled = Controller.enabled;
                 originalSession = Controller.Session;
-                originalTutorial = Field("tutorial").GetValue(Controller);
                 Controller.enabled = false;
-                Field("tutorial").SetValue(Controller, null);
+                // A fixture duel runs outside the opening arc's missions and their coach.
+                Field("mission").SetValue(Controller, null);
+                Field("guide").SetValue(Controller, null);
                 duel = duel ?? new LegacyQueuedDuel(1000, 1000, 1000, 1000,
                     new[]
                     {
@@ -180,7 +180,6 @@ namespace TurnLimbo.Presentation.Tests
             public void Dispose()
             {
                 Field("session").SetValue(Controller, originalSession);
-                Field("tutorial").SetValue(Controller, originalTutorial);
                 Controller.RestartMatch();
                 Controller.enabled = originalEnabled;
             }

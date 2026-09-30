@@ -29,7 +29,7 @@ Presentation.Tests -> Presentation / Runtime
 
 Play 시 `DuelPrototypeBootstrap`이 활성 씬에 컨트롤러가 없으면 생성한다. `DuelPrototypeController`는 전장·HUD·오디오를 구성하고 입력과 재생 흐름을 조정한다. 현재 화면은 `LegacyArenaView`의 카메라·`SpriteRenderer`·파티클과 `LegacyCombatHud`의 Canvas·Image·Text·Button으로 표현한다. 초기 IMGUI 데모는 현재 플레이 흐름에 사용하지 않는다.
 
-다이얼로그 원문은 `Assets/Game/Resources/Dialogue/*.txt`에 두고 `DialogueScriptParser`가 순수 C# 데이터로 변환한다. 선택적인 `DialoguePortraitCatalog`는 Presentation 계층의 ScriptableObject로 Sprite 직접 참조만 소유하며, 정확한 화자 이름으로 기본 초상화를 찾는다. `DialogueHud`는 카드 뒤의 재사용 Image 하나를 좌·우로 옮기고 내레이션·미지정 화자에서는 숨긴다. 대화 중에는 로비·전투보다 먼저 입력을 소비하며, 닫힌 같은 프레임의 키가 뒤쪽 화면으로 전달되지 않는다. 작성 문법은 `DialogueAuthoring.md`, 도구 사용법은 `DialogueEditor.md`를 따른다. 예시 스토리 내용과 자동 시작 지점은 만들지 않았다.
+다이얼로그 원문은 `Assets/Game/Resources/Dialogue/*.txt`에 두고 `DialogueScriptParser`가 순수 C# 데이터로 변환한다. 선택적인 `DialoguePortraitCatalog`는 Presentation 계층의 ScriptableObject로 Sprite 직접 참조만 소유하며, 정확한 화자 이름으로 기본 초상화를 찾는다. `DialogueHud`는 카드 뒤의 재사용 Image 하나를 좌·우로 옮기고 내레이션·미지정 화자에서는 숨긴다. 대화 중에는 로비·전투보다 먼저 입력을 소비하며, 닫힌 같은 프레임의 키가 뒤쪽 화면으로 전달되지 않는다. 작성 문법은 `DialogueAuthoring.md`, 도구 사용법은 `DialogueEditor.md`를 따른다. 자동 시작 지점은 서막 임무의 시작/종료 대사(`Dialogue/mission-NN-intro`/`-outro`, 지금은 `테스트` 한 줄)뿐이다. 로비의 대사는 버튼으로만 연다.
 
 ## 현재 전투 사이클
 
@@ -49,7 +49,7 @@ Play 시 `DuelPrototypeBootstrap`이 활성 씬에 컨트롤러가 없으면 생
 
 로비의 네 탭은 현재 씬의 전체 페이지를 교체하며 별도 Scene 로드나 모달 창을 만들지 않는다. 고정 헤더와 `Lobby Page`는 형제이며 페이지는 헤더 100px을 제외한 전체 viewport를 채운다. 홈은 방과 전체 높이 준비 rail, 스테이지는 4×2 카드와 오른쪽 상세, 편성·상점은 기존 조작을 유지한 확장 콘텐츠다. `LobbyScreenTransition` 한 개가 신규 페이지를 0.22초 unscaled fade/32px 방향 이동으로 표시한다. 페이지 입력만 일시 차단하며 헤더는 계속 활성이다. 교체/숨김/Dispose 전에 `Finish()`로 위치·alpha·입력 상태를 복원한다. 거래·편성 갱신은 이동 애니메이션을 재시작하지 않는다. 선택/스크롤은 기존 `ViewState`에 남기고 전환 객체는 진행 데이터나 전투 시계를 소유하지 않는다.
 
-현재 비주얼(2026-09-27)은 `DuelVisualTheme`의19세기 검술 클럽 팔레트로 통일한다. 로비·편성·상점·전투·결과·튜토리얼·이전 정비 화면은 같은 목재/황동/종이/잉크 색을 공유한다. 코드 기반 `DuelPanelTrim`은 각 이미지에 하나만 붙는 비차단 uGUI mesh이며 `CanvasRenderer`를 명시적으로 요구한다. 메인 Sprite·색·치수·입력 핸들러를 바꾸지 않고 Image의 수명/마스킹을 따른다. 방/스킬15배지/기록·확정/숲 중경 PNG5개를 같은 Resource 경로·GUID로 편집했고 실제 문양 경계에 맞춰 아이콘의 rect만 바꿨다. 원경2층과전경·배경 튜닝·캐릭터·전투 Runtime은 그대로다. 최신 지침과 제작 기록은 `Art/VictorianDuelTheme.md`를 따른다. 아래 초기 중립 HUD/네온 역할색 설명보다 이 단락을 우선한다.
+현재 비주얼(2026-09-27)은 `DuelVisualTheme`의19세기 검술 클럽 팔레트로 통일한다. 브리핑·로비·편성·상점·전투·결과·이전 정비 화면은 같은 목재/황동/종이/잉크 색을 공유한다. 코드 기반 `DuelPanelTrim`은 각 이미지에 하나만 붙는 비차단 uGUI mesh이며 `CanvasRenderer`를 명시적으로 요구한다. 메인 Sprite·색·치수·입력 핸들러를 바꾸지 않고 Image의 수명/마스킹을 따른다. 방/스킬15배지/기록·확정/숲 중경 PNG5개를 같은 Resource 경로·GUID로 편집했고 실제 문양 경계에 맞춰 아이콘의 rect만 바꿨다. 원경2층과전경·배경 튜닝·캐릭터·전투 Runtime은 그대로다. 최신 지침과 제작 기록은 `Art/VictorianDuelTheme.md`를 따른다. 아래 초기 중립 HUD/네온 역할색 설명보다 이 단락을 우선한다.
 
 원본 충돌 파티클은 최대24개를 재사용한다. 수동 `Simulate` 뒤의 `IsAlive(true)`는 빈 시스템도 향후 방출 가능 상태로 남길 수 있으므로 풀 반환에 사용하지 않는다. 각 인스턴스의 하위 시스템 배열과 `max(startDelay+duration)`(원본0.55초)을 생성 때 캐시한다. 수동 전투 시계가 방출 종료 지점을 지나고 모든 하위 `particleCount`가0인 경우에만 멈추고 비활성화하여 반환한다. 원본은 비반복 시스템2개/단일 burst/하위 emitter 없음이며, 실제 시간 timeout이나 임의 파티클 자산 변경은 넣지 않는다. 따라서 슬로모션·히트 스톱 중에도 수명 시계를 유지하며 링을 조기 삭제하지 않는다.
 
@@ -58,7 +58,7 @@ Play 시 `DuelPrototypeBootstrap`이 활성 씬에 컨트롤러가 없으면 생
 - 전체 슬롯 완료: 턴을 올리고 저항력 회복, 잔여 ACT + 기본/기술 보상, 적 패턴 진행을 처리한 뒤 다시 편성한다.
 - `Finished`: 현재 슬롯의 모든 타격·동작을 끝낸 뒤 승패를 확인한다. 이후 슬롯과 턴은 진행하지 않는다. 재대결은 기술열, 적 패턴, 상태와 타이머를 초기화한다.
 
-`LegacyQueuedDuel`이 규칙과 상태를 소유하고 `DuelPrototypeController`는 입력·10초 제한·접근·재생·턴 마무리 흐름을 조정한다. 공통 `숨고르기`는 `TryQueueBreath()`로 준비 큐에 한 칸을 추가하며 ACT 없이 턴당3회만 허용한다. QWE 기술열을 회전하지 않는 Wait 행동이고 상대 공격은 무방비 체력 피해로 처리한다. HUD의 남은 횟수와 S/버튼 입력은 같은 세션 상태를 읽으며 기초 튜토리얼에는 추가하지 않는다. 기존 상점 기술 호흡(ID17)과는 별개다. 상세는 `BreathingAction.md`를 따른다. 슬롯 처리는 다음 API로 나눈다.
+`LegacyQueuedDuel`이 규칙과 상태를 소유하고 `DuelPrototypeController`는 입력·10초 제한·접근·재생·턴 마무리 흐름을 조정한다. 공통 `숨고르기`는 `TryQueueBreath()`로 준비 큐에 한 칸을 추가하며 ACT 없이 턴당3회만 허용한다. QWE 기술열을 회전하지 않는 Wait 행동이고 상대 공격은 무방비 체력 피해로 처리한다. HUD의 남은 횟수와 S/버튼 입력은 같은 세션 상태를 읽으며 서막 임무에서는 잠근다. 기존 상점 기술 호흡(ID17)과는 별개다. 상세는 `BreathingAction.md`를 따른다. 슬롯 처리는 다음 API로 나눈다.
 
 - `BeginNextSlot()`: 기술 한 쌍을 준비하고 랜덤 위력과 기존 버프를 한 번 계산한다. 기술 효과를 반영하되 피해는 아직 발생하지 않는다.
 - `ResolveNextHit()`: 이번 타격의 체력·저항력 피해만 반영한다. 타격 수가 다른 경우 남은 쪽만 공격하며, 방어끼리는 피해 없는 동작을 처리한다. 피해 숫자와 밀림에는 실제 체력 차감량과 별도로 원본의 오버킬 전 피해·두 배 피해 전 밀림값을 제공한다.
@@ -66,7 +66,7 @@ Play 시 `DuelPrototypeBootstrap`이 활성 씬에 컨트롤러가 없으면 생
 - `ResolveNextSlot()`: 테스트·비시각적 호출용으로 위 절차를 한 번에 실행한다.
 - `TryStep(action, timingSuccessful, out success)`: 컨트롤러가 예고/첫 임팩트 직전 타이밍을 넘기고 Runtime은 해당 기술의 회피·압박 플래그를 적용하고 이번 턴 시도 수(성공 구간 조이기)와 연속 성공을 센다. 빗나간 시도가 있으면 다음 턴 자연 ACT 회복을 막는다. 상세는 `StepPrototype.md`를 따른다.
 
-일반 전투의 표시 상태에는 `SkillWindup`을 추가했다. 슬롯/효과 초기화 뒤 기본0.24초 예고 동안 클립0 프레임을 유지하고 기존 `PlayingSlot` 시계를 시작한다. 성공 구간은 첫 타격 직전0.10초에서 시작해 이번 턴 시도마다 좁아진다(`LegacyStepTiming`, `StepPrototype.md` 판정 조이기). 키 입력을 프레임 진행·타격보다 먼저 판정하며, 같은 프레임에 누른 키는 그 프레임의 구간으로 함께 판정한다. 기존 기초 튜토리얼은 예고/스텝을 사용하지 않는다.
+일반 전투의 표시 상태에는 `SkillWindup`을 추가했다. 슬롯/효과 초기화 뒤 기본0.24초 예고 동안 클립0 프레임을 유지하고 기존 `PlayingSlot` 시계를 시작한다. 성공 구간은 첫 타격 직전0.10초에서 시작해 이번 턴 시도마다 좁아진다(`LegacyStepTiming`, `StepPrototype.md` 판정 조이기). 키 입력을 프레임 진행·타격보다 먼저 판정하며, 같은 프레임에 누른 키는 그 프레임의 구간으로 함께 판정한다. 서막 임무는 예고/스텝을 사용하지 않는다(`PrologueMission.StepsEnabled`).
 
 `LegacyDuelArt`는 선별한 스프라이트·아이콘·폰트·효과음을 캐시한다. `LegacyArenaView`는 원본 12fps 클립의 스프라이트 곡선을 수동 샘플링하며, 전투 판정은 레거시 애니메이션 이벤트가 아닌 Runtime 타격 API를 통해 수행한다. 비레거시 클립의 SpriteRenderer 곡선 연결을 위해 각 캐릭터에 Controller 없는 Animator를 둔다. Animator의 자동 상태 전환 대신 전장의 수동 시계로만 재생한다. 원본 충돌 파티클은 필요한 렌더링 의존성만 복사하고 수동으로 시뮬레이션한다. 캐릭터의 기존 전투 스크립트와 Animator Controller·전체 씬을 가져오지는 않는다.
 
@@ -88,9 +88,9 @@ HUD의 입력 패널과 타이머는 확정 시 숨긴다. `BeginCombat()`은 �
 
 기술 설명과 원본 실제 동작이 다른 효과는 임의로 개선하지 않고 실제 코드 동작을 따랐다. 기술 9의 버프는 현재 턴의 이후 슬롯에 적용하며, 기술 5는 방어 수치를 제거하지 않는다. 양쪽이 동시에 쓰러지면 원본처럼 플레이어 패배를 우선한다. 전체 49개 기술·체인·성장 시스템의 이식은 아직 아니다.
 
-현재 진입점은 방 배경의 `CampaignLobbyHud`이다. 홈/스테이지/편성/상점 탭은 요청만 전달하며 `CampaignRun`이 개방 단계, 첫 클리어와 재도전 보상, 재화, 보유 기술, 고정 Q/W/E 기술열의 편성과 순서를 소유한다. 로비 → 선택한 개방 스테이지의 Battle → 결과 창 → 로비/재도전/개방된 다음 스테이지 순환이며 자동으로 다음 전투에 들어가지 않는다. Runtime의 Maintenance/Failed/Completed는 결과 확정 직후의 상태와 이전 API 호환용으로 남긴다. Controller가 마지막 타격과 마무리 완료 뒤 승패를 한 번 전달하고 불변 `BattleResult`를 `BattleResultHud`로 표시한다. 보상은 Runtime에서 한 번만 지급하며 창의 재표시는 상태를 변경하지 않는다. 로비와 결과 창에서는 전투 시계·전투 입력을 멈춘다. Escape는 일반 전투 포기/결과에서 로비/로비 홈, Enter는 결과에서 로비/스테이지 탭에서 출정한다.
+새 게임의 진입점은 서막 1 임무의 `MissionBriefingHud`이고, 네 임무를 마치면 방 배경의 `CampaignLobbyHud`가 허브가 된다(`PrologueMissions.md`). 홈/스테이지/편성/상점 탭은 요청만 전달하며 `CampaignRun`이 개방 단계, 첫 클리어와 재도전 보상, 재화, 보유 기술, 고정 Q/W/E 기술열의 편성과 순서를 소유한다. 로비 → 선택한 개방 스테이지의 Battle → 결과 창 → 로비/재도전/개방된 다음 스테이지 순환이며 자동으로 다음 전투에 들어가지 않는다. Runtime의 Maintenance/Failed/Completed는 결과 확정 직후의 상태와 이전 API 호환용으로 남긴다. Controller가 마지막 타격과 마무리 완료 뒤 승패를 한 번 전달하고 불변 `BattleResult`를 `BattleResultHud`로 표시한다. 보상은 Runtime에서 한 번만 지급하며 창의 재표시는 상태를 변경하지 않는다. 로비와 결과 창에서는 전투 시계·전투 입력을 멈춘다. Escape는 일반 전투 포기/결과에서 로비/로비 홈, Enter는 결과에서 로비/스테이지 탭에서 출정한다.
 
-`TutorialStage`는 현재 여정의 편성/진행과 분리한 전용 연습 `LegacyQueuedDuel`을 만든다. `TutorialProgress`는 성공한 예약/적 확인/확정/실제 다음 턴을 받아 단계별 안내와 허용 입력을 결정하고 전투 판정은 바꾸지 않는다. `TutorialCoachHud`는 필요한 기존 카드·확정·적 큐·ACT를 강조하는 비차단 안내다. 연습의 초기 Q→W→Q 큐는 공격/지원/방어를 직접 배우도록 원본 기술열을 단순화하고, 제한시간과 자동 확정은 전체 연습에서 끈다. 튜토리얼 보상·일반 단계 해금은 없으며 종료·재연습·여정 초기화는 코치/결과/검사 입력 상태를 명시적으로 초기화한다. 씬·프리팹 수동 연결 없이 기존 부트스트랩에서 생성한다. 단계와 조작은 `BattleResultsAndTutorial.md`를 따른다.
+서막(`Runtime/Prologue`)은 로비 전에 한 줄로 이어지는 네 임무다. `PrologueMissions`가 정적 데이터를, `PrologueRun`이 순서대로 이긴 임무의 진행을 소유한다. `PrologueMission.CreateDuel`은 여정의 편성/진행과 분리한 Q열 하나짜리 `LegacyQueuedDuel`을 만든다. `MissionGuide`는 성공한 예약/적 확인/확정/실제 다음 턴을 받아 코치 단계와 허용 입력을 결정하고 전투 판정은 바꾸지 않는다. Presentation의 `MissionBriefingHud`는 배경·제목·목표·적 실루엣과 시작 버튼 하나를, `MissionCoachHud`는 필요한 카드·확정·적 큐·ACT를 강조하는 비차단 안내를 보여 준다. 컨트롤러는 브리핑 → 시작 대사 → 전투 → (승리 시) 종료 대사 → 결과 순서로 잇는다. 대사의 다음 단계는 플레이어가 끝까지 넘기거나 건너뛸 때만 실행하고, 정리용 `CloseDialogue`는 실행하지 않는다. 임무 보상·일반 단계 해금은 없다. 씬·프리팹 수동 연결 없이 기존 부트스트랩에서 생성한다. 상세는 `PrologueMissions.md`를 따른다.
 
 구매는 보유 목록에만 추가한다. `CampaignRun`은 저장 편성과 별도의 고정3×3 임시 편집을 소유한다. 편집 중 빈칸은 허용하지만 저장은 각 열 정확히3개·소유권·중복·고정열 검사를 모두 통과해야 원자적으로 적용한다. 미저장 변경은 출정을 차단하고 되돌리기는 마지막 저장 편성을 복구한다. `CampaignLoadoutHud`는 같은 열의 슬롯 교환/보유 기술 교체를 드래그로만 요청하며, 카드 클릭은 설명만 선택하고 초안 슬롯을 변경하지 않는다. 카드에는 이름·ACT만 남기고 선택 기술의 상세만 보여준다. `CampaignShopHud`도 구매/강화 목록을 분리하고 선택한 기술의 상세와 단일 거래 버튼을 표시한다. 목록 선택은 재화를 사용하지 않으며 구매/강화 요청만 Controller/Runtime에 전달한다. `CampaignSkillText`의 실제 효과 문구는 두 선택 상세가 공유하고 전투 판정에는 관여하지 않는다. 로비가 두 뷰의 선택/스크롤 상태와 수명을 소유한다. 입장마다 편성 순서대로 복사한 기술과 적 수치로 별도 전투 스냅샷을 만들고 HUD·기록·위치·입자를 초기화한다. 재화 차감·중복 구매·강화 상한·전투 중 편성 차단은 Runtime이 검사한다. 첫 클리어는 다음 단계 개방/기본 보상을, 재도전은 절반 보상을 지급한다. 기존 불변 기본 기술은 바꾸지 않고 강화 복사본을 만든다. 기술 ID는 효과·소유권을, `IconId`는 그림 변형을 식별한다. `Resources/SkillRoles/skill-role-atlas`의 검 전용15개 스프라이트가 베기(주황 마름모), 관통(청록 육각형), 타격(금색 홈 사각형), 방어(녹색 방패)의 테두리와 문양을 제공하고 현재 전투 카드에는 기술 이름도 표시한다. 기존 키캡 자산은 보존한다. 추가6기술은 미이식 유틸 효과를 공유하지 않도록 IconId10~15로 분리한다. `LegacySkillRoles`는 실제 Skill.Id로 찾은 정의 표의 효과·태그와 종류/타격 횟수에서 도출하는 읽기 전용 표시 메타데이터이며 전투 판정에는 관여하지 않는다. 조건부 저항 피해와 표식 의미는 `SkillRoleLanguage.md`를 따른다.
 

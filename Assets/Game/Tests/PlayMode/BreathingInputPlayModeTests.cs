@@ -110,7 +110,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator Breathing_IsBlockedDuringInspection_LobbyAndGuidedTutorial()
+        public IEnumerator Breathing_IsBlockedDuringInspection_LobbyBriefingAndMissions()
         {
             yield return null;
             using (var scope = new BreathScope())
@@ -132,8 +132,15 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Controller.ReturnToLobby();
                 Assert.That(scope.Controller.IsInLobby, Is.True);
                 Assert.That(scope.Controller.QueueBreath(), Is.False);
-                Assert.That(scope.Controller.StartTutorial(), Is.True);
+                scope.Controller.StartNewGame();
+                Assert.That(scope.Controller.IsInBriefing, Is.True);
                 Assert.That(scope.Controller.QueueBreath(), Is.False);
+                Assert.That(scope.Controller.StartMission(), Is.True);
+                Assert.That(scope.Controller.ContinueDialogue(), Is.False);
+                Assert.That(scope.Controller.IsMission, Is.True);
+                Assert.That(scope.Controller.QueueBreath(), Is.False);
+                Assert.That(scope.Controller.AdvanceGuide(), Is.True);
+                Assert.That(scope.Controller.QueueBreath(), Is.False, "Breathing stays closed through the opening arc.");
                 Assert.That(scope.Controller.Session.BreathsQueuedThisTurn, Is.Zero);
             }
         }
@@ -162,7 +169,8 @@ namespace TurnLimbo.Presentation.Tests
                 JsonUtility.FromJsonOverwrite("{\"hitStopDuration\":0,\"skillInterval\":0}", settings);
                 Set("presentationSettings", settings);
                 arenaSettings.SetValue(Controller.ArenaView, settings);
-                Set("tutorial", null);
+                Set("mission", null);
+                Set("guide", null);
                 Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
                     new[] { Skill(101, 0), Skill(102, 0), Skill(103, 1), Skill(105, 2) },
                     new[] { Skill(201, 0, 2) }, new[] { 1 }, 1));

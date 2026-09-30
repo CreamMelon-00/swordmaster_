@@ -1,6 +1,7 @@
 using System;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -14,7 +15,7 @@ namespace TurnLimbo.Presentation
         private readonly RectTransform root;
         private readonly Text heading, stage, rounds, playerHealth, enemyHealth, reward, currency, notice;
         private readonly Button lobbyButton, retryButton, nextButton;
-        private readonly Text retryCaption;
+        private readonly Text retryCaption, lobbyCaption, nextCaption;
         private bool disposed;
         private static readonly Color Surface = DuelVisualTheme.Surface;
         private static readonly Color Raised = DuelVisualTheme.RaisedSurface;
@@ -64,34 +65,48 @@ namespace TurnLimbo.Presentation
             lobbyButton = ActionButton("Result Lobby", card.transform, "로비로", new Vector2(-248f, -255f), returnToLobby);
             retryButton = ActionButton("Result Retry", card.transform, "재도전", new Vector2(0f, -255f), retry);
             retryCaption = retryButton.GetComponentInChildren<Text>();
+            lobbyCaption = lobbyButton.GetComponentInChildren<Text>();
             nextButton = ActionButton("Result Next Stage", card.transform, "다음 스테이지", new Vector2(248f, -255f), nextStage, true);
+            nextCaption = nextButton.GetComponentInChildren<Text>();
             Hide();
         }
 
-        public void Show(BattleResult result)
+        /// <param name="arcComplete">Whether the opening arc is already over, so a mission's exits reach the lobby.</param>
+        public void Show(BattleResult result, bool arcComplete = false)
         {
             if (disposed) return;
             if (result == null) throw new ArgumentNullException(nameof(result));
             root.gameObject.SetActive(true);
-            heading.text = result.IsTutorial
-                ? result.Victory ? "연습 완료" : "연습 결과"
+            heading.text = result.IsMission
+                ? result.Victory ? "임무 완료" : "임무 실패"
                 : result.Outcome == DuelMatchOutcome.PlayerVictory ? "승리"
                 : result.Outcome == DuelMatchOutcome.Draw ? "무승부" : "패배";
             heading.color = result.Victory ? Accent : result.Outcome == DuelMatchOutcome.Draw ? Foreground : DuelVisualTheme.Danger;
-            stage.text = result.IsTutorial ? "튜토리얼  ·  " + result.StageName
+            stage.text = result.IsMission ? $"{MissionBriefingHud.ChapterName}  ·  임무 {result.StageNumber:00}  ·  {result.StageName}"
                 : $"스테이지 {result.StageNumber:00}  ·  {result.StageName}";
             rounds.text = result.RoundNumber.ToString();
             playerHealth.text = Mathf.Max(0, result.PlayerHealth).ToString();
             enemyHealth.text = Mathf.Max(0, result.EnemyHealth).ToString();
             reward.text = "+ " + Mathf.Max(0, result.Reward);
             currency.text = "보유 재화\n" + Mathf.Max(0, result.Currency);
-            notice.text = BuildNotice(result);
-            retryCaption.text = result.IsTutorial ? "다시 연습" : "재도전";
+            // A mission's exits open the next briefing, or the lobby once the arc is over.
+            bool toLobby = result.IsMission && (arcComplete || result.Victory && result.StageNumber >= PrologueMissions.Count);
+            notice.text = BuildNotice(result, toLobby);
+            retryCaption.text = "재도전";
+            lobbyCaption.text = result.IsMission && !toLobby ? "브리핑으로" : "로비로";
+            nextCaption.text = !result.IsMission ? "다음 스테이지" : toLobby ? "여정 계속" : "다음 임무";
             retryButton.interactable = result.CanRetry;
-            nextButton.gameObject.SetActive(!result.IsTutorial && result.CanAdvance);
-            // Two actions remain balanced when no next stage is available.
-            lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(result.CanAdvance && !result.IsTutorial ? -248f : -132f, -255f);
-            retryButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(result.CanAdvance && !result.IsTutorial ? 0f : 132f, -255f);
+            // After a mission victory the briefing exit would duplicate 다음 임무, so only retry and next remain.
+            bool showLobby = !(result.IsMission && result.CanAdvance);
+            lobbyButton.gameObject.SetActive(showLobby);
+            nextButton.gameObject.SetActive(result.CanAdvance);
+            // The visible actions stay evenly spaced.
+            bool three = showLobby && result.CanAdvance;
+            float left = three ? -248f : -132f;
+            lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(left, -255f);
+            retryButton.GetComponent<RectTransform>().anchoredPosition =
+                new Vector2(!showLobby ? left : three ? 0f : 132f, -255f);
+            nextButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(three ? 248f : 132f, -255f);
             ClearSelection();
         }
 
@@ -114,11 +129,14 @@ namespace TurnLimbo.Presentation
             else UnityEngine.Object.DestroyImmediate(root.gameObject);
         }
 
-        private static string BuildNotice(BattleResult result)
+        private static string BuildNotice(BattleResult result, bool toLobby)
         {
-            if (result.IsTutorial)
-                return result.Victory ? "예약 → 확정 → 교전 → 다음 턴을 모두 연습했습니다.\n로비에서 기술을 편성하고 첫 스테이지에 도전해보세요."
-                    : "연습은 재화와 스테이지 진행에 영향을 주지 않습니다.\n다시 연습하거나 로비로 돌아갈 수 있습니다.";
+            if (result.IsMission)
+                return !result.Victory
+                    ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 로비로 돌아갈 수 있습니다."
+                        : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
+                    : result.StageNumber >= PrologueMissions.Count ? "서막의 임무를 모두 마쳤습니다.\n이제 편성과 상점이 열립니다."
+                    : toLobby ? "서막은 이미 마쳤습니다.\n여정을 계속하면 로비로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
             if (!result.Victory)
                 return result.Outcome == DuelMatchOutcome.Draw ? "승부가 나지 않았습니다. 재도전하거나 기술 편성을 바꿔보세요."
                     : "이번 전투의 보상은 없습니다.\n로비에서 편성을 바꾸거나 다시 도전해보세요.";

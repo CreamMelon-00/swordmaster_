@@ -16,7 +16,7 @@ namespace TurnLimbo.Presentation
         private readonly LegacyDuelArt art;
         private readonly Action<int> acquire, upgrade, unequip, startStage;
         private readonly Action<int, int, int> placeLoadoutSkill;
-        private readonly Action restartJourney, startTutorial, saveLoadout, resetLoadout;
+        private readonly Action restartJourney, saveLoadout, resetLoadout;
         private readonly CampaignLoadoutHud.ViewState loadoutState = new CampaignLoadoutHud.ViewState();
         private readonly CampaignShopHud.ViewState shopState = new CampaignShopHud.ViewState();
         private CampaignLoadoutHud loadoutHud;
@@ -53,7 +53,7 @@ namespace TurnLimbo.Presentation
 
         public CampaignLobbyHud(Transform parent, LegacyDuelArt art, Action<int> acquire,
             Action<int> upgrade, Action<int> equip, Action<int> unequip, Action<int, int> move,
-            Action<int> startStage, Action restartJourney, Action startTutorial = null,
+            Action<int> startStage, Action restartJourney,
             Action<int, int, int> placeLoadoutSkill = null, Action saveLoadout = null,
             Action resetLoadout = null)
         {
@@ -64,7 +64,6 @@ namespace TurnLimbo.Presentation
             this.unequip = unequip;
             this.startStage = startStage;
             this.restartJourney = restartJourney;
-            this.startTutorial = startTutorial;
             this.placeLoadoutSkill = placeLoadoutSkill;
             this.saveLoadout = saveLoadout;
             this.resetLoadout = resetLoadout;
@@ -283,9 +282,6 @@ namespace TurnLimbo.Presentation
                 () => ShowTab(LobbyTab.Loadout));
             Button("Home Open Shop", inner.transform, "상점", new Vector2(0f, -115f), new Vector2(304f, 62f), true,
                 () => ShowTab(LobbyTab.Shop));
-            if (startTutorial != null)
-                Button("Home Start Tutorial", inner.transform, "기초 연습  ·  튜토리얼", new Vector2(0f, -210f),
-                    new Vector2(304f, 52f), true, () => startTutorial.Invoke());
             if (restartJourney != null)
                 Button("Reset Journey", inner.transform, resetArmed ? "정말 초기화" : "여정 초기화",
                     new Vector2(0f, -290f), new Vector2(304f, 42f), true, ResetJourneyClicked, false, Muted);
@@ -339,9 +335,6 @@ namespace TurnLimbo.Presentation
             Button("Start Selected Stage", preview.transform,
                 run.HasLoadoutChanges ? "편성 저장 필요" : "도전  [Enter]", new Vector2(0f, -215f),
                 new Vector2(384f, 66f), run.CanStartStage(selected), () => StartStage(selected), true);
-            if (startTutorial != null)
-                Button("Stages Start Tutorial", panel, "기초 연습 · 보상 없는 튜토리얼", new Vector2(-318f, -296f),
-                    new Vector2(1064f, 50f), true, () => startTutorial.Invoke(), false, Accent);
         }
 
         private void BuildStageCard(Transform parent, CampaignRun run, int number, Vector2 position, Vector2 size)

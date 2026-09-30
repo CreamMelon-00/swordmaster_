@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
-using TurnLimbo.Runtime.Tutorial;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
@@ -26,10 +26,10 @@ namespace TurnLimbo.Presentation
         private readonly RectTransform timerPanel;
         private readonly Image timerFill, actFill;
         private readonly Image timerTrack;
-        private readonly Text tutorialTimeHint;
+        private readonly Text untimedHint;
         private readonly Text turnText, actText, stageText;
         private readonly Button[] laneButtons = new Button[3];
-        private readonly CanvasGroup[] tutorialLaneGroups = new CanvasGroup[3];
+        private readonly CanvasGroup[] guideLaneGroups = new CanvasGroup[3];
         private readonly bool[] laneAffordable = new bool[3];
         private readonly Button breathButton;
         private readonly Text breathCount;
@@ -37,7 +37,7 @@ namespace TurnLimbo.Presentation
         private readonly Action queueBreath;
         private LegacyQueuedDuel displayedSession;
         private int shownBreathsRemaining = -1;
-        private TutorialProgress tutorialInput;
+        private MissionGuide guide;
         private bool lastPlanning;
         private readonly Image[] currentIcons = new Image[3], nextIcons = new Image[3], holdImages = new Image[3];
         private readonly Text[] costs = new Text[3];
@@ -45,11 +45,12 @@ namespace TurnLimbo.Presentation
         private readonly SkillCardFeedbackGraphic[] laneFeedback = new SkillCardFeedbackGraphic[3];
         private readonly int[] shownSkills = { -1, -1, -1 }, shownNextSkills = { -1, -1, -1 };
         private readonly Button commitButton;
-        private readonly CanvasGroup tutorialCommitGroup;
-        private readonly Outline[] tutorialLaneFocus = new Outline[3];
-        private readonly Outline tutorialCommitFocus;
-        private readonly RectTransform tutorialEnemyFocus, tutorialActFocus;
-        private bool tutorialMode, tutorialModeInitialized, highlightEnemyQueue;
+        private readonly CanvasGroup guideCommitGroup;
+        private readonly Outline[] guideLaneFocus = new Outline[3];
+        private readonly Outline guideCommitFocus;
+        private readonly RectTransform guideEnemyFocus, guideActFocus;
+        private bool missionMode, missionModeInitialized, missionTimed, highlightEnemyQueue;
+        private readonly GameObject[] laneCards = new GameObject[3], nextPanels = new GameObject[3];
         private int stageNumber, stageCount;
         private string stageName;
         private readonly StatusView playerStatus, enemyStatus;
@@ -217,9 +218,11 @@ namespace TurnLimbo.Presentation
                 int selectedLane = lane;
                 button.onClick.AddListener(() => { queue?.Invoke(selectedLane); ClearSelection(button.gameObject); });
                 laneButtons[lane] = button;
-                tutorialLaneGroups[lane] = card.gameObject.AddComponent<CanvasGroup>();
-                tutorialLaneFocus[lane] = AddTutorialOutline(card);
+                guideLaneGroups[lane] = card.gameObject.AddComponent<CanvasGroup>();
+                guideLaneFocus[lane] = AddGuideOutline(card);
                 laneFeedback[lane] = SkillCardFeedbackGraphic.Create(card.transform, "Lane Condition Feedback", 3f);
+                laneCards[lane] = card.gameObject;
+                nextPanels[lane] = next.gameObject;
             }
             var breathe = Panel("BreathButton", controls, new Vector2(360, -4), new Vector2(144, 124), RaisedSurface);
             var breathIcon = Image("Icon", breathe.transform, art.GetSkillIcon(LegacyCommonActions.Breathe.IconId),
@@ -249,13 +252,13 @@ namespace TurnLimbo.Presentation
                 Image("ACT Divider " + unit, controls, white, new Vector2(-260 + unit * 52, -90), new Vector2(2, 8), Surface);
             actText = Text("Act_Value", controls, new Vector2(0, -75), new Vector2(140, 20), 18, TextAnchor.MiddleCenter);
             actText.color = MutedText;
-            tutorialActFocus = TutorialFocusFrame("Tutorial ACT Focus", controls, new Vector2(0f, -81f), new Vector2(540f, 39f));
+            guideActFocus = GuideFocusFrame("Guide ACT Focus", controls, new Vector2(0f, -81f), new Vector2(540f, 39f));
             var start = Panel("AButton", controls, new Vector2(-80, 0), new Vector2(96, 112), RaisedSurface, Accent);
             Pin(start.rectTransform, new Vector2(1, .5f));
             BuildActionIcon(start.transform, "confirm-turn", "확정", "Space");
             commitButton = AddButton(start, true);
-            tutorialCommitGroup = start.gameObject.AddComponent<CanvasGroup>();
-            tutorialCommitFocus = AddTutorialOutline(start);
+            guideCommitGroup = start.gameObject.AddComponent<CanvasGroup>();
+            guideCommitFocus = AddGuideOutline(start);
             commitButton.onClick.AddListener(() => { commit?.Invoke(); ClearSelection(commitButton.gameObject); });
 
             timerPanel = Panel("TimerBG", root, new Vector2(0, -36), new Vector2(480, 48)).rectTransform;
@@ -265,9 +268,9 @@ namespace TurnLimbo.Presentation
             timerTrack = Image("Timer Track", timerPanel, white, new Vector2(48, -5), new Vector2(336, 5), Track);
             timerFill = Image("Timer", timerPanel, white, new Vector2(48, -5), new Vector2(336, 5), Accent);
             Filled(timerFill, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
-            tutorialTimeHint = Text("Tutorial Time Hint", timerPanel, new Vector2(48, 3), new Vector2(336, 26), 18, TextAnchor.MiddleCenter);
-            tutorialTimeHint.text = "연습 · 시간 제한 없음";
-            tutorialTimeHint.color = Accent;
+            untimedHint = Text("Untimed Hint", timerPanel, new Vector2(48, 3), new Vector2(336, 26), 18, TextAnchor.MiddleCenter);
+            untimedHint.text = "임무 · 시간 제한 없음";
+            untimedHint.color = Accent;
 
             var stagePanel = Panel("Stage", root, new Vector2(224, -36), new Vector2(396, 48)).rectTransform;
             Pin(stagePanel, new Vector2(0, 1));
@@ -278,7 +281,7 @@ namespace TurnLimbo.Presentation
             enemyStatus = BuildStatus(true);
             playerQueue = new QueueView(Rect("Player Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), true, white, art.UIFont);
             enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
-            tutorialEnemyFocus = TutorialFocusFrame("Tutorial Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
+            guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
 
             var playerExplanationImage = Panel("Skill Explain", root, Vector2.zero, new Vector2(460, 368), DuelVisualTheme.Paper);
             Dress(playerExplanationImage);
@@ -340,47 +343,52 @@ namespace TurnLimbo.Presentation
             UpdateStageLabel();
         }
 
-        public void SetTutorialMode(bool enabled)
+        /// <summary>Mission duels label the stage as a mission and keep breathing closed.</summary>
+        /// <param name="timed">Whether the mission runs the planning timer; otherwise an untimed hint replaces it.</param>
+        public void SetMissionMode(bool enabled, bool timed = false)
         {
             if (disposed) return;
-            if (!enabled) SetTutorialInput(null);
-            if (tutorialModeInitialized && tutorialMode == enabled) return;
-            tutorialModeInitialized = true;
-            tutorialMode = enabled;
+            if (!enabled) SetGuide(null);
+            if (missionModeInitialized && missionMode == enabled && missionTimed == timed) return;
+            missionModeInitialized = true;
+            missionMode = enabled;
+            missionTimed = timed;
             ApplyInputAvailability();
-            timerTrack.gameObject.SetActive(!enabled);
-            timerFill.gameObject.SetActive(!enabled);
-            tutorialTimeHint.gameObject.SetActive(enabled);
+            bool showTimer = !enabled || timed;
+            timerTrack.gameObject.SetActive(showTimer);
+            timerFill.gameObject.SetActive(showTimer);
+            untimedHint.gameObject.SetActive(!showTimer);
             UpdateStageLabel();
-            if (!enabled) SetTutorialFocus(-1, false, false, false);
+            if (!enabled) SetGuideFocus(-1, false, false, false);
         }
 
-        public void SetTutorialInput(TutorialProgress progress)
+        /// <summary>The mission coach whose current beat gates queueing and committing, or null for free play.</summary>
+        public void SetGuide(MissionGuide missionGuide)
         {
             if (disposed) return;
-            tutorialInput = progress;
+            guide = missionGuide;
             ApplyInputAvailability();
         }
 
         private void ApplyInputAvailability()
         {
-            bool normalPlanning = !tutorialMode && tutorialInput == null;
+            bool normalPlanning = !missionMode && guide == null;
             breathButton.gameObject.SetActive(normalPlanning);
             breathNote.gameObject.SetActive(normalPlanning);
             breathButton.interactable = CanQueueBreath();
-            bool allowCommit = tutorialInput == null || tutorialInput.AllowsCommit;
+            bool allowCommit = guide == null || guide.AllowsCommit;
             commitButton.interactable = lastPlanning && allowCommit;
-            tutorialCommitGroup.alpha = allowCommit ? 1f : .4f;
+            guideCommitGroup.alpha = allowCommit ? 1f : .4f;
             for (int lane = 0; lane < laneButtons.Length; lane++)
             {
-                bool allowLane = tutorialInput == null || tutorialInput.AllowsQueue(lane);
+                bool allowLane = guide == null || guide.AllowsQueue(lane);
                 laneButtons[lane].interactable = lastPlanning && laneAffordable[lane] && allowLane;
-                tutorialLaneGroups[lane].alpha = allowLane ? 1f : .4f;
+                guideLaneGroups[lane].alpha = allowLane ? 1f : .4f;
             }
         }
 
         private bool CanQueueBreath()
-            => !disposed && queueBreath != null && lastPlanning && !tutorialMode && tutorialInput == null &&
+            => !disposed && queueBreath != null && lastPlanning && !missionMode && guide == null &&
                 inspectedSlot < 0 && displayedSession != null && displayedSession.Phase == LegacyDuelPhase.Planning &&
                 displayedSession.BreathsRemainingThisTurn > 0;
 
@@ -404,30 +412,30 @@ namespace TurnLimbo.Presentation
             breathCount.text = $"남은 {remaining}/{LegacyQueuedDuel.MaximumBreathsPerTurn}";
         }
 
-        public void SetTutorialFocus(int lane, bool commit, bool enemy, bool act)
+        public void SetGuideFocus(int lane, bool commit, bool enemy, bool act)
         {
             if (disposed) return;
-            for (int index = 0; index < tutorialLaneFocus.Length; index++)
-                tutorialLaneFocus[index].enabled = index == lane;
-            tutorialCommitFocus.enabled = commit;
+            for (int index = 0; index < guideLaneFocus.Length; index++)
+                guideLaneFocus[index].enabled = index == lane;
+            guideCommitFocus.enabled = commit;
             highlightEnemyQueue = enemy;
-            UpdateTutorialEnemyFocus();
-            tutorialActFocus.gameObject.SetActive(act);
+            UpdateGuideEnemyFocus();
+            guideActFocus.gameObject.SetActive(act);
             actText.color = act ? Accent : MutedText;
         }
 
         private void UpdateStageLabel()
         {
-            stageText.text = tutorialMode ? "연습 스테이지 · " + stageName
+            stageText.text = missionMode ? $"임무 {stageNumber:00} / {stageCount:00}  ·  {stageName}"
                 : $"{stageNumber:00} / {stageCount:00}  ·  {stageName}";
         }
 
-        private void UpdateTutorialEnemyFocus()
+        private void UpdateGuideEnemyFocus()
         {
             Vector2 size = enemyQueue.DisplaySize;
-            tutorialEnemyFocus.gameObject.SetActive(highlightEnemyQueue && size != Vector2.zero);
-            tutorialEnemyFocus.sizeDelta = size + Vector2.one * 16f;
-            tutorialEnemyFocus.anchoredPosition = new Vector2(0f, -(Mathf.Max(64f, size.y) - 64f) * .5f);
+            guideEnemyFocus.gameObject.SetActive(highlightEnemyQueue && size != Vector2.zero);
+            guideEnemyFocus.sizeDelta = size + Vector2.one * 16f;
+            guideEnemyFocus.anchoredPosition = new Vector2(0f, -(Mathf.Max(64f, size.y) - 64f) * .5f);
         }
 
         public void Refresh(LegacyQueuedDuel session, float timeRemaining, bool isResolving, int currentSlot,
@@ -475,7 +483,11 @@ namespace TurnLimbo.Presentation
             {
                 var sequence = session.GetLane(lane);
                 laneAffordable[lane] = sequence.Count > 0;
-                if (sequence.Count == 0) continue;
+                // A lane the duel does not have (e.g. W/E in the Q-only opening missions) is not drawn at all.
+                bool present = sequence.Count > 0;
+                if (laneCards[lane].activeSelf != present) laneCards[lane].SetActive(present);
+                if (nextPanels[lane].activeSelf != present) nextPanels[lane].SetActive(present);
+                if (!present) continue;
                 var current = sequence[0];
                 var next = sequence[sequence.Count > 1 ? 1 : 0];
                 if (shownSkills[lane] != current.Id)
@@ -517,7 +529,7 @@ namespace TurnLimbo.Presentation
             foreach (var feedback in laneFeedback) feedback.Tick(actualDelta);
             playerEffectFeedback.Tick(actualDelta);
             enemyEffectFeedback.Tick(actualDelta);
-            UpdateTutorialEnemyFocus();
+            UpdateGuideEnemyFocus();
             PositionFighterHud(playerStatus, playerQueue, player, camera, new Vector3(-.6f, 1.1f, 0));
             PositionFighterHud(enemyStatus, enemyQueue, enemy, camera, new Vector3(-.4f, 1f, 0));
             playerStatus.Refresh(session.Player, delta);
@@ -852,8 +864,8 @@ namespace TurnLimbo.Presentation
         public void Reset()
         {
             if (disposed) return;
-            SetTutorialMode(false);
-            SetTutorialFocus(-1, false, false, false);
+            SetMissionMode(false);
+            SetGuideFocus(-1, false, false, false);
             shownTurn = shownAct = -1;
             displayedSession = null;
             lastPlanning = false;
@@ -1209,7 +1221,7 @@ namespace TurnLimbo.Presentation
             return button;
         }
 
-        private static Outline AddTutorialOutline(Image image)
+        private static Outline AddGuideOutline(Image image)
         {
             var outline = image.gameObject.AddComponent<Outline>();
             outline.effectColor = Accent;
@@ -1219,7 +1231,7 @@ namespace TurnLimbo.Presentation
             return outline;
         }
 
-        private static RectTransform TutorialFocusFrame(string name, Transform parent, Vector2 position, Vector2 size)
+        private static RectTransform GuideFocusFrame(string name, Transform parent, Vector2 position, Vector2 size)
         {
             var frame = Rect(name, parent, position, size, Vector2.one * .5f);
             Color gold = Accent;
