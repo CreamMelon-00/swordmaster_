@@ -67,6 +67,9 @@ namespace TurnLimbo.Presentation
         private readonly bool ownsSettings;
         private readonly DuelImpactGlow impactGlow;
         private readonly DuelStepAfterimages stepAfterimages;
+        private readonly Material breakMaterial;
+        private readonly DuelBreakAura playerBreakAura;
+        private readonly DuelBreakAura enemyBreakAura;
         private LegacyStepAction stepAction;
         private float stepTime;
         private float stepDistance;
@@ -111,6 +114,8 @@ namespace TurnLimbo.Presentation
         public ForestParallaxBackdrop ForestBackdrop { get; }
         public VolumeProfile ArenaProfile => volumeProfile;
         public DuelImpactGlow ImpactGlow => impactGlow;
+        public DuelBreakAura PlayerBreakAura => playerBreakAura;
+        public DuelBreakAura EnemyBreakAura => enemyBreakAura;
         public int ActiveStepAfterimageCount => stepAfterimages.ActiveCount;
         public bool IsStepping => stepping;
         public bool IsPressureAttackTrailActive => pressureAttackTrail;
@@ -244,8 +249,15 @@ namespace TurnLimbo.Presentation
             stepAfterimages = new DuelStepAfterimages(arenaRoot.transform, spriteMaterial, ArenaLayer, mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames);
             var shadowSprites = Resources.LoadAll<Sprite>("LegacyArena/Shadow/Circle");
             var shadow = shadowSprites.Length > 0 ? shadowSprites[0] : null;
-            CreateShadow(player, shadow, mobAnimations.HasRequiredAssets ? 0f : -0.882f);
-            CreateShadow(enemy, shadow, 0f);
+            SpriteRenderer playerShadow = CreateShadow(player, shadow, mobAnimations.HasRequiredAssets ? 0f : -0.882f);
+            SpriteRenderer enemyShadow = CreateShadow(enemy, shadow, 0f);
+            // Not part of HasRequiredAssets: without the shader the fight still plays, just without this cue.
+            var breakShader = Resources.Load<Shader>("DuelVFX/BreakSilhouette");
+            if (breakShader != null && breakShader.isSupported)
+                breakMaterial = new Material(breakShader) { name = "Duel Break Silhouette (Runtime)" };
+            else Debug.LogWarning("Break aura shader DuelVFX/BreakSilhouette is missing or unsupported.");
+            playerBreakAura = new DuelBreakAura(player.Renderer, player.LowerRenderer, playerShadow, breakMaterial, ArenaLayer);
+            enemyBreakAura = new DuelBreakAura(enemy.Renderer, null, enemyShadow, breakMaterial, ArenaLayer);
             effectPrefab = Resources.Load<GameObject>("LegacyArena/VFX/DefaultParticle");
             Reset();
         }
@@ -281,6 +293,8 @@ namespace TurnLimbo.Presentation
             ArenaCamera.orthographicSize = 6f;
             ForestBackdrop.Reset(ArenaCamera);
             impactGlow.Reset();
+            playerBreakAura.Reset();
+            enemyBreakAura.Reset();
             RefreshBloom();
             foreach (var effect in effects)
             {
@@ -646,6 +660,18 @@ namespace TurnLimbo.Presentation
             TickCamera(scaledDelta, realDelta);
             RefreshStepBackdrop(scaledDelta);
             impactGlow.Tick(Mathf.Max(0f, realDelta));
+            // After the actors and the lower body were sampled for this frame.
+            playerBreakAura.Tick(scaledDelta);
+            enemyBreakAura.Tick(scaledDelta);
+        }
+
+        /// <summary>Shows which fighters are broken (incoming HP damage x2). The cue lasts until the
+        /// state clears; call it after any pose change so the outline follows the current frame.</summary>
+        public void SetResistanceBroken(bool playerBroken, bool enemyBroken)
+        {
+            if (disposed) return;
+            playerBreakAura.SetBroken(playerBroken);
+            enemyBreakAura.SetBroken(enemyBroken);
         }
 
         private void RefreshBloom()
@@ -1004,12 +1030,13 @@ namespace TurnLimbo.Presentation
             return actor;
         }
 
-        private void CreateShadow(Actor actor, Sprite sprite, float x)
+        private SpriteRenderer CreateShadow(Actor actor, Sprite sprite, float x)
         {
             var shadow = CreateSprite("Original Ground Shadow", actor.Renderer.transform, sprite, -2);
             shadow.transform.localPosition = new Vector3(x, -2.23f, 0f);
             shadow.transform.localScale = new Vector3(3f, 0.7f, 1f);
             shadow.color = new Color(0f, 0f, 0f, 0.6117647f);
+            return shadow;
         }
 
         private SpriteRenderer CreateSprite(string name, Transform parent, Sprite sprite, int sortingOrder)
@@ -1064,8 +1091,11 @@ namespace TurnLimbo.Presentation
             mobAnimations.Dispose();
             enemyAnimations.Dispose();
             impactGlow.Dispose();
+            playerBreakAura.Dispose();
+            enemyBreakAura.Dispose();
             Object.Destroy(arenaRoot);
             if (spriteMaterial != null) Object.Destroy(spriteMaterial);
+            if (breakMaterial != null) Object.Destroy(breakMaterial);
             foreach (var component in volumeProfile.components) Object.Destroy(component);
             Object.Destroy(volumeProfile);
             if (ownsSettings) Object.Destroy(settings);

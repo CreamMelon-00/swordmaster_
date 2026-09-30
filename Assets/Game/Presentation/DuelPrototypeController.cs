@@ -301,6 +301,8 @@ namespace TurnLimbo.Presentation
         {
             int playerResistanceBefore = session.Player.Resistance;
             int enemyResistanceBefore = session.Enemy.Resistance;
+            bool playerWasBroken = session.Player.IsResistanceBroken;
+            bool enemyWasBroken = session.Enemy.IsResistanceBroken;
             LegacyCurrentSlot slot = session.BeginNextSlot();
             highlightedSlot = slot.SlotIndex;
             slotPlaybackSpeed = Mathf.Max(0.01f, presentationSettings.AnimationPlaybackSpeed);
@@ -324,6 +326,7 @@ namespace TurnLimbo.Presentation
             // direct resistance loss as an animation hit or knockback.
             resistanceFeedback.Show(true, session.Player.Resistance - playerResistanceBefore);
             resistanceFeedback.Show(false, session.Enemy.Resistance - enemyResistanceBefore);
+            AnnounceBreaks(playerWasBroken, enemyWasBroken);
             SetViewPhase(slotAnticipationDuration > 0f ? ViewPhase.SkillWindup : ViewPhase.PlayingSlot);
         }
 
@@ -350,6 +353,8 @@ namespace TurnLimbo.Presentation
                 }
                 int playerResistanceBefore = session.Player.Resistance;
                 int enemyResistanceBefore = session.Enemy.Resistance;
+                bool playerWasBroken = session.Player.IsResistanceBroken;
+                bool enemyWasBroken = session.Enemy.IsResistanceBroken;
                 LegacyHitResult hit = session.ResolveNextHit();
                 if (hit.HitIndex == 0 && slotStartDeferred)
                 {
@@ -375,6 +380,8 @@ namespace TurnLimbo.Presentation
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerResistanceBefore > 0 && session.Player.Resistance <= 0,
                         Exchange(hit.PlayerSkill, hit.PlayerAttacked));
+                // Includes a deferred counter slot's start effects, which run inside this hit.
+                AnnounceBreaks(playerWasBroken, enemyWasBroken);
                 // A long frame must not batch several impacts before any push
                 // has been observed, nor immediately finish the final animation.
                 if (phaseTime >= animationClipEnd)
@@ -391,6 +398,17 @@ namespace TurnLimbo.Presentation
             }
         }
 
+        /// <summary>Calls out every fighter whose resistance broke during the last rules step, whether a
+        /// hit or a skill effect (such as 발검's direct reduction) broke it, and updates the break aura.</summary>
+        private void AnnounceBreaks(bool playerWasBroken, bool enemyWasBroken)
+        {
+            if (!playerWasBroken && session.Player.IsResistanceBroken)
+                hud.ShowBreakCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
+            if (!enemyWasBroken && session.Enemy.IsResistanceBroken)
+                hud.ShowBreakCallout(false, arena.EnemyRenderer.transform.position, arena.EnemyRenderer.transform);
+            arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
+        }
+
         // The rules resolve an attack against the target's attack skill as a resistance
         // exchange for the whole slot, even after that skill's own hits have ended.
         private static LegacyArenaView.HitExchange Exchange(LegacySkill targetSkill, bool targetStrikes) =>
@@ -403,13 +421,17 @@ namespace TurnLimbo.Presentation
             bool fatal = resistanceBroke || displayedDamage >= 12;
             // A resistance-only hit displays exactly its resistance loss. Anything more reached
             // the body, even when the health change was clamped at zero.
-            if (healthDamage > 0 || displayedDamage > resistanceDamage) exchange = LegacyArenaView.HitExchange.None;
+            bool bodyHit = healthDamage > 0 || displayedDamage > resistanceDamage;
+            if (bodyHit) exchange = LegacyArenaView.HitExchange.None;
+            // Steel only when the number is the resistance lost. A break that overflows nothing
+            // shows its 0 HP as before; the break callout tells the rest.
+            bool resistanceNumber = !bodyHit && resistanceDamage > 0 && displayedDamage == resistanceDamage;
             // Both sides of a simultaneous clash share the same real-time stop.
             hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
             arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded, fatal, pushPower, exchange);
             if (fatal) hud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
-            hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, fatal);
+            hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, fatal, resistanceNumber);
             effectsSource.pitch = Random.Range(0.75f, 1.25f);
             art.PlayClash(effectsSource, false, Random.value >= 0.5f);
             if (fatal && criticalSound != null)
@@ -418,6 +440,8 @@ namespace TurnLimbo.Presentation
 
         private void StartPlanning()
         {
+            int playerResistanceBefore = session.Player.Resistance;
+            int enemyResistanceBefore = session.Enemy.Resistance;
             session.BeginNextTurn();
             ClearHeldKeys();
             planningTime = PlanningDuration;
@@ -426,6 +450,12 @@ namespace TurnLimbo.Presentation
             explainedSkill = null;
             arena.BeginTurn();
             hud.BeginTurn();
+            // The automatic refill, a full turn after the one in which resistance broke.
+            if (session.Player.Resistance > playerResistanceBefore)
+                hud.ShowRecoveryCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
+            if (session.Enemy.Resistance > enemyResistanceBefore)
+                hud.ShowRecoveryCallout(false, arena.EnemyRenderer.transform.position, arena.EnemyRenderer.transform);
+            arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
             SetViewPhase(ViewPhase.Planning);
             tutorial?.NotifyTurnBegan(session.RoundNumber);
             RefreshTutorial();
@@ -907,6 +937,8 @@ namespace TurnLimbo.Presentation
 
         private void RefreshHudClock(float delta, float realDelta)
         {
+            // Every frame, after this frame's poses: the outline follows the actor's current sprite.
+            arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
             hud.Refresh(session, planningTime, IsResolving, highlightedSlot, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);

@@ -69,9 +69,18 @@ namespace TurnLimbo.Presentation
         private readonly Text outcomeText, outcomeTurns;
         private readonly List<DamageView> damageTexts = new List<DamageView>();
         private readonly List<DamageView> calloutTexts = new List<DamageView>();
+        private readonly List<DamageView> stateTexts = new List<DamageView>();
         private readonly List<int> counterForecast = new List<int>();
         private const int MaximumDamageTexts = 32;
         private const int MaximumCalloutTexts = 4;
+        private const int MaximumStateTexts = 4;
+        public const string BreakCalloutText = "붕괴 ×2";
+        public const string RecoveryCalloutText = "저항 회복";
+        // Resistance loss reads in the resistance gauge's steel, lightened for the battlefield.
+        public static readonly Color ResistanceDamageInk = new Color(.70f, .86f, .90f);
+        private static readonly Color ResistanceDamageOutline = new Color(.05f, .13f, .17f);
+        public static readonly Color BreakCalloutInk = new Color(1f, .42f, .30f);
+        private static readonly Color BreakCalloutOutline = new Color(.22f, .03f, .02f);
         private int playerDamageSequence, enemyDamageSequence;
         private LegacySkill explainedPlayer, explainedEnemy;
         private LegacySkill conditionPreview;
@@ -718,7 +727,9 @@ namespace TurnLimbo.Presentation
             outcomeTurns.text = $"사용 턴 : {turn}";
         }
 
-        public void ShowHitDamage(bool targetPlayer, int damage, Vector3 worldPosition, bool critical = false)
+        /// <param name="resistance">The number is resistance loss, not HP damage: it keeps the steel
+        /// resistance colours even when emphasised, so the two kinds never look alike.</param>
+        public void ShowHitDamage(bool targetPlayer, int damage, Vector3 worldPosition, bool critical = false, bool resistance = false)
         {
             if (disposed || worldCamera == null) return;
             DamageView view = AcquireDamageView();
@@ -730,14 +741,49 @@ namespace TurnLimbo.Presentation
             view.Direction = targetPlayer ? -1f : 1f;
             view.StartOffset = new Vector2(view.Direction * (140f + sequence * 150f), 70f - sequence * 28f);
             view.WorldPosition = worldPosition;
+            view.Follow = null;
             view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
             view.Text.text = damage.ToString();
             view.Text.fontSize = presentationSettings != null ? presentationSettings.DamageTextFontSize : 168;
             view.Duration = view.Remaining = critical ? 1.25f : 1.05f;
             view.Scale = (.8f + Mathf.Clamp01(damage / 24f) * .25f) *
                 (critical ? (presentationSettings != null ? presentationSettings.CriticalDamageScale : 1.3f) : 1f);
-            view.Color = critical ? new Color(1f, .87f, .42f) : new Color(1f, .98f, .89f);
-            view.Outline.effectColor = critical ? new Color(.78f, .1f, .04f) : new Color(.64f, .055f, .055f);
+            view.Color = resistance ? ResistanceDamageInk : critical ? new Color(1f, .87f, .42f) : new Color(1f, .98f, .89f);
+            view.Outline.effectColor = resistance ? ResistanceDamageOutline
+                : critical ? new Color(.78f, .1f, .04f) : new Color(.64f, .055f, .055f);
+            view.Text.gameObject.SetActive(true);
+            view.Text.transform.SetAsLastSibling();
+            ApplyDamageFrame(view);
+        }
+
+        /// <summary>Calls out that a fighter's resistance just broke: incoming HP damage is doubled.</summary>
+        public void ShowBreakCallout(bool playerSide, Vector3 worldPosition, Transform follow = null) =>
+            ShowStateCallout(playerSide, worldPosition, follow, BreakCalloutText, BreakCalloutInk, BreakCalloutOutline, 1.05f);
+
+        /// <summary>Calls out the automatic refill of a fighter's resistance at the start of a turn.</summary>
+        public void ShowRecoveryCallout(bool playerSide, Vector3 worldPosition, Transform follow = null) =>
+            ShowStateCallout(playerSide, worldPosition, follow, RecoveryCalloutText, ResistanceDamageInk, ResistanceDamageOutline, .9f);
+
+        /// <param name="follow">The fighter the callout belongs to; it rides along with its knockback.</param>
+        private void ShowStateCallout(bool playerSide, Vector3 worldPosition, Transform follow, string text, Color ink,
+            Color outline, float duration)
+        {
+            if (disposed || worldCamera == null) return;
+            // Its own small pool, never counted as damage numbers or counter callouts.
+            DamageView view = AcquireDamageView(stateTexts, "State Callout", MaximumStateTexts);
+            view.Direction = playerSide ? -1f : 1f;
+            // Under the fighter's torso: damage numbers take the outer flank from just above it,
+            // counter callouts the inner flank and the status stack the space above the head.
+            view.StartOffset = new Vector2(0f, -70f);
+            view.WorldPosition = worldPosition;
+            view.Follow = follow;
+            view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
+            view.Text.text = text;
+            view.Text.fontSize = 80;
+            view.Duration = view.Remaining = duration;
+            view.Scale = .8f;
+            view.Color = ink;
+            view.Outline.effectColor = outline;
             view.Text.gameObject.SetActive(true);
             view.Text.transform.SetAsLastSibling();
             ApplyDamageFrame(view);
@@ -754,6 +800,7 @@ namespace TurnLimbo.Presentation
             // the outward damage numbers, so it covers neither gauges nor cards.
             view.StartOffset = new Vector2(-view.Direction * 170f, 60f);
             view.WorldPosition = worldPosition;
+            view.Follow = null;
             view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
             view.Text.text = "반격";
             view.Text.fontSize = 96;
@@ -814,6 +861,7 @@ namespace TurnLimbo.Presentation
             outcomePanel.gameObject.SetActive(false);
             foreach (var damage in damageTexts) { damage.Remaining = 0; damage.Text.gameObject.SetActive(false); }
             foreach (var callout in calloutTexts) { callout.Remaining = 0; callout.Text.gameObject.SetActive(false); }
+            foreach (var callout in stateTexts) { callout.Remaining = 0; callout.Text.gameObject.SetActive(false); }
             playerDamageSequence = enemyDamageSequence = 0;
             CloseLog(true);
             foreach (var row in logRows)
@@ -853,6 +901,7 @@ namespace TurnLimbo.Presentation
             delta = delta > 0f && !float.IsInfinity(delta) ? delta : 0f;
             TickDamageViews(damageTexts, delta);
             TickDamageViews(calloutTexts, delta);
+            TickDamageViews(stateTexts, delta);
         }
 
         private void TickDamageViews(List<DamageView> pool, float delta)
@@ -883,7 +932,8 @@ namespace TurnLimbo.Presentation
             // units so zoom, hit stop and slow motion cannot distort the number.
             if (worldCamera != null)
             {
-                Vector2 position = ScreenPosition(worldCamera.WorldToScreenPoint(damage.WorldPosition));
+                Vector2 position = ScreenPosition(worldCamera.WorldToScreenPoint(
+                    damage.Follow != null ? damage.Follow.position : damage.WorldPosition));
                 position += damage.StartOffset + new Vector2(damage.Direction * 26f * progress, 84f * OutQuad(progress));
                 damage.Text.rectTransform.anchoredPosition = position;
             }
@@ -1461,6 +1511,8 @@ namespace TurnLimbo.Presentation
             public readonly Text Text;
             public readonly Outline Outline;
             public Vector3 WorldPosition;
+            /// <summary>When set, the view tracks this transform instead of the fixed impact point.</summary>
+            public Transform Follow;
             public Vector2 StartOffset;
             public Color Color;
             public float Direction;
