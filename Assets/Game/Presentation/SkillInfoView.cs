@@ -18,8 +18,6 @@ namespace TurnLimbo.Presentation
         private LegacySkill shown;
         private bool shownEnemy;
 
-        private enum KeywordTone { Neutral, Recovery, Followup, Reduction, HighPower, MultiHit, Variance, Defence }
-
         public GameObject Root => root.gameObject;
         public float Height => root.sizeDelta.y;
         public Text PowerText { get; }
@@ -35,7 +33,7 @@ namespace TurnLimbo.Presentation
             float edge = width / 2f + 12f;
             costSeal = Attachment("ACT Attachment", stats, new Vector2(-edge - 6, 74), Vector2.one * 58,
                 SkillInfoAttachmentShape.Seal, DuelVisualTheme.Surface);
-            var costSymbol = Glyph(costSeal, SkillInfoSymbol.Act, new Vector2(-14, 12), 12);
+            var costSymbol = Glyph(costSeal, LegacySkillSymbol.Act, new Vector2(-14, 12), 12);
             costSymbol.color = DuelVisualTheme.Foreground;
             var costLabel = Label("ACT Label", costSeal, font, new Vector2(8, 12), new Vector2(30, 16), 11);
             costLabel.text = "ACT"; costLabel.color = DuelVisualTheme.Foreground;
@@ -43,7 +41,7 @@ namespace TurnLimbo.Presentation
             act.color = DuelVisualTheme.Foreground;
             powerPlate = Attachment("Power Attachment", stats, new Vector2(-edge - 6, -4), new Vector2(70, 60),
                 SkillInfoAttachmentShape.PowerPlate, DuelVisualTheme.Paper);
-            powerSymbol = Glyph(powerPlate, SkillInfoSymbol.Sword, new Vector2(-18, 14), 14);
+            powerSymbol = Glyph(powerPlate, LegacySkillSymbol.Sword, new Vector2(-18, 14), 14);
             powerLabel = Label("Power Label", powerPlate, font, new Vector2(10, 14), new Vector2(34, 18), 12);
             PowerText = Label(prefix + " Detail Values", powerPlate, font, new Vector2(0, -9), new Vector2(60, 28), 21);
             PowerText.resizeTextMinSize = 16;
@@ -59,11 +57,11 @@ namespace TurnLimbo.Presentation
             float badgeWidth = (width - 8) / 2f;
             var first = Tile("Keyword 1", keywords, -(badgeWidth + 8) / 2f, badgeWidth, 28);
             firstBadge = first.GetComponent<Image>();
-            firstSymbol = Glyph(first, SkillInfoSymbol.Sword, new Vector2(-badgeWidth / 2f + 17, 0), 19);
+            firstSymbol = Glyph(first, LegacySkillSymbol.Sword, new Vector2(-badgeWidth / 2f + 17, 0), 19);
             firstKeyword = Label("Keyword 1 Text", first, font, new Vector2(13, 0), new Vector2(badgeWidth - 34, 26), 15);
             var second = Tile("Keyword 2", keywords, (badgeWidth + 8) / 2f, badgeWidth, 28);
             secondBadge = second.GetComponent<Image>();
-            secondSymbol = Glyph(second, SkillInfoSymbol.Hits, new Vector2(-badgeWidth / 2f + 17, 0), 19);
+            secondSymbol = Glyph(second, LegacySkillSymbol.Hits, new Vector2(-badgeWidth / 2f + 17, 0), 19);
             secondKeyword = Label("Keyword 2 Text", second, font, new Vector2(13, 0), new Vector2(badgeWidth - 34, 26), 15);
             EffectText = Label(prefix + " Detail Effect", root, font, new Vector2(BodyLeftInset / 2f, -12), new Vector2(width - BodyLeftInset, 24), 16);
             EffectText.alignment = TextAnchor.UpperLeft;
@@ -87,91 +85,19 @@ namespace TurnLimbo.Presentation
             SetAttackType(skill.Property, defence);
             act.text = skill.Cost.ToString();
             powerLabel.text = defence ? "방어" : "위력";
-            powerSymbol.SetSymbol(defence ? SkillInfoSymbol.Guard : SkillInfoSymbol.Sword);
+            powerSymbol.SetSymbol(defence ? LegacySkillSymbol.Guard : LegacySkillSymbol.Sword);
             PowerText.text = CampaignSkillText.Power(skill);
             hitsLabel.text = defence ? "대응" : "타격";
             hits.text = defence ? "같은 칸" : skill.AttackCount + "회";
-            string main, secondary = string.Empty, description;
-            SkillInfoSymbol mainIcon, secondaryIcon = SkillInfoSymbol.Hits;
-            KeywordTone mainTone = KeywordTone.Neutral, secondaryTone = KeywordTone.Neutral;
-            switch (skill.Id)
-            {
-                case 1:
-                    main = enemy ? "플레이어 ACT" : "ACT +1"; mainIcon = SkillInfoSymbol.Recovery;
-                    secondary = "다음 턴"; secondaryIcon = SkillInfoSymbol.Act;
-                    mainTone = secondaryTone = KeywordTone.Recovery;
-                    description = "다음 턴 ACT 회복 +1"; break;
-                case 3:
-                    main = "후속 +10%"; mainIcon = SkillInfoSymbol.Followup;
-                    secondary = "뒤 3칸"; secondaryIcon = SkillInfoSymbol.Hits;
-                    mainTone = secondaryTone = KeywordTone.Followup;
-                    description = "이번 턴 · 뒤 3칸 위력 +10%\n공격·방어 모두 적용 · 위력 분할\n소수점 버림 · 한 타 최소 1"; break;
-                case 7:
-                    main = enemy ? "플레이어 ACT" : "조건부 ACT +2"; mainIcon = SkillInfoSymbol.Recovery;
-                    secondary = "타격 대응"; secondaryIcon = SkillInfoSymbol.Guard;
-                    mainTone = KeywordTone.Recovery; secondaryTone = KeywordTone.Defence;
-                    description = "같은 칸 상대가 타격일 때\n다음 턴 ACT 회복 +2"; break;
-                case 8:
-                    main = "피해 -30%"; mainIcon = SkillInfoSymbol.Guard;
-                    secondary = "후속 보호"; secondaryIcon = SkillInfoSymbol.Reduction;
-                    mainTone = secondaryTone = KeywordTone.Reduction;
-                    description = "이번 턴 · 뒤 최대 10칸\n받는 피해 30% 감소"; break;
-                case 9:
-                    main = "후속 +3%"; mainIcon = SkillInfoSymbol.Followup;
-                    secondary = "위력 지원"; secondaryIcon = SkillInfoSymbol.Sword;
-                    mainTone = secondaryTone = KeywordTone.Followup;
-                    description = "이번 턴 · 뒤 최대 10칸 위력 +3%\n공격·방어 모두 적용"; break;
-                case 10:
-                    main = "후속 +30%"; mainIcon = SkillInfoSymbol.Followup;
-                    secondary = "다음 1칸"; secondaryIcon = SkillInfoSymbol.Hits;
-                    mainTone = secondaryTone = KeywordTone.Followup;
-                    description = "이번 턴 · 바로 다음 1칸\n공격·방어 위력 +30%"; break;
-                case 12:
-                    main = enemy ? "플레이어 ACT" : "ACT +3"; mainIcon = SkillInfoSymbol.Recovery;
-                    secondary = "배율 +50%"; secondaryIcon = SkillInfoSymbol.Sword;
-                    mainTone = KeywordTone.Recovery; secondaryTone = KeywordTone.HighPower;
-                    description = "다음 턴 ACT 회복 +3\n이번 턴 · 다음 1칸 받는 피해 배율 +50%\n위력 2회 분할 · 버림 · 한 타 최소 1"; break;
-                case 16:
-                    main = "위력 편차"; mainIcon = SkillInfoSymbol.Variance;
-                    secondary = "단타"; secondaryIcon = SkillInfoSymbol.Sword;
-                    mainTone = KeywordTone.Variance;
-                    description = "위력 편차가 큰 1회 공격\n최대 위력이 보장되지는 않습니다."; break;
-                case 19:
-                    main = "저항 회복"; mainIcon = SkillInfoSymbol.Recovery;
-                    secondary = "최대치의 10%"; secondaryIcon = SkillInfoSymbol.Guard;
-                    mainTone = KeywordTone.Recovery; secondaryTone = KeywordTone.Defence;
-                    description = "기술 시작 시 최대 저항의 10% 회복\n반올림 · 최대치 제한\n같은 칸 상대 공격을 방어"; break;
-                case 42:
-                    main = "저항 -20"; mainIcon = SkillInfoSymbol.Reduction;
-                    secondary = enemy ? "플레이어 ACT" : "ACT +3"; secondaryIcon = SkillInfoSymbol.Recovery;
-                    mainTone = KeywordTone.Defence; secondaryTone = KeywordTone.Recovery;
-                    description = "기술 시작 시 같은 칸 상대가 방어이면\n저항 직접 -20 · 다음 턴 ACT +3\n초과 저항 감소는 체력 피해 없음"; break;
-                default:
-                    bool strong = (LegacySkillRoles.Get(skill) & LegacySkillRole.HighPower) != 0;
-                    main = defence ? "수치 방어" : strong ? "고화력" : skill.AttackCount > 1 ? "분할 연타" : "단타";
-                    mainIcon = defence ? SkillInfoSymbol.Guard : strong ? SkillInfoSymbol.Sword : SkillInfoSymbol.Hits;
-                    mainTone = defence ? KeywordTone.Defence : strong ? KeywordTone.HighPower
-                        : skill.AttackCount > 1 ? KeywordTone.MultiHit : KeywordTone.Neutral;
-                    if (strong)
-                    {
-                        secondary = skill.AttackCount > 1 ? "분할 연타" : "단타";
-                        secondaryTone = skill.AttackCount > 1 ? KeywordTone.MultiHit : KeywordTone.Neutral;
-                    }
-                    description = defence ? "같은 순서의 상대 공격 피해를\n방어 수치만큼 줄입니다."
-                        : skill.AttackCount > 1 ? "위력을 " + skill.AttackCount + "회로 나눠 공격\n소수점 버림 · 한 타 최소 1"
-                        : "표시 위력으로 1회 공격";
-                    break;
-            }
-            if (enemy && (LegacySkillRoles.Get(skill) & LegacySkillRole.ActRecovery) != 0)
-                description += "\nACT 회복은 플레이어 전용";
-            firstKeyword.text = main;
-            firstSymbol.SetSymbol(mainIcon);
-            StyleKeyword(firstBadge, firstKeyword, firstSymbol, mainTone);
-            secondKeyword.text = secondary;
-            secondSymbol.SetSymbol(secondaryIcon);
-            StyleKeyword(secondBadge, secondKeyword, secondSymbol, secondaryTone);
-            secondBadge.gameObject.SetActive(!string.IsNullOrEmpty(secondary));
-            EffectText.text = description;
+            SkillInfoContent content = SkillInfoContent.For(skill, enemy);
+            firstKeyword.text = content.Main;
+            firstSymbol.SetSymbol(content.MainSymbol);
+            StyleKeyword(firstBadge, firstKeyword, firstSymbol, content.MainTone);
+            secondKeyword.text = content.Secondary;
+            secondSymbol.SetSymbol(content.SecondarySymbol);
+            StyleKeyword(secondBadge, secondKeyword, secondSymbol, content.SecondaryTone);
+            secondBadge.gameObject.SetActive(!string.IsNullOrEmpty(content.Secondary));
+            EffectText.text = content.Description;
             DamageText.text = string.Empty;
             RefreshLayout();
         }
@@ -260,25 +186,25 @@ namespace TurnLimbo.Presentation
             return rect;
         }
 
-        private static void StyleKeyword(Image badge, Text label, SkillInfoGlyph glyph, KeywordTone tone)
+        private static void StyleKeyword(Image badge, Text label, SkillInfoGlyph glyph, LegacySkillTone tone)
         {
             // Muted dyes fit the paper/brass theme; opaque backgrounds keep ink contrast predictable.
             Color32 ink, paper;
             switch (tone)
             {
-                case KeywordTone.Recovery:
+                case LegacySkillTone.Recovery:
                     ink = new Color32(36, 89, 75, 255); paper = new Color32(197, 212, 182, 255); break;
-                case KeywordTone.Followup:
+                case LegacySkillTone.Followup:
                     ink = new Color32(89, 65, 107, 255); paper = new Color32(215, 197, 214, 255); break;
-                case KeywordTone.Reduction:
+                case LegacySkillTone.Reduction:
                     ink = new Color32(51, 81, 107, 255); paper = new Color32(198, 211, 217, 255); break;
-                case KeywordTone.HighPower:
+                case LegacySkillTone.HighPower:
                     ink = new Color32(116, 61, 45, 255); paper = new Color32(220, 195, 173, 255); break;
-                case KeywordTone.MultiHit:
+                case LegacySkillTone.MultiHit:
                     ink = new Color32(102, 75, 32, 255); paper = new Color32(223, 206, 163, 255); break;
-                case KeywordTone.Variance:
+                case LegacySkillTone.Variance:
                     ink = new Color32(106, 76, 25, 255); paper = new Color32(224, 208, 166, 255); break;
-                case KeywordTone.Defence:
+                case LegacySkillTone.Defence:
                     ink = new Color32(69, 82, 47, 255); paper = new Color32(202, 208, 174, 255); break;
                 default:
                     ink = new Color32(73, 63, 49, 255); paper = new Color32(215, 201, 172, 255); break;
@@ -317,7 +243,7 @@ namespace TurnLimbo.Presentation
             return text;
         }
 
-        private static SkillInfoGlyph Glyph(Transform parent, SkillInfoSymbol symbol, Vector2 position, float size)
+        private static SkillInfoGlyph Glyph(Transform parent, LegacySkillSymbol symbol, Vector2 position, float size)
         {
             var rect = Rect(symbol + " Symbol", parent, position, Vector2.one * size);
             rect.gameObject.AddComponent<CanvasRenderer>();
@@ -327,45 +253,43 @@ namespace TurnLimbo.Presentation
         }
     }
 
-    public enum SkillInfoSymbol { Act, Sword, Guard, Hits, Recovery, Followup, Reduction, Variance }
-
     /// <summary>Small engraved pictograms; no texture assets or interactive surfaces.</summary>
     [RequireComponent(typeof(CanvasRenderer))]
     public sealed class SkillInfoGlyph : MaskableGraphic
     {
-        private SkillInfoSymbol symbol;
-        public void SetSymbol(SkillInfoSymbol value) { if (symbol == value) return; symbol = value; SetVerticesDirty(); }
+        private LegacySkillSymbol symbol;
+        public void SetSymbol(LegacySkillSymbol value) { if (symbol == value) return; symbol = value; SetVerticesDirty(); }
 
         protected override void OnPopulateMesh(VertexHelper vh)
         {
             vh.Clear();
             switch (symbol)
             {
-                case SkillInfoSymbol.Act:
+                case LegacySkillSymbol.Act:
                     Line(vh, -.1f, .45f, -.32f, 0); Line(vh, -.32f, 0, .12f, 0);
                     Line(vh, .12f, 0, -.08f, -.45f); Line(vh, -.08f, -.45f, .32f, .08f); break;
-                case SkillInfoSymbol.Sword:
+                case LegacySkillSymbol.Sword:
                     Line(vh, -.32f, -.35f, .28f, .3f); Line(vh, -.3f, -.05f, -.05f, -.3f);
                     Line(vh, .15f, .35f, .32f, .35f); Line(vh, .32f, .35f, .32f, .16f); break;
-                case SkillInfoSymbol.Guard:
+                case LegacySkillSymbol.Guard:
                     Line(vh, -.35f, .32f, .35f, .32f); Line(vh, -.35f, .32f, -.3f, -.12f);
                     Line(vh, -.3f, -.12f, 0, -.4f); Line(vh, 0, -.4f, .3f, -.12f);
                     Line(vh, .3f, -.12f, .35f, .32f); Line(vh, -.2f, 0, .2f, 0); break;
-                case SkillInfoSymbol.Hits:
+                case LegacySkillSymbol.Hits:
                     Line(vh, -.42f, -.2f, -.14f, .2f); Line(vh, -.14f, -.2f, .14f, .2f);
                     Line(vh, .14f, -.2f, .42f, .2f); break;
-                case SkillInfoSymbol.Recovery:
+                case LegacySkillSymbol.Recovery:
                     Line(vh, -.32f, -.1f, -.32f, .3f); Line(vh, -.32f, .3f, .32f, .3f);
                     Line(vh, .32f, .3f, .32f, -.3f); Line(vh, .32f, -.3f, -.32f, -.3f);
                     Line(vh, -.32f, -.3f, -.12f, -.1f); Line(vh, -.32f, -.3f, -.12f, -.46f); break;
-                case SkillInfoSymbol.Followup:
+                case LegacySkillSymbol.Followup:
                     Line(vh, -.32f, -.28f, 0, .04f); Line(vh, 0, .04f, .32f, -.28f);
                     Line(vh, -.32f, .04f, 0, .36f); Line(vh, 0, .36f, .32f, .04f); break;
-                case SkillInfoSymbol.Reduction:
+                case LegacySkillSymbol.Reduction:
                     Line(vh, -.32f, .3f, .32f, .3f); Line(vh, 0, .3f, 0, -.25f);
                     Line(vh, -.2f, -.05f, 0, -.28f); Line(vh, 0, -.28f, .2f, -.05f);
                     Line(vh, -.32f, -.42f, .32f, -.42f); break;
-                case SkillInfoSymbol.Variance:
+                case LegacySkillSymbol.Variance:
                     Line(vh, -.32f, -.3f, -.32f, .05f); Line(vh, 0, -.3f, 0, .35f);
                     Line(vh, .32f, -.3f, .32f, -.1f); break;
             }

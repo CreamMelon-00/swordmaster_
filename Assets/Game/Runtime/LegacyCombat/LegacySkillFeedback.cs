@@ -6,24 +6,25 @@ namespace TurnLimbo.Runtime.LegacyCombat
     public static class LegacySkillConditions
     {
         public static bool HasOpponentCondition(LegacySkill skill)
-            => skill != null && !skill.IsWait && (skill.Id == 7 || skill.Id == 42);
+            => LegacySkillDefinitions.Find(skill)?.Effect.HasOpponentCondition == true;
 
         public static bool MatchesOpponent(LegacySkill skill, LegacySkill opposingSkill)
         {
-            if (!HasOpponentCondition(skill) || opposingSkill == null) return false;
-            return skill.Id == 7 ? opposingSkill.Property == LegacySkillProperty.Hit
-                : opposingSkill.Kind == LegacySkillKind.Defence;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            if (effect == null || !effect.HasOpponentCondition || opposingSkill == null) return false;
+            return effect.OpponentProperty.HasValue ? opposingSkill.Property == effect.OpponentProperty.Value
+                : opposingSkill.Kind == effect.OpponentKind.Value;
         }
 
         public static bool HasSelfCondition(LegacySkill skill)
-            => skill != null && !skill.IsWait && skill.Id == 19;
+            => LegacySkillDefinitions.Find(skill)?.Effect.ResistanceRecoveryPercent > 0;
 
         public static bool MatchesSelfCondition(LegacySkill skill, LegacyFighterState fighter)
             => HasSelfCondition(skill) && fighter != null && fighter.Resistance < fighter.MaxResistance
-                && ResistanceRecoveryAmount(fighter) > 0;
+                && ResistanceRecoveryAmount(fighter, LegacySkillDefinitions.Find(skill).Effect.ResistanceRecoveryPercent) > 0;
 
-        internal static int ResistanceRecoveryAmount(LegacyFighterState fighter)
-            => (int)Math.Round(fighter.MaxResistance * .1d, MidpointRounding.ToEven);
+        internal static int ResistanceRecoveryAmount(LegacyFighterState fighter, int percent)
+            => (int)Math.Round(fighter.MaxResistance * (percent / 100d), MidpointRounding.ToEven);
     }
 
     /// <summary>Immutable feedback for the actual effect and buff snapshot of an initialized combat slot.</summary>

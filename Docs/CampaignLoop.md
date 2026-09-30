@@ -50,7 +50,7 @@ Play를 시작하면 기존 기본 기술 9개로 1스테이지 결투를 진행
 | 7 | 마지막 고갯길 | 170 | 33 | +6 | 120 |
 | 8 | 숲의 끝 결투 | 185 | 36 | +7 | 130 |
 
-적 위력 보정도 스킬 전체 최소/최대값에 더하며 타격마다 추가하는 값이 아니다. 가격·강화는 `Assets/Game/Runtime/Campaign/CampaignRun.cs`, 획득 목록은 `CampaignSkillCatalog.cs`에서 조절한다. 이번 값은 루프 확인용 초기 밸런스이며 8단계 전체 손맛·난이도를 확정한 것은 아니다.
+적 위력 보정도 스킬 전체 최소/최대값에 더하며 타격마다 추가하는 값이 아니다. 가격·강화는 `Assets/Game/Runtime/Campaign/CampaignRun.cs`, 획득 목록은 `LegacySkillDefinitions.cs`의 뒤쪽 10개 항목에서 조절한다(`SkillDefinitions.md`). 이번 값은 루프 확인용 초기 밸런스이며 8단계 전체 손맛·난이도를 확정한 것은 아니다.
 
 ## 구현 경계
 

@@ -475,77 +475,39 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (skill == null || skill.IsWait)
                 return new LegacySkillFeedback(skill, false, false, powerBuffPercent, protectionBuffPercent);
-            bool conditionMet = LegacySkillConditions.MatchesOpponent(skill, opposingSkill);
+            // The effect is selected by the skill's id (LegacySkillDefinitions) and applied in a fixed order.
+            // Skill_Smashing only sets a guard's isAttack flag to false in
+            // the source. It does not remove that guard's mitigation power.
+            // The table never pairs this self condition with an opponent condition, so one flag reports either.
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect ?? LegacySkillEffect.None;
+            bool opponentMatched = LegacySkillConditions.MatchesOpponent(skill, opposingSkill);
+            bool conditionMet = opponentMatched;
             bool effectActivated = false;
             SkillBuff grantedBuff = null;
-            switch (skill.Id)
+            if (effect.ResistanceRecoveryPercent > 0)
             {
-                case 1:
-                    if (player)
-                    {
-                        NextActGain++;
-                        effectActivated = true;
-                    }
-                    break;
-                case 3:
-                    grantedBuff = new SkillBuff(10, 0, 3);
-                    buffs.Add(grantedBuff);
+                // A self condition: it reports whether anything was actually restored.
+                LegacyFighterState fighter = player ? Player : Enemy;
+                int restored = fighter.RestoreResistance(
+                    LegacySkillConditions.ResistanceRecoveryAmount(fighter, effect.ResistanceRecoveryPercent));
+                conditionMet = effectActivated = restored > 0;
+            }
+            if (!effect.HasOpponentCondition || opponentMatched)
+            {
+                if (effect.OpponentResistanceReduction > 0 &&
+                    (player ? Enemy : Player).ReduceResistance(effect.OpponentResistanceReduction) > 0)
                     effectActivated = true;
-                    break;
-                case 7:
-                    if (player && conditionMet)
-                    {
-                        NextActGain += 2;
-                        effectActivated = true;
-                    }
-                    break;
-                case 8:
-                    grantedBuff = new SkillBuff(0, 30, 10);
-                    buffs.Add(grantedBuff);
+                if (effect.ActGain > 0 && player)
+                {
+                    NextActGain += effect.ActGain;
                     effectActivated = true;
-                    break;
-                case 9:
-                    // The source CSV says "next turn", but Skill_Blocking adds
-                    // to Cur, and Unit.TurnInit discards it at the turn boundary.
-                    grantedBuff = new SkillBuff(3, 0, 10);
-                    buffs.Add(grantedBuff);
-                    effectActivated = true;
-                    break;
-                case 10:
-                    // Ready's Setting runs after the source's power snapshot,
-                    // so its one-use bonus strengthens the following slot.
-                    grantedBuff = new SkillBuff(30, 0, 1);
-                    buffs.Add(grantedBuff);
-                    effectActivated = true;
-                    break;
-                case 12:
-                    if (player) NextActGain += 3;
-                    // Forward uses Cur/count=1 in the source despite its CSV
-                    // saying next turn. Vulnerability expires at this turn's end.
-                    grantedBuff = new SkillBuff(0, -50, 1);
-                    buffs.Add(grantedBuff);
-                    effectActivated = true;
-                    break;
-                case 19:
-                    LegacyFighterState fighter = player ? Player : Enemy;
-                    int restored = fighter.RestoreResistance(LegacySkillConditions.ResistanceRecoveryAmount(fighter));
-                    conditionMet = effectActivated = restored > 0;
-                    break;
-                case 42:
-                    if (conditionMet)
-                    {
-                        effectActivated = (player ? Enemy : Player).ReduceResistance(20) > 0;
-                        // The player skill's actual code grants three, not the
-                        // CSV's one. Never use the enemy-only instant break rule.
-                        if (player)
-                        {
-                            NextActGain += 3;
-                            effectActivated = true;
-                        }
-                    }
-                    break;
-                // Skill_Smashing only sets a guard's isAttack flag to false in
-                // the source. It does not remove that guard's mitigation power.
+                }
+            }
+            if (effect.HasBuff)
+            {
+                grantedBuff = new SkillBuff(effect.BuffPowerPercent, effect.BuffProtectionPercent, effect.BuffSlots);
+                buffs.Add(grantedBuff);
+                effectActivated = true;
             }
             return new LegacySkillFeedback(skill, conditionMet, effectActivated, powerBuffPercent, protectionBuffPercent,
                 grantedBuff?.AttackPercent ?? 0, grantedBuff?.DefencePercent ?? 0, grantedBuff?.SlotsRemaining ?? 0);
