@@ -3,6 +3,7 @@ using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Dialogue;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
+using TurnLimbo.Runtime.Save;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -34,6 +35,9 @@ namespace TurnLimbo.Presentation
         private BattleResultHud resultHud;
         private MissionCoachHud coachHud;
         private MissionBriefingHud briefingHud;
+        private TitleHud titleHud;
+        private bool showingTitle;
+        private GameSaveStore saveStore;
         private BattleResult battleResult;
         private PrologueRun prologue;
         // The opening-arc mission being fought, its coach, and whether its briefing is on screen.
@@ -76,6 +80,17 @@ namespace TurnLimbo.Presentation
         public BattleResultHud ResultHud => resultHud;
         public MissionCoachHud CoachHud => coachHud;
         public MissionBriefingHud BriefingHud => briefingHud;
+        public TitleHud TitleHud => titleHud;
+        /// <summary>The auto-save file. Tests may point it elsewhere before using the title.</summary>
+        public GameSaveStore SaveStore
+        {
+            get => saveStore;
+            set => saveStore = value ?? throw new System.ArgumentNullException(nameof(value));
+        }
+        /// <summary>Whether progress is written to <see cref="SaveStore"/>. Only the title's 이어하기/새 게임 turn it on,
+        /// so tests and direct API use never touch the player's save.</summary>
+        public bool AutoSaveEnabled { get; private set; }
+        public bool IsInTitle => showingTitle && !IsShowingDialogue && titleHud != null && titleHud.IsVisible;
         public DialogueHud DialogueHud => dialogueHud;
         public DialogueLine CurrentDialogueLine => dialogueSession?.Current;
         public BattleResult Result => battleResult;
@@ -85,9 +100,10 @@ namespace TurnLimbo.Presentation
         public bool IsMission => mission != null;
         public bool IsShowingResult => viewPhase == ViewPhase.Outcome && battleResult != null;
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
-        public bool IsInBriefing => showingBriefing && !IsShowingDialogue && viewPhase == ViewPhase.Outcome && !IsShowingResult;
+        public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && viewPhase == ViewPhase.Outcome &&
+            !IsShowingResult;
         public bool IsInLobby => !IsShowingDialogue && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
-            !IsMission && !showingBriefing && campaign.Phase == CampaignPhase.Lobby;
+            !IsMission && !showingBriefing && !showingTitle && campaign.Phase == CampaignPhase.Lobby;
         public DuelPresentationSettings PresentationSettings => presentationSettings;
         public LegacyArenaView ArenaView => arena;
         public LegacyCombatHud Hud => hud;
@@ -166,7 +182,12 @@ namespace TurnLimbo.Presentation
             coachHud = new MissionCoachHud(transform, art, () => AdvanceGuide(),
                 ReturnToLobby, () => InspectGuideEnemy());
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission());
-            StartNewGame();
+            titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle());
+            saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
+            session = campaign.CreateDuel(System.Environment.TickCount);
+            ResetBattlePresentation();
+            lobbyHud.ResetView();
+            ShowTitle();
         }
 
         private void Update()
@@ -193,6 +214,23 @@ namespace TurnLimbo.Presentation
             {
                 if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))
                     DismissBattleResult();
+                return;
+            }
+            if (IsInTitle)
+            {
+                // Enter continues when a save exists and otherwise starts a new game; the confirmation needs a click.
+                if (keyboard != null)
+                {
+                    if (titleHud.IsConfirming)
+                    {
+                        if (keyboard.escapeKey.wasPressedThisFrame) titleHud.CancelConfirm();
+                    }
+                    else if (keyboard.enterKey.wasPressedThisFrame)
+                    {
+                        if (titleHud.CanContinue) ContinueGame();
+                        else titleHud.PressNewGame();
+                    }
+                }
                 return;
             }
             if (IsInBriefing)
@@ -650,6 +688,7 @@ namespace TurnLimbo.Presentation
             ResetBattlePresentation();
             lobbyHud.ResetView();
             ShowLobby();
+            AutoSave();
         }
 
         /// <summary>A new game: a fresh campaign and the opening arc from its first mission briefing.</summary>
@@ -663,6 +702,76 @@ namespace TurnLimbo.Presentation
             ResetBattlePresentation();
             lobbyHud.ResetView();
             ShowBriefing();
+            AutoSave();
+        }
+
+        /// <summary>The title screen: 이어하기 when a valid save exists, and 새 게임. Auto-saving stays off until one is chosen.</summary>
+        public void ShowTitle()
+        {
+            ClearBattleScreens();
+            lobbyHud.Hide();
+            AutoSaveEnabled = false;
+            showingTitle = true;
+            string summary = null, notice = null;
+            if (saveStore.Exists)
+            {
+                if (TryReadSave(out GameSave save, out string error)) summary = DescribeSave(save);
+                else
+                {
+                    Debug.LogWarning(error);
+                    notice = "저장 파일을 읽을 수 없어 이어할 수 없습니다. 새 게임을 시작하면 덮어씁니다.";
+                }
+            }
+            titleHud.Show(summary, notice, saveStore.Exists);
+        }
+
+        /// <summary>Loads the save and resumes at the next mission's briefing, or the lobby once the arc is over.</summary>
+        public bool ContinueGame()
+        {
+            if (!IsInTitle) return false;
+            // The file may have changed since the title read it (e.g. the editor's 세이브 삭제 during Play).
+            if (!TryReadSave(out GameSave save, out string error) || !save.TryApply(prologue, campaign, out error))
+            {
+                Debug.LogWarning(error);
+                ShowTitle();
+                return false;
+            }
+            AutoSaveEnabled = true;
+            session = campaign.CreateDuel(System.Environment.TickCount);
+            ResetBattlePresentation();
+            lobbyHud.ResetView();
+            ShowBriefing();
+            return true;
+        }
+
+        /// <summary>The title's 새 게임: starts over and replaces any save with the fresh state.</summary>
+        public bool NewGameFromTitle()
+        {
+            if (!IsInTitle) return false;
+            AutoSaveEnabled = true;
+            StartNewGame();
+            return true;
+        }
+
+        /// <summary>Reads the save and checks it against the game's rules without touching the live runs.</summary>
+        private bool TryReadSave(out GameSave save, out string error)
+            => saveStore.TryLoad(out save, out error) && save.Validate(out error);
+
+        private string DescribeSave(GameSave save)
+        {
+            if (save.PrologueCleared < PrologueMissions.Count)
+            {
+                PrologueMission next = PrologueMissions.Get(save.PrologueCleared + 1);
+                return $"{MissionBriefingHud.ChapterName}  ·  임무 {next.Number} / {PrologueMissions.Count}  ·  {next.Title}";
+            }
+            return $"로비  ·  스테이지 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  재화 {save.Campaign.Currency}";
+        }
+
+        /// <summary>Writes the persistent progress after a settled change. Never during a battle's own state.</summary>
+        private void AutoSave()
+        {
+            if (!AutoSaveEnabled || saveStore == null) return;
+            if (!saveStore.TrySave(GameSave.Capture(prologue, campaign), out string error)) Debug.LogWarning(error);
         }
 
         /// <summary>Starts the briefed mission: its intro dialogue first, then the duel. Skipping the intro starts it too.</summary>
@@ -792,6 +901,7 @@ namespace TurnLimbo.Presentation
         {
             if (!IsInLobby || !campaign.TryAcquireSkill(skillId)) return false;
             lobbyHud.Show(campaign);
+            AutoSave();
             return true;
         }
 
@@ -799,6 +909,7 @@ namespace TurnLimbo.Presentation
         {
             if (!IsInLobby || !campaign.TryUpgradeSkill(skillId)) return false;
             lobbyHud.Show(campaign);
+            AutoSave();
             return true;
         }
 
@@ -903,6 +1014,7 @@ namespace TurnLimbo.Presentation
         {
             if (!IsInLobby || !campaign.TrySaveLoadout()) return false;
             lobbyHud.Show(campaign);
+            AutoSave();
             return true;
         }
 
@@ -936,6 +1048,7 @@ namespace TurnLimbo.Presentation
             bool firstClear = !campaign.IsStageCleared(campaign.StageNumber);
             int unlockedBefore = campaign.HighestUnlockedStage;
             if (!campaign.TryCompleteBattle(session.Outcome)) return;
+            AutoSave();
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
             var result = new BattleResult(session.Outcome, false,
                 campaign.StageNumber, campaign.CurrentStage.Name,
@@ -953,7 +1066,7 @@ namespace TurnLimbo.Presentation
         {
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
             guide?.Finish();
-            prologue.TryComplete(mission.Number, session.Outcome);
+            if (prologue.TryComplete(mission.Number, session.Outcome)) AutoSave();
             var result = new BattleResult(session.Outcome, true, mission.Number, mission.Title, 0, campaign.Currency,
                 session.RoundNumber, session.Player.Health, session.Enemy.Health, false, 0, victory);
             EndDuelPresentation();
@@ -1024,6 +1137,8 @@ namespace TurnLimbo.Presentation
         /// <summary>Leaves every duel, result, coach and dialogue screen, ready for the lobby or a briefing.</summary>
         private void ClearBattleScreens()
         {
+            showingTitle = false;
+            titleHud?.Hide();
             CloseDialogue();
             ClearMissionState();
             battleResult = null;
@@ -1060,6 +1175,8 @@ namespace TurnLimbo.Presentation
             guideInspectionRemaining = 0f;
             showingBriefing = false;
             briefingHud.Hide();
+            showingTitle = false;
+            titleHud?.Hide();
             resultHud.Hide();
             coachHud.Hide();
             effectsSource.Stop();
@@ -1146,6 +1263,7 @@ namespace TurnLimbo.Presentation
             resultHud?.Dispose();
             coachHud?.Dispose();
             briefingHud?.Dispose();
+            titleHud?.Dispose();
             lobbyHud?.Dispose();
             stepHud?.Dispose();
             stepAudio?.Dispose();

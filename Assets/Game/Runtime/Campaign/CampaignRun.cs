@@ -344,6 +344,108 @@ namespace TurnLimbo.Runtime.Campaign
             Phase = CampaignPhase.Lobby;
         }
 
+        /// <summary>The persistent state. Unsaved loadout edits and the battle in progress are not included.</summary>
+        public CampaignSave CaptureSave()
+        {
+            var cleared = new List<int>();
+            for (int index = 0; index < clearedStages.Length; index++)
+                if (clearedStages[index]) cleared.Add(index + 1);
+            var owned = new List<SavedSkill>();
+            foreach (CampaignOwnedSkill skill in ownedSkills) owned.Add(new SavedSkill(skill.SkillId, skill.Level));
+            var loadout = new List<int>[equippedLanes.Length];
+            for (int lane = 0; lane < equippedLanes.Length; lane++)
+            {
+                loadout[lane] = new List<int>();
+                foreach (CampaignOwnedSkill skill in equippedLanes[lane]) loadout[lane].Add(skill.SkillId);
+            }
+            return new CampaignSave(Currency, cleared, owned, loadout);
+        }
+
+        /// <summary>Replaces this run with a saved state, back in the lobby with the saved loadout as the draft.
+        /// The whole save is checked first; when it breaks a rule nothing changes and <paramref name="error"/> says why.</summary>
+        public bool TryRestore(CampaignSave save, out string error)
+        {
+            error = ValidateSave(save, out Dictionary<int, LegacySkill> known);
+            if (error != null) return false;
+
+            ownedSkills.Clear();
+            foreach (SavedSkill saved in save.OwnedSkills)
+            {
+                var owned = new CampaignOwnedSkill(known[saved.Id]);
+                for (int level = 0; level < saved.Level; level++) owned.Upgrade();
+                ownedSkills.Add(owned);
+            }
+            for (int lane = 0; lane < equippedLanes.Length; lane++)
+            {
+                equippedLanes[lane].Clear();
+                foreach (int id in save.Loadout[lane]) equippedLanes[lane].Add(FindOwnedSkill(id));
+            }
+            ResetLoadoutDraft();
+            offers.Clear();
+            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
+                if (FindOwnedSkill(skill.Id) == null) offers.Add(new CampaignSkillOffer(skill));
+            Array.Clear(clearedStages, 0, clearedStages.Length);
+            HighestUnlockedStage = 1;
+            foreach (int number in save.ClearedStages)
+            {
+                clearedStages[number - 1] = true;
+                // A first clear opens the next stage, exactly as TryCompleteBattle does.
+                HighestUnlockedStage = Math.Max(HighestUnlockedStage, Math.Min(number + 1, StageCount));
+            }
+            ClearedStageCount = save.ClearedStages.Count;
+            Currency = save.Currency;
+            StageNumber = 1;
+            LastReward = 0;
+            Phase = CampaignPhase.Lobby;
+            return true;
+        }
+
+        private string ValidateSave(CampaignSave save, out Dictionary<int, LegacySkill> known)
+        {
+            known = new Dictionary<int, LegacySkill>();
+            foreach (LegacySkill skill in LegacyInitialSkills.All)
+                if (!known.ContainsKey(skill.Id)) known.Add(skill.Id, skill);
+            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
+                if (!known.ContainsKey(skill.Id)) known.Add(skill.Id, skill);
+            if (save == null) return "저장 데이터가 없습니다.";
+            if (save.Currency < 0) return $"재화가 음수입니다({save.Currency}).";
+
+            var cleared = new HashSet<int>();
+            foreach (int number in save.ClearedStages)
+            {
+                if (!IsValidStage(number)) return $"없는 스테이지 {number}을(를) 클리어했다고 되어 있습니다.";
+                if (!cleared.Add(number)) return $"스테이지 {number}의 클리어가 중복되었습니다.";
+            }
+
+            var levels = new Dictionary<int, int>();
+            foreach (SavedSkill saved in save.OwnedSkills)
+            {
+                if (!known.ContainsKey(saved.Id)) return $"알 수 없는 기술 {saved.Id}을(를) 보유하고 있습니다.";
+                if (levels.ContainsKey(saved.Id)) return $"기술 {saved.Id}을(를) 중복으로 보유하고 있습니다.";
+                if (saved.Level < 0 || saved.Level > CampaignOwnedSkill.MaximumLevel)
+                    return $"기술 {saved.Id}의 강화 단계 {saved.Level}은(는) 허용 범위 밖입니다.";
+                levels.Add(saved.Id, saved.Level);
+            }
+            // Starting skills can never be lost, so a save without one is not from this game.
+            foreach (LegacySkill skill in LegacyInitialSkills.All)
+                if (!levels.ContainsKey(skill.Id)) return $"시작 기술 {skill.Id}이(가) 보유 목록에 없습니다.";
+
+            if (save.Loadout.Count != equippedLanes.Length) return $"편성 열이 {save.Loadout.Count}개입니다.";
+            var equipped = new HashSet<int>();
+            for (int lane = 0; lane < save.Loadout.Count; lane++)
+            {
+                IReadOnlyList<int> ids = save.Loadout[lane];
+                if (ids.Count != loadoutSlots[lane].Length) return $"{lane + 1}번째 편성 열의 기술이 {ids.Count}개입니다.";
+                foreach (int id in ids)
+                {
+                    if (!levels.ContainsKey(id)) return $"보유하지 않은 기술 {id}이(가) 편성되어 있습니다.";
+                    if (known[id].LaneIndex != lane) return $"기술 {id}은(는) {lane + 1}번째 열에 편성할 수 없습니다.";
+                    if (!equipped.Add(id)) return $"기술 {id}이(가) 중복으로 편성되어 있습니다.";
+                }
+            }
+            return null;
+        }
+
         private bool CanEditLoadout => Phase == CampaignPhase.Lobby || Phase == CampaignPhase.Maintenance;
         private bool IsValidStage(int number) => number >= 1 && number <= StageCount;
 

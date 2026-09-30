@@ -39,6 +39,14 @@ namespace TurnLimbo.Runtime.Prologue
         /// <summary>Treats the whole arc as done, as if every mission had been won.</summary>
         public void CompleteAll() => ClearedCount = missions.Count;
 
+        /// <summary>Restores saved progress. Returns false, changing nothing, when the count is outside 0..MissionCount.</summary>
+        public bool TryRestore(int clearedCount)
+        {
+            if (clearedCount < 0 || clearedCount > missions.Count) return false;
+            ClearedCount = clearedCount;
+            return true;
+        }
+
         public void Reset() => ClearedCount = 0;
     }
 }

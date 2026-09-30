@@ -1,0 +1,320 @@
+using System;
+using System.Collections;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using NUnit.Framework;
+using TurnLimbo.Runtime.Campaign;
+using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Prologue;
+using TurnLimbo.Runtime.Save;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.TestTools;
+using UnityEngine.UI;
+using Object = UnityEngine.Object;
+
+namespace TurnLimbo.Presentation.Tests
+{
+    public sealed class TitleSavePlayModeTests : InputTestFixture
+    {
+        private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
+
+        [UnityTest]
+        public IEnumerator Title_WithoutSave_OffersOnlyNewGame_AndNewGameStartsTheArcAndSaves()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.IsInTitle, Is.True);
+                Assert.That(controller.TitleHud.IsVisible, Is.True);
+                Assert.That(controller.IsInLobby, Is.False);
+                Assert.That(controller.IsInBriefing, Is.False);
+                Assert.That(controller.AutoSaveEnabled, Is.False, "Nothing is written before the player chooses.");
+                Assert.That(controller.TitleHud.CanContinue, Is.False);
+                Assert.That(controller.TitleHud.ContinueButton.interactable, Is.False);
+                Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text, Does.Contain("없습니다"));
+                Assert.That(controller.TitleHud.Root.GetComponent<Canvas>().sortingOrder, Is.EqualTo(TitleHud.SortingOrder));
+                Assert.That(controller.ContinueGame(), Is.False);
+                Assert.That(controller.StartCampaignStage(1), Is.False);
+                Assert.That(controller.StartMission(), Is.False);
+
+                controller.TitleHud.NewGameButton.onClick.Invoke();
+                Assert.That(controller.TitleHud.IsConfirming, Is.False, "Without a save there is nothing to overwrite.");
+                Assert.That(controller.IsInBriefing, Is.True);
+                Assert.That(controller.IsInTitle, Is.False);
+                Assert.That(controller.TitleHud.IsVisible, Is.False);
+                Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(1));
+                Assert.That(controller.AutoSaveEnabled, Is.True);
+                GameSave saved = scope.Load();
+                Assert.That(saved.PrologueCleared, Is.Zero);
+                Assert.That(saved.Campaign.Currency, Is.Zero);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Continue_RestoresTheSave_AndLaterProgressIsSavedAgain()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                var campaign = new CampaignRun();
+                for (int stage = 1; stage <= 2; stage++)
+                {
+                    Assert.That(campaign.TryStartStage(stage), Is.True);
+                    Assert.That(campaign.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                }
+                campaign.ReturnToLobby();
+                var prologue = new PrologueRun();
+                prologue.CompleteAll();
+                Assert.That(scope.Store.TrySave(GameSave.Capture(prologue, campaign), out string error), Is.True, error);
+
+                controller.ShowTitle();
+                Assert.That(controller.TitleHud.CanContinue, Is.True);
+                Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text,
+                    Does.Contain("로비").And.Contain("2 / 8").And.Contain(campaign.Currency.ToString()));
+
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                controller.enabled = true;
+                Press(keyboard.enterKey);
+                yield return null;
+                Release(keyboard.enterKey);
+                yield return null;
+                controller.enabled = false;
+                Assert.That(controller.IsInLobby, Is.True, "Enter continues, and a finished arc resumes in the lobby.");
+                Assert.That(controller.AutoSaveEnabled, Is.True);
+                Assert.That(controller.Prologue.IsComplete, Is.True);
+                Assert.That(controller.Campaign.Currency, Is.EqualTo(campaign.Currency));
+                Assert.That(controller.Campaign.IsStageCleared(2), Is.True);
+                Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(3));
+
+                CampaignSkillOffer offer = controller.Campaign.Offers.OrderBy(candidate => candidate.Price).First();
+                Assert.That(controller.AcquireSkill(offer.SkillId), Is.True);
+                GameSave afterPurchase = scope.Load();
+                Assert.That(afterPurchase.Campaign.Currency, Is.EqualTo(campaign.Currency - offer.Price), "A purchase is saved.");
+                Assert.That(afterPurchase.Campaign.OwnedSkills.Any(skill => skill.Id == offer.SkillId), Is.True);
+
+                Assert.That(controller.StartCampaignStage(3), Is.True);
+                scope.WinToSettled();
+                Assert.That(controller.IsShowingResult, Is.True);
+                GameSave afterBattle = scope.Load();
+                Assert.That(afterBattle.Campaign.ClearedStages, Does.Contain(3), "A settled stage result is saved.");
+                Assert.That(afterBattle.Campaign.Currency, Is.EqualTo(controller.Campaign.Currency));
+
+                Assert.That(controller.DismissBattleResult(), Is.True);
+                controller.RestartJourney();
+                GameSave afterRestart = scope.Load();
+                Assert.That(afterRestart.Campaign.Currency, Is.Zero, "여정 초기화 is saved too.");
+                Assert.That(afterRestart.PrologueCleared, Is.EqualTo(PrologueMissions.Count), "…and keeps the arc.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator MissionVictory_IsSaved_AndContinueResumesAtTheNextBriefing()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.NewGameFromTitle(), Is.True);
+                Assert.That(controller.StartMission(), Is.True);
+                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.IsMission, Is.True);
+                scope.SetGuide(null);
+                scope.WinToSettled();
+                Assert.That(controller.IsShowingDialogue, Is.True, "The outro plays first.");
+                Assert.That(scope.Load().PrologueCleared, Is.EqualTo(1), "The win is saved before the outro.");
+                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.IsShowingResult, Is.True);
+
+                controller.ShowTitle();
+                Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text, Does.Contain("임무 2 / 4"));
+                Assert.That(controller.ContinueGame(), Is.True);
+                Assert.That(controller.IsInBriefing, Is.True);
+                Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(2));
+                Assert.That(controller.Prologue.ClearedCount, Is.EqualTo(1));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator UnreadableSave_CannotContinue_AndNewGameConfirmsBeforeOverwriting()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                Directory.CreateDirectory(Path.GetDirectoryName(scope.Store.Path));
+                File.WriteAllText(scope.Store.Path, "not a save");
+                controller.ShowTitle();
+                Assert.That(controller.TitleHud.CanContinue, Is.False);
+                Assert.That(Label(controller.TitleHud.Root, "Title Notice").text, Does.Contain("읽을 수 없어"));
+
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                controller.enabled = true;
+                Press(keyboard.enterKey);
+                yield return null;
+                Release(keyboard.enterKey);
+                yield return null;
+                Assert.That(controller.TitleHud.IsConfirming, Is.True, "Enter asks before overwriting a save.");
+                Assert.That(controller.IsInTitle, Is.True);
+                Press(keyboard.enterKey);
+                yield return null;
+                Release(keyboard.enterKey);
+                yield return null;
+                Assert.That(controller.IsInTitle, Is.True, "Enter never confirms the overwrite.");
+                Press(keyboard.escapeKey);
+                yield return null;
+                Release(keyboard.escapeKey);
+                yield return null;
+                controller.enabled = false;
+                Assert.That(controller.TitleHud.IsConfirming, Is.False, "Escape cancels.");
+                Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo("not a save"));
+
+                controller.TitleHud.NewGameButton.onClick.Invoke();
+                controller.TitleHud.CancelButton.onClick.Invoke();
+                Assert.That(controller.IsInTitle, Is.True);
+                controller.TitleHud.NewGameButton.onClick.Invoke();
+                controller.TitleHud.ConfirmButton.onClick.Invoke();
+                Assert.That(controller.IsInBriefing, Is.True);
+                Assert.That(scope.Load().PrologueCleared, Is.Zero, "The new game replaced the unreadable save.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator DirectApiUse_NeverWritesTheSave()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                controller.StartNewGame();
+                controller.RestartJourney();
+                Assert.That(controller.StartCampaignStage(1), Is.True);
+                scope.WinToSettled();
+                Assert.That(controller.DismissBattleResult(), Is.True);
+                Assert.That(controller.AutoSaveEnabled, Is.False);
+                Assert.That(scope.Store.Exists, Is.False, "Only the title's choices turn saving on.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator SaveDeletedWhileTitleShows_ContinueRefreshesTheTitleInsteadOfDoingNothing()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                Assert.That(scope.Store.TrySave(GameSave.Capture(new PrologueRun(), new CampaignRun()), out string error), Is.True, error);
+                controller.ShowTitle();
+                Assert.That(controller.TitleHud.CanContinue, Is.True);
+                Assert.That(scope.Store.Delete(), Is.True);
+                Assert.That(controller.ContinueGame(), Is.False);
+                Assert.That(controller.IsInTitle, Is.True);
+                Assert.That(controller.TitleHud.CanContinue, Is.False, "The title re-reads the file.");
+                Assert.That(controller.AutoSaveEnabled, Is.False);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Store_RecoversACopyLeftByAnInterruptedWrite_AndDeleteRemovesEveryCopy()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                var prologue = new PrologueRun();
+                Assert.That(prologue.TryComplete(1, DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(scope.Store.TrySave(GameSave.Capture(new PrologueRun(), new CampaignRun()), out string error), Is.True, error);
+                Assert.That(scope.Store.TrySave(GameSave.Capture(prologue, new CampaignRun()), out error), Is.True, error);
+                Assert.That(File.Exists(scope.Store.Path + ".tmp"), Is.False);
+                Assert.That(File.Exists(scope.Store.Path + ".bak"), Is.False, "A finished replace drops its backup.");
+                Assert.That(scope.Load().PrologueCleared, Is.EqualTo(1), "The second save replaced the first.");
+
+                // A replace that failed half way leaves only the new copy under the temporary name.
+                File.Move(scope.Store.Path, scope.Store.Path + ".tmp");
+                Assert.That(scope.Store.Exists, Is.True);
+                Assert.That(scope.Load().PrologueCleared, Is.EqualTo(1));
+                File.WriteAllText(scope.Store.Path + ".tmp", "broken");
+                File.WriteAllText(scope.Store.Path + ".bak", GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), new CampaignRun())));
+                Assert.That(scope.Load().PrologueCleared, Is.Zero, "An unreadable temporary copy falls back to the backup.");
+
+                Assert.That(scope.Store.Delete(), Is.True);
+                Assert.That(scope.Store.Exists, Is.False);
+                Assert.That(File.Exists(scope.Store.Path + ".tmp") || File.Exists(scope.Store.Path + ".bak"), Is.False);
+            }
+        }
+
+        private static Text Label(GameObject root, string name)
+        {
+            foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
+                if (candidate.name == name) return candidate.GetComponent<Text>();
+            Assert.Fail("Missing UI node: " + name);
+            return null;
+        }
+
+        private sealed class SaveScope : IDisposable
+        {
+            private readonly GameSaveStore originalStore;
+            private readonly bool originalEnabled;
+            private readonly string directory;
+            private readonly Action<float, Keyboard> advance;
+            public DuelPrototypeController Controller { get; }
+            public GameSaveStore Store { get; }
+
+            public SaveScope()
+            {
+                Controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+                Assert.That(Controller, Is.Not.Null);
+                originalEnabled = Controller.enabled;
+                Controller.enabled = false;
+                originalStore = Controller.SaveStore;
+                directory = Path.Combine(Application.temporaryCachePath, "TitleSaveTests-" + Guid.NewGuid().ToString("N"));
+                Store = new GameSaveStore(Path.Combine(directory, GameSaveStore.FileName));
+                Controller.SaveStore = Store;
+                advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,
+                    typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance));
+            }
+
+            public GameSave Load()
+            {
+                Assert.That(Store.TryLoad(out GameSave save, out string error), Is.True, error);
+                Assert.That(save.Validate(out error), Is.True, error);
+                return save;
+            }
+
+            public void SetGuide(MissionGuide guide)
+                => typeof(DuelPrototypeController).GetField("guide", PrivateInstance).SetValue(Controller, guide);
+
+            /// <summary>Wins at once and advances until the result or a mission's outro.</summary>
+            public void WinToSettled()
+            {
+                var zero = new LegacySkill(100, "Test", 1, 0, 0, LegacySkillKind.Attack,
+                    LegacySkillProperty.Slash, 1, 0, "", iconId: 1);
+                typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller,
+                    new LegacyQueuedDuel(100, 50, 1, 0, LegacyInitialSkills.All, new[] { zero }, new[] { 1 }, 3));
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                Assert.That(Controller.QueueLane(0), Is.True);
+                Controller.CommitTurn();
+                int frames = 0;
+                while (!Controller.IsShowingResult && !Controller.IsShowingDialogue && frames++ < 2000) advance(.025f, null);
+                Assert.That(Controller.IsShowingResult || Controller.IsShowingDialogue, Is.True);
+            }
+
+            public void Dispose()
+            {
+                // Turn saving off while the temporary store is still in place, then leave a fresh lobby behind.
+                Controller.ShowTitle();
+                Controller.SaveStore = originalStore;
+                Controller.StartNewGame();
+                Controller.RestartJourney();
+                Controller.enabled = originalEnabled;
+                if (Directory.Exists(directory)) Directory.Delete(directory, true);
+            }
+        }
+    }
+}
