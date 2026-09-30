@@ -35,7 +35,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(launcher.StoryButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
                 Assert.That(launcher.Root.transform.parent, Is.SameAs(controller.LobbyHud.Root.transform));
 
-                LobbyTab[] hiddenTabs = { LobbyTab.Stages, LobbyTab.Loadout, LobbyTab.Shop };
+                LobbyTab[] hiddenTabs = { LobbyTab.Stages, LobbyTab.Loadout, LobbyTab.Curriculum };
                 for (int index = 0; index < hiddenTabs.Length; index++)
                 {
                     controller.LobbyHud.ShowTab(hiddenTabs[index]);
@@ -67,6 +67,8 @@ namespace TurnLimbo.Presentation.Tests
 
             int stage = controller.Campaign.StageNumber;
             int currency = controller.Campaign.Currency;
+            int curriculumDone = controller.Campaign.Curriculum.CompletedCount;
+            string curriculumActive = controller.Campaign.Curriculum.Active?.Id;
             try
             {
                 controller.CloseDialogue();
@@ -95,6 +97,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(launcher.StoryButton.interactable, Is.True);
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(stage));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(currency));
+                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(curriculumDone));
+                Assert.That(controller.Campaign.Curriculum.Active?.Id, Is.EqualTo(curriculumActive));
             }
             finally
             {

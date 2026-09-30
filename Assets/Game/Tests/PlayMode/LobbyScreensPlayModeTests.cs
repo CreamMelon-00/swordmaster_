@@ -55,7 +55,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 Assert.That(fixture.Transition, Is.Not.Null);
-                foreach (LobbyTab tab in new[] { LobbyTab.Home, LobbyTab.Stages, LobbyTab.Loadout, LobbyTab.Shop })
+                foreach (LobbyTab tab in new[] { LobbyTab.Home, LobbyTab.Stages, LobbyTab.Loadout, LobbyTab.Curriculum })
                 {
                     fixture.Hud.ShowTab(tab);
                     fixture.Finish();
@@ -80,7 +80,7 @@ namespace TurnLimbo.Presentation.Tests
                     {
                         Assert.That(node.name, Is.Not.EqualTo("Stages Panel Border"));
                         Assert.That(node.name, Is.Not.EqualTo("Loadout Panel Border"));
-                        Assert.That(node.name, Is.Not.EqualTo("Shop Panel Border"));
+                        Assert.That(node.name, Is.Not.EqualTo("Curriculum Panel Border"));
                         Assert.That(node.name, Is.Not.EqualTo("Lobby Modal Dimmer"));
                     }
                     if (tab == LobbyTab.Home)
@@ -208,7 +208,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 Assert.That(fixture.Hud.IsTransitioning, Is.False, "Showing an existing lobby is a refresh, not a navigation animation.");
-                foreach (LobbyTab tab in new[] { LobbyTab.Stages, LobbyTab.Shop, LobbyTab.Loadout, LobbyTab.Home, LobbyTab.Shop })
+                foreach (LobbyTab tab in new[] { LobbyTab.Stages, LobbyTab.Curriculum, LobbyTab.Loadout, LobbyTab.Home, LobbyTab.Curriculum })
                 {
                     fixture.Hud.ShowTab(tab);
                     Assert.That(fixture.Hud.CurrentTab, Is.EqualTo(tab), "The view API changes immediately even while input is guarded.");
@@ -218,8 +218,8 @@ namespace TurnLimbo.Presentation.Tests
                         "A rapid navigation request must remain possible through the shared header.");
                 }
                 fixture.Hud.Show(fixture.Run);
-                Assert.That(fixture.Hud.CurrentTab, Is.EqualTo(LobbyTab.Shop));
-                Assert.That(fixture.Hud.IsTransitioning, Is.False, "Refreshing after a transaction must not restart navigation.");
+                Assert.That(fixture.Hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
+                Assert.That(fixture.Hud.IsTransitioning, Is.False, "Refreshing after a curriculum choice must not restart navigation.");
                 AssertPageReady(fixture.Hud.CurrentPage);
                 fixture.Hud.ShowTab(LobbyTab.Stages);
                 fixture.Hud.Hide();
@@ -239,10 +239,10 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator Navigation_PreservesSkillSelectionShopScrollAndUnsavedLoadoutWithoutTransacting()
+        public IEnumerator Navigation_PreservesSkillSelectionCurriculumSelectionAndUnsavedLoadoutWithoutChoosing()
         {
             yield return null;
-            using (var fixture = new Fixture(RewardedLobby()))
+            using (var fixture = new Fixture(FirstStageClearedLobby()))
             {
                 fixture.Hud.ShowTab(LobbyTab.Loadout);
                 fixture.Click("Loadout Slot W 1");
@@ -251,14 +251,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Run.TryPlaceLoadoutSkill(1, 0, 1), Is.True);
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
                 int[] draft = SlotIds(fixture.Run);
-                int money = fixture.Run.Currency;
                 int owned = fixture.Run.OwnedSkills.Count;
 
-                fixture.Hud.ShowTab(LobbyTab.Shop);
-                fixture.Click("Shop Category Upgrade");
-                fixture.Click("Shop Skill 8");
-                ScrollRect scroll = Named(fixture.Hud.Root, "Shop Skill List").GetComponent<ScrollRect>();
-                scroll.verticalNormalizedPosition = .42f;
+                fixture.Hud.ShowTab(LobbyTab.Curriculum);
+                fixture.Click("Curriculum Node breathing");
+                Assert.That(Label(fixture.Hud.Root, "Curriculum Detail Name").text, Is.EqualTo("호흡"));
                 fixture.Hud.ShowTab(LobbyTab.Stages);
                 fixture.Hud.ShowTab(LobbyTab.Home);
                 fixture.Hud.ShowTab(LobbyTab.Loadout);
@@ -269,12 +266,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
                 CollectionAssert.AreEqual(draft, SlotIds(fixture.Run));
                 Assert.That(fixture.Run.GetEquippedLane(0)[0].SkillId, Is.EqualTo(savedQFirst), "Navigation must not save the combat order.");
-                fixture.Hud.ShowTab(LobbyTab.Shop);
+                fixture.Hud.ShowTab(LobbyTab.Curriculum);
                 fixture.Finish();
-                Assert.That(Label(fixture.Hud.Root, "Shop Detail Name").text, Is.EqualTo("흘리기"));
-                Assert.That(Named(fixture.Hud.Root, "Shop Skill List").GetComponent<ScrollRect>().verticalNormalizedPosition,
-                    Is.EqualTo(.42f).Within(.001f));
-                Assert.That(fixture.Run.Currency, Is.EqualTo(money));
+                Assert.That(Label(fixture.Hud.Root, "Curriculum Detail Name").text, Is.EqualTo("호흡"),
+                    "Leaving the page must not discard the selected curriculum node.");
+                Assert.That(fixture.Run.Curriculum.Active, Is.Null, "Viewing a node must not start it.");
                 Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(owned));
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
             }
@@ -314,12 +310,12 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(loadout, "Keyword 1 Text").text, Does.Contain("10%"));
                 AssertNoDamageRouting(loadout);
                 AssertReadableBadge(Named(loadout, "Keyword 1"), Label(loadout, "Keyword 1 Text").color, 3);
-                fixture.Hud.ShowTab(LobbyTab.Shop);
-                fixture.Click("Shop Skill 16");
-                GameObject shop = Named(fixture.Hud.Root, "Shop Selected Detail").gameObject;
-                Assert.That(Label(shop, "Keyword 1 Text").text, Does.Contain("위력 편차"));
-                AssertNoDamageRouting(shop);
-                AssertReadableBadge(Named(shop, "Keyword 1"), Label(shop, "Keyword 1 Text").color, 16);
+                fixture.Hud.ShowTab(LobbyTab.Curriculum);
+                fixture.Click("Curriculum Node one-stroke");
+                GameObject curriculum = Named(fixture.Hud.Root, "Curriculum Selected Detail").gameObject;
+                Assert.That(Label(curriculum, "Keyword 1 Text").text, Does.Contain("위력 편차"));
+                AssertNoDamageRouting(curriculum);
+                AssertReadableBadge(Named(curriculum, "Keyword 1"), Label(curriculum, "Keyword 1 Text").color, 16);
 
                 using (var combat = new LegacyCombatHud(fixture.Parent.transform, new LegacyDuelArt(), null, null, null))
                 {
@@ -391,7 +387,7 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
-        private static CampaignRun RewardedLobby()
+        private static CampaignRun FirstStageClearedLobby()
         {
             var run = new CampaignRun();
             Assert.That(run.TryStartStage(1), Is.True);

@@ -1,6 +1,7 @@
 using System;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -13,7 +14,7 @@ namespace TurnLimbo.Presentation
     {
         private readonly LegacyDuelArt art;
         private readonly RectTransform root;
-        private readonly Text heading, stage, rounds, playerHealth, enemyHealth, reward, currency, notice;
+        private readonly Text heading, stage, rounds, playerHealth, enemyHealth, curriculum, curriculumDetail, notice;
         private readonly Button lobbyButton, retryButton, nextButton;
         private readonly Text retryCaption, lobbyCaption, nextCaption;
         private bool disposed;
@@ -55,12 +56,16 @@ namespace TurnLimbo.Presentation
             rounds = Statistic(card.transform, "Result Rounds", "진행 턴", -248f);
             playerHealth = Statistic(card.transform, "Result Player HP", "내 남은 HP", 0f);
             enemyHealth = Statistic(card.transform, "Result Enemy HP", "상대 남은 HP", 248f);
-            var rewards = Panel("Result Reward Panel", card.transform, new Vector2(0f, -61f),
+            // Currency is hidden while it has no use; this panel reports the curriculum instead.
+            var progress = Panel("Result Curriculum Panel", card.transform, new Vector2(0f, -61f),
                 new Vector2(736f, 104f), Raised);
-            DuelVisualTheme.Frame(rewards);
-            Label("Result Reward Heading", rewards.transform, new Vector2(-210f, 27f), new Vector2(300f, 28f), 18, Muted).text = "획득 재화";
-            reward = Label("Result Reward", rewards.transform, new Vector2(-210f, -14f), new Vector2(300f, 48f), 36, Gold);
-            currency = Label("Result Currency", rewards.transform, new Vector2(170f, 0f), new Vector2(320f, 64f), 22);
+            DuelVisualTheme.Frame(progress);
+            Label("Result Curriculum Heading", progress.transform, new Vector2(-210f, 27f), new Vector2(300f, 28f), 18, Muted).text = "커리큘럼";
+            curriculum = Label("Result Curriculum", progress.transform, new Vector2(-210f, -14f), new Vector2(300f, 48f), 30, Gold);
+            curriculum.resizeTextForBestFit = true;
+            curriculum.resizeTextMinSize = 20;
+            curriculum.resizeTextMaxSize = 30;
+            curriculumDetail = Label("Result Curriculum Detail", progress.transform, new Vector2(170f, 0f), new Vector2(360f, 72f), 19);
             notice = Label("Result Notice", card.transform, new Vector2(0f, -161f), new Vector2(736f, 78f), 20, Muted);
             lobbyButton = ActionButton("Result Lobby", card.transform, "로비로", new Vector2(-248f, -255f), returnToLobby);
             retryButton = ActionButton("Result Retry", card.transform, "재도전", new Vector2(0f, -255f), retry);
@@ -87,8 +92,7 @@ namespace TurnLimbo.Presentation
             rounds.text = result.RoundNumber.ToString();
             playerHealth.text = Mathf.Max(0, result.PlayerHealth).ToString();
             enemyHealth.text = Mathf.Max(0, result.EnemyHealth).ToString();
-            reward.text = "+ " + Mathf.Max(0, result.Reward);
-            currency.text = "보유 재화\n" + Mathf.Max(0, result.Currency);
+            ShowCurriculum(result);
             // A mission's exits open the next briefing, or the lobby once the arc is over.
             bool toLobby = result.IsMission && (arcComplete || result.Victory && result.StageNumber >= PrologueMissions.Count);
             notice.text = BuildNotice(result, toLobby);
@@ -135,14 +139,60 @@ namespace TurnLimbo.Presentation
                 return !result.Victory
                     ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 로비로 돌아갈 수 있습니다."
                         : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
-                    : result.StageNumber >= PrologueMissions.Count ? "서막의 임무를 모두 마쳤습니다.\n이제 편성과 상점이 열립니다."
+                    : result.StageNumber >= PrologueMissions.Count ? "서막의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
                     : toLobby ? "서막은 이미 마쳤습니다.\n여정을 계속하면 로비로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
             if (!result.Victory)
                 return result.Outcome == DuelMatchOutcome.Draw ? "승부가 나지 않았습니다. 재도전하거나 기술 편성을 바꿔보세요."
-                    : "이번 전투의 보상은 없습니다.\n로비에서 편성을 바꾸거나 다시 도전해보세요.";
-            string clear = result.FirstClear ? "첫 클리어 보상 획득" : "재클리어 보상 획득 · 기본 보상의 절반";
+                    : "로비에서 편성을 바꾸거나 다시 도전해보세요.";
+            string clear = result.FirstClear ? "첫 클리어!" : "다시 클리어했습니다.";
             return result.UnlockedStageNumber > 0 ? clear + $"\n스테이지 {result.UnlockedStageNumber:00} 개방!"
-                : clear + (result.CanAdvance ? "\n다음 스테이지에 도전할 수 있습니다." : "\n보상은 보유 재화에 반영되었습니다.");
+                : clear + (result.CanAdvance ? "\n다음 스테이지에 도전할 수 있습니다." : "\n마지막 스테이지까지 마쳤습니다.");
+        }
+
+        /// <summary>Stage battles count toward the curriculum whatever the outcome; opening-arc missions do not.</summary>
+        private void ShowCurriculum(BattleResult result)
+        {
+            CurriculumNode completed = result.CompletedCurriculumNode, active = result.ActiveCurriculumNode;
+            if (result.IsMission)
+            {
+                curriculum.text = "서막 이후";
+                curriculum.color = Muted;
+                curriculumDetail.text = "서막 임무는 커리큘럼에 반영되지 않습니다.";
+                return;
+            }
+            if (completed != null)
+            {
+                curriculum.text = completed.Title + " 완료";
+                curriculum.color = Gold;
+                curriculumDetail.text = "새 기술  " + SkillNames(completed) + "\n편성에서 장착할 수 있습니다.";
+            }
+            else if (active != null)
+            {
+                curriculum.text = $"{active.Title}  {result.ActiveCurriculumBattles}/{active.Battles}";
+                curriculum.color = Gold;
+                curriculumDetail.text = "진행 중인 과정입니다.";
+            }
+            else if (result.CurriculumFinished)
+            {
+                curriculum.text = "모두 완료";
+                curriculum.color = Muted;
+                curriculumDetail.text = "더 고를 과정이 없습니다.\n초기화하면 다른 길을 고를 수 있습니다.";
+            }
+            else
+            {
+                curriculum.text = "진행 없음";
+                curriculum.color = Muted;
+                curriculumDetail.text = "로비의 커리큘럼에서 과정을 고르면\n전투마다 진행됩니다.";
+            }
+        }
+
+        private static string SkillNames(CurriculumNode node)
+        {
+            var names = new System.Collections.Generic.List<string>();
+            foreach (int id in node.SkillIds)
+                foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
+                    if (skill.Id == id) names.Add(skill.Name);
+            return names.Count > 0 ? string.Join(", ", names) : "없음";
         }
 
         private Text Statistic(Transform parent, string name, string caption, float x)

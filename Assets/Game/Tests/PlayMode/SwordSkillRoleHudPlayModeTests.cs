@@ -60,6 +60,8 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var run = new CampaignRun();
+                // The acquired skills reach the loadout through the curriculum.
+                foreach (string node in new[] { "horizontal-cut", "breathing", "suppleness" }) Learn(run, node);
                 hud = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
                 hud.Show(run);
                 hud.ShowTab(LobbyTab.Loadout);
@@ -74,12 +76,19 @@ namespace TurnLimbo.Presentation.Tests
                 string loadoutGuide = FindTextUnder(hud.Root.transform, "Loadout Panel", "Tab Subtitle").text;
                 Assert.That(loadoutGuide, Does.Contain("각 열 3개"));
                 Assert.That(loadoutGuide, Does.Not.Contain("공격끼리 대결할 때만 저항 피해"));
-
-                hud.ShowTab(LobbyTab.Shop);
-                yield return null;
                 AssertPureRole(hud.Root.transform, 14, "단타");
                 AssertPureRole(hud.Root.transform, 17, "방어");
+                FindButton(hud.Root.transform, "Loadout Lane W").onClick.Invoke();
                 AssertPureRole(hud.Root.transform, 32, "방어");
+
+                hud.ShowTab(LobbyTab.Curriculum);
+                yield return null;
+                foreach (string node in new[] { "horizontal-cut", "breathing", "suppleness" })
+                {
+                    FindButton(hud.Root.transform, "Curriculum Node " + node).onClick.Invoke();
+                    AssertNoInventedUtility(FindTextUnder(hud.Root.transform, "Curriculum Selected Detail", "Curriculum Detail Purpose").text
+                        + "\n" + FindTextUnder(hud.Root.transform, "Curriculum Selected Detail", "Curriculum Detail Effect").text);
+                }
             }
             finally
             {
@@ -89,22 +98,20 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator UpgradeKeepsRoleAndIconIdentity_UnknownLookupsStayEmpty()
+        public IEnumerator CurriculumSkillKeepsCatalogRoleAndIcon_UnknownLookupsStayEmpty()
         {
             yield return null;
+            LegacySkill catalog = null;
+            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills) if (skill.Id == 14) catalog = skill;
+            Assert.That(catalog, Is.Not.Null);
             var run = new CampaignRun();
-            CampaignOwnedSkill owned = run.OwnedSkills[0];
-            int iconId = owned.Skill.IconId;
-            string role = LegacySkillRoles.GetShortLabel(owned.Skill);
-            Sprite icon = new LegacyDuelArt().GetSkillIcon(iconId);
-
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.ReturnToLobby(), Is.True);
-            Assert.That(run.TryUpgradeSkill(owned.SkillId), Is.True);
-            Assert.That(owned.Skill.IconId, Is.EqualTo(iconId));
-            Assert.That(new LegacyDuelArt().GetSkillIcon(owned.Skill.IconId), Is.SameAs(icon));
-            Assert.That(LegacySkillRoles.GetShortLabel(owned.Skill), Is.EqualTo(role));
+            Learn(run, "horizontal-cut");
+            CampaignOwnedSkill owned = run.OwnedSkills[run.OwnedSkills.Count - 1];
+            Assert.That(owned.SkillId, Is.EqualTo(14));
+            Assert.That(owned.Skill.IconId, Is.EqualTo(catalog.IconId));
+            Assert.That(new LegacyDuelArt().GetSkillIcon(owned.Skill.IconId), Is.SameAs(new LegacyDuelArt().GetSkillIcon(catalog.IconId)));
+            Assert.That(LegacySkillRoles.GetShortLabel(owned.Skill), Is.EqualTo(LegacySkillRoles.GetShortLabel(catalog)));
+            Assert.That(LegacySkillRoles.GetShortLabel(owned.Skill), Is.EqualTo("단타"));
 
             Assert.That(new LegacyDuelArt().GetSkillIcon(16), Is.Null);
             Assert.That(LegacySkillRoles.Get(null), Is.EqualTo(LegacySkillRole.None));
@@ -112,13 +119,26 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(LegacySkillRoles.GetDetail(null), Is.Empty);
         }
 
+        private static void Learn(CampaignRun run, string nodeId)
+        {
+            Assert.That(run.TrySelectCurriculumNode(nodeId), Is.True, nodeId);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.Curriculum.IsCompleted(nodeId), Is.True, nodeId);
+        }
+
         private static void AssertPureRole(Transform root, int skillId, string role)
         {
-            FindButton(root, "Shop Skill " + skillId).onClick.Invoke();
-            string purpose = FindTextUnder(root, "Shop Selected Detail", "Shop Detail Purpose").text;
-            string effect = FindTextUnder(root, "Shop Selected Detail", "Shop Detail Effect").text;
-            string detail = purpose + "\n" + effect;
+            FindButton(root, "Loadout Owned Skill " + skillId).onClick.Invoke();
+            string purpose = FindTextUnder(root, "Loadout Selected Detail", "Loadout Detail Role").text;
+            string effect = FindTextUnder(root, "Loadout Selected Detail", "Loadout Detail Effect").text;
             Assert.That(purpose, Does.Contain(role));
+            AssertNoInventedUtility(purpose + "\n" + effect);
+        }
+
+        private static void AssertNoInventedUtility(string detail)
+        {
             Assert.That(detail, Does.Not.Contain("ACT 회복"));
             Assert.That(detail, Does.Not.Contain("조건부 ACT"));
             Assert.That(detail, Does.Not.Contain("후속 위력"));

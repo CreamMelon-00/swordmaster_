@@ -6,7 +6,7 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    public enum LobbyTab { Home, Stages, Loadout, Shop }
+    public enum LobbyTab { Home, Stages, Loadout, Curriculum }
 
     /// <summary>Full-screen lobby pages. CampaignRun owns progression; view states survive page changes.</summary>
     public sealed class CampaignLobbyHud : IDisposable
@@ -14,21 +14,23 @@ namespace TurnLimbo.Presentation
         private const float TabWidth = 1300f;
         private const float TabHeight = 850f;
         private readonly LegacyDuelArt art;
-        private readonly Action<int> acquire, upgrade, unequip, startStage;
+        private readonly Action<int> unequip, startStage;
+        private readonly Action<string> selectCurriculumNode;
         private readonly Action<int, int, int> placeLoadoutSkill;
-        private readonly Action restartJourney, saveLoadout, resetLoadout;
+        private readonly Action restartJourney, saveLoadout, resetLoadout, resetCurriculum;
         private readonly CampaignLoadoutHud.ViewState loadoutState = new CampaignLoadoutHud.ViewState();
-        private readonly CampaignShopHud.ViewState shopState = new CampaignShopHud.ViewState();
+        private readonly CampaignCurriculumHud.ViewState curriculumState = new CampaignCurriculumHud.ViewState();
         private CampaignLoadoutHud loadoutHud;
-        private CampaignShopHud shopHud;
+        private CampaignCurriculumHud curriculumHud;
         private readonly RectTransform root, dynamicRoot;
         private readonly LobbyScreenTransition screenTransition;
         private RectTransform pageRoot;
         private readonly Sprite roomSprite;
         private readonly bool assetsAvailable;
         private CampaignRun currentRun;
-        private bool disposed, resetArmed, awaitingStageOutcome, lastOutcomeFailed;
-        private int lastOutcomeReward;
+        private bool disposed, resetArmed, awaitingStageOutcome;
+        // The header note after a stage battle: its outcome and any curriculum node it completed.
+        private string outcomeBanner;
         private int selectedStageNumber = 1;
         private LobbyTab currentTab;
 
@@ -51,16 +53,16 @@ namespace TurnLimbo.Presentation
         public RectTransform CurrentPage => pageRoot;
         public bool IsTransitioning => !disposed && screenTransition.IsTransitioning;
 
-        public CampaignLobbyHud(Transform parent, LegacyDuelArt art, Action<int> acquire,
-            Action<int> upgrade, Action<int> equip, Action<int> unequip, Action<int, int> move,
+        public CampaignLobbyHud(Transform parent, LegacyDuelArt art, Action<string> selectCurriculumNode,
+            Action resetCurriculum, Action<int> equip, Action<int> unequip, Action<int, int> move,
             Action<int> startStage, Action restartJourney,
             Action<int, int, int> placeLoadoutSkill = null, Action saveLoadout = null,
             Action resetLoadout = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
-            this.acquire = acquire;
-            this.upgrade = upgrade;
+            this.selectCurriculumNode = selectCurriculumNode;
+            this.resetCurriculum = resetCurriculum;
             this.unequip = unequip;
             this.startStage = startStage;
             this.restartJourney = restartJourney;
@@ -118,25 +120,21 @@ namespace TurnLimbo.Presentation
             if (changedRun)
             {
                 selectedStageNumber = 1;
-                awaitingStageOutcome = lastOutcomeFailed = false;
-                lastOutcomeReward = 0;
+                awaitingStageOutcome = false;
+                outcomeBanner = null;
                 resetArmed = false;
                 loadoutState.Reset();
-                shopHud?.Dispose();
-                shopHud = null;
-                shopState.Reset();
+                curriculumHud?.Dispose();
+                curriculumHud = null;
+                curriculumState.Reset();
             }
             selectedStageNumber = Mathf.Clamp(selectedStageNumber, 1, Mathf.Max(1, run.HighestUnlockedStage));
             if (awaitingStageOutcome)
             {
-                lastOutcomeReward = run.LastReward;
-                lastOutcomeFailed = run.LastReward <= 0;
+                string outcome = run.LastOutcome == Runtime.Combat.DuelMatchOutcome.PlayerVictory ? "승리" : "전투 종료";
+                CurriculumNode completed = run.LastCompletedCurriculumNode;
+                outcomeBanner = completed != null ? $"{outcome}  ·  커리큘럼 완료: {completed.Title}" : outcome;
                 awaitingStageOutcome = false;
-            }
-            else if (run.LastReward > 0)
-            {
-                lastOutcomeReward = run.LastReward;
-                lastOutcomeFailed = false;
             }
 
             root.gameObject.SetActive(true);
@@ -159,14 +157,13 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             ClearSelection();
             awaitingStageOutcome = false;
-            lastOutcomeFailed = false;
-            lastOutcomeReward = 0;
+            outcomeBanner = null;
             resetArmed = false;
             selectedStageNumber = 1;
             loadoutState.Reset();
-            shopHud?.Dispose();
-            shopHud = null;
-            shopState.Reset();
+            curriculumHud?.Dispose();
+            curriculumHud = null;
+            curriculumState.Reset();
             currentTab = LobbyTab.Home;
             if (IsVisible && currentRun != null && currentRun.Phase != CampaignPhase.Battle) Rebuild();
         }
@@ -190,8 +187,8 @@ namespace TurnLimbo.Presentation
             ClearSelection();
             loadoutHud?.Dispose();
             loadoutHud = null;
-            shopHud?.Dispose();
-            shopHud = null;
+            curriculumHud?.Dispose();
+            curriculumHud = null;
             root.gameObject.SetActive(false);
         }
 
@@ -221,7 +218,7 @@ namespace TurnLimbo.Presentation
             {
                 case LobbyTab.Stages: BuildStages(currentRun); break;
                 case LobbyTab.Loadout: BuildLoadout(currentRun); break;
-                case LobbyTab.Shop: BuildShop(currentRun); break;
+                case LobbyTab.Curriculum: BuildCurriculum(currentRun); break;
                 default: BuildHome(currentRun); break;
             }
             Canvas.ForceUpdateCanvases();
@@ -243,17 +240,19 @@ namespace TurnLimbo.Presentation
             BuildTabButton(header.transform, LobbyTab.Home, "홈", -290f);
             BuildTabButton(header.transform, LobbyTab.Stages, "스테이지", -80f);
             BuildTabButton(header.transform, LobbyTab.Loadout, "편성", 130f);
-            BuildTabButton(header.transform, LobbyTab.Shop, "상점", 340f);
-            Label("Wallet", header.transform, $"재화  {run.Currency}", new Vector2(620f, 10f),
-                new Vector2(285f, 58f), 28, Gold, TextAnchor.MiddleRight);
+            BuildTabButton(header.transform, LobbyTab.Curriculum, "커리큘럼", 340f);
+            // Currency is still earned but has no use while the shop is gone, so the header shows the curriculum instead.
+            CurriculumNode active = run.Curriculum.Active;
+            bool finished = run.Curriculum.IsFinished;
+            Label("Header Curriculum", header.transform,
+                active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
+                    : finished ? "커리큘럼  모두 완료" : "커리큘럼  선택 안 함",
+                new Vector2(620f, 10f), new Vector2(285f, 58f), 22,
+                active != null ? Gold : finished ? Muted : DuelVisualTheme.Danger, TextAnchor.MiddleRight);
 
-            if (currentTab == LobbyTab.Loadout || currentTab == LobbyTab.Shop) return;
-            if (lastOutcomeReward > 0)
-                Label("Reward Banner", header.transform, $"승리 보상  +{lastOutcomeReward}", new Vector2(620f, -27f),
-                    new Vector2(285f, 28f), 17, Gold, TextAnchor.MiddleRight);
-            else if (lastOutcomeFailed)
-                Label("Reward Banner", header.transform, "전투 종료  ·  획득 보상 없음", new Vector2(580f, -27f),
-                    new Vector2(365f, 28f), 16, Muted, TextAnchor.MiddleRight);
+            if (currentTab == LobbyTab.Loadout || currentTab == LobbyTab.Curriculum || outcomeBanner == null) return;
+            Label("Outcome Banner", header.transform, outcomeBanner, new Vector2(560f, -27f),
+                new Vector2(405f, 28f), 16, Muted, TextAnchor.MiddleRight);
         }
 
         private void BuildTabButton(Transform parent, LobbyTab tab, string caption, float x)
@@ -280,8 +279,8 @@ namespace TurnLimbo.Presentation
                 () => ShowTab(LobbyTab.Stages), true);
             Button("Home Open Loadout", inner.transform, "스킬 편성", new Vector2(0f, -25f), new Vector2(304f, 62f), true,
                 () => ShowTab(LobbyTab.Loadout));
-            Button("Home Open Shop", inner.transform, "상점", new Vector2(0f, -115f), new Vector2(304f, 62f), true,
-                () => ShowTab(LobbyTab.Shop));
+            Button("Home Open Curriculum", inner.transform, "커리큘럼", new Vector2(0f, -115f), new Vector2(304f, 62f), true,
+                () => ShowTab(LobbyTab.Curriculum));
             if (restartJourney != null)
                 Button("Reset Journey", inner.transform, resetArmed ? "정말 초기화" : "여정 초기화",
                     new Vector2(0f, -290f), new Vector2(304f, 42f), true, ResetJourneyClicked, false, Muted);
@@ -295,7 +294,7 @@ namespace TurnLimbo.Presentation
         {
             var panel = Rect("Stages Panel", pageRoot, new Vector2(0f, -24f), new Vector2(1800f, 850f));
             Label("Tab Heading", panel, "출정 지도", new Vector2(-850f, 370f), new Vector2(700f, 54f), 40);
-            Label("Tab Subtitle", panel, "도전할 길을 고르고 오른쪽에서 상대와 보상을 확인하세요.",
+            Label("Tab Subtitle", panel, "도전할 길을 고르고 오른쪽에서 상대와 커리큘럼 진행을 확인하세요.",
                 new Vector2(-850f, 323f), new Vector2(1180f, 36f), 20, Muted);
             Rule("Tab Rule", panel, 289f, 1700f);
             const float cardWidth = 252f, cardHeight = 210f, gapX = 20f, gapY = 28f;
@@ -328,9 +327,12 @@ namespace TurnLimbo.Presentation
             Label("Selected Stage Stats", preview.transform,
                 $"적 체력  {stage.EnemyHealth}     저항  {stage.EnemyResistance}\n위력  +{stage.EnemyPowerBonus}",
                 new Vector2(-192f, -76f), new Vector2(384f, 62f), 22, Foreground);
-            Label("Selected Stage Reward", preview.transform,
-                $"승리 보상  {run.GetStageReward(selectedStageNumber)}",
-                new Vector2(-192f, -137f), new Vector2(384f, 34f), 23, Gold);
+            CurriculumNode active = run.Curriculum.Active;
+            Label("Selected Stage Curriculum", preview.transform,
+                active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
+                    : run.Curriculum.IsFinished ? "커리큘럼  모든 과정 완료" : "커리큘럼  진행 중인 과정 없음",
+                new Vector2(-192f, -137f), new Vector2(384f, 34f), 20,
+                active != null ? Gold : run.Curriculum.IsFinished ? Muted : DuelVisualTheme.Danger);
             int selected = selectedStageNumber;
             Button("Start Selected Stage", preview.transform,
                 run.HasLoadoutChanges ? "편성 저장 필요" : "도전  [Enter]", new Vector2(0f, -215f),
@@ -401,21 +403,21 @@ namespace TurnLimbo.Presentation
                 }, loadoutState);
         }
 
-        private void BuildShop(CampaignRun run)
+        private void BuildCurriculum(CampaignRun run)
         {
-            RectTransform panel = TabPanel("Shop Panel", "상점",
-                "기술을 선택해 살펴본 뒤 구매하거나 강화하세요.");
-            shopHud = new CampaignShopHud(panel, art, run,
+            RectTransform panel = TabPanel("Curriculum Panel", "커리큘럼",
+                "과정을 골라 진행하면 전투를 마칠 때마다 쌓이고, 완료하면 기술을 얻습니다.");
+            curriculumHud = new CampaignCurriculumHud(panel, art, run,
                 id =>
                 {
-                    if (acquire != null) acquire.Invoke(id);
-                    else if (run.TryAcquireSkill(id)) Show(run);
+                    if (selectCurriculumNode != null) selectCurriculumNode.Invoke(id);
+                    else if (run.TrySelectCurriculumNode(id)) Show(run);
                 },
-                id =>
+                () =>
                 {
-                    if (upgrade != null) upgrade.Invoke(id);
-                    else if (run.TryUpgradeSkill(id)) Show(run);
-                }, shopState);
+                    if (resetCurriculum != null) resetCurriculum.Invoke();
+                    else if (run.TryResetCurriculum()) Show(run);
+                }, curriculumState);
         }
 
         private RectTransform TabPanel(string name, string heading, string subtitle)
@@ -490,8 +492,8 @@ namespace TurnLimbo.Presentation
                 return;
             }
             resetArmed = false;
-            lastOutcomeReward = 0;
-            lastOutcomeFailed = awaitingStageOutcome = false;
+            outcomeBanner = null;
+            awaitingStageOutcome = false;
             restartJourney?.Invoke();
         }
 
@@ -502,8 +504,8 @@ namespace TurnLimbo.Presentation
             pageRoot = null;
             loadoutHud?.Dispose();
             loadoutHud = null;
-            shopHud?.Dispose();
-            shopHud = null;
+            curriculumHud?.Dispose();
+            curriculumHud = null;
             for (int index = dynamicRoot.childCount - 1; index >= 0; index--)
             {
                 GameObject child = dynamicRoot.GetChild(index).gameObject;
@@ -514,7 +516,7 @@ namespace TurnLimbo.Presentation
 
         private static string StageState(CampaignRun run, int number)
             => number > run.HighestUnlockedStage ? "잠긴 스테이지"
-                : run.IsStageCleared(number) ? "클리어 완료  ·  재도전 보상은 절반" : "첫 도전";
+                : run.IsStageCleared(number) ? "클리어 완료" : "첫 도전";
 
 
         private static void Rule(string name, Transform parent, float y, float width)

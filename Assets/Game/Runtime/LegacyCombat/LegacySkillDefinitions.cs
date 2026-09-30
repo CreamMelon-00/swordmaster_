@@ -360,7 +360,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The nine starting techniques, three per lane: attacks then guards, each in Q/W/E order.
         /// Positions matter: the enemy pattern, tutorial and stage counters index this list.</summary>
         public static IReadOnlyList<LegacySkill> InitialSkills => initial;
-        /// <summary>The techniques the campaign shop offers, in shelf order.</summary>
+        /// <summary>The techniques beyond the starting nine; the campaign curriculum grants them.</summary>
         public static IReadOnlyList<LegacySkill> AcquisitionSkills => acquisition;
 
         /// <summary>The definition selected by a skill's id, or null for breathing and unknown skills.</summary>

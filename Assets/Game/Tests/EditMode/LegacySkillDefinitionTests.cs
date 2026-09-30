@@ -9,12 +9,12 @@ namespace TurnLimbo.Core.Tests
     public sealed class LegacySkillDefinitionTests
     {
         [Test]
-        public void Table_SplitsIntoStartingSkillsAndShopSkills()
+        public void Table_SplitsIntoStartingSkillsAndCurriculumSkills()
         {
             IReadOnlyList<LegacySkillDefinition> all = LegacySkillDefinitions.All;
             Assert.That(all.Select(d => d.Skill).ToArray(),
                 Is.EqualTo(LegacyInitialSkills.All.Concat(CampaignSkillCatalog.AcquisitionSkills).ToArray()));
-            // The shop may grow; the starting set stays at nine.
+            // The curriculum may grow; the starting set stays at nine.
             Assert.That(LegacyInitialSkills.All.Count, Is.EqualTo(9));
             Assert.That(CampaignSkillCatalog.AcquisitionSkills.Count, Is.GreaterThan(0));
             Assert.That(all.Select(d => d.Skill.Id).Distinct().Count(), Is.EqualTo(all.Count));

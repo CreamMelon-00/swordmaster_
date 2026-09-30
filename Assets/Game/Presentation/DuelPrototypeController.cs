@@ -172,7 +172,7 @@ namespace TurnLimbo.Presentation
             resistanceFeedback = new DuelResistanceFeedback(hud.Root.transform, art.UIFont);
             dialogueHud = new DialogueHud(transform, art, () => ContinueDialogue(), () => FinishDialogue());
             lobbyHud = new CampaignLobbyHud(transform, art,
-                id => AcquireSkill(id), id => UpgradeSkill(id), id => EquipSkill(id),
+                id => SelectCurriculumNode(id), () => ResetCurriculum(), id => EquipSkill(id),
                 id => UnequipSkill(id), (id, direction) => MoveEquippedSkill(id, direction),
                 stage => StartCampaignStage(stage), RestartJourney,
                 (id, lane, slot) => PlaceLoadoutSkill(id, lane, slot),
@@ -764,7 +764,8 @@ namespace TurnLimbo.Presentation
                 PrologueMission next = PrologueMissions.Get(save.PrologueCleared + 1);
                 return $"{MissionBriefingHud.ChapterName}  ·  임무 {next.Number} / {PrologueMissions.Count}  ·  {next.Title}";
             }
-            return $"로비  ·  스테이지 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  재화 {save.Campaign.Currency}";
+            return $"로비  ·  스테이지 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  " +
+                $"커리큘럼 {save.Campaign.CurriculumCompleted.Count} / {campaign.Curriculum.Tree.Nodes.Count}";
         }
 
         /// <summary>Writes the persistent progress after a settled change. Never during a battle's own state.</summary>
@@ -897,17 +898,19 @@ namespace TurnLimbo.Presentation
                 leftPortrait, rightPortrait);
         }
 
-        public bool AcquireSkill(int skillId)
+        /// <summary>Makes a curriculum node the one in progress (lobby only).</summary>
+        public bool SelectCurriculumNode(string nodeId)
         {
-            if (!IsInLobby || !campaign.TryAcquireSkill(skillId)) return false;
+            if (!IsInLobby || !campaign.TrySelectCurriculumNode(nodeId)) return false;
             lobbyHud.Show(campaign);
             AutoSave();
             return true;
         }
 
-        public bool UpgradeSkill(int skillId)
+        /// <summary>Clears the curriculum and the skills it granted (lobby only).</summary>
+        public bool ResetCurriculum()
         {
-            if (!IsInLobby || !campaign.TryUpgradeSkill(skillId)) return false;
+            if (!IsInLobby || !campaign.TryResetCurriculum()) return false;
             lobbyHud.Show(campaign);
             AutoSave();
             return true;
@@ -1056,7 +1059,9 @@ namespace TurnLimbo.Presentation
                 session.Player.Health, session.Enemy.Health, firstClear && victory,
                 campaign.HighestUnlockedStage > unlockedBefore ? campaign.HighestUnlockedStage : 0,
                 victory && campaign.StageNumber < campaign.StageCount &&
-                campaign.StageNumber + 1 <= campaign.HighestUnlockedStage);
+                campaign.StageNumber + 1 <= campaign.HighestUnlockedStage,
+                campaign.LastCompletedCurriculumNode, campaign.Curriculum.Active, campaign.Curriculum.ActiveBattles,
+                campaign.Curriculum.IsFinished);
             EndDuelPresentation();
             ShowResult(result);
         }

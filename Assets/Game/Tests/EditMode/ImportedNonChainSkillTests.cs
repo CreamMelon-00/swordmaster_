@@ -33,43 +33,41 @@ namespace TurnLimbo.Core.Tests
             }
         }
 
-        [TestCase(10)]
-        [TestCase(12)]
-        [TestCase(19)]
-        [TestCase(42)]
-        public void PurchaseEquipAndUpgrade_PreserveImportedSkillIdentityAndLane(int id)
+        [TestCase(10, "advance vital-thrust preparation")]
+        [TestCase(12, "advance")]
+        [TestCase(19, "breathing fighting-spirit")]
+        [TestCase(42, "horizontal-cut diagonal-cut quick-draw")]
+        public void CurriculumGrantAndEquip_PreserveImportedSkillIdentityAndLane(int id, string path)
         {
             var run = new CampaignRun();
-            CampaignSkillOffer offer = FindOffer(run, id);
-            LegacySkill basis = offer.Skill;
-            Assert.That(run.TryAcquireSkill(id), Is.False, "A fresh run has no currency.");
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            int currency = run.Currency;
-            Assert.That(run.TryAcquireSkill(id), Is.True);
-            Assert.That(run.Currency, Is.EqualTo(currency - offer.Price));
-            Assert.That(run.TryAcquireSkill(id), Is.False, "An offer can only be bought once.");
-            foreach (CampaignSkillOffer remaining in run.Offers) Assert.That(remaining.SkillId, Is.Not.EqualTo(id));
+            LegacySkill basis = FindImported(id);
+            string[] nodes = path.Split(' ');
+            Assert.That(run.Curriculum.Tree.FindGranting(id).Id, Is.EqualTo(nodes[nodes.Length - 1]));
+            Assert.That(run.TryPlaceLoadoutSkill(id, basis.LaneIndex, 0), Is.False, "A fresh run does not own it.");
+            foreach (string node in nodes)
+            {
+                Assert.That(run.TrySelectCurriculumNode(node), Is.True, node);
+                Assert.That(run.TryStartStage(1), Is.True);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.ReturnToLobby(), Is.True);
+            }
+            Assert.That(run.TrySelectCurriculumNode(nodes[nodes.Length - 1]), Is.False, "A node is completed only once.");
+            int copies = 0;
+            foreach (CampaignOwnedSkill owned in run.OwnedSkills)
+                if (owned.SkillId == id)
+                {
+                    copies++;
+                    Assert.That(owned.Skill, Is.SameAs(basis));
+                }
+            Assert.That(copies, Is.EqualTo(1));
 
             Assert.That(run.IsSkillEquipped(id), Is.False);
             Assert.That(run.TryPlaceLoadoutSkill(id, (basis.LaneIndex + 1) % 3, 0), Is.False);
             Assert.That(run.TryPlaceLoadoutSkill(id, basis.LaneIndex, 0), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
-            LegacySkill equipped = run.CreateDuel().GetLane(basis.LaneIndex)[0];
-            Assert.That(equipped, Is.SameAs(basis));
-
+            Assert.That(run.CreateDuel().GetLane(basis.LaneIndex)[0], Is.SameAs(basis));
             Assert.That(run.TryStartStage(2), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.TryUpgradeSkill(id), Is.True);
-            LegacySkill upgraded = run.CreateDuel().GetLane(basis.LaneIndex)[0];
-            Assert.That(upgraded.Id, Is.EqualTo(id));
-            Assert.That(upgraded.LaneIndex, Is.EqualTo(basis.LaneIndex));
-            Assert.That(upgraded.Kind, Is.EqualTo(basis.Kind));
-            Assert.That(upgraded.Property, Is.EqualTo(basis.Property));
-            Assert.That(upgraded.AttackCount, Is.EqualTo(basis.AttackCount));
-            Assert.That(upgraded.Description, Is.EqualTo(basis.Description));
-            Assert.That(upgraded.MinPower, Is.EqualTo(basis.MinPower + 2));
-            Assert.That(upgraded.MaxPower, Is.EqualTo(basis.MaxPower + 2));
+            Assert.That(run.CreateDuel().GetLane(basis.LaneIndex)[0], Is.SameAs(basis), "The stage battle fights with it.");
         }
 
         [Test]
@@ -510,14 +508,6 @@ namespace TurnLimbo.Core.Tests
             foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
                 if (skill.Id == id) return skill;
             Assert.Fail("Missing imported skill " + id);
-            return null;
-        }
-
-        private static CampaignSkillOffer FindOffer(CampaignRun run, int id)
-        {
-            foreach (CampaignSkillOffer offer in run.Offers)
-                if (offer.SkillId == id) return offer;
-            Assert.Fail("Missing skill offer " + id);
             return null;
         }
 

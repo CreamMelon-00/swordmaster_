@@ -13,7 +13,7 @@
 
 ## 구현과 표시
 
-`LegacyCommonActions.Breathe`는 ID/IconId -1의 런타임 공통 행동이며 상점의 방어 기술 호흡(ID17)과 다르다. 기존 enum 값은 유지하고 Wait/None만 끝에 추가했다. `LegacyQueuedDuel.TryQueueBreath()`가 횟수와 큐를 소유하며 HUD나 입력에서 별도 권한/횟수를 만들지 않는다. 편성·획득·강화·적 패턴·저장 포맷은 바꾸지 않는다.
+`LegacyCommonActions.Breathe`는 ID/IconId -1의 런타임 공통 행동이며 커리큘럼으로 얻는 방어 기술 호흡(ID17)과 다르다. 기존 enum 값은 유지하고 Wait/None만 끝에 추가했다. `LegacyQueuedDuel.TryQueueBreath()`가 횟수와 큐를 소유하며 HUD나 입력에서 별도 권한/횟수를 만들지 않는다. 편성·기술 획득·적 패턴·저장 포맷은 바꾸지 않는다.
 
 준비 패널의 QWE 옆에 황동/종이 톤의 휴지 문양, 이름, ACT 0, 남은 N/3, S 힌트를 표시한다. 큐·현재 행동·전투 기록에는 같은 문양을 사용한다. 일반 스킬의 Q 정공·공격/방어 타입 설명판에는 숨고르기를 넣지 않는다. 문양은 최초 요청에만 생성해 재사용하고 Art 소유자가 소비자 정리 후 해제한다. 이미지/atlas/씬/프리팹 연결은 필요 없다.
 

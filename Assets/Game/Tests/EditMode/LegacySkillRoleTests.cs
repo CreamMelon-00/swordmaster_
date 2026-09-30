@@ -143,25 +143,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void UpgradingSkill_KeepsRealIdRolesAndNamesAndDoesNotMutateOriginal()
-        {
-            var run = new CampaignRun();
-            run.TryStartStage(1);
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            Assert.That(run.TryUpgradeSkill(1), Is.True);
-            CampaignOwnedSkill owned = Owned(run, 1);
-            Assert.That(owned.Skill.Name, Is.EqualTo("베기 +1"));
-            Assert.That(owned.BaseSkill.Name, Is.EqualTo("베기"));
-            Assert.That(owned.Skill.Id, Is.EqualTo(1));
-            Assert.That(owned.Skill.IconId, Is.EqualTo(1));
-            Assert.That(LegacySkillRoles.Get(owned.Skill), Is.EqualTo(LegacySkillRoles.Get(owned.BaseSkill)));
-            Assert.That(LegacySkillRoles.GetDetail(owned.Skill), Is.EqualTo(LegacySkillRoles.GetDetail(owned.BaseSkill)));
-            Assert.That(LegacySkillRoles.GetShortLabel(owned.Skill), Is.EqualTo("ACT 회복"));
-            Assert.That(owned.BaseSkill.MinPower, Is.EqualTo(4));
-        }
-
-        [Test]
-        public void DedicatedShopArtwork_HasSixDistinctMappingsAndUpgradedSnapshotPreservesNewIconId()
+        public void DedicatedCurriculumArtwork_HasSixDistinctMappingsAndGrantedSnapshotPreservesNewIconId()
         {
             int[] expectedSkillIds = { 14, 15, 16, 17, 21, 32 };
             var artIds = new HashSet<int>();
@@ -172,27 +154,24 @@ namespace TurnLimbo.Core.Tests
             }
             for (int i = 0; i < expectedSkillIds.Length; i++)
             {
-                LegacySkill shop = FindSkill(expectedSkillIds[i]);
-                Assert.That(shop.IconId, Is.EqualTo(10 + i));
-                Assert.That(artIds.Add(shop.IconId), Is.True);
+                LegacySkill acquired = FindSkill(expectedSkillIds[i]);
+                Assert.That(acquired.IconId, Is.EqualTo(10 + i));
+                Assert.That(artIds.Add(acquired.IconId), Is.True);
             }
             Assert.That(artIds.Count, Is.EqualTo(15));
 
             var run = new CampaignRun();
-            run.TryStartStage(1);
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            Assert.That(run.TryAcquireSkill(14), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            Assert.That(run.TryUpgradeSkill(14), Is.True);
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
-            CampaignOwnedSkill upgraded = Owned(run, 14);
-            Assert.That(upgraded.Skill.IconId, Is.EqualTo(10));
-            Assert.That(upgraded.BaseSkill.IconId, Is.EqualTo(10));
-            Assert.That(upgraded.Skill.Name, Is.EqualTo("가로베기 +1"));
-            Assert.That(LegacySkillRoles.Get(upgraded.Skill), Is.EqualTo(LegacySkillRole.ResistanceOnClash));
+            CampaignOwnedSkill granted = Owned(run, 14);
+            Assert.That(granted.Skill, Is.SameAs(FindSkill(14)));
+            Assert.That(granted.Skill.IconId, Is.EqualTo(10));
+            Assert.That(granted.Skill.Name, Is.EqualTo("가로베기"));
+            Assert.That(LegacySkillRoles.Get(granted.Skill), Is.EqualTo(LegacySkillRole.ResistanceOnClash));
             LegacyQueuedDuel snapshot = run.CreateDuel();
             Assert.That(snapshot.GetLane(0)[2].Id, Is.EqualTo(14));
             Assert.That(snapshot.GetLane(0)[2].IconId, Is.EqualTo(10));

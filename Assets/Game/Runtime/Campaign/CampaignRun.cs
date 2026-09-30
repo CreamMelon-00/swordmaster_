@@ -7,7 +7,8 @@ namespace TurnLimbo.Runtime.Campaign
 {
     public enum CampaignPhase { Battle, Maintenance, Failed, Completed, Lobby }
 
-    /// <summary>One in-memory eight-stage run. Combat rules remain in LegacyQueuedDuel.</summary>
+    /// <summary>One eight-stage run with its curriculum. Combat rules remain in LegacyQueuedDuel.
+    /// Currency is still earned and saved but has no use at the moment (the shop was replaced by the curriculum).</summary>
     public sealed class CampaignRun
     {
         private static readonly CampaignStage[] stages =
@@ -23,7 +24,7 @@ namespace TurnLimbo.Runtime.Campaign
         };
 
         private readonly List<CampaignOwnedSkill> ownedSkills = new List<CampaignOwnedSkill>();
-        private readonly List<CampaignSkillOffer> offers = new List<CampaignSkillOffer>();
+        private readonly CurriculumProgress curriculum = new CurriculumProgress(CampaignCurriculum.Default);
         private readonly bool[] clearedStages = new bool[stages.Length];
         private readonly List<CampaignOwnedSkill>[] equippedLanes =
         {
@@ -38,7 +39,6 @@ namespace TurnLimbo.Runtime.Campaign
         public CampaignRun()
         {
             OwnedSkills = ownedSkills.AsReadOnly();
-            Offers = offers.AsReadOnly();
             equippedLaneViews = new IReadOnlyList<CampaignOwnedSkill>[equippedLanes.Length];
             for (int i = 0; i < equippedLanes.Length; i++) equippedLaneViews[i] = equippedLanes[i].AsReadOnly();
             Reset();
@@ -53,8 +53,13 @@ namespace TurnLimbo.Runtime.Campaign
         public int ClearedStageCount { get; private set; }
         public int EquippedSkillCount => equippedLanes[0].Count + equippedLanes[1].Count + equippedLanes[2].Count;
         public CampaignStage CurrentStage => stages[StageNumber - 1];
+        /// <summary>Starting skills first, then curriculum skills in the order they were granted.</summary>
         public IReadOnlyList<CampaignOwnedSkill> OwnedSkills { get; }
-        public IReadOnlyList<CampaignSkillOffer> Offers { get; }
+        public CurriculumProgress Curriculum => curriculum;
+        /// <summary>The node the last finished battle completed, or null.</summary>
+        public CurriculumNode LastCompletedCurriculumNode { get; private set; }
+        /// <summary>How the last stage battle ended, or null when none has finished since it began.</summary>
+        public DuelMatchOutcome? LastOutcome { get; private set; }
         public bool HasLoadoutChanges
         {
             get
@@ -232,6 +237,10 @@ namespace TurnLimbo.Runtime.Campaign
             if (outcome != DuelMatchOutcome.PlayerVictory && outcome != DuelMatchOutcome.EnemyVictory
                 && outcome != DuelMatchOutcome.Draw) return false;
 
+            LastOutcome = outcome;
+            // Every finished battle counts toward the node in progress, as days pass in a national focus.
+            LastCompletedCurriculumNode = curriculum.RecordBattle();
+            if (LastCompletedCurriculumNode != null) GrantSkills(LastCompletedCurriculumNode);
             if (outcome != DuelMatchOutcome.PlayerVictory)
             {
                 LastReward = 0;
@@ -264,34 +273,20 @@ namespace TurnLimbo.Runtime.Campaign
             return true;
         }
 
-        public bool TryAcquireSkill(int skillId)
-        {
-            if (!CanEditLoadout) return false;
-            for (int i = 0; i < offers.Count; i++)
-            {
-                CampaignSkillOffer offer = offers[i];
-                if (offer.SkillId != skillId) continue;
-                if (Currency < offer.Price) return false;
-                Currency -= offer.Price;
-                ownedSkills.Add(new CampaignOwnedSkill(offer.Skill));
-                offers.RemoveAt(i);
-                return true;
-            }
-            return false;
-        }
+        /// <summary>Makes the node the one in progress (lobby or maintenance). The choice can still change until a battle counts.</summary>
+        public bool TrySelectCurriculumNode(string nodeId) => CanEditLoadout && curriculum.TrySelect(nodeId);
 
-        public bool TryUpgradeSkill(int skillId)
+        /// <summary>Clears the whole curriculum (lobby or maintenance): completed nodes, the node in progress and every skill they
+        /// granted. Saved lanes that lose a skill are refilled with that lane's starting skills.</summary>
+        public bool TryResetCurriculum()
         {
-            if (!CanEditLoadout) return false;
-            foreach (CampaignOwnedSkill owned in ownedSkills)
-            {
-                if (owned.SkillId != skillId) continue;
-                if (owned.Level >= CampaignOwnedSkill.MaximumLevel || Currency < owned.UpgradeCost) return false;
-                Currency -= owned.UpgradeCost;
-                owned.Upgrade();
-                return true;
-            }
-            return false;
+            if (!CanEditLoadout || curriculum.CompletedCount == 0 && curriculum.Active == null) return false;
+            curriculum.Reset();
+            LastCompletedCurriculumNode = null;
+            ownedSkills.RemoveAll(owned => !IsStartingSkill(owned.SkillId));
+            RefillLanesWithStartingSkills();
+            ResetLoadoutDraft();
+            return true;
         }
 
         public LegacyQueuedDuel CreateDuel(int randomSeed = 1)
@@ -334,8 +329,9 @@ namespace TurnLimbo.Runtime.Campaign
                 equippedLanes[skill.LaneIndex].Add(owned);
             }
             ResetLoadoutDraft();
-            offers.Clear();
-            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills) offers.Add(new CampaignSkillOffer(skill));
+            curriculum.Reset();
+            LastCompletedCurriculumNode = null;
+            LastOutcome = null;
             StageNumber = 1;
             Currency = LastReward = 0;
             Array.Clear(clearedStages, 0, clearedStages.Length);
@@ -344,46 +340,41 @@ namespace TurnLimbo.Runtime.Campaign
             Phase = CampaignPhase.Lobby;
         }
 
-        /// <summary>The persistent state. Unsaved loadout edits and the battle in progress are not included.</summary>
+        /// <summary>The persistent state. Owned skills follow from the curriculum, so only its progress is kept.
+        /// Unsaved loadout edits and the battle in progress are not included.</summary>
         public CampaignSave CaptureSave()
         {
             var cleared = new List<int>();
             for (int index = 0; index < clearedStages.Length; index++)
                 if (clearedStages[index]) cleared.Add(index + 1);
-            var owned = new List<SavedSkill>();
-            foreach (CampaignOwnedSkill skill in ownedSkills) owned.Add(new SavedSkill(skill.SkillId, skill.Level));
             var loadout = new List<int>[equippedLanes.Length];
             for (int lane = 0; lane < equippedLanes.Length; lane++)
             {
                 loadout[lane] = new List<int>();
                 foreach (CampaignOwnedSkill skill in equippedLanes[lane]) loadout[lane].Add(skill.SkillId);
             }
-            return new CampaignSave(Currency, cleared, owned, loadout);
+            return new CampaignSave(Currency, cleared, curriculum.Completed, curriculum.Active?.Id, curriculum.ActiveBattles, loadout);
         }
 
         /// <summary>Replaces this run with a saved state, back in the lobby with the saved loadout as the draft.
         /// The whole save is checked first; when it breaks a rule nothing changes and <paramref name="error"/> says why.</summary>
         public bool TryRestore(CampaignSave save, out string error)
         {
-            error = ValidateSave(save, out Dictionary<int, LegacySkill> known);
+            error = ValidateSave(save);
             if (error != null) return false;
 
+            curriculum.Restore(save.CurriculumCompleted, save.CurriculumActive, save.CurriculumBattles);
+            LastCompletedCurriculumNode = null;
+            LastOutcome = null;
             ownedSkills.Clear();
-            foreach (SavedSkill saved in save.OwnedSkills)
-            {
-                var owned = new CampaignOwnedSkill(known[saved.Id]);
-                for (int level = 0; level < saved.Level; level++) owned.Upgrade();
-                ownedSkills.Add(owned);
-            }
+            foreach (LegacySkill skill in LegacyInitialSkills.All) ownedSkills.Add(new CampaignOwnedSkill(skill));
+            foreach (string id in save.CurriculumCompleted) GrantSkills(curriculum.Tree.Find(id));
             for (int lane = 0; lane < equippedLanes.Length; lane++)
             {
                 equippedLanes[lane].Clear();
                 foreach (int id in save.Loadout[lane]) equippedLanes[lane].Add(FindOwnedSkill(id));
             }
             ResetLoadoutDraft();
-            offers.Clear();
-            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
-                if (FindOwnedSkill(skill.Id) == null) offers.Add(new CampaignSkillOffer(skill));
             Array.Clear(clearedStages, 0, clearedStages.Length);
             HighestUnlockedStage = 1;
             foreach (int number in save.ClearedStages)
@@ -400,13 +391,8 @@ namespace TurnLimbo.Runtime.Campaign
             return true;
         }
 
-        private string ValidateSave(CampaignSave save, out Dictionary<int, LegacySkill> known)
+        private string ValidateSave(CampaignSave save)
         {
-            known = new Dictionary<int, LegacySkill>();
-            foreach (LegacySkill skill in LegacyInitialSkills.All)
-                if (!known.ContainsKey(skill.Id)) known.Add(skill.Id, skill);
-            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
-                if (!known.ContainsKey(skill.Id)) known.Add(skill.Id, skill);
             if (save == null) return "저장 데이터가 없습니다.";
             if (save.Currency < 0) return $"재화가 음수입니다({save.Currency}).";
 
@@ -417,18 +403,18 @@ namespace TurnLimbo.Runtime.Campaign
                 if (!cleared.Add(number)) return $"스테이지 {number}의 클리어가 중복되었습니다.";
             }
 
-            var levels = new Dictionary<int, int>();
-            foreach (SavedSkill saved in save.OwnedSkills)
-            {
-                if (!known.ContainsKey(saved.Id)) return $"알 수 없는 기술 {saved.Id}을(를) 보유하고 있습니다.";
-                if (levels.ContainsKey(saved.Id)) return $"기술 {saved.Id}을(를) 중복으로 보유하고 있습니다.";
-                if (saved.Level < 0 || saved.Level > CampaignOwnedSkill.MaximumLevel)
-                    return $"기술 {saved.Id}의 강화 단계 {saved.Level}은(는) 허용 범위 밖입니다.";
-                levels.Add(saved.Id, saved.Level);
-            }
-            // Starting skills can never be lost, so a save without one is not from this game.
-            foreach (LegacySkill skill in LegacyInitialSkills.All)
-                if (!levels.ContainsKey(skill.Id)) return $"시작 기술 {skill.Id}이(가) 보유 목록에 없습니다.";
+            string curriculumError = curriculum.Validate(save.CurriculumCompleted, save.CurriculumActive, save.CurriculumBattles);
+            if (curriculumError != null) return curriculumError;
+            // Owned skills are the starting skills plus what the completed nodes grant; the loadout may only use those.
+            var owned = new Dictionary<int, LegacySkill>();
+            foreach (LegacySkill skill in LegacyInitialSkills.All) owned[skill.Id] = skill;
+            foreach (string id in save.CurriculumCompleted)
+                foreach (int skillId in curriculum.Tree.Find(id).SkillIds)
+                {
+                    LegacySkill skill = FindCatalogSkill(skillId);
+                    if (skill == null) return $"커리큘럼 '{id}'이(가) 알 수 없는 기술 {skillId}을(를) 줍니다.";
+                    owned[skillId] = skill;
+                }
 
             if (save.Loadout.Count != equippedLanes.Length) return $"편성 열이 {save.Loadout.Count}개입니다.";
             var equipped = new HashSet<int>();
@@ -438,12 +424,53 @@ namespace TurnLimbo.Runtime.Campaign
                 if (ids.Count != loadoutSlots[lane].Length) return $"{lane + 1}번째 편성 열의 기술이 {ids.Count}개입니다.";
                 foreach (int id in ids)
                 {
-                    if (!levels.ContainsKey(id)) return $"보유하지 않은 기술 {id}이(가) 편성되어 있습니다.";
-                    if (known[id].LaneIndex != lane) return $"기술 {id}은(는) {lane + 1}번째 열에 편성할 수 없습니다.";
+                    if (!owned.ContainsKey(id)) return $"보유하지 않은 기술 {id}이(가) 편성되어 있습니다.";
+                    if (owned[id].LaneIndex != lane) return $"기술 {id}은(는) {lane + 1}번째 열에 편성할 수 없습니다.";
                     if (!equipped.Add(id)) return $"기술 {id}이(가) 중복으로 편성되어 있습니다.";
                 }
             }
             return null;
+        }
+
+        private void GrantSkills(CurriculumNode node)
+        {
+            foreach (int skillId in node.SkillIds)
+            {
+                if (FindOwnedSkill(skillId) != null) continue;
+                LegacySkill skill = FindCatalogSkill(skillId);
+                if (skill == null) throw new InvalidOperationException($"Curriculum node '{node.Id}' grants unknown skill {skillId}.");
+                ownedSkills.Add(new CampaignOwnedSkill(skill));
+            }
+        }
+
+        private static LegacySkill FindCatalogSkill(int skillId)
+        {
+            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
+                if (skill.Id == skillId) return skill;
+            return null;
+        }
+
+        private static bool IsStartingSkill(int skillId)
+        {
+            foreach (LegacySkill skill in LegacyInitialSkills.All)
+                if (skill.Id == skillId) return true;
+            return false;
+        }
+
+        /// <summary>Drops saved-lane skills that are no longer owned and fills the gaps with the lane's starting
+        /// skills in their original order, so every lane keeps exactly three.</summary>
+        private void RefillLanesWithStartingSkills()
+        {
+            for (int lane = 0; lane < equippedLanes.Length; lane++)
+            {
+                List<CampaignOwnedSkill> skills = equippedLanes[lane];
+                skills.RemoveAll(owned => !ownedSkills.Contains(owned));
+                foreach (CampaignOwnedSkill owned in ownedSkills)
+                {
+                    if (skills.Count >= loadoutSlots[lane].Length) break;
+                    if (owned.Skill.LaneIndex == lane && IsStartingSkill(owned.SkillId) && !skills.Contains(owned)) skills.Add(owned);
+                }
+            }
         }
 
         private bool CanEditLoadout => Phase == CampaignPhase.Lobby || Phase == CampaignPhase.Maintenance;
@@ -488,6 +515,8 @@ namespace TurnLimbo.Runtime.Campaign
         {
             StageNumber = number;
             LastReward = 0;
+            LastCompletedCurriculumNode = null;
+            LastOutcome = null;
             Phase = CampaignPhase.Battle;
         }
 
@@ -525,43 +554,15 @@ namespace TurnLimbo.Runtime.Campaign
         public int Reward { get; }
     }
 
+    /// <summary>A skill the player owns. Upgrades are paused; a future system will grow skills with use.</summary>
     public sealed class CampaignOwnedSkill
     {
-        public const int MaximumLevel = 3;
-
-        internal CampaignOwnedSkill(LegacySkill baseSkill)
-        {
-            BaseSkill = baseSkill ?? throw new ArgumentNullException(nameof(baseSkill));
-            Skill = BaseSkill;
-        }
-
-        public LegacySkill BaseSkill { get; }
-        public LegacySkill Skill { get; private set; }
-        public int SkillId => BaseSkill.Id;
-        public int Level { get; private set; }
-        public int UpgradeCost => 30 + 25 * Level;
-
-        internal void Upgrade()
-        {
-            if (Level >= MaximumLevel) throw new InvalidOperationException("The skill is already fully upgraded.");
-            Level++;
-            int bonus = 2 * Level;
-            Skill = new LegacySkill(BaseSkill.Id, BaseSkill.Name + " +" + Level, BaseSkill.Cost,
-                BaseSkill.MinPower + bonus, BaseSkill.MaxPower + bonus, BaseSkill.Kind, BaseSkill.Property,
-                BaseSkill.AttackCount, BaseSkill.LaneIndex, BaseSkill.Description, BaseSkill.AnimationName, BaseSkill.IconId);
-        }
-    }
-
-    public sealed class CampaignSkillOffer
-    {
-        internal CampaignSkillOffer(LegacySkill skill)
+        internal CampaignOwnedSkill(LegacySkill skill)
         {
             Skill = skill ?? throw new ArgumentNullException(nameof(skill));
-            Price = 45 + 10 * (skill.Cost - 1);
         }
 
         public LegacySkill Skill { get; }
         public int SkillId => Skill.Id;
-        public int Price { get; }
     }
 }

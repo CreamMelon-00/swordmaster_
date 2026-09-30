@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
-using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -67,17 +66,6 @@ namespace TurnLimbo.Presentation.Tests
                     LegacySkillProperty.Hit, 1, 0, string.Empty, iconId: 1);
                 fixture.View.SetSkill(differentType);
                 Assert.That(fixture.View.AttackTypeText.text, Is.EqualTo("타격"));
-
-                var run = new CampaignRun();
-                CampaignOwnedSkill owned = run.OwnedSkills[0];
-                fixture.View.SetSkill(owned.Skill);
-                Assert.That(run.TryStartStage(1), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.ReturnToLobby(), Is.True);
-                Assert.That(run.TryUpgradeSkill(owned.SkillId), Is.True);
-                fixture.View.SetSkill(owned.Skill);
-                Assert.That(fixture.View.AttackTypeText.text, Is.EqualTo("참격"));
-                Assert.That(fixture.View.PowerText.text, Is.EqualTo("6–7"), "The attachment reads the upgraded live copy.");
             }
             yield return null;
         }
@@ -221,7 +209,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActualLoadoutAndShop_TypeAndValuesFollowSelectionWithoutChangingTheRun()
+        public IEnumerator ActualLoadoutAndCurriculum_TypeAndValuesFollowSelectionWithoutChangingTheRun()
         {
             yield return null;
             var parent = new GameObject("Attached Skill Information Lobby Test");
@@ -248,18 +236,19 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(Label(detail, "Loadout Detail Values").text, Is.EqualTo(selection[2]));
                     Assert.That(Label(detail, "ACT Value").text, Is.EqualTo(selection[3]));
                 }
-                lobby.ShowTab(LobbyTab.Shop);
+                lobby.ShowTab(LobbyTab.Curriculum);
                 yield return null;
-                Click(lobby.Root, "Shop Skill 16");
-                detail = Named(lobby.Root, "Shop Selected Detail").gameObject;
+                Click(lobby.Root, "Curriculum Node one-stroke");
+                detail = Named(lobby.Root, "Curriculum Selected Detail").gameObject;
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("참격"));
                 Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("5"));
-                Assert.That(Label(detail, "Shop Detail Values").text, Is.EqualTo("3–20"));
-                Click(lobby.Root, "Shop Category Upgrade");
-                Click(lobby.Root, "Shop Skill 8");
+                Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo("3–20"));
+                Click(lobby.Root, "Curriculum Node fighting-spirit");
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("방어"));
-                Assert.That(Label(detail, "Shop Detail Values").text, Is.EqualTo("7–11"));
-                Assert.That(run.Currency, Is.Zero, "Reading details never buys or upgrades a skill.");
+                Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("2"));
+                Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo("7–11"));
+                Assert.That(run.Curriculum.Active, Is.Null, "Reading details never starts a curriculum node.");
+                Assert.That(run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(run.HasLoadoutChanges, Is.False, "Reading details never moves a loadout slot.");
                 CollectionAssert.AreEqual(originalLoadout, EquippedIds(run));

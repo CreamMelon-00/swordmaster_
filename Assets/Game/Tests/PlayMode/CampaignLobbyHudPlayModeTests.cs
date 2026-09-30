@@ -35,8 +35,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(room.GetComponent<AspectRatioFitter>().aspectMode,
                     Is.EqualTo(AspectRatioFitter.AspectMode.EnvelopeParent));
                 Assert.That(FindText(hud, "Campaign Progress").text, Does.Contain("0/8"));
-                Assert.That(FindText(hud, "Wallet").text, Does.Contain("0"));
+                Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  선택 안 함"));
+                Assert.That(TryFindText(hud, "Wallet"), Is.Null, "The lobby no longer shows currency.");
                 Assert.That(FindButton(hud, "Home Open Stages"), Is.Not.Null);
+                Assert.That(FindButton(hud, "Home Open Curriculum"), Is.Not.Null);
+                Assert.That(FindButton(hud, "Tab Curriculum").GetComponentInChildren<Text>().text, Is.EqualTo("커리큘럼"));
                 Assert.That(FindRect(hud, "Home Sidebar").rect.width, Is.LessThan(400f));
             }
             Object.Destroy(parent);
@@ -48,13 +51,16 @@ namespace TurnLimbo.Presentation.Tests
         {
             yield return null;
             var parent = new GameObject("Lobby Stages Test");
-            var run = RewardedLobby();
+            var run = FirstStageClearedLobby();
             int requestedStage = -1;
             using (var hud = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null,
                 null, null, number => requestedStage = number, null))
             {
                 hud.Show(run);
                 hud.ShowTab(LobbyTab.Stages);
+                Assert.That(FindText(hud, "Selected Stage State").text, Is.EqualTo("클리어 완료"));
+                Assert.That(FindText(hud, "Selected Stage Curriculum").text, Is.EqualTo("커리큘럼  진행 중인 과정 없음"));
+                Assert.That(TryFindText(hud, "Selected Stage Reward"), Is.Null, "The stage preview no longer shows a reward.");
                 Assert.That(FindButton(hud, "Stage Card 3").interactable, Is.False);
                 Assert.That(hud.SelectStage(0), Is.False);
                 Assert.That(hud.SelectStage(3), Is.False);
@@ -123,56 +129,113 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator Shop_TransactionPreservesScrollAndPurchaseDoesNotAutoEquip()
+        public IEnumerator Curriculum_NodeClickOnlySelectsChoiceSurvivesRebuildAndCompletionDoesNotAutoEquip()
         {
             yield return null;
-            var parent = new GameObject("Lobby Shop Test");
-            var run = RewardedLobby();
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.ReturnToLobby(), Is.True);
-            Assert.That(run.Currency, Is.EqualTo(90));
+            var parent = new GameObject("Lobby Curriculum Test");
+            var run = new CampaignRun();
+            int selectCalls = 0;
             CampaignLobbyHud hud = null;
             hud = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(),
-                id => { Assert.That(run.TryAcquireSkill(id), Is.True); hud.Show(run); },
-                id => { Assert.That(run.TryUpgradeSkill(id), Is.True); hud.Show(run); },
-                null, null, null, null, null);
+                id => { selectCalls++; Assert.That(run.TrySelectCurriculumNode(id), Is.True); hud.Show(run); },
+                null, null, null, null,
+                stage =>
+                {
+                    Assert.That(run.TryStartStage(stage), Is.True);
+                    hud.Hide();
+                }, null);
             using (hud)
             {
                 hud.Show(run);
-                hud.ShowTab(LobbyTab.Shop);
-                FindButton(hud, "Shop Skill 14").onClick.Invoke();
-                Assert.That(run.Currency, Is.EqualTo(90), "Selecting a shop card must not transact.");
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
-                Assert.That(FindButton(hud, "Shop Primary Action").interactable, Is.True);
+                hud.ShowTab(LobbyTab.Curriculum);
+                Assert.That(FindRect(hud, "Curriculum Panel"), Is.Not.Null);
+                FindButton(hud, "Curriculum Node advance").onClick.Invoke();
+                Assert.That(selectCalls, Is.Zero, "Selecting a node card must not start it.");
+                Assert.That(run.Curriculum.Active, Is.Null);
+                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("전진"));
+                Assert.That(FindButton(hud, "Curriculum Primary Action").interactable, Is.True);
                 foreach (Button button in hud.Root.GetComponentsInChildren<Button>())
                     Assert.That(button.navigation.mode, Is.EqualTo(Navigation.Mode.None));
-                foreach (Scrollbar scrollbar in hud.Root.GetComponentsInChildren<Scrollbar>())
-                    Assert.That(scrollbar.navigation.mode, Is.EqualTo(Navigation.Mode.None));
 
-                FindButton(hud, "Shop Primary Action").onClick.Invoke();
-                Assert.That(run.IsSkillEquipped(14), Is.False);
-                Assert.That(run.IsSkillInLoadout(14), Is.False);
-                Assert.That(run.Currency, Is.EqualTo(45));
-                Assert.That(FindText(hud, "Shop Detail Name").text, Is.EqualTo("가로베기"),
-                    "The purchased catalog card must stay selected after the lobby rebuild.");
+                FindButton(hud, "Curriculum Primary Action").onClick.Invoke();
+                Assert.That(selectCalls, Is.EqualTo(1));
+                Assert.That(run.Curriculum.Active.Id, Is.EqualTo("advance"));
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
+                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("전진"),
+                    "The chosen node must stay selected after the lobby rebuild.");
+                Assert.That(FindButton(hud, "Curriculum Primary Action").interactable, Is.False);
+                Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  전진 0/1"));
 
-                FindButton(hud, "Shop Category Upgrade").onClick.Invoke();
-                ScrollRect owned = FindScroll(hud, "Shop Skill List");
-                owned.verticalNormalizedPosition = .42f;
-                FindButton(hud, "Shop Skill 1").onClick.Invoke();
-                Assert.That(run.OwnedSkills[0].Level, Is.Zero, "Selecting an owned skill must not upgrade it.");
-                Assert.That(FindScroll(hud, "Shop Skill List").verticalNormalizedPosition,
-                    Is.EqualTo(.42f).Within(.001f), "Selection must preserve the category scroll position.");
-                FindButton(hud, "Shop Primary Action").onClick.Invoke();
-                Assert.That(run.OwnedSkills[0].Level, Is.EqualTo(1));
-                Assert.That(run.Currency, Is.EqualTo(15));
-                Assert.That(FindScroll(hud, "Shop Skill List").verticalNormalizedPosition,
-                    Is.EqualTo(.42f).Within(.001f));
+                hud.ShowTab(LobbyTab.Stages);
+                Assert.That(FindText(hud, "Selected Stage Curriculum").text, Is.EqualTo("커리큘럼  전진 0/1"));
+                FindButton(hud, "Start Selected Stage").onClick.Invoke();
+                Assert.That(hud.IsVisible, Is.False);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
+                Assert.That(run.ReturnToLobby(), Is.True);
+                hud.Show(run);
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("전투 종료  ·  커리큘럼 완료: 전진"),
+                    "A lost battle still counts toward the node in progress.");
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(run.IsSkillEquipped(12), Is.False);
+                Assert.That(run.IsSkillInLoadout(12), Is.False);
+
+                hud.ShowTab(LobbyTab.Curriculum);
+                Assert.That(TryFindText(hud, "Outcome Banner"), Is.Null, "The curriculum page keeps the outcome note out of its header.");
+                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("전진"));
+                Assert.That(FindButton(hud, "Curriculum Primary Action").GetComponentInChildren<Text>().text,
+                    Is.EqualTo("완료한 과정"));
+                Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  선택 안 함"));
 
                 hud.ShowTab(LobbyTab.Loadout);
-                Assert.That(run.GetLoadoutCount(0), Is.EqualTo(3),
-                    "Buying a skill must not replace any draft slot automatically.");
+                Assert.That(run.GetLoadoutCount(2), Is.EqualTo(3),
+                    "A granted skill must not replace any draft slot automatically.");
+                Assert.That(run.HasLoadoutChanges, Is.False);
+            }
+            Object.Destroy(parent);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator Curriculum_WithoutCallbacksUsesTheRunAndResetNeedsTwoClicks()
+        {
+            yield return null;
+            var parent = new GameObject("Lobby Curriculum Fallback Test");
+            var run = new CampaignRun();
+            using (var hud = CreateHud(parent))
+            {
+                hud.Show(run);
+                hud.ShowTab(LobbyTab.Curriculum);
+                Assert.That(FindButton(hud, "Curriculum Reset").interactable, Is.False, "A fresh curriculum has nothing to reset.");
+                FindButton(hud, "Curriculum Node horizontal-cut").onClick.Invoke();
+                FindButton(hud, "Curriculum Primary Action").onClick.Invoke();
+                Assert.That(run.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
+                Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  가로베기 0/1"),
+                    "The run fallback refreshes the lobby.");
+
+                Assert.That(run.TryStartStage(1), Is.True);
+                hud.Show(run);
+                Assert.That(hud.IsVisible, Is.False);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.ReturnToLobby(), Is.True);
+                hud.Show(run);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
+                Assert.That(run.Curriculum.IsCompleted("horizontal-cut"), Is.True);
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(FindText(hud, "Curriculum Completed Count").text, Is.EqualTo("완료 1 / 10"));
+
+                Button reset = FindButton(hud, "Curriculum Reset");
+                Assert.That(reset.interactable, Is.True);
+                reset.onClick.Invoke();
+                Assert.That(run.Curriculum.CompletedCount, Is.EqualTo(1), "The first click only arms the reset.");
+                Assert.That(FindButton(hud, "Curriculum Reset").GetComponentInChildren<Text>().text,
+                    Is.EqualTo("한 번 더 누르면 초기화"));
+                FindButton(hud, "Curriculum Reset").onClick.Invoke();
+                Assert.That(run.Curriculum.CompletedCount, Is.Zero);
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(FindText(hud, "Curriculum Completed Count").text, Is.EqualTo("완료 0 / 10"));
+                Assert.That(FindButton(hud, "Curriculum Reset").GetComponentInChildren<Text>().text,
+                    Is.EqualTo("커리큘럼 초기화"));
+                Assert.That(FindButton(hud, "Curriculum Reset").interactable, Is.False);
             }
             Object.Destroy(parent);
             yield return null;
@@ -210,7 +273,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator BattleReturn_ShowsRewardOrNoAwardBannerAndDisposeReleasesRoot()
+        public IEnumerator BattleReturn_ShowsOutcomeAndCompletedCurriculumBannerAndDisposeReleasesRoot()
         {
             yield return null;
             var parent = new GameObject("Lobby Outcome Test");
@@ -232,7 +295,20 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
                 Assert.That(run.ReturnToLobby(), Is.True);
                 hud.Show(run);
-                Assert.That(FindText(hud, "Reward Banner").text, Does.Contain("보상 없음"));
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("전투 종료"));
+                Assert.That(TryFindText(hud, "Reward Banner"), Is.Null);
+
+                Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+                hud.Show(run);
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("전투 종료"),
+                    "A lobby refresh keeps the last battle's outcome.");
+                Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  가로베기 0/1"));
+                FindButton(hud, "Start Selected Stage").onClick.Invoke();
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.ReturnToLobby(), Is.True);
+                hud.Show(run);
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("승리  ·  커리큘럼 완료: 가로베기"));
+                Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  선택 안 함"));
                 root = hud.Root;
             }
             yield return null;
@@ -267,7 +343,7 @@ namespace TurnLimbo.Presentation.Tests
                 hud.Show(run);
                 Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Home));
                 Assert.That(hud.SelectedStageNumber, Is.EqualTo(1));
-                Assert.That(TryFindText(hud, "Reward Banner"), Is.Null);
+                Assert.That(TryFindText(hud, "Outcome Banner"), Is.Null);
             }
             Object.Destroy(parent);
             yield return null;
@@ -276,7 +352,7 @@ namespace TurnLimbo.Presentation.Tests
         private static CampaignLobbyHud CreateHud(GameObject parent)
             => new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
 
-        private static CampaignRun RewardedLobby()
+        private static CampaignRun FirstStageClearedLobby()
         {
             var run = new CampaignRun();
             Assert.That(run.TryStartStage(1), Is.True);
@@ -334,14 +410,6 @@ namespace TurnLimbo.Presentation.Tests
             foreach (RectTransform rect in hud.Root.GetComponentsInChildren<RectTransform>())
                 if (rect.name == name) return rect;
             Assert.Fail("Missing visible rect: " + name);
-            return null;
-        }
-
-        private static ScrollRect FindScroll(CampaignLobbyHud hud, string name)
-        {
-            foreach (ScrollRect scroll in hud.Root.GetComponentsInChildren<ScrollRect>())
-                if (scroll.name == name) return scroll;
-            Assert.Fail("Missing visible scroll: " + name);
             return null;
         }
     }

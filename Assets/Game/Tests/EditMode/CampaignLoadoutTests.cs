@@ -71,7 +71,7 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void PlacingUnassignedOwnedSkill_ReplacesTargetWithoutChangingOtherSlots()
         {
-            CampaignRun run = PurchasedRun();
+            CampaignRun run = CurriculumRun();
             Assert.That(run.HasLoadoutChanges, Is.False);
             Assert.That(run.IsSkillInLoadout(14), Is.False);
             Assert.That(run.TryPlaceLoadoutSkill(14, 0, 1), Is.True);
@@ -128,7 +128,7 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void ResetDraft_RestoresSavedPositionsEvenAfterAllSlotsAreRemoved()
         {
-            CampaignRun run = PurchasedRun();
+            CampaignRun run = CurriculumRun();
             run.TryPlaceLoadoutSkill(14, 0, 2);
             run.TrySaveLoadout();
             for (int id = 1; id <= 9; id++) run.TryUnequipSkill(id);
@@ -237,45 +237,52 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Upgrade_UpdatesOwnedReferencesWithoutSavingIncompleteDraft()
+        public void CurriculumReset_DiscardsTheDraftAndRebasesItOnTheRefilledSavedLanes()
         {
-            var run = new CampaignRun();
-            run.TryStartStage(1);
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
+            CampaignRun run = CurriculumRun();
             LegacyQueuedDuel oldSnapshot = run.CreateDuel();
-            run.TryUnequipSkill(7);
-            Assert.That(run.TryUpgradeSkill(1), Is.True);
-            Assert.That(run.GetLoadoutSlot(0, 0).Skill.MinPower, Is.EqualTo(6));
-            Assert.That(run.GetEquippedLane(0)[0].Skill.MinPower, Is.EqualTo(6));
-            Assert.That(oldSnapshot.GetLane(0)[0].MinPower, Is.EqualTo(4));
-            Assert.That(run.HasLoadoutChanges, Is.True);
-            Assert.That(run.TrySaveLoadout(), Is.False);
-            Assert.That(run.TryResetLoadout(), Is.True);
+            Assert.That(run.TryPlaceLoadoutSkill(14, 0, 0), Is.True);
+            Assert.That(run.TrySaveLoadout(), Is.True);
+            CollectionAssert.AreEqual(new[] { 14, 2, 7 }, SavedIds(run, 0));
+            run.TryUnequipSkill(2);
+            run.TryUnequipSkill(3);
+            Assert.That(run.CanSaveLoadout, Is.False);
+            Assert.That(run.TryResetCurriculum(), Is.True);
+            CollectionAssert.AreEqual(new[] { 2, 7, 1 }, SavedIds(run, 0), "The starting skill fills the freed slot.");
+            CollectionAssert.AreEqual(new[] { 2, 7, 1 }, DraftIds(run, 0));
+            CollectionAssert.AreEqual(new[] { 3, 4, 8 }, DraftIds(run, 1), "Unsaved edits are discarded.");
             Assert.That(run.HasLoadoutChanges, Is.False);
+            Assert.That(run.CanSaveLoadout, Is.True);
+            Assert.That(run.CanStartStage(1), Is.True);
+            Assert.That(run.GetLoadoutSlot(0, 0), Is.SameAs(run.GetEquippedLane(0)[0]));
+            CollectionAssert.AreEqual(new[] { 1, 2, 7 }, DuelIds(oldSnapshot.GetLane(0)));
+            CollectionAssert.AreEqual(new[] { 2, 7, 1 }, DuelIds(run.CreateDuel().GetLane(0)));
         }
 
         [Test]
         public void JourneyReset_RebasesDraftOwnershipOrderAndDirtyState()
         {
-            CampaignRun run = PurchasedRun();
+            CampaignRun run = CurriculumRun();
             run.TryPlaceLoadoutSkill(14, 0, 0);
             run.TryUnequipSkill(4);
             run.Reset();
             Assert.That(run.HasLoadoutChanges, Is.False);
             Assert.That(run.CanSaveLoadout, Is.True);
             Assert.That(run.IsSkillInLoadout(14), Is.False);
+            Assert.That(run.Curriculum.CompletedCount, Is.Zero);
             Assert.That(run.Currency, Is.Zero);
             CollectionAssert.AreEqual(new[] { 1, 2, 7 }, DraftIds(run, 0));
             CollectionAssert.AreEqual(new[] { 3, 4, 8 }, DraftIds(run, 1));
             Assert.That(run.GetLoadoutSlot(0, 0), Is.SameAs(run.GetEquippedLane(0)[0]));
         }
 
-        private static CampaignRun PurchasedRun()
+        /// <summary>A lobby run that owns skill 14 from the curriculum without having equipped it.</summary>
+        private static CampaignRun CurriculumRun()
         {
             var run = new CampaignRun();
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.TryAcquireSkill(14), Is.True);
             Assert.That(run.ReturnToLobby(), Is.True);
             return run;
         }

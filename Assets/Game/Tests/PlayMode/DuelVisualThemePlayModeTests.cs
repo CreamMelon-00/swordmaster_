@@ -115,7 +115,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LobbyLoadoutShopAndCombat_UseSharedSurfacesAndNonInteractiveTrim()
+        public IEnumerator LobbyLoadoutCurriculumAndCombat_UseSharedSurfacesAndNonInteractiveTrim()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -130,9 +130,11 @@ namespace TurnLimbo.Presentation.Tests
                 AssertButtonHasTrim(Find<Button>(fixture.Lobby.Root, "Loadout Slot Q 1"));
                 AssertDecorationsIgnoreInput(fixture.Lobby.Root);
 
-                fixture.Lobby.ShowTab(LobbyTab.Shop);
-                AssertThemed(Find<Image>(fixture.Lobby.Root, "Shop Detail Surface"), DuelVisualTheme.Paper);
-                AssertButtonHasTrim(Find<Button>(fixture.Lobby.Root, "Shop Skill 14"));
+                fixture.Lobby.ShowTab(LobbyTab.Curriculum);
+                AssertThemed(Find<Image>(fixture.Lobby.Root, "Curriculum Detail Surface"), DuelVisualTheme.Paper);
+                AssertThemed(Find<Image>(fixture.Lobby.Root, "Curriculum Tree"), DuelVisualTheme.Track);
+                AssertButtonHasTrim(Find<Button>(fixture.Lobby.Root, "Curriculum Node horizontal-cut"));
+                AssertButtonHasTrim(Find<Button>(fixture.Lobby.Root, "Curriculum Primary Action"));
                 AssertDecorationsIgnoreInput(fixture.Lobby.Root);
 
                 LegacyCombatHud combat = fixture.Combat();
@@ -170,9 +172,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(ExecuteEvents.GetEventHandler<IBeginDragHandler>(ownedHit), Is.SameAs(owned.gameObject),
                     "Framing collection cards must not steal their drag source.");
 
-                fixture.Lobby.ShowTab(LobbyTab.Shop);
+                fixture.Lobby.ShowTab(LobbyTab.Curriculum);
                 yield return WaitForPageTransition(fixture.Lobby);
-                AssertPointerRoutesToButton(fixture.Lobby.Root, Find<Button>(fixture.Lobby.Root, "Shop Skill 14"));
+                AssertPointerRoutesToButton(fixture.Lobby.Root, Find<Button>(fixture.Lobby.Root, "Curriculum Node horizontal-cut"));
+                AssertPointerRoutesToButton(fixture.Lobby.Root, Find<Button>(fixture.Lobby.Root, "Curriculum Primary Action"));
 
                 LegacyCombatHud combat = fixture.Combat();
                 yield return null;
@@ -196,23 +199,25 @@ namespace TurnLimbo.Presentation.Tests
                     "Loadout Detail Effect");
                 AssertSharedDamageRoutingRemoved(loadoutPaper.gameObject, "Loadout Damage Hint");
 
-                fixture.Lobby.ShowTab(LobbyTab.Shop);
-                Image shopPaper = Find<Image>(fixture.Lobby.Root, "Shop Detail Surface");
-                AssertPaperDetails(shopPaper,
-                    "Shop Detail Heading", "Shop Detail Name", "Shop Detail Purpose", "Shop Detail Values",
-                    "Shop Detail Effect", "Shop Price",
-                    "Shop Wallet", "Shop Availability");
-                AssertSharedDamageRoutingRemoved(shopPaper.gameObject, "Shop Damage Hint");
-                Transform purchasePreview = shopPaper.transform.Find("Shop Upgrade Preview");
-                Assert.That(purchasePreview, Is.Not.Null);
-                Assert.That(purchasePreview.gameObject.activeSelf, Is.False,
-                    "Acquisition collapses an absent upgrade preview instead of reserving blank paper.");
-                Find<Button>(fixture.Lobby.Root, "Shop Category Upgrade").onClick.Invoke();
-                AssertPaperDetails(shopPaper,
-                    "Shop Detail Heading", "Shop Detail Name", "Shop Detail Purpose", "Shop Detail Values",
-                    "Shop Detail Effect", "Shop Upgrade Preview", "Shop Price", "Shop Wallet", "Shop Availability");
-                Assert.That(Find<Text>(shopPaper.gameObject, "Shop Upgrade Preview").text, Is.Not.Empty,
-                    "The upgrade preview returns with the same readable paper/ink styling.");
+                fixture.Lobby.ShowTab(LobbyTab.Curriculum);
+                Image curriculumPaper = Find<Image>(fixture.Lobby.Root, "Curriculum Detail Surface");
+                string[] curriculumTexts =
+                {
+                    "Curriculum Detail Heading", "Curriculum Detail Name", "Curriculum Detail Purpose",
+                    "Curriculum Detail Values", "Curriculum Detail Effect", "Curriculum Requirement",
+                    "Curriculum Availability",
+                };
+                AssertPaperDetails(curriculumPaper, curriculumTexts);
+                AssertSharedDamageRoutingRemoved(curriculumPaper.gameObject, "Curriculum Damage Hint");
+                Transform exclusive = curriculumPaper.transform.Find("Curriculum Exclusive");
+                Assert.That(exclusive, Is.Not.Null);
+                Assert.That(exclusive.gameObject.activeSelf, Is.False,
+                    "A node without a paired choice collapses the exclusive line instead of reserving blank paper.");
+                Find<Button>(fixture.Lobby.Root, "Curriculum Node one-stroke").onClick.Invoke();
+                AssertPaperDetails(curriculumPaper, curriculumTexts);
+                Assert.That(exclusive.gameObject.activeSelf, Is.True);
+                Assert.That(Find<Text>(curriculumPaper.gameObject, "Curriculum Exclusive").text, Is.Not.Empty,
+                    "A paired node names the choice it closes.");
 
                 LegacyCombatHud combat = fixture.Combat();
                 combat.ShowExplanation(fixture.Run.OwnedSkills[0].Skill, false);

@@ -266,7 +266,7 @@ namespace TurnLimbo.Presentation
                 return;
             }
             LegacySkill skill = owned.Skill;
-            detailStyle.SetLane(skill.LaneIndex, true, " · 강화 " + owned.Level + "/3");
+            detailStyle.SetLane(skill.LaneIndex, true);
             detailName.text = skill.Name;
             detailRole.text = CampaignSkillText.Purpose(skill);
             detailInfo.SetSkill(skill);

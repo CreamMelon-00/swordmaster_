@@ -186,12 +186,10 @@ namespace TurnLimbo.Presentation.Tests
                     AssertInside(body, paper); AssertInside(remove, paper); AssertNoOverlap(body, remove, paper);
                     AssertBodyFits(body, Label(detail, "Loadout Detail Effect"));
                     AssertHeaderClear(detail, paper, "Loadout Detail Name", "Loadout Detail Role", "Loadout Detail Icon");
-                    Assert.That(Label(detail, "Detail Heading").text, Does.Contain("강화 0/3"));
                     Assert.That(run.HasLoadoutChanges, Is.False);
                 }
                 Click(lobby.Root, "Loadout Slot W 1");
                 Assert.That(border.rect.height, Is.GreaterThan(shortHeight));
-                Assert.That(run.Currency, Is.Zero);
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
             }
             finally { lobby?.Dispose(); Object.Destroy(parent); }
@@ -199,69 +197,69 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActualShopDetail_HidesPurchasePreviewAndReflowsUpgradeControlsWithoutTransactions()
+        public IEnumerator ActualCurriculumDetail_ReflowsBelowAFixedTopAndReservesTheExclusiveLineOnlyWhenPresent()
         {
             yield return null;
-            var parent = new GameObject("Compact Shop Skill Detail Test");
+            var parent = new GameObject("Compact Curriculum Skill Detail Test");
             CampaignLobbyHud lobby = null;
             try
             {
                 var run = new CampaignRun();
                 lobby = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
-                lobby.Show(run); lobby.ShowTab(LobbyTab.Shop);
+                lobby.Show(run); lobby.ShowTab(LobbyTab.Curriculum);
                 yield return null;
-                Click(lobby.Root, "Shop Skill 14");
+                Click(lobby.Root, "Curriculum Node breathing");
                 Canvas.ForceUpdateCanvases();
-                GameObject detail = Named(lobby.Root, "Shop Selected Detail").gameObject;
+                GameObject detail = Named(lobby.Root, "Curriculum Selected Detail").gameObject;
                 RectTransform border = detail.GetComponent<RectTransform>();
-                float purchaseHeight = border.rect.height, top = Bounds(border, border.parent).yMax;
-                Assert.That(purchaseHeight, Is.LessThan(580f), "Acquisition should not reserve the old 644px card or an absent upgrade preview.");
-                Assert.That(Named(detail, "Shop Upgrade Preview").gameObject.activeInHierarchy, Is.False);
-                AssertShopSections(detail);
-                foreach (int id in new[] { 10, 12, 19, 42 })
+                float plainHeight = border.rect.height, top = Bounds(border, border.parent).yMax;
+                Assert.That(plainHeight, Is.LessThan(580f), "The detail should not keep the 644px card it is built with.");
+                Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.False);
+                AssertCurriculumSections(detail);
+                foreach (string id in new[] { "horizontal-cut", "one-stroke", "quick-draw", "advance", "preparation", "fighting-spirit" })
                 {
-                    Click(lobby.Root, "Shop Skill " + id);
+                    Click(lobby.Root, "Curriculum Node " + id);
                     Canvas.ForceUpdateCanvases();
-                    Assert.That(Label(detail, "Shop Detail Name").text, Is.EqualTo(Skill(id).Name));
-                    Assert.That(Label(detail, "ACT Value").text, Is.EqualTo(Skill(id).Cost.ToString()));
-                    Assert.That(Label(detail, "Shop Detail Values").text, Is.EqualTo(CampaignSkillText.Power(Skill(id))));
-                    Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(top).Within(.1f));
-                    Assert.That(Named(detail, "Shop Upgrade Preview").gameObject.activeInHierarchy, Is.False);
-                    AssertShopSections(detail);
+                    CurriculumNode node = run.Curriculum.Tree.Find(id);
+                    LegacySkill skill = Skill(node.SkillIds[0]);
+                    Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo(node.Title));
+                    Assert.That(Label(detail, "ACT Value").text, Is.EqualTo(skill.Cost.ToString()));
+                    Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo(CampaignSkillText.Power(skill)));
+                    Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(top).Within(.1f), "Only the lower card edge moves during selection.");
+                    Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.EqualTo(node.ExclusiveWith.Count > 0));
+                    AssertCurriculumSections(detail);
                 }
-                Click(lobby.Root, "Shop Category Upgrade");
-                Click(lobby.Root, "Shop Skill 1");
+                // 호흡 and 유연함 share the plain guard copy, so the exclusive pair is the only difference.
+                Click(lobby.Root, "Curriculum Node suppleness");
                 Canvas.ForceUpdateCanvases();
-                Assert.That(Named(detail, "Shop Upgrade Preview").gameObject.activeInHierarchy, Is.True);
-                Assert.That(Label(detail, "Shop Upgrade Preview").text, Does.Contain("4–5").And.Contain("6–7"));
-                Assert.That(border.rect.height, Is.GreaterThan(purchaseHeight), "Upgrade reserves readable space only when preview is present.");
+                Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.True);
+                Assert.That(Label(detail, "Curriculum Exclusive").text, Does.Contain("투지"));
+                Assert.That(border.rect.height, Is.EqualTo(plainHeight + 30f).Within(.1f), "An exclusive pair reserves one readable line.");
                 Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(top).Within(.1f));
-                AssertShopSections(detail);
-                Click(lobby.Root, "Shop Skill 3");
-                AssertShopSections(detail);
-                Click(lobby.Root, "Shop Category Purchase");
-                Click(lobby.Root, "Shop Skill 14");
-                Assert.That(Label(detail, "Shop Detail Name").text, Is.EqualTo("가로베기"));
+                AssertCurriculumSections(detail);
+                Click(lobby.Root, "Curriculum Node breathing");
+                Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("호흡"));
                 Canvas.ForceUpdateCanvases();
-                Assert.That(border.rect.height, Is.EqualTo(purchaseHeight).Within(.1f));
-                Assert.That(Named(detail, "Shop Upgrade Preview").gameObject.activeInHierarchy, Is.False);
-                Assert.That(run.Currency, Is.Zero); Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(border.rect.height, Is.EqualTo(plainHeight).Within(.1f));
+                Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.False);
+                Assert.That(run.Curriculum.Active, Is.Null, "Reading a node never starts it.");
+                Assert.That(run.Curriculum.CompletedCount, Is.Zero);
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(run.HasLoadoutChanges, Is.False);
-                Assert.That(run.OwnedSkills[0].Level, Is.Zero);
             }
             finally { lobby?.Dispose(); Object.Destroy(parent); }
             yield return null;
         }
 
-        private static void AssertShopSections(GameObject detail)
+        private static void AssertCurriculumSections(GameObject detail)
         {
             Canvas.ForceUpdateCanvases();
-            RectTransform paper = Named(detail, "Shop Detail Surface").GetComponent<RectTransform>();
+            RectTransform paper = Named(detail, "Curriculum Detail Surface").GetComponent<RectTransform>();
             RectTransform body = Named(detail, "Skill Summary").GetComponent<RectTransform>();
-            AssertBodyFits(body, Label(detail, "Shop Detail Effect"));
+            AssertBodyFits(body, Label(detail, "Curriculum Detail Effect"));
             AssertInside(body, paper);
-            AssertHeaderClear(detail, paper, "Shop Detail Name", "Shop Detail Purpose", "Shop Detail Icon");
-            string[] names = { "Shop Detail Rule", "Shop Upgrade Preview", "Shop Price", "Shop Wallet", "Shop Availability", "Shop Primary Action" };
+            AssertHeaderClear(detail, paper, "Curriculum Detail Name", "Curriculum Detail Purpose", "Curriculum Detail Icon");
+            string[] names = { "Curriculum Detail Rule", "Curriculum Requirement", "Curriculum Exclusive", "Curriculum Availability", "Curriculum Primary Action" };
             foreach (string name in names)
             {
                 RectTransform item = Named(detail, name).GetComponent<RectTransform>();
@@ -273,7 +271,9 @@ namespace TurnLimbo.Presentation.Tests
                     if (item != next && next.gameObject.activeInHierarchy) AssertNoOverlap(item, next, paper);
                 }
             }
-            AssertThatTextFits(Label(detail, "Shop Availability"));
+            AssertThatTextFits(Label(detail, "Curriculum Requirement"));
+            Text exclusive = Label(detail, "Curriculum Exclusive");
+            if (exclusive.gameObject.activeInHierarchy) AssertThatTextFits(exclusive);
         }
 
         private static void AssertBodyFits(RectTransform body, Text effect)

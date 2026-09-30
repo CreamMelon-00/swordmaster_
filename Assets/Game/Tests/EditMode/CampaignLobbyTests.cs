@@ -137,18 +137,17 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void LobbyShop_AcquiresOwnedSkillButRequiresRoomAndExplicitEquip()
+        public void LobbyCurriculum_GrantsOwnedSkillButRequiresRoomAndExplicitEquip()
         {
             var run = new CampaignRun();
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             WinStage(run, 1);
             run.ReturnToLobby();
-            Assert.That(run.TryAcquireSkill(14), Is.True);
-            Assert.That(run.Currency, Is.EqualTo(15));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
             Assert.That(run.IsSkillEquipped(14), Is.False);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.TryEquipSkill(14), Is.False);
-            Assert.That(run.TryAcquireSkill(14), Is.False);
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False, "A completed node is not taken again.");
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
@@ -215,58 +214,28 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void LobbyUpgrade_UpdatesEquippedReferenceAndCanEnhanceUnequippedOwnedSkill()
+        public void Battle_BlocksCurriculumEquipmentOrderAndLobbyReturnUntilAbandonedOrFinished()
         {
             var run = new CampaignRun();
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             WinStage(run, 1);
             run.ReturnToLobby();
-            CampaignOwnedSkill observed = run.GetEquippedLane(0)[0];
-            LegacyQueuedDuel oldSnapshot = run.CreateDuel();
-            Assert.That(run.TryUpgradeSkill(1), Is.True);
-            Assert.That(observed.Level, Is.EqualTo(1));
-            Assert.That(run.GetEquippedLane(0)[0].Skill.MinPower, Is.EqualTo(6));
-            Assert.That(oldSnapshot.GetLane(0)[0].MinPower, Is.EqualTo(4));
-            Assert.That(run.TryUnequipSkill(1), Is.True);
-            Assert.That(run.IsSkillEquipped(1), Is.True);
-            Assert.That(run.IsSkillInLoadout(1), Is.False);
-            Assert.That(run.TryResetLoadout(), Is.True);
-            WinStage(run, 2);
-            run.ReturnToLobby();
-            Assert.That(run.TryAcquireSkill(14), Is.True);
-            Assert.That(run.TryPlaceLoadoutSkill(14, 0, 0), Is.True);
-            Assert.That(run.TrySaveLoadout(), Is.True);
-            Assert.That(run.TryUpgradeSkill(1), Is.True);
-            Assert.That(run.IsSkillEquipped(1), Is.False);
-            Assert.That(observed.Level, Is.EqualTo(2));
-            Assert.That(observed.Skill.MinPower, Is.EqualTo(8));
-            Assert.That(run.TryPlaceLoadoutSkill(1, 0, 2), Is.True);
-            Assert.That(run.TrySaveLoadout(), Is.True);
-            IReadOnlyList<LegacySkill> lane = run.CreateDuel().GetLane(0);
-            Assert.That(lane[lane.Count - 1].Id, Is.EqualTo(1));
-            Assert.That(lane[lane.Count - 1].MinPower, Is.EqualTo(8));
-        }
-
-        [Test]
-        public void Battle_BlocksShopEquipmentOrderAndLobbyReturnUntilAbandonedOrFinished()
-        {
-            var run = new CampaignRun();
-            WinStage(run, 1);
-            run.ReturnToLobby();
-            Assert.That(run.TryAcquireSkill(14), Is.True);
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.True);
             Assert.That(run.TryStartStage(2), Is.True);
-            int currency = run.Currency;
             Assert.That(run.TryEquipSkill(14), Is.False);
             Assert.That(run.TryUnequipSkill(1), Is.False);
             Assert.That(run.TryMoveEquippedSkill(1, 1), Is.False);
-            Assert.That(run.TryAcquireSkill(15), Is.False);
-            Assert.That(run.TryUpgradeSkill(1), Is.False);
+            Assert.That(run.TrySelectCurriculumNode("advance"), Is.False);
+            Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.ReturnToLobby(), Is.False);
-            Assert.That(run.Currency, Is.EqualTo(currency));
+            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"));
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
             CollectionAssert.AreEqual(new[] { 1, 2, 14 }, EquippedIds(run, 0));
             Assert.That(run.TryAbandonBattle(), Is.True);
+            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"), "An abandoned battle does not count.");
             Assert.That(run.TryUnequipSkill(14), Is.True);
             Assert.That(run.TryEquipSkill(7), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
@@ -291,19 +260,18 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.ClearedStageCount, Is.EqualTo(8));
             Assert.That(run.HighestUnlockedStage, Is.EqualTo(8));
             Assert.That(run.ReturnToLobby(), Is.True);
-            Assert.That(run.TryAcquireSkill(14), Is.True);
-            Assert.That(run.Currency, Is.EqualTo(780));
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True, "The curriculum stays open after the last stage.");
         }
 
         [Test]
-        public void Reset_ReturnsToFreshLobbyAndDiscardsClearHistoryEquipmentChangesAndPurchases()
+        public void Reset_ReturnsToFreshLobbyAndDiscardsClearHistoryEquipmentChangesAndCurriculum()
         {
             var run = new CampaignRun();
+            run.TrySelectCurriculumNode("horizontal-cut");
             WinStage(run, 1);
             WinStage(run, 2);
             run.ReturnToLobby();
-            run.TryAcquireSkill(14);
-            run.TryUpgradeSkill(1);
+            run.TrySelectCurriculumNode("diagonal-cut");
             run.TryUnequipSkill(7);
             run.TryEquipSkill(14);
             run.TryMoveEquippedSkill(14, -1);
@@ -316,13 +284,14 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.HighestUnlockedStage, Is.EqualTo(1));
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
-            Assert.That(run.Offers.Count, Is.EqualTo(CampaignSkillCatalog.AcquisitionSkills.Count));
+            Assert.That(run.Curriculum.CompletedCount, Is.Zero);
+            Assert.That(run.Curriculum.Active, Is.Null);
             Assert.That(run.HasLoadoutChanges, Is.False);
             Assert.That(run.CanSaveLoadout, Is.True);
             Assert.That(run.IsSkillEquipped(14), Is.False);
+            Assert.That(run.IsSkillInLoadout(14), Is.False);
             Assert.That(run.GetStageReward(1), Is.EqualTo(60));
             CollectionAssert.AreEqual(new[] { 1, 2, 7 }, EquippedIds(run, 0));
-            Assert.That(run.GetEquippedLane(0)[0].Level, Is.Zero);
             for (int number = 1; number <= 8; number++) Assert.That(run.IsStageCleared(number), Is.False);
         }
 

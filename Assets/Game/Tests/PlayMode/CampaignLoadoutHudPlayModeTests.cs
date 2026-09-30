@@ -217,10 +217,11 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             using (var fixture = new Fixture())
             {
+                Assert.That(fixture.Run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
                 Assert.That(fixture.Run.TryStartStage(1), Is.True);
                 Assert.That(fixture.Run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(fixture.Run.TryAcquireSkill(14), Is.True);
                 Assert.That(fixture.Run.ReturnToLobby(), Is.True);
+                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10), "The completed node grants 가로베기.");
                 fixture.Build();
                 ClickSelectionOnly(fixture, "Loadout Owned Skill 14");
                 Assert.That(fixture.State.SelectedSkillId, Is.EqualTo(14));

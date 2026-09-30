@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
-using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -113,16 +112,6 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(player.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(originalNodes), "Changing school reuses its tag.");
                 foreach (Text text in player.GetComponentsInChildren<Text>(true)) Assert.That(text.raycastTarget, Is.False);
 
-                var run = new CampaignRun();
-                CampaignOwnedSkill owned = run.OwnedSkills[0];
-                Assert.That(run.TryStartStage(1), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.ReturnToLobby(), Is.True);
-                Assert.That(run.TryUpgradeSkill(owned.SkillId), Is.True);
-                hud.ShowExplanation(owned.Skill, false);
-                Assert.That(Label(player, "Power Cost Property").text, Does.Contain("정공"));
-                Assert.That(Label(player, "Style Key").text, Is.EqualTo("Q"));
-                Assert.That(Label(player, "Player Detail Values").text, Is.EqualTo("6–7"));
                 hud.HideExplanation();
                 Assert.That(player.activeSelf, Is.False);
                 hud.ShowExplanation(Skill(3), false);
@@ -157,15 +146,14 @@ namespace TurnLimbo.Presentation.Tests
                         GameObject card = Named(lobby.Root, name).gameObject;
                         Assert.That(card.GetComponentsInChildren<Text>(true).Length, Is.EqualTo(3), "The compact slot remains order, name and ACT only.");
                         Click(lobby.Root, name);
-                        Assert.That(Label(detail, "Detail Heading").text,
-                            Does.Contain(SkillLaneStyle.FullName(lane)).And.Contain("강화 0/3"));
+                        Assert.That(Label(detail, "Detail Heading").text, Is.EqualTo(SkillLaneStyle.FullName(lane)));
                         Assert.That(Label(detail, "Style Key").text, Is.EqualTo(key));
                         Assert.That(run.HasLoadoutChanges, Is.False, "Reading a school tag does not reorder or replace skills.");
                     }
                 }
                 Assert.That(Label(lobby.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  W 3/3  ·  E 3/3"));
                 CollectionAssert.AreEqual(saved, EquippedIds(run));
-                Assert.That(run.Currency, Is.Zero); Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(Named(lobby.Root, "Loadout Save").GetComponent<Button>().interactable, Is.False);
             }
             finally { lobby?.Dispose(); Object.Destroy(parent); }
@@ -173,43 +161,48 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ShopAcquisitionAndUpgrade_ShowTheSameSchoolWhileKeepingTypePowerAndCurrency()
+        public IEnumerator CurriculumDetail_ShowsTheGrantedSkillsSchoolWhileKeepingTypeAndPower()
         {
             yield return null;
-            var parent = new GameObject("Skill School Shop Test");
+            var parent = new GameObject("Skill School Curriculum Test");
             CampaignLobbyHud lobby = null;
             try
             {
                 var run = new CampaignRun();
                 int[] saved = EquippedIds(run);
                 lobby = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
-                lobby.Show(run); lobby.ShowTab(LobbyTab.Shop);
+                lobby.Show(run); lobby.ShowTab(LobbyTab.Curriculum);
                 yield return null;
-                GameObject detail = Named(lobby.Root, "Shop Selected Detail").gameObject;
+                GameObject detail = Named(lobby.Root, "Curriculum Selected Detail").gameObject;
                 int nodes = detail.GetComponentsInChildren<Transform>(true).Length;
-                foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
+                var shown = new HashSet<int>();
+                foreach (CurriculumNode node in run.Curriculum.Tree.Nodes)
                 {
-                    Click(lobby.Root, "Shop Skill " + skill.Id);
-                    Assert.That(Label(detail, "Shop Detail Heading").text, Does.Contain(SkillLaneStyle.FullName(skill.LaneIndex)));
-                    Assert.That(Label(detail, "Style Key").text, Is.EqualTo(SkillLaneStyle.Key(skill.LaneIndex)));
-                    Assert.That(Label(detail, "Attack Type").text, Is.EqualTo(Type(skill.Property)));
-                    Assert.That(Label(detail, "Shop Detail Values").text, Is.EqualTo(CampaignSkillText.Power(skill)));
+                    LegacySkill skill = Skill(node.SkillIds[0]);
+                    Click(lobby.Root, "Curriculum Node " + node.Id);
+                    Assert.That(Label(detail, "Curriculum Detail Heading").text, Is.EqualTo(SkillLaneStyle.FullName(skill.LaneIndex)), node.Id);
+                    Assert.That(Label(detail, "Style Key").text, Is.EqualTo(SkillLaneStyle.Key(skill.LaneIndex)), node.Id);
+                    Assert.That(Label(detail, "Attack Type").text, Is.EqualTo(Type(skill.Property)), node.Id);
+                    Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo(CampaignSkillText.Power(skill)), node.Id);
+                    shown.Add(skill.Id);
                 }
-                Click(lobby.Root, "Shop Skill 16");
-                Assert.That(Label(detail, "Shop Detail Heading").text, Does.Contain("강공 검술"));
+                Assert.That(shown.Count, Is.EqualTo(CampaignSkillCatalog.AcquisitionSkills.Count), "Every acquirable skill has a node.");
+                // The school follows the granted skill's lane, not the curriculum branch it is taught in.
+                Click(lobby.Root, "Curriculum Node one-stroke");
+                Assert.That(Label(detail, "Curriculum Detail Heading").text, Is.EqualTo("강공 검술"));
                 Assert.That(Label(detail, "Style Key").text, Is.EqualTo("W"));
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("참격"));
-                Click(lobby.Root, "Shop Category Upgrade");
-                Click(lobby.Root, "Shop Skill 7");
-                Assert.That(Label(detail, "Shop Detail Heading").text, Does.Contain("정공 검술"));
+                Click(lobby.Root, "Curriculum Node breathing");
+                Assert.That(Label(detail, "Curriculum Detail Heading").text, Is.EqualTo("정공 검술"));
                 Assert.That(Label(detail, "Style Key").text, Is.EqualTo("Q"));
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("방어"));
-                Click(lobby.Root, "Shop Skill 3");
-                Assert.That(Label(detail, "Shop Detail Heading").text, Does.Contain("강공 검술"));
-                Assert.That(Label(detail, "Style Key").text, Is.EqualTo("W"));
+                Click(lobby.Root, "Curriculum Node advance");
+                Assert.That(Label(detail, "Curriculum Detail Heading").text, Is.EqualTo("기교 검술"));
+                Assert.That(Label(detail, "Style Key").text, Is.EqualTo("E"));
+                Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("관통"));
                 Assert.That(detail.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodes));
                 Assert.That(Label(detail, "Style Key").raycastTarget, Is.False);
-                Assert.That(run.Currency, Is.Zero); Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.Curriculum.Active, Is.Null); Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(run.HasLoadoutChanges, Is.False);
                 CollectionAssert.AreEqual(saved, EquippedIds(run));
             }

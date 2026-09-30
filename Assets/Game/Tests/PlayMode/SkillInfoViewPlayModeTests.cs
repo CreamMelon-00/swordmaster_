@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
-using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -36,7 +35,7 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             using (var fixture = new Fixture())
             {
-                // Authored level-zero expectations, not values copied from the view model.
+                // Authored expectations, not values copied from the view model.
                 int[] ids = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19, 21, 32, 42 };
                 int[] costs = { 1, 2, 1, 2, 1, 3, 1, 1, 1, 1, 1, 1, 1, 5, 2, 2, 3, 2, 1 };
                 string[] powers = { "4–5", "11–15", "5", "11–15", "6–9", "16–20", "5–8", "7–11", "4–6", "2–3", "4–8", "6–12", "7–10", "3–20", "9–12", "7–11", "12–17", "8–12", "4–8" };
@@ -175,25 +174,14 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator UpgradeUsesTheLiveSkillCopy_AndClearOrNullNeverLeavesVisibleStaleValues()
+        public IEnumerator ClearOrNull_NeverLeavesVisibleStaleValues()
         {
             yield return null;
             using (var fixture = new Fixture())
             {
-                var run = new CampaignRun();
-                CampaignOwnedSkill owned = run.OwnedSkills[0];
-                fixture.View.SetSkill(owned.Skill);
-                string originalKeywords = Keywords(fixture.View.Root);
+                fixture.View.SetSkill(Skill(1));
                 Assert.That(fixture.View.PowerText.text, Does.Contain("4–5"));
-                Assert.That(run.TryStartStage(1), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.ReturnToLobby(), Is.True);
-                Assert.That(run.TryUpgradeSkill(owned.SkillId), Is.True);
-                fixture.View.SetSkill(owned.Skill);
-                Assert.That(fixture.View.PowerText.text, Does.Contain("6–7"));
-                Assert.That(Keywords(fixture.View.Root), Is.EqualTo(originalKeywords));
-                Assert.That(owned.Skill.Id, Is.EqualTo(1));
-                Assert.That(owned.Skill.IconId, Is.EqualTo(1));
+                Assert.That(Keywords(fixture.View.Root), Is.Not.Empty);
 
                 fixture.View.Clear();
                 AssertNoVisibleValues(fixture.View);
@@ -239,7 +227,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActualLoadoutAndShopSelection_RefreshTheSameInformationCardWithoutTransactions()
+        public IEnumerator ActualLoadoutAndCurriculumSelection_RefreshTheSameInformationCardWithoutProgress()
         {
             yield return null;
             var parent = new GameObject("Integrated Skill Information Test");
@@ -261,28 +249,31 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Keywords(detail), Does.Contain("ACT").And.Contain("2"));
                 Assert.That(run.HasLoadoutChanges, Is.False, "Choosing information must not move or replace a skill.");
 
-                lobby.ShowTab(LobbyTab.Shop);
+                lobby.ShowTab(LobbyTab.Curriculum);
                 yield return null;
-                Click(lobby.Root, "Shop Skill 16");
-                detail = Named(lobby.Root, "Shop Selected Detail").gameObject;
-                Assert.That(Label(detail, "Shop Detail Name").text, Is.EqualTo("일도양단"));
+                Click(lobby.Root, "Curriculum Node one-stroke");
+                detail = Named(lobby.Root, "Curriculum Selected Detail").gameObject;
+                Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("일도양단"));
                 Assert.That(Label(detail, "ACT Value").text, Does.Contain("5"));
-                Assert.That(Label(detail, "Shop Detail Values").text, Does.Contain("3–20"));
+                Assert.That(Label(detail, "Curriculum Detail Values").text, Does.Contain("3–20"));
                 Assert.That(Keywords(detail), Does.Contain("위력 편차"));
-                foreach (int id in new[] { 10, 12, 19, 42 })
+                // Each node shows the skill it grants: 준비 10, 전진 12, 투지 19, 발검 42.
+                foreach (string id in new[] { "preparation", "advance", "fighting-spirit", "quick-draw" })
                 {
-                    Click(lobby.Root, "Shop Skill " + id);
-                    Assert.That(Label(detail, "Shop Detail Name").text, Is.EqualTo(Skill(id).Name));
-                    Assert.That(Label(detail, "ACT Value").text, Is.EqualTo(Skill(id).Cost.ToString()));
-                    Assert.That(Label(detail, "Shop Detail Values").text, Is.EqualTo(CampaignSkillText.Power(Skill(id))));
-                    Assert.That(Label(detail, "Shop Detail Effect").text, Is.Not.Empty);
+                    CurriculumNode node = run.Curriculum.Tree.Find(id);
+                    LegacySkill skill = Skill(node.SkillIds[0]);
+                    Click(lobby.Root, "Curriculum Node " + id);
+                    Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo(node.Title));
+                    Assert.That(Label(detail, "ACT Value").text, Is.EqualTo(skill.Cost.ToString()));
+                    Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo(CampaignSkillText.Power(skill)));
+                    Assert.That(Label(detail, "Curriculum Detail Effect").text, Is.Not.Empty);
                 }
-                Click(lobby.Root, "Shop Category Upgrade");
-                Click(lobby.Root, "Shop Skill 8");
-                Assert.That(Label(detail, "Shop Detail Name").text, Is.EqualTo("흘리기"));
+                Click(lobby.Root, "Curriculum Node suppleness");
+                Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("유연함"));
                 Assert.That(Label(detail, "Power Label").text, Does.Contain("방어"));
-                Assert.That(Keywords(detail), Does.Contain("30%"));
-                Assert.That(run.Currency, Is.Zero);
+                Assert.That(Keywords(detail), Does.Contain("수치 방어"));
+                Assert.That(run.Curriculum.Active, Is.Null, "Choosing information must not start a curriculum node.");
+                Assert.That(run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(run.HasLoadoutChanges, Is.False);
             }

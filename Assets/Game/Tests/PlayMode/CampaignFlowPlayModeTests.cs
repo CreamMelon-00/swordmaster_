@@ -33,6 +33,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Hud.Root.activeSelf, Is.False);
                 Assert.That(controller.StartCampaignStage(2), Is.False);
                 Assert.That(controller.QueueLane(0), Is.False);
+                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
+                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home));
                 scope.Advance(100f);
                 Assert.That(controller.Session.RoundNumber, Is.EqualTo(1));
                 Assert.That(controller.Session.PlayerQueue.Count, Is.Zero);
@@ -58,40 +60,36 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsInLobby, Is.True);
                 Assert.That(controller.Campaign.Currency, Is.Zero);
                 Assert.That(controller.Campaign.ClearedStageCount, Is.Zero);
+                Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
+                Assert.That(controller.Campaign.Curriculum.ActiveBattles, Is.Zero,
+                    "Abandoning a battle never counts toward the curriculum.");
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(9));
                 Release(keyboard.escapeKey);
             }
         }
 
         [UnityTest]
-        public IEnumerator EnterAfterPurchase_ContinuesOnce_WithoutBuyingAgain()
+        public IEnumerator EnterAfterCurriculumAction_ContinuesOnce_WithoutSelectingAgain()
         {
             yield return null;
             using (var scope = new FlowScope())
             {
                 var controller = scope.Controller;
                 scope.WinStage();
-                controller.LobbyHud.ShowTab(LobbyTab.Shop);
-                Button purchaseCategory = null;
-                foreach (var button in controller.LobbyHud.Root.GetComponentsInChildren<Button>())
-                    if (button.name == "Shop Category Purchase") purchaseCategory = button;
-                Assert.That(purchaseCategory, Is.Not.Null);
-                purchaseCategory.onClick.Invoke();
+                controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
+                FindActive<Button>(controller.LobbyHud.Root, "Curriculum Node advance").onClick.Invoke();
+                Assert.That(controller.Campaign.Curriculum.Active, Is.Null, "A node click only selects it for viewing.");
+                Assert.That(FindActive<Text>(controller.LobbyHud.Root, "Curriculum Detail Name").text, Is.EqualTo("전진"));
 
-                Button skill = null;
-                foreach (var button in controller.LobbyHud.Root.GetComponentsInChildren<Button>())
-                    if (button.name == "Shop Skill 14") skill = button;
-                Assert.That(skill, Is.Not.Null);
-                skill.onClick.Invoke();
-                Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Card click only selects the offer.");
-
-                Button purchase = null;
-                foreach (var button in controller.LobbyHud.Root.GetComponentsInChildren<Button>())
-                    if (button.name == "Shop Primary Action") purchase = button;
-                Assert.That(purchase, Is.Not.Null);
-                EventSystem.current.SetSelectedGameObject(purchase.gameObject);
-                purchase.onClick.Invoke();
+                Button primary = FindActive<Button>(controller.LobbyHud.Root, "Curriculum Primary Action");
+                Assert.That(primary.interactable, Is.True);
+                EventSystem.current.SetSelectedGameObject(primary.gameObject);
+                primary.onClick.Invoke();
                 Assert.That(EventSystem.current.currentSelectedGameObject, Is.Null);
-                Assert.That(controller.Campaign.Currency, Is.EqualTo(15));
+                Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("advance"));
+                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
+                Assert.That(FindActive<Button>(controller.LobbyHud.Root, "Curriculum Primary Action").interactable, Is.False,
+                    "The node in progress cannot be chosen again.");
                 controller.LobbyHud.ShowTab(LobbyTab.Stages);
                 controller.LobbyHud.SelectStage(2);
                 var keyboard = InputSystem.AddDevice<Keyboard>();
@@ -100,27 +98,39 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 yield return null;
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
-                Assert.That(controller.Campaign.Currency, Is.EqualTo(15));
+                Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Battle));
+                Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("advance"));
+                Assert.That(controller.Campaign.Curriculum.ActiveBattles, Is.Zero);
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(9));
                 Release(keyboard.enterKey);
                 yield return null;
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
                 Assert.That(controller.CanChoose, Is.True);
+                controller.enabled = false;
+                scope.WinStage();
+                Assert.That(controller.Campaign.Curriculum.IsCompleted("advance"), Is.True);
+                Assert.That(controller.Campaign.Curriculum.Active, Is.Null);
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10), "The finished battle grants the skill once.");
             }
         }
 
         [UnityTest]
-        public IEnumerator ActualVictory_OpensMaintenance_PurchaseJoinsNextStage()
+        public IEnumerator ActualVictory_OpensMaintenance_CurriculumSkillJoinsNextStage()
         {
             yield return null;
             using (var scope = new FlowScope())
             {
                 var controller = scope.Controller;
                 Assert.That(controller.LobbyHud.IsVisible, Is.False);
-                Assert.That(controller.AcquireSkill(14), Is.False);
+                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.False, "The curriculum is chosen in the lobby.");
+                controller.ReturnToLobby();
+                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
+                Assert.That(controller.StartCampaignStage(1), Is.True);
                 scope.WinStage();
                 Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Lobby));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60));
+                Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Hud.Root.activeSelf, Is.False);
                 Assert.That(controller.CanChoose, Is.False);
@@ -128,11 +138,11 @@ namespace TurnLimbo.Presentation.Tests
                 controller.CommitTurn();
                 scope.Advance(2f);
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Outcome frames cannot pay again.");
-                Assert.That(controller.AcquireSkill(14), Is.True);
-                Assert.That(controller.AcquireSkill(14), Is.False);
-                Assert.That(controller.Campaign.Currency, Is.EqualTo(15));
-                Assert.That(controller.UpgradeSkill(1), Is.False);
-                Assert.That(controller.Campaign.IsSkillEquipped(14), Is.False);
+                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(1), "…nor count the battle again.");
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.False, "A completed node cannot run again.");
+                Assert.That(controller.Campaign.IsSkillEquipped(14), Is.False,
+                    "A completed node grants its skill without equipping it.");
                 Assert.That(controller.Campaign.IsSkillInLoadout(14), Is.False);
                 Assert.That(controller.EquipSkill(14), Is.False, "The default Q lane is full.");
                 Assert.That(controller.UnequipSkill(7), Is.True);
@@ -164,31 +174,58 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator Upgrades_AffectNextBattle_FailureRetryRetainsThem()
+        public IEnumerator Defeat_CompletesTheActiveNode_ResetCurriculumRemovesItsSkillAndRefillsTheLane()
         {
             yield return null;
             using (var scope = new FlowScope())
             {
                 var controller = scope.Controller;
-                scope.WinStage();
-                Assert.That(controller.UpgradeSkill(1), Is.True);
-                Assert.That(controller.UpgradeSkill(3), Is.True);
-                Assert.That(controller.Campaign.Currency, Is.Zero);
-                controller.StartCampaignStage(2);
-                Assert.That(controller.Session.GetLane(0)[0].Name, Is.EqualTo("베기 +1"));
-                Assert.That(controller.Session.GetLane(0)[0].MinPower, Is.EqualTo(6));
-                Assert.That(controller.Session.GetLane(1)[0].MinPower, Is.EqualTo(7));
-                scope.LoseStage();
-                Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Lobby));
+                controller.ReturnToLobby();
+                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
+                Assert.That(controller.StartCampaignStage(1), Is.True);
+                scope.LoseToResult();
+                Assert.That(controller.Result.Victory, Is.False);
+                Assert.That(controller.Result.CompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"),
+                    "A defeat still counts as a finished battle.");
+                Assert.That(controller.Result.ActiveCurriculumNode, Is.Null);
+                Assert.That(FindActive<Text>(controller.ResultHud.Root, "Result Curriculum").text, Is.EqualTo("가로베기 완료"));
+                Assert.That(FindActive<Text>(controller.ResultHud.Root, "Result Curriculum Detail").text, Does.Contain("가로베기"));
+                Assert.That(controller.Campaign.ClearedStageCount, Is.Zero);
                 Assert.That(controller.Campaign.LastReward, Is.Zero);
-                Assert.That(controller.Campaign.Currency, Is.Zero);
-                Assert.That(controller.UpgradeSkill(1), Is.False, "No funds remain.");
+                Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(controller.Campaign.IsSkillInLoadout(14), Is.False);
+                Assert.That(controller.ResetCurriculum(), Is.False, "The result blocks lobby actions.");
+                Assert.That(controller.DismissBattleResult(), Is.True);
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
-                controller.StartCampaignStage(2);
-                Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
+
+                Assert.That(controller.UnequipSkill(7), Is.True);
+                Assert.That(controller.EquipSkill(14), Is.True);
+                Assert.That(controller.SaveLoadout(), Is.True);
+                Assert.That(controller.Campaign.GetEquippedLane(0)[2].SkillId, Is.EqualTo(14));
+
+                controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
+                Button reset = FindActive<Button>(controller.LobbyHud.Root, "Curriculum Reset");
+                Assert.That(reset.interactable, Is.True);
+                reset.onClick.Invoke();
+                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(1), "The first click only arms the reset.");
+                Assert.That(reset.GetComponentInChildren<Text>().text, Is.EqualTo("한 번 더 누르면 초기화"));
+                reset.onClick.Invoke();
+                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.Zero);
+                Assert.That(controller.Campaign.Curriculum.Active, Is.Null);
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(controller.Campaign.IsSkillEquipped(14), Is.False);
+                Assert.That(controller.Campaign.GetEquippedLane(0)[2].SkillId, Is.EqualTo(7),
+                    "The lane that lost the skill is refilled with its starting skill.");
+                Assert.That(controller.Campaign.GetLoadoutSlot(0, 2).SkillId, Is.EqualTo(7));
+                Assert.That(controller.Campaign.HasLoadoutChanges, Is.False);
+                Assert.That(controller.ResetCurriculum(), Is.False, "Nothing is left to reset.");
+
+                Assert.That(controller.StartCampaignStage(1), Is.True);
+                Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));
                 Assert.That(controller.PlayerHealth, Is.EqualTo(100));
-                Assert.That(controller.EnemyHealth, Is.EqualTo(95));
-                Assert.That(controller.Session.GetLane(0)[0].MinPower, Is.EqualTo(6));
+                Assert.That(controller.EnemyHealth, Is.EqualTo(80));
+                Assert.That(controller.Session.GetLane(0)[2].Id, Is.EqualTo(7));
                 Assert.That(controller.TurnTimeRemaining, Is.EqualTo(10f));
                 Assert.That(controller.Hud.LogCount, Is.Zero);
             }
@@ -205,17 +242,21 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     scope.WinStage();
                     Assert.That(controller.Campaign.StageNumber, Is.EqualTo(stage));
+                    if (stage == 1) Assert.That(controller.SelectCurriculumNode("breathing"), Is.True);
                     if (stage < 8) Assert.That(controller.StartCampaignStage(stage + 1), Is.True);
                 }
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(8));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(760));
+                Assert.That(controller.Campaign.Curriculum.IsCompleted("breathing"), Is.True);
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(8));
                 controller.RestartJourney();
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));
                 Assert.That(controller.Campaign.Currency, Is.Zero);
                 Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(9));
-                Assert.That(controller.Campaign.Offers.Count, Is.EqualTo(CampaignSkillCatalog.AcquisitionSkills.Count));
+                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.Zero);
+                Assert.That(controller.Campaign.Curriculum.Active, Is.Null);
                 Assert.That(controller.IsInLobby, Is.True);
                 Assert.That(controller.CanChoose, Is.False);
             }
@@ -250,6 +291,15 @@ namespace TurnLimbo.Presentation.Tests
                 var logIcon = root.Find("Log View/Log Scroll View/Viewport/Content/Player/Log Player Skill/Icon").GetComponent<Image>();
                 Assert.That(logIcon.sprite, Is.SameAs(acquiredIcon));
             }
+        }
+
+        /// <summary>The active node with this name; rebuilt lobby pages leave their old nodes inactive until destroyed.</summary>
+        private static T FindActive<T>(GameObject root, string name) where T : Component
+        {
+            foreach (T candidate in root.GetComponentsInChildren<T>())
+                if (candidate.name == name) return candidate;
+            Assert.Fail("Missing active UI node: " + name);
+            return null;
         }
 
         private sealed class FlowScope : IDisposable
@@ -288,26 +338,27 @@ namespace TurnLimbo.Presentation.Tests
                     LegacyInitialSkills.All, new[] { zero }, new[] { 1 }, 3));
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
-                UntilOutcome();
+                UntilResult();
+                Assert.That(Controller.DismissBattleResult(), Is.True);
+                Assert.That(Controller.LobbyHud.IsVisible, Is.True);
             }
 
-            public void LoseStage()
+            /// <summary>Loses at once and stops on the result, so a test can read it before dismissing.</summary>
+            public void LoseToResult()
             {
                 InstallDuel(new LegacyQueuedDuel(1, 0, 80, 15,
                     LegacyInitialSkills.All, new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 4));
                 Controller.CommitTurn();
-                UntilOutcome();
+                UntilResult();
             }
 
-            private void UntilOutcome()
+            private void UntilResult()
             {
                 int frames = 0;
                 while (Controller.IsResolving && frames++ < 2000) Advance(.025f);
                 Assert.That(Controller.IsResolving, Is.False, "The actual presentation must reach a stable outcome.");
                 Assert.That(Controller.IsShowingResult, Is.True);
                 Assert.That(Controller.ResultHud.IsVisible, Is.True);
-                Assert.That(Controller.DismissBattleResult(), Is.True);
-                Assert.That(Controller.LobbyHud.IsVisible, Is.True);
             }
 
             public void Dispose()

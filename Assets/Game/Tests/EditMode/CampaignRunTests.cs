@@ -57,163 +57,65 @@ namespace TurnLimbo.Core.Tests
 
         [TestCase(DuelMatchOutcome.EnemyVictory)]
         [TestCase(DuelMatchOutcome.Draw)]
-        public void LossOrDraw_DoesNotPayAndRetryKeepsStageAndPurchases(DuelMatchOutcome outcome)
+        public void LossOrDraw_DoesNotPayAndRetryKeepsStageAndCurriculum(DuelMatchOutcome outcome)
         {
             var run = NewBattleRun();
             run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            run.TryUpgradeSkill(1);
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             run.TryStartNextStage();
 
             Assert.That(run.TryCompleteBattle(outcome), Is.True);
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Failed));
             Assert.That(run.LastReward, Is.Zero);
-            Assert.That(run.Currency, Is.EqualTo(30));
+            Assert.That(run.Currency, Is.EqualTo(60));
+            Assert.That(run.Curriculum.IsCompleted("horizontal-cut"), Is.True, "A lost battle still counts.");
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.False);
             Assert.That(run.TryStartNextStage(), Is.False);
-            Assert.That(run.TryAcquireSkill(run.Offers[0].SkillId), Is.False);
-            Assert.That(run.TryUpgradeSkill(1), Is.False);
+            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.False);
+            Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.RetryCurrentStage(), Is.True);
             Assert.That(run.RetryCurrentStage(), Is.False);
             Assert.That(run.StageNumber, Is.EqualTo(2));
-            Assert.That(run.Currency, Is.EqualTo(30));
-            Assert.That(Owned(run, 1).Level, Is.EqualTo(1));
+            Assert.That(run.Currency, Is.EqualTo(60));
+            Assert.That(Owned(run, 14), Is.Not.Null);
+            Assert.That(run.Curriculum.CompletedCount, Is.EqualTo(1));
 
             LegacyQueuedDuel retry = run.CreateDuel();
             Assert.That(retry.Player.Health, Is.EqualTo(100));
             Assert.That(retry.Player.Resistance, Is.EqualTo(50));
             Assert.That(retry.Enemy.Health, Is.EqualTo(95));
-            Assert.That(retry.GetLane(0)[0].MinPower, Is.EqualTo(6));
+            CollectionAssert.AreEqual(new[] { 1, 2, 7 }, SkillIds(retry.GetLane(0)), "A granted skill waits to be equipped.");
         }
 
         [Test]
-        public void TransactionsDuringBattle_RejectWithoutChangingRun()
+        public void GrantedSkill_RequiresExplicitEquipAndJoinsTheNextStageWithItsIconAndAnimation()
         {
-            var run = NewBattleRun();
-            int offerId = run.Offers[0].SkillId;
-            Assert.That(run.TryAcquireSkill(offerId), Is.False);
-            Assert.That(run.TryUpgradeSkill(1), Is.False);
-            Assert.That(run.Currency, Is.Zero);
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
-            Assert.That(Owned(run, 1).Level, Is.Zero);
-
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            run.TryStartNextStage();
-            Assert.That(run.TryAcquireSkill(offerId), Is.False);
-            Assert.That(run.TryUpgradeSkill(1), Is.False);
-            Assert.That(run.Currency, Is.EqualTo(60));
-        }
-
-        [Test]
-        public void Acquisition_PaysCatalogPriceOnceAndRequiresExplicitEquip()
-        {
-            var run = NewBattleRun();
-            ReachMaintenance(run, 3);
-            CampaignSkillOffer offer = run.Offers[0];
-            int initialCurrency = run.Currency;
-            int initialOfferCount = run.Offers.Count;
-            Assert.That(offer.Price, Is.EqualTo(45 + 10 * (offer.Skill.Cost - 1)));
-            Assert.That(run.TryAcquireSkill(offer.SkillId), Is.True);
-            Assert.That(run.Currency, Is.EqualTo(initialCurrency - offer.Price));
+            var run = new CampaignRun();
+            LegacySkill granted = CampaignSkillCatalog.AcquisitionSkills[0];
+            Assert.That(granted.Id, Is.EqualTo(14));
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
+            Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
-            Assert.That(run.Offers.Count, Is.EqualTo(initialOfferCount - 1));
-            Assert.That(Owned(run, offer.SkillId).Level, Is.Zero);
-            Assert.That(run.TryAcquireSkill(offer.SkillId), Is.False);
-            Assert.That(run.Currency, Is.EqualTo(initialCurrency - offer.Price));
-            Assert.That(run.IsSkillEquipped(offer.SkillId), Is.False);
+            CampaignOwnedSkill owned = Owned(run, granted.Id);
+            Assert.That(owned.Skill, Is.SameAs(granted));
+            Assert.That(owned.Skill.IconId, Is.EqualTo(10));
+            Assert.That(owned.Skill.AnimationName, Is.EqualTo("Slash"));
+            Assert.That(owned.Skill.MinPower, Is.EqualTo(6));
+            Assert.That(owned.Skill.MaxPower, Is.EqualTo(12));
+            Assert.That(run.IsSkillEquipped(granted.Id), Is.False);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
-            Assert.That(run.TryEquipSkill(offer.SkillId), Is.False);
-            Assert.That(run.TryUnequipSkill(run.GetEquippedLane(offer.Skill.LaneIndex)[0].SkillId), Is.True);
-            Assert.That(run.TryEquipSkill(offer.SkillId), Is.True);
+            Assert.That(run.TryEquipSkill(granted.Id), Is.False);
+            Assert.That(run.TryUnequipSkill(run.GetEquippedLane(granted.LaneIndex)[0].SkillId), Is.True);
+            Assert.That(run.TryEquipSkill(granted.Id), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.True);
 
-            IReadOnlyList<LegacySkill> lane = run.CreateDuel().GetLane(offer.Skill.LaneIndex);
-            Assert.That(lane[0].Id, Is.EqualTo(offer.SkillId));
-            Assert.That(lane[0].AnimationName, Is.EqualTo(offer.Skill.AnimationName));
-        }
-
-        [Test]
-        public void InvalidOrUnaffordablePurchase_HasNoMutation()
-        {
-            var run = NewBattleRun();
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            run.TryUpgradeSkill(1);
-            int offers = run.Offers.Count;
-            Assert.That(run.Currency, Is.EqualTo(30));
-            Assert.That(run.TryAcquireSkill(run.Offers[0].SkillId), Is.False);
-            Assert.That(run.TryAcquireSkill(1), Is.False);
-            Assert.That(run.TryAcquireSkill(-1), Is.False);
-            Assert.That(run.TryUpgradeSkill(-1), Is.False);
-            Assert.That(run.TryUpgradeSkill(run.Offers[0].SkillId), Is.False);
-            Assert.That(run.Currency, Is.EqualTo(30));
-            Assert.That(run.Offers.Count, Is.EqualTo(offers));
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
-        }
-
-        [Test]
-        public void Upgrade_PreservesCombatIdentityAndChangesRealDuelPowerWithoutMutatingBasis()
-        {
-            var run = NewBattleRun();
-            LegacySkill basis = LegacyInitialSkills.All[0];
-            LegacyQueuedDuel oldDuel = run.CreateDuel(99);
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            Assert.That(run.TryUpgradeSkill(1), Is.True);
-
-            CampaignOwnedSkill owned = Owned(run, 1);
-            Assert.That(owned.Level, Is.EqualTo(1));
-            Assert.That(owned.UpgradeCost, Is.EqualTo(55));
-            Assert.That(owned.BaseSkill, Is.SameAs(basis));
-            Assert.That(owned.Skill, Is.Not.SameAs(basis));
-            Assert.That(owned.Skill.Id, Is.EqualTo(basis.Id));
-            Assert.That(owned.Skill.Name, Is.EqualTo("베기 +1"));
-            Assert.That(owned.Skill.MinPower, Is.EqualTo(basis.MinPower + 2));
-            Assert.That(owned.Skill.MaxPower, Is.EqualTo(basis.MaxPower + 2));
-            Assert.That(owned.Skill.Cost, Is.EqualTo(basis.Cost));
-            Assert.That(owned.Skill.Kind, Is.EqualTo(basis.Kind));
-            Assert.That(owned.Skill.Property, Is.EqualTo(basis.Property));
-            Assert.That(owned.Skill.AttackCount, Is.EqualTo(basis.AttackCount));
-            Assert.That(owned.Skill.LaneIndex, Is.EqualTo(basis.LaneIndex));
-            Assert.That(owned.Skill.AnimationName, Is.EqualTo(basis.AnimationName));
-            Assert.That(owned.Skill.IconId, Is.EqualTo(basis.IconId));
-            Assert.That(basis.MinPower, Is.EqualTo(4));
-            Assert.That(basis.MaxPower, Is.EqualTo(5));
-            Assert.That(oldDuel.GetLane(0)[0].MinPower, Is.EqualTo(4));
-
-            run.TryStartNextStage();
-            LegacyQueuedDuel enhancedDuel = run.CreateDuel(99);
-            Assert.That(enhancedDuel.GetLane(0)[0], Is.SameAs(owned.Skill));
-            Assert.That(enhancedDuel.TryQueueLane(0), Is.True);
-            enhancedDuel.Commit();
-            LegacySlotResult result = enhancedDuel.ResolveNextSlot();
-            Assert.That(result.EnemyResistanceDamage, Is.InRange(6, 7));
-        }
-
-        [Test]
-        public void Upgrade_UsesEscalatingCostsAndStopsAtLevelThree()
-        {
-            var run = NewBattleRun();
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            Assert.That(Owned(run, 1).UpgradeCost, Is.EqualTo(30));
-            Assert.That(run.TryUpgradeSkill(1), Is.True);
-            Assert.That(run.TryUpgradeSkill(1), Is.False);
-            Assert.That(run.Currency, Is.EqualTo(30));
-            run.TryStartNextStage();
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            Assert.That(Owned(run, 1).UpgradeCost, Is.EqualTo(55));
-            Assert.That(run.TryUpgradeSkill(1), Is.True);
-            Assert.That(run.Currency, Is.EqualTo(45));
-            run.TryStartNextStage();
-            run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            Assert.That(Owned(run, 1).UpgradeCost, Is.EqualTo(80));
-            Assert.That(run.TryUpgradeSkill(1), Is.True);
-            Assert.That(Owned(run, 1).Level, Is.EqualTo(3));
-            Assert.That(Owned(run, 1).Skill.MinPower, Is.EqualTo(10));
-            Assert.That(Owned(run, 1).Skill.MaxPower, Is.EqualTo(11));
-            Assert.That(Owned(run, 1).Skill.Name, Is.EqualTo("베기 +3"));
-            ReachMaintenance(run, 5);
-            int currency = run.Currency;
-            Assert.That(currency, Is.GreaterThan(Owned(run, 1).UpgradeCost));
-            Assert.That(run.TryUpgradeSkill(1), Is.False);
-            Assert.That(run.Currency, Is.EqualTo(currency));
+            IReadOnlyList<LegacySkill> lane = run.CreateDuel(17).GetLane(granted.LaneIndex);
+            Assert.That(lane[0], Is.SameAs(owned.Skill));
+            Assert.That(lane[0].AnimationName, Is.EqualTo(granted.AnimationName));
         }
 
         [Test]
@@ -288,21 +190,20 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryStartNextStage(), Is.False);
             Assert.That(run.RetryCurrentStage(), Is.False);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.False);
-            Assert.That(run.TryAcquireSkill(run.Offers[0].SkillId), Is.False);
-            Assert.That(run.TryUpgradeSkill(1), Is.False);
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False);
         }
 
         [Test]
-        public void Reset_RestoresInitialOwnershipOffersStatsAndCurrency()
+        public void Reset_RestoresInitialOwnershipCurriculumStatsAndCurrency()
         {
             var run = NewBattleRun();
-            int offerCount = run.Offers.Count;
             ReachMaintenance(run, 3);
-            int acquiredId = run.Offers[0].SkillId;
-            run.TryAcquireSkill(acquiredId);
-            run.TryUpgradeSkill(1);
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             run.TryStartNextStage();
             run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory);
+            Assert.That(Owned(run, 14), Is.Not.Null);
+            run.ReturnToLobby();
+            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.True);
             run.Reset();
 
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Lobby));
@@ -310,26 +211,26 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Currency, Is.Zero);
             Assert.That(run.LastReward, Is.Zero);
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
-            Assert.That(run.Offers.Count, Is.EqualTo(offerCount));
-            Assert.That(Owned(run, 1).Level, Is.Zero);
-            Assert.That(Owned(run, 1).Skill.MinPower, Is.EqualTo(4));
-            Assert.That(Owned(run, acquiredId), Is.Null);
+            Assert.That(Owned(run, 14), Is.Null);
+            Assert.That(run.Curriculum.CompletedCount, Is.Zero);
+            Assert.That(run.Curriculum.Active, Is.Null);
+            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
+            Assert.That(run.Curriculum.GetState("diagonal-cut"), Is.EqualTo(CurriculumNodeState.Locked));
             Assert.That(run.CreateDuel().Enemy.Health, Is.EqualTo(80));
         }
 
         [Test]
-        public void ShopCatalog_HasUniqueUnownedIdsAndSupportedLegacyAnimationFamilies()
+        public void AcquisitionCatalog_HasUniqueUnownedIdsAndSupportedLegacyAnimationFamilies()
         {
-            var run = NewBattleRun();
+            var run = new CampaignRun();
             var ids = new HashSet<int>();
             foreach (CampaignOwnedSkill owned in run.OwnedSkills) ids.Add(owned.SkillId);
-            Assert.That(run.Offers.Count, Is.GreaterThanOrEqualTo(3));
-            foreach (CampaignSkillOffer offer in run.Offers)
+            Assert.That(CampaignSkillCatalog.AcquisitionSkills.Count, Is.GreaterThanOrEqualTo(3));
+            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
             {
-                Assert.That(ids.Add(offer.SkillId), Is.True);
-                Assert.That(offer.Skill.LaneIndex, Is.InRange(0, 2));
-                Assert.That(offer.Price, Is.EqualTo(45 + 10 * (offer.Skill.Cost - 1)));
-                CollectionAssert.Contains(new[] { "Slash", "Penetrate", "Hit", "Defense" }, offer.Skill.AnimationName);
+                Assert.That(ids.Add(skill.Id), Is.True);
+                Assert.That(skill.LaneIndex, Is.InRange(0, 2));
+                CollectionAssert.Contains(new[] { "Slash", "Penetrate", "Hit", "Defense" }, skill.AnimationName);
             }
         }
 
@@ -346,29 +247,6 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(duel.IsFinished, Is.False);
                 if (turn + 1 < expectedIds.Length) duel.BeginNextTurn();
             }
-        }
-
-        [Test]
-        public void AcquiredUpgrade_PreservesSharedIconAndAnimationWhileJoiningNextStageSnapshot()
-        {
-            var run = NewBattleRun();
-            ReachMaintenance(run, 3);
-            Assert.That(run.TryAcquireSkill(14), Is.True);
-            Assert.That(run.TryUpgradeSkill(14), Is.True);
-            CampaignOwnedSkill owned = Owned(run, 14);
-            Assert.That(owned.Skill.IconId, Is.EqualTo(10));
-            Assert.That(owned.Skill.AnimationName, Is.EqualTo("Slash"));
-            Assert.That(owned.Skill.MinPower, Is.EqualTo(8));
-            Assert.That(owned.Skill.MaxPower, Is.EqualTo(14));
-            Assert.That(owned.BaseSkill.MinPower, Is.EqualTo(6));
-            Assert.That(owned.BaseSkill.MaxPower, Is.EqualTo(12));
-            Assert.That(run.IsSkillEquipped(14), Is.False);
-            Assert.That(run.TryUnequipSkill(7), Is.True);
-            Assert.That(run.TryEquipSkill(14), Is.True);
-            Assert.That(run.TrySaveLoadout(), Is.True);
-            Assert.That(run.TryStartNextStage(), Is.True);
-            IReadOnlyList<LegacySkill> lane = run.CreateDuel(17).GetLane(0);
-            Assert.That(lane[lane.Count - 1], Is.SameAs(owned.Skill));
         }
 
         private static CampaignRun NewBattleRun()
