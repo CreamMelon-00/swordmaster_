@@ -80,6 +80,9 @@ namespace TurnLimbo.Presentation
         public static readonly Color ResistanceDamageInk = new Color(.70f, .86f, .90f);
         private static readonly Color ResistanceDamageOutline = new Color(.05f, .13f, .17f);
         public static readonly Color BreakCalloutInk = new Color(1f, .42f, .30f);
+        // World units below the fighter's pivot (upper body): about the waist. A world offset keeps
+        // the callout below the damage numbers' band at every camera zoom, including the break close-up.
+        public static readonly Vector3 StateCalloutWorldOffset = new Vector3(0f, -1.3f, 0f);
         private static readonly Color BreakCalloutOutline = new Color(.22f, .03f, .02f);
         private int playerDamageSequence, enemyDamageSequence;
         private LegacySkill explainedPlayer, explainedEnemy;
@@ -741,6 +744,7 @@ namespace TurnLimbo.Presentation
             view.Direction = targetPlayer ? -1f : 1f;
             view.StartOffset = new Vector2(view.Direction * (140f + sequence * 150f), 70f - sequence * 28f);
             view.WorldPosition = worldPosition;
+            view.WorldOffset = Vector3.zero;
             view.Follow = null;
             view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
             view.Text.text = damage.ToString();
@@ -772,10 +776,11 @@ namespace TurnLimbo.Presentation
             // Its own small pool, never counted as damage numbers or counter callouts.
             DamageView view = AcquireDamageView(stateTexts, "State Callout", MaximumStateTexts);
             view.Direction = playerSide ? -1f : 1f;
-            // Under the fighter's torso: damage numbers take the outer flank from just above it,
-            // counter callouts the inner flank and the status stack the space above the head.
-            view.StartOffset = new Vector2(0f, -70f);
+            // At the fighter's waist: damage numbers rise from its upper body, counter callouts
+            // take the inner flank and the status stack the space above the head.
+            view.StartOffset = Vector2.zero;
             view.WorldPosition = worldPosition;
+            view.WorldOffset = StateCalloutWorldOffset;
             view.Follow = follow;
             view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
             view.Text.text = text;
@@ -800,6 +805,7 @@ namespace TurnLimbo.Presentation
             // the outward damage numbers, so it covers neither gauges nor cards.
             view.StartOffset = new Vector2(-view.Direction * 170f, 60f);
             view.WorldPosition = worldPosition;
+            view.WorldOffset = Vector3.zero;
             view.Follow = null;
             view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
             view.Text.text = "반격";
@@ -933,7 +939,7 @@ namespace TurnLimbo.Presentation
             if (worldCamera != null)
             {
                 Vector2 position = ScreenPosition(worldCamera.WorldToScreenPoint(
-                    damage.Follow != null ? damage.Follow.position : damage.WorldPosition));
+                    (damage.Follow != null ? damage.Follow.position : damage.WorldPosition) + damage.WorldOffset));
                 position += damage.StartOffset + new Vector2(damage.Direction * 26f * progress, 84f * OutQuad(progress));
                 damage.Text.rectTransform.anchoredPosition = position;
             }
@@ -1513,6 +1519,7 @@ namespace TurnLimbo.Presentation
             public Vector3 WorldPosition;
             /// <summary>When set, the view tracks this transform instead of the fixed impact point.</summary>
             public Transform Follow;
+            public Vector3 WorldOffset;
             public Vector2 StartOffset;
             public Color Color;
             public float Direction;

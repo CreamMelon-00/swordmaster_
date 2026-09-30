@@ -147,6 +147,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(callouts.ConvertAll(c => c.text), Is.EquivalentTo(new[] { LegacyCombatHud.BreakCalloutText, LegacyCombatHud.RecoveryCalloutText }));
                 Assert.That(Named(fixture.Hud.Root, "Damage", true).Count, Is.EqualTo(3), "Callouts are never damage numbers.");
                 foreach (Text callout in callouts) Assert.That(callout.raycastTarget, Is.False);
+                Text breakCallout = callouts.Find(c => c.text == LegacyCombatHud.BreakCalloutText);
+                Assert.That(breakCallout.rectTransform.anchoredPosition.y,
+                    Is.LessThan(resistance.rectTransform.anchoredPosition.y - 100f),
+                    "The callout sits at the waist, clear of the numbers rising from the same impact point.");
                 for (int i = 0; i < 12; i++) fixture.Hud.ShowBreakCallout(i % 2 == 0, Vector3.zero);
                 Assert.That(Named(fixture.Hud.Root, "State Callout", false).Count, Is.LessThanOrEqualTo(4));
                 fixture.Refresh(2f);
