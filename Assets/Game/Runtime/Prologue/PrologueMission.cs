@@ -49,7 +49,8 @@ namespace TurnLimbo.Runtime.Prologue
             IReadOnlyList<int> enemyActionCounts, IReadOnlyList<LegacySkill> playerSkills,
             bool planningTimer, IReadOnlyList<MissionGuideBeat> guide,
             CombatFeature features = CombatFeature.LaneQ, CombatFeature unlocks = CombatFeature.None,
-            int requiredClearedStage = 0, string chapter = DefaultChapter, string unlockText = null)
+            int requiredClearedStage = 0, string chapter = DefaultChapter, string unlockText = null,
+            EncounterKind encounter = EncounterKind.Battle)
         {
             if (number < 1) throw new ArgumentOutOfRangeException(nameof(number));
             if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("A mission needs a title.", nameof(title));
@@ -80,9 +81,13 @@ namespace TurnLimbo.Runtime.Prologue
             RequiredClearedStage = requiredClearedStage;
             Chapter = chapter;
             UnlockText = unlockText ?? string.Empty;
+            Encounter = encounter;
         }
 
         public const string DefaultChapter = "깨어남";
+
+        /// <summary>결투 or 전투: how the fight is presented (never shown, no rule effect). The 서막 is 결투.</summary>
+        public EncounterKind Encounter { get; }
 
         public int Number { get; }
         public string Title { get; }

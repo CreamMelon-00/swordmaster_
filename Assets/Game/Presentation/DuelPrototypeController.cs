@@ -114,6 +114,9 @@ namespace TurnLimbo.Presentation
         public PrologueMission ActiveMission => mission;
         public MissionGuide Guide => guide;
         public bool IsMission => mission != null;
+        /// <summary>결투 or 전투 for the fight on screen (internal; changes presentation only). Missions say which;
+        /// stages are 전투.</summary>
+        public EncounterKind Encounter => IsMission ? mission.Encounter : campaign.CurrentStage.Encounter;
         public bool IsShowingResult => viewPhase == ViewPhase.Outcome && battleResult != null;
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
         public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && !IsPlayingCutscene &&
@@ -326,7 +329,8 @@ namespace TurnLimbo.Presentation
             float stoppedTime = Mathf.Min(realDelta, hitStopRemaining);
             hitStopRemaining = Mathf.Max(0f, hitStopRemaining - stoppedTime);
             float delta = (realDelta - stoppedTime) * speed;
-            arena.SetPlanningState(planningTime, IsInspecting);
+            // 전투 planning is bullet time in the arena only; the planning clock above is unchanged.
+            arena.SetPlanningState(planningTime, IsInspecting, CanChoose && Encounter == EncounterKind.Battle);
             arena.Tick(delta, realDelta);
             phaseTime += delta;
             switch (viewPhase)

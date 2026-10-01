@@ -47,6 +47,12 @@ MonoBehaviour:
   stepBackdropDarkening: 0.55
   stepSoundVolume: 0.7
   stepRingGlowIntensity: 1.6
+  battleDriftSpeed: 0.15
+  battleStagingSeparation: 7
+  battleDriftMinimumSeparation: 5
+  battlePoseSpeed: 0
+  battleDesaturation: 30
+  battleCoolTint: 0.35
   glowEnabled: 1
   glowIntensity: 3
   glowRadius: 1.1

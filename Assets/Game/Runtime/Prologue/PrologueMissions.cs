@@ -34,6 +34,7 @@ namespace TurnLimbo.Runtime.Prologue
         internal static readonly LegacySkill PracticeGuard = new LegacySkill(1003, "연습 막기", 1, 2, 3,
             LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 1, "훈련용 검으로 공격을 받아냅니다.", iconId: 7);
 
+        // Every 서막 mission is a 결투 (the original turn presentation); later missions and stages are 전투.
         private static readonly PrologueMission[] missions =
         {
             // 1. The dummy never attacks: mashing Q wins in two turns and the hits land on the body.
@@ -55,7 +56,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "예약한 순서대로 공격합니다. 상대가 막지 않은 공격은 모두 체력 피해가 됩니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "끝까지 베어 내세요",
                         "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", "Q 예약 · Space 확정 · Escape 임무 포기"),
-                }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다."),
+                }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다.", encounter: EncounterKind.Duel),
             // 2. The enemy attacks: clashes trade resistance, the break doubles HP damage, ACT recovers each turn.
             new PrologueMission(2, "인사는 칼로", Forest,
                 new[] { "맞부딪쳐 상대의 저항을 무너뜨린다", "떠돌이 기사를 쓰러뜨린다" },
@@ -84,7 +85,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "Shift / 넘기기 버튼"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "무너진 틈을 노리세요",
                         "필요한 기술을 넘겨 가며 저항이 무너진 상대에게 공격을 몰아 넣으세요.", FreeKeys),
-                }, features: QWithCycle),
+                }, features: QWithCycle, encounter: EncounterKind.Duel),
             // 3. The enemy also guards: defence reduces the same slot's damage; 막기 against a Hit-property attack refunds ACT.
             new PrologueMission(3, "받아내는 법", Forest,
                 new[] { "상대의 내려치기를 막기로 받아낸다", "떠돌이 기사를 쓰러뜨린다" },
@@ -107,7 +108,7 @@ namespace TurnLimbo.Runtime.Prologue
                         Continue, focusAct: true),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "승리하세요",
                         "공격과 방어를 섞어 상대를 쓰러뜨리세요.", FreeKeys),
-                }, features: QWithCycle),
+                }, features: QWithCycle, encounter: EncounterKind.Duel),
             // 4. No new rule, but the planning timer starts: the arc's first real duel.
             new PrologueMission(4, "떠돌이 기사", Forest,
                 new[] { "제한 시간 안에 기술을 예약한다", "떠돌이 기사를 쓰러뜨린다" },
@@ -119,7 +120,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "지금부터는 턴마다 10초 안에 예약을 마쳐야 합니다. 시간이 다 되면 예약한 만큼 자동으로 확정됩니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "떠돌이 기사",
                         "배운 것을 모두 써서 떠돌이 기사를 꺾으세요.", FreeKeys),
-                }, features: QWithCycle),
+                }, features: QWithCycle, encounter: EncounterKind.Duel),
         };
 
         public static IReadOnlyList<PrologueMission> All => missions;

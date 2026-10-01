@@ -87,6 +87,20 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0f, 3f), Tooltip("캐릭터 주변 스텝 원의 흰 광채 강도. 0이면 광채만 끄고 얇은 판정선과 성공 구간은 유지합니다.")]
         private float stepRingGlowIntensity = 1.6f;
 
+        [Header("전투 불릿타임 — 실행 중 즉시 적용 (결투에는 쓰지 않음)")]
+        [SerializeField, Range(0f, 2f), Tooltip("전투의 편성 중 두 사람이 서로에게 다가가는 속도(한 사람당, 초당 전장 단위). Tab을 누르면 편성 시간과 함께 0.2배로 느려집니다. 0이면 다가가지 않습니다.")]
+        private float battleDriftSpeed = 0.15f;
+        [SerializeField, Range(4f, 10f), Tooltip("편성이 시작될 때 이보다 가까이 붙어 있으면, 먼저 정상 속도로 이 간격까지 물러섰다가 다시 다가갑니다. 4면 물러서지 않습니다.")]
+        private float battleStagingSeparation = 7f;
+        [SerializeField, Range(4f, 10f), Tooltip("편성 중 다가가다 멈추는 거리. 교전 거리 4보다 가까워지지 않고, 이미 가까우면 더 다가가지 않습니다. 편성 시작의 물러섬과는 별개입니다.")]
+        private float battleDriftMinimumSeparation = 5f;
+        [SerializeField, Range(0f, 1f), Tooltip("편성 중 대기 동작의 속도 배율. 0이면 자세를 붙잡아 둡니다(불릿타임). 1이면 결투와 같습니다.")]
+        private float battlePoseSpeed = 0f;
+        [SerializeField, Range(0f, 100f), Tooltip("편성 중 화면 채도를 낮추는 정도. 확정하면 바로 돌아옵니다. 0이면 끕니다.")]
+        private float battleDesaturation = 30f;
+        [SerializeField, Range(0f, 1f), Tooltip("편성 중 화면에 씌우는 차가운 색의 세기. 확정하면 바로 돌아옵니다. 0이면 끕니다.")]
+        private float battleCoolTint = 0.35f;
+
         [Header("타격 빛 — 실행 중 즉시 적용")]
         [SerializeField] private bool glowEnabled = true;
         [SerializeField, Range(0f, 8f), Tooltip("타격점의 HDR 발광 강도. 0이면 새 발광이 보이지 않습니다.")]
@@ -134,6 +148,12 @@ namespace TurnLimbo.Presentation
         public float StepBackdropDarkening => Safe(stepBackdropDarkening, 0f, 0.85f, 0.55f);
         public float StepSoundVolume => Safe(stepSoundVolume, 0f, 1f, 0.7f);
         public float StepRingGlowIntensity => Safe(stepRingGlowIntensity, 0f, 3f, 1.6f);
+        public float BattleDriftSpeed => Safe(battleDriftSpeed, 0f, 2f, 0.15f);
+        public float BattleStagingSeparation => Safe(battleStagingSeparation, 4f, 10f, 7f);
+        public float BattleDriftMinimumSeparation => Safe(battleDriftMinimumSeparation, 4f, 10f, 5f);
+        public float BattlePoseSpeed => Safe(battlePoseSpeed, 0f, 1f, 0f);
+        public float BattleDesaturation => Safe(battleDesaturation, 0f, 100f, 30f);
+        public float BattleCoolTint => Safe(battleCoolTint, 0f, 1f, 0.35f);
         public bool GlowEnabled => glowEnabled;
         public float GlowIntensity => Safe(glowIntensity, 0f, 8f, 3f);
         public float GlowRadius => Safe(glowRadius, 0.1f, 3f, 1.1f);
@@ -166,6 +186,9 @@ namespace TurnLimbo.Presentation
             stepFocusDuration = StepFocusDuration; stepCameraZoom = StepCameraZoom;
             stepBackdropDarkening = StepBackdropDarkening;
             stepSoundVolume = StepSoundVolume; stepRingGlowIntensity = StepRingGlowIntensity;
+            battleDriftSpeed = BattleDriftSpeed; battleStagingSeparation = BattleStagingSeparation;
+            battleDriftMinimumSeparation = BattleDriftMinimumSeparation;
+            battlePoseSpeed = BattlePoseSpeed; battleDesaturation = BattleDesaturation; battleCoolTint = BattleCoolTint;
             glowIntensity = GlowIntensity; glowRadius = GlowRadius; glowDuration = GlowDuration;
             bloomIntensity = BloomIntensity; bloomThreshold = BloomThreshold; flashExposure = FlashExposure;
         }

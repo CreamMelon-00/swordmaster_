@@ -586,6 +586,8 @@ namespace TurnLimbo.Runtime.Campaign
         public LegacySkill EnemyCounterBasis { get; }
         public int EnemyCountersPerTurn { get; }
         public int Reward { get; }
+        /// <summary>결투 or 전투: how the fight is presented (never shown, no rule effect). Every stage is 전투 for now.</summary>
+        public EncounterKind Encounter => EncounterKind.Battle;
     }
 
     /// <summary>A skill the player owns. Upgrades are paused; a future system will grow skills with use.</summary>

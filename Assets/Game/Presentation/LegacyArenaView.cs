@@ -55,6 +55,16 @@ namespace TurnLimbo.Presentation
         private readonly EnemyStudentAnimationSet enemyAnimations;
         private readonly TrainingDummyAnimationSet dummyAnimations;
         private EnemyAppearance enemyAppearance = EnemyAppearance.Student;
+        // 전투 planning bullet time. The controller asks for it every planning frame (SetPlanningState) and Tick
+        // consumes the request, so an arena ticked without that request (결투, tests, cutscenes) never drifts.
+        private const float BulletTimeEaseIn = 0.35f;
+        // How fast (per figure, real seconds) they step back to the staging gap when planning starts too close.
+        private const float BulletTimePartSpeed = 6f;
+        private static readonly Color BulletTimeCoolColor = new Color(0.72f, 0.84f, 1f, 1f);
+        private bool bulletTimeRequested, bulletTimeWasActive, bulletTimeParting;
+        private float bulletTimeAmount;
+        // The fatal close-up's saturation pulse; the planning grade is added on top of it.
+        private float saturationPulse;
         private readonly System.Random reactionPoseRandom;
         private readonly System.Random attackPoseRandom;
         private readonly System.Random enemyAttackPoseRandom;
@@ -139,6 +149,8 @@ namespace TurnLimbo.Presentation
         public bool IsEnemyHurtPlaying => EnemyIsDummy && enemy.HurtPlaying;
         private bool EnemyIsDummy => enemyAppearance == EnemyAppearance.TrainingDummy;
         public SpriteRenderer EnemyRenderer => enemy.Renderer;
+        /// <summary>How far the 전투 planning look has eased in: 0 outside bullet time, up to 1 while planning.</summary>
+        public float BulletTimeAmount => bulletTimeAmount;
         // Cutscenes (CutsceneDirector) pose the figures themselves while the duel is not ticking.
         internal MobStudentAnimationSet PlayerAnimations => mobAnimations;
         internal EnemyStudentAnimationSet EnemyAnimations => enemyAnimations;
@@ -221,6 +233,7 @@ namespace TurnLimbo.Presentation
             colorAdjustments = volumeProfile.Add<ColorAdjustments>();
             colorAdjustments.postExposure.Override(0f);
             colorAdjustments.saturation.Override(0f);
+            colorAdjustments.colorFilter.Override(Color.white);
             bloom = volumeProfile.Add<Bloom>();
             bloom.intensity.Override(this.settings.BloomIntensity);
             bloom.threshold.Override(this.settings.BloomThreshold);
@@ -295,7 +308,9 @@ namespace TurnLimbo.Presentation
             planningTime = 10f;
             aberration.intensity.value = 0f;
             colorAdjustments.postExposure.value = 0f;
-            colorAdjustments.saturation.value = 0f;
+            bulletTimeRequested = bulletTimeWasActive = bulletTimeParting = false;
+            bulletTimeAmount = saturationPulse = 0f;
+            ApplyGrade();
             ResetActor(player, new Vector3(-5f, -0.5f, 0f));
             ResetActor(enemy, new Vector3(5f, -0.5f, 0f));
             player.LowerAnimationTime = 0f;
@@ -337,10 +352,13 @@ namespace TurnLimbo.Presentation
             player.Chasing = enemy.Chasing = false;
         }
 
-        public void SetPlanningState(float timeRemaining, bool isInspecting)
+        /// <param name="bulletTime">This frame is a 전투 planning frame: the figures edge toward each other in a held
+        /// pose under a cold grade. Asked for frame by frame; the next Tick consumes it.</param>
+        public void SetPlanningState(float timeRemaining, bool isInspecting, bool bulletTime = false)
         {
             planningTime = Mathf.Clamp(timeRemaining, 0f, 10f);
             inspecting = isInspecting;
+            bulletTimeRequested = bulletTime;
         }
 
         public void BeginApproach()
@@ -665,7 +683,8 @@ namespace TurnLimbo.Presentation
             {
                 aberration.intensity.value = 1f;
                 fatalExposure = 1f;
-                colorAdjustments.saturation.value = playerAttacks ? 25f : -80f;
+                saturationPulse = playerAttacks ? 25f : -80f;
+                ApplyGrade();
             }
             RefreshExposure();
         }
@@ -679,7 +698,20 @@ namespace TurnLimbo.Presentation
             realDelta = realDelta > 0f && !float.IsInfinity(realDelta) ? realDelta : 0f;
             stepFocusTime = Mathf.Max(0f, stepFocusTime - realDelta);
             stepSlowTime = Mathf.Max(0f, stepSlowTime - realDelta);
-            idleTime += scaledDelta * settings.AnimationPlaybackSpeed;
+            // Bullet time eases in on real time and lets go at once on the commit, so the release reads as time
+            // snapping back. Driven by scaled time, the drift and the held pose deepen with Tab like the planning clock.
+            bool bulletTime = bulletTimeRequested && !resolving && !approaching && !returning;
+            bulletTimeRequested = false;
+            // A planning phase that starts at close quarters (turns usually end at contact) first steps back to the
+            // staging gap at normal speed, so there is room to edge in again. A staging gap at contact turns it off.
+            float staging = settings.BattleStagingSeparation;
+            if (bulletTime && !bulletTimeWasActive)
+                bulletTimeParting = staging > ContactDistance + .001f && Separation < staging - .001f;
+            if (!bulletTime) bulletTimeParting = false;
+            bulletTimeWasActive = bulletTime;
+            bulletTimeAmount = bulletTime ? Mathf.MoveTowards(bulletTimeAmount, 1f, realDelta / BulletTimeEaseIn) : 0f;
+            float idleSpeed = bulletTime ? Mathf.Lerp(1f, settings.BattlePoseSpeed, bulletTimeAmount) : 1f;
+            idleTime += scaledDelta * settings.AnimationPlaybackSpeed * idleSpeed;
             fatalTime = Mathf.Max(0f, fatalTime - Mathf.Max(0f, realDelta));
             cameraJoltTime = Mathf.Max(0f, cameraJoltTime - realDelta);
             aberration.intensity.value = Mathf.MoveTowards(aberration.intensity.value, 0f, scaledDelta * 0.75f);
@@ -687,7 +719,8 @@ namespace TurnLimbo.Presentation
             impactFlashTime = Mathf.Max(0f, impactFlashTime - Mathf.Max(0f, realDelta));
             RefreshExposure();
             RefreshBloom();
-            colorAdjustments.saturation.value = Mathf.MoveTowards(colorAdjustments.saturation.value, 0f, scaledDelta * 60f);
+            saturationPulse = Mathf.MoveTowards(saturationPulse, 0f, scaledDelta * 60f);
+            ApplyGrade();
             TickActor(player, scaledDelta);
             TickActor(enemy, scaledDelta);
             stepAfterimages.Tick(realDelta);
@@ -707,6 +740,11 @@ namespace TurnLimbo.Presentation
                 if (movementTime >= ReturnDuration && !HasPendingPush) returning = resolving = false;
             }
             else if (IsPursuing && !stepMovedThisFrame) MoveFightersCloser(scaledDelta, PursuitSpeed * pursuitMovementSpeed, false);
+            else if (bulletTime && !stepMovedThisFrame && !HasPendingPush)
+            {
+                if (bulletTimeParting) bulletTimeParting = PartFighters(realDelta);
+                else DriftFightersCloser(scaledDelta);
+            }
             SamplePlayerLowerBody(scaledDelta, stepMovedThisFrame ? realDelta : scaledDelta, stepMovedThisFrame);
             foreach (var effect in effects)
             {
@@ -866,6 +904,45 @@ namespace TurnLimbo.Presentation
             actor.Renderer.color = Color.Lerp(Color.white, actor.FlashColor, actor.FlashTime / 0.25f);
             if (actor.LowerRenderer != null) actor.LowerRenderer.color = actor.Renderer.color;
             SampleActor(actor);
+        }
+
+        /// <summary>전투 planning: both figures edge toward each other, never closer than the drift floor (at least the
+        /// contact distance) and never apart. The dummy and a figure still being pushed stay put.</summary>
+        private void DriftFightersCloser(float delta)
+        {
+            float speed = settings.BattleDriftSpeed;
+            float excess = Separation - Mathf.Max(ContactDistance, settings.BattleDriftMinimumSeparation);
+            if (excess <= 0f || delta <= 0f || speed <= 0f || stepping) return;
+            bool playerMayMove = !player.Pushing;
+            bool enemyMayMove = !EnemyIsDummy && !enemy.Pushing;
+            if (!playerMayMove && !enemyMayMove) return;
+            float step = Mathf.Min(excess / (playerMayMove && enemyMayMove ? 2f : 1f), speed * delta);
+            if (playerMayMove) player.Renderer.transform.localPosition += Vector3.right * step;
+            if (enemyMayMove) enemy.Renderer.transform.localPosition -= Vector3.right * step;
+        }
+
+        /// <summary>전투 planning start: both figures step back (on real time) to the staging gap. Returns whether they
+        /// still have further to go. The dummy and a figure still being pushed stay put.</summary>
+        private bool PartFighters(float realDelta)
+        {
+            float target = settings.BattleStagingSeparation;
+            float shortfall = target - Separation;
+            if (shortfall <= .001f) return false;
+            bool playerMayMove = !player.Pushing;
+            bool enemyMayMove = !EnemyIsDummy && !enemy.Pushing;
+            if (!playerMayMove && !enemyMayMove) return false;
+            if (realDelta <= 0f) return true;
+            float step = Mathf.Min(shortfall / (playerMayMove && enemyMayMove ? 2f : 1f), BulletTimePartSpeed * realDelta);
+            if (playerMayMove) player.Renderer.transform.localPosition -= Vector3.right * step;
+            if (enemyMayMove) enemy.Renderer.transform.localPosition += Vector3.right * step;
+            return Separation < target - .001f;
+        }
+
+        /// <summary>The fatal pulse plus the 전투 planning grade (less colour, a cold filter).</summary>
+        private void ApplyGrade()
+        {
+            colorAdjustments.saturation.value = saturationPulse - settings.BattleDesaturation * bulletTimeAmount;
+            colorAdjustments.colorFilter.value = Color.Lerp(Color.white, BulletTimeCoolColor, settings.BattleCoolTint * bulletTimeAmount);
         }
 
         private void MoveFightersCloser(float delta, float speed, bool bothMayApproach)
