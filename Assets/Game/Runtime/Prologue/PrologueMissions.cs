@@ -19,7 +19,9 @@ namespace TurnLimbo.Runtime.Prologue
         private const string QueueOnce = "Q 짧게 누르기 / 카드 클릭";
         private const string CommitKeys = "Space / Enter / 확정 버튼";
         private const string Watch = "전투를 지켜보세요";
-        private const string FreeKeys = "Q 예약 · Space 확정 · Tab 상대 확인 · Escape 임무 포기";
+        private const string FreeKeys = "Q 예약 · Shift 넘기기 · Space 확정 · Tab 상대 확인 · Escape 임무 포기";
+        /// <summary>The 서막's lane plus 넘기기, which mission 1's win opens.</summary>
+        private const CombatFeature QWithCycle = CombatFeature.LaneQ | CombatFeature.Cycle;
 
         private static readonly LegacySkill Slash = LegacyInitialSkills.All[0];
         private static readonly LegacySkill SharpSlash = LegacyInitialSkills.All[1];
@@ -53,7 +55,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "예약한 순서대로 공격합니다. 상대가 막지 않은 공격은 모두 체력 피해가 됩니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "끝까지 베어 내세요",
                         "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", "Q 예약 · Space 확정 · Escape 임무 포기"),
-                }),
+                }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다."),
             // 2. The enemy attacks: clashes trade resistance, the break doubles HP damage, ACT recovers each turn.
             new PrologueMission(2, "맞서는 검", SchoolGate,
                 new[] { "공격끼리 맞붙어 상대의 저항을 무너뜨린다", "신입생을 쓰러뜨린다" },
@@ -77,9 +79,12 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Info, "ACT가 회복됐습니다",
                         "턴이 바뀌면 ACT가 3 회복되고, 베기를 쓰면 1 더 회복합니다. 남은 ACT는 다음 턴으로 이어지며 최대 10까지 모입니다.",
                         Continue, focusAct: true),
+                    new MissionGuideBeat(MissionGuideStepKind.Cycle, "Shift로 넘기세요",
+                        "Shift를 누르면 열의 맨 앞 기술을 쓰지 않고 뒤로 보냅니다. 비용은 없지만, 열이 여럿이면 모든 열이 함께 돌아갑니다. 예리한 베기를 앞으로 가져오세요.",
+                        "Shift / 넘기기 버튼"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "무너진 틈을 노리세요",
-                        "저항이 무너진 상대에게 공격을 몰아 넣어 쓰러뜨리세요.", FreeKeys),
-                }),
+                        "필요한 기술을 넘겨 가며 저항이 무너진 상대에게 공격을 몰아 넣으세요.", FreeKeys),
+                }, features: QWithCycle),
             // 3. The enemy also guards: defence reduces the same slot's damage; 막기 against a Hit-property attack refunds ACT.
             new PrologueMission(3, "막아내기", Forest,
                 new[] { "상대의 내려치기를 막기로 받아낸다", "신입생을 쓰러뜨린다" },
@@ -102,7 +107,7 @@ namespace TurnLimbo.Runtime.Prologue
                         Continue, focusAct: true),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "승리하세요",
                         "공격과 방어를 섞어 상대를 쓰러뜨리세요.", FreeKeys),
-                }),
+                }, features: QWithCycle),
             // 4. No new rule, but the planning timer starts: the arc's first real duel.
             new PrologueMission(4, "마지막 결투", Forest,
                 new[] { "제한 시간 안에 기술을 예약한다", "선배를 쓰러뜨린다" },
@@ -114,7 +119,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "지금부터는 턴마다 10초 안에 예약을 마쳐야 합니다. 시간이 다 되면 예약한 만큼 자동으로 확정됩니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "마지막 결투",
                         "배운 것을 모두 써서 선배를 꺾으세요.", FreeKeys),
-                }),
+                }, features: QWithCycle),
         };
 
         public static IReadOnlyList<PrologueMission> All => missions;

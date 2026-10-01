@@ -176,7 +176,7 @@ namespace TurnLimbo.Presentation.Tests
                     "Coach must stay above the skill input dock.");
                 Assert.That(coachFrame.anchoredPosition.y + coachFrame.sizeDelta.y * .5f, Is.LessThan(450f),
                     "Coach must stay below the actors and their head-attached queues/status bars.");
-                Assert.That(Label(hud.Root, "Coach Step").text, Is.EqualTo("임무 02  ·  안내 01 / 08"));
+                Assert.That(Label(hud.Root, "Coach Step").text, Is.EqualTo("임무 02  ·  안내 01 / 09"));
                 Assert.That(Button(hud.Root, "Coach Continue").gameObject.activeSelf, Is.True);
                 Assert.That(Button(hud.Root, "Coach Inspect Enemy").gameObject.activeSelf, Is.False);
                 Assert.That(Caption(hud.Root, "Coach Continue"), Is.EqualTo("시작"));
@@ -201,10 +201,14 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Caption(hud.Root, "Coach Continue"), Is.EqualTo("계속"));
                 Button(hud.Root, "Coach Continue").onClick.Invoke();
                 hud.Show(guide, "임무 02");
+                Assert.That(guide.Kind, Is.EqualTo(MissionGuideStepKind.Cycle));
+                Assert.That(Button(hud.Root, "Coach Continue").gameObject.activeSelf, Is.False, "The 넘기기 beat waits for Shift.");
+                guide.NotifyCycled();
+                hud.Show(guide, "임무 02");
                 Assert.That(guide.IsFree, Is.True);
                 for (int i = 0; i < 20; i++) hud.Show(guide, "임무 02");
                 Assert.That(Label(hud.Root, "Coach Description").text, Is.EqualTo(guide.Description));
-                Assert.That(Label(hud.Root, "Coach Step").text, Is.EqualTo("임무 02  ·  안내 08 / 08"));
+                Assert.That(Label(hud.Root, "Coach Step").text, Is.EqualTo("임무 02  ·  안내 09 / 09"));
                 Assert.That(hud.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodeCount));
                 foreach (Graphic graphic in hud.Root.GetComponentsInChildren<Graphic>(true))
                     if (graphic.GetComponent<Button>() == null) Assert.That(graphic.raycastTarget, Is.False);

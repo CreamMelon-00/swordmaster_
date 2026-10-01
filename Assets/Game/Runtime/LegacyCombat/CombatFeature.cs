@@ -17,7 +17,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         Dodge = 16,
         /// <summary>D step: press the outgoing skill.</summary>
         Pressure = 32,
-        All = LaneQ | LaneW | LaneE | Breath | Dodge | Pressure,
+        /// <summary>넘기기 (Shift): every open lane sends its front skill to the back without using it.</summary>
+        Cycle = 64,
+        All = LaneQ | LaneW | LaneE | Breath | Dodge | Pressure | Cycle,
     }
 
     public static class CombatFeatures

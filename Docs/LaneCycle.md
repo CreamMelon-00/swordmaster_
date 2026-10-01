@@ -1,0 +1,67 @@
+# 넘기기 (Shift)
+
+2026-10-01. 사용자 아이디어. 편성 중 Shift를 누르면 열린 모든 기술열의 맨 앞 기술이 쓰이지 않고 그 열의 맨 뒤로 간다. Q·W·E가 한꺼번에 돈다.
+
+## 규칙
+
+- 편성(준비) 단계에서만 쓴다. 확정한 뒤, 적 확인(Tab) 중, 결과·로비·브리핑에서는 무시한다.
+- ACT를 쓰지 않고 횟수 제한도 없다. 큐에는 아무것도 넣지 않고, 이미 예약한 기술도 그대로다.
+- 열린 열 가운데 기술이 2개 이상인 열만 돈다. 닫힌 열과 기술이 하나뿐인 열은 그대로다. 돌 열이 없으면 아무 일도 없다.
+- 돌린 순서는 다음 턴에도 이어진다. 예약으로 돈 순서가 이어지는 것과 같다. 재대결과 새 전투는 편성 순서로 다시 시작한다.
+- 기술을 예약하면 그 열만 돈다. 넘기기는 모든 열을 함께 돌린다. 그래서 한 열에서 원하는 기술을 앞으로 가져오면 다른 열의 맨 앞 기술도 바뀐다. 이 맞물림이 넘기기의 비용이다.
+
+## 의도 (사용자 설계)
+
+- 넘기기가 없으면 플레이어는 열이 돌아오는 순서대로만 기술을 쓸 수 있다. 넘기기로 필요한 기술을 필요한 순간에 꺼낸다.
+- 비용을 ACT로 두지 않았다. 모든 열이 함께 도는 것 자체가 대가다. 플레이어는 톱니바퀴 퍼즐을 맞추듯 세 열을 함께 계산하게 된다.
+- 서막 2 임무부터 쓴다. Q열 하나뿐일 때는 넘겨서 원하는 기술로 대응하는 법을 배운다.
+- 수련 임무로 E열, W열이 열리면 한 열을 맞출 때 다른 열이 어긋난다. 어떤 기술을 먼저 쓰고 무엇을 넘길지 고르는 것이 이 게임의 진짜 전략이 된다.
+- 횟수 제한 없음과 턴 사이 유지는 임시 기본값이다. 바꾸려면 Runtime의 `LegacyQueuedDuel.TryCycleLanes`를 고친다.
+
+## 해금
+
+- 서막 1 임무 `첫 타격`을 처음 이기면 열린다(`CombatFeature.Cycle`). 결과 창 안내는 `넘기기(Shift)가 열렸습니다.` / `다음 임무가 열렸습니다.`다.
+- 1 임무 전투에는 넘기기가 없다. 2~4 임무 전투는 Q열과 넘기기를 쓴다. 수련 임무와 서막 뒤의 스테이지도 넘기기를 쓴다.
+- 2 임무의 코치는 ACT 안내 다음에 `Shift로 넘기세요` 단계를 둔다. 이 단계는 Shift(또는 버튼)만 받고 예약과 확정을 막는다. 한 번 넘기면 자유 단계로 넘어간다. 첫 턴에 Q를 두 번 예약해 두 기술 열이 처음 순서로 돌아와 있으므로, 한 번 넘기면 예리한 베기가 앞으로 온다.
+- 다른 코치 단계는 넘기기를 막고, 자유 단계에서만 허용한다(숨고르기·스텝과 같다).
+- 해금은 타이틀에서 시작한 게임에만 적용된다. 테스트나 API를 직접 부른 스테이지 전투에서는 처음부터 열려 있다(`StoryUnlocks.md`).
+
+## 화면과 입력
+
+- 왼쪽·오른쪽 Shift 모두 된다. 누르고 있어도 한 번만 돈다.
+- 기술 카드 왼쪽, 숨고르기 버튼의 반대편(x -360)에 **넘기기** 버튼이 있다. 내용은 `ACT 0`, `모든 열 한 칸`, 키 `Shift`이고, 아래에 `맨 앞 기술을 쓰지 않고 / 뒤로 보냄`을 쓴다.
+- 넘기기가 닫혀 있거나 코치가 아직 허용하지 않으면 버튼과 안내를 숨긴다. 확정 뒤와 적 확인 중에는 누를 수 없고, Tab을 떼는 프레임에 다시 누를 수 있다.
+- Q/W/E를 누르고 있는 동안 Shift를 누르면, 그 키를 놓아도 예약하지 않는다. 누른 기술이 이미 뒤로 갔기 때문이다. 1초 이상 눌러 보던 설명은 새 맨 앞 기술로 바뀐다. Shift와 같은 프레임에 누른 열 키는 새로 온 기술에 대한 입력으로 본다.
+- 소리는 예약과 같은 선택음이다.
+- 예전의 Shift 느리게 보기는 2026-09-30에 없앴다(`StepPrototype.md`). 전투가 진행되는 동안 Shift는 아무 일도 하지 않는다.
+
+## Windows 고정 키 단축키
+
+Windows는 기본 설정에서 Shift를 연달아 다섯 번 누르면 고정 키 확인 창을 띄우고, 이 창이 게임의 포커스를 가져간다. 넘기기는 Shift를 연달아 누르는 조작이라 그대로 두면 부딪힌다. 그래서 게임이 실행되는 동안에만 이 단축키를 끈다(사용자 결정, 2026-10-01).
+
+- 게임 창이 포커스를 얻으면 끄고, 포커스를 잃거나 게임이 끝나면(에디터에서는 Play 종료, 스크립트 다시 불러오기 포함) 원래대로 되돌린다. 다른 프로그램을 쓰는 동안에는 평소 설정 그대로다. 포커스가 있는데 아직 끄지 못했으면 0.5초마다 다시 확인한다. 게임을 두 개 띄워 오갈 때, 먼저 포커스를 얻은 쪽이 다른 쪽이 되돌리기 전의 설정을 읽는 경우를 위한 것이다.
+- 바꾸는 것은 단축키와 그 확인 창 두 가지뿐이다. 고정 키 기능 자체는 건드리지 않는다. 고정 키를 켜 두고 쓰는 사람의 설정도 건드리지 않는다. 그 사람은 단축키로 고정 키를 끈다.
+- 되돌릴 때는 그 두 가지만 게임이 마지막으로 포커스를 얻어 끄기 직전 값으로 돌린다. 게임 밖에서 바꾼 설정(단축키를 직접 끈 경우 포함)과 그 사이에 바뀐 다른 접근성 설정은 그대로 둔다.
+- 지금 로그인한 세션에만 적용하고 사용자 프로필에는 쓰지 않는다. 게임이 비정상 종료되어 되돌리지 못해도 다음 로그인 때 원래 설정으로 돌아온다.
+- Windows(에디터와 독립 실행 빌드)에서만 동작한다. 다른 플랫폼과 배치 실행(CI)에서는 아무것도 하지 않는다.
+- 오른쪽 Shift를 8초 누르는 필터 키 단축키는 바꾸지 않았다. 넘기기는 길게 누르는 조작이 아니다.
+
+## 알려진 한계
+
+- Unity를 실행할 수 없는 환경에서 만들었다. 실제 화면(버튼 위치와 크기)과 PlayMode 실행은 확인하지 않았다.
+- 적은 넘기기를 쓰지 않는다.
+- 2 임무의 넘기기 단계는 맨 앞에 무엇이 오든 한 번 넘기면 넘어간다.
+
+## 코드
+
+- Runtime `LegacyCombat/CombatFeature.Cycle`(64). `All`에 포함된다.
+- Runtime `LegacyQueuedDuel.TryCycleLanes()`와 `LaneCyclesThisTurn`(턴이 시작되면 0).
+- Runtime `Prologue/MissionGuide`: `MissionGuideStepKind.Cycle`, `AllowsCycle`, `NotifyCycled`.
+- Runtime `Prologue/PrologueMissions`: 1 임무 `unlocks: Cycle`, 2~4 임무 `features: LaneQ | Cycle`. `LobbyMissions`의 임무 전투에도 `Cycle`이 들어 있다.
+- Presentation `DuelPrototypeController.CycleLanes()`와 `ReadPlanningInput`의 Shift.
+- Presentation `LegacyCombatHud`: 생성자의 마지막 인자 `cycleLanes`, `CycleButton`과 `Cycle Note`.
+- Presentation `StickyKeysShortcut`: user32 `SystemParametersInfo`(`SPI_GET/SETSTICKYKEYS`, `fWinIni` 0)로 단축키 비트(`SKF_HOTKEYACTIVE`·`SKF_CONFIRMHOTKEY`)를 끄고 되돌린다. 비트 계산은 `WithoutShortcut`/`WithShortcut`이다. `UNITY_STANDALONE_WIN`·`UNITY_EDITOR_WIN`에서만 P/Invoke를 컴파일한다.
+- Presentation `StickyKeysShortcutGuard`: 첫 씬 전에 스스로 만들어지는(`DontDestroyOnLoad`) 컴포넌트다. 포커스·종료·비활성화 때 끄고 되돌리며, 포커스가 있는 동안 아직 끄지 못했으면 0.5초마다 다시 시도한다.
+- 테스트
+  - EditMode: `LaneCycleTests`, `StoryUnlockTests`.
+  - PlayMode: `LaneCyclePlayModeTests`, `ResultMissionHudPlayModeTests`(2 임무 코치 9단계), `MissionUnlockFlowPlayModeTests`, `BattleResultMissionFlowPlayModeTests`, `StickyKeysShortcutPlayModeTests`(비트 계산과 가드 하나. 테스트가 직접 설정을 바꾸지는 않는다).

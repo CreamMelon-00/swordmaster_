@@ -176,6 +176,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsResolving, Is.False, "The opening beat cannot commit.");
                 Assert.That(controller.QueueLane(0), Is.False, "The opening beat is read first.");
                 Assert.That(controller.QueueBreath(), Is.False, "Breathing stays locked in the arc.");
+                Assert.That(controller.CycleLanes(), Is.False, "넘기기 opens with this mission's win.");
                 Assert.That(controller.AdvanceGuide(), Is.True);
                 Assert.That(controller.Guide.ExpectedLane, Is.Zero);
                 Assert.That(controller.QueueLane(1), Is.False);
@@ -210,6 +211,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.Reward, Is.Zero);
                 Assert.That(controller.Result.CanAdvance, Is.True);
                 Assert.That(controller.Result.CompletedCurriculumNode, Is.Null);
+                Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
+                    Is.EqualTo("넘기기(Shift)가 열렸습니다.\n다음 임무가 열렸습니다."), "The first win announces 넘기기.");
                 Assert.That(Label(controller.ResultHud.Root, "Result Curriculum").text, Is.EqualTo("서막 이후"),
                     "Missions never count toward the curriculum.");
                 Assert.That(CampaignFingerprint(controller.Campaign), Is.EqualTo(campaignBefore));

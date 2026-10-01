@@ -40,7 +40,7 @@ namespace TurnLimbo.Runtime.Prologue
         /// <summary>The 서막 is over, so the lobby is open.</summary>
         public bool IsArcComplete => ClearedCount >= ArcMissionCount;
 
-        /// <summary>The Q lane plus everything the won missions opened.</summary>
+        /// <summary>The Q lane plus everything the won missions opened (넘기기 opens with mission 1).</summary>
         public CombatFeature UnlockedFeatures
         {
             get

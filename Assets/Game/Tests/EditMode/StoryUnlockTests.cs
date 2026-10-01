@@ -24,11 +24,13 @@ namespace TurnLimbo.Core.Tests
             foreach (PrologueMission mission in PrologueMissions.All)
             {
                 Assert.That(mission.RequiredClearedStage, Is.Zero, mission.Title);
-                Assert.That(mission.Unlocks, Is.EqualTo(CombatFeature.None), mission.Title);
-                Assert.That(mission.Features, Is.EqualTo(CombatFeature.LaneQ), mission.Title);
                 Assert.That(mission.Chapter, Is.EqualTo("서막"));
+                // 넘기기 opens with the first mission's win and is used from the second mission on.
+                Assert.That(mission.Unlocks, Is.EqualTo(mission.Number == 1 ? CombatFeature.Cycle : CombatFeature.None), mission.Title);
+                Assert.That(mission.Features, Is.EqualTo(mission.Number == 1 ? CombatFeature.LaneQ
+                    : CombatFeature.LaneQ | CombatFeature.Cycle), mission.Title);
             }
-            CombatFeature open = PrologueRun.BaseFeatures;
+            CombatFeature open = PrologueRun.BaseFeatures | CombatFeature.Cycle;
             for (int index = 0; index < LobbyMissions.Count; index++)
             {
                 PrologueMission mission = LobbyMissions.All[index];
@@ -144,8 +146,9 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(story.TryComplete(number, DuelMatchOutcome.PlayerVictory), Is.True);
             }
             Assert.That(story.IsArcComplete, Is.True);
-            Assert.That(story.UnlockedFeatures, Is.EqualTo(CombatFeature.LaneQ), "The lobby opens with the Q lane only.");
-            CombatFeature expected = CombatFeature.LaneQ;
+            Assert.That(story.UnlockedFeatures, Is.EqualTo(CombatFeature.LaneQ | CombatFeature.Cycle),
+                "The lobby opens with the Q lane only, and 넘기기 from the 서막.");
+            CombatFeature expected = CombatFeature.LaneQ | CombatFeature.Cycle;
             for (int index = 0; index < LobbyMissions.Count; index++)
             {
                 int stage = index + 1;

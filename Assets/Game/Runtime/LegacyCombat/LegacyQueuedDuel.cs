@@ -95,6 +95,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// recovery: success is free, so skilled play can step without limit but guessing is not free.</summary>
         public bool StepMissedThisTurn { get; private set; }
         public int BreathsQueuedThisTurn { get; private set; }
+        /// <summary>넘기기 presses that turned the lanes this planning turn.</summary>
+        public int LaneCyclesThisTurn { get; private set; }
         public int BreathsRemainingThisTurn => MaximumBreathsPerTurn - BreathsQueuedThisTurn;
         public int LastResolvedSlot { get; private set; }
         public int ResolutionSlotCount => slotCount;
@@ -198,6 +200,26 @@ namespace TurnLimbo.Runtime.LegacyCombat
             lane.RemoveAt(0);
             lane.Add(skill);
             return true;
+        }
+
+        /// <summary>넘기기: during planning, every open lane with more than one skill sends its front skill to the back
+        /// unused. All lanes turn together, so lining up skills across lanes takes using some of them (which turns
+        /// only their own lane). Free and unlimited; the lanes keep the new order into later turns.</summary>
+        public bool TryCycleLanes()
+        {
+            if (Phase != LegacyDuelPhase.Planning || !Features.Has(CombatFeature.Cycle)) return false;
+            bool turned = false;
+            for (int index = 0; index < lanes.Length; index++)
+            {
+                List<LegacySkill> lane = lanes[index];
+                if (!Features.HasLane(index) || lane.Count < 2) continue;
+                LegacySkill front = lane[0];
+                lane.RemoveAt(0);
+                lane.Add(front);
+                turned = true;
+            }
+            if (turned) LaneCyclesThisTurn++;
+            return turned;
         }
 
         public bool TryQueueBreath()
@@ -441,6 +463,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             StepAttemptsThisTurn = StepSuccessStreak = 0;
             StepMissedThisTurn = false;
             BreathsQueuedThisTurn = 0;
+            LaneCyclesThisTurn = 0;
             PlayerCountersRemaining = PlayerCounter?.UsesPerTurn ?? 0;
             EnemyCountersRemaining = EnemyCounter?.UsesPerTurn ?? 0;
             slotStartDeferred = false;

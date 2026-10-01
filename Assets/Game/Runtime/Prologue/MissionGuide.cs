@@ -19,6 +19,8 @@ namespace TurnLimbo.Runtime.Prologue
         WatchTurn,
         /// <summary>Waits for a 숨고르기 (S) to be queued; lanes and commit are locked meanwhile.</summary>
         Breathe,
+        /// <summary>Waits for a 넘기기 (Shift); lanes and commit are locked meanwhile.</summary>
+        Cycle,
         /// <summary>During the committed turn, waits for an A dodge attempt (or the next turn, so it never stalls).</summary>
         Dodge,
         /// <summary>During the committed turn, waits for a D pressure attempt (or the next turn).</summary>
@@ -97,6 +99,14 @@ namespace TurnLimbo.Runtime.Prologue
 
         /// <summary>Whether a 숨고르기 may be queued now (the mission must also allow breathing).</summary>
         public bool AllowsBreath => !IsComplete && (IsFree || Kind == MissionGuideStepKind.Breathe);
+
+        /// <summary>Whether 넘기기 may be used now (the mission must also allow it).</summary>
+        public bool AllowsCycle => !IsComplete && (IsFree || Kind == MissionGuideStepKind.Cycle);
+
+        public void NotifyCycled()
+        {
+            if (Kind == MissionGuideStepKind.Cycle) MoveNext();
+        }
 
         /// <summary>Whether a step may be attempted now (the mission must also allow it). Steps belong to their
         /// lesson beat and to free play; other beats keep the turn about what they explain.</summary>

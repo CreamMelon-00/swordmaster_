@@ -34,7 +34,9 @@ namespace TurnLimbo.Presentation
         private readonly Button breathButton;
         private readonly Text breathCount;
         private readonly RectTransform breathNote;
-        private readonly Action queueBreath;
+        private readonly Action queueBreath, cycleLanes;
+        private Button cycleButton;
+        private RectTransform cycleNote;
         private LegacyQueuedDuel displayedSession;
         private int shownBreathsRemaining = -1;
         private MissionGuide guide;
@@ -142,9 +144,10 @@ namespace TurnLimbo.Presentation
         public void FatalAttack(bool playerAttacks) => SetViewAngle(playerAttacks ? -8 : 8);
 
         public LegacyCombatHud(Transform parent, LegacyDuelArt art, Action<int> queue, Action commit, Action restart,
-            DuelPresentationSettings settings = null, Action queueBreath = null)
+            DuelPresentationSettings settings = null, Action queueBreath = null, Action cycleLanes = null)
         {
             this.art = art ?? throw new ArgumentNullException(nameof(art));
+            this.cycleLanes = cycleLanes;
             presentationSettings = settings;
             this.queueBreath = queueBreath;
             iconFor = HudIcon;
@@ -245,6 +248,20 @@ namespace TurnLimbo.Presentation
             breathNote = note.rectTransform;
             breathButton = AddButton(breathe);
             breathButton.onClick.AddListener(QueueBreathFromButton);
+            // 넘기기 mirrors 숨고르기 on the other side of the lanes.
+            var cycle = Panel("CycleButton", controls, new Vector2(-360, -4), new Vector2(144, 124), RaisedSurface);
+            Text("Label", cycle.transform, new Vector2(0, 30), new Vector2(132, 24), 18, TextAnchor.MiddleCenter).text = "넘기기";
+            var cycleCost = Text("ACT Cost", cycle.transform, new Vector2(0, 7), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
+            cycleCost.text = "ACT 0"; cycleCost.color = MutedText;
+            var cycleWhat = Text("Effect", cycle.transform, new Vector2(0, -17), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
+            cycleWhat.text = "모든 열 한 칸"; cycleWhat.color = Foreground;
+            var cycleKey = Text("KeyHint", cycle.transform, new Vector2(0, -45), new Vector2(132, 18), 18, TextAnchor.MiddleCenter);
+            cycleKey.text = "Shift"; cycleKey.color = Accent;
+            var cycleHint = Text("Cycle Note", controls, new Vector2(-360, -81), new Vector2(200, 28), 12, TextAnchor.MiddleCenter);
+            cycleHint.text = "맨 앞 기술을 쓰지 않고\n뒤로 보냄"; cycleHint.color = MutedText;
+            cycleNote = cycleHint.rectTransform;
+            cycleButton = AddButton(cycle);
+            cycleButton.onClick.AddListener(CycleFromButton);
             Image("Act_BG", controls, white, new Vector2(0, -90), new Vector2(520, 8), Track);
             actFill = Image("Act_Gauge", controls, white, new Vector2(0, -90), new Vector2(520, 8), Accent);
             Filled(actFill, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
@@ -378,8 +395,29 @@ namespace TurnLimbo.Presentation
             (displayedSession == null || displayedSession.Features.Has(CombatFeature.Breath)) &&
             (guide == null || guide.AllowsBreath);
 
+        /// <summary>넘기기 is shown when the duel allows it and the coach, if any, has reached its lesson or free play.</summary>
+        private bool CycleShown => displayedSession != null && displayedSession.Features.Has(CombatFeature.Cycle) &&
+            (guide == null || guide.AllowsCycle);
+
+        private bool CanCycle()
+            => !disposed && cycleLanes != null && lastPlanning && CycleShown && inspectedSlot < 0 &&
+                displayedSession.Phase == LegacyDuelPhase.Planning;
+
+        private void CycleFromButton()
+        {
+            // Check the authoritative session again so a stale enabled button cannot act.
+            if (!CanCycle()) return;
+            cycleLanes.Invoke();
+            ApplyInputAvailability();
+            ClearSelection(cycleButton.gameObject);
+        }
+
         private void ApplyInputAvailability()
         {
+            bool cycleShown = CycleShown;
+            cycleButton.gameObject.SetActive(cycleShown);
+            cycleNote.gameObject.SetActive(cycleShown);
+            cycleButton.interactable = CanCycle();
             bool breathShown = BreathShown;
             breathButton.gameObject.SetActive(breathShown);
             breathNote.gameObject.SetActive(breathShown);
@@ -733,7 +771,11 @@ namespace TurnLimbo.Presentation
         {
             playerExplanation.gameObject.SetActive(false);
             enemyExplanation.gameObject.SetActive(false);
+            bool wasInspecting = inspectedSlot >= 0;
             inspectedSlot = -1;
+            // The controller hides the enemy explanation after this frame's Refresh, so release the buttons that
+            // inspection held (넘기기, 숨고르기) now rather than a frame late.
+            if (wasInspecting && !disposed) ApplyInputAvailability();
             ClearConditionPreview();
             playerEffectFeedback.Clear();
             enemyEffectFeedback.Clear();

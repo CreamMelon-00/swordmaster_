@@ -25,7 +25,8 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly LegacySkill PracticeDownwardSlash = PrologueMissions.PracticeDownwardSlash;
         private static readonly LegacySkill PracticeGuard = PrologueMissions.PracticeGuard;
 
-        private const CombatFeature AfterLaneE = CombatFeature.LaneQ | CombatFeature.LaneE;
+        // 넘기기 opened with the first 서막 mission.
+        private const CombatFeature AfterLaneE = CombatFeature.LaneQ | CombatFeature.Cycle | CombatFeature.LaneE;
         private const CombatFeature AfterBreath = AfterLaneE | CombatFeature.Breath;
         private const CombatFeature AfterDodge = AfterBreath | CombatFeature.Dodge;
         private const CombatFeature AfterLaneW = AfterDodge | CombatFeature.LaneW;
@@ -48,7 +49,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기교를 지켜보세요",
                         "기술마다 효과가 붙는 조건이 다릅니다. Q나 E를 길게 누르면 설명을 볼 수 있습니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "두 열로 승리하세요",
-                        "Q와 E를 섞어 선배를 쓰러뜨리세요.", "Q/E 예약 · Space 확정 · Tab 상대 확인 · Escape 임무 포기"),
+                        "Q와 E를 섞어 선배를 쓰러뜨리세요.", "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 상대 확인 · Escape 임무 포기"),
                 },
                 AfterLaneE, CombatFeature.LaneE, 1, Chapter, "E열 기교 검술이 열렸습니다. 스테이지에서도 E열을 씁니다."),
             // 6. 숨고르기: skip a slot without ACT so a skill lands where its condition is met. Opens after stage 2.
@@ -71,7 +72,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "비운 칸 다음에 들어간 기술이 상대의 방어를 피해 들어갑니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "칸을 골라 싸우세요",
                         "숨고르기로 기술이 들어갈 칸을 맞추며 선배를 쓰러뜨리세요.",
-                        "Q/E 예약 · S 숨고르기 · Space 확정 · Escape 임무 포기"),
+                        "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · Escape 임무 포기"),
                 },
                 AfterBreath, CombatFeature.Breath, 2, Chapter, "숨고르기(S)가 열렸습니다."),
             // 7. 회피 (A): even during resolution a timely input matters. Opens after stage 3.
@@ -89,7 +90,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "흰 원이 줄어들 때 A를 누르세요.", "A 회피"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "피하며 싸우세요",
                         "예약한 기술로 공격하고, 막을 수 없는 공격은 A로 피하세요.",
-                        "Q/E 예약 · S 숨고르기 · Space 확정 · A 회피 · Escape 임무 포기"),
+                        "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · Escape"),
                 },
                 AfterDodge, CombatFeature.Dodge, 3, Chapter, "회피(A)가 열렸습니다."),
             // 8. W열 (강공): costly, powerful skills. Opens after stage 4.
@@ -109,7 +110,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "강한 기술일수록 ACT를 아껴 두었다가 넣을 자리를 고르는 것이 중요합니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "세 열로 승리하세요",
                         "세 열을 모두 써서 선배를 쓰러뜨리세요.",
-                        "Q/W/E 예약 · S 숨고르기 · Space 확정 · A 회피 · Escape 임무 포기"),
+                        "Q/W/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · Escape"),
                 },
                 AfterLaneW, CombatFeature.LaneW, 4, Chapter, "W열 강공 검술이 열렸습니다."),
             // 9. 압박 (D): press a strike at the chosen moment for extra damage. Opens after stage 5.
@@ -129,7 +130,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "흰 원이 줄어들 때 D를 누르세요.", "D 압박"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "배운 것을 모두 쓰세요",
                         "예약·숨고르기·회피·압박을 모두 써서 선배를 쓰러뜨리세요.",
-                        "Q/W/E 예약 · S 숨고르기 · Space 확정 · A 회피 · D 압박 · Escape 임무 포기"),
+                        "Q/W/E · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · D 압박"),
                 },
                 CombatFeature.All, CombatFeature.Pressure, 5, Chapter, "압박(D)이 열렸습니다. 이제 모든 기본 기능을 씁니다."),
         };

@@ -21,7 +21,9 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class MissionUnlockFlowPlayModeTests : InputTestFixture
     {
         private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
-        private const CombatFeature QAndE = CombatFeature.LaneQ | CombatFeature.LaneE;
+        /// <summary>The Q lane and 넘기기, which the 서막 opens.</summary>
+        private const CombatFeature QAndCycle = CombatFeature.LaneQ | CombatFeature.Cycle;
+        private const CombatFeature QAndE = QAndCycle | CombatFeature.LaneE;
 
         [UnityTest]
         public IEnumerator AfterTheArc_StagesFightWithOnlyQ_AndTheNextMissionWaitsForStageOne()
@@ -34,7 +36,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsInLobby, Is.True, "Mission 5 waits for stage 1, so 이어하기 resumes in the lobby.");
                 Assert.That(controller.IsInBriefing, Is.False);
                 Assert.That(controller.Prologue.IsArcComplete, Is.True);
-                Assert.That(controller.Campaign.Features, Is.EqualTo(CombatFeature.LaneQ), "Only the Q lane is open after the 서막.");
+                Assert.That(controller.Campaign.Features, Is.EqualTo(QAndCycle), "Only the Q lane and 넘기기 are open after the 서막.");
                 Assert.That(controller.Campaign.StageLimit, Is.EqualTo(1));
                 Assert.That(controller.IsNextMissionAvailable, Is.False);
                 Assert.That(controller.OpenNextMission(), Is.False);
@@ -50,8 +52,9 @@ namespace TurnLimbo.Presentation.Tests
                 // Stage 1 fights with the Q lane only: the saved W/E skills, 숨고르기 and the steps stay out.
                 Assert.That(controller.StartCampaignStage(1), Is.True);
                 LegacyQueuedDuel duel = controller.Session;
-                Assert.That(duel.Features, Is.EqualTo(CombatFeature.LaneQ));
+                Assert.That(duel.Features, Is.EqualTo(QAndCycle));
                 Assert.That(duel.GetLane(0).Count, Is.EqualTo(3));
+                Assert.That(Named(controller.Hud.Root, "CycleButton").gameObject.activeSelf, Is.True, "넘기기 came with the 서막.");
                 Assert.That(duel.GetLane(1), Is.Empty, "The W lane's equipped skills never enter the duel.");
                 Assert.That(duel.GetLane(2), Is.Empty);
                 Assert.That(Named(controller.Hud.Root, "Current Q").gameObject.activeSelf, Is.True);

@@ -183,7 +183,7 @@ namespace TurnLimbo.Presentation
             }
             arena = LegacyArenaView.Create(transform, art, presentationSettings);
             hud = new LegacyCombatHud(transform, art, lane => QueueLane(lane), CommitTurn, RestartMatch,
-                presentationSettings, () => QueueBreath());
+                presentationSettings, () => QueueBreath(), () => CycleLanes());
             stepHud = new DuelStepHud(hud.Root.transform, art, presentationSettings);
             stepAudio = new DuelStepAudio(transform);
             resistanceFeedback = new DuelResistanceFeedback(hud.Root.transform, art.UIFont);
@@ -608,6 +608,8 @@ namespace TurnLimbo.Presentation
             }
             if (keyboard.lKey.wasPressedThisFrame) hud.ToggleLog();
             if (keyboard.sKey.wasPressedThisFrame) QueueBreath();
+            // Before the lane keys, so a lane key pressed in the same frame is for the skill 넘기기 brought forward.
+            if (keyboard.leftShiftKey.wasPressedThisFrame || keyboard.rightShiftKey.wasPressedThisFrame) CycleLanes();
             ReadLaneKey(0, keyboard.qKey.isPressed, keyboard.qKey.wasPressedThisFrame, keyboard.qKey.wasReleasedThisFrame);
             ReadLaneKey(1, keyboard.wKey.isPressed, keyboard.wKey.wasPressedThisFrame, keyboard.wKey.wasReleasedThisFrame);
             ReadLaneKey(2, keyboard.eKey.isPressed, keyboard.eKey.wasPressedThisFrame, keyboard.eKey.wasReleasedThisFrame);
@@ -659,6 +661,24 @@ namespace TurnLimbo.Presentation
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             explainedSkill = null;
+            RefreshHud(0f);
+            RefreshGuide();
+            return true;
+        }
+
+        /// <summary>넘기기 (Shift): every open lane sends its front skill to the back unused. Free, planning only;
+        /// all lanes turn together, so lining skills up across lanes means choosing which ones to use first.</summary>
+        public bool CycleLanes()
+        {
+            if (!CanChoose || IsInspecting || guide != null && !guide.AllowsCycle || !session.TryCycleLanes()) return false;
+            effectsSource.pitch = 1f;
+            art.PlaySelection(effectsSource, Random.Range(0, 3));
+            // A lane key already down was pressed for the skill that just left, so its release must not queue the
+            // one that came forward. A held explanation picks up the new front on the next frame.
+            for (int lane = 0; lane < holdTimes.Length; lane++)
+                if (holdTimes[lane] > 0f) holdConsumed[lane] = true;
+            explainedSkill = null;
+            guide?.NotifyCycled();
             RefreshHud(0f);
             RefreshGuide();
             return true;
@@ -1146,7 +1166,8 @@ namespace TurnLimbo.Presentation
             }
             var result = new BattleResult(session.Outcome, true, mission.Number, mission.Title, 0, campaign.Currency,
                 session.RoundNumber, session.Player.Health, session.Enemy.Health, false, 0, victory);
-            // A lobby mission's first win announces what it opened, then where the story goes next.
+            // A first win that opened something (넘기기 for mission 1, a feature for each lobby mission) announces it,
+            // then where the story goes next.
             string unlockNotice = firstWin && !string.IsNullOrEmpty(mission.UnlockText)
                 ? mission.UnlockText + (prologue.IsComplete ? string.Empty
                     : IsNextMissionAvailable ? "\n다음 임무가 열렸습니다." : "\n다음 스테이지를 깨면 다음 임무가 열립니다.")

@@ -97,7 +97,7 @@ namespace TurnLimbo.Runtime.Prologue
         public IReadOnlyList<LegacySkill> PlayerSkills => playerSkills;
         /// <summary>Whether the 10-second planning timer runs once the coach leaves the player free.</summary>
         public bool PlanningTimer { get; }
-        /// <summary>What this mission's duel allows; the 서막 has only the Q lane.</summary>
+        /// <summary>What this mission's duel allows; the 서막 has only the Q lane, plus 넘기기 from mission 2.</summary>
         public CombatFeature Features { get; }
         /// <summary>What the first win of this mission opens for every later stage and mission.</summary>
         public CombatFeature Unlocks { get; }

@@ -1,6 +1,6 @@
 # 스토리 해금 (수련 임무)
 
-2026-09-30. 서막 네 임무를 마친 뒤에도 스토리는 로비에서 이어진다. 로비가 처음 열릴 때 쓸 수 있는 것은 서막과 같은 **Q열 하나뿐**이다. 스테이지를 하나 깰 때마다 로비에 다음 임무가 도착하고, 그 임무를 이기면 전투 기능이 하나 열린다. 챕터 이름은 `수련`이고, 임무 번호는 서막에 이어 5~9다. 기능 해금은 커리큘럼이 아니라 임무가 맡는다(사용자 결정). 커리큘럼은 지금처럼 기술만 준다(`Curriculum.md`).
+2026-09-30. 서막 네 임무를 마친 뒤에도 스토리는 로비에서 이어진다. 로비가 처음 열릴 때 쓸 수 있는 것은 서막과 같은 **Q열 하나와 넘기기(Shift)**뿐이다. 넘기기는 서막 1 임무가 연다(`LaneCycle.md`). 스테이지를 하나 깰 때마다 로비에 다음 임무가 도착하고, 그 임무를 이기면 전투 기능이 하나 열린다. 챕터 이름은 `수련`이고, 임무 번호는 서막에 이어 5~9다. 기능 해금은 커리큘럼이 아니라 임무가 맡는다(사용자 결정). 커리큘럼은 지금처럼 기술만 준다(`Curriculum.md`).
 
 ## 해금 순서와 이유
 
@@ -18,7 +18,7 @@
 
 ## 흐름
 
-1. 서막 4 임무를 이기면 로비가 열린다. Q열만 쓰고, 스테이지는 1단계만 들어갈 수 있다.
+1. 서막 4 임무를 이기면 로비가 열린다. Q열과 넘기기만 쓰고, 스테이지는 1단계만 들어갈 수 있다.
 2. 스테이지 N을 처음 클리어하면 그 스테이지를 기다리던 임무가 로비에 도착한다. 홈의 임무 배너(`수련 · 임무 5 · 기교 검술`, `새 임무가 도착했습니다.`)의 **임무 브리핑** 버튼이나, 스테이지 탭 위쪽의 **새 임무 <제목> ▶** 버튼으로 브리핑을 연다.
 3. 다음 스테이지(N+1)는 첫 클리어로 개방되지만, 그 임무를 이길 때까지 들어갈 수 없다. 스테이지 카드에는 `임무 필요`, 오른쪽 미리보기에는 `먼저 임무 '<제목>'을(를) 완료하세요`가 뜨고 도전 버튼은 비활성이다. 이미 클리어한 낮은 단계는 계속 다시 할 수 있다(커리큘럼 진행도 쌓인다).
 4. 브리핑은 `수련 · 임무 N / 9`를 보여 준다. **임무 시작**(Enter)으로 시작하고, 그 왼쪽의 **로비로 [Esc]** 버튼이나 Escape로 로비에 돌아간다. 시작 대사 → 코치 안내가 붙은 전투 → (승리 시) 종료 대사 → 결과 순서는 서막과 같다(`PrologueMissions.md`). 전투 중 Escape나 코치의 **임무 포기**는 브리핑으로 돌아간다.
@@ -36,8 +36,8 @@
 | 8 강공 검술 | 4 | W열 | Q·W·E·숨고르기·회피 | 선배 70/18 | 소개 → W(찌르기) → 확정 → 관찰 → 자유 |
 | 9 압박 | 5 | 압박(D) | 전부 | 선배 80/18 | 소개 → W(찌르기) → 확정 → 압박(D) → 자유 |
 
-- 임무 전투는 이미 연 기능에 그 임무가 가르칠 기능 하나를 더한 상태로 싸운다. 플레이어의 편성이 아니라 각 열의 시작 기술 3개를 쓴다. 적은 서막의 연습 기술(연습 베기·연습 내려치기·연습 막기)을 쓴다.
-- 코치는 새 기능을 그 기능의 단계와 마지막 자유 단계에서만 허용한다. 그 밖의 단계에서는 이미 연 숨고르기나 스텝도 막는다.
+- 임무 전투는 이미 연 기능에 그 임무가 가르칠 기능 하나를 더한 상태로 싸운다. 표의 열·기능에는 적지 않았지만 모든 수련 임무에서 넘기기를 쓴다. 플레이어의 편성이 아니라 각 열의 시작 기술 3개를 쓴다. 적은 서막의 연습 기술(연습 베기·연습 내려치기·연습 막기)을 쓴다.
+- 코치는 새 기능을 그 기능의 단계와 마지막 자유 단계에서만 허용한다. 그 밖의 단계에서는 이미 연 숨고르기·넘기기·스텝도 막는다.
   - 6 임무의 숨고르기 단계는 S만 받는다(예약과 확정은 막힌다). 숨고르기를 넣으면 다음 단계로 넘어간다.
   - 7 임무의 회피 단계와 9 임무의 압박 단계는 확정한 턴 동안 A(또는 D)만 받는다. 한 번 시도하면(성패와 관계없이) 넘어가고, 누르지 않아도 다음 턴이 시작되면 넘어가서 멈추지 않는다.
 - 모든 수련 임무는 코치의 자유 단계부터 10초 제한이 흐른다.
@@ -51,7 +51,7 @@
 
 - **스테이지 전투**
   - 닫힌 열의 기술은 전투에 들어가지 않는다. 그 열의 카드와 다음 칸을 그리지 않고 키 입력도 무시한다.
-  - 숨고르기가 닫혀 있으면 버튼과 안내를 숨기고 S도 무시한다.
+  - 숨고르기가 닫혀 있으면 버튼과 안내를 숨기고 S도 무시한다. 넘기기가 닫혀 있으면(서막 1 임무) 넘기기 버튼을 숨기고 Shift도 무시한다.
   - 닫힌 스텝은 흰 원 예고를 그리지 않는다. A/D를 눌러도 시도로 세지 않으므로 성공 구간이 좁아지거나 빗나감 대가가 생기지 않는다.
   - 스텝이 하나도 열리지 않았으면 기술 앞의 0.24초 예고도 건너뛴다.
   - 하단 안내는 열린 스텝만 적는다: `A 회피 · D 압박` / `A 회피` / `D 압박` / 없음.
@@ -67,7 +67,7 @@
 
 해금과 스테이지 제한은 타이틀의 **이어하기**나 **새 게임**으로 시작했을 때만 적용된다(`DuelPrototypeController.StoryProgressionEnabled`). 자동 저장과 같은 규칙이다. `ShowTitle`로 타이틀에 돌아오면 다시 꺼진다.
 
-테스트나 코드에서 `StartNewGame`·`RestartJourney`·`RestartMatch` 같은 API를 직접 부르면 스테이지 전투는 모든 열·숨고르기·스텝이 열려 있고 스테이지 제한도 없다(`CampaignRun.ClearProgression`). 기존 테스트와 직접 API 사용이 그대로 동작하게 하려는 것이다. 이 규칙은 스테이지 쪽에만 해당한다. 임무 자체(홈 배너, 브리핑, 임무 전투의 열·기능)는 어느 경우든 스토리 진행을 따른다.
+테스트나 코드에서 `StartNewGame`·`RestartJourney`·`RestartMatch` 같은 API를 직접 부르면 스테이지 전투는 모든 열·숨고르기·넘기기·스텝이 열려 있고 스테이지 제한도 없다(`CampaignRun.ClearProgression`). 기존 테스트와 직접 API 사용이 그대로 동작하게 하려는 것이다. 이 규칙은 스테이지 쪽에만 해당한다. 임무 자체(홈 배너, 브리핑, 임무 전투의 열·기능)는 어느 경우든 스토리 진행을 따른다.
 
 홈의 여정 초기화(`RestartJourney`)는 스토리 진행을 지우지 않는다. 연 기능은 그대로이고 스테이지만 처음으로 돌아가므로, 다음 임무가 기다리는 스테이지는 다시 깨야 한다.
 
@@ -84,24 +84,24 @@
 ## 알려진 한계
 
 - 결과 창에서 다음 스테이지가 임무를 기다리면 **다음 스테이지** 버튼을 숨기고, 안내 둘째 줄에 `새 임무 '<이름>' 도착 · 로비에서 브리핑을 여세요.`를 쓴다.
-- 수련 임무의 첫 승리 안내는 연 기능 다음 줄에, 다음 임무가 스테이지를 기다리면 `다음 스테이지를 깨면 다음 임무가 열립니다.`, 이미 할 수 있으면 `다음 임무가 열렸습니다.`를 붙인다. 마지막 임무 9 뒤에는 아무것도 붙이지 않는다.
+- 수련 임무(와 넘기기를 여는 서막 1 임무)의 첫 승리 안내는 연 기능 다음 줄에, 다음 임무가 스테이지를 기다리면 `다음 스테이지를 깨면 다음 임무가 열립니다.`, 이미 할 수 있으면 `다음 임무가 열렸습니다.`를 붙인다. 마지막 임무 9 뒤에는 아무것도 붙이지 않는다.
 - 수련 임무 결과의 커리큘럼 칸은 `반영 안 됨` / `임무는 커리큘럼에 반영되지 않습니다.`다(서막은 `서막 이후`).
 - 스텝 수업(회피·압박) 단계는 성공 여부와 관계없이 한 번 시도하면 넘어간다. 시도하지 않아도 다음 턴에 넘어간다.
 - Unity를 실행할 수 없는 환경에서 만들었다. 실제 화면(배너 위치, 잠긴 카드의 색)과 PlayMode 실행은 확인하지 않았다.
 
 ## 코드
 
-- Runtime `LegacyCombat/CombatFeature`: `[Flags]` `LaneQ`·`LaneW`·`LaneE`·`Breath`·`Dodge`·`Pressure`·`All`. 도우미 `HasLane`, `Has`, `AllowsStep`, `AllowsAnyStep`, `LaneCount`.
-- Runtime `LegacyQueuedDuel`: 마지막 생성자 인자 `features`(기본 `All`)와 `Features`. 닫힌 열의 기술은 전투에 넣지 않는다. `TryQueueLane`/`TryQueueBreath`는 닫힌 기능을 거부한다. `TryStep`은 닫힌 스텝을 시도로 세지 않고 거부한다.
+- Runtime `LegacyCombat/CombatFeature`: `[Flags]` `LaneQ`·`LaneW`·`LaneE`·`Breath`·`Dodge`·`Pressure`·`Cycle`(넘기기, `LaneCycle.md`)·`All`. 도우미 `HasLane`, `Has`, `AllowsStep`, `AllowsAnyStep`, `LaneCount`.
+- Runtime `LegacyQueuedDuel`: 마지막 생성자 인자 `features`(기본 `All`)와 `Features`. 닫힌 열의 기술은 전투에 넣지 않는다. `TryQueueLane`/`TryQueueBreath`/`TryCycleLanes`는 닫힌 기능을 거부한다. `TryStep`은 닫힌 스텝을 시도로 세지 않고 거부한다.
 - Runtime `Prologue/LobbyMissions`: 수련 임무 5~9의 정적 데이터(배경·목표·적·수치·열·코치 순서·필요 스테이지·해금·안내 문구). `StoryMissions`: 서막과 수련을 이은 전체 사슬. 번호가 곧 위치다.
 - Runtime `Prologue/PrologueMission`: `Features`, `Unlocks`, `RequiredClearedStage`, `Chapter`, `UnlockText`, `EnemyAppearance`. `LaneCount`·`StepsEnabled`·`BreathEnabled`는 `Features`에서 읽는다.
 - Runtime `Prologue/PrologueRun`: 기본 사슬은 `StoryMissions`(9개).
   - `ArcMissionCount`: 필요 스테이지가 없는 앞쪽 임무 수(서막 4).
   - `IsArcComplete`(로비가 열림), `IsComplete`(9개 모두).
-  - `UnlockedFeatures`: Q열 + 이긴 임무들의 `Unlocks`.
+  - `UnlockedFeatures`: Q열 + 이긴 임무들의 `Unlocks`(1 임무의 넘기기부터).
   - `CanPlayCurrent(isStageCleared)`: 다음 임무가 있고 그 스테이지를 깼는지.
   - `StageLimit`: 서막 동안 0, 그다음은 다음 임무가 기다리는 스테이지, 모두 이기면 제한 없음.
-- Runtime `Prologue/MissionGuide`: 새 단계 `Breathe`·`Dodge`·`Pressure`. `AllowsBreath`, `AllowsStep(action)`, `NotifyBreathed`, `NotifyStepped`. `Dodge`/`Pressure`는 다음 턴이 시작돼도 넘어간다.
+- Runtime `Prologue/MissionGuide`: 새 단계 `Breathe`·`Dodge`·`Pressure`·`Cycle`. `AllowsBreath`, `AllowsCycle`, `AllowsStep(action)`, `NotifyBreathed`, `NotifyCycled`, `NotifyStepped`. `Dodge`/`Pressure`는 다음 턴이 시작돼도 넘어간다.
 - Runtime `Campaign/CampaignRun`: `Features`(기본 `All`), `StageLimit`(기본 제한 없음), `SetProgression`/`ClearProgression`(`Reset`이 지우지 않는다), `IsLaneOpen`, `IsStageWaitingForMission`. 스테이지 입장은 `StageLimit`을 보고, `CreateDuel`은 `Features`를 넘기며, 닫힌 열의 편성 변경은 거부한다.
 - Presentation `DuelPrototypeController`
   - `StoryProgressionEnabled`, `IsNextMissionAvailable`.
@@ -113,7 +113,7 @@
   - `CampaignLobbyHud.SetNextMission`: 홈 배너(`Home Mission Border`/`Banner`/`Title`/`State`/`Open`), 스테이지 탭 버튼 `Stages Open Mission`, 카드의 `임무 필요`.
   - `MissionBriefingHud`: 챕터 표시와 `Mission Back` 버튼. 버튼은 뒤로 가기 콜백을 준 경우에만 만들고, 서막 뒤의 브리핑에서만 보인다.
   - `BattleResultHud.Show(result, missionExitsToLobby, storyNotice)`.
-  - `LegacyCombatHud.SetMissionMode(enabled, timed, breath)`: 숨고르기 버튼은 전투가 허용하고, 임무라면 그 임무가 열었고, 코치가 허용할 때만 보인다.
+  - `LegacyCombatHud.SetMissionMode(enabled, timed, breath)`: 숨고르기 버튼은 전투가 허용하고, 임무라면 그 임무가 열었고, 코치가 허용할 때만 보인다. 넘기기 버튼은 전투가 허용하고 코치가 허용할 때 보인다.
   - `DuelStepHud.Refresh(..., features)`와 `KeyHintFor`.
   - `CampaignLoadoutHud`(`임무로 열림`, `W 잠김`), `CampaignCurriculumHud`(닫힌 열 안내).
 - 테스트: EditMode `StoryUnlockTests`, PlayMode `MissionUnlockFlowPlayModeTests`.
