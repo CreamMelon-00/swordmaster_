@@ -9,7 +9,7 @@ namespace TurnLimbo.Runtime.Prologue
     /// The next stage stays closed until the mission is won. Stats, enemies and copy are placeholders.</summary>
     public static class LobbyMissions
     {
-        public const string Chapter = "수련";
+        public const string Chapter = "가르침";
         private const string SchoolGate = "LegacyDuel/Background/pa_background_-_school_in_game";
         private const string Forest = "ForestArena/forest-far";
         private const string Continue = "계속 버튼 · Enter";
@@ -35,8 +35,8 @@ namespace TurnLimbo.Runtime.Prologue
         {
             // 5. E열 (기교): conditional skills that shake the opponent or help the player. Opens after stage 1.
             new PrologueMission(5, "기교 검술", SchoolGate,
-                new[] { "E열 기교 검술을 예약해 상대를 흔든다", "선배를 쓰러뜨린다", "완료하면 E열이 열린다" },
-                new[] { new MissionEnemy("선배", PrologueMissions.EnemySilhouette) },
+                new[] { "기교 검술로 상대를 흔든다", "떠돌이 기사를 쓰러뜨린다", "완료하면 E열이 열린다" },
+                new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 50, 15, new[] { PracticeSlash, PracticeGuard, PracticeDownwardSlash }, new[] { 3, 2 },
                 Concat(LaneQ, LaneE), true, new[]
                 {
@@ -49,13 +49,13 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기교를 지켜보세요",
                         "기술마다 효과가 붙는 조건이 다릅니다. Q나 E를 길게 누르면 설명을 볼 수 있습니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "두 열로 승리하세요",
-                        "Q와 E를 섞어 선배를 쓰러뜨리세요.", "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 상대 확인 · Escape 임무 포기"),
+                        "Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요.", "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 상대 확인 · Escape 임무 포기"),
                 },
                 AfterLaneE, CombatFeature.LaneE, 1, Chapter, "E열 기교 검술이 열렸습니다. 스테이지에서도 E열을 씁니다."),
             // 6. 숨고르기: skip a slot without ACT so a skill lands where its condition is met. Opens after stage 2.
             new PrologueMission(6, "숨 고르기", Forest,
-                new[] { "숨고르기로 상대의 방어를 흘려보낸다", "선배를 쓰러뜨린다", "완료하면 숨고르기가 열린다" },
-                new[] { new MissionEnemy("선배", PrologueMissions.EnemySilhouette) },
+                new[] { "숨을 골라 상대의 방어를 흘려보낸다", "떠돌이 기사를 쓰러뜨린다", "완료하면 숨고르기가 열린다" },
+                new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 55, 16, new[] { PracticeGuard, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 3 },
                 Concat(LaneQ, LaneE), true, new[]
                 {
@@ -71,14 +71,14 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "칸을 옮겼습니다",
                         "비운 칸 다음에 들어간 기술이 상대의 방어를 피해 들어갑니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "칸을 골라 싸우세요",
-                        "숨고르기로 기술이 들어갈 칸을 맞추며 선배를 쓰러뜨리세요.",
+                        "숨고르기로 기술이 들어갈 칸을 맞추며 떠돌이 기사를 쓰러뜨리세요.",
                         "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · Escape 임무 포기"),
                 },
                 AfterBreath, CombatFeature.Breath, 2, Chapter, "숨고르기(S)가 열렸습니다."),
             // 7. 회피 (A): even during resolution a timely input matters. Opens after stage 3.
-            new PrologueMission(7, "회피", Forest,
-                new[] { "A로 상대의 공격을 피한다", "선배를 쓰러뜨린다", "완료하면 회피가 열린다" },
-                new[] { new MissionEnemy("선배", PrologueMissions.EnemySilhouette) },
+            new PrologueMission(7, "피하는 법", Forest,
+                new[] { "상대의 공격을 피한다", "떠돌이 기사를 쓰러뜨린다", "완료하면 회피가 열린다" },
+                new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 55, 16, new[] { PracticeDownwardSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 3, 2 },
                 Concat(LaneQ, LaneE), true, new[]
                 {
@@ -95,8 +95,8 @@ namespace TurnLimbo.Runtime.Prologue
                 AfterDodge, CombatFeature.Dodge, 3, Chapter, "회피(A)가 열렸습니다."),
             // 8. W열 (강공): costly, powerful skills. Opens after stage 4.
             new PrologueMission(8, "강공 검술", SchoolGate,
-                new[] { "W열 강공 검술로 큰 피해를 준다", "선배를 쓰러뜨린다", "완료하면 W열이 열린다" },
-                new[] { new MissionEnemy("선배", PrologueMissions.EnemySilhouette) },
+                new[] { "강공 검술로 큰 피해를 준다", "떠돌이 기사를 쓰러뜨린다", "완료하면 W열이 열린다" },
+                new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 70, 18, new[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard, PracticeSlash }, new[] { 3, 3, 2 },
                 Concat(Concat(LaneQ, LaneW), LaneE), true, new[]
                 {
@@ -109,14 +109,14 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "강공을 지켜보세요",
                         "강한 기술일수록 ACT를 아껴 두었다가 넣을 자리를 고르는 것이 중요합니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "세 열로 승리하세요",
-                        "세 열을 모두 써서 선배를 쓰러뜨리세요.",
+                        "세 열을 모두 써서 떠돌이 기사를 쓰러뜨리세요.",
                         "Q/W/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · Escape"),
                 },
                 AfterLaneW, CombatFeature.LaneW, 4, Chapter, "W열 강공 검술이 열렸습니다."),
             // 9. 압박 (D): press a strike at the chosen moment for extra damage. Opens after stage 5.
-            new PrologueMission(9, "압박", Forest,
-                new[] { "D로 내 공격을 밀어붙여 큰 피해를 넣는다", "선배를 쓰러뜨린다", "완료하면 압박이 열린다" },
-                new[] { new MissionEnemy("선배", PrologueMissions.EnemySilhouette) },
+            new PrologueMission(9, "몰아붙이기", Forest,
+                new[] { "내 공격을 밀어붙여 큰 피해를 넣는다", "떠돌이 기사를 쓰러뜨린다", "완료하면 압박이 열린다" },
+                new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 80, 18, new[] { PracticeGuard, PracticeSlash, PracticeDownwardSlash, PracticeGuard }, new[] { 3, 3, 2 },
                 Concat(Concat(LaneQ, LaneW), LaneE), true, new[]
                 {
@@ -129,7 +129,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Pressure, "D로 압박하세요",
                         "흰 원이 줄어들 때 D를 누르세요.", "D 압박"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "배운 것을 모두 쓰세요",
-                        "예약·숨고르기·회피·압박을 모두 써서 선배를 쓰러뜨리세요.",
+                        "예약·숨고르기·회피·압박을 모두 써서 떠돌이 기사를 쓰러뜨리세요.",
                         "Q/W/E · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · D 압박"),
                 },
                 CombatFeature.All, CombatFeature.Pressure, 5, Chapter, "압박(D)이 열렸습니다. 이제 모든 기본 기능을 씁니다."),

@@ -82,7 +82,7 @@ namespace TurnLimbo.Runtime.Prologue
             UnlockText = unlockText ?? string.Empty;
         }
 
-        public const string DefaultChapter = "서막";
+        public const string DefaultChapter = "깨어남";
 
         public int Number { get; }
         public string Title { get; }

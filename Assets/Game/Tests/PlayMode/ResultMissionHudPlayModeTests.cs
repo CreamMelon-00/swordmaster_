@@ -88,11 +88,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("모두 완료"));
                 Assert.That(Label(hud.Root, "Result Curriculum Detail").text, Does.Contain("초기화").And.Not.Contain("고르면"),
                     "With nothing left to choose the result does not ask for a choice.");
-                hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, true, 2, "맞서는 검", 0, 87, 4, 70, 0, false, 0, true));
+                hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, true, 2, "인사는 칼로", 0, 87, 4, 70, 0, false, 0, true));
                 Assert.That(Label(hud.Root, "Result Heading").text, Is.EqualTo("임무 완료"));
-                Assert.That(Label(hud.Root, "Result Stage").text, Is.EqualTo("서막  ·  임무 02  ·  맞서는 검"));
-                Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("서막 이후"));
-                Assert.That(Label(hud.Root, "Result Curriculum Detail").text, Does.Contain("서막"));
+                Assert.That(Label(hud.Root, "Result Stage").text, Is.EqualTo("깨어남  ·  임무 02  ·  인사는 칼로"));
+                Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("깨어남 이후"));
+                Assert.That(Label(hud.Root, "Result Curriculum Detail").text, Does.Contain("깨어남"));
                 Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("다음 임무").And.Not.Contain("개방!"));
                 Assert.That(Caption(hud.Root, "Result Retry"), Is.EqualTo("재도전"));
                 Assert.That(Caption(hud.Root, "Result Next Stage"), Is.EqualTo("다음 임무"));
@@ -240,7 +240,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.IsVisible, Is.True);
                 Assert.That(hud.Mission, Is.SameAs(mission));
                 Assert.That(hud.Root.GetComponent<Canvas>().sortingOrder, Is.EqualTo(MissionBriefingHud.SortingOrder));
-                Assert.That(Label(hud.Root, "Briefing Chapter").text, Is.EqualTo("서막  ·  임무 2 / 4"));
+                Assert.That(Label(hud.Root, "Briefing Chapter").text, Is.EqualTo("깨어남  ·  임무 2 / 4"));
                 Assert.That(Label(hud.Root, "Briefing Title").text, Is.EqualTo(mission.Title));
                 foreach (string objective in mission.Objectives)
                     Assert.That(Label(hud.Root, "Objectives Text").text, Does.Contain(objective));

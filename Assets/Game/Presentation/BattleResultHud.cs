@@ -155,10 +155,10 @@ namespace TurnLimbo.Presentation
                 return !result.Victory
                     ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 로비로 돌아갈 수 있습니다."
                         : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
-                    : result.StageNumber == PrologueMissions.Count ? "서막의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
+                    : result.StageNumber == PrologueMissions.Count ? "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
                     : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n여정을 계속하면 로비로 돌아갑니다."
                         : "임무를 완료했습니다.\n다음 임무로 넘어갈 수 있습니다."
-                    : toLobby ? "서막은 이미 마쳤습니다.\n여정을 계속하면 로비로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
+                    : toLobby ? "「깨어남」은 이미 마쳤습니다.\n여정을 계속하면 로비로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
             if (!result.Victory)
                 return result.Outcome == DuelMatchOutcome.Draw ? "승부가 나지 않았습니다. 재도전하거나 기술 편성을 바꿔보세요."
                     : "로비에서 편성을 바꾸거나 다시 도전해보세요.";
@@ -174,9 +174,9 @@ namespace TurnLimbo.Presentation
             if (result.IsMission)
             {
                 bool prologue = result.StageNumber <= PrologueMissions.Count;
-                curriculum.text = prologue ? "서막 이후" : "반영 안 됨";
+                curriculum.text = prologue ? "깨어남 이후" : "반영 안 됨";
                 curriculum.color = Muted;
-                curriculumDetail.text = prologue ? "서막 임무는 커리큘럼에 반영되지 않습니다." : "임무는 커리큘럼에 반영되지 않습니다.";
+                curriculumDetail.text = prologue ? "「깨어남」의 임무는 커리큘럼에 반영되지 않습니다." : "임무는 커리큘럼에 반영되지 않습니다.";
                 return;
             }
             if (completed != null)

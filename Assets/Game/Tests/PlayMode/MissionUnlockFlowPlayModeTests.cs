@@ -45,7 +45,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.LobbyHud.IsNextMissionAvailable, Is.False);
                 Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home));
                 GameObject lobby = controller.LobbyHud.Root;
-                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("수련  ·  임무 5  ·  기교 검술"));
+                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("가르침  ·  임무 5  ·  기교 검술"));
                 Assert.That(ActiveLabel(lobby, "Home Mission State").text, Does.Contain("스테이지 01을 클리어하면 열립니다"));
                 Assert.That(ActiveButton(lobby, "Home Mission Open").interactable, Is.False, "The banner stays locked.");
 
@@ -115,7 +115,7 @@ namespace TurnLimbo.Presentation.Tests
                 openMission.onClick.Invoke();
                 Assert.That(controller.IsInBriefing, Is.True, "The Stages tab opens the waiting mission's briefing.");
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(5));
-                Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("수련  ·  임무 5 / 9"));
+                Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("가르침  ·  임무 5 / 9"));
                 Assert.That(controller.BriefingHud.BackButton.gameObject.activeSelf, Is.True);
                 Assert.That(controller.LeaveBriefing(), Is.True);
                 Assert.That(controller.IsInLobby, Is.True);
@@ -133,7 +133,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.ContinueFrom(PrologueMissions.Count, 1);
                 Assert.That(controller.IsInBriefing, Is.True, "With stage 1 cleared, 이어하기 resumes at mission 5's briefing.");
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(5));
-                Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("수련  ·  임무 5 / 9"));
+                Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("가르침  ·  임무 5 / 9"));
                 Assert.That(Label(controller.BriefingHud.Root, "Briefing Title").text, Is.EqualTo("기교 검술"));
                 Button back = controller.BriefingHud.BackButton;
                 Assert.That(back, Is.Not.Null);
@@ -187,7 +187,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Features, Is.EqualTo(QAndE), "The first win opens the E lane for stages.");
                 Assert.That(controller.Campaign.StageLimit, Is.EqualTo(2), "…and stage 2, where mission 6 waits.");
                 Assert.That(controller.IsNextMissionAvailable, Is.False);
-                Assert.That(Label(controller.ResultHud.Root, "Result Stage").text, Is.EqualTo("수련  ·  임무 05  ·  기교 검술"));
+                Assert.That(Label(controller.ResultHud.Root, "Result Stage").text, Is.EqualTo("가르침  ·  임무 05  ·  기교 검술"));
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
                     Does.Contain(StoryMissions.Get(5).UnlockText).And.Contain("다음 스테이지를 깨면 다음 임무가 열립니다"));
                 Button next = FindButton(controller.ResultHud.Root, "Result Next Stage");
@@ -236,7 +236,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.ContinueFrom(PrologueMissions.Count + 1, 2);
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(6));
-                Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("수련  ·  임무 6 / 9"));
+                Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("가르침  ·  임무 6 / 9"));
                 Assert.That(controller.Campaign.Features, Is.EqualTo(QAndE));
                 scope.StartBriefedMission();
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(6));
@@ -331,7 +331,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Features, Is.EqualTo(CombatFeature.LaneQ), "A new story starts with the Q lane.");
                 Assert.That(controller.Campaign.StageLimit, Is.Zero, "No stage is open during the 서막.");
                 Assert.That(controller.IsInBriefing, Is.True);
-                Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("서막  ·  임무 1 / 4"));
+                Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("깨어남  ·  임무 1 / 4"));
                 Assert.That(controller.BriefingHud.BackButton.gameObject.activeSelf, Is.False, "The 서막 has no way back.");
                 Assert.That(controller.LeaveBriefing(), Is.False);
                 Assert.That(controller.IsInBriefing, Is.True);

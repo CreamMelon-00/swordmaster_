@@ -37,13 +37,13 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly PrologueMission[] missions =
         {
             // 1. The dummy never attacks: mashing Q wins in two turns and the hits land on the body.
-            new PrologueMission(1, "첫 타격", ClubRoom,
+            new PrologueMission(1, "처음 쥔 검", ClubRoom,
                 new[] { "허수아비를 쓰러뜨린다" },
                 new[] { new MissionEnemy("허수아비", DummySilhouette, EnemyAppearance.TrainingDummy) },
                 24, 10, new[] { LegacyCommonActions.Breathe }, new[] { 1 },
                 new[] { Slash, SharpSlash }, false, new[]
                 {
-                    new MissionGuideBeat(MissionGuideStepKind.Info, "첫 타격",
+                    new MissionGuideBeat(MissionGuideStepKind.Info, "처음 쥔 검",
                         "기술은 바로 쓰지 않고 먼저 순서대로 예약합니다. 이번 상대는 반격하지 않으니 마음껏 베어 보세요.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "Q로 공격을 예약하세요",
                         "Q를 짧게 누르거나 카드를 클릭하면 베기가 ACT 1을 쓰고 첫 순서에 들어갑니다.", QueueOnce, lane: 0),
@@ -57,9 +57,9 @@ namespace TurnLimbo.Runtime.Prologue
                         "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", "Q 예약 · Space 확정 · Escape 임무 포기"),
                 }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다."),
             // 2. The enemy attacks: clashes trade resistance, the break doubles HP damage, ACT recovers each turn.
-            new PrologueMission(2, "맞서는 검", SchoolGate,
-                new[] { "공격끼리 맞붙어 상대의 저항을 무너뜨린다", "신입생을 쓰러뜨린다" },
-                new[] { new MissionEnemy("신입생", EnemySilhouette) },
+            new PrologueMission(2, "인사는 칼로", SchoolGate,
+                new[] { "맞부딪쳐 상대의 저항을 무너뜨린다", "떠돌이 기사를 쓰러뜨린다" },
+                new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
                 36, 12, new[] { PracticeSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 1 },
                 new[] { Slash, SharpSlash }, false, new[]
                 {
@@ -86,9 +86,9 @@ namespace TurnLimbo.Runtime.Prologue
                         "필요한 기술을 넘겨 가며 저항이 무너진 상대에게 공격을 몰아 넣으세요.", FreeKeys),
                 }, features: QWithCycle),
             // 3. The enemy also guards: defence reduces the same slot's damage; 막기 against a Hit-property attack refunds ACT.
-            new PrologueMission(3, "막아내기", Forest,
-                new[] { "상대의 내려치기를 막기로 받아낸다", "신입생을 쓰러뜨린다" },
-                new[] { new MissionEnemy("신입생", EnemySilhouette) },
+            new PrologueMission(3, "받아내는 법", Forest,
+                new[] { "상대의 내려치기를 막기로 받아낸다", "떠돌이 기사를 쓰러뜨린다" },
+                new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
                 40, 15, new[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard }, new[] { 3, 2 },
                 new[] { Slash, Guard, SharpSlash }, false, new[]
                 {
@@ -109,16 +109,16 @@ namespace TurnLimbo.Runtime.Prologue
                         "공격과 방어를 섞어 상대를 쓰러뜨리세요.", FreeKeys),
                 }, features: QWithCycle),
             // 4. No new rule, but the planning timer starts: the arc's first real duel.
-            new PrologueMission(4, "마지막 결투", Forest,
-                new[] { "제한 시간 안에 기술을 예약한다", "선배를 쓰러뜨린다" },
-                new[] { new MissionEnemy("선배", EnemySilhouette) },
+            new PrologueMission(4, "떠돌이 기사", Forest,
+                new[] { "제한 시간 안에 기술을 예약한다", "떠돌이 기사를 쓰러뜨린다" },
+                new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
                 55, 15, new[] { Slash, LegacyInitialSkills.All[4], Guard, SharpSlash }, new[] { 2, 2, 3 },
                 new[] { Slash, Guard, SharpSlash }, true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "이제 제한 시간이 흐릅니다",
                         "지금부터는 턴마다 10초 안에 예약을 마쳐야 합니다. 시간이 다 되면 예약한 만큼 자동으로 확정됩니다.", Continue),
-                    new MissionGuideBeat(MissionGuideStepKind.Free, "마지막 결투",
-                        "배운 것을 모두 써서 선배를 꺾으세요.", FreeKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.Free, "떠돌이 기사",
+                        "배운 것을 모두 써서 떠돌이 기사를 꺾으세요.", FreeKeys),
                 }, features: QWithCycle),
         };
 

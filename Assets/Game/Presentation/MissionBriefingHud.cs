@@ -12,7 +12,7 @@ namespace TurnLimbo.Presentation
     public sealed class MissionBriefingHud : IDisposable
     {
         public const int SortingOrder = 250;
-        public const string ChapterName = "서막";
+        public const string ChapterName = PrologueMission.DefaultChapter;
         private static readonly Color Accent = DuelVisualTheme.Accent;
         private static readonly Color Foreground = DuelVisualTheme.Foreground;
         private static readonly Color Muted = DuelVisualTheme.Muted;

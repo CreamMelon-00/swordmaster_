@@ -136,7 +136,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.LobbyHud.IsVisible, Is.False);
                 Assert.That(controller.Hud.Root.activeSelf, Is.False);
                 Assert.That(controller.Prologue.ClearedCount, Is.Zero);
-                Assert.That(Label(controller.BriefingHud.Root, "Briefing Title").text, Is.EqualTo("첫 타격"));
+                Assert.That(Label(controller.BriefingHud.Root, "Briefing Title").text, Is.EqualTo("처음 쥔 검"));
                 Assert.That(Named(controller.BriefingHud.Root, "Mission Start").GetComponent<Button>(), Is.Not.Null);
                 Assert.That(controller.BriefingHud.BackButton.gameObject.activeSelf, Is.False,
                     "A 서막 briefing has no way back to the lobby.");
@@ -167,7 +167,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Named(controller.Hud.Root, "Current Q").gameObject.activeSelf, Is.True);
                 Assert.That(Named(controller.Hud.Root, "Current W").gameObject.activeSelf, Is.False, "Only the Q lane is open.");
                 Assert.That(Named(controller.Hud.Root, "Current E").gameObject.activeSelf, Is.False);
-                Assert.That(Label(controller.Hud.Root, "Stage Label").text, Is.EqualTo("임무 01 / 04  ·  첫 타격"));
+                Assert.That(Label(controller.Hud.Root, "Stage Label").text, Is.EqualTo("임무 01 / 04  ·  처음 쥔 검"));
 
                 scope.Advance(100f);
                 Assert.That(controller.CanChoose, Is.True);
@@ -213,7 +213,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.CompletedCurriculumNode, Is.Null);
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
                     Is.EqualTo("넘기기(Shift)가 열렸습니다.\n다음 임무가 열렸습니다."), "The first win announces 넘기기.");
-                Assert.That(Label(controller.ResultHud.Root, "Result Curriculum").text, Is.EqualTo("서막 이후"),
+                Assert.That(Label(controller.ResultHud.Root, "Result Curriculum").text, Is.EqualTo("깨어남 이후"),
                     "Missions never count toward the curriculum.");
                 Assert.That(CampaignFingerprint(controller.Campaign), Is.EqualTo(campaignBefore));
 

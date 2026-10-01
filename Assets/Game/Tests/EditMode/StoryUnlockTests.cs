@@ -24,7 +24,7 @@ namespace TurnLimbo.Core.Tests
             foreach (PrologueMission mission in PrologueMissions.All)
             {
                 Assert.That(mission.RequiredClearedStage, Is.Zero, mission.Title);
-                Assert.That(mission.Chapter, Is.EqualTo("서막"));
+                Assert.That(mission.Chapter, Is.EqualTo("깨어남"));
                 // 넘기기 opens with the first mission's win and is used from the second mission on.
                 Assert.That(mission.Unlocks, Is.EqualTo(mission.Number == 1 ? CombatFeature.Cycle : CombatFeature.None), mission.Title);
                 Assert.That(mission.Features, Is.EqualTo(mission.Number == 1 ? CombatFeature.LaneQ
