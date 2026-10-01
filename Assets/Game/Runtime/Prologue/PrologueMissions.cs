@@ -5,10 +5,13 @@ using TurnLimbo.Runtime.LegacyCombat;
 namespace TurnLimbo.Runtime.Prologue
 {
     /// <summary>The opening arc before the lobby opens (like StarCraft II's Mar Sara missions): one short,
-    /// linear mission per basic rule. Titles, stats and copy are placeholders; the dialogues are stubs.</summary>
+    /// linear mission per basic rule. Titles, stats and copy are placeholders; the dialogues are stubs.
+    /// The missions played from the lobby afterwards are <see cref="LobbyMissions"/>; <see cref="StoryMissions"/>
+    /// is the whole chain.</summary>
     public static class PrologueMissions
     {
         public const string EnemySilhouette = "EnemyStudent/Animations/idle/frame-01";
+        public const string DummySilhouette = "TrainingDummy/Animations/idle/frame-01";
         private const string ClubRoom = "LobbyRoom/room";
         private const string SchoolGate = "LegacyDuel/Background/pa_background_-_school_in_game";
         private const string Forest = "ForestArena/forest-far";
@@ -33,8 +36,8 @@ namespace TurnLimbo.Runtime.Prologue
         {
             // 1. The dummy never attacks: mashing Q wins in two turns and the hits land on the body.
             new PrologueMission(1, "첫 타격", ClubRoom,
-                new[] { "허수아비 학생을 쓰러뜨린다" },
-                new[] { new MissionEnemy("허수아비 학생", EnemySilhouette) },
+                new[] { "허수아비를 쓰러뜨린다" },
+                new[] { new MissionEnemy("허수아비", DummySilhouette, EnemyAppearance.TrainingDummy) },
                 24, 10, new[] { LegacyCommonActions.Breathe }, new[] { 1 },
                 new[] { Slash, SharpSlash }, false, new[]
                 {

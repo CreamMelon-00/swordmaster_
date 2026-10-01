@@ -42,10 +42,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, int randomSeed = 1,
-            LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null)
+            LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
+            CombatFeature features = CombatFeature.All)
         {
             PlayerCounter = playerCounter;
             EnemyCounter = enemyCounter;
+            if (!features.HasLane(0) && !features.HasLane(1) && !features.HasLane(2))
+                throw new ArgumentException("A duel needs at least one open lane.", nameof(features));
+            Features = features;
             if (playerHealth <= 0 || enemyHealth <= 0 || playerResistance < 0 || enemyResistance < 0)
                 throw new ArgumentOutOfRangeException(nameof(playerHealth));
             initialPlayerSkills = CopySkills(playerSkills, nameof(playerSkills));
@@ -99,6 +103,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool IsCurrentSlotResolved => CurrentSlot != null && CurrentSlot.IsResolved;
         public LegacyCounter PlayerCounter { get; }
         public LegacyCounter EnemyCounter { get; }
+        /// <summary>What this duel allows: skills of a closed lane never reach it, and closed actions are refused.</summary>
+        public CombatFeature Features { get; }
         public int PlayerCountersRemaining { get; private set; }
         public int EnemyCountersRemaining { get; private set; }
 
@@ -183,7 +189,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public bool TryQueueLane(int laneIndex)
         {
-            if (laneIndex < 0 || laneIndex >= lanes.Length) return false;
+            if (laneIndex < 0 || laneIndex >= lanes.Length || !Features.HasLane(laneIndex)) return false;
             List<LegacySkill> lane = lanes[laneIndex];
             if (Phase != LegacyDuelPhase.Planning || lane.Count == 0 || lane[0].IsWait || Act < lane[0].Cost) return false;
             LegacySkill skill = lane[0];
@@ -196,7 +202,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public bool TryQueueBreath()
         {
-            if (Phase != LegacyDuelPhase.Planning || BreathsQueuedThisTurn >= MaximumBreathsPerTurn) return false;
+            if (Phase != LegacyDuelPhase.Planning || !Features.Has(CombatFeature.Breath) ||
+                BreathsQueuedThisTurn >= MaximumBreathsPerTurn) return false;
             playerQueue.Add(LegacyCommonActions.Breathe);
             BreathsQueuedThisTurn++;
             return true;
@@ -217,6 +224,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             success = false;
             if (Phase != LegacyDuelPhase.Resolving ||
                 (action != LegacyStepAction.Dodge && action != LegacyStepAction.Pressure)) return false;
+            // A closed step is not an attempt: it neither narrows the window nor costs ACT.
+            if (!Features.AllowsStep(action)) return false;
 
             // Every attempt, including gaps between skills and repeated inputs, narrows the
             // next window. Any miss (mistimed, no target, repeated, or in a gap) breaks the
@@ -412,7 +421,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Player = new LegacyFighterState(playerMaxHealth, playerMaxResistance);
             Enemy = new LegacyFighterState(enemyMaxHealth, enemyMaxResistance);
             for (int i = 0; i < lanes.Length; i++) lanes[i].Clear();
-            foreach (LegacySkill skill in initialPlayerSkills) lanes[skill.LaneIndex].Add(skill);
+            foreach (LegacySkill skill in initialPlayerSkills)
+                if (Features.HasLane(skill.LaneIndex)) lanes[skill.LaneIndex].Add(skill);
             enemyPatternIndex = 0;
             RoundNumber = 1;
             Act = 0;

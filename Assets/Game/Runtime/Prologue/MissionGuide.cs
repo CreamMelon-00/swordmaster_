@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TurnLimbo.Runtime.LegacyCombat;
 
 namespace TurnLimbo.Runtime.Prologue
 {
@@ -16,6 +17,12 @@ namespace TurnLimbo.Runtime.Prologue
         Commit,
         /// <summary>Waits for the committed turn to resolve and the next one to begin.</summary>
         WatchTurn,
+        /// <summary>Waits for a 숨고르기 (S) to be queued; lanes and commit are locked meanwhile.</summary>
+        Breathe,
+        /// <summary>During the committed turn, waits for an A dodge attempt (or the next turn, so it never stalls).</summary>
+        Dodge,
+        /// <summary>During the committed turn, waits for a D pressure attempt (or the next turn).</summary>
+        Pressure,
         /// <summary>The last beat: everything the mission allows is open until the duel ends.</summary>
         Free,
     }
@@ -88,6 +95,26 @@ namespace TurnLimbo.Runtime.Prologue
         public bool AllowsQueue(int lane)
             => !IsComplete && lane >= 0 && lane <= 2 && (IsFree || ExpectedLane == lane);
 
+        /// <summary>Whether a 숨고르기 may be queued now (the mission must also allow breathing).</summary>
+        public bool AllowsBreath => !IsComplete && (IsFree || Kind == MissionGuideStepKind.Breathe);
+
+        /// <summary>Whether a step may be attempted now (the mission must also allow it). Steps belong to their
+        /// lesson beat and to free play; other beats keep the turn about what they explain.</summary>
+        public bool AllowsStep(LegacyStepAction action)
+            => !IsComplete && (IsFree || Kind == MissionGuideStepKind.Dodge && action == LegacyStepAction.Dodge
+                || Kind == MissionGuideStepKind.Pressure && action == LegacyStepAction.Pressure);
+
+        public void NotifyBreathed()
+        {
+            if (Kind == MissionGuideStepKind.Breathe) MoveNext();
+        }
+
+        public void NotifyStepped(LegacyStepAction action)
+        {
+            if (Kind == MissionGuideStepKind.Dodge && action == LegacyStepAction.Dodge ||
+                Kind == MissionGuideStepKind.Pressure && action == LegacyStepAction.Pressure) MoveNext();
+        }
+
         public bool TryAdvance()
         {
             if (!CanAdvance) return false;
@@ -112,7 +139,10 @@ namespace TurnLimbo.Runtime.Prologue
 
         public void NotifyTurnBegan(int round)
         {
-            if (Kind == MissionGuideStepKind.WatchTurn && round > 1) MoveNext();
+            if (round <= 1) return;
+            // A step lesson is shown during the turn; when the turn ends without the step, move on anyway.
+            if (Kind == MissionGuideStepKind.WatchTurn || Kind == MissionGuideStepKind.Dodge ||
+                Kind == MissionGuideStepKind.Pressure) MoveNext();
         }
 
         public void Finish() => IsComplete = true;

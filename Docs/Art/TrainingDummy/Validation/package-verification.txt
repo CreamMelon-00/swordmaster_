@@ -1,0 +1,4 @@
+PASS: portable Aseprite rebuild uses only packaged Source and References.
+PASS: 20 rebuilt frame/sheet files exactly match delivered SHA-256 hashes.
+PASS: Unity custom GUID references resolve inside the package; 1 documented URP material reference.
+Unity gameplay wiring remains for the receiving project; see START_HERE.md.

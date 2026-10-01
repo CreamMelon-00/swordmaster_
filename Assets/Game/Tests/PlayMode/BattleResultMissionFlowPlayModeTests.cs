@@ -138,6 +138,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Prologue.ClearedCount, Is.Zero);
                 Assert.That(Label(controller.BriefingHud.Root, "Briefing Title").text, Is.EqualTo("첫 타격"));
                 Assert.That(Named(controller.BriefingHud.Root, "Mission Start").GetComponent<Button>(), Is.Not.Null);
+                Assert.That(controller.BriefingHud.BackButton.gameObject.activeSelf, Is.False,
+                    "A 서막 briefing has no way back to the lobby.");
+                Assert.That(controller.LeaveBriefing(), Is.False);
+                Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.StartCampaignStage(1), Is.False, "Stages stay closed until the arc is over.");
                 Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.False,
                     "The curriculum stays closed until the arc is over.");
@@ -156,6 +160,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.CoachHud.IsVisible, Is.True, "The coach carries the old tutorial's guidance.");
                 Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Lobby), "Missions never start a campaign stage.");
                 Assert.That(controller.Session.Enemy.MaxHealth, Is.EqualTo(24));
+                Assert.That(controller.ArenaView.EnemyAppearance, Is.EqualTo(EnemyAppearance.TrainingDummy),
+                    "The first mission strikes the straw dummy.");
                 Assert.That(controller.Session.GetLane(1), Is.Empty);
                 Assert.That(controller.Session.GetLane(2), Is.Empty);
                 Assert.That(Named(controller.Hud.Root, "Current Q").gameObject.activeSelf, Is.True);
@@ -238,6 +244,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsMission, Is.True, "Skipping the intro still starts the mission.");
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(2));
                 Assert.That(controller.Session.Enemy.MaxHealth, Is.EqualTo(36));
+                Assert.That(controller.ArenaView.EnemyAppearance, Is.EqualTo(EnemyAppearance.Student),
+                    "Later missions fight the student again.");
                 Release(keyboard.escapeKey);
                 yield return null;
                 Assert.That(controller.IsMission, Is.True, "The skip key must not also abandon the mission.");
@@ -286,7 +294,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsShowingDialogue, Is.True);
                 Assert.That(controller.ContinueDialogue(), Is.False);
                 Assert.That(controller.IsShowingResult, Is.True);
-                Assert.That(controller.Prologue.IsComplete, Is.True);
+                Assert.That(controller.Prologue.IsArcComplete, Is.True, "The 서막 is over; the lobby missions wait for their stages.");
                 Assert.That(controller.Result.CanAdvance, Is.True);
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text, Does.Contain("커리큘럼"),
                     "The last mission announces the loadout and curriculum.");
@@ -302,6 +310,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.BriefingHud.IsVisible, Is.False);
                 Assert.That(controller.StartMission(), Is.False);
                 Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Lobby));
+                Assert.That(controller.IsNextMissionAvailable, Is.False, "The first lobby mission waits for stage 1.");
+                Assert.That(controller.LobbyHud.NextMission.Number, Is.EqualTo(PrologueMissions.Count + 1));
+                Assert.That(controller.OpenNextMission(), Is.False);
+                Assert.That(controller.IsInLobby, Is.True);
             }
         }
 

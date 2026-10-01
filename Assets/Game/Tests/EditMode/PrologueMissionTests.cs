@@ -169,11 +169,16 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.CurrentMission.Number, Is.EqualTo(2));
             Assert.That(run.IsCleared(1), Is.True);
             Assert.That(run.TryComplete(1, DuelMatchOutcome.PlayerVictory), Is.False, "Replays never move progress.");
-            for (int number = 2; number <= 4; number++)
+            for (int number = 2; number <= PrologueMissions.Count; number++)
+                Assert.That(run.TryComplete(number, DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.IsArcComplete, Is.True, "The 서막 is over and the lobby opens.");
+            Assert.That(run.IsComplete, Is.False, "The lobby missions follow.");
+            Assert.That(run.CurrentMission.Number, Is.EqualTo(PrologueMissions.Count + 1));
+            for (int number = PrologueMissions.Count + 1; number <= StoryMissions.Count; number++)
                 Assert.That(run.TryComplete(number, DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(run.IsComplete, Is.True);
             Assert.That(run.CurrentMission, Is.Null);
-            Assert.That(run.TryComplete(5, DuelMatchOutcome.PlayerVictory), Is.False);
+            Assert.That(run.TryComplete(StoryMissions.Count + 1, DuelMatchOutcome.PlayerVictory), Is.False);
             run.Reset();
             Assert.That(run.CurrentMission.Number, Is.EqualTo(1));
             run.CompleteAll();

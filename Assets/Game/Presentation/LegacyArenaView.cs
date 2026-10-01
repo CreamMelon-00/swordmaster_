@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
@@ -52,6 +53,8 @@ namespace TurnLimbo.Presentation
         private readonly Actor enemy;
         private readonly MobStudentAnimationSet mobAnimations;
         private readonly EnemyStudentAnimationSet enemyAnimations;
+        private readonly TrainingDummyAnimationSet dummyAnimations;
+        private EnemyAppearance enemyAppearance = EnemyAppearance.Student;
         private readonly System.Random reactionPoseRandom;
         private readonly System.Random attackPoseRandom;
         private readonly System.Random enemyAttackPoseRandom;
@@ -129,6 +132,12 @@ namespace TurnLimbo.Presentation
         public SpriteRenderer PlayerLowerRenderer => player.LowerRenderer;
         public bool HasMobStudentAnimations => mobAnimations.HasRequiredAssets;
         public bool HasEnemyStudentAnimations => enemyAnimations.HasRequiredAssets;
+        public bool HasTrainingDummyAnimations => dummyAnimations.HasRequiredAssets;
+        /// <summary>How the enemy is drawn for the current duel (set by the controller before <see cref="Reset"/>).</summary>
+        public EnemyAppearance EnemyAppearance => enemyAppearance;
+        /// <summary>Whether the dummy's hurt reaction is playing (it runs on past slot and turn boundaries).</summary>
+        public bool IsEnemyHurtPlaying => EnemyIsDummy && enemy.HurtPlaying;
+        private bool EnemyIsDummy => enemyAppearance == EnemyAppearance.TrainingDummy;
         public SpriteRenderer EnemyRenderer => enemy.Renderer;
         public bool CameraRotate { get; set; }
         public bool ApproachComplete => !approaching;
@@ -143,7 +152,8 @@ namespace TurnLimbo.Presentation
         public bool ReturnComplete => !returning;
         public bool IsFatalFocus => fatalTime > 0f;
         public bool HasRequiredAssets => art.HasRequiredAssets && ForestBackdrop.HasRequiredAssets && spriteMaterial != null &&
-            effectPrefab != null && impactGlow.HasRequiredAssets && mobAnimations.HasRequiredAssets && enemyAnimations.HasRequiredAssets;
+            effectPrefab != null && impactGlow.HasRequiredAssets && mobAnimations.HasRequiredAssets && enemyAnimations.HasRequiredAssets &&
+            dummyAnimations.HasRequiredAssets;
         public int ActiveParticleCount
         {
             get
@@ -246,6 +256,9 @@ namespace TurnLimbo.Presentation
             if (!enemyAnimations.HasRequiredAssets)
                 Debug.LogWarning("Enemy animation resources are incomplete: " + string.Join(", ", enemyAnimations.MissingResources));
             enemy = CreateActor("Enemy0", enemyAnimations.HasRequiredAssets ? enemyAnimations.GetIdle(0f) : art.GetEnemySprite(0f));
+            dummyAnimations = new TrainingDummyAnimationSet();
+            if (!dummyAnimations.HasRequiredAssets)
+                Debug.LogWarning("Training dummy resources are incomplete: " + string.Join(", ", dummyAnimations.MissingResources));
             stepAfterimages = new DuelStepAfterimages(arenaRoot.transform, spriteMaterial, ArenaLayer, mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames);
             var shadowSprites = Resources.LoadAll<Sprite>("LegacyArena/Shadow/Circle");
             var shadow = shadowSprites.Length > 0 ? shadowSprites[0] : null;
@@ -537,6 +550,20 @@ namespace TurnLimbo.Presentation
             RefreshStepBackdrop();
         }
 
+        /// <summary>Chooses how the enemy is drawn. The dummy falls back to the student when its art is missing.</summary>
+        public void SetEnemyAppearance(EnemyAppearance appearance)
+        {
+            if (appearance == EnemyAppearance.TrainingDummy && !dummyAnimations.HasRequiredAssets)
+            {
+                Debug.LogWarning("Training dummy art is missing; the student stands in.");
+                appearance = EnemyAppearance.Student;
+            }
+            enemyAppearance = appearance;
+            enemy.HurtPlaying = false;
+            enemy.HurtElapsed = enemy.IdleClock = 0f;
+            SampleActor(enemy);
+        }
+
         /// <param name="fatal">A heavy hit: it lands on the body, shakes twice as hard and glows gold.</param>
         /// <param name="closeUp">With <paramref name="fatal"/>, also starts the slow close-up and colour flash.
         /// The controller reserves it for decisive moments: a resistance break or a finishing blow.</param>
@@ -563,6 +590,13 @@ namespace TurnLimbo.Presentation
                 player.ReactionTime = ReactionPoseDuration;
                 SampleActor(player);
             }
+            else if (target == enemy && EnemyIsDummy && !keepsStrike && (guarded || damage > 0f || fatal))
+            {
+                // One authored reaction; a hit during it starts it again from the first cel.
+                enemy.HurtElapsed = 0f;
+                enemy.HurtPlaying = true;
+                SampleActor(enemy);
+            }
             else if (target == enemy && enemyAnimations.HasRequiredAssets && !keepsStrike && (guarded || damage > 0f || fatal))
             {
                 // HP damage/broken guard recoils; successful guards and blade blocks use the guard.
@@ -585,6 +619,8 @@ namespace TurnLimbo.Presentation
                 if (guarded) distance *= GuardKnockbackMultiplier;
             }
             distance *= settings.MovementDistanceMultiplier;
+            // The dummy stands on a fixed base: it sways but is never pushed back.
+            if (target == enemy && EnemyIsDummy) distance = 0f;
             if (distance > 0f)
             {
                 // Actor sides remain stable. Repeated hits add to the unfinished
@@ -598,8 +634,10 @@ namespace TurnLimbo.Presentation
                 target.PushTime = 0f;
                 target.PushPlaybackDuration = PushDuration / settings.MovementSpeedMultiplier;
                 target.Pushing = true;
-                attacker.Chasing = true;
-                attacker.ChaseDelay = PursuitDelay;
+                // The anchored dummy cannot follow up, so the player closes the gap it opened.
+                Actor chaser = attacker == enemy && EnemyIsDummy ? target : attacker;
+                chaser.Chasing = true;
+                chaser.ChaseDelay = PursuitDelay;
             }
             target.FlashTime = 0.25f;
             target.FlashColor = guarded ? Color.cyan : hpDamage > 0 ? Color.red : Color.yellow;
@@ -797,6 +835,21 @@ namespace TurnLimbo.Presentation
             actor.AnimationTime += delta;
             // Use combat time so hit stop freezes the reaction and slow playback remains readable.
             actor.ReactionTime = Mathf.Max(0f, actor.ReactionTime - delta * slotAnimationSpeed);
+            if (actor == enemy && EnemyIsDummy)
+            {
+                // Combat time (hit stop holds it, the decisive slow motion slows it) at the authored cel timing.
+                if (actor.HurtPlaying)
+                {
+                    actor.HurtElapsed += delta;
+                    if (actor.HurtElapsed >= TrainingDummyAnimationSet.HurtDuration)
+                    {
+                        actor.HurtPlaying = false;
+                        // The last hurt cel is the first idle cel, so the sway restarts from there.
+                        actor.IdleClock = 0f;
+                    }
+                }
+                else actor.IdleClock += delta;
+            }
             actor.ChaseDelay = Mathf.Max(0f, actor.ChaseDelay - delta);
             if (actor.Pushing)
             {
@@ -816,7 +869,7 @@ namespace TurnLimbo.Presentation
             float excess = Separation - ContactDistance;
             if (excess <= 0f || delta <= 0f || stepping) return;
             bool playerMayMove = !player.Pushing && (bothMayApproach || player.Chasing && player.ChaseDelay <= 0f);
-            bool enemyMayMove = !enemy.Pushing && (bothMayApproach || enemy.Chasing && enemy.ChaseDelay <= 0f);
+            bool enemyMayMove = !EnemyIsDummy && !enemy.Pushing && (bothMayApproach || enemy.Chasing && enemy.ChaseDelay <= 0f);
             if (!playerMayMove && !enemyMayMove) return;
             float step = Mathf.Min(excess / (playerMayMove && enemyMayMove ? 2f : 1f), speed * delta);
             if (playerMayMove)
@@ -865,6 +918,13 @@ namespace TurnLimbo.Presentation
                 Sprite attack = active && actor.Skill.Kind == LegacySkillKind.Attack
                     ? mobAnimations.GetAttackUpper(actor.Skill.Property, AttackVariant(actor, hitIndex), clipTime / OriginalClipDuration) : null;
                 actor.Renderer.sprite = attack != null ? attack : mobAnimations.GetIdleUpper(idleTime);
+                return;
+            }
+            if (actor == enemy && EnemyIsDummy)
+            {
+                // Idle and hurt only: the dummy never attacks or guards.
+                actor.Renderer.sprite = actor.HurtPlaying ? dummyAnimations.GetHurt(actor.HurtElapsed)
+                    : dummyAnimations.GetIdle(actor.IdleClock);
                 return;
             }
             if (actor == enemy && enemyAnimations.HasRequiredAssets)
@@ -1098,6 +1158,8 @@ namespace TurnLimbo.Presentation
             actor.ReactionVariant = actor.GuardVariant = 0;
             actor.AttackVariants.Clear();
             actor.Skill = null;
+            actor.HurtPlaying = false;
+            actor.HurtElapsed = actor.IdleClock = 0f;
             if (actor.Clips.TryGetValue("Idle", out var idle)) idle.SampleAnimation(actor.Renderer.gameObject, 0f);
         }
 
@@ -1115,6 +1177,7 @@ namespace TurnLimbo.Presentation
             stepAfterimages.Dispose();
             mobAnimations.Dispose();
             enemyAnimations.Dispose();
+            dummyAnimations.Dispose();
             impactGlow.Dispose();
             playerBreakAura.Dispose();
             enemyBreakAura.Dispose();
@@ -1146,6 +1209,9 @@ namespace TurnLimbo.Presentation
             public bool Retreating;
             public bool LowerTravelActive, HasLowerTravelProgress;
             public float LowerTravelStartX, LowerTravelDistance;
+            // The training dummy's single hurt clip and the idle phase it resumes from.
+            public bool HurtPlaying;
+            public float HurtElapsed, IdleClock;
         }
 
         private sealed class ImpactEffect

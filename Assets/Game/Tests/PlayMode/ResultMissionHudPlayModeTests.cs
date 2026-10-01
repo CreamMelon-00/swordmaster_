@@ -107,7 +107,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Button(hud.Root, "Result Lobby").gameObject.activeSelf, Is.True);
                 Assert.That(Button(hud.Root, "Result Next Stage").gameObject.activeSelf, Is.False);
                 hud.Show(new BattleResult(DuelMatchOutcome.EnemyVictory, true, PrologueMissions.Count, "마지막 결투",
-                    0, 87, 2, 0, 20, false, 0, false), arcComplete: true);
+                    0, 87, 2, 0, 20, false, 0, false), missionExitsToLobby: true);
                 Assert.That(Caption(hud.Root, "Result Lobby"), Is.EqualTo("로비로"), "A replay after the arc exits to the lobby.");
                 Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("로비로"));
                 hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, true, PrologueMissions.Count, "마지막 결투",

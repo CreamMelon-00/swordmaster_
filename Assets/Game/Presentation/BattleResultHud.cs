@@ -76,8 +76,11 @@ namespace TurnLimbo.Presentation
             Hide();
         }
 
-        /// <param name="arcComplete">Whether the opening arc is already over, so a mission's exits reach the lobby.</param>
-        public void Show(BattleResult result, bool arcComplete = false)
+        /// <param name="missionExitsToLobby">Whether a mission's exits reach the lobby because no mission is playable
+        /// now. Null guesses from the result (a victory from the last 서막 mission on reaches the lobby).</param>
+        /// <param name="storyNotice">A mission's first win: what it opened (replaces the usual notice). A stage win:
+        /// the story mission that has just arrived (replaces the second line).</param>
+        public void Show(BattleResult result, bool? missionExitsToLobby = null, string storyNotice = null)
         {
             if (disposed) return;
             if (result == null) throw new ArgumentNullException(nameof(result));
@@ -87,15 +90,18 @@ namespace TurnLimbo.Presentation
                 : result.Outcome == DuelMatchOutcome.PlayerVictory ? "승리"
                 : result.Outcome == DuelMatchOutcome.Draw ? "무승부" : "패배";
             heading.color = result.Victory ? Accent : result.Outcome == DuelMatchOutcome.Draw ? Foreground : DuelVisualTheme.Danger;
-            stage.text = result.IsMission ? $"{MissionBriefingHud.ChapterName}  ·  임무 {result.StageNumber:00}  ·  {result.StageName}"
+            stage.text = result.IsMission ? $"{ChapterOf(result.StageNumber)}  ·  임무 {result.StageNumber:00}  ·  {result.StageName}"
                 : $"스테이지 {result.StageNumber:00}  ·  {result.StageName}";
             rounds.text = result.RoundNumber.ToString();
             playerHealth.text = Mathf.Max(0, result.PlayerHealth).ToString();
             enemyHealth.text = Mathf.Max(0, result.EnemyHealth).ToString();
             ShowCurriculum(result);
             // A mission's exits open the next briefing, or the lobby once the arc is over.
-            bool toLobby = result.IsMission && (arcComplete || result.Victory && result.StageNumber >= PrologueMissions.Count);
-            notice.text = BuildNotice(result, toLobby);
+            bool toLobby = result.IsMission && (missionExitsToLobby ?? result.Victory && result.StageNumber >= PrologueMissions.Count);
+            bool hasStory = result.Victory && !string.IsNullOrEmpty(storyNotice);
+            notice.text = hasStory && result.IsMission ? storyNotice
+                : hasStory ? FirstLine(BuildNotice(result, toLobby)) + "\n" + storyNotice
+                : BuildNotice(result, toLobby);
             retryCaption.text = "재도전";
             lobbyCaption.text = result.IsMission && !toLobby ? "브리핑으로" : "로비로";
             nextCaption.text = !result.IsMission ? "다음 스테이지" : toLobby ? "여정 계속" : "다음 임무";
@@ -133,13 +139,25 @@ namespace TurnLimbo.Presentation
             else UnityEngine.Object.DestroyImmediate(root.gameObject);
         }
 
+        private static string FirstLine(string text)
+        {
+            int end = text.IndexOf('\n');
+            return end < 0 ? text : text.Substring(0, end);
+        }
+
+        private static string ChapterOf(int missionNumber)
+            => missionNumber >= 1 && missionNumber <= StoryMissions.Count ? StoryMissions.Get(missionNumber).Chapter
+                : MissionBriefingHud.ChapterName;
+
         private static string BuildNotice(BattleResult result, bool toLobby)
         {
             if (result.IsMission)
                 return !result.Victory
                     ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 로비로 돌아갈 수 있습니다."
                         : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
-                    : result.StageNumber >= PrologueMissions.Count ? "서막의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
+                    : result.StageNumber == PrologueMissions.Count ? "서막의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
+                    : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n여정을 계속하면 로비로 돌아갑니다."
+                        : "임무를 완료했습니다.\n다음 임무로 넘어갈 수 있습니다."
                     : toLobby ? "서막은 이미 마쳤습니다.\n여정을 계속하면 로비로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
             if (!result.Victory)
                 return result.Outcome == DuelMatchOutcome.Draw ? "승부가 나지 않았습니다. 재도전하거나 기술 편성을 바꿔보세요."
@@ -155,9 +173,10 @@ namespace TurnLimbo.Presentation
             CurriculumNode completed = result.CompletedCurriculumNode, active = result.ActiveCurriculumNode;
             if (result.IsMission)
             {
-                curriculum.text = "서막 이후";
+                bool prologue = result.StageNumber <= PrologueMissions.Count;
+                curriculum.text = prologue ? "서막 이후" : "반영 안 됨";
                 curriculum.color = Muted;
-                curriculumDetail.text = "서막 임무는 커리큘럼에 반영되지 않습니다.";
+                curriculumDetail.text = prologue ? "서막 임무는 커리큘럼에 반영되지 않습니다." : "임무는 커리큘럼에 반영되지 않습니다.";
                 return;
             }
             if (completed != null)

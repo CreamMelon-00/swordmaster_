@@ -1,0 +1,4 @@
+VERIFIED: 256x224 RGBA, 18 cels, 2 tags, 4 layers, 28 colors from existing character palettes.
+Idle: 8 frames x 180ms = 1440ms looping. Hurt: 10 frames = 700ms one-shot.
+Opaque foreground and transparent background; no clipped frames; fixed base across all frames; final Hurt equals first Idle.
+Rigid body rotation only: no per-frame resizing. Ground baseline matches y=201; pivot (128,22), 40 PPU.

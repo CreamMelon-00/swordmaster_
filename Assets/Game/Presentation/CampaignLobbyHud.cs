@@ -1,5 +1,6 @@
 using System;
 using TurnLimbo.Runtime.Campaign;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -17,7 +18,10 @@ namespace TurnLimbo.Presentation
         private readonly Action<int> unequip, startStage;
         private readonly Action<string> selectCurriculumNode;
         private readonly Action<int, int, int> placeLoadoutSkill;
-        private readonly Action restartJourney, saveLoadout, resetLoadout, resetCurriculum;
+        private readonly Action restartJourney, saveLoadout, resetLoadout, resetCurriculum, openMission;
+        // The next story mission after the 서막, and whether its stage is cleared so it can be played now.
+        private PrologueMission nextMission;
+        private bool nextMissionAvailable;
         private readonly CampaignLoadoutHud.ViewState loadoutState = new CampaignLoadoutHud.ViewState();
         private readonly CampaignCurriculumHud.ViewState curriculumState = new CampaignCurriculumHud.ViewState();
         private CampaignLoadoutHud loadoutHud;
@@ -57,7 +61,7 @@ namespace TurnLimbo.Presentation
             Action resetCurriculum, Action<int> equip, Action<int> unequip, Action<int, int> move,
             Action<int> startStage, Action restartJourney,
             Action<int, int, int> placeLoadoutSkill = null, Action saveLoadout = null,
-            Action resetLoadout = null)
+            Action resetLoadout = null, Action openMission = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
@@ -69,6 +73,7 @@ namespace TurnLimbo.Presentation
             this.placeLoadoutSkill = placeLoadoutSkill;
             this.saveLoadout = saveLoadout;
             this.resetLoadout = resetLoadout;
+            this.openMission = openMission;
 
             roomSprite = Resources.Load<Sprite>("LobbyRoom/room");
             bool complete = roomSprite != null && art.UIFont != null;
@@ -140,6 +145,17 @@ namespace TurnLimbo.Presentation
             root.gameObject.SetActive(true);
             Rebuild();
         }
+
+        /// <summary>The next lobby mission (null when none) and whether it can be played now. Shown on Home and Stages.</summary>
+        public void SetNextMission(PrologueMission mission, bool available)
+        {
+            if (disposed) return;
+            nextMission = mission;
+            nextMissionAvailable = mission != null && available;
+        }
+
+        public PrologueMission NextMission => nextMission;
+        public bool IsNextMissionAvailable => nextMissionAvailable;
 
         public void ShowTab(LobbyTab tab)
         {
@@ -288,6 +304,22 @@ namespace TurnLimbo.Presentation
                 new Vector2(700f, 62f), 36, DuelVisualTheme.Paper, TextAnchor.MiddleCenter);
             Label("Home Welcome Hint", pageRoot, "기술을 정비하고, 숲길 너머의 상대에게 도전합니다.", new Vector2(80f, 311f),
                 new Vector2(820f, 36f), 20, DuelVisualTheme.Paper, TextAnchor.MiddleCenter);
+            if (nextMission != null) BuildMissionBanner(pageRoot, "Home Mission", new Vector2(80f, 200f));
+        }
+
+        /// <summary>The next lobby mission: its title and what it opens, with a briefing button once its stage is cleared.</summary>
+        private void BuildMissionBanner(Transform parent, string name, Vector2 position)
+        {
+            var border = Panel(name + " Border", parent, position, new Vector2(624f, 124f), nextMissionAvailable ? Accent : Border);
+            var banner = Panel(name + " Banner", border.transform, Vector2.zero, new Vector2(620f, 120f), SurfaceInner);
+            DuelVisualTheme.DressPanel(banner);
+            Label(name + " Title", banner.transform, $"{nextMission.Chapter}  ·  임무 {nextMission.Number}  ·  {nextMission.Title}",
+                new Vector2(-290f, 28f), new Vector2(360f, 36f), 22, nextMissionAvailable ? Gold : Muted);
+            string requirement = nextMissionAvailable ? "새 임무가 도착했습니다."
+                : $"스테이지 {nextMission.RequiredClearedStage:00}을 클리어하면 열립니다.";
+            Label(name + " State", banner.transform, requirement, new Vector2(-290f, -18f), new Vector2(360f, 30f), 17, Foreground);
+            Button(name + " Open", banner.transform, nextMissionAvailable ? "임무 브리핑" : "잠긴 임무", new Vector2(190f, 0f),
+                new Vector2(210f, 58f), nextMissionAvailable, () => openMission?.Invoke(), nextMissionAvailable);
         }
 
         private void BuildStages(CampaignRun run)
@@ -297,6 +329,9 @@ namespace TurnLimbo.Presentation
             Label("Tab Subtitle", panel, "도전할 길을 고르고 오른쪽에서 상대와 커리큘럼 진행을 확인하세요.",
                 new Vector2(-850f, 323f), new Vector2(1180f, 36f), 20, Muted);
             Rule("Tab Rule", panel, 289f, 1700f);
+            if (nextMission != null && nextMissionAvailable)
+                Button("Stages Open Mission", panel, $"새 임무  {nextMission.Title}  ▶", new Vector2(630f, 350f),
+                    new Vector2(444f, 54f), true, () => openMission?.Invoke(), true);
             const float cardWidth = 252f, cardHeight = 210f, gapX = 20f, gapY = 28f;
             for (int number = 1; number <= run.StageCount; number++)
             {
@@ -321,6 +356,7 @@ namespace TurnLimbo.Presentation
                 new Vector2(-192f, 43f), new Vector2(384f, 54f), 30);
             Label("Selected Stage State", preview.transform, run.HasLoadoutChanges
                 ? "편성 변경 미저장 · 편성에서 저장 또는 되돌리기 후 출정"
+                : run.IsStageWaitingForMission(selectedStageNumber) ? MissionWaitText()
                 : StageState(run, selectedStageNumber),
                 new Vector2(-192f, -7f), new Vector2(384f, 48f), 18,
                 run.IsStageCleared(selectedStageNumber) ? Accent : Muted);
@@ -371,7 +407,8 @@ namespace TurnLimbo.Presentation
             Label("Stage Name", card.transform, stage.Name, new Vector2(left, 10f),
                 new Vector2(size.x - 36f, 56f), 22, unlocked ? Foreground : Muted);
             Label("Stage State " + number, card.transform,
-                !unlocked ? "잠김" : cleared ? "클리어" : selected ? "선택됨" : "도전 가능",
+                !unlocked ? "잠김" : run.IsStageWaitingForMission(number) ? "임무 필요"
+                : cleared ? "클리어" : selected ? "선택됨" : "도전 가능",
                 new Vector2(left, -62f), new Vector2(size.x - 36f, 32f), 18,
                 cleared || selected ? Accent : Muted);
         }
@@ -513,6 +550,9 @@ namespace TurnLimbo.Presentation
                 Destroy(child);
             }
         }
+
+        private string MissionWaitText()
+            => nextMission != null ? $"먼저 임무 '{nextMission.Title}'을(를) 완료하세요" : "먼저 다음 임무를 완료하세요";
 
         private static string StageState(CampaignRun run, int number)
             => number > run.HighestUnlockedStage ? "잠긴 스테이지"

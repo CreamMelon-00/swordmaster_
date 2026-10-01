@@ -274,6 +274,9 @@ namespace TurnLimbo.Presentation
             detailName.text = node.Title;
             purpose.text = $"{BranchName(node.Branch)} 과정  ·  전투 {node.Battles}회";
             requirement.text = RequirementText(node, curriculum.Tree);
+            // Lanes open through story missions; a skill of a closed lane is owned but waits to fight.
+            if (skill != null && !run.IsLaneOpen(skill.LaneIndex))
+                requirement.text += $"  ·  {SkillLaneStyle.Key(skill.LaneIndex)}열은 임무로 열림";
             exclusive.text = ExclusiveText(node, curriculum.Tree);
             bool fixedByProgress = curriculum.Active != null && curriculum.ActiveBattles > 0;
             availability.text = !Editing ? "로비에서 이용할 수 있습니다."

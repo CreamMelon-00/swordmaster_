@@ -90,6 +90,11 @@ namespace TurnLimbo.Presentation
         /// <summary>Whether progress is written to <see cref="SaveStore"/>. Only the title's 이어하기/새 게임 turn it on,
         /// so tests and direct API use never touch the player's save.</summary>
         public bool AutoSaveEnabled { get; private set; }
+        /// <summary>Whether stage battles follow the story's unlocks (lanes, 숨고르기, steps) and stage cap. Like
+        /// auto-save, only the title's 이어하기/새 게임 turn it on, so tests and direct API use keep every feature.</summary>
+        public bool StoryProgressionEnabled { get; private set; }
+        /// <summary>Whether the next story mission can be played now (its stage, if any, is cleared).</summary>
+        public bool IsNextMissionAvailable => prologue.CanPlayCurrent(campaign.IsStageCleared);
         public bool IsInTitle => showingTitle && !IsShowingDialogue && titleHud != null && titleHud.IsVisible;
         public DialogueHud DialogueHud => dialogueHud;
         public DialogueLine CurrentDialogueLine => dialogueSession?.Current;
@@ -121,7 +126,19 @@ namespace TurnLimbo.Presentation
         public float ActiveSlotDuration => slotDuration;
         public float ActiveSlotElapsedTime => viewPhase == ViewPhase.PlayingSlot ? phaseTime : 0f;
         public bool IsSkillWindup => viewPhase == ViewPhase.SkillWindup;
-        public bool CanStep => (!IsMission || mission.StepsEnabled) && session != null && session.Phase == LegacyDuelPhase.Resolving &&
+        /// <summary>The steps the player may take now: what the duel allows, minus what a coached beat holds back.</summary>
+        public CombatFeature StepFeatures
+        {
+            get
+            {
+                if (session == null) return CombatFeature.None;
+                CombatFeature features = session.Features;
+                if (guide != null && !guide.AllowsStep(LegacyStepAction.Dodge)) features &= ~CombatFeature.Dodge;
+                if (guide != null && !guide.AllowsStep(LegacyStepAction.Pressure)) features &= ~CombatFeature.Pressure;
+                return features;
+            }
+        }
+        public bool CanStep => session != null && StepFeatures.AllowsAnyStep() && session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
              viewPhase == ViewPhase.PlayingSlot || viewPhase == ViewPhase.BetweenSlots);
         private float TimeUntilFirstImpact => viewPhase == ViewPhase.SkillWindup
@@ -176,12 +193,12 @@ namespace TurnLimbo.Presentation
                 id => UnequipSkill(id), (id, direction) => MoveEquippedSkill(id, direction),
                 stage => StartCampaignStage(stage), RestartJourney,
                 (id, lane, slot) => PlaceLoadoutSkill(id, lane, slot),
-                () => SaveLoadout(), () => ResetLoadout());
+                () => SaveLoadout(), () => ResetLoadout(), () => OpenNextMission());
             resultHud = new BattleResultHud(transform, art, () => DismissBattleResult(),
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
             coachHud = new MissionCoachHud(transform, art, () => AdvanceGuide(),
                 ReturnToLobby, () => InspectGuideEnemy());
-            briefingHud = new MissionBriefingHud(transform, art, () => StartMission());
+            briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
             titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle());
             saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
             session = campaign.CreateDuel(System.Environment.TickCount);
@@ -236,6 +253,7 @@ namespace TurnLimbo.Presentation
             if (IsInBriefing)
             {
                 if (keyboard != null && keyboard.enterKey.wasPressedThisFrame) StartMission();
+                else if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) LeaveBriefing();
                 return;
             }
             if (IsInLobby)
@@ -377,7 +395,7 @@ namespace TurnLimbo.Presentation
             float clipDuration = OriginalClipDuration / slotPlaybackSpeed;
             slotImpactTime = OriginalAttackEventTime / slotPlaybackSpeed;
             slotCycleDuration = clipDuration + slotAttackInterval;
-            slotAnticipationDuration = IsMission && !mission.StepsEnabled ? 0f : presentationSettings.StepAnticipationDuration;
+            slotAnticipationDuration = StepFeatures.AllowsAnyStep() ? presentationSettings.StepAnticipationDuration : 0f;
             slotStepWindow = presentationSettings.StepTimingWindow;
             slotStepWindowDecay = presentationSettings.StepWindowDecay;
             slotStepMinimumWindow = presentationSettings.StepMinimumWindow;
@@ -547,7 +565,7 @@ namespace TurnLimbo.Presentation
             LegacyCurrentSlot slot = session?.CurrentSlot;
             bool counterPending = slot?.PendingPlayerCounter != null;
             bool pressureBacked = counterPending && slot.PressureSucceeded;
-            if (!CanStep || !session.TryStep(action, timingWindow, out success)) return false;
+            if (!CanStep || guide != null && !guide.AllowsStep(action) || !session.TryStep(action, timingWindow, out success)) return false;
             if (counterPending && slot.PendingPlayerCounter == null && slot.PlayerSkill == null)
             {
                 // Evading forgoes the counter: its strikes no longer lengthen the slot,
@@ -561,6 +579,11 @@ namespace TurnLimbo.Presentation
             stepHud.ShowFeedback(action, success, session.StepSuccessStreak);
             stepAudio.Play(action, success, presentationSettings.StepSoundVolume);
             RefreshHud(0f);
+            if (guide != null)
+            {
+                guide.NotifyStepped(action);
+                RefreshGuide();
+            }
             return true;
         }
 
@@ -643,11 +666,14 @@ namespace TurnLimbo.Presentation
 
         public bool QueueBreath()
         {
-            if (!CanChoose || IsInspecting || IsMission && !mission.BreathEnabled || !session.TryQueueBreath()) return false;
+            // The duel refuses a closed 숨고르기; a coached mission also waits for its lesson beat.
+            if (!CanChoose || IsInspecting || guide != null && !guide.AllowsBreath || !session.TryQueueBreath()) return false;
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             explainedSkill = null;
+            guide?.NotifyBreathed();
             RefreshHud(0f);
+            RefreshGuide();
             return true;
         }
 
@@ -673,6 +699,7 @@ namespace TurnLimbo.Presentation
             CloseDialogue();
             ClearMissionState();
             campaign.Reset();
+            SyncStoryProgression();
             campaign.TryStartStage(1);
             StartStageBattle();
         }
@@ -684,6 +711,7 @@ namespace TurnLimbo.Presentation
             CloseDialogue();
             ClearMissionState();
             campaign.Reset();
+            SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
             lobbyHud.ResetView();
@@ -698,6 +726,7 @@ namespace TurnLimbo.Presentation
             ClearMissionState();
             campaign.Reset();
             prologue.Reset();
+            SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
             lobbyHud.ResetView();
@@ -711,6 +740,8 @@ namespace TurnLimbo.Presentation
             ClearBattleScreens();
             lobbyHud.Hide();
             AutoSaveEnabled = false;
+            StoryProgressionEnabled = false;
+            SyncStoryProgression();
             showingTitle = true;
             string summary = null, notice = null;
             if (saveStore.Exists)
@@ -737,6 +768,8 @@ namespace TurnLimbo.Presentation
                 return false;
             }
             AutoSaveEnabled = true;
+            StoryProgressionEnabled = true;
+            SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
             lobbyHud.ResetView();
@@ -749,9 +782,38 @@ namespace TurnLimbo.Presentation
         {
             if (!IsInTitle) return false;
             AutoSaveEnabled = true;
+            StoryProgressionEnabled = true;
             StartNewGame();
             return true;
         }
+
+        /// <summary>Hands the story's unlocks and stage cap to the campaign, or opens everything outside a title session.</summary>
+        private void SyncStoryProgression()
+        {
+            if (StoryProgressionEnabled) campaign.SetProgression(prologue.UnlockedFeatures, prologue.StageLimit);
+            else campaign.ClearProgression();
+        }
+
+        /// <summary>The lobby's 임무 entry: opens the next story mission's briefing once its stage is cleared.</summary>
+        public bool OpenNextMission()
+        {
+            if (!IsInLobby || !prologue.IsArcComplete || !IsNextMissionAvailable) return false;
+            ShowBriefing();
+            return true;
+        }
+
+        /// <summary>Escape or the briefing's back button: a lobby mission's briefing returns to the lobby.
+        /// The 서막 briefings have nowhere else to go.</summary>
+        public bool LeaveBriefing()
+        {
+            if (!IsInBriefing || !prologue.IsArcComplete) return false;
+            ShowLobby();
+            return true;
+        }
+
+        /// <summary>The count shown next to a mission number: the 서막 counts its own missions, later chapters the chain.</summary>
+        private int MissionCountFor(PrologueMission shown)
+            => shown.RequiredClearedStage == 0 ? prologue.ArcMissionCount : prologue.MissionCount;
 
         /// <summary>Reads the save and checks it against the game's rules without touching the live runs.</summary>
         private bool TryReadSave(out GameSave save, out string error)
@@ -765,7 +827,8 @@ namespace TurnLimbo.Presentation
                 return $"{MissionBriefingHud.ChapterName}  ·  임무 {next.Number} / {PrologueMissions.Count}  ·  {next.Title}";
             }
             return $"로비  ·  스테이지 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  " +
-                $"커리큘럼 {save.Campaign.CurriculumCompleted.Count} / {campaign.Curriculum.Tree.Nodes.Count}";
+                $"커리큘럼 {save.Campaign.CurriculumCompleted.Count} / {campaign.Curriculum.Tree.Nodes.Count}  ·  " +
+                $"임무 완료 {save.PrologueCleared} / {StoryMissions.Count}";
         }
 
         /// <summary>Writes the persistent progress after a settled change. Never during a battle's own state.</summary>
@@ -1059,11 +1122,15 @@ namespace TurnLimbo.Presentation
                 session.Player.Health, session.Enemy.Health, firstClear && victory,
                 campaign.HighestUnlockedStage > unlockedBefore ? campaign.HighestUnlockedStage : 0,
                 victory && campaign.StageNumber < campaign.StageCount &&
-                campaign.StageNumber + 1 <= campaign.HighestUnlockedStage,
+                campaign.StageNumber + 1 <= campaign.HighestUnlockedStage && campaign.StageNumber + 1 <= campaign.StageLimit,
                 campaign.LastCompletedCurriculumNode, campaign.Curriculum.Active, campaign.Curriculum.ActiveBattles,
                 campaign.Curriculum.IsFinished);
             EndDuelPresentation();
-            ShowResult(result);
+            // Clearing the stage a lobby mission waited for brings that mission; the next stage waits for it.
+            PrologueMission arrived = victory && prologue.IsArcComplete && IsNextMissionAvailable &&
+                campaign.StageNumber == prologue.CurrentMission.RequiredClearedStage ? prologue.CurrentMission : null;
+            battleResult = result;
+            resultHud.Show(result, null, arrived != null ? $"새 임무 '{arrived.Title}' 도착 · 로비에서 브리핑을 여세요." : null);
         }
 
         /// <summary>A finished mission: record progress, play the outro on a victory, then show the result.</summary>
@@ -1071,12 +1138,22 @@ namespace TurnLimbo.Presentation
         {
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
             guide?.Finish();
-            if (prologue.TryComplete(mission.Number, session.Outcome)) AutoSave();
+            bool firstWin = prologue.TryComplete(mission.Number, session.Outcome);
+            if (firstWin)
+            {
+                SyncStoryProgression();
+                AutoSave();
+            }
             var result = new BattleResult(session.Outcome, true, mission.Number, mission.Title, 0, campaign.Currency,
                 session.RoundNumber, session.Player.Health, session.Enemy.Health, false, 0, victory);
+            // A lobby mission's first win announces what it opened, then where the story goes next.
+            string unlockNotice = firstWin && !string.IsNullOrEmpty(mission.UnlockText)
+                ? mission.UnlockText + (prologue.IsComplete ? string.Empty
+                    : IsNextMissionAvailable ? "\n다음 임무가 열렸습니다." : "\n다음 스테이지를 깨면 다음 임무가 열립니다.")
+                : null;
             EndDuelPresentation();
-            if (victory && PlayMissionDialogue(mission.OutroDialogue, () => ShowResult(result))) return;
-            ShowResult(result);
+            if (victory && PlayMissionDialogue(mission.OutroDialogue, () => ShowResult(result, unlockNotice))) return;
+            ShowResult(result, unlockNotice);
         }
 
         private void EndDuelPresentation()
@@ -1094,10 +1171,11 @@ namespace TurnLimbo.Presentation
             coachHud.Hide();
         }
 
-        private void ShowResult(BattleResult result)
+        private void ShowResult(BattleResult result, string unlockNotice = null)
         {
             battleResult = result;
-            resultHud.Show(result, result.IsMission && prologue.IsComplete);
+            // A mission's exits reach the lobby when no mission is playable right now (the next waits for a stage).
+            resultHud.Show(result, result.IsMission && !IsNextMissionAvailable, unlockNotice);
         }
 
         private void BeginMissionBattle(int number)
@@ -1110,10 +1188,10 @@ namespace TurnLimbo.Presentation
             ResetBattlePresentation();
         }
 
-        /// <summary>The current mission's briefing; once the arc is complete, the lobby instead.</summary>
+        /// <summary>The next mission's briefing; the lobby instead when no mission is playable right now.</summary>
         private void ShowBriefing()
         {
-            if (prologue.IsComplete)
+            if (!IsNextMissionAvailable)
             {
                 ShowLobby();
                 return;
@@ -1121,7 +1199,8 @@ namespace TurnLimbo.Presentation
             ClearBattleScreens();
             showingBriefing = true;
             lobbyHud.Hide();
-            briefingHud.Show(prologue.CurrentMission, prologue.MissionCount);
+            PrologueMission next = prologue.CurrentMission;
+            briefingHud.Show(next, MissionCountFor(next), prologue.IsArcComplete);
         }
 
         private void ClearMissionState()
@@ -1136,6 +1215,10 @@ namespace TurnLimbo.Presentation
         private void ShowLobby()
         {
             ClearBattleScreens();
+            SyncStoryProgression();
+            // Lobby missions appear on the lobby once the 서막 is over and their stage is cleared.
+            PrologueMission next = prologue.IsArcComplete ? prologue.CurrentMission : null;
+            lobbyHud.SetNextMission(next, next != null && IsNextMissionAvailable);
             lobbyHud.Show(campaign);
         }
 
@@ -1158,6 +1241,7 @@ namespace TurnLimbo.Presentation
             stepHud.Reset();
             resistanceFeedback.Reset();
             hud.ClearSkillFeedback();
+            arena.SetEnemyAppearance(EnemyAppearance.Student);
             arena.Reset();
             hitStopRemaining = 0f;
             SetViewPhase(ViewPhase.Outcome);
@@ -1200,11 +1284,12 @@ namespace TurnLimbo.Presentation
             highlightedSlot = -1;
             inspectingEnemy = 0;
             explainedSkill = null;
+            arena.SetEnemyAppearance(IsMission ? mission.EnemyAppearance : EnemyAppearance.Student);
             arena.Reset();
             hud.Reset();
-            hud.SetMissionMode(IsMission, IsMission && mission.PlanningTimer);
+            hud.SetMissionMode(IsMission, IsMission && mission.PlanningTimer, IsMission && mission.BreathEnabled);
             hud.SetGuide(guide);
-            if (IsMission) hud.SetStage(mission.Number, prologue.MissionCount, mission.Title);
+            if (IsMission) hud.SetStage(mission.Number, MissionCountFor(mission), mission.Title);
             else hud.SetStage(campaign.StageNumber, campaign.StageCount, campaign.CurrentStage.Name);
             SetViewPhase(ViewPhase.Planning);
             ClearHeldKeys();
@@ -1248,7 +1333,8 @@ namespace TurnLimbo.Presentation
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.Refresh(CanStep, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,
-                StepWindowFraction, session.UsedStepThisTurn, session.StepAttemptsThisTurn, session.StepMissedThisTurn);
+                StepWindowFraction, session.UsedStepThisTurn, session.StepAttemptsThisTurn, session.StepMissedThisTurn,
+                StepFeatures);
             resistanceFeedback.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
             if (IsInspecting && session.EnemyQueue.Count > 0)

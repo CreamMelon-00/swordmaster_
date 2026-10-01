@@ -22,7 +22,7 @@ namespace TurnLimbo.Presentation
         private readonly Image background;
         private readonly AspectRatioFitter backgroundFitter;
         private readonly Text chapter, title, objectives;
-        private readonly Button startButton;
+        private readonly Button startButton, backButton;
         private readonly List<GameObject> enemyViews = new List<GameObject>();
         private readonly Dictionary<string, Sprite> sprites = new Dictionary<string, Sprite>();
         private bool disposed;
@@ -31,8 +31,10 @@ namespace TurnLimbo.Presentation
         public bool IsVisible => !disposed && root.gameObject.activeSelf;
         public PrologueMission Mission { get; private set; }
         public Button StartButton => startButton;
+        /// <summary>The lobby missions' way back (Escape too); null when the HUD was built without one.</summary>
+        public Button BackButton => backButton;
 
-        public MissionBriefingHud(Transform parent, LegacyDuelArt art, Action start)
+        public MissionBriefingHud(Transform parent, LegacyDuelArt art, Action start, Action back = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
@@ -78,10 +80,12 @@ namespace TurnLimbo.Presentation
             enemiesRoot = Rect("Enemy Silhouettes", enemiesPanel.transform, new Vector2(0f, -30f), new Vector2(620f, 380f));
 
             startButton = StartButtonView(root, start);
+            if (back != null) backButton = BackButtonView(root, back);
             Hide();
         }
 
-        public void Show(PrologueMission mission, int missionCount)
+        /// <param name="canLeave">A lobby mission's briefing offers the way back to the lobby.</param>
+        public void Show(PrologueMission mission, int missionCount, bool canLeave = false)
         {
             if (disposed) return;
             Mission = mission ?? throw new ArgumentNullException(nameof(mission));
@@ -91,7 +95,8 @@ namespace TurnLimbo.Presentation
             background.enabled = backgroundSprite != null;
             backgroundFitter.aspectRatio = backgroundSprite != null && backgroundSprite.rect.height > 0f
                 ? backgroundSprite.rect.width / backgroundSprite.rect.height : 16f / 9f;
-            chapter.text = $"{ChapterName}  ·  임무 {mission.Number} / {missionCount}";
+            chapter.text = $"{mission.Chapter}  ·  임무 {mission.Number} / {missionCount}";
+            if (backButton != null) backButton.gameObject.SetActive(canLeave);
             title.text = mission.Title;
             var lines = new System.Text.StringBuilder();
             foreach (string objective in mission.Objectives)
@@ -114,6 +119,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             disposed = true;
             startButton.onClick.RemoveAllListeners();
+            backButton?.onClick.RemoveAllListeners();
             root.gameObject.SetActive(false);
             if (Application.isPlaying) UnityEngine.Object.Destroy(root.gameObject);
             else UnityEngine.Object.DestroyImmediate(root.gameObject);
@@ -177,6 +183,27 @@ namespace TurnLimbo.Presentation
                 if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
                 start?.Invoke();
             });
+            return button;
+        }
+
+        private Button BackButtonView(Transform parent, Action back)
+        {
+            var image = Panel("Mission Back", parent, new Vector2(-380f, 70f), new Vector2(240f, 64f), DuelVisualTheme.RaisedSurface);
+            image.rectTransform.anchorMin = image.rectTransform.anchorMax = new Vector2(.5f, 0f);
+            image.raycastTarget = true;
+            var button = image.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            button.navigation = new Navigation { mode = Navigation.Mode.None };
+            DuelVisualTheme.StyleButton(button);
+            var caption = Label("Button Label", image.transform, new Vector2(-112f, 0f), new Vector2(224f, 56f), 24, Foreground);
+            caption.alignment = TextAnchor.MiddleCenter;
+            caption.text = "로비로  [Esc]";
+            button.onClick.AddListener(() =>
+            {
+                if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
+                back?.Invoke();
+            });
+            button.gameObject.SetActive(false);
             return button;
         }
 

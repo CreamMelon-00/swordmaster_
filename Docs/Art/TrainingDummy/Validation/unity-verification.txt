@@ -1,0 +1,5 @@
+PASS: 18 sprites imported at 256x224, 40 PPU, pivot(128,22), Point/no mipmaps/uncompressed.
+PASS: every Idle/Hurt keyframe sampled against its source sprite; fixed transform scale.
+PASS: URP Sprite-Unlit-Default material matches the arena sprite lighting convention.
+PASS: Idle loops for 1.44s; Hurt is a 0.70s one-shot. Prefab references both clips through its controller.
+PASS: Hurt trigger enters/restarts Hurt; exit-time transition returns to Idle (controller structure checked).

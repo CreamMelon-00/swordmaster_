@@ -29,6 +29,7 @@ namespace TurnLimbo.Presentation
         private LegacyCurrentSlot shownSlot;
         private int shownAttempts = -1;
         private bool shownMissed;
+        private CombatFeature shownFeatures = CombatFeature.All;
         private bool disposed;
         private const float FeedbackDuration = .35f;
         public const float ActorTargetWorldRadius = 1.5f;
@@ -67,10 +68,18 @@ namespace TurnLimbo.Presentation
 
         public const string KeyHint = "A 회피 · D 압박";
 
+        /// <summary>The key hint for the steps a duel has opened (missions open 회피 before 압박).</summary>
+        public static string KeyHintFor(CombatFeature features)
+            => features.AllowsStep(LegacyStepAction.Dodge) && features.AllowsStep(LegacyStepAction.Pressure) ? KeyHint
+                : features.AllowsStep(LegacyStepAction.Dodge) ? "A 회피"
+                : features.AllowsStep(LegacyStepAction.Pressure) ? "D 압박" : string.Empty;
+
         /// <param name="attemptsThisTurn">Steps attempted this turn; each one narrowed the success window.</param>
         /// <param name="missedThisTurn">A step missed this turn, so next turn's natural ACT recovery is lost.</param>
+        /// <param name="features">The duel's open steps: a closed step shows no cue and no key hint.</param>
         public void Refresh(bool visible, LegacyCurrentSlot slot, float progress, bool timingWindow,
-            float windowFraction, bool usedStep, int attemptsThisTurn = 0, bool missedThisTurn = false)
+            float windowFraction, bool usedStep, int attemptsThisTurn = 0, bool missedThisTurn = false,
+            CombatFeature features = CombatFeature.All)
         {
             if (disposed) return;
             root.gameObject.SetActive(visible);
@@ -87,20 +96,22 @@ namespace TurnLimbo.Presentation
             }
             bool pending = slot != null && slot.HitsResolved == 0;
             bool anchored = TryProjectActor(out Vector2 center, out float targetRadius);
-            UpdateCue(dodge, pending && slot.EnemySkill?.Kind == LegacySkillKind.Attack,
+            UpdateCue(dodge, pending && features.AllowsStep(LegacyStepAction.Dodge) && slot.EnemySkill?.Kind == LegacySkillKind.Attack,
                 slot?.DodgeSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
             // A pending counter can already be backed by pressure before it strikes.
             LegacySkill own = slot?.PlayerSkill ?? slot?.PendingPlayerCounter;
-            UpdateCue(pressure, pending && own != null && !own.IsWait,
+            UpdateCue(pressure, pending && features.AllowsStep(LegacyStepAction.Pressure) && own != null && !own.IsWait,
                 slot?.PressureSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
             int attempts = Math.Max(attemptsThisTurn, usedStep ? 1 : 0);
-            if (attempts != shownAttempts || missedThisTurn != shownMissed)
+            if (attempts != shownAttempts || missedThisTurn != shownMissed || features != shownFeatures)
             {
                 shownAttempts = attempts;
                 shownMissed = missedThisTurn;
-                recovery.text = attempts == 0 ? KeyHint : missedThisTurn
-                    ? KeyHint + "  ·  이번 턴 " + attempts + "회 · 빗나감: 다음 턴 ACT 자연 회복 없음"
-                    : KeyHint + "  ·  이번 턴 " + attempts + "회 · 성공 구간이 좁아졌습니다";
+                shownFeatures = features;
+                string hint = KeyHintFor(features);
+                recovery.text = attempts == 0 ? hint : missedThisTurn
+                    ? hint + "  ·  이번 턴 " + attempts + "회 · 빗나감: 다음 턴 ACT 자연 회복 없음"
+                    : hint + "  ·  이번 턴 " + attempts + "회 · 성공 구간이 좁아졌습니다";
                 recovery.color = missedThisTurn ? DuelVisualTheme.Danger : DuelVisualTheme.Foreground;
             }
         }

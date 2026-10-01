@@ -175,8 +175,12 @@ namespace TurnLimbo.Presentation
                     card.Icon.sprite = owned == null ? null : art.GetSkillIcon(owned.Skill.IconId);
                     card.Name.text = owned?.Skill.Name ?? "빈 슬롯";
                     card.Name.color = owned == null ? Muted : Foreground;
-                    card.Cost.text = owned == null ? string.Empty : "ACT " + owned.Skill.Cost;
-                    card.Background.color = State.ActiveLane == lane && State.SelectedSlot == slot ? Selected : CardColor;
+                    // A lane the story has not opened keeps its skills for later; they stay put and do not fight.
+                    bool open = run.IsLaneOpen(lane);
+                    card.Cost.text = !open ? "임무로 열림" : owned == null ? string.Empty : "ACT " + owned.Skill.Cost;
+                    if (!open) card.Name.color = Muted;
+                    card.Background.color = !open ? DuelVisualTheme.Track
+                        : State.ActiveLane == lane && State.SelectedSlot == slot ? Selected : CardColor;
                 }
             }
             if (builtLane != State.ActiveLane || builtOwnedCount != run.OwnedSkills.Count) BuildOwnedCards();
@@ -188,10 +192,10 @@ namespace TurnLimbo.Presentation
                 card.Background.color = State.SelectedSkillId == card.SkillId ? Selected : CardColor;
             }
             RefreshDetail();
-            counts.text = $"Q {run.GetLoadoutCount(0)}/3  ·  W {run.GetLoadoutCount(1)}/3  ·  E {run.GetLoadoutCount(2)}/3";
+            counts.text = $"Q {LaneCount(0)}  ·  W {LaneCount(1)}  ·  E {LaneCount(2)}";
             string missing = string.Empty;
             for (int lane = 0; lane < 3; lane++)
-                if (run.GetLoadoutCount(lane) < 3)
+                if (run.IsLaneOpen(lane) && run.GetLoadoutCount(lane) < 3)
                     missing += (missing.Length > 0 ? " · " : string.Empty) + LaneNames[lane] + " " + (3 - run.GetLoadoutCount(lane)) + "개 부족";
             status.text = !run.HasLoadoutChanges ? "저장된 편성"
                 : missing.Length > 0 ? "저장 전 변경 · " + missing : "저장 전 변경 · 저장하면 전투에 반영됩니다";
@@ -254,7 +258,7 @@ namespace TurnLimbo.Presentation
             CampaignOwnedSkill owned = FindOwned(State.SelectedSkillId);
             detailIcon.enabled = owned != null;
             detailIcon.sprite = owned == null ? null : art.GetSkillIcon(owned.Skill.IconId);
-            removeButton.gameObject.SetActive(owned != null && run.IsSkillInLoadout(owned.SkillId));
+            removeButton.gameObject.SetActive(owned != null && run.IsSkillInLoadout(owned.SkillId) && run.IsLaneOpen(owned.Skill.LaneIndex));
             if (owned == null)
             {
                 detailStyle.Clear("선택한 기술");
@@ -332,7 +336,8 @@ namespace TurnLimbo.Presentation
         private void RemoveSelected()
         {
             int id = State.SelectedSkillId;
-            if (disposed || id == 0 || !run.IsSkillInLoadout(id)) return;
+            CampaignOwnedSkill selected = FindOwned(id);
+            if (disposed || id == 0 || !run.IsSkillInLoadout(id) || selected == null || !run.IsLaneOpen(selected.Skill.LaneIndex)) return;
             State.SelectedSlot = -1;
             removeSkill?.Invoke(id);
             if (!disposed) Refresh();
@@ -350,9 +355,12 @@ namespace TurnLimbo.Presentation
             if (!disposed) Refresh();
         }
 
+        private string LaneCount(int lane) => run.IsLaneOpen(lane) ? run.GetLoadoutCount(lane) + "/3" : "잠김";
+
         internal bool BeginDrag(int skillId, int lane, int slot, PointerEventData pointer)
         {
-            if (disposed || !root.gameObject.activeInHierarchy || FindOwned(skillId) == null || lane < 0 || lane > 2) return false;
+            if (disposed || !root.gameObject.activeInHierarchy || FindOwned(skillId) == null || lane < 0 || lane > 2 ||
+                !run.IsLaneOpen(lane)) return false;
             CancelDrag();
             State.ActiveLane = lane;
             State.SelectedSkillId = skillId;

@@ -60,6 +60,31 @@ namespace TurnLimbo.Runtime.Campaign
         public CurriculumNode LastCompletedCurriculumNode { get; private set; }
         /// <summary>How the last stage battle ended, or null when none has finished since it began.</summary>
         public DuelMatchOutcome? LastOutcome { get; private set; }
+        /// <summary>The combat features stage battles allow. Story missions open them; the default (everything) is
+        /// what stages had before missions unlocked features, and what tests and direct API use still get.</summary>
+        public CombatFeature Features { get; private set; } = CombatFeature.All;
+        /// <summary>The highest stage the story allows (the next one waits for its mission). Unlimited by default.</summary>
+        public int StageLimit { get; private set; } = int.MaxValue;
+
+        /// <summary>Applies what the story has opened. Not part of <see cref="Reset"/>: a new journey keeps the story.</summary>
+        public void SetProgression(CombatFeature features, int stageLimit)
+        {
+            if (!features.HasLane(0) && !features.HasLane(1) && !features.HasLane(2))
+                throw new ArgumentException("At least one lane must be open.", nameof(features));
+            if (stageLimit < 0) throw new ArgumentOutOfRangeException(nameof(stageLimit));
+            Features = features;
+            StageLimit = stageLimit;
+        }
+
+        /// <summary>Back to everything open and no stage limit.</summary>
+        public void ClearProgression() => SetProgression(CombatFeature.All, int.MaxValue);
+
+        /// <summary>Whether the lane's skills go to battle. Closed lanes keep their saved skills for later.</summary>
+        public bool IsLaneOpen(int laneIndex) => Features.HasLane(laneIndex);
+
+        /// <summary>An unlocked stage that still waits for a story mission.</summary>
+        public bool IsStageWaitingForMission(int stageNumber)
+            => IsValidStage(stageNumber) && stageNumber <= HighestUnlockedStage && stageNumber > StageLimit;
         public bool HasLoadoutChanges
         {
             get
@@ -150,7 +175,7 @@ namespace TurnLimbo.Runtime.Campaign
         public bool TryPlaceLoadoutSkill(int skillId, int lane, int slot)
         {
             if (!CanEditLoadout || lane < 0 || lane >= loadoutSlots.Length ||
-                slot < 0 || slot >= loadoutSlots[lane].Length) return false;
+                slot < 0 || slot >= loadoutSlots[lane].Length || !IsLaneOpen(lane)) return false;
             CampaignOwnedSkill owned = FindOwnedSkill(skillId);
             if (owned == null || owned.Skill.LaneIndex != lane) return false;
             CampaignOwnedSkill[] slots = loadoutSlots[lane];
@@ -190,7 +215,7 @@ namespace TurnLimbo.Runtime.Campaign
         {
             if (!CanEditLoadout || IsSkillInLoadout(skillId)) return false;
             CampaignOwnedSkill owned = FindOwnedSkill(skillId);
-            if (owned == null) return false;
+            if (owned == null || !IsLaneOpen(owned.Skill.LaneIndex)) return false;
             CampaignOwnedSkill[] lane = loadoutSlots[owned.Skill.LaneIndex];
             for (int slot = 0; slot < lane.Length; slot++)
                 if (lane[slot] == null)
@@ -204,23 +229,30 @@ namespace TurnLimbo.Runtime.Campaign
         public bool TryUnequipSkill(int skillId)
         {
             if (!CanEditLoadout) return false;
-            foreach (CampaignOwnedSkill[] lane in loadoutSlots)
+            for (int laneIndex = 0; laneIndex < loadoutSlots.Length; laneIndex++)
+            {
+                CampaignOwnedSkill[] lane = loadoutSlots[laneIndex];
                 for (int i = 0; i < lane.Length; i++)
                     if (lane[i] != null && lane[i].SkillId == skillId)
                     {
+                        if (!IsLaneOpen(laneIndex)) return false;
                         lane[i] = null;
                         return true;
                     }
+            }
             return false;
         }
 
         public bool TryMoveEquippedSkill(int skillId, int direction)
         {
             if (!CanEditLoadout || (direction != -1 && direction != 1)) return false;
-            foreach (CampaignOwnedSkill[] lane in loadoutSlots)
+            for (int laneIndex = 0; laneIndex < loadoutSlots.Length; laneIndex++)
+            {
+                CampaignOwnedSkill[] lane = loadoutSlots[laneIndex];
                 for (int i = 0; i < lane.Length; i++)
                     if (lane[i] != null && lane[i].SkillId == skillId)
                     {
+                        if (!IsLaneOpen(laneIndex)) return false;
                         int target = i + direction;
                         if (target < 0 || target >= lane.Length) return false;
                         CampaignOwnedSkill other = lane[target];
@@ -228,6 +260,7 @@ namespace TurnLimbo.Runtime.Campaign
                         lane[i] = other;
                         return true;
                     }
+            }
             return false;
         }
 
@@ -306,8 +339,9 @@ namespace TurnLimbo.Runtime.Campaign
             LegacyCounter enemyCounter = CurrentStage.EnemyCounterBasis == null ? null
                 : new LegacyCounter(WithStagePower(CurrentStage.EnemyCounterBasis), CurrentStage.EnemyCountersPerTurn);
 
+            // Closed lanes keep their skills in the loadout; the duel leaves them out.
             return new LegacyQueuedDuel(100, 50, CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
-                playerSkills, enemySkills, new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter);
+                playerSkills, enemySkills, new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter, features: Features);
         }
 
         private LegacySkill WithStagePower(LegacySkill basis)
@@ -478,7 +512,7 @@ namespace TurnLimbo.Runtime.Campaign
 
         private bool CanEnterStage(int number)
         {
-            if (!IsValidStage(number) || number > HighestUnlockedStage || HasLoadoutChanges) return false;
+            if (!IsValidStage(number) || number > HighestUnlockedStage || number > StageLimit || HasLoadoutChanges) return false;
             // Ownership, uniqueness and lane assignment are maintained by the only
             // mutation APIs; read-only views cannot bypass these invariants.
             foreach (List<CampaignOwnedSkill> lane in equippedLanes)

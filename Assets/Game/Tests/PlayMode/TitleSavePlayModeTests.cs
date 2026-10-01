@@ -34,6 +34,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsInLobby, Is.False);
                 Assert.That(controller.IsInBriefing, Is.False);
                 Assert.That(controller.AutoSaveEnabled, Is.False, "Nothing is written before the player chooses.");
+                Assert.That(controller.StoryProgressionEnabled, Is.False);
                 Assert.That(controller.TitleHud.CanContinue, Is.False);
                 Assert.That(controller.TitleHud.ContinueButton.interactable, Is.False);
                 Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text, Does.Contain("없습니다"));
@@ -49,6 +50,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.TitleHud.IsVisible, Is.False);
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(1));
                 Assert.That(controller.AutoSaveEnabled, Is.True);
+                Assert.That(controller.StoryProgressionEnabled, Is.True, "새 게임 follows the story's unlocks.");
+                Assert.That(controller.Campaign.Features, Is.EqualTo(CombatFeature.LaneQ), "A new story opens with the Q lane only.");
+                Assert.That(controller.Campaign.StageLimit, Is.Zero, "Stages wait for the 서막.");
                 GameSave saved = scope.Load();
                 Assert.That(saved.PrologueCleared, Is.Zero);
                 Assert.That(saved.Campaign.Currency, Is.Zero);
@@ -91,6 +95,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsInLobby, Is.True, "Enter continues, and a finished arc resumes in the lobby.");
                 Assert.That(controller.AutoSaveEnabled, Is.True);
                 Assert.That(controller.Prologue.IsComplete, Is.True);
+                Assert.That(controller.StoryProgressionEnabled, Is.True);
+                Assert.That(controller.Campaign.Features, Is.EqualTo(CombatFeature.All), "Every won mission opened its feature.");
+                Assert.That(controller.Campaign.StageLimit, Is.EqualTo(int.MaxValue), "No stage waits for a mission any more.");
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(campaign.Currency));
                 Assert.That(controller.Campaign.IsStageCleared(2), Is.True);
                 Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(3));
@@ -124,7 +131,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(afterRestart.Campaign.Currency, Is.Zero, "여정 초기화 is saved too.");
                 Assert.That(afterRestart.Campaign.CurriculumCompleted, Is.Empty, "…with a reset curriculum.");
                 Assert.That(afterRestart.Campaign.CurriculumActive, Is.Null);
-                Assert.That(afterRestart.PrologueCleared, Is.EqualTo(PrologueMissions.Count), "…and keeps the arc.");
+                Assert.That(afterRestart.PrologueCleared, Is.EqualTo(StoryMissions.Count), "…and keeps the story.");
             }
         }
 
@@ -215,6 +222,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.DismissBattleResult(), Is.True);
                 Assert.That(controller.AutoSaveEnabled, Is.False);
                 Assert.That(scope.Store.Exists, Is.False, "Only the title's choices turn saving on.");
+                Assert.That(controller.StoryProgressionEnabled, Is.False);
+                Assert.That(controller.Campaign.Features, Is.EqualTo(CombatFeature.All),
+                    "…and the story's locks, so direct API use keeps every feature open.");
+                Assert.That(controller.Campaign.StageLimit, Is.EqualTo(int.MaxValue));
             }
         }
 

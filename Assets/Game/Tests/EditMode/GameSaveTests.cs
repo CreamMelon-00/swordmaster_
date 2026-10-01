@@ -118,7 +118,7 @@ namespace TurnLimbo.Core.Tests
                 ["duplicate in loadout"] = Save(2, With(valid, loadout: new[]
                     { new List<int> { lanes[0][0], lanes[0][0], lanes[0][2] }, lanes[1], lanes[2] })),
                 ["arc below zero"] = Save(-1, valid),
-                ["arc past the end"] = Save(PrologueMissions.Count + 1, valid),
+                ["story past the end"] = Save(StoryMissions.Count + 1, valid),
             };
             foreach (KeyValuePair<string, GameSave> entry in broken)
             {
@@ -239,9 +239,12 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryRestore(3), Is.True);
             Assert.That(run.CurrentMission.Number, Is.EqualTo(4));
             Assert.That(run.TryRestore(PrologueMissions.Count), Is.True);
+            Assert.That(run.IsArcComplete, Is.True, "Saves from before the lobby missions still load.");
+            Assert.That(run.IsComplete, Is.False);
+            Assert.That(run.TryRestore(StoryMissions.Count), Is.True);
             Assert.That(run.IsComplete, Is.True);
             Assert.That(run.TryRestore(-1), Is.False);
-            Assert.That(run.TryRestore(PrologueMissions.Count + 1), Is.False);
+            Assert.That(run.TryRestore(StoryMissions.Count + 1), Is.False);
             Assert.That(run.IsComplete, Is.True, "A rejected count changes nothing.");
         }
 

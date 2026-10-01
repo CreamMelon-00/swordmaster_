@@ -4,23 +4,35 @@ using TurnLimbo.Runtime.LegacyCombat;
 
 namespace TurnLimbo.Runtime.Prologue
 {
+    /// <summary>How the arena draws a mission's enemy. Presentation maps each value to an art set.</summary>
+    public enum EnemyAppearance
+    {
+        /// <summary>The student swordsman used by stages and most missions.</summary>
+        Student,
+        /// <summary>A straw training dummy on a fixed stand: idle and hurt only, and it never moves.</summary>
+        TrainingDummy,
+    }
+
     /// <summary>An enemy shown on a mission briefing.</summary>
     public sealed class MissionEnemy
     {
-        public MissionEnemy(string name, string silhouetteResource)
+        public MissionEnemy(string name, string silhouetteResource, EnemyAppearance appearance = EnemyAppearance.Student)
         {
             if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("An enemy needs a name.", nameof(name));
             Name = name;
             SilhouetteResource = silhouetteResource ?? string.Empty;
+            Appearance = appearance;
         }
 
         public string Name { get; }
         /// <summary>A Resources path to a sprite drawn as the enemy's silhouette.</summary>
         public string SilhouetteResource { get; }
+        public EnemyAppearance Appearance { get; }
     }
 
-    /// <summary>One mission of the opening arc: its briefing, its duel and its coached lessons.
-    /// Early missions use the Q lane only and keep steps, breathing and the loadout locked.</summary>
+    /// <summary>One story mission: its briefing, its duel, its coached lessons and what winning it opens.
+    /// The 서막 missions come first and open the lobby; later missions wait for a cleared stage and each open
+    /// one combat feature (<see cref="Unlocks"/>).</summary>
     public sealed class PrologueMission
     {
         public const int PlayerHealth = 100;
@@ -35,7 +47,9 @@ namespace TurnLimbo.Runtime.Prologue
             IReadOnlyList<string> objectives, IReadOnlyList<MissionEnemy> enemies,
             int enemyHealth, int enemyResistance, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyActionCounts, IReadOnlyList<LegacySkill> playerSkills,
-            bool planningTimer, IReadOnlyList<MissionGuideBeat> guide)
+            bool planningTimer, IReadOnlyList<MissionGuideBeat> guide,
+            CombatFeature features = CombatFeature.LaneQ, CombatFeature unlocks = CombatFeature.None,
+            int requiredClearedStage = 0, string chapter = DefaultChapter, string unlockText = null)
         {
             if (number < 1) throw new ArgumentOutOfRangeException(nameof(number));
             if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("A mission needs a title.", nameof(title));
@@ -52,11 +66,23 @@ namespace TurnLimbo.Runtime.Prologue
             this.enemySkills = Copy(enemySkills, nameof(enemySkills));
             this.enemyActionCounts = Copy(enemyActionCounts, nameof(enemyActionCounts));
             this.playerSkills = Copy(playerSkills, nameof(playerSkills));
+            if (!features.HasLane(0) && !features.HasLane(1) && !features.HasLane(2))
+                throw new ArgumentException("A mission needs at least one open lane.", nameof(features));
             foreach (LegacySkill skill in this.playerSkills)
-                if (skill.LaneIndex != 0) throw new ArgumentException("Opening missions use the Q lane only.", nameof(playerSkills));
+                if (!features.HasLane(skill.LaneIndex))
+                    throw new ArgumentException("A mission's skills must sit in its open lanes.", nameof(playerSkills));
+            if (requiredClearedStage < 0) throw new ArgumentOutOfRangeException(nameof(requiredClearedStage));
+            if (string.IsNullOrWhiteSpace(chapter)) throw new ArgumentException("A mission needs a chapter.", nameof(chapter));
             PlanningTimer = planningTimer;
             this.guide = guide == null || guide.Count == 0 ? null : Copy(guide, nameof(guide));
+            Features = features;
+            Unlocks = unlocks;
+            RequiredClearedStage = requiredClearedStage;
+            Chapter = chapter;
+            UnlockText = unlockText ?? string.Empty;
         }
+
+        public const string DefaultChapter = "서막";
 
         public int Number { get; }
         public string Title { get; }
@@ -71,16 +97,28 @@ namespace TurnLimbo.Runtime.Prologue
         public IReadOnlyList<LegacySkill> PlayerSkills => playerSkills;
         /// <summary>Whether the 10-second planning timer runs once the coach leaves the player free.</summary>
         public bool PlanningTimer { get; }
-        /// <summary>The Q/W/E lanes the player has; the opening arc has only Q.</summary>
-        public int LaneCount => 1;
-        public bool StepsEnabled => false;
-        public bool BreathEnabled => false;
+        /// <summary>What this mission's duel allows; the 서막 has only the Q lane.</summary>
+        public CombatFeature Features { get; }
+        /// <summary>What the first win of this mission opens for every later stage and mission.</summary>
+        public CombatFeature Unlocks { get; }
+        /// <summary>The stage that must be cleared before this mission can be played; 0 for the 서막.</summary>
+        public int RequiredClearedStage { get; }
+        /// <summary>The briefing's chapter label, e.g. 서막.</summary>
+        public string Chapter { get; }
+        /// <summary>One line announcing what winning opens, or empty.</summary>
+        public string UnlockText { get; }
+        /// <summary>How many of the Q/W/E lanes the player has in this mission.</summary>
+        public int LaneCount => Features.LaneCount();
+        /// <summary>Whether A or D steps are open (<see cref="Features"/> tells which).</summary>
+        public bool StepsEnabled => Features.AllowsAnyStep();
+        public bool BreathEnabled => Features.Has(CombatFeature.Breath);
+        public EnemyAppearance EnemyAppearance => enemies[0].Appearance;
         public string IntroDialogue => $"Dialogue/mission-{Number:00}-intro";
         public string OutroDialogue => $"Dialogue/mission-{Number:00}-outro";
 
         public LegacyQueuedDuel CreateDuel(int seed = 1)
             => new LegacyQueuedDuel(PlayerHealth, PlayerResistance, EnemyHealth, EnemyResistance,
-                playerSkills, enemySkills, enemyActionCounts, seed);
+                playerSkills, enemySkills, enemyActionCounts, seed, features: Features);
 
         /// <summary>A fresh coach for one attempt, or null when the mission has no coached beats.</summary>
         public MissionGuide CreateGuide() => guide == null ? null : new MissionGuide(guide);

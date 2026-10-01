@@ -49,7 +49,7 @@ namespace TurnLimbo.Presentation
         private readonly Outline[] guideLaneFocus = new Outline[3];
         private readonly Outline guideCommitFocus;
         private readonly RectTransform guideEnemyFocus, guideActFocus;
-        private bool missionMode, missionModeInitialized, missionTimed, highlightEnemyQueue;
+        private bool missionMode, missionModeInitialized, missionTimed, missionBreath, highlightEnemyQueue;
         private readonly GameObject[] laneCards = new GameObject[3], nextPanels = new GameObject[3];
         private int stageNumber, stageCount;
         private string stageName;
@@ -345,14 +345,16 @@ namespace TurnLimbo.Presentation
 
         /// <summary>Mission duels label the stage as a mission and keep breathing closed.</summary>
         /// <param name="timed">Whether the mission runs the planning timer; otherwise an untimed hint replaces it.</param>
-        public void SetMissionMode(bool enabled, bool timed = false)
+        /// <param name="breath">Whether the mission has opened 숨고르기; closed missions hide its button.</param>
+        public void SetMissionMode(bool enabled, bool timed = false, bool breath = false)
         {
             if (disposed) return;
             if (!enabled) SetGuide(null);
-            if (missionModeInitialized && missionMode == enabled && missionTimed == timed) return;
+            if (missionModeInitialized && missionMode == enabled && missionTimed == timed && missionBreath == breath) return;
             missionModeInitialized = true;
             missionMode = enabled;
             missionTimed = timed;
+            missionBreath = breath;
             ApplyInputAvailability();
             bool showTimer = !enabled || timed;
             timerTrack.gameObject.SetActive(showTimer);
@@ -370,11 +372,17 @@ namespace TurnLimbo.Presentation
             ApplyInputAvailability();
         }
 
+        /// <summary>숨고르기 is shown when the duel allows it (a mission must also have opened it) and the coach, if any,
+        /// has reached its lesson or free play.</summary>
+        private bool BreathShown => (!missionMode || missionBreath) &&
+            (displayedSession == null || displayedSession.Features.Has(CombatFeature.Breath)) &&
+            (guide == null || guide.AllowsBreath);
+
         private void ApplyInputAvailability()
         {
-            bool normalPlanning = !missionMode && guide == null;
-            breathButton.gameObject.SetActive(normalPlanning);
-            breathNote.gameObject.SetActive(normalPlanning);
+            bool breathShown = BreathShown;
+            breathButton.gameObject.SetActive(breathShown);
+            breathNote.gameObject.SetActive(breathShown);
             breathButton.interactable = CanQueueBreath();
             bool allowCommit = guide == null || guide.AllowsCommit;
             commitButton.interactable = lastPlanning && allowCommit;
@@ -388,7 +396,7 @@ namespace TurnLimbo.Presentation
         }
 
         private bool CanQueueBreath()
-            => !disposed && queueBreath != null && lastPlanning && !missionMode && guide == null &&
+            => !disposed && queueBreath != null && lastPlanning && BreathShown &&
                 inspectedSlot < 0 && displayedSession != null && displayedSession.Phase == LegacyDuelPhase.Planning &&
                 displayedSession.BreathsRemainingThisTurn > 0;
 

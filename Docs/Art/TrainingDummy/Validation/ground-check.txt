@@ -1,0 +1,3 @@
+C:/Users/user/Documents/SwordMasterStory/Aseprite_Character/Training_Dummy/Frames/idle/frame-01.png: top=70 bottom=201
+C:/Fork/swordmaster_/Assets/Game/Resources/SwordGirl/Animations/idle/frame-01.png: top=64 bottom=202
+C:/Fork/swordmaster_/Assets/Game/Resources/EnemyStudent/Animations/idle/frame-01.png: top=72 bottom=201
