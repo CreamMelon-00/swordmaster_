@@ -710,6 +710,8 @@ namespace TurnLimbo.Presentation
         public bool CycleLanes()
         {
             if (!CanChoose || IsInspecting || guide != null && !guide.AllowsCycle || !session.TryCycleLanes()) return false;
+            // Every lane with something to bring forward turned together; show it before the new fronts are drawn.
+            hud.PlayLaneTurn(new[] { session.GetLane(0).Count > 1, session.GetLane(1).Count > 1, session.GetLane(2).Count > 1 });
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             // A lane key already down was pressed for the skill that just left, so its release must not queue the

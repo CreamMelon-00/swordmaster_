@@ -53,6 +53,24 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(button.gameObject.activeSelf, Is.True);
                 Assert.That(button.interactable, Is.True);
                 Assert.That(Label(button.transform, "KeyHint").text, Is.EqualTo("Shift"));
+                // The turn slide: the lanes that turned play it, a one-skill lane does not, and it settles on real time.
+                LegacyCombatHud hud = controller.Hud;
+                Assert.That(hud.IsLaneTurning(0) && hud.IsLaneTurning(1), Is.True, "Both multi-skill lanes turned together.");
+                Assert.That(hud.IsLaneTurning(2), Is.False, "A one-skill lane has nothing to bring forward.");
+                RectTransform qIcon = Named(controller.Hud.Root.transform, "Current Q").Find("Skill Image").GetComponent<RectTransform>();
+                Assert.That(qIcon.anchoredPosition.y, Is.GreaterThan(10f), "The new front skill is still dropping in.");
+                // A held explanation is anchored to the icon's resting place, not to the sliding icon.
+                RectTransform explain = Named(controller.Hud.Root.transform, "Skill Explain").GetComponent<RectTransform>();
+                hud.ShowExplanation(duel.GetLane(0)[0], false);
+                Vector2 duringTurn = explain.anchoredPosition;
+                scope.Advance(LegacyCombatHud.LaneTurnDuration);
+                Assert.That(hud.IsLaneTurning(0) || hud.IsLaneTurning(1), Is.False);
+                Assert.That(qIcon.anchoredPosition, Is.EqualTo(new Vector2(0f, 10f)));
+                hud.ShowExplanation(duel.GetLane(0)[0], false);
+                Assert.That(Vector2.Distance(explain.anchoredPosition, duringTurn), Is.LessThan(.01f), "The explanation did not slide.");
+                hud.HideExplanation();
+                Assert.That(qIcon.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(Named(controller.Hud.Root.transform, "Current Q").localScale, Is.EqualTo(Vector3.one));
                 button.onClick.Invoke();
                 Assert.That(Fronts(duel), Is.EqualTo(new[] { 101, 106, 105 }), "Three turns bring the three-skill lane back.");
                 Assert.That(duel.LaneCyclesThisTurn, Is.EqualTo(3), "There is no limit.");

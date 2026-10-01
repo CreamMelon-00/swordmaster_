@@ -53,6 +53,15 @@ namespace TurnLimbo.Presentation
         private readonly RectTransform guideEnemyFocus, guideActFocus;
         private bool missionMode, missionModeInitialized, missionTimed, missionBreath, highlightEnemyQueue;
         private readonly GameObject[] laneCards = new GameObject[3], nextPanels = new GameObject[3];
+        // 넘기기: each turned lane's next skill drops from the next card into the front card while a new next skill
+        // slides in, and the card ticks like a gear. Real time, so it plays the same under Tab or bullet time.
+        public const float LaneTurnDuration = .14f;
+        private static readonly Vector2 CurrentIconHome = new Vector2(0, 10), NextIconHome = new Vector2(0, 7);
+        // Where the next card's icon sits, seen from the front card (next card at x+30, y 40; front card at y -4).
+        private static readonly Vector2 LaneTurnFrom = new Vector2(30, 44);
+        private static readonly Vector2 NextTurnFrom = new Vector2(26, 0);
+        private const float NextIconAlpha = .55f;
+        private readonly float[] laneTurnElapsed = { LaneTurnDuration, LaneTurnDuration, LaneTurnDuration };
         private int stageNumber, stageCount;
         private string stageName;
         private readonly StatusView playerStatus, enemyStatus;
@@ -194,13 +203,13 @@ namespace TurnLimbo.Presentation
             {
                 float x = (lane - 1) * 156;
                 var next = Panel("Next " + "QWE"[lane], controls, new Vector2(x + 30, 40), new Vector2(88, 104), RaisedSurface);
-                nextIcons[lane] = Image("Next Skill Image", next.transform, null, new Vector2(0, 7), new Vector2(56, 56));
+                nextIcons[lane] = Image("Next Skill Image", next.transform, null, NextIconHome, new Vector2(56, 56));
                 nextIcons[lane].preserveAspect = true;
-                nextIcons[lane].color = new Color(1, 1, 1, .55f);
+                nextIcons[lane].color = new Color(1, 1, 1, NextIconAlpha);
                 var nextLabel = Text("Next Label", next.transform, new Vector2(0, 41), new Vector2(76, 18), 14, TextAnchor.MiddleLeft);
                 nextLabel.text = "다음"; nextLabel.color = MutedText;
                 var card = Panel("Current " + "QWE"[lane], controls, new Vector2(x, -4), new Vector2(112, 124), Card, Border);
-                currentIcons[lane] = Image("Skill Image", card.transform, null, new Vector2(0, 10), new Vector2(56, 56));
+                currentIcons[lane] = Image("Skill Image", card.transform, null, CurrentIconHome, new Vector2(56, 56));
                 currentIcons[lane].preserveAspect = true;
                 var key = Text("Key", card.transform, new Vector2(-32, 47), new Vector2(36, 22), 20, TextAnchor.MiddleLeft);
                 key.text = "QWE"[lane].ToString(); key.color = Accent;
@@ -395,6 +404,50 @@ namespace TurnLimbo.Presentation
             (displayedSession == null || displayedSession.Features.Has(CombatFeature.Breath)) &&
             (guide == null || guide.AllowsBreath);
 
+        /// <summary>넘기기 just turned the lanes marked in <paramref name="turned"/>: they play the gear-like slide from
+        /// the next card into the front card. Call before the Refresh that shows the new front skills.</summary>
+        public void PlayLaneTurn(bool[] turned)
+        {
+            if (disposed || turned == null) return;
+            for (int lane = 0; lane < laneTurnElapsed.Length && lane < turned.Length; lane++)
+                if (turned[lane]) laneTurnElapsed[lane] = 0f;
+            AdvanceLaneTurns(0f);
+        }
+
+        /// <summary>Whether a lane's turn slide is still playing.</summary>
+        public bool IsLaneTurning(int lane) => lane >= 0 && lane < laneTurnElapsed.Length && laneTurnElapsed[lane] < LaneTurnDuration;
+
+        private void AdvanceLaneTurns(float realDelta)
+        {
+            for (int lane = 0; lane < laneTurnElapsed.Length; lane++)
+            {
+                laneTurnElapsed[lane] = Mathf.Min(LaneTurnDuration, laneTurnElapsed[lane] + Mathf.Max(0f, realDelta));
+                bool settled = laneTurnElapsed[lane] >= LaneTurnDuration;
+                float t = settled ? 1f : OutQuad(laneTurnElapsed[lane] / LaneTurnDuration);
+                RectTransform current = currentIcons[lane].rectTransform, nextIcon = nextIcons[lane].rectTransform;
+                Color next = nextIcons[lane].color;
+                if (settled)
+                {
+                    // Land exactly on the resting layout.
+                    current.anchoredPosition = CurrentIconHome;
+                    current.localScale = Vector3.one;
+                    nextIcon.anchoredPosition = NextIconHome;
+                    next.a = NextIconAlpha;
+                    laneCards[lane].transform.localScale = Vector3.one;
+                }
+                else
+                {
+                    current.anchoredPosition = Vector2.Lerp(CurrentIconHome + LaneTurnFrom, CurrentIconHome, t);
+                    current.localScale = Vector3.one * Mathf.Lerp(.8f, 1f, t);
+                    nextIcon.anchoredPosition = Vector2.Lerp(NextIconHome + NextTurnFrom, NextIconHome, t);
+                    next.a = NextIconAlpha * t;
+                    // A short tick: the card swells a little and settles as the new skill lands.
+                    laneCards[lane].transform.localScale = Vector3.one * (1f + .06f * Mathf.Sin(Mathf.PI * t));
+                }
+                nextIcons[lane].color = next;
+            }
+        }
+
         /// <summary>넘기기 is shown when the duel allows it and the coach, if any, has reached its lesson or free play.</summary>
         private bool CycleShown => displayedSession != null && displayedSession.Features.Has(CombatFeature.Cycle) &&
             (guide == null || guide.AllowsCycle);
@@ -553,6 +606,7 @@ namespace TurnLimbo.Presentation
                 currentIcons[lane].color = affordable ? Color.white
                     : new Color(MutedText.r, MutedText.g, MutedText.b, .62f);
             }
+            AdvanceLaneTurns(actualDelta);
             UpdateBreathCount();
             ApplyInputAvailability();
             if (slotAnimation) slotElapsed += delta;
@@ -700,7 +754,10 @@ namespace TurnLimbo.Presentation
             if (!enemy)
             {
                 int lane = Mathf.Clamp(skill.LaneIndex, 0, 2);
-                Vector2 selected = ScreenPosition(RectTransformUtility.WorldToScreenPoint(null, currentIcons[lane].rectTransform.position));
+                // The icon's resting place, so the panel stays put while a 넘기기 turn slides the icon in.
+                Transform card = laneCards[lane].transform;
+                Vector3 iconHome = card.parent.TransformPoint(card.localPosition + (Vector3)CurrentIconHome);
+                Vector2 selected = ScreenPosition(RectTransformUtility.WorldToScreenPoint(null, iconHome));
                 desired = selected + new Vector2(0, panel.sizeDelta.y / 2f + 96f);
             }
             panel.anchoredPosition = ClampCenter(desired,
@@ -923,6 +980,8 @@ namespace TurnLimbo.Presentation
             UpdateBreathCount();
             ApplyInputAvailability();
             for (int i = 0; i < 3; i++) shownSkills[i] = shownNextSkills[i] = -1;
+            for (int i = 0; i < laneTurnElapsed.Length; i++) laneTurnElapsed[i] = LaneTurnDuration;
+            AdvanceLaneTurns(0f);
             playerStatus.Reset(); enemyStatus.Reset();
             playerQueue.Clear(); enemyQueue.Clear();
             SetHoldProgress(-1, 0);
