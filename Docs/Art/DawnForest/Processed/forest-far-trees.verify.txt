@@ -1,0 +1,1 @@
+VERIFIED: forest-far-trees | input 2172x724 | source 543x181 | output 2172x724 | scale 4x nearest | palette 64 colors | visible 45595 | transparent 52688 | first visible row 0 | last visible row 121 | continuous opaque base starts 181 | checked 1572528 | alpha 0/255 | source alpha sum 0..4060

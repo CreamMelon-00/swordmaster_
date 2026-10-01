@@ -62,6 +62,9 @@ namespace TurnLimbo.Core.Tests
 
             Assert.That(feedback.ConditionMet, Is.True);
             Assert.That(feedback.EffectActivated, Is.EqualTo(playerGuards));
+            Assert.That(feedback.ActGainGranted, Is.EqualTo(playerGuards ? 2 : 0));
+            Assert.That(feedback.ResistanceRestored, Is.Zero);
+            Assert.That(feedback.OpponentResistanceReduced, Is.Zero);
             Assert.That(duel.NextActGain, Is.EqualTo(playerGuards ? 5 : 3));
             Assert.That(feedback.HasBeneficialBuff, Is.False);
         }
@@ -84,10 +87,15 @@ namespace TurnLimbo.Core.Tests
 
             Assert.That(feedback.ConditionMet, Is.True);
             Assert.That(feedback.EffectActivated, Is.EqualTo(activated));
+            Assert.That(feedback.ActGainGranted, Is.EqualTo(playerDraws ? 3 : 0));
+            Assert.That(feedback.ResistanceRestored, Is.Zero);
+            Assert.That(feedback.OpponentResistanceReduced, Is.EqualTo(resistance > 20 ? 20 : resistance));
             Assert.That((playerDraws ? duel.Enemy : duel.Player).Resistance, Is.EqualTo(resistance > 20 ? resistance - 20 : 0));
             Assert.That(duel.NextActGain, Is.EqualTo(playerDraws ? 6 : 3));
             duel.ResolveNextHit();
             Assert.That(feedback.EffectActivated, Is.EqualTo(activated), "Feedback remains the initialization snapshot.");
+            Assert.That(feedback.ActGainGranted, Is.EqualTo(playerDraws ? 3 : 0));
+            Assert.That(feedback.OpponentResistanceReduced, Is.EqualTo(resistance > 20 ? 20 : resistance));
         }
 
         [Test]
@@ -126,9 +134,13 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.Player.Resistance, Is.EqualTo(remaining));
             Assert.That(slot.PlayerFeedback.ConditionMet, Is.EqualTo(activated));
             Assert.That(slot.PlayerFeedback.EffectActivated, Is.EqualTo(activated));
+            Assert.That(slot.PlayerFeedback.ActGainGranted, Is.Zero);
+            Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(remaining - (maximum - missing)));
+            Assert.That(slot.PlayerFeedback.OpponentResistanceReduced, Is.Zero);
             Assert.That(slot.PlayerFeedback.HasBeneficialBuff, Is.False, "Instant restoration is not a carried combat buff.");
             duel.ResolveNextHit();
             Assert.That(slot.PlayerFeedback.ConditionMet, Is.EqualTo(activated));
+            Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(remaining - (maximum - missing)));
         }
 
         [Test]

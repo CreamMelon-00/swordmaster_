@@ -534,23 +534,27 @@ namespace TurnLimbo.Runtime.LegacyCombat
             bool opponentMatched = LegacySkillConditions.MatchesOpponent(skill, opposingSkill);
             bool conditionMet = opponentMatched;
             bool effectActivated = false;
+            int actGainGranted = 0, resistanceRestored = 0, opponentResistanceReduced = 0;
             SkillBuff grantedBuff = null;
             if (effect.ResistanceRecoveryPercent > 0)
             {
                 // A self condition: it reports whether anything was actually restored.
                 LegacyFighterState fighter = player ? Player : Enemy;
-                int restored = fighter.RestoreResistance(
+                resistanceRestored = fighter.RestoreResistance(
                     LegacySkillConditions.ResistanceRecoveryAmount(fighter, effect.ResistanceRecoveryPercent));
-                conditionMet = effectActivated = restored > 0;
+                conditionMet = effectActivated = resistanceRestored > 0;
             }
             if (!effect.HasOpponentCondition || opponentMatched)
             {
-                if (effect.OpponentResistanceReduction > 0 &&
-                    (player ? Enemy : Player).ReduceResistance(effect.OpponentResistanceReduction) > 0)
-                    effectActivated = true;
+                if (effect.OpponentResistanceReduction > 0)
+                {
+                    opponentResistanceReduced = (player ? Enemy : Player).ReduceResistance(effect.OpponentResistanceReduction);
+                    if (opponentResistanceReduced > 0) effectActivated = true;
+                }
                 if (effect.ActGain > 0 && player)
                 {
-                    NextActGain += effect.ActGain;
+                    actGainGranted = effect.ActGain;
+                    NextActGain += actGainGranted;
                     effectActivated = true;
                 }
             }
@@ -561,7 +565,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 effectActivated = true;
             }
             return new LegacySkillFeedback(skill, conditionMet, effectActivated, powerBuffPercent, protectionBuffPercent,
-                grantedBuff?.AttackPercent ?? 0, grantedBuff?.DefencePercent ?? 0, grantedBuff?.SlotsRemaining ?? 0);
+                grantedBuff?.AttackPercent ?? 0, grantedBuff?.DefencePercent ?? 0, grantedBuff?.SlotsRemaining ?? 0,
+                actGainGranted, resistanceRestored, opponentResistanceReduced);
         }
 
         private static double AttackMultiplier(List<SkillBuff> buffs, out int powerBuffPercent)

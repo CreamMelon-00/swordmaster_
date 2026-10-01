@@ -1,0 +1,1 @@
+VERIFIED: forest-belt-mid | input 2172x724 | source 543x181 | output 2172x724 | scale 4x nearest | palette 46 colors | visible 77585 | transparent 20698 | first visible row 0 | last visible row 180 | continuous opaque base starts 93 | checked 1572528 | alpha 0/255 | source alpha sum 0..4080

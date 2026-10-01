@@ -1,0 +1,1 @@
+VERIFIED: forest-far-mist | input 2172x724 | source 543x181 | output 2172x724 | scale 4x nearest | palette 64 colors | visible 98283 | transparent 0 | first visible row 0 | last visible row 180 | continuous opaque base starts 0 | checked 1572528 | alpha 0/255 | source alpha sum 4080..4080

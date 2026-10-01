@@ -1,0 +1,1 @@
+VERIFIED: forest-near | input 2172x724 | source 543x181 | output 2172x724 | scale 4x nearest | palette 52 colors | visible 15344 | transparent 82939 | first visible row 144 | last visible row 180 | continuous opaque base starts 161 | checked 1572528 | alpha 0/255 | source alpha sum 0..4080

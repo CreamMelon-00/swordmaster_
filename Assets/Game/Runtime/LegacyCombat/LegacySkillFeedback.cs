@@ -34,10 +34,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         internal LegacySkillFeedback(LegacySkill skill, bool conditionMet, bool effectActivated,
             int powerBuffPercent, int protectionBuffPercent, int grantedPowerBuffPercent = 0,
-            int grantedProtectionBuffPercent = 0, int grantedBuffSlots = 0)
+            int grantedProtectionBuffPercent = 0, int grantedBuffSlots = 0,
+            int actGainGranted = 0, int resistanceRestored = 0, int opponentResistanceReduced = 0)
         {
             ConditionMet = conditionMet;
             EffectActivated = effectActivated;
+            ActGainGranted = actGainGranted;
+            ResistanceRestored = resistanceRestored;
+            OpponentResistanceReduced = opponentResistanceReduced;
             PowerBuffPercent = skill != null && !skill.IsWait ? powerBuffPercent : 0;
             ProtectionBuffPercent = skill != null ? protectionBuffPercent : 0;
             bool visibleTechnique = skill != null && !skill.IsWait && skill.Property != LegacySkillProperty.None;
@@ -53,6 +57,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The conditional rule matched; actual state changes are reported separately.</summary>
         public bool ConditionMet { get; }
         public bool EffectActivated { get; }
+        /// <summary>ACT added to the player's next-turn recovery, not to their current ACT.</summary>
+        public int ActGainGranted { get; }
+        /// <summary>Actual resistance restored at slot start, after the maximum cap.</summary>
+        public int ResistanceRestored { get; }
+        /// <summary>Actual resistance removed directly from the opposing fighter, after the zero cap.</summary>
+        public int OpponentResistanceReduced { get; }
         /// <summary>Additive power bonus used to roll this slot, before its buff uses are consumed.</summary>
         public int PowerBuffPercent { get; }
         /// <summary>Net received-damage reduction used by this slot, from zero to one hundred percent.</summary>

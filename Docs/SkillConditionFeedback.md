@@ -23,6 +23,12 @@ Q/W/E를 길게 눌러 내 기술을 확인하면 조건에 맞는 적 기술을
 
 입자는 실제 시간으로 천천히 움직이고, 큐 카드의 몸 위치·카메라 투영·크기·회전을 따른다. 설명을 닫아도 실행 중인 버프 입자는 유지한다. 해당 칸이 끝나거나 턴 전환·로비·결과·재시작에 정리한다. 표시 오브젝트는 입력을 가로채지 않는다.
 
+### 조건 성립 순간의 발동 배지와 이펙트
+
+조건이 성립하고 실제 고유 효과가 적용된 칸에는 화면 좌우 상단 가장자리에 아군/상대별 작은 312×68 배지를 띄운다. 기술 이름과 실제 적용량을 함께 보여 주며, 아군은 효과 종류에 따라 청록(ACT), 녹빛(저항 회복), 황동(상대 저항 감소)으로, 상대의 실제 효과는 위험색으로 표시한다. 막기가 타격을 만나면 아군은 `막기 성공! / 다음 턴 ACT 회복 +2`를 본다. 이는 현재 ACT 증가가 아니라 다음 턴 회복 예약이다. 적 막기는 ACT 자원이 없어도 조건 대응 자체를 위험색 `상대 막기 대응! / 내 공격을 읽음`으로 알리며 ACT 보상은 표시하지 않는다. 적 발검이 방어에 맞아 저항을 실제로 깎았다면 `내 저항 -N`을 표시한다. 투지가 저항 상한에 막혀 0을 회복하거나 발검이 0 저항에서 아무 효과도 내지 않았다면 배지와 이펙트를 띄우지 않는다.
+
+배지는 큐 카드 강조와 함께 슬롯 시작에 한 번만 나오며, 반격 판단 때문에 시작 효과가 첫 타격까지 보류된 칸은 실제 적용 직후에 나온다. 같은 순간 해당 캐릭터의 바깥쪽에 짧은 이펙트가 나타난다. 아군 막기는 퍼지는 방패 호, 직접 저항 감소는 비스듬한 검흔, 회복은 올라가는 빛 조각, 상대 발동은 붉은 갈라진 호와 뾰족한 광선으로 구분하며 몸통을 채우지 않는다. 양측 배지와 이펙트 각 하나를 재사용한다. 이펙트는 실제 시간 0.65초, 배지는 1.05초 뒤 사라진다. 다음 슬롯 시작, 턴 전환, 재대결, 로비·결과 진입에 정리하며 입력을 가로채지 않는다. 판정·ACT·저항 수치와 기존 타격음은 변경하지 않는다.
+
 ## 적과 아군의 버프 수치
 
 양쪽 HP·저항 상태창 위에 전투 버프 수치를 표시한다. 지금 위력 계산에 사용한 버프는 ‘현재 위력 +10%’, ‘현재 피해 감소 30%’로 표시한다. 찌르기·준비·쳐내기·흘리기가 새로 부여한 버프는 ‘다음 3칸 위력 +10%’, ‘다음 10칸 피해 감소 30%’처럼 실제 수치와 초기 지속 칸을 표시한다. 적도 같은 표시를 사용하며 기술 설명을 열지 않아도 볼 수 있다.
@@ -35,4 +41,6 @@ Q/W/E를 길게 눌러 내 기술을 확인하면 조건에 맞는 적 기술을
 
 `LegacySkillConditions`의 동일한 판정을 전투와 표시가 공유한다. `LegacyCurrentSlot.PlayerFeedback/EnemyFeedback`는 조건 일치, 실제 효과 발동, 현재 위력/보호와 새로 부여한 버프의 읽기 전용 스냅샷이다. `GrantedPowerBuffPercent/GrantedProtectionBuffPercent/GrantedBuffSlots`는 실제 생성한 버프에서 수치·초기 사용 횟수를 복사하고, `HasGrantedBeneficialBuff`가 취약 표시를 제외한다. HUD는 이 값만 읽고 난수를 뽑거나 버프를 소비하지 않는다. `SkillCardFeedbackGraphic`이 테두리·모서리 표식·고정 6개 입자의 uGUI mesh를 소유하며 상한은100 vertices다. 외부 파티클 자산이나 별도 씬 연결이 필요 없다.
 
-규칙은 `LegacySkillFeedbackTests`, 화면은 `SkillCardFeedbackPlayModeTests`, 실제 Controller의 홀드·키 해제·버프 전달은 `SkillFeedbackIntegrationPlayModeTests`로 검사한다. 실행 결과·화면 검증·범위는 `Validation.md`에 기록한다.
+발동 문구는 `LegacySkillFeedback`의 `ActGainGranted`, `ResistanceRestored`, `OpponentResistanceReduced`에서 실제 적용량을 읽는다. `DuelSkillActivationCue`는 이 값과 조건 성립 여부만 표시하며 전투 수치를 계산하지 않는다. `DuelSkillActivationBurst`는 전장 카메라로 캐릭터를 따라가는 uGUI mesh를 그리며, 새로운 파티클 자산이나 전투 판정을 만들지 않는다.
+
+규칙은 `LegacySkillFeedbackTests`, 화면은 `SkillCardFeedbackPlayModeTests`와 `SkillActivationCuePlayModeTests`, 실제 Controller의 홀드·키 해제·버프 전달은 `SkillFeedbackIntegrationPlayModeTests`로 검사한다. 실행 결과·화면 검증·범위는 `Validation.md`에 기록한다.

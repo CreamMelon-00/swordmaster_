@@ -27,6 +27,7 @@ namespace TurnLimbo.Presentation
         private DuelStepHud stepHud;
         private DuelStepAudio stepAudio;
         private DuelResistanceFeedback resistanceFeedback;
+        private DuelSkillActivationCue skillActivationCue;
         private DialogueHud dialogueHud;
         private DialogueSession dialogueSession;
         private DialoguePortraitCatalog defaultDialoguePortraitCatalog;
@@ -201,6 +202,7 @@ namespace TurnLimbo.Presentation
             stepHud = new DuelStepHud(hud.Root.transform, art, presentationSettings);
             stepAudio = new DuelStepAudio(transform);
             resistanceFeedback = new DuelResistanceFeedback(hud.Root.transform, art.UIFont);
+            skillActivationCue = new DuelSkillActivationCue(hud.Root.transform, art.UIFont);
             // A cutscene's lines use the same dialogue box: its buttons advance or skip the cutscene instead.
             dialogueHud = new DialogueHud(transform, art,
                 () => { if (IsPlayingCutscene) AdvanceCutscene(); else ContinueDialogue(); },
@@ -446,7 +448,9 @@ namespace TurnLimbo.Presentation
             slotStartDeferred = slot.PendingPlayerCounter != null;
             arena.BeginSlot(playerAction, slot.EnemySkill);
             hud.SetCurrentSkills(playerAction, slot.EnemySkill, slotDuration + slotAnticipationDuration);
+            skillActivationCue.Reset();
             hud.SetSkillFeedback(slot);
+            if (!slotStartDeferred) ShowSkillActivationCues(slot);
             if (slot.EnemyCountered) hud.ShowCounterCallout(false, arena.EnemyRenderer.transform.position);
             // Report the actual capped change without treating recovery or
             // direct resistance loss as an animation hit or knockback.
@@ -454,6 +458,12 @@ namespace TurnLimbo.Presentation
             resistanceFeedback.Show(false, session.Enemy.Resistance - enemyResistanceBefore);
             AnnounceBreaks(playerWasBroken, enemyWasBroken);
             SetViewPhase(slotAnticipationDuration > 0f ? ViewPhase.SkillWindup : ViewPhase.PlayingSlot);
+        }
+
+        private void ShowSkillActivationCues(LegacyCurrentSlot slot)
+        {
+            skillActivationCue.Show(true, slot.PlayerSkill, slot.PlayerFeedback);
+            skillActivationCue.Show(false, slot.EnemySkill, slot.EnemyFeedback);
         }
 
         private void UpdateSlot(float delta)
@@ -490,6 +500,7 @@ namespace TurnLimbo.Presentation
                     // excluding this hit's own resistance loss, which the hit presents itself.
                     slotStartDeferred = false;
                     hud.SetSkillFeedback(slot);
+                    ShowSkillActivationCues(slot);
                     resistanceFeedback.Show(true, session.Player.Resistance - playerResistanceBefore + hit.PlayerResistanceDamage);
                     resistanceFeedback.Show(false, session.Enemy.Resistance - enemyResistanceBefore + hit.EnemyResistanceDamage);
                     if (slot.PlayerCountered) hud.ShowCounterCallout(true, arena.PlayerRenderer.transform.position);
@@ -584,6 +595,7 @@ namespace TurnLimbo.Presentation
             explainedSkill = null;
             arena.BeginTurn();
             hud.BeginTurn();
+            skillActivationCue.Reset();
             // The automatic refill, a full turn after the one in which resistance broke.
             if (session.Player.Resistance > playerResistanceBefore)
                 hud.ShowRecoveryCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
@@ -1307,6 +1319,7 @@ namespace TurnLimbo.Presentation
             effectsSource.Stop();
             hitStopRemaining = 0f;
             stepAudio.Stop();
+            skillActivationCue.Reset();
             planningTime = 0f;
             ClearHeldKeys();
             explainedSkill = null;
@@ -1387,6 +1400,7 @@ namespace TurnLimbo.Presentation
             stepAudio.Stop();
             stepHud.Reset();
             resistanceFeedback.Reset();
+            skillActivationCue.Reset();
             hud.ClearSkillFeedback();
             arena.SetEnemyAppearance(EnemyAppearance.Student);
             arena.Reset();
@@ -1422,6 +1436,7 @@ namespace TurnLimbo.Presentation
             session.Reset();
             stepHud.Reset();
             resistanceFeedback.Reset();
+            skillActivationCue.Reset();
             hud.ClearSkillFeedback();
             lobbyHud.Hide();
             hud.Root.SetActive(true);
@@ -1485,6 +1500,8 @@ namespace TurnLimbo.Presentation
                 StepFeatures);
             resistanceFeedback.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
+            skillActivationCue.Tick(realDelta, arena.ArenaCamera,
+                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
             if (IsInspecting && session.EnemyQueue.Count > 0)
             {
                 hud.SetInspectedSlot(Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1));
@@ -1494,7 +1511,11 @@ namespace TurnLimbo.Presentation
             else hud.HideExplanation();
         }
 
-        private void OnDisable() => stepAudio?.Stop();
+        private void OnDisable()
+        {
+            stepAudio?.Stop();
+            skillActivationCue?.Reset();
+        }
 
         private void OnDestroy()
         {
@@ -1508,6 +1529,7 @@ namespace TurnLimbo.Presentation
             stepHud?.Dispose();
             stepAudio?.Dispose();
             resistanceFeedback?.Dispose();
+            skillActivationCue?.Dispose();
             hud?.Dispose();
             arena?.Dispose();
             art?.Dispose();

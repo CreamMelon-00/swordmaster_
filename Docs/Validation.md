@@ -1,10 +1,27 @@
 # 첫 전투·연출·컴팩트 HUD 검증
 
-최근 검증일: 2026-09-27. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
+최근 검증일: 2026-10-02. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
 
 열려 있는 작업용 에디터와 구 프로젝트를 건드리지 않도록 Assets, Packages, ProjectSettings를 임시 복사한 프로젝트에서 검증했다. 레거시 프로젝트의 컴파일 복구나 패키지 수정은 하지 않았다.
 
-## 최신 변경: 타격 동작의 머리 방향 교정 (2026-09-27)
+## 최신 변경: 발동 배지 축소와 캐릭터 옆 이펙트 (2026-10-02)
+
+화면 좌우 상단에 312×68 크기의 배지를 두어 캐릭터를 가리지 않게 하고, 실제 발동 순간에는 해당 캐릭터의 바깥쪽에 0.65초짜리 이펙트를 띄운다. 아군 막기는 방패 호, 상대 저항 감소는 검흔, 저항 회복은 빛 조각, 상대 발동은 붉은 경고 이펙트로 구분한다. 배지는 1.05초 뒤 사라지며 전투 수치와 음향은 그대로다.
+
+- Unity 6000.5.9f1 격리 사본의 `SkillActivationCuePlayModeTests;SkillFeedbackIntegrationPlayModeTests` PlayMode **11/11 통과**, 실패·건너뜀 0이다. 배지 크기·위치와 캐릭터 비가림, 네 효과 양식, 실제 효과량, 소멸 시간, 재사용 및 입력 통과를 확인했다. 결과는 `Logs/SkillActivationLayoutPlayModeFinal2.xml`, 실행 로그는 `Logs/SkillActivationLayoutPlayModeFinal2.log`다.
+- 격리 사본 전용 캡처 **1/1 통과**. `Logs/SkillActivationLayoutPreview-640x360.png`에서 양측 배지와 캐릭터 바깥쪽의 청록 방패 호·붉은 경고 호를 확인했다. 밝기와 두께를 조정한 최종 결과는 `Logs/SkillActivationLayoutCapture-Contrast.xml`이다. 배치 실행의 640×360 화면을 사용했으며, 실제 플레이 중의 체감은 별도로 확인할 필요가 있다.
+- `TurnLimbo.Presentation.csproj`와 `TurnLimbo.Presentation.Tests.csproj`의 C# 빌드는 모두 오류 0개였다. 경고는 기존 필드 및 Unity API 관련 항목이다.
+
+## 이전 변경: 기술 조건 성립 순간의 발동 표시 (2026-10-02)
+
+검증 상태: **Ready with limitations**. 실제 적용된 조건 효과를 아군·상대 패널에 짧게 표시한다. 아군 막기의 다음 턴 ACT 회복 +2, 적 막기의 조건 대응 경고(적 ACT 보상 없음), 적 발검의 실제 저항 감소량을 구분한다. 새 패널은 다음 슬롯·턴 전환·재시작에 정리하며 입력을 가로채지 않는다. 전투 규칙과 음향은 바꾸지 않았다. 세부 계약은 `SkillConditionFeedback.md`를 따른다.
+
+- Unity 6000.5.9f1 격리 사본의 `LegacySkillFeedbackTests` EditMode **52/52 통과**, 실패·건너뜀 0이다. 결과는 `Logs/SkillActivationEditMode.xml`, 실행 로그는 `Logs/SkillActivationEditModeFinal.log`다.
+- `SkillActivationCuePlayModeTests;SkillFeedbackIntegrationPlayModeTests` PlayMode **9/9 통과**, 실패·건너뜀 0이다. 조건 일치·불일치, 적 막기 경고, 적 발검 저항 상한, 저항 0 효과 억제, 실제 Controller 연결, 다음 슬롯·턴·재시작 정리, 패널 재사용·입력 비차단을 확인했다. 결과는 `Logs/SkillActivationPlayMode.xml`, 실행 로그는 `Logs/SkillActivationPlayMode.log`다.
+- 격리 사본 전용 오프스크린 시각 확인 **1/1 통과**. `Logs/SkillActivationPreview.png`를 1600×900으로 렌더링해 양측 패널의 색상·간격·문구 잘림을 육안 확인했다. 실제 전투 플레이 중의 주관적 타격감과 모든 화면 비율은 아직 평가하지 않았다.
+- `TurnLimbo.Presentation.csproj`와 신규 테스트 파일을 포함한 임시 PlayMode 프로젝트의 C# 빌드에서 오류 0개였다. Unity 검증 전 초기 사본 가져오기에서는 테스트가 시작되지 않아 재실행했고, 최종 XML의 통과 수치만 위에 기록했다.
+
+## 이전 변경: 타격 동작의 머리 방향 교정 (2026-09-27)
 
 검증 상태: **Ready with limitations**. 검날이 뒤쪽으로 향하는 타격 3종의 머리 방향을 교정한 `head-turn-v2` 그림을 적용했다. 준비·회수인 F1/F4는 오른쪽, 중간 동작·접촉인 F2/F3는 왼쪽을 보는 그림이다. 이번 변경은 타격 상반신 PNG 12개 교체이며 런타임 C#, 스킬 판정·명중 대상·이동·상하반신 재생 시계는 변경하지 않았다. 그림 제작 기록은 `Art/Animations/MobStudentAttacks/head-turn-v2/creation-notes.md`를 따른다.
 
