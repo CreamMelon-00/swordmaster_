@@ -115,6 +115,6 @@
 ## 파일
 
 - 대사: `Assets/Game/Resources/Dialogue/mission-01~09-intro.txt`, `-outro.txt` (지금은 `테스트` 한 줄). 문법은 `DialogueAuthoring.md`.
+- 컷신: `Assets/Game/Resources/Cutscene/opening.txt` — 새 게임 직후, 임무 1 브리핑 전에 나오는 깨어남 오프닝(지금은 연출 견본, 글은 `테스트`). 문법은 `Cutscene.md`.
 - 임무 제목·목표·적 이름·코치 문구: `Assets/Game/Runtime/Prologue/PrologueMissions.cs`(1~4), `LobbyMissions.cs`(5~9).
 - 스테이지 이름: `Assets/Game/Runtime/Campaign/CampaignRun.cs`.
-- 화면 문구의 현재 값과 남은 제안: `NarrativeFlavor.md`.

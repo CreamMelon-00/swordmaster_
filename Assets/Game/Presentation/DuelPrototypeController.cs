@@ -1,4 +1,5 @@
 using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.Cutscene;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Dialogue;
 using TurnLimbo.Runtime.LegacyCombat;
@@ -48,6 +49,11 @@ namespace TurnLimbo.Presentation
         // Runs after the player finishes or skips the open dialogue; cleanup closes never run it.
         private System.Action dialogueContinuation;
         private int dialogueOpenedFrame = -1;
+        // The cutscene on stage, what runs once the player finishes or skips it, and the frame it opened on.
+        private CutsceneHud cutsceneHud;
+        private CutsceneDirector cutscene;
+        private System.Action cutsceneContinuation;
+        private int cutsceneOpenedFrame = -1;
         private AudioSource effectsSource;
         private AudioClip criticalSound;
         private ViewPhase viewPhase;
@@ -95,7 +101,12 @@ namespace TurnLimbo.Presentation
         public bool StoryProgressionEnabled { get; private set; }
         /// <summary>Whether the next story mission can be played now (its stage, if any, is cleared).</summary>
         public bool IsNextMissionAvailable => prologue.CanPlayCurrent(campaign.IsStageCleared);
-        public bool IsInTitle => showingTitle && !IsShowingDialogue && titleHud != null && titleHud.IsVisible;
+        /// <summary>The awakening opening, played after the title's 새 게임 and before the first briefing.</summary>
+        public const string OpeningCutscene = "Cutscene/opening";
+        public bool IsInTitle => showingTitle && !IsShowingDialogue && !IsPlayingCutscene && titleHud != null && titleHud.IsVisible;
+        public bool IsPlayingCutscene => cutscene != null;
+        public CutsceneDirector Cutscene => cutscene;
+        public CutsceneHud CutsceneHud => cutsceneHud;
         public DialogueHud DialogueHud => dialogueHud;
         public DialogueLine CurrentDialogueLine => dialogueSession?.Current;
         public BattleResult Result => battleResult;
@@ -105,9 +116,9 @@ namespace TurnLimbo.Presentation
         public bool IsMission => mission != null;
         public bool IsShowingResult => viewPhase == ViewPhase.Outcome && battleResult != null;
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
-        public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && viewPhase == ViewPhase.Outcome &&
-            !IsShowingResult;
-        public bool IsInLobby => !IsShowingDialogue && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
+        public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && !IsPlayingCutscene &&
+            viewPhase == ViewPhase.Outcome && !IsShowingResult;
+        public bool IsInLobby => !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
             !IsMission && !showingBriefing && !showingTitle && campaign.Phase == CampaignPhase.Lobby;
         public DuelPresentationSettings PresentationSettings => presentationSettings;
         public LegacyArenaView ArenaView => arena;
@@ -187,7 +198,11 @@ namespace TurnLimbo.Presentation
             stepHud = new DuelStepHud(hud.Root.transform, art, presentationSettings);
             stepAudio = new DuelStepAudio(transform);
             resistanceFeedback = new DuelResistanceFeedback(hud.Root.transform, art.UIFont);
-            dialogueHud = new DialogueHud(transform, art, () => ContinueDialogue(), () => FinishDialogue());
+            // A cutscene's lines use the same dialogue box: its buttons advance or skip the cutscene instead.
+            dialogueHud = new DialogueHud(transform, art,
+                () => { if (IsPlayingCutscene) AdvanceCutscene(); else ContinueDialogue(); },
+                () => { if (IsPlayingCutscene) SkipCutscene(); else FinishDialogue(); });
+            cutsceneHud = new CutsceneHud(transform, art);
             lobbyHud = new CampaignLobbyHud(transform, art,
                 id => SelectCurriculumNode(id), () => ResetCurriculum(), id => EquipSkill(id),
                 id => UnequipSkill(id), (id, direction) => MoveEquippedSkill(id, direction),
@@ -215,6 +230,26 @@ namespace TurnLimbo.Presentation
         private void AdvancePresentation(float realDelta, Keyboard keyboard)
         {
             realDelta = Mathf.Max(0f, realDelta);
+            if (IsPlayingCutscene)
+            {
+                // Keys of the frame that opened it (e.g. the title's Enter) belong to the screen before.
+                if (keyboard != null && Time.frameCount > cutsceneOpenedFrame)
+                {
+                    if (keyboard.escapeKey.wasPressedThisFrame)
+                    {
+                        SkipCutscene();
+                        return;
+                    }
+                    if (keyboard.enterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame) AdvanceCutscene();
+                }
+                if (IsPlayingCutscene)
+                {
+                    cutscene.Tick(realDelta);
+                    if (cutscene.IsComplete) FinishCutscene();
+                }
+                // Never let the key that advances or ends the cutscene reach the next screen in the same frame.
+                return;
+            }
             if (IsShowingDialogue)
             {
                 if (Time.frameCount > dialogueOpenedFrame && keyboard != null)
@@ -797,13 +832,96 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
-        /// <summary>The title's 새 게임: starts over and replaces any save with the fresh state.</summary>
+        /// <summary>The title's 새 게임: starts over and replaces any save with the fresh state, then plays the
+        /// awakening opening before the first briefing. Only this path plays it; 이어하기 and direct API use do not.</summary>
         public bool NewGameFromTitle()
         {
             if (!IsInTitle) return false;
             AutoSaveEnabled = true;
             StoryProgressionEnabled = true;
             StartNewGame();
+            PlayCutscene(OpeningCutscene, ShowBriefing);
+            return true;
+        }
+
+        /// <summary>Plays a cutscene from the lobby and comes back to it (tests and later story triggers).</summary>
+        public bool StartCutscene(CutsceneScript script)
+        {
+            if (script == null) throw new System.ArgumentNullException(nameof(script));
+            if (!IsInLobby) return false;
+            OpenCutscene(script, ShowLobby);
+            return true;
+        }
+
+        /// <summary>Plays a cutscene from Resources, then runs <paramref name="continuation"/> once the player reaches
+        /// its end or skips it. Returns false (and runs nothing) when the file is missing or invalid.</summary>
+        private bool PlayCutscene(string resourcePath, System.Action continuation)
+        {
+            TextAsset source = string.IsNullOrWhiteSpace(resourcePath) ? null : Resources.Load<TextAsset>(resourcePath);
+            if (source == null)
+            {
+                Debug.LogWarning($"Cutscene was not found at Resources/{resourcePath}.txt; continuing without it.");
+                return false;
+            }
+            try
+            {
+                OpenCutscene(CutsceneScriptParser.Parse(resourcePath, source.text), continuation);
+                return true;
+            }
+            catch (CutsceneParseException exception)
+            {
+                Debug.LogWarning(exception.Message);
+                return false;
+            }
+        }
+
+        private void OpenCutscene(CutsceneScript script, System.Action continuation)
+        {
+            // From a bare forest arena: no title, briefing, lobby, result, coach, dialogue or duel HUD.
+            ClearBattleScreens();
+            lobbyHud.Hide();
+            cutsceneContinuation = continuation;
+            cutsceneOpenedFrame = Time.frameCount;
+            cutscene = new CutsceneDirector(script, arena, cutsceneHud, dialogueHud, defaultDialoguePortraitCatalog);
+            cutscene.Start();
+            if (cutscene.IsComplete) FinishCutscene();
+        }
+
+        /// <summary>Moves past the cutscene's waiting line. Returns false while a timed step plays.</summary>
+        public bool AdvanceCutscene()
+        {
+            if (!IsPlayingCutscene || !cutscene.Advance()) return false;
+            if (cutscene.IsComplete) FinishCutscene();
+            return true;
+        }
+
+        /// <summary>Ends the cutscene now and continues whatever it was leading to (Escape).</summary>
+        public bool SkipCutscene()
+        {
+            if (!IsPlayingCutscene) return false;
+            FinishCutscene();
+            return true;
+        }
+
+        private void FinishCutscene()
+        {
+            System.Action next = cutsceneContinuation;
+            StopCutscene();
+            next?.Invoke();
+        }
+
+        /// <summary>Ends any cutscene without continuing its flow (cleanup, restarts and tests), and gives the arena
+        /// back at its duel framing.</summary>
+        public bool StopCutscene()
+        {
+            if (cutscene == null) return false;
+            CutsceneDirector stopping = cutscene;
+            cutscene = null;
+            cutsceneContinuation = null;
+            cutsceneOpenedFrame = -1;
+            stopping.Dispose();
+            arena.SetEnemyAppearance(EnemyAppearance.Student);
+            arena.Reset();
             return true;
         }
 
@@ -968,7 +1086,8 @@ namespace TurnLimbo.Presentation
             dialogueSession = null;
             activeDialoguePortraitCatalog = null;
             dialogueOpenedFrame = -1;
-            dialogueHud?.Hide();
+            // A cutscene's line uses the same box; only the cutscene takes it away.
+            if (!IsPlayingCutscene) dialogueHud?.Hide();
             return wasOpen;
         }
 
@@ -1246,6 +1365,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Leaves every duel, result, coach and dialogue screen, ready for the lobby or a briefing.</summary>
         private void ClearBattleScreens()
         {
+            StopCutscene();
             showingTitle = false;
             titleHud?.Hide();
             CloseDialogue();
@@ -1280,6 +1400,7 @@ namespace TurnLimbo.Presentation
 
         private void ResetBattlePresentation()
         {
+            StopCutscene();
             CloseDialogue();
             battleResult = null;
             guideInspectionRemaining = 0f;
@@ -1372,6 +1493,7 @@ namespace TurnLimbo.Presentation
         private void OnDestroy()
         {
             dialogueHud?.Dispose();
+            cutsceneHud?.Dispose();
             resultHud?.Dispose();
             coachHud?.Dispose();
             briefingHud?.Dispose();

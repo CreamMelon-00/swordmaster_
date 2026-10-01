@@ -12,8 +12,8 @@ namespace TurnLimbo.Runtime.Prologue
     {
         public const string EnemySilhouette = "EnemyStudent/Animations/idle/frame-01";
         public const string DummySilhouette = "TrainingDummy/Animations/idle/frame-01";
-        private const string ClubRoom = "LobbyRoom/room";
-        private const string SchoolGate = "LegacyDuel/Background/pa_background_-_school_in_game";
+        // Briefings show where the scene happens: Elise wakes in the misty forest and meets the knight in it.
+        private const string MistForest = "ForestArena/forest-far-mist";
         private const string Forest = "ForestArena/forest-far";
         private const string Continue = "계속 버튼 · Enter";
         private const string QueueOnce = "Q 짧게 누르기 / 카드 클릭";
@@ -37,7 +37,7 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly PrologueMission[] missions =
         {
             // 1. The dummy never attacks: mashing Q wins in two turns and the hits land on the body.
-            new PrologueMission(1, "처음 쥔 검", ClubRoom,
+            new PrologueMission(1, "처음 쥔 검", MistForest,
                 new[] { "허수아비를 쓰러뜨린다" },
                 new[] { new MissionEnemy("허수아비", DummySilhouette, EnemyAppearance.TrainingDummy) },
                 24, 10, new[] { LegacyCommonActions.Breathe }, new[] { 1 },
@@ -57,7 +57,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", "Q 예약 · Space 확정 · Escape 임무 포기"),
                 }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다."),
             // 2. The enemy attacks: clashes trade resistance, the break doubles HP damage, ACT recovers each turn.
-            new PrologueMission(2, "인사는 칼로", SchoolGate,
+            new PrologueMission(2, "인사는 칼로", Forest,
                 new[] { "맞부딪쳐 상대의 저항을 무너뜨린다", "떠돌이 기사를 쓰러뜨린다" },
                 new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
                 36, 12, new[] { PracticeSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 1 },

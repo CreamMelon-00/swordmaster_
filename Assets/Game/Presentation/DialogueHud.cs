@@ -14,7 +14,10 @@ namespace TurnLimbo.Presentation
         private readonly RectTransform root;
         private readonly RectTransform nameplate;
         private readonly Image leftPortrait, rightPortrait;
-        private readonly Text speakerName, speakerRole, body, progress;
+        private readonly Text speakerName, speakerRole, body, progress, inputHint, closeCaption;
+        private readonly Image backdropImage;
+        private static readonly Color BackdropColor =
+            new Color(DuelVisualTheme.Track.r, DuelVisualTheme.Track.g, DuelVisualTheme.Track.b, .76f);
         private readonly Button backdropButton, nextButton, closeButton;
         private bool disposed;
 
@@ -35,8 +38,10 @@ namespace TurnLimbo.Presentation
             scaler.matchWidthOrHeight = .5f;
             root.gameObject.AddComponent<GraphicRaycaster>();
 
-            var backdrop = Panel("Dialogue Backdrop", root, Vector2.zero, Vector2.zero,
-                new Color(DuelVisualTheme.Track.r, DuelVisualTheme.Track.g, DuelVisualTheme.Track.b, .76f));
+            var backdrop = Panel("Dialogue Backdrop", root, Vector2.zero, Vector2.zero, BackdropColor);
+            backdropImage = backdrop;
+            // Cinematic mode makes it fully transparent; it must still be drawn so a click anywhere advances.
+            backdrop.canvasRenderer.cullTransparentMesh = false;
             Stretch(backdrop.rectTransform);
             backdrop.raycastTarget = true;
             backdropButton = backdrop.gameObject.AddComponent<Button>();
@@ -71,17 +76,34 @@ namespace TurnLimbo.Presentation
 
             progress = Label("Dialogue Progress", card.transform, string.Empty, new Vector2(-650f, -116f),
                 new Vector2(170f, 38f), 18, DuelVisualTheme.Muted, TextAnchor.MiddleLeft);
-            Label("Dialogue Input Hint", card.transform, "클릭 / Enter / Space로 다음  ·  Esc로 닫기",
+            inputHint = Label("Dialogue Input Hint", card.transform, HintText,
                 new Vector2(-80f, -116f), new Vector2(700f, 38f), 18, DuelVisualTheme.Muted, TextAnchor.MiddleCenter);
-            closeButton = ActionButton("Dialogue Close", card.transform, "닫기  [Esc]",
+            closeButton = ActionButton("Dialogue Close", card.transform, CloseText,
                 new Vector2(500f, -116f), new Vector2(180f, 48f), InvokeClose);
+            closeCaption = closeButton.GetComponentInChildren<Text>();
             nextButton = ActionButton("Dialogue Next", card.transform, "다음",
                 new Vector2(680f, -116f), new Vector2(150f, 48f), InvokeAdvance, true);
             Hide();
         }
 
+        private const string HintText = "클릭 / Enter / Space로 다음  ·  Esc로 닫기";
+        private const string CloseText = "닫기  [Esc]";
+        private const string CinematicHintText = "클릭 / Enter / Space로 다음  ·  Esc로 건너뛰기";
+        private const string CinematicCloseText = "건너뛰기  [Esc]";
+
         public GameObject Root => root.gameObject;
         public bool IsVisible => !disposed && root.gameObject.activeSelf;
+        /// <summary>A cutscene's lines: the scene is not dimmed (a click anywhere still advances) and closing skips it.</summary>
+        public bool IsCinematic { get; private set; }
+
+        public void SetCinematic(bool cinematic)
+        {
+            if (disposed) return;
+            IsCinematic = cinematic;
+            backdropImage.color = cinematic ? new Color(BackdropColor.r, BackdropColor.g, BackdropColor.b, 0f) : BackdropColor;
+            inputHint.text = cinematic ? CinematicHintText : HintText;
+            closeCaption.text = cinematic ? CinematicCloseText : CloseText;
+        }
         public DialogueLine CurrentLine { get; private set; }
 
         public void Show(DialogueLine line, int currentIndex, int lineCount)

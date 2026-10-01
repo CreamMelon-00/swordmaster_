@@ -1,0 +1,47 @@
+# 깨어남 오프닝: 새 게임 직후, 임무 1 브리핑 전에 한 번 나온다.
+# 연출 견본이다. 명령 몇 가지를 써서 할 수 있는 것을 보여 줄 뿐이고, 글('테스트')과 장면의 내용은 작가가 정한다(Docs/Narrative.md).
+# 칼을 처음 쥐는 것은 임무 1('처음 쥔 검')이므로, 여기서는 베지 않는다.
+# 문법: Docs/Cutscene.md
+
+# 검은 화면에서 시작한다. 엘리제는 쓰러진 채(맞은 자세)다. 허수아비는 아직 화면 밖(오른쪽)에 서 있다.
+@fade out 0
+@bars on 0
+@camera -4 3.5 0
+@actor elise at -4 right
+@actor elise pose hurt
+@actor dummy at 3 left
+@wait 1
+
+# 천천히 밝아진다.
+@fade in 3
+@narrator
+테스트
+
+# 일어선다. 카메라가 물러나며 숲과 허수아비가 드러난다.
+@actor elise pose idle
+@camera -1 5 3
+@left 엘리제
+테스트
+
+# 허수아비 쪽으로 다가간다.
+@actor elise move 0 1.2
+테스트
+
+# 그림 한 장. 일러스트가 생기기 전까지 안개 숲 그림을 자리표시로 쓴다.
+@image ForestArena/forest-far-mist 1
+@narrator
+테스트
+@image off 1
+
+@camera reset 1.5 &
+@bars off 1.5 &
+@fade out 1.5
+
+# 여기서 쓰지 않은 명령의 예(앞의 #를 지우면 실행된다):
+# @actor elise face left
+# @actor elise pose block
+# @actor elise attack slash &
+# @wait 0.42
+# @actor dummy pose hurt
+# @actor dummy hide
+# @actor knight at 4 left

@@ -10,7 +10,6 @@ namespace TurnLimbo.Runtime.Prologue
     public static class LobbyMissions
     {
         public const string Chapter = "가르침";
-        private const string SchoolGate = "LegacyDuel/Background/pa_background_-_school_in_game";
         private const string Forest = "ForestArena/forest-far";
         private const string Continue = "계속 버튼 · Enter";
         private const string CommitKeys = "Space / Enter / 확정 버튼";
@@ -34,7 +33,7 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly PrologueMission[] missions =
         {
             // 5. E열 (기교): conditional skills that shake the opponent or help the player. Opens after stage 1.
-            new PrologueMission(5, "기교 검술", SchoolGate,
+            new PrologueMission(5, "기교 검술", Forest,
                 new[] { "기교 검술로 상대를 흔든다", "떠돌이 기사를 쓰러뜨린다", "완료하면 E열이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 50, 15, new[] { PracticeSlash, PracticeGuard, PracticeDownwardSlash }, new[] { 3, 2 },
@@ -94,7 +93,7 @@ namespace TurnLimbo.Runtime.Prologue
                 },
                 AfterDodge, CombatFeature.Dodge, 3, Chapter, "회피(A)가 열렸습니다."),
             // 8. W열 (강공): costly, powerful skills. Opens after stage 4.
-            new PrologueMission(8, "강공 검술", SchoolGate,
+            new PrologueMission(8, "강공 검술", Forest,
                 new[] { "강공 검술로 큰 피해를 준다", "떠돌이 기사를 쓰러뜨린다", "완료하면 W열이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 70, 18, new[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard, PracticeSlash }, new[] { 3, 3, 2 },

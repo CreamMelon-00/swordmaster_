@@ -139,6 +139,10 @@ namespace TurnLimbo.Presentation
         public bool IsEnemyHurtPlaying => EnemyIsDummy && enemy.HurtPlaying;
         private bool EnemyIsDummy => enemyAppearance == EnemyAppearance.TrainingDummy;
         public SpriteRenderer EnemyRenderer => enemy.Renderer;
+        // Cutscenes (CutsceneDirector) pose the figures themselves while the duel is not ticking.
+        internal MobStudentAnimationSet PlayerAnimations => mobAnimations;
+        internal EnemyStudentAnimationSet EnemyAnimations => enemyAnimations;
+        internal TrainingDummyAnimationSet DummyAnimations => dummyAnimations;
         public bool CameraRotate { get; set; }
         public bool ApproachComplete => !approaching;
         public Vector3 DuelCenter => (player.Renderer.transform.localPosition + enemy.Renderer.transform.localPosition) * 0.5f;

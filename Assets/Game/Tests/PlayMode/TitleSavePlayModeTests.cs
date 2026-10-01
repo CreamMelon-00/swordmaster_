@@ -45,6 +45,10 @@ namespace TurnLimbo.Presentation.Tests
 
                 controller.TitleHud.NewGameButton.onClick.Invoke();
                 Assert.That(controller.TitleHud.IsConfirming, Is.False, "Without a save there is nothing to overwrite.");
+                Assert.That(controller.IsPlayingCutscene, Is.True, "새 게임 opens with the awakening cutscene.");
+                Assert.That(controller.IsInBriefing, Is.False);
+                Assert.That(scope.Load().PrologueCleared, Is.Zero, "The new game is saved before the cutscene.");
+                Assert.That(controller.SkipCutscene(), Is.True);
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.IsInTitle, Is.False);
                 Assert.That(controller.TitleHud.IsVisible, Is.False);
@@ -144,6 +148,7 @@ namespace TurnLimbo.Presentation.Tests
                 DuelPrototypeController controller = scope.Controller;
                 controller.ShowTitle();
                 Assert.That(controller.NewGameFromTitle(), Is.True);
+                Assert.That(controller.SkipCutscene(), Is.True);
                 Assert.That(controller.StartMission(), Is.True);
                 Assert.That(controller.ContinueDialogue(), Is.False);
                 Assert.That(controller.IsMission, Is.True);
@@ -202,6 +207,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsInTitle, Is.True);
                 controller.TitleHud.NewGameButton.onClick.Invoke();
                 controller.TitleHud.ConfirmButton.onClick.Invoke();
+                Assert.That(controller.SkipCutscene(), Is.True, "A confirmed 새 게임 also opens with the cutscene.");
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(scope.Load().PrologueCleared, Is.Zero, "The new game replaced the unreadable save.");
             }

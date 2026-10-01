@@ -327,6 +327,7 @@ namespace TurnLimbo.Presentation.Tests
                 DuelPrototypeController controller = scope.Controller;
                 controller.ShowTitle();
                 Assert.That(controller.NewGameFromTitle(), Is.True);
+                Assert.That(controller.SkipCutscene(), Is.True, "새 게임 opens with the awakening cutscene.");
                 Assert.That(controller.StoryProgressionEnabled, Is.True);
                 Assert.That(controller.Campaign.Features, Is.EqualTo(CombatFeature.LaneQ), "A new story starts with the Q lane.");
                 Assert.That(controller.Campaign.StageLimit, Is.Zero, "No stage is open during the 서막.");
