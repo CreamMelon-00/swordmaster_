@@ -15,11 +15,10 @@ namespace TurnLimbo.Runtime.Prologue
         private const string CommitKeys = "Space / Enter / 확정 버튼";
         private const string Watch = "전투를 지켜보세요";
 
-        private static readonly IReadOnlyList<LegacySkill> Starting = LegacyInitialSkills.All;
-        // Starting skills by lane: Q 베기·예리한 베기·막기, W 찌르기·정교한 찌르기·흘리기, E 부수기·강력한 부수기·쳐내기.
-        private static readonly LegacySkill[] LaneQ = { Starting[0], Starting[1], Starting[6] };
-        private static readonly LegacySkill[] LaneW = { Starting[2], Starting[3], Starting[7] };
-        private static readonly LegacySkill[] LaneE = { Starting[4], Starting[5], Starting[8] };
+        // Starting skills by lane, by sheet id: Q 베기·예리한 베기·막기, W 찌르기·정교한 찌르기·흘리기, E 부수기·강력한 부수기·쳐내기.
+        private static readonly MissionSkill[] LaneQ = { MissionSkill.Table(1), MissionSkill.Table(2), MissionSkill.Table(7) };
+        private static readonly MissionSkill[] LaneW = { MissionSkill.Table(3), MissionSkill.Table(4), MissionSkill.Table(8) };
+        private static readonly MissionSkill[] LaneE = { MissionSkill.Table(5), MissionSkill.Table(6), MissionSkill.Table(9) };
         private static readonly LegacySkill PracticeSlash = PrologueMissions.PracticeSlash;
         private static readonly LegacySkill PracticeDownwardSlash = PrologueMissions.PracticeDownwardSlash;
         private static readonly LegacySkill PracticeGuard = PrologueMissions.PracticeGuard;
@@ -30,19 +29,20 @@ namespace TurnLimbo.Runtime.Prologue
         private const CombatFeature AfterDodge = AfterBreath | CombatFeature.Dodge;
         private const CombatFeature AfterLaneW = AfterDodge | CombatFeature.LaneW;
 
+        // Copy names sheet techniques with tokens and the enemy's practice skills in words, as in PrologueMissions.
         private static readonly PrologueMission[] missions =
         {
             // 5. E열 (기교): conditional skills that shake the opponent or help the player. Opens after stage 1.
             new PrologueMission(5, "기교 검술", Forest,
                 new[] { "기교 검술로 상대를 흔든다", "떠돌이 기사를 쓰러뜨린다", "완료하면 E열이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
-                50, 15, new[] { PracticeSlash, PracticeGuard, PracticeDownwardSlash }, new[] { 3, 2 },
+                50, 15, new MissionSkill[] { PracticeSlash, PracticeGuard, PracticeDownwardSlash }, new[] { 3, 2 },
                 Concat(LaneQ, LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "기교 검술",
                         "E열이 열립니다. 기교 검술은 조건이 맞을 때 상대를 흔들거나 나에게 이로운 효과를 주는 기술입니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "E로 예약하세요",
-                        "E를 짧게 누르거나 카드를 클릭해 부수기를 예약하세요.", "E 짧게 누르기 / 카드 클릭", lane: 2),
+                        "E를 짧게 누르거나 카드를 클릭해 {기술:5:를} 예약하세요.", "E 짧게 누르기 / 카드 클릭", lane: 2),
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
                         "Q와 E 두 열을 오가며 순서를 짭니다. 확정하세요.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기교를 지켜보세요",
@@ -55,7 +55,7 @@ namespace TurnLimbo.Runtime.Prologue
             new PrologueMission(6, "숨 고르기", Forest,
                 new[] { "숨을 골라 상대의 방어를 흘려보낸다", "떠돌이 기사를 쓰러뜨린다", "완료하면 숨고르기가 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
-                55, 16, new[] { PracticeGuard, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 3 },
+                55, 16, new MissionSkill[] { PracticeGuard, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 3 },
                 Concat(LaneQ, LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "숨 고르기",
@@ -63,7 +63,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Breathe, "S로 숨을 고르세요",
                         "S를 누르거나 숨고르기 버튼으로 첫 칸을 비우세요. 턴마다 세 번까지 쓸 수 있습니다.", "S / 숨고르기 버튼"),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "다음 칸에 공격하세요",
-                        "숨을 고른 뒤 E로 부수기를 두 번째 칸에 넣으세요. 조건이 맞는 칸에 기술을 옮기는 방법입니다.",
+                        "숨을 고른 뒤 E로 {기술:5:를} 두 번째 칸에 넣으세요. 조건이 맞는 칸에 기술을 옮기는 방법입니다.",
                         "E 짧게 누르기 / 카드 클릭", lane: 2),
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
                         "숨을 고른 칸에 상대가 공격하면 그 공격은 막지 못하고 받습니다. 확정하세요.", CommitKeys),
@@ -78,7 +78,7 @@ namespace TurnLimbo.Runtime.Prologue
             new PrologueMission(7, "피하는 법", Forest,
                 new[] { "상대의 공격을 피한다", "떠돌이 기사를 쓰러뜨린다", "완료하면 회피가 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
-                55, 16, new[] { PracticeDownwardSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 3, 2 },
+                55, 16, new MissionSkill[] { PracticeDownwardSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 3, 2 },
                 Concat(LaneQ, LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "전투 중에도 움직입니다",
@@ -96,13 +96,13 @@ namespace TurnLimbo.Runtime.Prologue
             new PrologueMission(8, "강공 검술", Forest,
                 new[] { "강공 검술로 큰 피해를 준다", "떠돌이 기사를 쓰러뜨린다", "완료하면 W열이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
-                70, 18, new[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard, PracticeSlash }, new[] { 3, 3, 2 },
+                70, 18, new MissionSkill[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard, PracticeSlash }, new[] { 3, 3, 2 },
                 Concat(Concat(LaneQ, LaneW), LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "강공 검술",
                         "W열이 열립니다. 강공 검술은 ACT를 많이 쓰는 대신 강한 기술입니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "W로 예약하세요",
-                        "W를 짧게 누르거나 카드를 클릭해 찌르기를 예약하세요.", "W 짧게 누르기 / 카드 클릭", lane: 1),
+                        "W를 짧게 누르거나 카드를 클릭해 {기술:3:를} 예약하세요.", "W 짧게 누르기 / 카드 클릭", lane: 1),
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
                         "이제 Q/W/E 세 열을 모두 씁니다. 확정하세요.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "강공을 지켜보세요",
@@ -116,7 +116,7 @@ namespace TurnLimbo.Runtime.Prologue
             new PrologueMission(9, "몰아붙이기", Forest,
                 new[] { "내 공격을 밀어붙여 큰 피해를 넣는다", "떠돌이 기사를 쓰러뜨린다", "완료하면 압박이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
-                80, 18, new[] { PracticeGuard, PracticeSlash, PracticeDownwardSlash, PracticeGuard }, new[] { 3, 3, 2 },
+                80, 18, new MissionSkill[] { PracticeGuard, PracticeSlash, PracticeDownwardSlash, PracticeGuard }, new[] { 3, 3, 2 },
                 Concat(Concat(LaneQ, LaneW), LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "원하는 때에 몰아칩니다",
@@ -137,9 +137,9 @@ namespace TurnLimbo.Runtime.Prologue
         public static IReadOnlyList<PrologueMission> All => missions;
         public static int Count => missions.Length;
 
-        private static LegacySkill[] Concat(LegacySkill[] a, LegacySkill[] b)
+        private static MissionSkill[] Concat(MissionSkill[] a, MissionSkill[] b)
         {
-            var result = new LegacySkill[a.Length + b.Length];
+            var result = new MissionSkill[a.Length + b.Length];
             a.CopyTo(result, 0);
             b.CopyTo(result, a.Length);
             return result;

@@ -550,7 +550,7 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>Calls out every fighter whose resistance broke during the last rules step, whether a
-        /// hit or a skill effect (such as 발검's direct reduction) broke it, and updates the break aura.</summary>
+        /// hit or a skill effect (such as 쿠페's direct reduction) broke it, and updates the break aura.</summary>
         private void AnnounceBreaks(bool playerWasBroken, bool enemyWasBroken)
         {
             if (!playerWasBroken && session.Player.IsResistanceBroken)

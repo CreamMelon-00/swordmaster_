@@ -93,7 +93,7 @@ namespace TurnLimbo.Presentation.Tests
                 arena.PerformStep(LegacyStepAction.Dodge, true);
                 Assert.That(arena.StepFocusAmount, Is.Zero);
                 Assert.That(arena.StepPresentationSpeed, Is.EqualTo(1f));
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 arena.PerformStep(LegacyStepAction.Pressure, true);
                 Assert.That(arena.StepFocusAmount, Is.EqualTo(1f));
             }
@@ -114,7 +114,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.ArenaCamera.backgroundColor, Is.EqualTo(sky));
                 AssertBackdropWhite(arena);
 
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 arena.PerformStep(LegacyStepAction.Dodge, true);
                 arena.Tick(0f, .05f);
                 arena.EndTurn();
@@ -126,7 +126,7 @@ namespace TurnLimbo.Presentation.Tests
                 AssertBackdropWhite(arena);
 
                 arena.BeginTurn();
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 arena.PerformStep(LegacyStepAction.Pressure, true);
                 arena.BeginTurn();
                 Assert.That(arena.StepFocusAmount, Is.Zero);
@@ -134,7 +134,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.ArenaCamera.orthographicSize, Is.EqualTo(6f));
                 AssertBackdropWhite(arena);
 
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 arena.PerformStep(LegacyStepAction.Dodge, true);
                 arena.Reset();
                 Assert.That(arena.StepFocusAmount, Is.Zero);
@@ -232,7 +232,7 @@ namespace TurnLimbo.Presentation.Tests
                 Settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
                 Arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt(), Settings);
                 Arena.CloseDistance(1f);
-                Arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
             }
 
             public void Dispose()

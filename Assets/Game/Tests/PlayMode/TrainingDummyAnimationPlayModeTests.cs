@@ -135,7 +135,7 @@ namespace TurnLimbo.Presentation.Tests
                 a.Tick(0f, .5f);
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo(Idle(2)), "Real time alone never moves the sway.");
 
-                a.BeginSlot(LegacyInitialSkills.All[0], null);
+                a.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 a.PresentHit(true, 3, 1, false, false, 2);
                 Assert.That(a.IsEnemyHurtPlaying, Is.True);
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo(Hurt(1)), "A landed hit starts the reaction from its first cel.");
@@ -222,14 +222,14 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(a.Separation, Is.EqualTo(LegacyArenaView.ContactDistance).Within(.01f), "The player covers the whole gap.");
 
                 // It has no guard or attack cels.
-                a.BeginSlot(null, LegacyInitialSkills.All[6]);
+                a.BeginSlot(null, LegacySkillDefinitions.Skill(7));
                 Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("dummy-idle-frame-"), "A guard slot keeps it standing.");
-                a.BeginSlot(null, LegacyInitialSkills.All[0]);
+                a.BeginSlot(null, LegacySkillDefinitions.Skill(1));
                 Hold(a, LegacyArenaView.OriginalImpactTime);
                 Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("dummy-idle-frame-"), "An attack slot keeps it standing.");
 
                 // A heavy, fatal blow reels it but never pushes it off its base, so the player has nothing to chase.
-                a.BeginSlot(LegacyInitialSkills.All[0], null);
+                a.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 a.PresentHit(true, 40, 20, false, true, 12);
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo(Hurt(1)));
                 Assert.That(a.HasPendingPush, Is.False, "The dummy stands on a fixed base.");
@@ -259,7 +259,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(a.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"), "The student's cels come back at once.");
                 a.Reset();
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-idle-frame-01"));
-                a.BeginSlot(null, LegacyInitialSkills.All[6]);
+                a.BeginSlot(null, LegacySkillDefinitions.Skill(7));
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"));
                 a.BeginSlot(null, null);
                 a.PresentHit(true, 40, 20, false, false, 12);

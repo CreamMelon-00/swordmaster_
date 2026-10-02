@@ -253,11 +253,11 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 Click(lobby.Root, "Curriculum Node one-stroke");
                 detail = Named(lobby.Root, "Curriculum Selected Detail").gameObject;
-                Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("일도양단"));
+                Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("알티바호"));
                 Assert.That(Label(detail, "ACT Value").text, Does.Contain("5"));
                 Assert.That(Label(detail, "Curriculum Detail Values").text, Does.Contain("3–20"));
                 Assert.That(Keywords(detail), Does.Contain("위력 편차"));
-                // Each node shows the skill it grants: 준비 10, 전진 12, 투지 19, 발검 42.
+                // Each node shows the skill it grants: 준비 10, 플레슈 12, 르프리즈 19, 쿠페 42.
                 foreach (string id in new[] { "preparation", "advance", "fighting-spirit", "quick-draw" })
                 {
                     CurriculumNode node = run.Curriculum.Tree.Find(id);

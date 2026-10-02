@@ -75,7 +75,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 hud = new LegacyCombatHud(parent.transform, new LegacyDuelArt(), null, null, null);
-                hud.ShowExplanation(LegacyInitialSkills.All[0], false);
+                hud.ShowExplanation(LegacySkillDefinitions.Skill(1), false);
                 GameObject player = Named(hud.Root, "Skill Explain").gameObject;
                 int originalNodes = player.GetComponentsInChildren<Transform>(true).Length;
                 foreach (LegacySkill skill in AllSkills())

@@ -161,14 +161,16 @@ namespace TurnLimbo.Presentation
             switch (property)
             {
                 case LegacySkillProperty.Slash:
-                    AttackTypeText.text = "참격"; ink = new Color32(116, 61, 45, 255); paper = new Color32(220, 195, 173, 255); break;
+                    ink = new Color32(116, 61, 45, 255); paper = new Color32(220, 195, 173, 255); break;
                 case LegacySkillProperty.Hit:
-                    AttackTypeText.text = "타격"; ink = new Color32(102, 75, 32, 255); paper = new Color32(223, 206, 163, 255); break;
+                    ink = new Color32(102, 75, 32, 255); paper = new Color32(223, 206, 163, 255); break;
                 case LegacySkillProperty.Penetrate:
-                    AttackTypeText.text = "관통"; ink = new Color32(51, 81, 107, 255); paper = new Color32(198, 211, 217, 255); break;
+                    ink = new Color32(51, 81, 107, 255); paper = new Color32(198, 211, 217, 255); break;
                 default:
-                    AttackTypeText.text = "방어"; ink = new Color32(69, 82, 47, 255); paper = new Color32(202, 208, 174, 255); break;
+                    ink = new Color32(69, 82, 47, 255); paper = new Color32(202, 208, 174, 255); break;
             }
+            // 숨고르기 (no property) wears the guard's label, as it wears its colours.
+            AttackTypeText.text = LegacySkillLabels.Property(property == LegacySkillProperty.None ? LegacySkillProperty.Defence : property);
             typeLabel.text = defence ? "기술 타입" : "공격 타입";
             typeAttachment.color = paper;
             AttackTypeText.color = typeLabel.color = hits.color = hitsLabel.color = ink;

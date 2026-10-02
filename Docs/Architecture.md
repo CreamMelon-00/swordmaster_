@@ -13,10 +13,11 @@ Presentation.Tests -> Presentation / Runtime
 ```
 
 - `Core`: 순수 C# 전투 상태와 규칙. `UnityEngine`을 참조하지 않는다.
-- `Content`: 추후 ScriptableObject와 검증된 로컬 데이터로 스킬·적·스테이지를 정의할 영역이다. 현재 첫 9개 기술 데이터는 `Runtime/LegacyCombat/LegacySkill.cs`에 보관한다.
+- `Content`: 추후 ScriptableObject와 검증된 로컬 데이터로 스킬·적·스테이지를 정의할 영역이다. 현재 기술 19종의 데이터는 CSV 기술 시트 `Resources/Skills/skills.csv`에 있고, Runtime의 `LegacySkillSheet`가 읽는다(`SkillSheet.md`).
 - `Runtime`: 현재 결투의 상태·기술열·ACT·큐·타격 판정·턴 전환·승패를 소유한다. `CampaignRun`은 별도로 8스테이지 진행·재화(지금은 화면에 표시하지 않음)·커리큘럼 진행·보유 기술을 소유하고, 스토리가 연 전투 기능과 스테이지 제한(`Features`/`StageLimit`)을 받아 스테이지 전투에 적용한다(`Curriculum.md`, `StoryUnlocks.md`). `Dialogue`는 Unity 비의존 텍스트 파서와 선형 재생 세션을 소유한다. `Save`(`GameSave`, `GameSaveCodec`)는 스토리(서막·수련) 진행과 캠페인 저장 상태를 묶는 임시 자동 저장 형식과 규칙 검사를 소유하고, 파일 입출력은 Presentation의 `GameSaveStore`가 맡는다(`SaveSystem.md`).
 - `Presentation`: 입력, UI, 애니메이션, 사운드, VFX를 Runtime의 전투 상태와 타격 결과에 연결한다. `DialogueHud`는 독립 모달 Canvas로 현재 대사를 표시하며 `DuelPrototypeController.StartDialogue`가 Resources 텍스트 로드와 입력 우선순위를 담당한다.
 - `Editor/Dialogue`: 원문 `.txt`를 기준 데이터로 유지하는 Editor 전용 작성 창이다. 같은 Runtime 파서로 실시간 검사하고 파일 생성·자동 저장·빠른 입력·미리보기와 공용 화자 이미지 지정을 제공한다.
+- `Editor`: 상단 `Turn Limbo` 메뉴는 `연출 튜닝 열기`(10, `PresentationTuning.md`), `다이얼로그 편집기`(20, `DialogueEditor.md`), `세이브 삭제`(30)·`세이브 폴더 열기`(31, `SaveSystem.md`), `기술 시트`(40, `SkillSheet.md`) 순서다. 다이얼로그 편집기 밖의 항목은 어셈블리 정의 없는 `Assets/Game/Editor/*.cs`(Assembly-CSharp-Editor)에 있다. `기술 시트` 창은 구글 시트를 CSV로 받아 같은 Runtime 파서와 코드 대조(`CampaignSheetCheck`)로 검사하고 바뀐 기술을 확인받은 뒤 시트 파일을 덮어쓴다. 같은 파일의 `AssetPostprocessor`가 시트를 가져올 때 편집 모드의 기술 표를 다시 읽게 한다. 창의 주소 설정 `SkillSheetSettings`(ScriptableSingleton)는 저장 값을 다시 읽으려면 클래스 이름과 같은 파일이 필요해 `SkillSheetSettings.cs`에 따로 있다.
 - `Tests`: 전투 규칙과 데이터 검증을 우선 EditMode에서 실행한다.
 
 현재 수직 슬라이스는 다음 어셈블리까지 구현한다.
@@ -37,7 +38,7 @@ Play 시 `DuelPrototypeBootstrap`이 활성 씬에 컨트롤러가 없으면 생
 
 기술 조건 표시는 `LegacySkillConditions`의 판정을 전투와 공유한다. `LegacyCurrentSlot.PlayerFeedback/EnemyFeedback`는 실제 조건 성립·고유 효과 발동·위력 계산에 사용된 버프와 이번에 실제 부여한 다음 칸 버프의 불변 스냅샷을 제공한다. Controller는 슬롯 시작에 HUD로 전달하고, HUD는 상대 조건 후보와 다음 예약 칸을 밝은 청록 선·이중 테두리·큰 외곽 표식으로 구분한다. `SkillCardFeedbackGraphic`의 재사용 메시 상한은100 vertices/6개 버프 입자다. 양측 `StatusView`는 현재 위력/보호와 새 버프의 수치/초기 지속4개 줄을 재사용하고, 활성 줄만 위로 확장하되 게이지는 아래에 고정한다. HUD가 전투 상태나 난수를 바꾸지 않으며, 키 해제·턴 전환·재시작에 표시만 정리한다. 전투 중 버프만 입자 대상이며 자세한 계약은 `SkillConditionFeedback.md`를 따른다.
 
-기술 효과·조건·역할·문구는 `LegacySkillDefinitions`의 정의 표 하나에서 읽는다. 새 기술은 표에 항목을 추가하며 기술 ID 분기를 새로 만들지 않는다(`SkillDefinitions.md`). 준비/전진의 한 칸 버프는 기존 `SkillBuff` 수명을 사용하고, 투지/발검의 직접 저항력 회복·감소는 `LegacyFighterState`만 변경한다. Controller는 슬롯 시작 전후의 실제 변화량을 `DuelResistanceFeedback`의 재사용 Text 2개에 전달한다. 이 표시는 실제 시간으로 갱신하고 피해·넉백을 만들지 않는다. 별도 매니저·씬 연결·체인 상태를 만들지 않는다. 일반 기술 4종 추가와 표시 계약은 `ImportedNonChainSkills.md`를 따른다.
+기술 이름·수치·효과·조건·역할·문구는 `LegacySkillDefinitions`의 정의 표 하나에서 읽는다. 표의 데이터는 CSV 기술 시트(`Resources/Skills/skills.csv`)이고, 처음 쓸 때 `LegacySkillSheet.Parse`가 모든 문제를 모아 검사한 뒤 읽는다. 시트가 커리큘럼과 코드가 쓰는 ID를 갖췄는지는 `CampaignSheetCheck`가 따로 대조한다. Play마다 Presentation의 `SkillSheetLoader`가 Resources 원본을 설치한다. 코드는 기술을 행 위치가 아니라 ID로 찾고(`LegacySkillDefinitions.Skill(id)`), 기술 이름을 쓰는 문구는 `{기술:ID}` 토큰을 읽을 때 바꾼다(`LegacySkillNames`). 새 기술은 시트에 행을 추가하며 기술 ID 분기를 새로 만들지 않는다(`SkillDefinitions.md`, `SkillSheet.md`). 준비/플레슈의 한 칸 버프는 기존 `SkillBuff` 수명을 사용하고, 르프리즈/쿠페의 직접 저항력 회복·감소는 `LegacyFighterState`만 변경한다. Controller는 슬롯 시작 전후의 실제 변화량을 `DuelResistanceFeedback`의 재사용 Text 2개에 전달한다. 이 표시는 실제 시간으로 갱신하고 피해·넉백을 만들지 않는다. 별도 매니저·씬 연결·체인 상태를 만들지 않는다. 일반 기술 4종 추가와 표시 계약은 `ImportedNonChainSkills.md`를 따른다.
 
 피해 숫자·이동 연출(2026-09-27)은 기존 HUD/전장/설정에 확장했다. `LegacyCombatHud`는 월드 타격점과 화면 단위 상승·연타 간격, 실시간 등장/정착/유지/퇴장, 붉은 테두리·그림자와 최대32개 재사용 숫자를 소유한다. Controller는 강조 타격(저항 붕괴, 마무리 일격 또는 표시 피해12 이상) 플래그만 넘기고 입력받은 실제 시계를 HUD에 직접 전달한다. `LegacyArenaView`는 거리1.4/속도1.2 배율을 동작 시작 때 고정하며 사거리4/최소간격2.8/미완료밀림상한6/시계 구분을 유지한다. 기존 설정 자산 경로/필드를 보존하고 배율·기본 글자 크기168/강조 크기1.3을 추가한다. 순수 Runtime의 피해/ACT/큐·클립·카메라·파티클/빛은 변경하지 않는다. 아래 기존 거리/속도 설명보다 이 단락을 우선하며 사용법은 `PresentationTuning.md`를 따른다.
 

@@ -343,19 +343,17 @@ namespace TurnLimbo.Presentation
             var names = new List<string>();
             foreach (CurriculumNode other in tree.Nodes)
                 if (tree.AreExclusive(node.Id, other.Id)) names.Add(other.Title);
-            return names.Count == 0 ? string.Empty : "택1  " + string.Join(", ", names) + "과(와) 함께 고를 수 없음";
+            if (names.Count == 0) return string.Empty;
+            // The last name picks 과 or 와.
+            return "택1  " + KoreanParticle.Attach(string.Join(", ", names), "과") + " 함께 고를 수 없음";
         }
 
         public static string BranchName(CurriculumBranch branch)
             => branch == CurriculumBranch.Slash ? "참격" : branch == CurriculumBranch.Pierce ? "관통" : "수비";
 
+        // Any sheet row, as CampaignRun grants it, so a node whose technique became a starting one still shows it.
         private static LegacySkill GrantedSkill(CurriculumNode node)
-        {
-            if (node.SkillIds.Count == 0) return null;
-            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
-                if (skill.Id == node.SkillIds[0]) return skill;
-            return null;
-        }
+            => node.SkillIds.Count == 0 ? null : LegacySkillDefinitions.Find(node.SkillIds[0])?.Skill;
 
         private void PerformSelect()
         {

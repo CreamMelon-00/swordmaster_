@@ -49,7 +49,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new ArenaScope())
             {
                 var a = scope.Arena;
-                a.BeginSlot(LegacyInitialSkills.All[6], LegacyInitialSkills.All[2]);
+                a.BeginSlot(LegacySkillDefinitions.Skill(7), LegacySkillDefinitions.Skill(3));
                 var block = a.PlayerRenderer.sprite;
                 Assert.That(block.name, Is.EqualTo("poses-block"));
                 for (int i = 0; i < 12; i++)
@@ -71,7 +71,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new ArenaScope())
             {
                 var a = scope.Arena;
-                a.BeginSlot(null, LegacyInitialSkills.All[0]);
+                a.BeginSlot(null, LegacySkillDefinitions.Skill(1));
                 a.PresentHit(false, 4, 0, false, false);
                 Sprite hurt = a.PlayerRenderer.sprite;
                 Assert.That(hurt.name, Does.StartWith("poses-hurt"));
@@ -95,7 +95,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new ArenaScope())
             {
                 var a = scope.Arena;
-                a.BeginSlot(LegacyInitialSkills.All[6], LegacyInitialSkills.All[0]);
+                a.BeginSlot(LegacySkillDefinitions.Skill(7), LegacySkillDefinitions.Skill(1));
                 a.PresentHit(false, 0, 0, true, false, 4);
                 Assert.That(a.PlayerRenderer.sprite.name, Does.StartWith("poses-block"));
                 a.PresentHit(false, 0, 3, true, false, 4);
@@ -116,7 +116,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new ArenaScope())
             {
                 var a = scope.Arena;
-                a.BeginSlot(LegacyInitialSkills.All[0], null);
+                a.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 Sprite attack = a.PlayerRenderer.sprite;
                 a.PresentHit(true, 4, 0, false, false);
                 Assert.That(a.PlayerRenderer.sprite, Is.SameAs(attack));
@@ -127,7 +127,7 @@ namespace TurnLimbo.Presentation.Tests
                 a.PresentHit(false, 1, 0, false, false);
                 a.Tick(.1f, 0);
                 Assert.That(a.PlayerRenderer.sprite.name, Does.StartWith("poses-hurt"));
-                a.BeginSlot(LegacyInitialSkills.All[0], null);
+                a.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 Assert.That(a.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-01$"));
             }
             yield return null;
@@ -141,7 +141,7 @@ namespace TurnLimbo.Presentation.Tests
                 var a = scope.Arena;
                 typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", BindingFlags.Instance | BindingFlags.NonPublic)
                     .Invoke(a, new object[] { .5f, .1f });
-                a.BeginSlot(null, LegacyInitialSkills.All[0]);
+                a.BeginSlot(null, LegacySkillDefinitions.Skill(1));
                 float timeScale = Time.timeScale;
                 a.PresentHit(false, 2, 0, false, false);
                 a.Tick(.3f, 0);
@@ -163,7 +163,7 @@ namespace TurnLimbo.Presentation.Tests
                 int calls = 0;
                 foreach (bool guard in new[] { true, false })
                 {
-                    a.BeginSlot(guard ? LegacyInitialSkills.All[6] : null, LegacyInitialSkills.All[2]);
+                    a.BeginSlot(guard ? LegacySkillDefinitions.Skill(7) : null, LegacySkillDefinitions.Skill(3));
                     Assert.That(random.Calls, Is.EqualTo(calls), "Entering the slot must not consume a hit/guard draw.");
                     foreach (int choice in new[] { 0, 1, 1, 0 })
                     {
@@ -197,7 +197,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new ArenaScope(new PoseRandom(1, 0)))
             {
                 var a = scope.Arena;
-                a.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
+                a.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(3));
                 Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
                 Sprite contact = a.PlayerRenderer.sprite;
                 Sprite enemyContact = a.EnemyRenderer.sprite;
@@ -226,7 +226,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new ArenaScope(new PoseRandom()))
             {
                 var a = scope.Arena;
-                a.BeginSlot(LegacyInitialSkills.All[2], LegacyInitialSkills.All[0]);
+                a.BeginSlot(LegacySkillDefinitions.Skill(3), LegacySkillDefinitions.Skill(1));
                 Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
                 a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.MutualClash);
                 Assert.That(a.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
@@ -237,7 +237,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(a.EnemyRenderer.sprite.name, Does.Match("^enemy-poses-hurt(?:-2)?$"),
                     "HP damage now displays the enemy hurt pose.");
 
-                a.BeginSlot(LegacyInitialSkills.All[0], null);
+                a.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 Hold(a, LegacyArenaView.OriginalImpactTime + .0001f);
                 a.PresentHit(true, 0, 0, true, false, 2);
                 Assert.That(a.EnemyRenderer.sprite.name, Does.Match("^enemy-poses-block(?:-2)?$"), "A guard reaction uses the guard frame.");
@@ -246,7 +246,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", BindingFlags.Instance | BindingFlags.NonPublic)
                     .Invoke(a, new object[] { .1f, 0f });
-                a.BeginSlot(LegacyInitialSkills.All[2], LegacyInitialSkills.All[0]);
+                a.BeginSlot(LegacySkillDefinitions.Skill(3), LegacySkillDefinitions.Skill(1));
                 Hold(a, LegacyArenaView.OriginalClipDuration / .1f + .01f);
                 a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.BladeBlock);
                 a.EndTurn(); a.Tick(0, 0);
@@ -263,12 +263,12 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var a = scope.Arena;
                 float tail = LegacyArenaView.OriginalClipDuration + LegacyArenaView.OriginalImpactTime;
-                a.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
+                a.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(3));
                 a.PerformStep(LegacyStepAction.Dodge, true);
                 Hold(a, tail);
                 Assert.That(a.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                     "The dodge voided the opponent's remaining hits, so the finished attack has nothing to receive.");
-                a.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
+                a.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(3));
                 Hold(a, tail);
                 Assert.That(a.PlayerRenderer.sprite.name, Is.EqualTo("poses-block"), "A new slot starts without the previous dodge.");
             }
@@ -302,7 +302,7 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     bool guard = key.StartsWith("block");
                     a.Reset(); a.CloseDistance(1f);
-                    a.BeginSlot(guard ? LegacyInitialSkills.All[6] : null, LegacyInitialSkills.All[0]);
+                    a.BeginSlot(guard ? LegacySkillDefinitions.Skill(7) : null, LegacySkillDefinitions.Skill(1));
                     a.Tick(0, 1f);
                     typeof(LegacyArenaView).GetMethod("HoldSlotAtTime", BindingFlags.Instance | BindingFlags.NonPublic)
                         .Invoke(a, new object[] { LegacyArenaView.OriginalImpactTime });

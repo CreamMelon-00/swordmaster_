@@ -79,7 +79,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
                 FindActive<Button>(controller.LobbyHud.Root, "Curriculum Node advance").onClick.Invoke();
                 Assert.That(controller.Campaign.Curriculum.Active, Is.Null, "A node click only selects it for viewing.");
-                Assert.That(FindActive<Text>(controller.LobbyHud.Root, "Curriculum Detail Name").text, Is.EqualTo("전진"));
+                Assert.That(FindActive<Text>(controller.LobbyHud.Root, "Curriculum Detail Name").text, Is.EqualTo("플레슈"));
 
                 Button primary = FindActive<Button>(controller.LobbyHud.Root, "Curriculum Primary Action");
                 Assert.That(primary.interactable, Is.True);
@@ -269,9 +269,9 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new FlowScope())
             {
                 var controller = scope.Controller;
-                var skill = CampaignSkillCatalog.AcquisitionSkills[0];
+                var skill = LegacySkillDefinitions.Skill(14);
                 scope.InstallDuel(new LegacyQueuedDuel(100, 50, 80, 15,
-                    new[] { skill, LegacyInitialSkills.All[0] }, new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 2));
+                    new[] { skill, LegacySkillDefinitions.Skill(1) }, new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 2));
                 var root = controller.Hud.Root.transform;
                 var current = root.Find("Input/Keys/Current Q/Skill Image").GetComponent<Image>();
                 var next = root.Find("Input/Keys/Next Q/Next Skill Image").GetComponent<Image>();
@@ -347,7 +347,7 @@ namespace TurnLimbo.Presentation.Tests
             public void LoseToResult()
             {
                 InstallDuel(new LegacyQueuedDuel(1, 0, 80, 15,
-                    LegacyInitialSkills.All, new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 4));
+                    LegacyInitialSkills.All, new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 4));
                 Controller.CommitTurn();
                 UntilResult();
             }

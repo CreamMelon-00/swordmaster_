@@ -152,7 +152,7 @@ namespace TurnLimbo.Presentation.Tests
                 FindButton(hud, "Curriculum Node advance").onClick.Invoke();
                 Assert.That(selectCalls, Is.Zero, "Selecting a node card must not start it.");
                 Assert.That(run.Curriculum.Active, Is.Null);
-                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("전진"));
+                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("플레슈"));
                 Assert.That(FindButton(hud, "Curriculum Primary Action").interactable, Is.True);
                 foreach (Button button in hud.Root.GetComponentsInChildren<Button>())
                     Assert.That(button.navigation.mode, Is.EqualTo(Navigation.Mode.None));
@@ -161,19 +161,19 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(selectCalls, Is.EqualTo(1));
                 Assert.That(run.Curriculum.Active.Id, Is.EqualTo("advance"));
                 Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
-                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("전진"),
+                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("플레슈"),
                     "The chosen node must stay selected after the lobby rebuild.");
                 Assert.That(FindButton(hud, "Curriculum Primary Action").interactable, Is.False);
-                Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  전진 0/1"));
+                Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  플레슈 0/1"));
 
                 hud.ShowTab(LobbyTab.Stages);
-                Assert.That(FindText(hud, "Selected Stage Curriculum").text, Is.EqualTo("커리큘럼  전진 0/1"));
+                Assert.That(FindText(hud, "Selected Stage Curriculum").text, Is.EqualTo("커리큘럼  플레슈 0/1"));
                 FindButton(hud, "Start Selected Stage").onClick.Invoke();
                 Assert.That(hud.IsVisible, Is.False);
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
                 Assert.That(run.ReturnToLobby(), Is.True);
                 hud.Show(run);
-                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("전투 종료  ·  커리큘럼 완료: 전진"),
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("전투 종료  ·  커리큘럼 완료: 플레슈"),
                     "A lost battle still counts toward the node in progress.");
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
                 Assert.That(run.IsSkillEquipped(12), Is.False);
@@ -181,7 +181,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 hud.ShowTab(LobbyTab.Curriculum);
                 Assert.That(TryFindText(hud, "Outcome Banner"), Is.Null, "The curriculum page keeps the outcome note out of its header.");
-                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("전진"));
+                Assert.That(FindText(hud, "Curriculum Detail Name").text, Is.EqualTo("플레슈"));
                 Assert.That(FindButton(hud, "Curriculum Primary Action").GetComponentInChildren<Text>().text,
                     Is.EqualTo("완료한 과정"));
                 Assert.That(FindText(hud, "Header Curriculum").text, Is.EqualTo("커리큘럼  선택 안 함"));

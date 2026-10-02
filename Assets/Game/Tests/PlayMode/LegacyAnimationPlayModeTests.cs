@@ -70,7 +70,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var arena = controller.ArenaView;
-                arena.BeginSlot(LegacyInitialSkills.All[0], null);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 AssertFrame(arena, "pa_player_slash-Sheet", "pa_enemy_1_i-Sheet", 0);
                 arena.Tick(0, .5f);
                 AssertFrame(arena, "pa_player_slash-Sheet", "pa_enemy_1_i-Sheet", 0);
@@ -78,7 +78,7 @@ namespace TurnLimbo.Presentation.Tests
                 AssertFrame(arena, "pa_player_slash-Sheet", "pa_enemy_1_i-Sheet", 1);
                 arena.Reset();
                 AssertFrame(arena, "pa_player_idle-Sheet", "pa_enemy_1_i-Sheet", 0);
-                arena.BeginSlot(LegacyInitialSkills.All[0], null);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 arena.EndTurn();
                 arena.Tick(0, 0);
                 AssertFrame(arena, "pa_player_idle-Sheet", "pa_enemy_1_i-Sheet", 0);
@@ -96,7 +96,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var arena = controller.ArenaView;
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[2]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(3));
                 arena.Tick(LegacyArenaView.OriginalImpactTime - .001f, 0);
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-04$"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.Match("^enemy-pierce(?:-[23])?-frame-04$"));
@@ -114,7 +114,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                     "Once the opponent's strikes end, the exchange is over.");
 
-                arena.BeginSlot(LegacyInitialSkills.All[2], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(3), LegacySkillDefinitions.Skill(1));
                 arena.Tick(LegacyArenaView.OriginalClipDuration + .001f, 0);
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"),
                     "The remade enemy holds its guard after a finished attack.");

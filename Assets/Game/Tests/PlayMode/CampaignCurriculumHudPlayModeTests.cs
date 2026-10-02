@@ -151,10 +151,10 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Hud.SelectNode("one-stroke");
                 Assert.That(requirement.text, Is.EqualTo("선행  사선베기"));
                 Assert.That(exclusive.gameObject.activeSelf, Is.True);
-                Assert.That(exclusive.text, Is.EqualTo("택1  발검과(와) 함께 고를 수 없음"));
+                Assert.That(exclusive.text, Is.EqualTo("택1  쿠페와 함께 고를 수 없음"));
                 fixture.Hud.SelectNode("fighting-spirit");
                 Assert.That(requirement.text, Is.EqualTo("선행  호흡"));
-                Assert.That(exclusive.text, Is.EqualTo("택1  유연함과(와) 함께 고를 수 없음"));
+                Assert.That(exclusive.text, Is.EqualTo("택1  유연함과 함께 고를 수 없음"));
             }
         }
 
@@ -294,7 +294,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 Button(root, "Curriculum Node breathing").onClick.Invoke();
                 AssertPrimary(primary, "이 과정 진행", true);
-                Assert.That(availability.text, Is.EqualTo("진행 중인 전진 대신 이 과정을 진행합니다."),
+                Assert.That(availability.text, Is.EqualTo("진행 중인 플레슈 대신 이 과정을 진행합니다."),
                     "Before a battle counts, the choice can still change.");
                 primary.onClick.Invoke();
                 Assert.That(fixture.SelectCalls, Is.EqualTo(2));

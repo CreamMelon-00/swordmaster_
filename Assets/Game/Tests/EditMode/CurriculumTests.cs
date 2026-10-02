@@ -379,7 +379,11 @@ namespace TurnLimbo.Core.Tests
             Assert.Throws<ArgumentException>(() => Node("wide　space", 1), "The codec splits on every Unicode space.");
             Assert.Throws<ArgumentException>(() => Node("tabbed", 1));
             Assert.Throws<ArgumentException>(() => new CurriculumNode("a", " ", CurriculumBranch.Guard, 0f, 0, new[] { 1 }));
+            Assert.Throws<ArgumentException>(() => new CurriculumNode("a", null, CurriculumBranch.Guard, 0f, 0, new[] { 1, 2 }),
+                "Only a one-skill node takes its title from the skill.");
+            Assert.Throws<ArgumentException>(() => new CurriculumNode("a", null, CurriculumBranch.Guard, 0f, 0, new int[0]));
             Assert.Throws<ArgumentNullException>(() => new CurriculumNode("a", "A", CurriculumBranch.Guard, 0f, 0, null));
+            Assert.Throws<ArgumentNullException>(() => new CurriculumNode("a", null, CurriculumBranch.Guard, 0f, 0, null));
             CurriculumNode slow = Node("a", 1, battles: 3);
             Assert.That(slow.Battles, Is.EqualTo(3));
             Assert.That(slow.Description, Is.Empty);

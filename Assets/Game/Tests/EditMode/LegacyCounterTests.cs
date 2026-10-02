@@ -198,7 +198,7 @@ namespace TurnLimbo.Core.Tests
         public void CounterSkillEffectsApplyWhenItStrikes()
         {
             // Slash (id 1) grants the player +1 ACT next turn; as a counter it still does.
-            LegacySkill slash = LegacyInitialSkills.All[0];
+            LegacySkill slash = LegacySkillDefinitions.Skill(1);
             var duel = Duel(new[] { Attack(100, 10) }, new[] { Attack(101, 1) }, count: 2,
                 playerCounter: new LegacyCounter(slash));
             QueueLane(duel, 0, 1);

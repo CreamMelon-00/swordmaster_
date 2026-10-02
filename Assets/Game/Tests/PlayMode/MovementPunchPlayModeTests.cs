@@ -231,7 +231,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Configure(2f, 2f);
                 fixture.Arena.Tick(.05f, 0f);
                 Assert.That(fixture.PlayerX - pursuitStart, Is.EqualTo(LegacyArenaView.PursuitSpeed * .05f).Within(.001f));
-                fixture.Arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                fixture.Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 pursuitStart = fixture.PlayerX;
                 fixture.Arena.PresentHit(true, 1, 0, false, false, 1);
                 fixture.Arena.Tick(LegacyArenaView.PursuitDelay, 0f);
@@ -325,7 +325,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Arena.Reset();
                 Arena.CloseDistance(1f);
-                Arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
             }
 
             public float MeasureEnemyTargetDistance(int hp, int resistance, bool guarded, int power)

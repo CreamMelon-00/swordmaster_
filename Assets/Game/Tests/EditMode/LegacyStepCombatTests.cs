@@ -345,9 +345,9 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void MistimedInputs_DoNotChangeSeededNormalDamageOrSkillEffects()
         {
-            LegacySkill[] skills = { LegacyInitialSkills.All[0], LegacyInitialSkills.All[1] };
-            var baseline = Duel(skills, new[] { LegacyInitialSkills.All[4] }, count: 2, resistance: 0);
-            var mistimed = Duel(skills, new[] { LegacyInitialSkills.All[4] }, count: 2, resistance: 0);
+            LegacySkill[] skills = { LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(2) };
+            var baseline = Duel(skills, new[] { LegacySkillDefinitions.Skill(5) }, count: 2, resistance: 0);
+            var mistimed = Duel(skills, new[] { LegacySkillDefinitions.Skill(5) }, count: 2, resistance: 0);
             foreach (LegacyQueuedDuel duel in new[] { baseline, mistimed })
             {
                 duel.TryQueueLane(0);

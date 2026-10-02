@@ -53,7 +53,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 LegacyArenaView arena = controller.ArenaView;
                 arena.Reset();
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 float start = arena.EnemyRenderer.transform.localPosition.x;
                 arena.PresentHit(true, 8, 0, false, false, 8);
                 float firstTarget = arena.EnemyKnockbackTarget.x;
@@ -95,7 +95,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 LegacyArenaView arena = controller.ArenaView;
                 arena.Reset();
-                arena.BeginSlot(LegacyInitialSkills.All[0], null);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 arena.PresentHit(true, 12, 0, false, false, 12);
                 arena.Tick(LegacyArenaView.PushDuration + .01f, LegacyArenaView.PushDuration + .01f);
                 Transform player = arena.PlayerRenderer.transform;
@@ -155,7 +155,7 @@ namespace TurnLimbo.Presentation.Tests
                 SettleCamera(arena);
                 Assert.That(arena.ArenaCamera.transform.localPosition.x, Is.EqualTo(arena.DuelCenter.x).Within(.01f));
                 Assert.That(arena.ArenaCamera.transform.localPosition.y, Is.EqualTo(arena.DuelCenter.y - 1f).Within(.01f));
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 SettleCamera(arena);
                 Assert.That(arena.ArenaCamera.transform.localPosition.x, Is.EqualTo(arena.DuelCenter.x).Within(.01f),
                     "Combat must not add the last planning pivot to the world midpoint a second time.");
@@ -456,7 +456,7 @@ namespace TurnLimbo.Presentation.Tests
         private static float MeasureEnemyPush(LegacyArenaView arena, int hpDamage, int resistanceDamage, bool guarded, int rawPower)
         {
             arena.Reset();
-            arena.BeginSlot(LegacyInitialSkills.All[0], null);
+            arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
             float start = arena.EnemyRenderer.transform.localPosition.x;
             arena.PresentHit(true, hpDamage, resistanceDamage, guarded, false, rawPower);
             arena.Tick(LegacyArenaView.PushDuration + .01f, LegacyArenaView.PushDuration + .01f);

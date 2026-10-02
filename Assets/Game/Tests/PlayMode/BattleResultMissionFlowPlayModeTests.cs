@@ -182,8 +182,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.QueueLane(1), Is.False);
                 Assert.That(controller.QueueLane(0), Is.True);
                 Assert.That(controller.QueueLane(0), Is.True);
-                Assert.That(controller.Session.PlayerQueue[0].Id, Is.EqualTo(LegacyInitialSkills.All[0].Id));
-                Assert.That(controller.Session.PlayerQueue[1].Id, Is.EqualTo(LegacyInitialSkills.All[1].Id));
+                Assert.That(controller.Session.PlayerQueue[0].Id, Is.EqualTo(LegacySkillDefinitions.Skill(1).Id));
+                Assert.That(controller.Session.PlayerQueue[1].Id, Is.EqualTo(LegacySkillDefinitions.Skill(2).Id));
                 Assert.That(controller.Guide.Kind, Is.EqualTo(MissionGuideStepKind.Commit));
                 controller.CommitTurn();
                 Assert.That(controller.IsResolving, Is.True);
@@ -411,7 +411,7 @@ namespace TurnLimbo.Presentation.Tests
             public void LoseToResult()
             {
                 InstallDuel(new LegacyQueuedDuel(1, 0, 80, 15,
-                    LegacyInitialSkills.All, new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 4));
+                    LegacyInitialSkills.All, new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 4));
                 Controller.CommitTurn();
                 AdvanceUntilResult();
             }

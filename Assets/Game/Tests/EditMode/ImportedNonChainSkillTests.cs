@@ -9,9 +9,9 @@ namespace TurnLimbo.Core.Tests
     public sealed class ImportedNonChainSkillTests
     {
         [TestCase(10, "준비", 0, 1, 2, 3, 1, LegacySkillKind.Attack, LegacySkillProperty.Hit)]
-        [TestCase(12, "전진", 2, 1, 4, 8, 2, LegacySkillKind.Attack, LegacySkillProperty.Penetrate)]
-        [TestCase(19, "투지", 2, 2, 7, 11, 1, LegacySkillKind.Defence, LegacySkillProperty.Defence)]
-        [TestCase(42, "발검", 0, 1, 4, 8, 1, LegacySkillKind.Attack, LegacySkillProperty.Slash)]
+        [TestCase(12, "플레슈", 2, 1, 4, 8, 2, LegacySkillKind.Attack, LegacySkillProperty.Penetrate)]
+        [TestCase(19, "르프리즈", 2, 2, 7, 11, 1, LegacySkillKind.Defence, LegacySkillProperty.Defence)]
+        [TestCase(42, "쿠페", 0, 1, 4, 8, 1, LegacySkillKind.Attack, LegacySkillProperty.Slash)]
         public void Catalog_ImportsOriginalLevelZeroRowsWithoutChainSkills(int id, string name, int lane,
             int cost, int min, int max, int hits, LegacySkillKind kind, LegacySkillProperty property)
         {

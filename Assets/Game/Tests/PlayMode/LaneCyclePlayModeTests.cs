@@ -258,13 +258,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.QueueLane(0), Is.False, "The beat waits for Shift.");
                 controller.CommitTurn();
                 Assert.That(controller.IsResolving, Is.False, "…and cannot be skipped by committing.");
-                Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacyInitialSkills.All[0].Id));
+                Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacySkillDefinitions.Skill(1).Id));
                 Press(keyboard.leftShiftKey);
                 yield return null;
                 scope.Advance(0f, keyboard);
                 Release(keyboard.leftShiftKey);
                 yield return null;
-                Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacyInitialSkills.All[1].Id), "예리한 베기 comes forward.");
+                Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacySkillDefinitions.Skill(2).Id), "예리한 베기 comes forward.");
                 Assert.That(guide.IsFree, Is.True, "Shift finishes the lesson.");
                 Assert.That(controller.CycleLanes(), Is.True, "Free play keeps 넘기기.");
                 Assert.That(controller.TurnTimeRemaining, Is.EqualTo(10f), "Mission 2 has no clock, so 넘기기 is free there.");

@@ -21,7 +21,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 hud = new LegacyCombatHud(parent.transform, new LegacyDuelArt(), null, null, null);
-                LegacySkill actRecovery = LegacyInitialSkills.All[0];
+                LegacySkill actRecovery = LegacySkillDefinitions.Skill(1);
                 hud.ShowExplanation(actRecovery, false);
                 Text effect = FindTextUnder(hud.Root.transform, "Skill Explain", "Effect");
                 Assert.That(effect.gameObject.activeInHierarchy, Is.True);
@@ -39,7 +39,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(text.text, Does.Not.Contain("방어·빈칸 → 체력"));
                 }
 
-                LegacySkill conditionalRecovery = LegacyInitialSkills.All[6];
+                LegacySkill conditionalRecovery = LegacySkillDefinitions.Skill(7);
                 hud.ShowExplanation(conditionalRecovery, false);
                 Assert.That(effect.text, Does.Contain("같은 칸 상대가 타격일 때"));
                 Assert.That(effect.text, Does.Contain("ACT 회복 +2"));

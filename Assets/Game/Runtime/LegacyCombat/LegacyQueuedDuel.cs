@@ -615,10 +615,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (--buffs[i].SlotsRemaining == 0) buffs.RemoveAt(i);
         }
 
+        // The six basic attacks by id, 베기 through 강력한 부수기.
         private static LegacySkill[] FirstSixSkills()
         {
             var result = new LegacySkill[6];
-            for (int i = 0; i < result.Length; i++) result[i] = LegacyInitialSkills.All[i];
+            for (int i = 0; i < result.Length; i++) result[i] = LegacySkillDefinitions.Skill(i + 1);
             return result;
         }
 

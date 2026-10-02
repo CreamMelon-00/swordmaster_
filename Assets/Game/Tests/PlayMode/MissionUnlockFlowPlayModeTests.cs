@@ -209,7 +209,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(SlotCost(lobby, "Q", slot), Does.StartWith("ACT "), "Q slot " + slot);
                     Assert.That(SlotCost(lobby, "E", slot), Does.StartWith("ACT "), "E slot " + slot);
                 }
-                Assert.That(controller.UnequipSkill(LegacyInitialSkills.All[2].Id), Is.False, "A closed lane's skills stay put.");
+                Assert.That(controller.UnequipSkill(LegacySkillDefinitions.Skill(3).Id), Is.False, "A closed lane's skills stay put.");
                 Assert.That(controller.Campaign.HasLoadoutChanges, Is.False);
 
                 controller.LobbyHud.ShowTab(LobbyTab.Stages);

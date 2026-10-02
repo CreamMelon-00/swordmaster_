@@ -78,9 +78,9 @@ namespace TurnLimbo.Presentation.Tests
             var random = new SlashRandom();
             using (var scope = new ArenaScope(random))
             {
-                foreach (int index in new[] { 6, 7, 8 })
+                foreach (int id in new[] { 7, 8, 9 })
                 {
-                    scope.Arena.BeginSlot(LegacyInitialSkills.All[index], null);
+                    scope.Arena.BeginSlot(LegacySkillDefinitions.Skill(id), null);
                     scope.Arena.Tick(.05f, .05f);
                 }
                 Assert.That(random.Calls, Is.Zero);

@@ -12,7 +12,7 @@
 - 과정마다 필요한 전투 수 N이 있다. 지금은 모든 과정이 N=1이다. N은 과정 데이터(`CurriculumNode.Battles`)라서 과정마다 따로 바꿀 수 있다.
 - 스테이지 전투를 끝까지 마치면 승리·패배·무승부와 관계없이 한 번으로 센다. 이미 클리어한 스테이지를 다시 해도, 결과 창에서 재도전해도 센다. 전투 중 Escape로 포기한 전투와 스토리 임무(서막·수련)는 세지 않는다.
 - N번을 채우면 과정이 완료되고 그 기술을 얻는다. 얻은 기술은 보유 목록 끝에 붙을 뿐 자동으로 편성되지 않는다. 편성 탭에서 같은 열 카드에 끌어 놓고 저장해야 전투에 나간다. 과정을 마치면 진행 중인 과정이 비므로 다음 과정을 다시 고른다.
-- **닫힌 열의 기술**: 열(W/E)은 커리큘럼이 아니라 수련 임무로 열린다(`StoryUnlocks.md`). 아직 닫힌 열의 기술을 주는 과정(예: 전진·급소 찌르기)도 고르고 완료할 수 있다. 얻은 기술은 보유 목록에 들어가지만, 그 열이 열릴 때까지는 편성할 수 없다. 상세의 선행 줄 끝에 `  ·  E열은 임무로 열림`처럼 안내가 붙는다.
+- **닫힌 열의 기술**: 열(W/E)은 커리큘럼이 아니라 수련 임무로 열린다(`StoryUnlocks.md`). 아직 닫힌 열의 기술을 주는 과정(예: 플레슈·급소 찌르기)도 고르고 완료할 수 있다. 얻은 기술은 보유 목록에 들어가지만, 그 열이 열릴 때까지는 편성할 수 없다. 상세의 선행 줄 끝에 `  ·  E열은 임무로 열림`처럼 안내가 붙는다.
 - 진행 중인 과정은 전투가 한 번이라도 반영되기 전까지 다른 과정으로 바꿀 수 있다. 반영된 뒤에는 완료할 때까지 고정된다(시작한 국가 중점처럼). 지금은 N=1이라 반영되는 순간 완료되므로, 로비에서는 언제든 바꿀 수 있다. 진행 중인 과정을 고르지 않은 상태로 되돌리는 버튼은 없다(다른 과정으로 바꾸거나 커리큘럼 초기화를 쓴다).
 - **선행 과정**: `requiresAll`의 과정을 모두 마쳐야 열린다. `requiresAny`가 있으면 그중 하나 이상도 마쳐야 한다. 선행을 채우지 못한 과정은 잠겨 있다.
 - **택1**: `exclusiveWith`로 묶인 두 과정은 한쪽을 완료하면 다른 쪽이 닫힌다. 한쪽에만 적어도 양쪽에 적용된다. 진행 중으로 고르기만 해서는 닫히지 않는다. 닫힌 과정은 커리큘럼 초기화로만 다시 열린다.
@@ -42,16 +42,17 @@
 |---|---|---|---|---|---|---|
 | 참격 | 가로베기 | `horizontal-cut` | 14 가로베기 | Q 정공 | 없음 | |
 | 참격 | 사선베기 | `diagonal-cut` | 15 사선베기 | Q 정공 | 가로베기 | |
-| 참격 | 일도양단 | `one-stroke` | 16 일도양단 | W 강공 | 사선베기 | 발검 |
-| 참격 | 발검 | `quick-draw` | 42 발검 | Q 정공 | 사선베기 | 일도양단 |
-| 관통 | 전진 | `advance` | 12 전진 | E 기교 | 없음 | |
-| 관통 | 급소 찌르기 | `vital-thrust` | 21 급소 찌르기 | W 강공 | 전진 | |
+| 참격 | 알티바호 | `one-stroke` | 16 알티바호 | W 강공 | 사선베기 | 쿠페 |
+| 참격 | 쿠페 | `quick-draw` | 42 쿠페 | Q 정공 | 사선베기 | 알티바호 |
+| 관통 | 플레슈 | `advance` | 12 플레슈 | E 기교 | 없음 | |
+| 관통 | 급소 찌르기 | `vital-thrust` | 21 급소 찌르기 | W 강공 | 플레슈 | |
 | 관통 | 준비 | `preparation` | 10 준비 | Q 정공 | 사선베기 **또는** 급소 찌르기 (`requiresAny`) | |
 | 수비 | 호흡 | `breathing` | 17 호흡 | Q 정공 | 없음 | |
-| 수비 | 유연함 | `suppleness` | 32 유연함 | W 강공 | 호흡 | 투지 |
-| 수비 | 투지 | `fighting-spirit` | 19 투지 | E 기교 | 호흡 | 유연함 |
+| 수비 | 유연함 | `suppleness` | 32 유연함 | W 강공 | 호흡 | 르프리즈 |
+| 수비 | 르프리즈 | `fighting-spirit` | 19 르프리즈 | E 기교 | 호흡 | 유연함 |
 
-- 처음 열려 있는 과정은 가로베기·전진·호흡 셋이다.
+- 처음 열려 있는 과정은 가로베기·플레슈·호흡 셋이다.
+- **과정 이름은 그 과정이 주는 기술의 이름이다.** 이름을 따로 적지 않고 읽을 때 기술 시트에서 가져오므로, 시트에서 기술 이름을 바꾸면 트리·상세·헤더·결과 창의 과정 이름도 함께 바뀐다(`SkillSheet.md`). 2026-10-02에 일도양단 → 알티바호, 발검 → 쿠페, 전진 → 플레슈, 투지 → 르프리즈로 바꿨다. 과정 ID는 저장 데이터라 옛 이름의 뜻(`one-stroke`, `quick-draw`, `advance`, `fighting-spirit`)을 그대로 둔다.
 - 택1 쌍이 둘이라 한 여정에서 완료할 수 있는 과정은 최대 8개다. 타이틀 요약과 완료 수의 분모는 전체 과정 수 10이다.
 - 과정마다 기술 하나를 준다. 이전 상점이 팔던 10종 그대로다. 기술 수치와 효과는 `CampaignLoop.md`와 `ImportedNonChainSkills.md`를 따른다.
 - 계열(참격·관통·수비)은 트리의 묶음 이름일 뿐이다. 기술의 공격 타입(`Property`)이나 Q/W/E 검술 분류와는 별개다. 예를 들어 관통 계열의 준비는 타격 기술이고 Q열이다.
@@ -88,12 +89,12 @@ curriculum-active advance 0
 ## 코드
 
 - Runtime `Campaign/Curriculum.cs`
-  - `CurriculumNode`: ID(공백 없는 한 단어), 이름, 계열(`CurriculumBranch`), 트리 위치(`Column`/`Row`, 소수 열은 아래 두 과정 사이 가운데), 주는 기술, `RequiresAll`/`RequiresAny`, `ExclusiveWith`, `Battles`(1 이상), 설명. 설명은 데이터에만 있고 지금 화면에는 쓰지 않는다.
+  - `CurriculumNode`: ID(공백 없는 한 단어), 이름, 계열(`CurriculumBranch`), 트리 위치(`Column`/`Row`, 소수 열은 아래 두 과정 사이 가운데), 주는 기술, `RequiresAll`/`RequiresAny`, `ExclusiveWith`, `Battles`(1 이상), 설명. 이름을 null로 주면 그 과정이 주는 기술 하나의 시트 이름을 쓴다(기술이 하나가 아니면 거부한다). 지금 과정은 모두 null이다. 이름과 설명에는 `{기술:ID}`, `{기술:ID:와}` 같은 이름 토큰을 쓸 수 있고 읽을 때 바꾼다(`LegacySkillNames`). 설명은 데이터에만 있고 지금 화면에는 쓰지 않는다.
   - `CurriculumTree`: 과정 목록을 검사한다. 선행은 앞에 나온 과정만 가리킬 수 있어서 순환이 생기지 않는다. 중복 ID, 한 기술을 두 과정이 주는 경우, 없는 택1 상대, 자기 자신과의 택1을 거부한다. 택1은 양쪽으로 맞춘다.
   - `CurriculumProgress`: 완료 목록(순서대로), 진행 중인 과정(`Active`)과 반영된 전투 수(`ActiveBattles`), `GetState`/`CanSelect`. 값은 `CampaignRun`만 바꾼다.
-- Runtime `Campaign/CampaignCurriculum.Default`: 지금의 트리. 과정을 더하거나 고치는 곳이다. 주는 기술은 `CampaignSkillCatalog.AcquisitionSkills`(정의 표의 뒤쪽 10개, `SkillDefinitions.md`)에 있어야 한다.
-- Runtime `CampaignRun`: `Curriculum`, `TrySelectCurriculumNode`, `TryResetCurriculum`, `LastCompletedCurriculumNode`. `TryCompleteBattle`이 전투를 반영하고 완료한 과정의 기술을 보유 목록에 더한다. `TryAbandonBattle`은 반영하지 않는다. `CaptureSave`/`TryRestore`가 저장과 복원을 맡는다.
+- Runtime `Campaign/CampaignCurriculum.Default`: 지금의 트리. 과정을 더하거나 고치는 곳이다. 주는 기술은 `CampaignSkillCatalog.AcquisitionSkills`(기술 시트의 `획득` 행, `SkillSheet.md`)에 있어야 한다. `CampaignSheetCheck`가 시트를 이 트리와 대조해, 주는 기술이 시트에 없거나 `시작`이면 문제로, 주는 과정이 없는 `획득` 기술은 경고로 알린다(받아오기는 문제가 있으면 덮어쓰지 않는다). 시작 기술을 주는 과정도 저장과 화면은 깨지지 않고, 마쳐도 새로 얻는 기술이 없을 뿐이다.
+- Runtime `CampaignRun`: `Curriculum`, `TrySelectCurriculumNode`, `TryResetCurriculum`, `LastCompletedCurriculumNode`. `TryCompleteBattle`이 전투를 반영하고 완료한 과정의 기술을 보유 목록에 더한다. 이번 전투로 끝나는 과정의 기술은 아무것도 바꾸기 전에 시트에서 찾으므로, 시트에 없으면 시트 오류(`LegacySkillDefinitions.Skill`)로 멈추고 전투·과정·보상이 반영되지 않는다. `TryAbandonBattle`은 반영하지 않는다. `CaptureSave`/`TryRestore`가 저장과 복원을 맡는다.
 - Runtime `BattleResult`: `CompletedCurriculumNode`, `ActiveCurriculumNode`, `ActiveCurriculumBattles`. 서막 임무에 과정을 넣으면 생성자가 거부한다.
 - Presentation `CampaignCurriculumHud`: 커리큘럼 페이지. `CampaignLobbyHud`가 탭·헤더·뷰 상태(`CampaignCurriculumHud.ViewState`)를 소유한다. `BattleResultHud`가 결과 창의 커리큘럼 칸을 그린다.
 - `DuelPrototypeController`: `SelectCurriculumNode`, `ResetCurriculum`. 로비에서만 동작하고 자동 저장한다.
-- 테스트: EditMode `CurriculumTests`, PlayMode `CampaignCurriculumHudPlayModeTests`. `CurriculumTests`는 뒤쪽 기술마다 정확히 한 과정이 주는지, 과정 수(10), 과정마다 전투 1회를 고정한다.
+- 테스트: EditMode `CurriculumTests`, PlayMode `CampaignCurriculumHudPlayModeTests`. `CurriculumTests`는 획득 기술마다 정확히 한 과정이 주는지, 과정 수(10), 과정마다 전투 1회를 고정한다.

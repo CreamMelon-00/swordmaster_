@@ -120,7 +120,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Advance(0f, DuelStepAfterimages.Lifetime + .02f);
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.Zero);
 
-                fixture.Begin(LegacyInitialSkills.All[6], Attack(3), .5f, .1f);
+                fixture.Begin(LegacySkillDefinitions.Skill(7), Attack(3), .5f, .1f);
                 fixture.Arena.PerformStep(LegacyStepAction.Pressure, true);
                 fixture.FinishDash();
                 Assert.That(fixture.Arena.IsPressureAttackTrailActive, Is.False);

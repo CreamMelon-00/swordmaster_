@@ -22,7 +22,7 @@ namespace TurnLimbo.Presentation.Tests
                 float pressureDistance = settings.StepPressureDistance * settings.MovementDistanceMultiplier;
                 float stepDuration = LegacyArenaView.StepDuration / settings.MovementSpeedMultiplier;
                 arena.CloseDistance(1f);
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 Vector3 original = arena.PlayerRenderer.transform.localPosition;
                 Time.timeScale = 0f;
                 arena.PerformStep(LegacyStepAction.Dodge);
@@ -68,7 +68,7 @@ namespace TurnLimbo.Presentation.Tests
                 float stepDuration = LegacyArenaView.StepDuration /
                     Resources.Load<DuelPresentationSettings>("DuelPresentationSettings").MovementSpeedMultiplier;
                 arena.CloseDistance(1f);
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 for (int index = 0; index < 40; index++)
                 {
                     arena.PerformStep(LegacyStepAction.Pressure);
@@ -109,7 +109,7 @@ namespace TurnLimbo.Presentation.Tests
                 float dodgeDistance = settings.StepDodgeDistance * settings.MovementDistanceMultiplier;
                 float halfStepDuration = LegacyArenaView.StepDuration / settings.MovementSpeedMultiplier * .5f;
                 arena.CloseDistance(1f);
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 arena.PresentHit(false, 6, 0, false, false, 6);
                 Vector3 originalEndpoint = arena.PlayerKnockbackTarget;
                 arena.Tick(.025f, .025f);
@@ -147,7 +147,7 @@ namespace TurnLimbo.Presentation.Tests
                 float stepDuration = LegacyArenaView.StepDuration /
                     Resources.Load<DuelPresentationSettings>("DuelPresentationSettings").MovementSpeedMultiplier;
                 arena.CloseDistance(1f);
-                arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 SpriteRenderer source = arena.PlayerRenderer;
                 Vector3 start = source.transform.position;
                 arena.PerformStep(LegacyStepAction.Dodge);

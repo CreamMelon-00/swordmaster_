@@ -129,7 +129,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(card, Is.Not.Null);
                 Assert.That(card.Find("Icon").GetComponent<Image>().sprite, Is.SameAs(emblem));
                 Assert.That(fixture.Hud.GetQueuedSkillAnchor(true, 1), Is.Not.Null);
-                fixture.Hud.ShowExplanation(LegacyInitialSkills.All[0], false);
+                fixture.Hud.ShowExplanation(LegacySkillDefinitions.Skill(1), false);
                 Assert.That(fixture.Hud.Root.transform.Find("Skill Explain").gameObject.activeSelf, Is.True);
                 fixture.Hud.ShowExplanation(LegacyCommonActions.Breathe, false);
                 Assert.That(fixture.Hud.Root.transform.Find("Skill Explain").gameObject.activeSelf, Is.False,

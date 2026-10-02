@@ -29,9 +29,12 @@ namespace TurnLimbo.Runtime.Prologue
         Free,
     }
 
-    /// <summary>One coached beat of a mission: its copy and the input it waits for.</summary>
+    /// <summary>One coached beat of a mission: its copy and the input it waits for. The copy may name sheet techniques
+    /// with <see cref="LegacySkillNames"/> tokens; they are formatted when read, so a renamed row reaches the coach.</summary>
     public sealed class MissionGuideBeat
     {
+        private readonly SkillNameText title, description, inputHint;
+
         public MissionGuideBeat(MissionGuideStepKind kind, string title, string description, string inputHint,
             int lane = -1, bool focusAct = false)
         {
@@ -39,17 +42,17 @@ namespace TurnLimbo.Runtime.Prologue
             if (kind == MissionGuideStepKind.Queue && (lane < 0 || lane > 2))
                 throw new ArgumentOutOfRangeException(nameof(lane), "A queue beat names the lane it waits for.");
             Kind = kind;
-            Title = title;
-            Description = description ?? string.Empty;
-            InputHint = inputHint ?? string.Empty;
+            this.title = new SkillNameText(title);
+            this.description = new SkillNameText(description);
+            this.inputHint = new SkillNameText(inputHint);
             Lane = kind == MissionGuideStepKind.Queue ? lane : -1;
             FocusAct = focusAct;
         }
 
         public MissionGuideStepKind Kind { get; }
-        public string Title { get; }
-        public string Description { get; }
-        public string InputHint { get; }
+        public string Title => title.Value;
+        public string Description => description.Value;
+        public string InputHint => inputHint.Value;
         /// <summary>The lane a queue beat waits for, or -1.</summary>
         public int Lane { get; }
         /// <summary>Highlights the ACT gauge while this beat is shown.</summary>

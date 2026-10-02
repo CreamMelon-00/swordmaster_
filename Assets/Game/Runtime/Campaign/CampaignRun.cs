@@ -11,6 +11,8 @@ namespace TurnLimbo.Runtime.Campaign
     /// Currency is still earned and saved but has no use at the moment (the shop was replaced by the curriculum).</summary>
     public sealed class CampaignRun
     {
+        // 베기, 예리한 베기, 찌르기, 정교한 찌르기, 부수기, 강력한 부수기.
+        private static readonly int[] BasicRhythmSkillIds = { 1, 2, 3, 4, 5, 6 };
         private static readonly CampaignStage[] stages =
         {
             new CampaignStage(1, "숲길 입구"),
@@ -269,6 +271,11 @@ namespace TurnLimbo.Runtime.Campaign
             if (Phase != CampaignPhase.Battle) return false;
             if (outcome != DuelMatchOutcome.PlayerVictory && outcome != DuelMatchOutcome.EnemyVictory
                 && outcome != DuelMatchOutcome.Draw) return false;
+            // The node this battle completes must find its techniques in the sheet. They are looked up before anything
+            // changes, so a sheet without one stops here with the sheet's own error and a retry cannot count the battle twice.
+            CurriculumNode completing = curriculum.CompletesNext;
+            if (completing != null)
+                foreach (int skillId in completing.SkillIds) _ = LegacySkillDefinitions.Skill(skillId);
 
             LastOutcome = outcome;
             // Every finished battle counts toward the node in progress, as days pass in a national focus.
@@ -338,8 +345,8 @@ namespace TurnLimbo.Runtime.Campaign
                 return new LegacyQueuedDuel(100, 50, CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
                     playerSkills, script.Select(WithStagePower), randomSeed, enemyCounter: enemyCounter, features: Features);
             // The basic rhythm: the six basic skills in order, 2→3→2→1 actions a turn.
-            var enemySkills = new LegacySkill[6];
-            for (int i = 0; i < enemySkills.Length; i++) enemySkills[i] = WithStagePower(LegacyInitialSkills.All[i]);
+            var enemySkills = new LegacySkill[BasicRhythmSkillIds.Length];
+            for (int i = 0; i < enemySkills.Length; i++) enemySkills[i] = WithStagePower(LegacySkillDefinitions.Skill(BasicRhythmSkillIds[i]));
             return new LegacyQueuedDuel(100, 50, CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
                 playerSkills, enemySkills, new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter, features: Features);
         }
@@ -445,7 +452,7 @@ namespace TurnLimbo.Runtime.Campaign
             foreach (string id in save.CurriculumCompleted)
                 foreach (int skillId in curriculum.Tree.Find(id).SkillIds)
                 {
-                    LegacySkill skill = FindCatalogSkill(skillId);
+                    LegacySkill skill = FindSheetSkill(skillId);
                     if (skill == null) return $"커리큘럼 '{id}'이(가) 알 수 없는 기술 {skillId}을(를) 줍니다.";
                     owned[skillId] = skill;
                 }
@@ -466,23 +473,19 @@ namespace TurnLimbo.Runtime.Campaign
             return null;
         }
 
+        // A technique the sheet lacks throws the sheet's Korean error (LegacySkillDefinitions.Skill).
         private void GrantSkills(CurriculumNode node)
         {
             foreach (int skillId in node.SkillIds)
             {
                 if (FindOwnedSkill(skillId) != null) continue;
-                LegacySkill skill = FindCatalogSkill(skillId);
-                if (skill == null) throw new InvalidOperationException($"Curriculum node '{node.Id}' grants unknown skill {skillId}.");
-                ownedSkills.Add(new CampaignOwnedSkill(skill));
+                ownedSkills.Add(new CampaignOwnedSkill(LegacySkillDefinitions.Skill(skillId)));
             }
         }
 
-        private static LegacySkill FindCatalogSkill(int skillId)
-        {
-            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
-                if (skill.Id == skillId) return skill;
-            return null;
-        }
+        // Any sheet row, not only 획득 ones: a node whose technique became a starting one then grants nothing new
+        // instead of making its saves unreadable (CampaignSheetCheck reports that sheet).
+        private static LegacySkill FindSheetSkill(int skillId) => LegacySkillDefinitions.Find(skillId)?.Skill;
 
         private static bool IsStartingSkill(int skillId)
         {
@@ -563,6 +566,9 @@ namespace TurnLimbo.Runtime.Campaign
 
     public sealed class CampaignStage
     {
+        // The counter's technique id, or 0 for none; looked up on use so a sheet edit reaches it.
+        private readonly int enemyCounterSkillId;
+
         internal CampaignStage(int number, string name)
         {
             Number = number;
@@ -571,10 +577,10 @@ namespace TurnLimbo.Runtime.Campaign
             EnemyResistance = 15 + 3 * (number - 1);
             EnemyPowerBonus = number - 1;
             Reward = 60 + 10 * (number - 1);
-            // Placeholder counters until enemy archetypes exist: a guard that taxes a
-            // one-sided attack from stage five, a heavy smash that clashes with it from seven.
-            EnemyCounterBasis = number >= 7 ? LegacyInitialSkills.All[5] : number >= 5 ? LegacyInitialSkills.All[6] : null;
-            EnemyCountersPerTurn = EnemyCounterBasis == null ? 0 : 1;
+            // Placeholder counters until enemy archetypes exist: a guard (막기, 7) that taxes a
+            // one-sided attack from stage five, a heavy smash (강력한 부수기, 6) that clashes with it from seven.
+            enemyCounterSkillId = number >= 7 ? 6 : number >= 5 ? 7 : 0;
+            EnemyCountersPerTurn = enemyCounterSkillId == 0 ? 0 : 1;
         }
 
         public int Number { get; }
@@ -583,7 +589,7 @@ namespace TurnLimbo.Runtime.Campaign
         public int EnemyResistance { get; }
         public int EnemyPowerBonus { get; }
         /// <summary>The enemy counter before this stage's power bonus, or null when it has none.</summary>
-        public LegacySkill EnemyCounterBasis { get; }
+        public LegacySkill EnemyCounterBasis => enemyCounterSkillId == 0 ? null : LegacySkillDefinitions.Skill(enemyCounterSkillId);
         public int EnemyCountersPerTurn { get; }
         public int Reward { get; }
         /// <summary>결투 or 전투: how the fight is presented (never shown, no rule effect). Every stage is 전투 for now.</summary>

@@ -78,15 +78,15 @@ namespace TurnLimbo.Presentation.Tests
             var random = new BluntRandom(1, 2, 0, 1, 2);
             using (var scope = new ArenaScope(random))
             {
-                scope.Arena.BeginSlot(LegacyInitialSkills.All[0], null);
+                scope.Arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 Assert.That(scope.Arena.PlayerRenderer.sprite.name, Is.EqualTo("slash-2-frame-01"));
                 scope.Arena.BeginSlot(Blunt(1), null);
                 Assert.That(scope.Arena.PlayerRenderer.sprite.name, Is.EqualTo("blunt-3-frame-01"));
-                scope.Arena.BeginSlot(LegacyInitialSkills.All[3], null);
+                scope.Arena.BeginSlot(LegacySkillDefinitions.Skill(4), null);
                 Assert.That(scope.Arena.PlayerRenderer.sprite.name, Is.EqualTo("pierce-frame-01"));
                 scope.Arena.BeginSlot(Blunt(1), null);
                 Assert.That(scope.Arena.PlayerRenderer.sprite.name, Is.EqualTo("blunt-2-frame-01"));
-                scope.Arena.BeginSlot(LegacyInitialSkills.All[0], null);
+                scope.Arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 Assert.That(scope.Arena.PlayerRenderer.sprite.name, Is.EqualTo("slash-3-frame-01"));
                 Assert.That(random.Calls, Is.EqualTo(5));
             }

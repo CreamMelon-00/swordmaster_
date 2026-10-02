@@ -55,7 +55,7 @@ namespace TurnLimbo.Presentation.Tests
                 int calls = 0;
                 foreach (bool guard in new[] { true, false })
                 {
-                    a.BeginSlot(null, guard ? LegacyInitialSkills.All[6] : null);
+                    a.BeginSlot(null, guard ? LegacySkillDefinitions.Skill(7) : null);
                     Assert.That(random.Calls, Is.EqualTo(calls), "Slot entry does not consume an impact draw.");
                     foreach (int choice in new[] { 0, 1, 1, 0 })
                     {
@@ -82,7 +82,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.PlayerReactions.Calls, Is.EqualTo(1));
                 a.Reset();
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-idle-frame-01"));
-                a.BeginSlot(null, LegacyInitialSkills.All[6]);
+                a.BeginSlot(null, LegacySkillDefinitions.Skill(7));
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"));
                 Assert.That(random.Calls, Is.EqualTo(8));
             }
@@ -96,7 +96,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new Scope(random))
             {
                 var a = scope.Arena;
-                a.BeginSlot(LegacyInitialSkills.All[2], LegacyInitialSkills.All[0]);
+                a.BeginSlot(LegacySkillDefinitions.Skill(3), LegacySkillDefinitions.Skill(1));
                 Hold(a, LegacyArenaView.OriginalImpactTime);
                 var contact = a.EnemyRenderer.sprite;
                 a.PresentHit(true, 0, 1, false, false, 1, LegacyArenaView.HitExchange.MutualClash);
@@ -149,7 +149,7 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     bool guard = key.StartsWith("block");
                     var a = scope.Arena;
-                    a.Reset(); a.CloseDistance(1); a.BeginSlot(null, guard ? LegacyInitialSkills.All[6] : null); a.Tick(0, 1);
+                    a.Reset(); a.CloseDistance(1); a.BeginSlot(null, guard ? LegacySkillDefinitions.Skill(7) : null); a.Tick(0, 1);
                     a.PresentHit(true, guard ? 0 : 1, 0, guard, false, 1);
                     Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-" + key));
                     Assert.That(a.EnemyRenderer.flipX, Is.False);

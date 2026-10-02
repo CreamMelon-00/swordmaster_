@@ -91,8 +91,7 @@ namespace TurnLimbo.Core.Tests
         public void GrantedSkill_RequiresExplicitEquipAndJoinsTheNextStageWithItsIconAndAnimation()
         {
             var run = new CampaignRun();
-            LegacySkill granted = CampaignSkillCatalog.AcquisitionSkills[0];
-            Assert.That(granted.Id, Is.EqualTo(14));
+            LegacySkill granted = LegacySkillDefinitions.Skill(14);
             Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
@@ -135,7 +134,7 @@ namespace TurnLimbo.Core.Tests
                 }
                 else
                 {
-                    LegacySkill basis = LegacyInitialSkills.All[expectedId == 6 ? 5 : 6];
+                    LegacySkill basis = LegacySkillDefinitions.Skill(expectedId);
                     Assert.That(stage.EnemyCounterBasis, Is.SameAs(basis));
                     Assert.That(duel.EnemyCounter.UsesPerTurn, Is.EqualTo(1));
                     Assert.That(duel.EnemyCounter.Skill.Id, Is.EqualTo(expectedId));
@@ -173,7 +172,7 @@ namespace TurnLimbo.Core.Tests
                 // The first turn follows the stage's rhythm; every enemy skill carries the stage's power bonus.
                 EnemyScript script = CampaignEnemyRhythms.Script(stage.EnemyRhythm);
                 IReadOnlyList<LegacySkill> expected = script == null
-                    ? new[] { LegacyInitialSkills.All[0], LegacyInitialSkills.All[1] } : script.Turn(1);
+                    ? new[] { LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(2) } : script.Turn(1);
                 Assert.That(duel.EnemyQueue.Count, Is.EqualTo(expected.Count), "Stage " + number);
                 for (int index = 0; index < expected.Count; index++)
                 {

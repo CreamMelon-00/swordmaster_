@@ -60,15 +60,16 @@ namespace TurnLimbo.Runtime.Campaign
             }
         }
 
-        private static LegacySkill Slash => LegacyInitialSkills.All[0];
-        private static LegacySkill SharpSlash => LegacyInitialSkills.All[1];
-        private static LegacySkill Thrust => LegacyInitialSkills.All[2];
-        private static LegacySkill PreciseThrust => LegacyInitialSkills.All[3];
-        private static LegacySkill Smash => LegacyInitialSkills.All[4];
-        private static LegacySkill HeavySmash => LegacyInitialSkills.All[5];
-        private static LegacySkill Guard => LegacyInitialSkills.All[6];
-        private static LegacySkill Parry => LegacyInitialSkills.All[7];
-        private static LegacySkill Deflect => LegacyInitialSkills.All[8];
+        // The starting techniques by id, read from the sheet each time a script is built.
+        private static LegacySkill Slash => LegacySkillDefinitions.Skill(1);
+        private static LegacySkill SharpSlash => LegacySkillDefinitions.Skill(2);
+        private static LegacySkill Thrust => LegacySkillDefinitions.Skill(3);
+        private static LegacySkill PreciseThrust => LegacySkillDefinitions.Skill(4);
+        private static LegacySkill Smash => LegacySkillDefinitions.Skill(5);
+        private static LegacySkill HeavySmash => LegacySkillDefinitions.Skill(6);
+        private static LegacySkill Guard => LegacySkillDefinitions.Skill(7);
+        private static LegacySkill Parry => LegacySkillDefinitions.Skill(8);
+        private static LegacySkill Deflect => LegacySkillDefinitions.Skill(9);
 
         private static IReadOnlyList<LegacySkill> T(params LegacySkill[] actions) => actions;
 

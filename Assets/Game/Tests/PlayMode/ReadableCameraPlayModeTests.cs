@@ -126,9 +126,9 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new ArenaFixture())
             {
                 var poses = new HashSet<Sprite>();
-                foreach (int skillIndex in new[] { 0, 2, 5, 6 })
+                foreach (int skillId in new[] { 1, 3, 6, 7 })
                 {
-                    LegacySkill skill = LegacyInitialSkills.All[skillIndex];
+                    LegacySkill skill = LegacySkillDefinitions.Skill(skillId);
                     fixture.Arena.BeginSlot(skill, skill);
                     poses.Add(fixture.Arena.PlayerRenderer.sprite);
                     for (int hit = 0; hit < skill.AttackCount; hit++)
@@ -279,7 +279,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Arena.Reset();
                 Arena.CloseDistance(1f);
-                Arena.BeginSlot(LegacyInitialSkills.All[0], LegacyInitialSkills.All[0]);
+                Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 Arena.Tick(0f, 3f);
             }
 

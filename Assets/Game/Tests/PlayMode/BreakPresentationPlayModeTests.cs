@@ -178,7 +178,7 @@ namespace TurnLimbo.Presentation.Tests
             MethodInfo startPlanning = typeof(DuelPrototypeController).GetMethod("StartPlanning", PrivateInstance);
             try
             {
-                // 발검 breaks a guarding enemy at slot start, before any hit: a callout, but no fatal camera.
+                // 쿠페 breaks a guarding enemy at slot start, before any hit: a callout, but no fatal camera.
                 var draw = new LegacyQueuedDuel(100, 50, 100, 15,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 sessionField.SetValue(controller, draw);

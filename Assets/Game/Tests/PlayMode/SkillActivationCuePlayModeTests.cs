@@ -77,13 +77,13 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             using (var fixture = new Fixture())
             {
-                LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "발검");
+                LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "쿠페");
                 LegacyCurrentSlot slot = BeginSlot(Guard(900, "방어"), draw, playerResistance: 13);
                 Assert.That(slot.EnemyFeedback.ConditionMet, Is.True);
                 Assert.That(slot.EnemyFeedback.OpponentResistanceReduced, Is.EqualTo(13));
                 Assert.That(slot.EnemyFeedback.ActGainGranted, Is.Zero);
                 Assert.That(fixture.Cue.Show(false, draw, slot.EnemyFeedback), Is.True);
-                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 발검 성공!"));
+                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 쿠페 성공!"));
                 Assert.That(fixture.EnemyDetail.text, Is.EqualTo("내 저항 -13"));
                 Assert.That(fixture.EnemyDetail.text, Does.Not.Contain("ACT"));
                 Assert.That(fixture.EnemyTitle.color, Is.EqualTo(DuelVisualTheme.Danger));
@@ -108,7 +108,7 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             using (var fixture = new Fixture())
             {
-                LegacySkill recovery = Guard(19, "투지");
+                LegacySkill recovery = Guard(19, "르프리즈");
                 LegacyCurrentSlot slot = BeginSlot(recovery, Guard(900, "방어"));
                 Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.Zero);
                 Assert.That(slot.PlayerFeedback.ConditionMet, Is.False);
@@ -125,7 +125,7 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             using (var fixture = new Fixture())
             {
-                LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "발검");
+                LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "쿠페");
                 LegacyCurrentSlot strike = BeginSlot(draw, Guard(900, "방어"));
                 Assert.That(strike.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(20));
                 Assert.That(fixture.Cue.Show(true, draw, strike.PlayerFeedback), Is.True);
@@ -134,7 +134,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.PlayerBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Strike));
 
                 fixture.Cue.Reset();
-                LegacySkill recovery = Guard(19, "투지");
+                LegacySkill recovery = Guard(19, "르프리즈");
                 LegacySkill heavyHit = new LegacySkill(902, "강한 타격", 1, 30, 30,
                     LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 0, string.Empty);
                 var recoveryDuel = new LegacyQueuedDuel(100, 100, 100, 100,
@@ -161,7 +161,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 LegacySkill guard = Guard(7, "막기");
-                LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "발검");
+                LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "쿠페");
                 LegacyCurrentSlot playerSlot = BeginSlot(guard, Attack(900, LegacySkillProperty.Hit));
                 LegacyCurrentSlot enemySlot = BeginSlot(Guard(901, "방어"), draw, playerResistance: 13);
                 fixture.Cue.Show(true, guard, playerSlot.PlayerFeedback);
@@ -268,7 +268,7 @@ namespace TurnLimbo.Presentation.Tests
                 using (var fixture = new Fixture())
                 {
                     LegacySkill guard = Guard(7, "막기");
-                    LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "발검");
+                    LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "쿠페");
                     LegacyCurrentSlot playerSlot = BeginSlot(guard, Attack(900, LegacySkillProperty.Hit));
                     LegacyCurrentSlot enemySlot = BeginSlot(Guard(901, "방어"), draw, playerResistance: 13);
                     int nodeCount = fixture.Root.GetComponentsInChildren<Transform>(true).Length;

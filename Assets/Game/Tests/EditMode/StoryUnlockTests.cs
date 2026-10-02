@@ -101,7 +101,7 @@ namespace TurnLimbo.Core.Tests
         public void Duel_LeavesClosedLanesOutAndRefusesClosedActionsWithoutCountingAttempts()
         {
             var duel = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3, features: CombatFeature.LaneQ | CombatFeature.LaneE);
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3, features: CombatFeature.LaneQ | CombatFeature.LaneE);
             Assert.That(duel.Features, Is.EqualTo(CombatFeature.LaneQ | CombatFeature.LaneE));
             Assert.That(duel.GetLane(0).Count, Is.EqualTo(3));
             Assert.That(duel.GetLane(1), Is.Empty, "A closed lane's skills never reach the duel.");
@@ -118,7 +118,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.StepMissedThisTurn, Is.False);
 
             var dodgeOnly = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3, features: CombatFeature.LaneQ | CombatFeature.Dodge);
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3, features: CombatFeature.LaneQ | CombatFeature.Dodge);
             Assert.That(dodgeOnly.TryQueueLane(0), Is.True);
             dodgeOnly.Commit();
             Assert.That(dodgeOnly.TryStep(LegacyStepAction.Pressure, true, out _), Is.False);
@@ -128,7 +128,7 @@ namespace TurnLimbo.Core.Tests
             var everything = new LegacyQueuedDuel();
             Assert.That(everything.Features, Is.EqualTo(CombatFeature.All), "Duels built without a set keep everything.");
             Assert.Throws<ArgumentException>(() => new LegacyQueuedDuel(100, 50, 10, 10, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 1, features: CombatFeature.Breath));
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 1, features: CombatFeature.Breath));
         }
 
         [Test]

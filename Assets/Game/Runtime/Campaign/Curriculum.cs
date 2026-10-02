@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TurnLimbo.Runtime.LegacyCombat;
 
 namespace TurnLimbo.Runtime.Campaign
 {
@@ -23,29 +24,38 @@ namespace TurnLimbo.Runtime.Campaign
     /// while it is the node in progress, and completing it grants its skills.</summary>
     public sealed class CurriculumNode
     {
+        private readonly SkillNameText title, description;
+
+        /// <param name="title">The shown title, which may hold <see cref="LegacySkillNames"/> tokens. Null for a node that
+        /// grants exactly one skill: it is then titled with that skill's current sheet name.</param>
+        /// <param name="description">May hold <see cref="LegacySkillNames"/> tokens, formatted when read.</param>
         public CurriculumNode(string id, string title, CurriculumBranch branch, float column, int row,
             IEnumerable<int> skillIds, IEnumerable<string> requiresAll = null, IEnumerable<string> requiresAny = null,
             IEnumerable<string> exclusiveWith = null, int battles = 1, string description = null)
         {
             if (string.IsNullOrWhiteSpace(id) || HasWhiteSpace(id))
                 throw new ArgumentException("A curriculum node id must be one word.", nameof(id));
-            if (string.IsNullOrWhiteSpace(title)) throw new ArgumentException("A curriculum node needs a title.", nameof(title));
+            if (title != null && string.IsNullOrWhiteSpace(title))
+                throw new ArgumentException("A curriculum node needs a title.", nameof(title));
             if (battles < 1) throw new ArgumentOutOfRangeException(nameof(battles), "A node takes at least one battle.");
             Id = id;
-            Title = title;
             Branch = branch;
             Column = column;
             Row = row;
             SkillIds = new List<int>(skillIds ?? throw new ArgumentNullException(nameof(skillIds))).AsReadOnly();
+            if (title == null && SkillIds.Count != 1)
+                throw new ArgumentException("Only a node that grants one skill can take its title from the skill.", nameof(title));
             RequiresAll = new List<string>(requiresAll ?? Array.Empty<string>()).AsReadOnly();
             RequiresAny = new List<string>(requiresAny ?? Array.Empty<string>()).AsReadOnly();
             ExclusiveWith = new List<string>(exclusiveWith ?? Array.Empty<string>()).AsReadOnly();
             Battles = battles;
-            Description = description ?? string.Empty;
+            this.title = new SkillNameText(title ?? LegacySkillNames.Token(SkillIds[0]));
+            this.description = new SkillNameText(description);
         }
 
         public string Id { get; }
-        public string Title { get; }
+        /// <summary>Read from the skill sheet now when the node was built without its own title.</summary>
+        public string Title => title.Value;
         public CurriculumBranch Branch { get; }
 
         // The save codec splits on every char.IsWhiteSpace character, so ids may contain none of them.
@@ -68,7 +78,7 @@ namespace TurnLimbo.Runtime.Campaign
         public IReadOnlyList<string> ExclusiveWith { get; }
         /// <summary>Finished battles needed while this is the node in progress. Data, so the pace can change later.</summary>
         public int Battles { get; }
-        public string Description { get; }
+        public string Description => description.Value;
     }
 
     /// <summary>A validated set of nodes. Prerequisites must name earlier nodes, so the tree has no cycles.</summary>
@@ -206,6 +216,9 @@ namespace TurnLimbo.Runtime.Campaign
             ActiveBattles = 0;
             return true;
         }
+
+        /// <summary>The node <see cref="RecordBattle"/> would complete now, or null. Nothing changes.</summary>
+        internal CurriculumNode CompletesNext => Active != null && ActiveBattles + 1 >= Active.Battles ? Active : null;
 
         /// <summary>Counts one finished battle. Returns the node it completed, or null (also when nothing is in progress).</summary>
         internal CurriculumNode RecordBattle()

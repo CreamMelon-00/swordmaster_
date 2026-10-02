@@ -62,7 +62,7 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 arena.Reset();
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-idle-frame-01"));
-                arena.BeginSlot(null, LegacyInitialSkills.All[6]);
+                arena.BeginSlot(null, LegacySkillDefinitions.Skill(7));
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"));
                 arena.Tick(1, 0);
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"));
@@ -92,7 +92,7 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     arena.Reset(); arena.CloseDistance(1f);
                     string key = new[] { "idle", "slash", "pierce", "blunt", "guard" }[i];
-                    LegacySkill skill = i == 0 ? null : i == 4 ? LegacyInitialSkills.All[6] :
+                    LegacySkill skill = i == 0 ? null : i == 4 ? LegacySkillDefinitions.Skill(7) :
                         new LegacySkill(902, "Enemy capture", 1, 1, 1, LegacySkillKind.Attack,
                             new[] { LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit }[i - 1], 1, 0, string.Empty);
                     arena.BeginSlot(null, skill); arena.Tick(0, 1);

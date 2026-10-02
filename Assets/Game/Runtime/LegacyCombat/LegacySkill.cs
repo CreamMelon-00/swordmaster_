@@ -27,8 +27,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             AttackCount = attackCount;
             LaneIndex = laneIndex;
             Description = description ?? string.Empty;
-            AnimationName = animationName ?? (property == LegacySkillProperty.Defence ? "Defense" : property.ToString());
+            AnimationName = animationName ?? DefaultAnimationName(property);
         }
+
+        /// <summary>The animation a skill plays when it names none; the skill sheet leaves this one blank.</summary>
+        internal static string DefaultAnimationName(LegacySkillProperty property)
+            => property == LegacySkillProperty.Defence ? "Defense" : property.ToString();
 
         public int Id { get; }
         public int IconId { get; }
@@ -55,7 +59,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
     public static class LegacyInitialSkills
     {
-        // Level zero rows 1-9 from the original Assets/csv/스킬 수치.csv, defined in LegacySkillDefinitions.
+        // The skill sheet's 시작 rows (originally level zero rows 1-9 of Assets/csv/스킬 수치.csv), read live.
         public static IReadOnlyList<LegacySkill> All => LegacySkillDefinitions.InitialSkills;
     }
 }

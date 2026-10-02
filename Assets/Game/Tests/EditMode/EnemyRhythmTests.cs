@@ -9,7 +9,7 @@ namespace TurnLimbo.Core.Tests
 {
     public sealed class EnemyRhythmTests
     {
-        private static LegacySkill S(int index) => LegacyInitialSkills.All[index];
+        private static LegacySkill S(int id) => LegacySkillDefinitions.Skill(id);
 
         private static int[] Ids(IEnumerable<LegacySkill> skills) => skills.Select(skill => skill.Id).ToArray();
 
@@ -17,14 +17,14 @@ namespace TurnLimbo.Core.Tests
         public void Script_PlaysItsOpeningOnceThenLoops()
         {
             var script = new EnemyScript(
-                new IReadOnlyList<LegacySkill>[] { new[] { S(0) }, new[] { S(2), S(4) } },
-                new IReadOnlyList<LegacySkill>[] { new[] { S(1), S(5), S(3) } });
+                new IReadOnlyList<LegacySkill>[] { new[] { S(1) }, new[] { S(3), S(5) } },
+                new IReadOnlyList<LegacySkill>[] { new[] { S(2), S(6), S(4) } });
             Assert.That(script.OpeningLength, Is.EqualTo(1));
             Assert.That(script.LoopLength, Is.EqualTo(2));
-            Assert.That(Ids(script.Turn(1)), Is.EqualTo(Ids(new[] { S(1), S(5), S(3) })), "The opening comes first…");
-            Assert.That(Ids(script.Turn(2)), Is.EqualTo(Ids(new[] { S(0) })), "…then the loop…");
-            Assert.That(Ids(script.Turn(3)), Is.EqualTo(Ids(new[] { S(2), S(4) })));
-            Assert.That(Ids(script.Turn(4)), Is.EqualTo(Ids(new[] { S(0) })), "…which repeats, never the opening again.");
+            Assert.That(Ids(script.Turn(1)), Is.EqualTo(Ids(new[] { S(2), S(6), S(4) })), "The opening comes first…");
+            Assert.That(Ids(script.Turn(2)), Is.EqualTo(Ids(new[] { S(1) })), "…then the loop…");
+            Assert.That(Ids(script.Turn(3)), Is.EqualTo(Ids(new[] { S(3), S(5) })));
+            Assert.That(Ids(script.Turn(4)), Is.EqualTo(Ids(new[] { S(1) })), "…which repeats, never the opening again.");
             Assert.That(script.TurnSizes, Is.EqualTo(new[] { 3, 1, 2 }));
             Assert.That(script.AllSkills.Count, Is.EqualTo(6));
             Assert.Throws<ArgumentOutOfRangeException>(() => script.Turn(0));
@@ -37,13 +37,13 @@ namespace TurnLimbo.Core.Tests
             Assert.Throws<ArgumentException>(() => new EnemyScript(new IReadOnlyList<LegacySkill>[] { new LegacySkill[0] }));
             Assert.Throws<ArgumentException>(() => new EnemyScript(new IReadOnlyList<LegacySkill>[] { new LegacySkill[] { null } }));
             Assert.Throws<ArgumentNullException>(() => new EnemyScript(null));
-            var script = new EnemyScript(new IReadOnlyList<LegacySkill>[] { new[] { S(0), S(1) } },
-                new IReadOnlyList<LegacySkill>[] { new[] { S(5) } });
+            var script = new EnemyScript(new IReadOnlyList<LegacySkill>[] { new[] { S(1), S(2) } },
+                new IReadOnlyList<LegacySkill>[] { new[] { S(6) } });
             EnemyScript stronger = script.Select(skill => new LegacySkill(skill.Id, skill.Name, skill.Cost, skill.MinPower + 2,
                 skill.MaxPower + 2, skill.Kind, skill.Property, skill.AttackCount, skill.LaneIndex, skill.Description));
             Assert.That(stronger.OpeningLength, Is.EqualTo(1));
-            Assert.That(stronger.Turn(1)[0].MinPower, Is.EqualTo(S(5).MinPower + 2));
-            Assert.That(stronger.Turn(2)[1].MaxPower, Is.EqualTo(S(1).MaxPower + 2));
+            Assert.That(stronger.Turn(1)[0].MinPower, Is.EqualTo(S(6).MinPower + 2));
+            Assert.That(stronger.Turn(2)[1].MaxPower, Is.EqualTo(S(2).MaxPower + 2));
         }
 
         [Test]

@@ -14,7 +14,7 @@ namespace TurnLimbo.Core.Tests
         public void Cycle_TurnsEveryOpenLaneTogetherForFreeAndKeepsTheQueue()
         {
             var duel = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3);
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3);
             int[] q = Lane(duel, 0), w = Lane(duel, 1), e = Lane(duel, 2);
             int act = duel.Act;
             Assert.That(duel.TryCycleLanes(), Is.True);
@@ -33,7 +33,7 @@ namespace TurnLimbo.Core.Tests
         public void Queueing_TurnsOnlyItsOwnLane_SoCyclingAloneNeverChangesHowTheLanesLineUp()
         {
             var duel = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3);
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3);
             int[] w = Lane(duel, 1);
             Assert.That(duel.TryQueueLane(0), Is.True, "Using a skill turns only the Q lane.");
             Assert.That(Lane(duel, 1), Is.EqualTo(w));
@@ -46,23 +46,23 @@ namespace TurnLimbo.Core.Tests
         public void Cycle_OnlyDuringPlanningWhenOpen_AndClosedOrSingleSkillLanesStayPut()
         {
             var closed = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3, features: CombatFeature.LaneQ);
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3, features: CombatFeature.LaneQ);
             int[] q = Lane(closed, 0);
             Assert.That(closed.TryCycleLanes(), Is.False, "넘기기 is closed.");
             Assert.That(Lane(closed, 0), Is.EqualTo(q));
             Assert.That(closed.LaneCyclesThisTurn, Is.Zero);
 
             var qOnly = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3, features: CombatFeature.LaneQ | CombatFeature.Cycle);
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3, features: CombatFeature.LaneQ | CombatFeature.Cycle);
             Assert.That(qOnly.TryCycleLanes(), Is.True);
             Assert.That(qOnly.GetLane(1), Is.Empty, "A closed lane has nothing to turn.");
 
-            var single = new LegacyQueuedDuel(100, 50, 1000, 1000, new[] { LegacyInitialSkills.All[0] },
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3);
+            var single = new LegacyQueuedDuel(100, 50, 1000, 1000, new[] { LegacySkillDefinitions.Skill(1) },
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3);
             Assert.That(single.TryCycleLanes(), Is.False, "A one-skill lane has nothing to bring forward.");
 
             var duel = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3);
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3);
             Assert.That(duel.TryQueueLane(0), Is.True);
             duel.Commit();
             Assert.That(duel.TryCycleLanes(), Is.False, "Only while planning.");
@@ -72,7 +72,7 @@ namespace TurnLimbo.Core.Tests
         public void CycledOrder_CarriesIntoTheNextTurn_AndTheCountRestarts()
         {
             var duel = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
-                new[] { LegacyInitialSkills.All[0] }, new[] { 1 }, 3);
+                new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3);
             int[] q = Lane(duel, 0);
             Assert.That(duel.TryCycleLanes(), Is.True);
             Assert.That(duel.TryQueueLane(0), Is.True);
@@ -111,9 +111,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(PrologueMissions.Get(1).Features.Has(CombatFeature.Cycle), Is.False, "Mission 1 is about striking only.");
             Assert.That(mission.CreateGuide().Beats.Count(beat => beat.Kind == MissionGuideStepKind.Cycle), Is.EqualTo(1));
             LegacyQueuedDuel duel = mission.CreateDuel(1);
-            Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacyInitialSkills.All[0].Id));
+            Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacySkillDefinitions.Skill(1).Id));
             Assert.That(duel.TryCycleLanes(), Is.True);
-            Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacyInitialSkills.All[1].Id), "예리한 베기 comes forward.");
+            Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacySkillDefinitions.Skill(2).Id), "예리한 베기 comes forward.");
         }
     }
 }

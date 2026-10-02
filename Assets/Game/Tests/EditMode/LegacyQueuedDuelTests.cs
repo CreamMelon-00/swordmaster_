@@ -197,7 +197,7 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void Stab_BoostsFollowingThreeSkillsWithinSamePhase()
         {
-            LegacySkill stab = LegacyInitialSkills.All[2];
+            LegacySkill stab = LegacySkillDefinitions.Skill(3);
             var strike = new LegacySkill(100, "test", 0, 20, 20, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 1, "");
             var duel = TestDuel(new[] { stab, strike, strike, strike, strike }, new[] { Attack(101, 1) }, new[] { 5 }, 100, 1000);
             for (int i = 0; i < 5; i++) Assert.That(duel.TryQueueLane(1), Is.True);
@@ -211,7 +211,7 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void GuardAgainstHit_AddsTwoNextTurnAct()
         {
-            var duel = TestDuel(new[] { LegacyInitialSkills.All[6] },
+            var duel = TestDuel(new[] { LegacySkillDefinitions.Skill(7) },
                 new[] { new LegacySkill(100, "hit", 1, 6, 6, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 0, "") }, new[] { 1 });
             duel.TryQueueLane(0);
             ResolveTurn(duel);
@@ -398,7 +398,7 @@ namespace TurnLimbo.Core.Tests
         {
             var followup = new LegacySkill(100, "followup", 1, 100, 100,
                 LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 2, "");
-            var duel = TestDuel(new[] { LegacyInitialSkills.All[8], followup }, new[] { Guard(101, 1) }, new[] { 2 }, 1000);
+            var duel = TestDuel(new[] { LegacySkillDefinitions.Skill(9), followup }, new[] { Guard(101, 1) }, new[] { 2 }, 1000);
             duel.TryQueueLane(2);
             duel.TryQueueLane(2);
             duel.Commit();
@@ -419,10 +419,10 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void HitByHitAndConvenienceResolution_ProduceSameSeededDamageAndState()
         {
-            var paired = TestDuel(new[] { LegacyInitialSkills.All[0], LegacyInitialSkills.All[1] },
-                new[] { LegacyInitialSkills.All[4] }, new[] { 2 });
-            var immediate = TestDuel(new[] { LegacyInitialSkills.All[0], LegacyInitialSkills.All[1] },
-                new[] { LegacyInitialSkills.All[4] }, new[] { 2 });
+            var paired = TestDuel(new[] { LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(2) },
+                new[] { LegacySkillDefinitions.Skill(5) }, new[] { 2 });
+            var immediate = TestDuel(new[] { LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(2) },
+                new[] { LegacySkillDefinitions.Skill(5) }, new[] { 2 });
             paired.TryQueueLane(0);
             paired.TryQueueLane(0);
             immediate.TryQueueLane(0);

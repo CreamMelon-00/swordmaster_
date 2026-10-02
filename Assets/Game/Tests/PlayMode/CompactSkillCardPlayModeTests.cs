@@ -233,7 +233,7 @@ namespace TurnLimbo.Presentation.Tests
                 Click(lobby.Root, "Curriculum Node suppleness");
                 Canvas.ForceUpdateCanvases();
                 Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.True);
-                Assert.That(Label(detail, "Curriculum Exclusive").text, Does.Contain("투지"));
+                Assert.That(Label(detail, "Curriculum Exclusive").text, Does.Contain("르프리즈"));
                 Assert.That(border.rect.height, Is.EqualTo(plainHeight + 30f).Within(.1f), "An exclusive pair reserves one readable line.");
                 Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(top).Within(.1f));
                 AssertCurriculumSections(detail);

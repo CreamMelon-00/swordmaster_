@@ -149,8 +149,8 @@ namespace TurnLimbo.Core.Tests
             var artIds = new HashSet<int>();
             for (int i = 0; i < LegacyInitialSkills.All.Count; i++)
             {
-                Assert.That(LegacyInitialSkills.All[i].IconId, Is.EqualTo(i + 1));
-                Assert.That(artIds.Add(LegacyInitialSkills.All[i].IconId), Is.True);
+                Assert.That(LegacySkillDefinitions.Skill(i + 1).IconId, Is.EqualTo(i + 1));
+                Assert.That(artIds.Add(LegacySkillDefinitions.Skill(i + 1).IconId), Is.True);
             }
             for (int i = 0; i < expectedSkillIds.Length; i++)
             {
