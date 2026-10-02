@@ -319,15 +319,21 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LongSkillQueues_WrapDownwardInsideTheScreenOnBothSides()
+        public IEnumerator LongSkillQueues_StayOnOneRowGrowingOutward_AndTightenOnlyToFitTheScreen()
         {
             yield return null;
+            AssertLongQueue(6);
+            // Far more than fits between a panel and its screen edge: the row tightens instead of leaving the screen,
+            // and the status panel stays on its fighter's head.
+            AssertLongQueue(24);
+        }
+
+        private static void AssertLongQueue(int skillCount)
+        {
             DuelPrototypeController controller = FindPrototype();
             controller.RestartMatch();
             RectTransform root = controller.Hud.Root.GetComponent<RectTransform>();
             Canvas.ForceUpdateCanvases();
-            int columns = Mathf.Clamp(Mathf.FloorToInt((root.rect.width / 2f - 48f) / 72f), 1, 5);
-            int skillCount = columns + 1;
             // Zero-cost copies isolate presentation capacity from ACT budgeting.
             // The real catalog and the controller's authoritative match stay unchanged.
             var freePlayerSkills = new List<LegacySkill>();
@@ -347,30 +353,30 @@ namespace TurnLimbo.Presentation.Tests
                 AssertStackLayout(root);
                 foreach (string name in new[] { "Player Requests", "Enemy Requests" })
                 {
-                    var cards = new List<RectTransform>();
-                    foreach (Transform child in root.Find(name))
-                        if (child.gameObject.activeSelf) cards.Add(child.GetComponent<RectTransform>());
+                    bool playerSide = name == "Player Requests";
+                    var cards = VisibleQueueCards(root.Find(name));
                     Assert.That(cards.Count, Is.EqualTo(skillCount));
-                    Assert.That(cards[columns].anchoredPosition.x, Is.EqualTo(0f),
-                        name + " must center the partial second row above its status panel.");
-                    Assert.That(cards[columns].anchoredPosition.y, Is.EqualTo(cards[0].anchoredPosition.y - 72f),
-                        name + " must wrap down instead of continuing outside the screen.");
+                    Assert.That(cards[0].anchoredPosition.x, Is.EqualTo(playerSide ? 86f : -86f).Within(.01f),
+                        name + ": slot 1 sits at the panel's inner edge.");
+                    float pitch = Mathf.Abs(cards[1].anchoredPosition.x - cards[0].anchoredPosition.x);
                     for (int index = 0; index < cards.Count; index++)
                     {
                         Assert.That(cards[index].rect.size, Is.EqualTo(new Vector2(64, 64)));
+                        Assert.That(cards[index].anchoredPosition.y, Is.EqualTo(0f), name + " never wraps.");
                         AssertWithin(cards[index], root);
-                        for (int previous = 0; previous < index; previous++)
-                            Assert.That(ScreenRect(cards[index]).Overlaps(ScreenRect(cards[previous])), Is.False,
-                                name + " wrapped cards must not overlap.");
+                        if (index > 0)
+                            Assert.That(Mathf.Sign(cards[index].anchoredPosition.x - cards[index - 1].anchoredPosition.x),
+                                Is.EqualTo(playerSide ? -1f : 1f), name + " grows outward.");
+                        if (pitch >= 72f - .01f)
+                            for (int previous = 0; previous < index; previous++)
+                                Assert.That(ScreenRect(cards[index]).Overlaps(ScreenRect(cards[previous])), Is.False,
+                                    name + " cards at full spacing must not overlap.");
                     }
-                    if (columns > 1)
-                    {
-                        Assert.That(cards[0].anchoredPosition.x,
-                            Is.EqualTo((name == "Player Requests" ? 1f : -1f) * (columns - 1) * 36f));
-                        Assert.That(Mathf.Sign(cards[1].anchoredPosition.x - cards[0].anchoredPosition.x),
-                            Is.EqualTo(name == "Player Requests" ? -1f : 1f));
-                    }
+                    if (skillCount >= 24) Assert.That(pitch, Is.LessThan(72f), name + " tightens to fit the screen.");
                 }
+                // A long row never drags the panels together.
+                Assert.That(ScreenRect(Get<RectTransform>(root, "PlayerStatus")).Overlaps(ScreenRect(Get<RectTransform>(root, "EnemyStatus"))),
+                    Is.False);
                 Assert.That(controller.Session.PlayerQueue, Is.Empty);
                 Assert.That(controller.Session.Act, Is.EqualTo(3));
             }
@@ -448,7 +454,6 @@ namespace TurnLimbo.Presentation.Tests
         private static void AssertStackLayout(Transform root)
         {
             RectTransform canvasRect = root.GetComponent<RectTransform>();
-            int columns = Mathf.Clamp(Mathf.FloorToInt((canvasRect.rect.width / 2f - 48f) / 72f), 1, 5);
             for (int side = 0; side < QueueNodes.Length; side++)
             {
                 RectTransform status = Get<RectTransform>(root, side == 0 ? "PlayerStatus" : "EnemyStatus");
@@ -465,21 +470,22 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(queue.anchoredPosition.x, Is.EqualTo(status.anchoredPosition.x).Within(.01f),
                     "Queue and status must share one head attachment X.");
                 var cards = VisibleQueueCards(queue);
-                int rows = (cards.Count + columns - 1) / columns;
-                float height = rows > 0 ? rows * 72f - 8f : 0;
-                float expectedQueueOffset = 46f + 12f + Mathf.Max(64f, height) - 32f;
+                float expectedQueueOffset = 46f + 12f + 64f - 32f;
                 Assert.That(queue.anchoredPosition.y - status.anchoredPosition.y,
-                    Is.EqualTo(expectedQueueOffset).Within(.01f), "The queue's lowest row must sit immediately above the status panel.");
+                    Is.EqualTo(expectedQueueOffset).Within(.01f), "The queue row must sit immediately above the status panel.");
+                // One row growing outward: the player's slot 1 at its panel's right edge, later slots to the left;
+                // the enemy's slot 1 at its panel's left edge, later slots to the right. Even spacing, 72 unless the
+                // row had to tighten to fit the screen.
+                float pitch = cards.Count < 2 ? 72f : Mathf.Abs(cards[1].anchoredPosition.x - cards[0].anchoredPosition.x);
+                Assert.That(pitch, Is.InRange(14f - .01f, 72f + .01f));
                 for (int index = 0; index < cards.Count; index++)
                 {
                     RectTransform card = cards[index];
-                    int row = index / columns;
-                    int rowCount = Mathf.Min(columns, cards.Count - row * columns);
-                    float expectedX = (side == 0 ? -1f : 1f) * (index % columns - (rowCount - 1) * .5f) * 72f;
+                    float expectedX = side == 0 ? 118f - 32f - index * pitch : -118f + 32f + index * pitch;
                     Assert.That(card.rect.size, Is.EqualTo(new Vector2(64, 64)));
                     Assert.That(Get<RectTransform>(card, "Icon").rect.size, Is.EqualTo(new Vector2(48, 48)));
                     Assert.That(card.anchoredPosition.x, Is.EqualTo(expectedX).Within(.01f));
-                    Assert.That(card.anchoredPosition.y, Is.EqualTo(-row * 72f).Within(.01f));
+                    Assert.That(card.anchoredPosition.y, Is.EqualTo(0f).Within(.01f), "Never a second row.");
                     Assert.That(card.localScale.x, Is.InRange(0f, 1.2001f));
                     AssertWithin(card, canvasRect);
                     Assert.That(ScreenRect(card).Overlaps(ScreenRect(status)), Is.False,

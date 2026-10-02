@@ -246,6 +246,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(controller.QueueLane(1), Is.True);
             Assert.That(controller.QueueLane(2), Is.True);
             yield return null;
+            // The rows grow outward: the player's to the left, the enemy's to the right.
             AssertQueue(root.Find("Player Requests"), 3, true);
             AssertQueue(root.Find("Enemy Requests"), 2, false);
         }

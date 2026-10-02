@@ -582,7 +582,9 @@ namespace TurnLimbo.Presentation
             Vector2 size = enemyQueue.DisplaySize;
             guideEnemyFocus.gameObject.SetActive(highlightEnemyQueue && size != Vector2.zero);
             guideEnemyFocus.sizeDelta = size + Vector2.one * 16f;
-            guideEnemyFocus.anchoredPosition = new Vector2(0f, -(Mathf.Max(64f, size.y) - 64f) * .5f);
+            // Around the row, which starts at the status panel's left edge rather than centring on it.
+            Vector2 span = enemyQueue.HorizontalSpan;
+            guideEnemyFocus.anchoredPosition = new Vector2((span.x + span.y) * .5f, 0f);
         }
 
         public void Refresh(LegacyQueuedDuel session, float timeRemaining, bool isResolving, int currentSlot,
@@ -660,8 +662,6 @@ namespace TurnLimbo.Presentation
             ApplyInputAvailability();
             if (slotAnimation) slotElapsed += delta;
             float activeScale = ActiveIconScale();
-            // Queues and status share a stable head attachment, but keep UI size.
-            int queueColumns = Mathf.Clamp(Mathf.FloorToInt((root.rect.width / 2 - 48) / 72), 1, 5);
             // Mark each queued attack the opponent's counter will answer, forecast at planning.
             session.ForecastEnemyCounterSlots(counterForecast);
             playerQueue.SetCounterMarks(counterForecast);
@@ -669,8 +669,8 @@ namespace TurnLimbo.Presentation
             enemyQueue.SetCounterMarks(counterForecast);
             playerStatus.SetCounter(session.PlayerCounter, session.PlayerCountersRemaining);
             enemyStatus.SetCounter(session.EnemyCounter, session.EnemyCountersRemaining);
-            playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale, queueColumns);
-            enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale, queueColumns);
+            playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale);
+            enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale);
             UpdateConditionPreview();
             UpdateEffectEmphasis();
             playerQueue.TickFeedback(actualDelta);
@@ -678,9 +678,10 @@ namespace TurnLimbo.Presentation
             foreach (var feedback in laneFeedback) feedback.Tick(actualDelta);
             playerEffectFeedback.Tick(actualDelta);
             enemyEffectFeedback.Tick(actualDelta);
-            UpdateGuideEnemyFocus();
             PositionFighterHud(playerStatus, playerQueue, player, camera, new Vector3(-.6f, 1.1f, 0));
             PositionFighterHud(enemyStatus, enemyQueue, enemy, camera, new Vector3(-.4f, 1f, 0));
+            // After the rows were fitted to the screen.
+            UpdateGuideEnemyFocus();
             playerStatus.Refresh(session.Player, delta);
             enemyStatus.Refresh(session.Enemy, delta);
             UpdateDamage(actualDelta);
@@ -1128,19 +1129,25 @@ namespace TurnLimbo.Presentation
             var statusSize = status.Root.sizeDelta;
             var queueSize = queue.DisplaySize;
             float extraHeight = queueSize.y > 0 ? 12 + queueSize.y + 8 : 0;
-            var groupSize = new Vector2(Mathf.Max(statusSize.x, queueSize.x + 16), statusSize.y + extraHeight);
-            // Clamp the entire stack, not each element independently. Queue rows
-            // sit above the status panel even while Tab focuses an off-centre actor.
+            // The status panel stays on its fighter's head: clamp it, with the row's height above it, on its own,
+            // so a long row never drags it away (or onto the other fighter's panel). The row sits above the panel
+            // even while Tab focuses an off-centre actor.
+            var groupSize = new Vector2(statusSize.x, statusSize.y + extraHeight);
             position += halfCanvas + Vector2.up * (statusSize.y / 2 + 12 + extraHeight / 2);
             position = ClampCenter(position, groupSize) - halfCanvas - Vector2.up * (extraHeight / 2);
             status.Root.anchoredPosition = position;
             queue.Root.anchoredPosition = position + Vector2.up * (statusSize.y / 2 + 12 + Mathf.Max(64, queueSize.y) - 32);
+            // The row grows outward from the panel's inner edge; it gets the room up to that side of the screen
+            // and tightens its spacing when it would not fit.
+            float room = queue.GrowsLeft ? position.x + statusSize.x / 2 + halfCanvas.x - ScreenMargin
+                : halfCanvas.x - ScreenMargin - (position.x - statusSize.x / 2);
+            queue.Fit(room);
         }
 
         private StatusView BuildStatus(bool enemy)
         {
             var status = Panel(enemy ? "EnemyStatus" : "PlayerStatus", root,
-                Vector2.zero, new Vector2(236, 92)).rectTransform;
+                Vector2.zero, new Vector2(StatusWidth, 92)).rectTransform;
             var white = Load("white");
             var result = new StatusView(status);
             var healthLabel = Text("HP Label", status, new Vector2(0, 27), new Vector2(196, 18), 14, TextAnchor.MiddleLeft);
@@ -1332,9 +1339,11 @@ namespace TurnLimbo.Presentation
             return icon;
         }
 
+        private const float ScreenMargin = 16f;
+
         private Vector2 ClampCenter(Vector2 center, Vector2 size)
         {
-            var inset = size / 2 + Vector2.one * 16;
+            var inset = size / 2 + Vector2.one * ScreenMargin;
             return new Vector2(Mathf.Clamp(center.x, inset.x, Mathf.Max(inset.x, root.rect.width - inset.x)),
                 Mathf.Clamp(center.y, inset.y, Mathf.Max(inset.y, root.rect.height - inset.y)));
         }
@@ -1552,10 +1561,21 @@ namespace TurnLimbo.Presentation
             }
         }
 
+        private const float StatusWidth = 236f;
+
+        /// <summary>A fighter's queue above its status panel: one row, never wrapping, growing outward. The two first
+        /// slots face each other: the player's slot 1 sits at its panel's right edge and the row grows left (read
+        /// right to left); the enemy's slot 1 sits at its panel's left edge and the row grows right. A row longer
+        /// than the room to the screen edge tightens its spacing so the cards overlap a little.</summary>
         private sealed class QueueView
         {
+            private const float Pitch = 72f, CardSize = 64f, MinimumPitch = 14f;
+            private readonly List<RectTransform> visibleItems = new List<RectTransform>();
+            public bool GrowsLeft => player;
             public readonly RectTransform Root;
             public Vector2 DisplaySize { get; private set; }
+            /// <summary>The row's left and right edges, relative to the status panel's centre.</summary>
+            public Vector2 HorizontalSpan { get; private set; }
             private readonly bool player;
             private readonly Sprite white;
             private readonly Font font;
@@ -1571,7 +1591,7 @@ namespace TurnLimbo.Presentation
             {
                 Root = root; this.player = player; this.white = white; this.font = font;
             }
-            public void Refresh(IReadOnlyList<LegacySkill> queue, Func<int, Sprite> iconFor, int activeSlot, bool resolving, int selected, float scale, int columns)
+            public void Refresh(IReadOnlyList<LegacySkill> queue, Func<int, Sprite> iconFor, int activeSlot, bool resolving, int selected, float scale)
             {
                 while (icons.Count < queue.Count)
                 {
@@ -1586,9 +1606,7 @@ namespace TurnLimbo.Presentation
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
-                int remaining = Mathf.Max(0, queue.Count - consumed);
-                int rows = (remaining + columns - 1) / columns;
-                DisplaySize = remaining > 0 ? new Vector2(Mathf.Min(columns, remaining) * 72 - 8, rows * 72 - 8) : Vector2.zero;
+                visibleItems.Clear();
                 for (int i = 0; i < icons.Count; i++)
                 {
                     var item = icons[i].transform.parent.GetComponent<RectTransform>();
@@ -1596,18 +1614,41 @@ namespace TurnLimbo.Presentation
                     item.gameObject.SetActive(visible);
                     if (!visible) { feedback[i].Clear(); continue; }
                     icons[i].sprite = iconFor(queue[i].IconId);
-                    int visibleIndex = i - consumed;
-                    int row = visibleIndex / columns;
-                    int rowCount = Mathf.Min(columns, remaining - row * columns);
-                    item.anchoredPosition = new Vector2((player ? -1 : 1) * (visibleIndex % columns - (rowCount - 1) * .5f) * 72,
-                        -row * 72);
+                    visibleItems.Add(item);
                     item.localScale = Vector3.one * (resolving && i == activeSlot ? Mathf.Min(scale, 1.2f) : 1);
                     highlights[i].enabled = !resolving && i == selected;
                 }
                 for (int i = 0; i < counterMarks.Count; i++)
                     counterMarks[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && counterSlots.Contains(i));
+                Layout(Pitch);
                 UpdateFeedback();
             }
+            /// <summary>Fits the row into <paramref name="room"/> (from the panel's inner edge to the screen edge it grows
+            /// toward), tightening the spacing down to a floor when it would not fit at full spacing.</summary>
+            public void Fit(float room)
+            {
+                int count = visibleItems.Count;
+                float pitch = count < 2 ? Pitch : Mathf.Clamp((room - CardSize) / (count - 1), MinimumPitch, Pitch);
+                if (!Mathf.Approximately(pitch, CurrentPitch)) Layout(pitch);
+            }
+
+            /// <summary>The spacing between neighbouring cards now (72 unless the row had to tighten).</summary>
+            public float CurrentPitch { get; private set; } = Pitch;
+
+            // Slot 1 stays at the inner edge as the row grows; later slots go outward.
+            private void Layout(float pitch)
+            {
+                CurrentPitch = pitch;
+                int count = visibleItems.Count;
+                float width = count > 0 ? (count - 1) * pitch + CardSize : 0f;
+                DisplaySize = count > 0 ? new Vector2(width, CardSize) : Vector2.zero;
+                float rowLeft = player ? StatusWidth / 2 - width : -StatusWidth / 2;
+                HorizontalSpan = new Vector2(rowLeft, rowLeft + width);
+                float inner = player ? StatusWidth / 2 - CardSize / 2 : -StatusWidth / 2 + CardSize / 2;
+                for (int index = 0; index < count; index++)
+                    visibleItems[index].anchoredPosition = new Vector2(inner + (player ? -1f : 1f) * index * pitch, 0f);
+            }
+
             /// <summary>Queue indices whose attack the opponent's counter will answer.</summary>
             public void SetCounterMarks(List<int> slots)
             {
@@ -1667,6 +1708,9 @@ namespace TurnLimbo.Presentation
             public void Clear()
             {
                 DisplaySize = Vector2.zero;
+                HorizontalSpan = Vector2.zero;
+                visibleItems.Clear();
+                CurrentPitch = Pitch;
                 displayedQueue = null;
                 preview = null;
                 previewSlot = feedbackSlot = -1;
