@@ -63,6 +63,12 @@ namespace TurnLimbo.Presentation
         private static readonly Color BulletTimeCoolColor = new Color(0.72f, 0.84f, 1f, 1f);
         private bool bulletTimeRequested, bulletTimeWasActive, bulletTimeParting;
         private float bulletTimeAmount;
+        // 넘기기 spent planning time: bullet time lets go for this long (real seconds), the look dropping away fast and
+        // the figures catching up as if that time had passed, then it eases back in.
+        private const float BulletTimeReleaseDrop = .06f;
+        private const float BulletTimeReleaseDriftScale = 6f;
+        private float bulletTimeRelease;
+        private bool bulletTimeReleasing;
         // The fatal close-up's saturation pulse; the planning grade is added on top of it.
         private float saturationPulse;
         private readonly System.Random reactionPoseRandom;
@@ -309,7 +315,8 @@ namespace TurnLimbo.Presentation
             aberration.intensity.value = 0f;
             colorAdjustments.postExposure.value = 0f;
             bulletTimeRequested = bulletTimeWasActive = bulletTimeParting = false;
-            bulletTimeAmount = saturationPulse = 0f;
+            bulletTimeAmount = saturationPulse = bulletTimeRelease = 0f;
+            bulletTimeReleasing = false;
             ApplyGrade();
             ResetActor(player, new Vector3(-5f, -0.5f, 0f));
             ResetActor(enemy, new Vector3(5f, -0.5f, 0f));
@@ -351,6 +358,16 @@ namespace TurnLimbo.Presentation
             player.ReactionTime = enemy.ReactionTime = 0f;
             player.Chasing = enemy.Chasing = false;
         }
+
+        /// <summary>넘기기 spent planning time: in 전투 planning, bullet time lets go for a moment (no effect otherwise).</summary>
+        public void BreakBulletTime()
+        {
+            if (disposed || !bulletTimeWasActive) return;
+            bulletTimeRelease = settings.BattleCycleReleaseSeconds;
+        }
+
+        /// <summary>Whether bullet time is letting go after a 넘기기.</summary>
+        public bool IsBulletTimeReleased => bulletTimeRelease > 0f;
 
         /// <param name="bulletTime">This frame is a 전투 planning frame: the figures edge toward each other in a held
         /// pose under a cold grade. Asked for frame by frame; the next Tick consumes it.</param>
@@ -709,7 +726,13 @@ namespace TurnLimbo.Presentation
                 bulletTimeParting = staging > ContactDistance + .001f && Separation < staging - .001f;
             if (!bulletTime) bulletTimeParting = false;
             bulletTimeWasActive = bulletTime;
-            bulletTimeAmount = bulletTime ? Mathf.MoveTowards(bulletTimeAmount, 1f, realDelta / BulletTimeEaseIn) : 0f;
+            if (!bulletTime) bulletTimeRelease = 0f;
+            bool releasing = bulletTime && bulletTimeRelease > 0f;
+            bulletTimeReleasing = releasing;
+            if (releasing) bulletTimeRelease = Mathf.Max(0f, bulletTimeRelease - realDelta);
+            bulletTimeAmount = !bulletTime ? 0f : releasing
+                ? Mathf.MoveTowards(bulletTimeAmount, 0f, realDelta / BulletTimeReleaseDrop)
+                : Mathf.MoveTowards(bulletTimeAmount, 1f, realDelta / BulletTimeEaseIn);
             float idleSpeed = bulletTime ? Mathf.Lerp(1f, settings.BattlePoseSpeed, bulletTimeAmount) : 1f;
             idleTime += scaledDelta * settings.AnimationPlaybackSpeed * idleSpeed;
             fatalTime = Mathf.Max(0f, fatalTime - Mathf.Max(0f, realDelta));
@@ -910,7 +933,8 @@ namespace TurnLimbo.Presentation
         /// contact distance) and never apart. The dummy and a figure still being pushed stay put.</summary>
         private void DriftFightersCloser(float delta)
         {
-            float speed = settings.BattleDriftSpeed;
+            // While bullet time lets go after a 넘기기, they catch up at a quicker pace (not while it first eases in).
+            float speed = settings.BattleDriftSpeed * (bulletTimeReleasing ? BulletTimeReleaseDriftScale : 1f);
             float excess = Separation - Mathf.Max(ContactDistance, settings.BattleDriftMinimumSeparation);
             if (excess <= 0f || delta <= 0f || speed <= 0f || stepping) return;
             bool playerMayMove = !player.Pushing;

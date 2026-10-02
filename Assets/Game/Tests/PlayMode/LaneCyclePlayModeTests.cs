@@ -79,6 +79,37 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [Test]
+        public void Cycle_SpendsASecondOfPlanningTime_AndNeedsMoreThanThatLeft()
+        {
+            using (var scope = new CycleScope())
+            {
+                scope.UseSession(CombatFeature.All);
+                DuelPrototypeController controller = scope.Controller;
+                Assert.That(controller.LaneCycleCost, Is.EqualTo(DuelPrototypeController.LaneCycleTimeCost), "A stage's clock runs.");
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(10f));
+                int act = controller.Session.Act;
+                Assert.That(controller.CycleLanes(), Is.True);
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(9f).Within(1e-4f), "넘기기 pays with planning time…");
+                Assert.That(controller.Session.Act, Is.EqualTo(act), "…not ACT.");
+                Assert.That(Label(controller.Hud.Root.transform, "CycleButton", "Time Cost").text, Is.EqualTo("1초 소모"));
+                Assert.That(controller.Hud.IsShowingTimeSpent, Is.True);
+                Assert.That(Label(controller.Hud.Root.transform, "Time Spent").text, Is.EqualTo("-1초"));
+
+                scope.Advance(7.4f);
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(1.6f).Within(1e-3f));
+                Assert.That(controller.Hud.IsShowingTimeSpent, Is.False, "The '-1초' fades on real time.");
+                Assert.That(controller.CycleLanes(), Is.True, "It may spend a second that leaves at least half a second…");
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(.6f).Within(1e-3f));
+                Assert.That(controller.CanAffordLaneCycle, Is.False);
+                Assert.That(controller.CycleLanes(), Is.False, "…but never more, so it never runs the clock out itself.");
+                scope.Advance(1f / 60f);
+                Assert.That(controller.IsResolving, Is.False, "The skill it brought forward can still be queued.");
+                scope.Advance(0f);
+                Assert.That(CycleButton(controller).interactable, Is.False, "The button waits for time it cannot have.");
+            }
+        }
+
         [UnityTest]
         public IEnumerator LaneKeyHeldThroughShift_DoesNotQueueTheSkillThatCameForward()
         {
@@ -236,6 +267,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacyInitialSkills.All[1].Id), "예리한 베기 comes forward.");
                 Assert.That(guide.IsFree, Is.True, "Shift finishes the lesson.");
                 Assert.That(controller.CycleLanes(), Is.True, "Free play keeps 넘기기.");
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(10f), "Mission 2 has no clock, so 넘기기 is free there.");
+                Assert.That(Label(controller.Hud.Root.transform, "CycleButton", "Time Cost").text, Is.EqualTo("무료"));
                 Assert.That(controller.QueueLane(0), Is.True);
             }
         }

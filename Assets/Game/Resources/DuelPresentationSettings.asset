@@ -53,6 +53,7 @@ MonoBehaviour:
   battlePoseSpeed: 0
   battleDesaturation: 30
   battleCoolTint: 0.35
+  battleCycleReleaseSeconds: 0.3
   glowEnabled: 1
   glowIntensity: 3
   glowRadius: 1.1

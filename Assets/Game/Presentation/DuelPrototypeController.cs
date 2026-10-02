@@ -13,6 +13,12 @@ namespace TurnLimbo.Presentation
     public sealed class DuelPrototypeController : MonoBehaviour
     {
         private const float PlanningDuration = 10f;
+        /// <summary>넘기기 spends this much planning time while the planning timer runs (it is free while the clock is
+        /// held: untimed missions and coached beats).</summary>
+        public const float LaneCycleTimeCost = 1f;
+        /// <summary>A paid 넘기기 must leave at least this much planning time, so it never runs the clock out (and
+        /// auto-commits the turn) before the player can use the skill it brought forward.</summary>
+        public const float LaneCycleMinimumTimeLeft = .5f;
         private const float OriginalClipDuration = 1f / 6f;
         private const float OriginalAttackEventTime = 1f / 12f;
         public const float TurnCleanupDelay = 0.12f;
@@ -176,6 +182,10 @@ namespace TurnLimbo.Presentation
             Keyboard.current != null && Keyboard.current.tabKey.isPressed);
         // A coached beat never runs out of time; a mission may also have no timer at all.
         private bool PlanningTimerRuns => !IsMission || mission.PlanningTimer && (guide == null || guide.IsFree);
+        /// <summary>What 넘기기 costs right now: the planning time it spends, or 0 while the clock is held.</summary>
+        public float LaneCycleCost => PlanningTimerRuns ? LaneCycleTimeCost : 0f;
+        /// <summary>Whether enough planning time is left to pay for 넘기기.</summary>
+        public bool CanAffordLaneCycle => LaneCycleCost <= 0f || planningTime - LaneCycleCost >= LaneCycleMinimumTimeLeft;
 
         private void Awake()
         {
@@ -717,11 +727,21 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
-        /// <summary>넘기기 (Shift): every open lane sends its front skill to the back unused. Free, planning only;
-        /// all lanes turn together, so lining skills up across lanes means choosing which ones to use first.</summary>
+        /// <summary>넘기기 (Shift): every open lane sends its front skill to the back unused. It costs planning time
+        /// (<see cref="LaneCycleTimeCost"/>) while the clock runs, not ACT; all lanes turn together, so lining skills
+        /// up across lanes means choosing which ones to use first.</summary>
         public bool CycleLanes()
         {
-            if (!CanChoose || IsInspecting || guide != null && !guide.AllowsCycle || !session.TryCycleLanes()) return false;
+            if (!CanChoose || IsInspecting || guide != null && !guide.AllowsCycle || !CanAffordLaneCycle ||
+                !session.TryCycleLanes()) return false;
+            float cost = LaneCycleCost;
+            if (cost > 0f)
+            {
+                planningTime = Mathf.Max(0f, planningTime - cost);
+                hud.ShowTimeSpent(cost);
+                // 전투: bullet time lets go for a moment, as if that second had just passed.
+                arena.BreakBulletTime();
+            }
             // Every lane with something to bring forward turned together; show it before the new fronts are drawn.
             hud.PlayLaneTurn(new[] { session.GetLane(0).Count > 1, session.GetLane(1).Count > 1, session.GetLane(2).Count > 1 });
             effectsSource.pitch = 1f;
@@ -1492,6 +1512,7 @@ namespace TurnLimbo.Presentation
         {
             // Every frame, after this frame's poses: the outline follows the actor's current sprite.
             arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
+            hud.SetLaneCycleCost(LaneCycleCost, CanAffordLaneCycle);
             hud.Refresh(session, planningTime, IsResolving, highlightedSlot, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);

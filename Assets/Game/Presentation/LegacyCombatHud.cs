@@ -27,6 +27,13 @@ namespace TurnLimbo.Presentation
         private readonly Image timerFill, actFill;
         private readonly Image timerTrack;
         private readonly Text untimedHint;
+        // 넘기기 pays with planning time: the button shows the price and a '-1초' rises off the timer when it is spent.
+        private const float TimeSpentDuration = .7f;
+        private static readonly Vector2 TimeSpentHome = new Vector2(294f, -5f);
+        private readonly Text cycleCost, timeSpent;
+        private float laneCycleCost;
+        private bool laneCycleAffordable = true;
+        private float timeSpentRemaining;
         private readonly Text turnText, actText, stageText;
         private readonly Button[] laneButtons = new Button[3];
         private readonly CanvasGroup[] guideLaneGroups = new CanvasGroup[3];
@@ -260,8 +267,8 @@ namespace TurnLimbo.Presentation
             // 넘기기 mirrors 숨고르기 on the other side of the lanes.
             var cycle = Panel("CycleButton", controls, new Vector2(-360, -4), new Vector2(144, 124), RaisedSurface);
             Text("Label", cycle.transform, new Vector2(0, 30), new Vector2(132, 24), 18, TextAnchor.MiddleCenter).text = "넘기기";
-            var cycleCost = Text("ACT Cost", cycle.transform, new Vector2(0, 7), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
-            cycleCost.text = "ACT 0"; cycleCost.color = MutedText;
+            cycleCost = Text("Time Cost", cycle.transform, new Vector2(0, 7), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
+            cycleCost.text = CycleCostText(0f); cycleCost.color = MutedText;
             var cycleWhat = Text("Effect", cycle.transform, new Vector2(0, -17), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
             cycleWhat.text = "모든 열 한 칸"; cycleWhat.color = Foreground;
             var cycleKey = Text("KeyHint", cycle.transform, new Vector2(0, -45), new Vector2(132, 18), 18, TextAnchor.MiddleCenter);
@@ -297,6 +304,10 @@ namespace TurnLimbo.Presentation
             untimedHint = Text("Untimed Hint", timerPanel, new Vector2(48, 3), new Vector2(336, 26), 18, TextAnchor.MiddleCenter);
             untimedHint.text = "임무 · 시간 제한 없음";
             untimedHint.color = Accent;
+            // Just outside the timer panel's right edge, level with the bar, so it never covers the bar or the frame.
+            timeSpent = Text("Time Spent", timerPanel, TimeSpentHome, new Vector2(90, 26), 20, TextAnchor.MiddleLeft);
+            timeSpent.color = DuelVisualTheme.Danger;
+            timeSpent.gameObject.SetActive(false);
 
             var stagePanel = Panel("Stage", root, new Vector2(224, -36), new Vector2(396, 48)).rectTransform;
             Pin(stagePanel, new Vector2(0, 1));
@@ -454,7 +465,44 @@ namespace TurnLimbo.Presentation
 
         private bool CanCycle()
             => !disposed && cycleLanes != null && lastPlanning && CycleShown && inspectedSlot < 0 &&
-                displayedSession.Phase == LegacyDuelPhase.Planning;
+                displayedSession.Phase == LegacyDuelPhase.Planning && laneCycleAffordable;
+
+        /// <summary>What 넘기기 costs now (planning seconds; 0 while the clock is held) and whether it can be paid.</summary>
+        public void SetLaneCycleCost(float seconds, bool affordable)
+        {
+            if (disposed) return;
+            seconds = Mathf.Max(0f, seconds);
+            if (laneCycleCost != seconds) cycleCost.text = CycleCostText(seconds);
+            laneCycleCost = seconds;
+            laneCycleAffordable = affordable;
+        }
+
+        /// <summary>넘기기 just spent planning time: a short '-N초' rises off the timer.</summary>
+        public void ShowTimeSpent(float seconds)
+        {
+            if (disposed || seconds <= 0f) return;
+            timeSpent.text = "-" + seconds.ToString("0.#") + "초";
+            timeSpentRemaining = TimeSpentDuration;
+            AdvanceTimeSpent(0f);
+        }
+
+        /// <summary>Whether the '-N초' from the last 넘기기 is still on screen.</summary>
+        public bool IsShowingTimeSpent => timeSpentRemaining > 0f;
+
+        private static string CycleCostText(float seconds) => seconds > 0f ? seconds.ToString("0.#") + "초 소모" : "무료";
+
+        private void AdvanceTimeSpent(float realDelta)
+        {
+            timeSpentRemaining = Mathf.Max(0f, timeSpentRemaining - Mathf.Max(0f, realDelta));
+            bool visible = timeSpentRemaining > 0f;
+            if (timeSpent.gameObject.activeSelf != visible) timeSpent.gameObject.SetActive(visible);
+            if (!visible) return;
+            float t = 1f - timeSpentRemaining / TimeSpentDuration;
+            timeSpent.rectTransform.anchoredPosition = TimeSpentHome + new Vector2(0f, 18f * t);
+            Color color = timeSpent.color;
+            color.a = 1f - t * t;
+            timeSpent.color = color;
+        }
 
         private void CycleFromButton()
         {
@@ -607,6 +655,7 @@ namespace TurnLimbo.Presentation
                     : new Color(MutedText.r, MutedText.g, MutedText.b, .62f);
             }
             AdvanceLaneTurns(actualDelta);
+            AdvanceTimeSpent(actualDelta);
             UpdateBreathCount();
             ApplyInputAvailability();
             if (slotAnimation) slotElapsed += delta;
@@ -982,6 +1031,8 @@ namespace TurnLimbo.Presentation
             for (int i = 0; i < 3; i++) shownSkills[i] = shownNextSkills[i] = -1;
             for (int i = 0; i < laneTurnElapsed.Length; i++) laneTurnElapsed[i] = LaneTurnDuration;
             AdvanceLaneTurns(0f);
+            timeSpentRemaining = 0f;
+            AdvanceTimeSpent(0f);
             playerStatus.Reset(); enemyStatus.Reset();
             playerQueue.Clear(); enemyQueue.Clear();
             SetHoldProgress(-1, 0);

@@ -16,7 +16,7 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class BattleBulletTimePlayModeTests : InputTestFixture
     {
         private const string Tuning = "{\"hitStopDuration\":0,\"battleDriftSpeed\":1,\"battleDriftMinimumSeparation\":5," +
-            "\"battleStagingSeparation\":7," +
+            "\"battleStagingSeparation\":7,\"battleCycleReleaseSeconds\":0.3," +
             "\"battlePoseSpeed\":0,\"battleDesaturation\":30,\"battleCoolTint\":0.5}";
 
         [Test]
@@ -96,6 +96,33 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [Test]
+        public void CycleSpendingTime_LetsBulletTimeGoForAMoment_AndTheFiguresCatchUp()
+        {
+            using (var scope = new BulletScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                LegacyArenaView arena = controller.ArenaView;
+                scope.Advance(1f);
+                Assert.That(arena.Separation, Is.EqualTo(8f).Within(1e-3f));
+                Assert.That(arena.BulletTimeAmount, Is.EqualTo(1f));
+                Assert.That(controller.CycleLanes(), Is.True);
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(8f).Within(1e-3f), "The second is spent…");
+                Assert.That(arena.IsBulletTimeReleased, Is.True, "…and bullet time lets go.");
+
+                scope.Advance(.1f);
+                Assert.That(arena.BulletTimeAmount, Is.Zero, "The look drops away at once.");
+                Assert.That(arena.Separation, Is.EqualTo(6.8f).Within(1e-3f), "They catch up six times faster.");
+                // Past the 0.3 s release, so float steps cannot leave a sliver of it.
+                scope.Advance(.25f);
+                Assert.That(arena.IsBulletTimeReleased, Is.False);
+                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f));
+                scope.Advance(.35f);
+                Assert.That(arena.BulletTimeAmount, Is.EqualTo(1f), "Then bullet time eases back in.");
+                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "…holding at the floor.");
+            }
+        }
+
         [UnityTest]
         public IEnumerator TabInspection_DeepensTheDriftWithThePlanningClock()
         {
@@ -152,19 +179,21 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(settings.BattlePoseSpeed, Is.Zero);
                 Assert.That(settings.BattleDesaturation, Is.EqualTo(30f));
                 Assert.That(settings.BattleCoolTint, Is.EqualTo(.35f));
+                Assert.That(settings.BattleCycleReleaseSeconds, Is.EqualTo(.3f));
                 float stepSlow = settings.StepSlowMotionScale, playback = settings.AnimationPlaybackSpeed;
                 JsonUtility.FromJsonOverwrite("{\"battleDriftSpeed\":9,\"battleStagingSeparation\":20,\"battleDriftMinimumSeparation\":1,\"battlePoseSpeed\":-1," +
-                    "\"battleDesaturation\":500,\"battleCoolTint\":2}", settings);
+                    "\"battleDesaturation\":500,\"battleCoolTint\":2,\"battleCycleReleaseSeconds\":5}", settings);
                 Assert.That(settings.BattleDriftSpeed, Is.EqualTo(2f));
                 Assert.That(settings.BattleStagingSeparation, Is.EqualTo(10f));
                 Assert.That(settings.BattleDriftMinimumSeparation, Is.EqualTo(4f), "Never closer than the contact distance.");
                 Assert.That(settings.BattlePoseSpeed, Is.Zero);
                 Assert.That(settings.BattleDesaturation, Is.EqualTo(100f));
                 Assert.That(settings.BattleCoolTint, Is.EqualTo(1f));
+                Assert.That(settings.BattleCycleReleaseSeconds, Is.EqualTo(1f));
                 Assert.That(settings.StepSlowMotionScale, Is.EqualTo(stepSlow));
                 Assert.That(settings.AnimationPlaybackSpeed, Is.EqualTo(playback));
                 foreach (string field in new[] { "battleDriftSpeed", "battleStagingSeparation", "battleDriftMinimumSeparation", "battlePoseSpeed",
-                    "battleDesaturation", "battleCoolTint" })
+                    "battleDesaturation", "battleCoolTint", "battleCycleReleaseSeconds" })
                 {
                     FieldInfo info = typeof(DuelPresentationSettings).GetField(field, BindingFlags.NonPublic | BindingFlags.Instance);
                     Assert.That(info, Is.Not.Null, field);
@@ -174,6 +203,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(settings.BattleStagingSeparation, Is.EqualTo(7f));
                 Assert.That(settings.BattleDriftMinimumSeparation, Is.EqualTo(5f));
                 Assert.That(settings.BattleDesaturation, Is.EqualTo(30f));
+                Assert.That(settings.BattleCycleReleaseSeconds, Is.EqualTo(.3f));
             }
             finally { Object.DestroyImmediate(settings); }
         }

@@ -5,7 +5,10 @@
 ## 규칙
 
 - 편성(준비) 단계에서만 쓴다. 확정한 뒤, 적 확인(Tab) 중, 결과·로비·브리핑에서는 무시한다.
-- ACT를 쓰지 않고 횟수 제한도 없다. 큐에는 아무것도 넣지 않고, 이미 예약한 기술도 그대로다.
+- **비용은 편성 시간이다**(2026-10-02). 제한 시간이 흐르는 동안 한 번에 1초를 쓴다(`DuelPrototypeController.LaneCycleTimeCost`). ACT는 쓰지 않고 횟수 제한도 없다. 큐에는 아무것도 넣지 않고, 이미 예약한 기술도 그대로다.
+  - 쓰고 나서도 0.5초 이상 남아야 쓸 수 있다(남은 시간이 1.5초 이상, `LaneCycleMinimumTimeLeft`). 그래서 넘기기로 시간이 다 돼 턴이 저절로 확정되는 일은 없고, 앞으로 가져온 기술을 예약할 틈이 남는다.
+  - 시계가 멈춰 있으면 무료다. 제한 시간이 없는 임무(1~3)와 코치가 시계를 붙잡은 안내 단계가 그렇다. 넘기기를 배우는 2 임무는 무료다.
+  - 결투와 전투(`DuelAndBattle.md`)에 똑같이 적용되는 규칙이다.
 - 열린 열 가운데 기술이 2개 이상인 열만 돈다. 닫힌 열과 기술이 하나뿐인 열은 그대로다. 돌 열이 없으면 아무 일도 없다.
 - 돌린 순서는 다음 턴에도 이어진다. 예약으로 돈 순서가 이어지는 것과 같다. 재대결과 새 전투는 편성 순서로 다시 시작한다.
 - 기술을 예약하면 그 열만 돈다. 넘기기는 모든 열을 함께 돌린다. 그래서 한 열에서 원하는 기술을 앞으로 가져오면 다른 열의 맨 앞 기술도 바뀐다. 이 맞물림이 넘기기의 비용이다.
@@ -14,22 +17,25 @@
 
 - 넘기기가 없으면 플레이어는 열이 돌아오는 순서대로만 기술을 쓸 수 있다. 넘기기로 필요한 기술을 필요한 순간에 꺼낸다.
 - 비용을 ACT로 두지 않았다. 모든 열이 함께 도는 것 자체가 대가다. 플레이어는 톱니바퀴 퍼즐을 맞추듯 세 열을 함께 계산하게 된다.
+- 2026-10-02 플레이 결과: 넘기기로 고민하고 맞추는 플레이가 크게 늘었다. 다만 익숙해지면 초반에는 ACT 회복기만 넘겨 쓰고, 뒤에 ACT를 모아 강한 기술을 연발하는 쪽으로 굳었다. 그래서 다른 형태의 비용으로 편성 시간을 쓰게 했다(사용자 결정). 제한 시간이 그대로 기믹이 된다. 나중에 시간을 늘리거나 줄이는 기술도 붙일 수 있다.
 - 서막 2 임무부터 쓴다. Q열 하나뿐일 때는 넘겨서 원하는 기술로 대응하는 법을 배운다.
 - 수련 임무로 E열, W열이 열리면 한 열을 맞출 때 다른 열이 어긋난다. 어떤 기술을 먼저 쓰고 무엇을 넘길지 고르는 것이 이 게임의 진짜 전략이 된다.
-- 횟수 제한 없음과 턴 사이 유지는 임시 기본값이다. 바꾸려면 Runtime의 `LegacyQueuedDuel.TryCycleLanes`를 고친다.
+- 횟수 제한 없음과 턴 사이 유지는 임시 기본값이다. 바꾸려면 Runtime의 `LegacyQueuedDuel.TryCycleLanes`를 고친다. 1초라는 비용은 편성 시계와 함께 컨트롤러에 있다(`LaneCycleTimeCost`).
 
 ## 해금
 
 - 서막 1 임무 `첫 타격`을 처음 이기면 열린다(`CombatFeature.Cycle`). 결과 창 안내는 `넘기기(Shift)가 열렸습니다.` / `다음 임무가 열렸습니다.`다.
 - 1 임무 전투에는 넘기기가 없다. 2~4 임무 전투는 Q열과 넘기기를 쓴다. 수련 임무와 서막 뒤의 스테이지도 넘기기를 쓴다.
-- 2 임무의 코치는 ACT 안내 다음에 `Shift로 넘기세요` 단계를 둔다. 이 단계는 Shift(또는 버튼)만 받고 예약과 확정을 막는다. 한 번 넘기면 자유 단계로 넘어간다. 첫 턴에 Q를 두 번 예약해 두 기술 열이 처음 순서로 돌아와 있으므로, 한 번 넘기면 예리한 베기가 앞으로 온다.
+- 2 임무의 코치는 ACT 안내 다음에 `Shift로 넘기세요` 단계를 둔다. 안내문에 "제한 시간이 흐를 때는 한 번에 1초를 씁니다"가 있다. 제한 시간이 처음 흐르는 4 임무의 소개에도 "넘기기도 한 번에 1초를 씁니다"를 덧붙였다. 이 단계는 Shift(또는 버튼)만 받고 예약과 확정을 막는다. 한 번 넘기면 자유 단계로 넘어간다. 첫 턴에 Q를 두 번 예약해 두 기술 열이 처음 순서로 돌아와 있으므로, 한 번 넘기면 예리한 베기가 앞으로 온다.
 - 다른 코치 단계는 넘기기를 막고, 자유 단계에서만 허용한다(숨고르기·스텝과 같다).
 - 해금은 타이틀에서 시작한 게임에만 적용된다. 테스트나 API를 직접 부른 스테이지 전투에서는 처음부터 열려 있다(`StoryUnlocks.md`).
 
 ## 화면과 입력
 
 - 왼쪽·오른쪽 Shift 모두 된다. 누르고 있어도 한 번만 돈다.
-- 기술 카드 왼쪽, 숨고르기 버튼의 반대편(x -360)에 **넘기기** 버튼이 있다. 내용은 `ACT 0`, `모든 열 한 칸`, 키 `Shift`이고, 아래에 `맨 앞 기술을 쓰지 않고 / 뒤로 보냄`을 쓴다.
+- 기술 카드 왼쪽, 숨고르기 버튼의 반대편(x -360)에 **넘기기** 버튼이 있다. 내용은 비용(`1초 소모`, 시계가 멈춰 있으면 `무료`), `모든 열 한 칸`, 키 `Shift`이고, 아래에 `맨 앞 기술을 쓰지 않고 / 뒤로 보냄`을 쓴다. 남은 시간이 모자라면(1.5초 미만) 누를 수 없다.
+- 시간을 쓰면 위쪽 타이머 패널 바로 오른쪽에 붉은 `-1초`가 떠올랐다가 0.7초 만에 사라지고, 타이머 막대가 그만큼 줄어든다.
+- 전투(서막 밖)의 편성에서는 시간을 쓴 순간 불릿타임이 0.3초 풀린다. 색과 대기 동작이 돌아오고 두 사람이 성큼 다가간 뒤 다시 느려진다. 1초가 흘렀다는 것을 보여 주려는 것이다(`DuelAndBattle.md`).
 - 넘기기가 닫혀 있거나 코치가 아직 허용하지 않으면 버튼과 안내를 숨긴다. 확정 뒤와 적 확인 중에는 누를 수 없고, Tab을 떼는 프레임에 다시 누를 수 있다.
 - Q/W/E를 누르고 있는 동안 Shift를 누르면, 그 키를 놓아도 예약하지 않는다. 누른 기술이 이미 뒤로 갔기 때문이다. 1초 이상 눌러 보던 설명은 새 맨 앞 기술로 바뀐다. Shift와 같은 프레임에 누른 열 키는 새로 온 기술에 대한 입력으로 본다.
 - 소리는 예약과 같은 선택음이다.
@@ -59,10 +65,10 @@ Windows는 기본 설정에서 Shift를 연달아 다섯 번 누르면 고정 �
 - Runtime `LegacyQueuedDuel.TryCycleLanes()`와 `LaneCyclesThisTurn`(턴이 시작되면 0).
 - Runtime `Prologue/MissionGuide`: `MissionGuideStepKind.Cycle`, `AllowsCycle`, `NotifyCycled`.
 - Runtime `Prologue/PrologueMissions`: 1 임무 `unlocks: Cycle`, 2~4 임무 `features: LaneQ | Cycle`. `LobbyMissions`의 임무 전투에도 `Cycle`이 들어 있다.
-- Presentation `DuelPrototypeController.CycleLanes()`와 `ReadPlanningInput`의 Shift.
-- Presentation `LegacyCombatHud`: 생성자의 마지막 인자 `cycleLanes`, `CycleButton`과 `Cycle Note`.
+- Presentation `DuelPrototypeController.CycleLanes()`와 `ReadPlanningInput`의 Shift. 비용은 `LaneCycleTimeCost`(1초), 지금 값은 `LaneCycleCost`(시계가 멈추면 0), 낼 수 있는지는 `CanAffordLaneCycle`이다. 시간을 쓰면 `LegacyCombatHud.ShowTimeSpent`와 `LegacyArenaView.BreakBulletTime`을 부른다.
+- Presentation `LegacyCombatHud`: 생성자의 마지막 인자 `cycleLanes`, `CycleButton`(비용 칸 `Time Cost`)과 `Cycle Note`, `SetLaneCycleCost`, 타이머의 `Time Spent`.
 - Presentation `StickyKeysShortcut`: user32 `SystemParametersInfo`(`SPI_GET/SETSTICKYKEYS`, `fWinIni` 0)로 단축키 비트(`SKF_HOTKEYACTIVE`·`SKF_CONFIRMHOTKEY`)를 끄고 되돌린다. 비트 계산은 `WithoutShortcut`/`WithShortcut`이다. `UNITY_STANDALONE_WIN`·`UNITY_EDITOR_WIN`에서만 P/Invoke를 컴파일한다.
 - Presentation `StickyKeysShortcutGuard`: 첫 씬 전에 스스로 만들어지는(`DontDestroyOnLoad`) 컴포넌트다. 포커스·종료·비활성화 때 끄고 되돌리며, 포커스가 있는 동안 아직 끄지 못했으면 0.5초마다 다시 시도한다.
 - 테스트
   - EditMode: `LaneCycleTests`, `StoryUnlockTests`.
-  - PlayMode: `LaneCyclePlayModeTests`, `ResultMissionHudPlayModeTests`(2 임무 코치 9단계), `MissionUnlockFlowPlayModeTests`, `BattleResultMissionFlowPlayModeTests`, `StickyKeysShortcutPlayModeTests`(비트 계산과 가드 하나. 테스트가 직접 설정을 바꾸지는 않는다).
+  - PlayMode: `LaneCyclePlayModeTests`(편성 시간 비용·남은 시간 조건·임무 2 무료 포함), `BattleBulletTimePlayModeTests`(넘기기의 풀림), `ResultMissionHudPlayModeTests`(2 임무 코치 9단계), `MissionUnlockFlowPlayModeTests`, `BattleResultMissionFlowPlayModeTests`, `StickyKeysShortcutPlayModeTests`(비트 계산과 가드 하나. 테스트가 직접 설정을 바꾸지는 않는다).

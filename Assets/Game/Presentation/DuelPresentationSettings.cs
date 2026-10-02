@@ -100,6 +100,8 @@ namespace TurnLimbo.Presentation
         private float battleDesaturation = 30f;
         [SerializeField, Range(0f, 1f), Tooltip("편성 중 화면에 씌우는 차가운 색의 세기. 확정하면 바로 돌아옵니다. 0이면 끕니다.")]
         private float battleCoolTint = 0.35f;
+        [SerializeField, Range(0f, 1f), Tooltip("넘기기로 편성 시간을 쓸 때 불릿타임이 잠깐 풀리는 시간(실제 초). 색과 대기 동작이 돌아오고 두 사람이 성큼 다가갑니다. 0이면 풀리지 않습니다.")]
+        private float battleCycleReleaseSeconds = 0.3f;
 
         [Header("타격 빛 — 실행 중 즉시 적용")]
         [SerializeField] private bool glowEnabled = true;
@@ -154,6 +156,7 @@ namespace TurnLimbo.Presentation
         public float BattlePoseSpeed => Safe(battlePoseSpeed, 0f, 1f, 0f);
         public float BattleDesaturation => Safe(battleDesaturation, 0f, 100f, 30f);
         public float BattleCoolTint => Safe(battleCoolTint, 0f, 1f, 0.35f);
+        public float BattleCycleReleaseSeconds => Safe(battleCycleReleaseSeconds, 0f, 1f, 0.3f);
         public bool GlowEnabled => glowEnabled;
         public float GlowIntensity => Safe(glowIntensity, 0f, 8f, 3f);
         public float GlowRadius => Safe(glowRadius, 0.1f, 3f, 1.1f);
@@ -189,6 +192,7 @@ namespace TurnLimbo.Presentation
             battleDriftSpeed = BattleDriftSpeed; battleStagingSeparation = BattleStagingSeparation;
             battleDriftMinimumSeparation = BattleDriftMinimumSeparation;
             battlePoseSpeed = BattlePoseSpeed; battleDesaturation = BattleDesaturation; battleCoolTint = BattleCoolTint;
+            battleCycleReleaseSeconds = BattleCycleReleaseSeconds;
             glowIntensity = GlowIntensity; glowRadius = GlowRadius; glowDuration = GlowDuration;
             bloomIntensity = BloomIntensity; bloomThreshold = BloomThreshold; flashExposure = FlashExposure;
         }

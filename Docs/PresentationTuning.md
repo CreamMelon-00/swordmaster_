@@ -42,6 +42,7 @@ Unity 상단 **Turn Limbo → 연출 튜닝 열기**를 누르면 `Assets/Game/R
 | 전투 불릿타임 | Battle Drift Minimum Separation | 5. 편성 중 다가가다 멈추는 간격(4~10). 그보다 가까우면 더 다가가지 않음(처음의 물러섬과는 별개) |
 | 전투 불릿타임 | Battle Pose Speed | 0. 편성 중 대기 동작 속도 배율. 0이면 자세를 붙잡음, 1이면 결투와 같음 |
 | 전투 불릿타임 | Battle Desaturation / Battle Cool Tint | 30 / 0.35. 편성 중 채도를 낮추는 정도와 푸른 색 필터 세기. 0으로 끄기; 확정하면 바로 돌아옴 |
+| 전투 불릿타임 | Battle Cycle Release Seconds | 실제 0.3초. 넘기기로 편성 시간을 쓸 때 불릿타임이 잠깐 풀리는 시간. 0으로 끄기 |
 | 빛 | Glow Enabled / Glow Intensity | 켜짐 / 3. 새로운 HDR 섬광·발광 강도 |
 | 빛 | Glow Radius / Glow Duration | 1.1 / 실제 0.14초. 타격점의 빛 크기와 수명 |
 | 빛 | Bloom Intensity / Bloom Threshold | 0.65 / 1.2. 밝은 파티클·발광이 주변으로 번지는 양과 기준 |
