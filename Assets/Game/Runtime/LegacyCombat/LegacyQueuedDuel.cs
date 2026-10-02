@@ -11,6 +11,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private const int MaximumAct = 10;
         private readonly LegacySkill[] initialPlayerSkills;
         private readonly LegacySkill[] enemyPattern;
+        // A turn-by-turn enemy (opening, then loop); null for the original skill cycle with per-turn action counts.
+        private readonly EnemyScript enemyScript;
         private readonly int[] enemyActionCounts;
         private readonly List<LegacySkill>[] lanes = { new List<LegacySkill>(), new List<LegacySkill>(), new List<LegacySkill>() };
         private readonly IReadOnlyList<LegacySkill>[] laneViews;
@@ -44,7 +46,24 @@ namespace TurnLimbo.Runtime.LegacyCombat
             IReadOnlyList<int> enemyTurnActionCounts, int randomSeed = 1,
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All)
+            : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills, enemySkills,
+                enemyTurnActionCounts, null, randomSeed, playerCounter, enemyCounter, features) { }
+
+        /// <summary>A duel whose enemy follows <paramref name="enemyScript"/> turn by turn.</summary>
+        public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
+            IReadOnlyList<LegacySkill> playerSkills, EnemyScript enemyScript, int randomSeed = 1,
+            LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
+            CombatFeature features = CombatFeature.All)
+            : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills,
+                (enemyScript ?? throw new ArgumentNullException(nameof(enemyScript))).AllSkills, enemyScript.TurnSizes,
+                enemyScript, randomSeed, playerCounter, enemyCounter, features) { }
+
+        private LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
+            IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
+            IReadOnlyList<int> enemyTurnActionCounts, EnemyScript enemyScript, int randomSeed,
+            LegacyCounter playerCounter, LegacyCounter enemyCounter, CombatFeature features)
         {
+            this.enemyScript = enemyScript;
             PlayerCounter = playerCounter;
             EnemyCounter = enemyCounter;
             if (!features.HasLane(0) && !features.HasLane(1) && !features.HasLane(2))
@@ -473,11 +492,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
             enemyBuffs.Clear();
             playerQueue.Clear();
             enemyQueue.Clear();
-            int count = enemyActionCounts[(RoundNumber - 1) % enemyActionCounts.Length];
-            for (int i = 0; i < count; i++)
+            if (enemyScript != null) enemyQueue.AddRange(enemyScript.Turn(RoundNumber));
+            else
             {
-                enemyQueue.Add(enemyPattern[enemyPatternIndex]);
-                enemyPatternIndex = (enemyPatternIndex + 1) % enemyPattern.Length;
+                int count = enemyActionCounts[(RoundNumber - 1) % enemyActionCounts.Length];
+                for (int i = 0; i < count; i++)
+                {
+                    enemyQueue.Add(enemyPattern[enemyPatternIndex]);
+                    enemyPatternIndex = (enemyPatternIndex + 1) % enemyPattern.Length;
+                }
             }
             committedPlayerQueue = committedEnemyQueue = null;
             CurrentSlot = null;

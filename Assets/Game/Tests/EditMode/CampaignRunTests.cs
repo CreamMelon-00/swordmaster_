@@ -149,7 +149,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void AllStages_IncreaseStatsAndEnemyPowerWithoutChangingPatternOrPlayerRecovery()
+        public void AllStages_IncreaseStatsAndEnemyPowerWithoutChangingPlayerRecovery()
         {
             var run = NewBattleRun();
             int rewardTotal = 0;
@@ -170,13 +170,16 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(duel.Player.Resistance, Is.EqualTo(50));
                 Assert.That(duel.Enemy.Health, Is.EqualTo(stage.EnemyHealth));
                 Assert.That(duel.Enemy.Resistance, Is.EqualTo(stage.EnemyResistance));
-                Assert.That(duel.EnemyQueue.Count, Is.EqualTo(2));
-                for (int index = 0; index < 2; index++)
+                // The first turn follows the stage's rhythm; every enemy skill carries the stage's power bonus.
+                EnemyScript script = CampaignEnemyRhythms.Script(stage.EnemyRhythm);
+                IReadOnlyList<LegacySkill> expected = script == null
+                    ? new[] { LegacyInitialSkills.All[0], LegacyInitialSkills.All[1] } : script.Turn(1);
+                Assert.That(duel.EnemyQueue.Count, Is.EqualTo(expected.Count), "Stage " + number);
+                for (int index = 0; index < expected.Count; index++)
                 {
-                    Assert.That(duel.EnemyQueue[index].MinPower,
-                        Is.EqualTo(LegacyInitialSkills.All[index].MinPower + stage.EnemyPowerBonus));
-                    Assert.That(duel.EnemyQueue[index].MaxPower,
-                        Is.EqualTo(LegacyInitialSkills.All[index].MaxPower + stage.EnemyPowerBonus));
+                    Assert.That(duel.EnemyQueue[index].Id, Is.EqualTo(expected[index].Id));
+                    Assert.That(duel.EnemyQueue[index].MinPower, Is.EqualTo(expected[index].MinPower + stage.EnemyPowerBonus));
+                    Assert.That(duel.EnemyQueue[index].MaxPower, Is.EqualTo(expected[index].MaxPower + stage.EnemyPowerBonus));
                 }
 
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);

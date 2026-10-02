@@ -83,20 +83,11 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(20));
         }
 
-        [TestCase(1, 5)]
-        [TestCase(2, 5)]
-        [TestCase(3, 7)]
-        [TestCase(8, 7)]
-        public void Campaign_GuardCounterHasAForecastedTargetFromStageThree(int stageNumber, int fifthSkillId)
+        [TestCase(1)]
+        [TestCase(2)]
+        public void Campaign_BasicStages_KeepTheOriginalCycle(int stageNumber)
         {
-            var run = new CampaignRun();
-            for (int cleared = 1; cleared < stageNumber; cleared++)
-            {
-                Assert.That(run.TryStartStage(cleared), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            }
-            Assert.That(run.TryStartStage(stageNumber), Is.True);
-            LegacyQueuedDuel duel = run.CreateDuel();
+            LegacyQueuedDuel duel = StageDuel(stageNumber);
             Assert.That(duel.EnemyQueue[0].Id, Is.EqualTo(1));
             Assert.That(duel.EnemyQueue[1].Id, Is.EqualTo(2));
             ResolveTurn(duel);
@@ -105,10 +96,44 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.EnemyQueue.Count, Is.EqualTo(3));
             Assert.That(duel.EnemyQueue[0].Id, Is.EqualTo(3));
             Assert.That(duel.EnemyQueue[1].Id, Is.EqualTo(4));
-            Assert.That(duel.EnemyQueue[2].Id, Is.EqualTo(fifthSkillId));
-            Assert.That(duel.EnemyQueue[2].Kind, Is.EqualTo(stageNumber >= 3 ? LegacySkillKind.Defence : LegacySkillKind.Attack));
-            Assert.That(duel.EnemyQueue[2].MinPower,
-                Is.EqualTo((stageNumber >= 3 ? 5 : 6) + stageNumber - 1));
+            Assert.That(duel.EnemyQueue[2].Id, Is.EqualTo(5));
+            Assert.That(duel.EnemyQueue[2].Kind, Is.EqualTo(LegacySkillKind.Attack));
+            Assert.That(duel.EnemyQueue[2].MinPower, Is.EqualTo(6 + stageNumber - 1));
+        }
+
+        // From stage three every enemy rhythm (CampaignEnemyRhythms) forecasts a guard within its first three turns,
+        // which gives the imported guard counter an actual opponent.
+        [TestCase(3)]
+        [TestCase(4)]
+        [TestCase(5)]
+        [TestCase(6)]
+        [TestCase(7)]
+        [TestCase(8)]
+        public void Campaign_GuardCounterHasAForecastedTargetFromStageThree(int stageNumber)
+        {
+            LegacyQueuedDuel duel = StageDuel(stageNumber);
+            EnemyScript script = CampaignEnemyRhythms.Script(CampaignEnemyRhythms.ForStage(stageNumber));
+            Assert.That(script, Is.Not.Null);
+            int firstGuardTurn = 0;
+            for (int turn = 3; turn >= 1; turn--)
+                foreach (LegacySkill skill in script.Turn(turn))
+                    if (skill.Kind == LegacySkillKind.Defence) firstGuardTurn = turn;
+            Assert.That(firstGuardTurn, Is.InRange(1, 3), "A guard is forecast early.");
+            for (int index = 0; index < duel.EnemyQueue.Count; index++)
+                Assert.That(duel.EnemyQueue[index].MinPower, Is.EqualTo(script.Turn(1)[index].MinPower + stageNumber - 1),
+                    "The stage's power bonus applies to scripted skills too.");
+        }
+
+        private static LegacyQueuedDuel StageDuel(int stageNumber)
+        {
+            var run = new CampaignRun();
+            for (int cleared = 1; cleared < stageNumber; cleared++)
+            {
+                Assert.That(run.TryStartStage(cleared), Is.True);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            }
+            Assert.That(run.TryStartStage(stageNumber), Is.True);
+            return run.CreateDuel();
         }
 
         [TestCase(true)]

@@ -329,17 +329,17 @@ namespace TurnLimbo.Runtime.Campaign
             foreach (List<CampaignOwnedSkill> lane in equippedLanes)
                 foreach (CampaignOwnedSkill owned in lane) playerSkills[index++] = owned.Skill;
 
-            var enemySkills = new LegacySkill[6];
-            for (int i = 0; i < enemySkills.Length; i++)
-            {
-                // From stage three, one forecasted guard in the six-action
-                // cycle gives the imported guard counter an actual opponent.
-                enemySkills[i] = WithStagePower(LegacyInitialSkills.All[CurrentStage.Number >= 3 && i == 4 ? 6 : i]);
-            }
             LegacyCounter enemyCounter = CurrentStage.EnemyCounterBasis == null ? null
                 : new LegacyCounter(WithStagePower(CurrentStage.EnemyCounterBasis), CurrentStage.EnemyCountersPerTurn);
 
             // Closed lanes keep their skills in the loadout; the duel leaves them out.
+            EnemyScript script = CampaignEnemyRhythms.Script(CurrentStage.EnemyRhythm);
+            if (script != null)
+                return new LegacyQueuedDuel(100, 50, CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
+                    playerSkills, script.Select(WithStagePower), randomSeed, enemyCounter: enemyCounter, features: Features);
+            // The basic rhythm: the six basic skills in order, 2→3→2→1 actions a turn.
+            var enemySkills = new LegacySkill[6];
+            for (int i = 0; i < enemySkills.Length; i++) enemySkills[i] = WithStagePower(LegacyInitialSkills.All[i]);
             return new LegacyQueuedDuel(100, 50, CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
                 playerSkills, enemySkills, new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter, features: Features);
         }
@@ -588,6 +588,8 @@ namespace TurnLimbo.Runtime.Campaign
         public int Reward { get; }
         /// <summary>결투 or 전투: how the fight is presented (never shown, no rule effect). Every stage is 전투 for now.</summary>
         public EncounterKind Encounter => EncounterKind.Battle;
+        /// <summary>How this stage's enemy spends its turns (internal; never named on screen).</summary>
+        public CampaignEnemyRhythm EnemyRhythm => CampaignEnemyRhythms.ForStage(Number);
     }
 
     /// <summary>A skill the player owns. Upgrades are paused; a future system will grow skills with use.</summary>
