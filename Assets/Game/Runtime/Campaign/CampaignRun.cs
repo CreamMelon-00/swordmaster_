@@ -84,6 +84,14 @@ namespace TurnLimbo.Runtime.Campaign
         /// <summary>Whether the lane's skills go to battle. Closed lanes keep their saved skills for later.</summary>
         public bool IsLaneOpen(int laneIndex) => Features.HasLane(laneIndex);
 
+        /// <summary>Whether the curriculum exists for the player: only once every lane is open (the story opens W, the
+        /// last one, with mission 8; outside the story everything is open). While it is closed, selecting and resetting
+        /// are refused and battles count toward nothing; saved progress is kept as it is for the day it opens.</summary>
+        public bool IsCurriculumOpen => OpensCurriculum(Features);
+
+        /// <summary>Whether these features open the curriculum: all three lanes.</summary>
+        public static bool OpensCurriculum(CombatFeature features) => features.LaneCount() == 3;
+
         /// <summary>An unlocked stage that still waits for a story mission.</summary>
         public bool IsStageWaitingForMission(int stageNumber)
             => IsValidStage(stageNumber) && stageNumber <= HighestUnlockedStage && stageNumber > StageLimit;
@@ -273,13 +281,14 @@ namespace TurnLimbo.Runtime.Campaign
                 && outcome != DuelMatchOutcome.Draw) return false;
             // The node this battle completes must find its techniques in the sheet. They are looked up before anything
             // changes, so a sheet without one stops here with the sheet's own error and a retry cannot count the battle twice.
-            CurriculumNode completing = curriculum.CompletesNext;
+            CurriculumNode completing = IsCurriculumOpen ? curriculum.CompletesNext : null;
             if (completing != null)
                 foreach (int skillId in completing.SkillIds) _ = LegacySkillDefinitions.Skill(skillId);
 
             LastOutcome = outcome;
-            // Every finished battle counts toward the node in progress, as days pass in a national focus.
-            LastCompletedCurriculumNode = curriculum.RecordBattle();
+            // Every finished battle counts toward the node in progress, as days pass in a national focus. A closed
+            // curriculum counts nothing, even a node an older save left in progress.
+            LastCompletedCurriculumNode = IsCurriculumOpen ? curriculum.RecordBattle() : null;
             if (LastCompletedCurriculumNode != null) GrantSkills(LastCompletedCurriculumNode);
             if (outcome != DuelMatchOutcome.PlayerVictory)
             {
@@ -313,14 +322,15 @@ namespace TurnLimbo.Runtime.Campaign
             return true;
         }
 
-        /// <summary>Makes the node the one in progress (lobby or maintenance). The choice can still change until a battle counts.</summary>
-        public bool TrySelectCurriculumNode(string nodeId) => CanEditLoadout && curriculum.TrySelect(nodeId);
+        /// <summary>Makes the node the one in progress (lobby or maintenance, curriculum open). The choice can still
+        /// change until a battle counts.</summary>
+        public bool TrySelectCurriculumNode(string nodeId) => IsCurriculumOpen && CanEditLoadout && curriculum.TrySelect(nodeId);
 
-        /// <summary>Clears the whole curriculum (lobby or maintenance): completed nodes, the node in progress and every skill they
-        /// granted. Saved lanes that lose a skill are refilled with that lane's starting skills.</summary>
+        /// <summary>Clears the whole curriculum (lobby or maintenance, curriculum open): completed nodes, the node in
+        /// progress and every skill they granted. Saved lanes that lose a skill are refilled with that lane's starting skills.</summary>
         public bool TryResetCurriculum()
         {
-            if (!CanEditLoadout || curriculum.CompletedCount == 0 && curriculum.Active == null) return false;
+            if (!IsCurriculumOpen || !CanEditLoadout || curriculum.CompletedCount == 0 && curriculum.Active == null) return false;
             curriculum.Reset();
             LastCompletedCurriculumNode = null;
             ownedSkills.RemoveAll(owned => !IsStartingSkill(owned.SkillId));
@@ -398,7 +408,9 @@ namespace TurnLimbo.Runtime.Campaign
         }
 
         /// <summary>Replaces this run with a saved state, back in the lobby with the saved loadout as the draft.
-        /// The whole save is checked first; when it breaks a rule nothing changes and <paramref name="error"/> says why.</summary>
+        /// The whole save is checked first; when it breaks a rule nothing changes and <paramref name="error"/> says why.
+        /// Curriculum progress is restored whether or not the curriculum is open (an older save may hold some before
+        /// mission 8); a closed curriculum keeps it untouched until it opens.</summary>
         public bool TryRestore(CampaignSave save, out string error)
         {
             error = ValidateSave(save);

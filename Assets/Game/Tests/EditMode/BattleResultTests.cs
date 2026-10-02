@@ -94,6 +94,25 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void ClosedCurriculum_IsMarkedAndCarriesNoProgress()
+        {
+            Assert.That(Create().CurriculumOpen, Is.True, "Results report the curriculum unless told it is closed.");
+            var closed = new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 60, 60, 2, 90, 0, true, 2, true,
+                curriculumOpen: false);
+            Assert.That(closed.CurriculumOpen, Is.False);
+            Assert.That(closed.CompletedCurriculumNode, Is.Null);
+            Assert.That(new BattleResult(DuelMatchOutcome.PlayerVictory, true, 5, "기교 검술", 0, 0, 2, 90, 0, false, 0, true,
+                curriculumOpen: false).CurriculumOpen, Is.False, "Missions say it too.");
+            CurriculumNode node = CampaignCurriculum.Default.Find("horizontal-cut");
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
+                0, 0, 3, 10, 10, false, 0, false, completedCurriculumNode: node, curriculumOpen: false));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
+                0, 0, 3, 10, 10, false, 0, false, activeCurriculumNode: node, curriculumOpen: false));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
+                0, 0, 3, 10, 10, false, 0, false, curriculumFinished: true, curriculumOpen: false));
+        }
+
+        [Test]
         public void NewUnlock_RequiresFirstClearAndHigherStage()
         {
             Assert.Throws<ArgumentException>(() => Create(unlockedStageNumber: 2));

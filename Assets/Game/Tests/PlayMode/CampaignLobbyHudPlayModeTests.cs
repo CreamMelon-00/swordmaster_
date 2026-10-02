@@ -2,6 +2,7 @@ using System.Collections;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
@@ -344,6 +345,50 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Home));
                 Assert.That(hud.SelectedStageNumber, Is.EqualTo(1));
                 Assert.That(TryFindText(hud, "Outcome Banner"), Is.Null);
+            }
+            Object.Destroy(parent);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ClosedCurriculum_HasNoTabLinkOrProgressLine_AndItsPageGivesWayToHome()
+        {
+            yield return null;
+            var parent = new GameObject("Lobby Closed Curriculum Test");
+            var run = new CampaignRun();
+            using (var hud = CreateHud(parent))
+            {
+                hud.Show(run);
+                hud.ShowTab(LobbyTab.Curriculum);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
+
+                // A story session before mission 8: the remembered curriculum page gives way to Home.
+                run.SetProgression(CombatFeature.LaneQ | CombatFeature.LaneE | CombatFeature.Cycle, int.MaxValue);
+                Assert.That(run.IsCurriculumOpen, Is.False);
+                hud.Show(run);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Home));
+                Assert.That(TryFindButton(hud, "Tab Curriculum"), Is.Null);
+                Assert.That(TryFindButton(hud, "Home Open Curriculum"), Is.Null);
+                Assert.That(TryFindText(hud, "Header Curriculum"), Is.Null);
+                Assert.That(FindRect(hud, "Tab Loadout").anchoredPosition.x, Is.EqualTo(130f), "The other tabs keep their places.");
+                hud.ShowTab(LobbyTab.Curriculum);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Home), "Its page cannot be opened.");
+                foreach (LobbyTab tab in new[] { LobbyTab.Home, LobbyTab.Stages, LobbyTab.Loadout })
+                {
+                    hud.ShowTab(tab);
+                    foreach (Text text in hud.Root.GetComponentsInChildren<Text>())
+                        Assert.That(text.text, Does.Not.Contain("커리큘럼"), tab + ": " + text.name);
+                }
+                hud.ShowTab(LobbyTab.Stages);
+                Assert.That(TryFindText(hud, "Selected Stage Curriculum"), Is.Null);
+                Assert.That(FindButton(hud, "Start Selected Stage").interactable, Is.True, "Stages are unaffected.");
+
+                run.ClearProgression();
+                hud.Show(run);
+                Assert.That(FindButton(hud, "Tab Curriculum").GetComponentInChildren<Text>().text, Is.EqualTo("커리큘럼"));
+                Assert.That(FindText(hud, "Selected Stage Curriculum").text, Is.EqualTo("커리큘럼  진행 중인 과정 없음"));
+                hud.ShowTab(LobbyTab.Curriculum);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
             }
             Object.Destroy(parent);
             yield return null;

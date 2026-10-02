@@ -17,6 +17,13 @@ namespace TurnLimbo.Presentation
         private readonly Text heading, stage, rounds, playerHealth, enemyHealth, curriculum, curriculumDetail, notice;
         private readonly Button lobbyButton, retryButton, nextButton;
         private readonly Text retryCaption, lobbyCaption, nextCaption;
+        // The curriculum row is its panel and the gap under it. While the curriculum is closed the panel goes and the
+        // card closes up around it, half from above and half from below.
+        private const float CurriculumRowHeight = 114f, NoticeY = -161f, ActionY = -255f;
+        private readonly RectTransform cardBorder, cardSurface, curriculumPanel;
+        private readonly RectTransform[] upperRows;
+        private readonly float[] upperRowY;
+        private float actionY = ActionY;
         private bool disposed;
         private static readonly Color Surface = DuelVisualTheme.Surface;
         private static readonly Color Raised = DuelVisualTheme.RaisedSurface;
@@ -52,13 +59,22 @@ namespace TurnLimbo.Presentation
             DuelVisualTheme.DressPanel(card);
             heading = Label("Result Heading", card.transform, Vector2.up * 238f, new Vector2(760f, 76f), 58);
             stage = Label("Result Stage", card.transform, Vector2.up * 179f, new Vector2(760f, 42f), 23, Muted);
-            Panel("Result Rule", card.transform, Vector2.up * 144f, new Vector2(736f, 2f), Border);
+            var rule = Panel("Result Rule", card.transform, Vector2.up * 144f, new Vector2(736f, 2f), Border);
             rounds = Statistic(card.transform, "Result Rounds", "진행 턴", -248f);
             playerHealth = Statistic(card.transform, "Result Player HP", "내 남은 HP", 0f);
             enemyHealth = Statistic(card.transform, "Result Enemy HP", "상대 남은 HP", 248f);
+            cardBorder = border.rectTransform;
+            cardSurface = card.rectTransform;
+            upperRows = new[]
+            {
+                heading.rectTransform, stage.rectTransform, rule.rectTransform, (RectTransform)rounds.transform.parent,
+                (RectTransform)playerHealth.transform.parent, (RectTransform)enemyHealth.transform.parent,
+            };
+            upperRowY = Array.ConvertAll(upperRows, row => row.anchoredPosition.y);
             // Currency is hidden while it has no use; this panel reports the curriculum instead.
             var progress = Panel("Result Curriculum Panel", card.transform, new Vector2(0f, -61f),
                 new Vector2(736f, 104f), Raised);
+            curriculumPanel = progress.rectTransform;
             DuelVisualTheme.Frame(progress);
             Label("Result Curriculum Heading", progress.transform, new Vector2(-210f, 27f), new Vector2(300f, 28f), 18, Muted).text = "커리큘럼";
             curriculum = Label("Result Curriculum", progress.transform, new Vector2(-210f, -14f), new Vector2(300f, 48f), 30, Gold);
@@ -66,12 +82,12 @@ namespace TurnLimbo.Presentation
             curriculum.resizeTextMinSize = 20;
             curriculum.resizeTextMaxSize = 30;
             curriculumDetail = Label("Result Curriculum Detail", progress.transform, new Vector2(170f, 0f), new Vector2(360f, 72f), 19);
-            notice = Label("Result Notice", card.transform, new Vector2(0f, -161f), new Vector2(736f, 78f), 20, Muted);
-            lobbyButton = ActionButton("Result Lobby", card.transform, "로비로", new Vector2(-248f, -255f), returnToLobby);
-            retryButton = ActionButton("Result Retry", card.transform, "재도전", new Vector2(0f, -255f), retry);
+            notice = Label("Result Notice", card.transform, new Vector2(0f, NoticeY), new Vector2(736f, 78f), 20, Muted);
+            lobbyButton = ActionButton("Result Lobby", card.transform, "로비로", new Vector2(-248f, ActionY), returnToLobby);
+            retryButton = ActionButton("Result Retry", card.transform, "재도전", new Vector2(0f, ActionY), retry);
             retryCaption = retryButton.GetComponentInChildren<Text>();
             lobbyCaption = lobbyButton.GetComponentInChildren<Text>();
-            nextButton = ActionButton("Result Next Stage", card.transform, "다음 스테이지", new Vector2(248f, -255f), nextStage, true);
+            nextButton = ActionButton("Result Next Stage", card.transform, "다음 스테이지", new Vector2(248f, ActionY), nextStage, true);
             nextCaption = nextButton.GetComponentInChildren<Text>();
             Hide();
         }
@@ -95,6 +111,7 @@ namespace TurnLimbo.Presentation
             rounds.text = result.RoundNumber.ToString();
             playerHealth.text = Mathf.Max(0, result.PlayerHealth).ToString();
             enemyHealth.text = Mathf.Max(0, result.EnemyHealth).ToString();
+            LayoutCurriculumRow(result.CurriculumOpen);
             ShowCurriculum(result);
             // A mission's exits open the next briefing, or the lobby once the arc is over.
             bool toLobby = result.IsMission && (missionExitsToLobby ?? result.Victory && result.StageNumber >= PrologueMissions.Count);
@@ -113,11 +130,24 @@ namespace TurnLimbo.Presentation
             // The visible actions stay evenly spaced.
             bool three = showLobby && result.CanAdvance;
             float left = three ? -248f : -132f;
-            lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(left, -255f);
+            lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(left, actionY);
             retryButton.GetComponent<RectTransform>().anchoredPosition =
-                new Vector2(!showLobby ? left : three ? 0f : 132f, -255f);
-            nextButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(three ? 248f : 132f, -255f);
+                new Vector2(!showLobby ? left : three ? 0f : 132f, actionY);
+            nextButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(three ? 248f : 132f, actionY);
             ClearSelection();
+        }
+
+        /// <summary>Shows the curriculum row, or closes the card up without it while the curriculum is closed.</summary>
+        private void LayoutCurriculumRow(bool shown)
+        {
+            float closeUp = shown ? 0f : CurriculumRowHeight * .5f;
+            curriculumPanel.gameObject.SetActive(shown);
+            cardBorder.sizeDelta = new Vector2(844f, 654f - 2f * closeUp);
+            cardSurface.sizeDelta = new Vector2(840f, 650f - 2f * closeUp);
+            for (int row = 0; row < upperRows.Length; row++)
+                upperRows[row].anchoredPosition = new Vector2(upperRows[row].anchoredPosition.x, upperRowY[row] - closeUp);
+            notice.rectTransform.anchoredPosition = new Vector2(0f, NoticeY + closeUp);
+            actionY = ActionY + closeUp;
         }
 
         public void Hide()
@@ -155,7 +185,9 @@ namespace TurnLimbo.Presentation
                 return !result.Victory
                     ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 로비로 돌아갈 수 있습니다."
                         : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
-                    : result.StageNumber == PrologueMissions.Count ? "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
+                    : result.StageNumber == PrologueMissions.Count ? result.CurriculumOpen
+                        ? "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
+                        : "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 스테이지가 열립니다."
                     : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n여정을 계속하면 로비로 돌아갑니다."
                         : "임무를 완료했습니다.\n다음 임무로 넘어갈 수 있습니다."
                     : toLobby ? "「깨어남」은 이미 마쳤습니다.\n여정을 계속하면 로비로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
@@ -171,6 +203,12 @@ namespace TurnLimbo.Presentation
         private void ShowCurriculum(BattleResult result)
         {
             CurriculumNode completed = result.CompletedCurriculumNode, active = result.ActiveCurriculumNode;
+            if (!result.CurriculumOpen)
+            {
+                // The row is hidden (LayoutCurriculumRow); nothing in it is left to name the curriculum either.
+                curriculum.text = curriculumDetail.text = string.Empty;
+                return;
+            }
             if (result.IsMission)
             {
                 bool prologue = result.StageNumber <= PrologueMissions.Count;

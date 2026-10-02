@@ -12,11 +12,13 @@ namespace TurnLimbo.Runtime.Campaign
         /// <param name="activeCurriculumNode">The node still in progress after this battle, or null.</param>
         /// <param name="activeCurriculumBattles">Battles counted toward <paramref name="activeCurriculumNode"/>.</param>
         /// <param name="curriculumFinished">Whether no curriculum node is left to start after this battle.</param>
+        /// <param name="curriculumOpen">Whether the curriculum exists for the player yet (see
+        /// <see cref="CampaignRun.IsCurriculumOpen"/>). A closed one is never shown and reports no progress.</param>
         public BattleResult(DuelMatchOutcome outcome, bool isMission, int stageNumber, string stageName,
             int reward, int currency, int roundNumber, int playerHealth, int enemyHealth,
             bool firstClear, int unlockedStageNumber, bool canAdvance,
             CurriculumNode completedCurriculumNode = null, CurriculumNode activeCurriculumNode = null, int activeCurriculumBattles = 0,
-            bool curriculumFinished = false)
+            bool curriculumFinished = false, bool curriculumOpen = true)
         {
             if (outcome != DuelMatchOutcome.PlayerVictory && outcome != DuelMatchOutcome.EnemyVictory
                 && outcome != DuelMatchOutcome.Draw) throw new ArgumentOutOfRangeException(nameof(outcome));
@@ -41,6 +43,8 @@ namespace TurnLimbo.Runtime.Campaign
                 throw new ArgumentException("Only a victory can advance.", nameof(canAdvance));
             if (isMission && (completedCurriculumNode != null || activeCurriculumNode != null || curriculumFinished))
                 throw new ArgumentException("Opening-arc missions do not count toward the curriculum.", nameof(completedCurriculumNode));
+            if (!curriculumOpen && (completedCurriculumNode != null || activeCurriculumNode != null || curriculumFinished))
+                throw new ArgumentException("A closed curriculum has no progress to report.", nameof(curriculumOpen));
             if (activeCurriculumNode == null ? activeCurriculumBattles != 0
                     : activeCurriculumBattles < 0 || activeCurriculumBattles >= activeCurriculumNode.Battles)
                 throw new ArgumentOutOfRangeException(nameof(activeCurriculumBattles));
@@ -61,6 +65,7 @@ namespace TurnLimbo.Runtime.Campaign
             ActiveCurriculumNode = activeCurriculumNode;
             ActiveCurriculumBattles = activeCurriculumBattles;
             CurriculumFinished = curriculumFinished;
+            CurriculumOpen = curriculumOpen;
         }
 
         public DuelMatchOutcome Outcome { get; }
@@ -80,6 +85,8 @@ namespace TurnLimbo.Runtime.Campaign
         public CurriculumNode ActiveCurriculumNode { get; }
         public int ActiveCurriculumBattles { get; }
         public bool CurriculumFinished { get; }
+        /// <summary>Whether the curriculum was open when the battle ended; the result says nothing about it otherwise.</summary>
+        public bool CurriculumOpen { get; }
         public bool Victory => Outcome == DuelMatchOutcome.PlayerVictory;
         public bool CanRetry => true;
     }

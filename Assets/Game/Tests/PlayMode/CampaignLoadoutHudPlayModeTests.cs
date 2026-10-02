@@ -3,6 +3,7 @@ using System.Collections;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
@@ -90,6 +91,64 @@ namespace TurnLimbo.Presentation.Tests
                         Assert.That(graphic.raycastTarget, Is.False, "Decorations must not intercept card drags.");
                 foreach (Button button in fixture.Hud.Root.GetComponentsInChildren<Button>(true))
                     Assert.That(button.navigation.mode, Is.EqualTo(Navigation.Mode.None));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ClosedLanes_AreNotDrawn_OpenOnesPackAroundTheBlockCentre_AndTheFilterMovesToAnOpenLane()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                AssertColumns(fixture, new[] { "Q", "W", "E" }, new[] { -472f, -210f, 52f });
+                ClickSelectionOnly(fixture, "Loadout Lane W");
+                ClickSelectionOnly(fixture, "Loadout Owned Skill 3");
+                Assert.That(fixture.State.ActiveLane, Is.EqualTo(1));
+
+                // Q and E, as after mission 5: W leaves no gap, and the remembered W filter moves to the first open lane.
+                fixture.Run.SetProgression(CombatFeature.LaneQ | CombatFeature.LaneE | CombatFeature.Cycle, int.MaxValue);
+                fixture.Build();
+                Assert.That(fixture.State.ActiveLane, Is.Zero);
+                Assert.That(fixture.State.SelectedSkillId, Is.Zero, "A closed lane's skill is never explained.");
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("기술을 선택하세요"));
+                AssertColumns(fixture, new[] { "Q", "E" }, new[] { -341f, -79f });
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Heading W"), Is.Null);
+                for (int slot = 1; slot <= 3; slot++) Assert.That(TryNamed(fixture.Hud.Root, "Loadout Slot W " + slot), Is.Null);
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Lane W"), Is.Null);
+                Assert.That(Position(fixture.Hud.Root, "Loadout Lane Q").x, Is.EqualTo(-185f));
+                Assert.That(Position(fixture.Hud.Root, "Loadout Lane E").x, Is.EqualTo(-81f));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Owned Hint").text, Is.EqualTo("선택한 검술의 기술만 표시합니다"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  E 3/3"));
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(3));
+                ClickSelectionOnly(fixture, "Loadout Lane E");
+                Assert.That(fixture.State.ActiveLane, Is.EqualTo(2));
+                ClickSelectionOnly(fixture, "Loadout Lane Q");
+
+                // The fallback is the first open lane, not always Q.
+                fixture.Run.SetProgression(CombatFeature.LaneW | CombatFeature.LaneE, int.MaxValue);
+                fixture.Build();
+                Assert.That(fixture.State.ActiveLane, Is.EqualTo(1));
+                AssertColumns(fixture, new[] { "W", "E" }, new[] { -341f, -79f });
+                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("W 3/3  ·  E 3/3"));
+
+                // One lane: its column takes the block's centre and there is nothing to filter.
+                fixture.Run.SetProgression(CombatFeature.LaneQ | CombatFeature.Cycle, int.MaxValue);
+                fixture.Build();
+                Assert.That(fixture.State.ActiveLane, Is.Zero);
+                AssertColumns(fixture, new[] { "Q" }, new[] { -210f });
+                foreach (string lane in new[] { "Q", "W", "E" })
+                    Assert.That(TryNamed(fixture.Hud.Root, "Loadout Lane " + lane), Is.Null, lane + " filter");
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Owned Hint"), Is.Null);
+                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3"));
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(3));
+                DragCard(fixture, "Loadout Slot Q 1", "Loadout Slot Q 3");
+                Assert.That(fixture.Run.HasLoadoutChanges, Is.True, "The open lane is still edited by dragging.");
+                Button(fixture.Hud.Root, "Loadout Cancel").onClick.Invoke();
+
+                fixture.Run.ClearProgression();
+                fixture.Build();
+                AssertColumns(fixture, new[] { "Q", "W", "E" }, new[] { -472f, -210f, 52f });
+                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  W 3/3  ·  E 3/3"));
             }
         }
 
@@ -358,5 +417,29 @@ namespace TurnLimbo.Presentation.Tests
 
         private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
         private static Button Button(GameObject root, string name) => Named(root, name).GetComponent<Button>();
+        private static Vector2 Position(GameObject root, string name) => Named(root, name).GetComponent<RectTransform>().anchoredPosition;
+
+        private static Transform TryNamed(GameObject root, string name)
+        {
+            foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true)) if (candidate.name == name) return candidate;
+            return null;
+        }
+
+        /// <summary>Exactly these lanes are drawn, each heading and its three slots in one column at the given x.</summary>
+        private static void AssertColumns(Fixture fixture, string[] lanes, float[] xs)
+        {
+            int headings = 0;
+            foreach (Transform candidate in fixture.Hud.Root.GetComponentsInChildren<Transform>(true))
+                if (candidate.name.StartsWith("Loadout Heading ", StringComparison.Ordinal) && candidate.GetComponent<Text>() != null) headings++;
+            Assert.That(headings, Is.EqualTo(lanes.Length), "One heading per open lane.");
+            for (int index = 0; index < lanes.Length; index++)
+            {
+                Assert.That(Position(fixture.Hud.Root, "Loadout Heading " + lanes[index] + " Style Badge"),
+                    Is.EqualTo(new Vector2(xs[index], 252f)), lanes[index] + " heading");
+                for (int slot = 1; slot <= 3; slot++)
+                    Assert.That(Position(fixture.Hud.Root, "Loadout Slot " + lanes[index] + " " + slot),
+                        Is.EqualTo(new Vector2(xs[index], 189f - (slot - 1) * 94f)), lanes[index] + " slot " + slot);
+            }
+        }
     }
 }

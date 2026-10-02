@@ -26,14 +26,14 @@
 
 - 서막 1 임무 `첫 타격`을 처음 이기면 열린다(`CombatFeature.Cycle`). 결과 창 안내는 `넘기기(Shift)가 열렸습니다.` / `다음 임무가 열렸습니다.`다.
 - 1 임무 전투에는 넘기기가 없다. 2~4 임무 전투는 Q열과 넘기기를 쓴다. 수련 임무와 서막 뒤의 스테이지도 넘기기를 쓴다.
-- 2 임무의 코치는 ACT 안내 다음에 `Shift로 넘기세요` 단계를 둔다. 안내문에 "제한 시간이 흐를 때는 한 번에 1초를 씁니다"가 있다. 제한 시간이 처음 흐르는 4 임무의 소개에도 "넘기기도 한 번에 1초를 씁니다"를 덧붙였다. 이 단계는 Shift(또는 버튼)만 받고 예약과 확정을 막는다. 한 번 넘기면 자유 단계로 넘어간다. 첫 턴에 Q를 두 번 예약해 두 기술 열이 처음 순서로 돌아와 있으므로, 한 번 넘기면 예리한 베기가 앞으로 온다.
+- 2 임무의 코치는 ACT 안내 다음에 `Shift로 넘기세요` 단계를 둔다. 안내문에 "제한 시간이 흐를 때는 한 번에 1초를 씁니다"가 있다. 2 임무는 Q열 하나뿐이라 여러 열이 함께 돈다는 말은 하지 않는다(2026-10-02). 그 이야기는 두 열을 처음 쓰는 5 임무의 자유 단계가 `이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다.`로 한다. 제한 시간이 처음 흐르는 4 임무의 소개에도 "넘기기도 한 번에 1초를 씁니다"를 덧붙였다. 이 단계는 Shift(또는 버튼)만 받고 예약과 확정을 막는다. 한 번 넘기면 자유 단계로 넘어간다. 첫 턴에 Q를 두 번 예약해 두 기술 열이 처음 순서로 돌아와 있으므로, 한 번 넘기면 예리한 베기가 앞으로 온다.
 - 다른 코치 단계는 넘기기를 막고, 자유 단계에서만 허용한다(숨고르기·스텝과 같다).
 - 해금은 타이틀에서 시작한 게임에만 적용된다. 테스트나 API를 직접 부른 스테이지 전투에서는 처음부터 열려 있다(`StoryUnlocks.md`).
 
 ## 화면과 입력
 
 - 왼쪽·오른쪽 Shift 모두 된다. 누르고 있어도 한 번만 돈다.
-- 기술 카드 왼쪽, 숨고르기 버튼의 반대편(x -360)에 **넘기기** 버튼이 있다. 내용은 비용(`1초 소모`, 시계가 멈춰 있으면 `무료`), `모든 열 한 칸`, 키 `Shift`이고, 아래에 `맨 앞 기술을 쓰지 않고 / 뒤로 보냄`을 쓴다. 남은 시간이 모자라면(1.5초 미만) 누를 수 없다.
+- 기술 카드 왼쪽, 숨고르기 버튼의 반대편(x -360)에 **넘기기** 버튼이 있다. 내용은 비용(`1초 소모`, 시계가 멈춰 있으면 `무료`), 효과(`모든 열 한 칸`, 열이 하나뿐인 전투에서는 `맨 앞 한 칸`), 키 `Shift`이고, 아래에 `맨 앞 기술을 쓰지 않고 / 뒤로 보냄`을 쓴다. 남은 시간이 모자라면(1.5초 미만) 누를 수 없다.
 - 시간을 쓰면 위쪽 타이머 패널 바로 오른쪽에 붉은 `-1초`가 떠올랐다가 0.7초 만에 사라지고, 타이머 막대가 그만큼 줄어든다.
 - 전투(서막 밖)의 편성에서는 시간을 쓴 순간 불릿타임이 0.3초 풀린다. 색과 대기 동작이 돌아오고 두 사람이 성큼 다가간 뒤 다시 느려진다. 1초가 흘렀다는 것을 보여 주려는 것이다(`DuelAndBattle.md`).
 - 넘기기가 닫혀 있거나 코치가 아직 허용하지 않으면 버튼과 안내를 숨긴다. 확정 뒤와 적 확인 중에는 누를 수 없고, Tab을 떼는 프레임에 다시 누를 수 있다.
@@ -66,7 +66,7 @@ Windows는 기본 설정에서 Shift를 연달아 다섯 번 누르면 고정 �
 - Runtime `Prologue/MissionGuide`: `MissionGuideStepKind.Cycle`, `AllowsCycle`, `NotifyCycled`.
 - Runtime `Prologue/PrologueMissions`: 1 임무 `unlocks: Cycle`, 2~4 임무 `features: LaneQ | Cycle`. `LobbyMissions`의 임무 전투에도 `Cycle`이 들어 있다.
 - Presentation `DuelPrototypeController.CycleLanes()`와 `ReadPlanningInput`의 Shift. 비용은 `LaneCycleTimeCost`(1초), 지금 값은 `LaneCycleCost`(시계가 멈추면 0), 낼 수 있는지는 `CanAffordLaneCycle`이다. 시간을 쓰면 `LegacyCombatHud.ShowTimeSpent`와 `LegacyArenaView.BreakBulletTime`을 부른다.
-- Presentation `LegacyCombatHud`: 생성자의 마지막 인자 `cycleLanes`, `CycleButton`(비용 칸 `Time Cost`)과 `Cycle Note`, `SetLaneCycleCost`, 타이머의 `Time Spent`.
+- Presentation `LegacyCombatHud`: 생성자의 마지막 인자 `cycleLanes`, `CycleButton`(비용 칸 `Time Cost`, 열린 열 수를 따르는 효과 줄 `Effect`)과 `Cycle Note`, `SetLaneCycleCost`, 타이머의 `Time Spent`.
 - Presentation `StickyKeysShortcut`: user32 `SystemParametersInfo`(`SPI_GET/SETSTICKYKEYS`, `fWinIni` 0)로 단축키 비트(`SKF_HOTKEYACTIVE`·`SKF_CONFIRMHOTKEY`)를 끄고 되돌린다. 비트 계산은 `WithoutShortcut`/`WithShortcut`이다. `UNITY_STANDALONE_WIN`·`UNITY_EDITOR_WIN`에서만 P/Invoke를 컴파일한다.
 - Presentation `StickyKeysShortcutGuard`: 첫 씬 전에 스스로 만들어지는(`DontDestroyOnLoad`) 컴포넌트다. 포커스·종료·비활성화 때 끄고 되돌리며, 포커스가 있는 동안 아직 끄지 못했으면 0.5초마다 다시 시도한다.
 - 테스트

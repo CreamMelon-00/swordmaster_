@@ -8,7 +8,8 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Nine draft slots and one selected skill explanation. CampaignRun owns every loadout mutation.</summary>
+    /// <summary>Three draft slots for each open lane and one selected skill explanation. CampaignRun owns every loadout
+    /// mutation. A lane the story has not opened is not drawn at all; its saved skills wait in the run.</summary>
     public sealed class CampaignLoadoutHud : IDisposable
     {
         public sealed class ViewState
@@ -35,9 +36,12 @@ namespace TurnLimbo.Presentation
         private readonly Action<int, int, int> placeSkill;
         private readonly Action<int> removeSkill;
         private readonly Action save, reset;
+        // Closed lanes have no heading, slots or filter: their entries stay null.
         private readonly Card[,] slots = new Card[3, 3];
         private readonly SkillLaneBadge[] laneStyles = new SkillLaneBadge[3];
         private readonly Button[] laneFilters = new Button[3];
+        /// <summary>The open lanes in Q, W, E order: the columns, filters and counts this view shows.</summary>
+        private readonly int[] openLanes;
         private readonly List<Card> ownedCards = new List<Card>();
         private readonly Text detailName, detailRole, detailValues, detailEffect, damageHint, status, counts;
         private readonly SkillLaneBadge detailStyle;
@@ -54,6 +58,9 @@ namespace TurnLimbo.Presentation
         private static Color Foreground => DuelVisualTheme.Foreground;
         private static Color Muted => DuelVisualTheme.Muted;
         private static readonly string[] LaneNames = { "Q", "W", "E" };
+        // The lane block's centre and column pitch: open lanes are packed around the centre, so three lanes sit at
+        // -472 / -210 / 52, two at -341 / -79 and one at -210.
+        private const float LaneBlockCentre = -210f, LanePitch = 262f;
 
         public GameObject Root => root.gameObject;
         public ViewState State { get; }
@@ -70,13 +77,19 @@ namespace TurnLimbo.Presentation
             this.save = save;
             this.reset = reset;
             State = state ?? new ViewState();
+            var open = new List<int>();
+            for (int lane = 0; lane < 3; lane++) if (run.IsLaneOpen(lane)) open.Add(lane);
+            openLanes = open.ToArray();
+            // The remembered lane may be one this run has closed; the view then starts on the first open one.
             State.ActiveLane = Mathf.Clamp(State.ActiveLane, 0, 2);
+            if (!run.IsLaneOpen(State.ActiveLane)) State.ActiveLane = openLanes[0];
             root = Rect("Loadout Content", parent, Vector2.zero, Vector2.zero);
             Stretch(root);
 
-            for (int lane = 0; lane < 3; lane++)
+            for (int index = 0; index < openLanes.Length; index++)
             {
-                float x = -472f + lane * 262f;
+                int lane = openLanes[index];
+                float x = LaneBlockCentre + (index - (openLanes.Length - 1) * .5f) * LanePitch;
                 laneStyles[lane] = new SkillLaneBadge(root, art.UIFont, "Loadout Heading " + LaneNames[lane],
                     new Vector2(x, 252f), 242f, 32f, 22);
                 laneStyles[lane].SetLane(lane);
@@ -122,15 +135,19 @@ namespace TurnLimbo.Presentation
                 new Vector2(0f, -172f), new Vector2(190f, 34f), RemoveSelected);
 
             Label("Loadout Owned Heading", root, new Vector2(-479f, -124f), new Vector2(220f, 30f), 21).text = "보유 기술";
-            for (int lane = 0; lane < 3; lane++)
+            // One open lane has nothing to choose between, so the filter row and its hint appear from two lanes on.
+            if (openLanes.Length > 1)
             {
-                int selectedLane = lane;
-                laneFilters[lane] = ActionButton("Loadout Lane " + LaneNames[lane], root,
-                    LaneNames[lane] + " " + SkillLaneStyle.Name(lane),
-                    new Vector2(-185f + lane * 104f, -124f), new Vector2(90f, 32f), () => SelectLane(selectedLane));
+                for (int index = 0; index < openLanes.Length; index++)
+                {
+                    int selectedLane = openLanes[index];
+                    laneFilters[selectedLane] = ActionButton("Loadout Lane " + LaneNames[selectedLane], root,
+                        LaneNames[selectedLane] + " " + SkillLaneStyle.Name(selectedLane),
+                        new Vector2(-185f + index * 104f, -124f), new Vector2(90f, 32f), () => SelectLane(selectedLane));
+                }
+                Label("Loadout Owned Hint", root, new Vector2(394f, -134f), new Vector2(396f, 24f), 15, Muted,
+                    TextAnchor.MiddleRight).text = "선택한 검술의 기술만 표시합니다";
             }
-            Label("Loadout Owned Hint", root, new Vector2(394f, -134f), new Vector2(396f, 24f), 15, Muted,
-                TextAnchor.MiddleRight).text = "선택한 검술의 기술만 표시합니다";
             var collection = Rect("Loadout Collection", root, new Vector2(0f, -222f), new Vector2(1200f, 126f));
             var scroll = collection.gameObject.AddComponent<ScrollRect>();
             var viewport = Panel("Loadout Collection Viewport", collection, Vector2.zero, new Vector2(1200f, 126f), Color.clear);
@@ -161,10 +178,11 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             ReconcileSelection();
-            for (int lane = 0; lane < 3; lane++)
+            foreach (int lane in openLanes)
             {
                 laneStyles[lane].SetSelected(State.ActiveLane == lane);
-                laneFilters[lane].GetComponent<Image>().color = State.ActiveLane == lane ? Selected : CardColor;
+                if (laneFilters[lane] != null)
+                    laneFilters[lane].GetComponent<Image>().color = State.ActiveLane == lane ? Selected : CardColor;
                 for (int slot = 0; slot < 3; slot++)
                 {
                     CampaignOwnedSkill owned = run.GetLoadoutSlot(lane, slot);
@@ -175,12 +193,8 @@ namespace TurnLimbo.Presentation
                     card.Icon.sprite = owned == null ? null : art.GetSkillIcon(owned.Skill.IconId);
                     card.Name.text = owned?.Skill.Name ?? "빈 슬롯";
                     card.Name.color = owned == null ? Muted : Foreground;
-                    // A lane the story has not opened keeps its skills for later; they stay put and do not fight.
-                    bool open = run.IsLaneOpen(lane);
-                    card.Cost.text = !open ? "임무로 열림" : owned == null ? string.Empty : "ACT " + owned.Skill.Cost;
-                    if (!open) card.Name.color = Muted;
-                    card.Background.color = !open ? DuelVisualTheme.Track
-                        : State.ActiveLane == lane && State.SelectedSlot == slot ? Selected : CardColor;
+                    card.Cost.text = owned == null ? string.Empty : "ACT " + owned.Skill.Cost;
+                    card.Background.color = State.ActiveLane == lane && State.SelectedSlot == slot ? Selected : CardColor;
                 }
             }
             if (builtLane != State.ActiveLane || builtOwnedCount != run.OwnedSkills.Count) BuildOwnedCards();
@@ -192,11 +206,14 @@ namespace TurnLimbo.Presentation
                 card.Background.color = State.SelectedSkillId == card.SkillId ? Selected : CardColor;
             }
             RefreshDetail();
-            counts.text = $"Q {LaneCount(0)}  ·  W {LaneCount(1)}  ·  E {LaneCount(2)}";
-            string missing = string.Empty;
-            for (int lane = 0; lane < 3; lane++)
-                if (run.IsLaneOpen(lane) && run.GetLoadoutCount(lane) < 3)
+            string laneCounts = string.Empty, missing = string.Empty;
+            foreach (int lane in openLanes)
+            {
+                laneCounts += (laneCounts.Length > 0 ? "  ·  " : string.Empty) + LaneNames[lane] + " " + run.GetLoadoutCount(lane) + "/3";
+                if (run.GetLoadoutCount(lane) < 3)
                     missing += (missing.Length > 0 ? " · " : string.Empty) + LaneNames[lane] + " " + (3 - run.GetLoadoutCount(lane)) + "개 부족";
+            }
+            counts.text = laneCounts;
             status.text = !run.HasLoadoutChanges ? "저장된 편성"
                 : missing.Length > 0 ? "저장 전 변경 · " + missing : "저장 전 변경 · 저장하면 전투에 반영됩니다";
             saveButton.interactable = run.CanSaveLoadout && run.HasLoadoutChanges;
@@ -307,7 +324,7 @@ namespace TurnLimbo.Presentation
         private void SelectOwned(int skillId)
         {
             CampaignOwnedSkill owned = FindOwned(skillId);
-            if (disposed || owned == null) return;
+            if (disposed || owned == null || !run.IsLaneOpen(owned.Skill.LaneIndex)) return;
             State.ActiveLane = owned.Skill.LaneIndex;
             State.SelectedSkillId = skillId;
             State.SelectedSlot = -1;
@@ -354,8 +371,6 @@ namespace TurnLimbo.Presentation
             reset?.Invoke();
             if (!disposed) Refresh();
         }
-
-        private string LaneCount(int lane) => run.IsLaneOpen(lane) ? run.GetLoadoutCount(lane) + "/3" : "잠김";
 
         internal bool BeginDrag(int skillId, int lane, int slot, PointerEventData pointer)
         {

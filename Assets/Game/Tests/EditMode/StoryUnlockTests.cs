@@ -206,6 +206,96 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void Curriculum_OpensWithTheLastLane_WhichMissionEightsWinBrings()
+        {
+            Assert.That(CampaignRun.OpensCurriculum(CombatFeature.All), Is.True);
+            Assert.That(CampaignRun.OpensCurriculum(CombatFeature.LaneQ | CombatFeature.LaneW | CombatFeature.LaneE), Is.True,
+                "Only the lanes count.");
+            Assert.That(CampaignRun.OpensCurriculum(CombatFeature.All & ~CombatFeature.LaneW), Is.False);
+            Assert.That(StoryMissions.Get(8).Unlocks, Is.EqualTo(CombatFeature.LaneW));
+            var story = new PrologueRun();
+            for (int cleared = 0; cleared <= story.MissionCount; cleared++)
+            {
+                Assert.That(story.TryRestore(cleared), Is.True);
+                Assert.That(CampaignRun.OpensCurriculum(story.UnlockedFeatures), Is.EqualTo(cleared >= 8),
+                    cleared + " missions won");
+            }
+            Assert.That(new CampaignRun().IsCurriculumOpen, Is.True, "Outside the story everything is open.");
+
+            // Mission 8 says so, in its objective and in what its win announces.
+            PrologueMission eight = StoryMissions.Get(8);
+            Assert.That(eight.Objectives.Last(), Is.EqualTo("완료하면 W열과 커리큘럼이 열린다"));
+            Assert.That(eight.UnlockText, Does.Contain("W열").And.Contain("커리큘럼"));
+            foreach (PrologueMission mission in StoryMissions.All.Where(mission => mission.Number != 8))
+            {
+                foreach (string objective in mission.Objectives) Assert.That(objective, Does.Not.Contain("커리큘럼"), mission.Title);
+                Assert.That(mission.UnlockText ?? string.Empty, Does.Not.Contain("커리큘럼"), mission.Title);
+            }
+        }
+
+        [Test]
+        public void ClosedCurriculum_RefusesChoicesAndCountsNoBattle_ButKeepsSavedProgressUntilItOpens()
+        {
+            const CombatFeature beforeW = CombatFeature.All & ~CombatFeature.LaneW & ~CombatFeature.Pressure;
+            var run = new CampaignRun();
+            run.SetProgression(beforeW, int.MaxValue);
+            Assert.That(run.IsCurriculumOpen, Is.False);
+            Assert.That(run.Curriculum.CanSelect("horizontal-cut"), Is.True, "The tree itself is unchanged…");
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False, "…but the run refuses every choice.");
+            Assert.That(run.Curriculum.Active, Is.Null);
+            Assert.That(run.TryResetCurriculum(), Is.False);
+            int owned = run.OwnedSkills.Count;
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
+            Assert.That(run.Curriculum.CompletedCount, Is.Zero);
+            Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(owned), "A battle grants nothing.");
+            Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False, "Not in maintenance either.");
+            Assert.That(run.ReturnToLobby(), Is.True);
+
+            // An older save may hold progress made before the curriculum waited for mission 8.
+            var played = new CampaignRun();
+            Assert.That(played.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Assert.That(played.TryStartStage(1), Is.True);
+            Assert.That(played.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(played.ReturnToLobby(), Is.True);
+            Assert.That(played.TrySelectCurriculumNode("diagonal-cut"), Is.True);
+            CampaignSave save = played.CaptureSave();
+            Assert.That(run.TryRestore(save, out string error), Is.True, error);
+            Assert.That(run.IsCurriculumOpen, Is.False, "A restore leaves the story's features alone.");
+            CollectionAssert.AreEqual(new[] { "horizontal-cut" }, run.Curriculum.Completed, "The saved progress is kept…");
+            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"));
+            Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 14), Is.True, "…with the skill it already granted.");
+            Assert.That(run.TrySelectCurriculumNode("advance"), Is.False);
+            Assert.That(run.TryResetCurriculum(), Is.False);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
+            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
+            Assert.That(run.Curriculum.IsCompleted("diagonal-cut"), Is.False, "The node in progress waits, untouched.");
+            Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
+            Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 15), Is.False);
+            Assert.That(run.ReturnToLobby(), Is.True);
+            CampaignSave again = run.CaptureSave();
+            CollectionAssert.AreEqual(save.CurriculumCompleted, again.CurriculumCompleted, "Saving keeps it as it was.");
+            Assert.That(again.CurriculumActive, Is.EqualTo("diagonal-cut"));
+            Assert.That(again.CurriculumBattles, Is.Zero);
+
+            // Mission 8's W lane opens it, and the waiting node counts from the next battle.
+            run.SetProgression(beforeW | CombatFeature.LaneW, int.MaxValue);
+            Assert.That(run.IsCurriculumOpen, Is.True);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("diagonal-cut"));
+            Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 15), Is.True);
+            Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("advance"), Is.True);
+            Assert.That(run.TryResetCurriculum(), Is.True);
+            Assert.That(run.Curriculum.CompletedCount, Is.Zero);
+        }
+
+        [Test]
         public void Guide_BreatheAndStepBeatsWaitForTheirInputOrTheNextTurn()
         {
             var guide = new MissionGuide(new[]

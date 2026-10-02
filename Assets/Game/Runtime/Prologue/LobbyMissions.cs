@@ -48,7 +48,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기교를 지켜보세요",
                         "기술마다 효과가 붙는 조건이 다릅니다. Q나 E를 길게 누르면 설명을 볼 수 있습니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "두 열로 승리하세요",
-                        "Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요.", "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 상대 확인 · Escape 임무 포기"),
+                        "이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다. Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요.", "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 상대 확인 · Escape 임무 포기"),
                 },
                 AfterLaneE, CombatFeature.LaneE, 1, Chapter, "E열 기교 검술이 열렸습니다. 스테이지에서도 E열을 씁니다."),
             // 6. 숨고르기: skip a slot without ACT so a skill lands where its condition is met. Opens after stage 2.
@@ -92,9 +92,10 @@ namespace TurnLimbo.Runtime.Prologue
                         "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · Escape"),
                 },
                 AfterDodge, CombatFeature.Dodge, 3, Chapter, "회피(A)가 열렸습니다."),
-            // 8. W열 (강공): costly, powerful skills. Opens after stage 4.
+            // 8. W열 (강공): costly, powerful skills. Opens after stage 4. With W every lane is open, so its win also opens
+            // the curriculum (CampaignRun.IsCurriculumOpen).
             new PrologueMission(8, "강공 검술", Forest,
-                new[] { "강공 검술로 큰 피해를 준다", "떠돌이 기사를 쓰러뜨린다", "완료하면 W열이 열린다" },
+                new[] { "강공 검술로 큰 피해를 준다", "떠돌이 기사를 쓰러뜨린다", "완료하면 W열과 커리큘럼이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 70, 18, new MissionSkill[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard, PracticeSlash }, new[] { 3, 3, 2 },
                 Concat(Concat(LaneQ, LaneW), LaneE), true, new[]
@@ -111,7 +112,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "세 열을 모두 써서 떠돌이 기사를 쓰러뜨리세요.",
                         "Q/W/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · Escape"),
                 },
-                AfterLaneW, CombatFeature.LaneW, 4, Chapter, "W열 강공 검술이 열렸습니다."),
+                AfterLaneW, CombatFeature.LaneW, 4, Chapter, "W열 강공 검술이 열렸습니다. 커리큘럼도 열렸습니다."),
             // 9. 압박 (D): press a strike at the chosen moment for extra damage. Opens after stage 5.
             new PrologueMission(9, "몰아붙이기", Forest,
                 new[] { "내 공격을 밀어붙여 큰 피해를 넣는다", "떠돌이 기사를 쓰러뜨린다", "완료하면 압박이 열린다" },

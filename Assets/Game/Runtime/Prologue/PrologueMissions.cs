@@ -87,7 +87,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "턴이 바뀌면 ACT가 3 회복되고, {기술:1:를} 쓰면 1 더 회복합니다. 남은 ACT는 다음 턴으로 이어지며 최대 10까지 모입니다.",
                         Continue, focusAct: true),
                     new MissionGuideBeat(MissionGuideStepKind.Cycle, "Shift로 넘기세요",
-                        "Shift를 누르면 열의 맨 앞 기술을 쓰지 않고 뒤로 보냅니다. ACT는 들지 않지만, 제한 시간이 흐를 때는 한 번에 1초를 씁니다. 열이 여럿이면 모든 열이 함께 돌아갑니다. {기술:2:를} 앞으로 가져오세요.",
+                        "Shift를 누르면 열의 맨 앞 기술을 쓰지 않고 뒤로 보냅니다. ACT는 들지 않지만, 제한 시간이 흐를 때는 한 번에 1초를 씁니다. {기술:2:를} 앞으로 가져오세요.",
                         "Shift / 넘기기 버튼"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "무너진 틈을 노리세요",
                         "필요한 기술을 넘겨 가며 저항이 무너진 상대에게 공격을 몰아 넣으세요.", FreeKeys),

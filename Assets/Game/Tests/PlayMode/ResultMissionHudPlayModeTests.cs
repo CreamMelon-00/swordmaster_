@@ -126,6 +126,57 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator ResultModal_WithTheCurriculumClosed_DropsItsRowAndClosesUpTheCard()
+        {
+            yield return null;
+            var parent = new GameObject("Closed Curriculum Result Test");
+            BattleResultHud hud = null;
+            try
+            {
+                hud = new BattleResultHud(parent.transform, new LegacyDuelArt(), null, null, null);
+                var open = new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 60, 60, 2, 80, 0, true, 2, true);
+                hud.Show(open);
+                Assert.That(Named(hud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.True);
+                Assert.That(Size(hud.Root, "Result Card"), Is.EqualTo(new Vector2(840f, 650f)));
+
+                hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 60, 60, 2, 80, 0, true, 2, true,
+                    curriculumOpen: false));
+                Assert.That(Named(hud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.False,
+                    "Before mission 8 the result has no curriculum row.");
+                foreach (Text text in hud.Root.GetComponentsInChildren<Text>())
+                    Assert.That(text.text, Does.Not.Contain("커리큘럼"), text.name);
+                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("첫 클리어").And.Contain("02 개방"));
+                // The card closes up by the row: half from above, half from below.
+                Assert.That(Size(hud.Root, "Result Card Border"), Is.EqualTo(new Vector2(844f, 540f)));
+                Assert.That(Size(hud.Root, "Result Card"), Is.EqualTo(new Vector2(840f, 536f)));
+                Assert.That(Position(hud.Root, "Result Heading").y, Is.EqualTo(181f));
+                Assert.That(Position(hud.Root, "Result Rule").y, Is.EqualTo(87f));
+                Assert.That(Position(hud.Root, "Result Player HP Panel"), Is.EqualTo(new Vector2(0f, 7f)));
+                Assert.That(Position(hud.Root, "Result Notice").y, Is.EqualTo(-104f));
+                foreach (string name in new[] { "Result Lobby", "Result Retry", "Result Next Stage" })
+                    Assert.That(Position(hud.Root, name).y, Is.EqualTo(-198f), name);
+                Assert.That(Position(hud.Root, "Result Lobby").x, Is.EqualTo(-248f), "The actions keep their spacing.");
+
+                // The 서막's last win no longer promises the curriculum.
+                hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, true, PrologueMissions.Count, "떠돌이 기사",
+                    0, 0, 5, 40, 0, false, 0, true, curriculumOpen: false));
+                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("편성과 스테이지").And.Not.Contain("커리큘럼"));
+                Assert.That(Named(hud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.False);
+                Assert.That(Position(hud.Root, "Result Next Stage").y, Is.EqualTo(-198f));
+
+                hud.Show(open);
+                Assert.That(Named(hud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.True, "An open curriculum brings it back.");
+                Assert.That(Size(hud.Root, "Result Card Border"), Is.EqualTo(new Vector2(844f, 654f)));
+                Assert.That(Position(hud.Root, "Result Heading").y, Is.EqualTo(238f));
+                Assert.That(Position(hud.Root, "Result Player HP Panel"), Is.EqualTo(new Vector2(0f, 64f)));
+                Assert.That(Position(hud.Root, "Result Notice").y, Is.EqualTo(-161f));
+                Assert.That(Position(hud.Root, "Result Next Stage").y, Is.EqualTo(-255f));
+                Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("진행 없음"));
+            }
+            finally { hud?.Dispose(); Object.Destroy(parent); }
+        }
+
+        [UnityTest]
         public IEnumerator ResultActions_ClearSelectionAndInvokeOnlyTheirOwnCallback()
         {
             yield return null;
@@ -309,6 +360,10 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (string name in new[] { "Current W", "Current E", "Next W", "Next E" })
                     Assert.That(Named(hud.Root, name).gameObject.activeSelf, Is.False, name + " belongs to a closed lane.");
                 Assert.That(Named(hud.Root, "Current Q").gameObject.activeSelf, Is.True);
+                Assert.That(Position(hud.Root, "Current Q"), Is.EqualTo(new Vector2(0f, -4f)), "The lone open lane moves to the middle.");
+                Assert.That(Position(hud.Root, "Next Q"), Is.EqualTo(new Vector2(30f, 40f)));
+                Assert.That(CycleEffect(hud.Root), Is.EqualTo("맨 앞 한 칸"));
+                Assert.That(Position(hud.Root, "CycleButton"), Is.EqualTo(new Vector2(-360f, -4f)), "넘기기 does not move with the lanes.");
 
                 hud.SetMissionMode(false);
                 hud.SetStage(2, 8, "깊은 숲");
@@ -319,6 +374,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(hud.Root, "Untimed Hint").gameObject.activeSelf, Is.False);
                 foreach (string name in new[] { "Current W", "Current E", "Next W", "Next E" })
                     Assert.That(Named(hud.Root, name).gameObject.activeSelf, Is.True, name + " returns with its lane.");
+                Assert.That(Position(hud.Root, "Current Q"), Is.EqualTo(new Vector2(-156f, -4f)), "Three lanes spread out again.");
+                Assert.That(Position(hud.Root, "Current W"), Is.EqualTo(new Vector2(0f, -4f)));
+                Assert.That(Position(hud.Root, "Current E"), Is.EqualTo(new Vector2(156f, -4f)));
+                Assert.That(Position(hud.Root, "Next E"), Is.EqualTo(new Vector2(186f, 40f)));
+                Assert.That(CycleEffect(hud.Root), Is.EqualTo("모든 열 한 칸"));
                 Assert.That(Named(hud.Root, "Current Q").GetComponent<Outline>().enabled, Is.False);
                 Assert.That(Named(hud.Root, "AButton").GetComponent<Outline>().enabled, Is.False);
                 Assert.That(Named(hud.Root, "Guide ACT Focus").gameObject.activeSelf, Is.False);
@@ -383,6 +443,9 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
+        private static Vector2 Position(GameObject root, string name) => Named(root, name).GetComponent<RectTransform>().anchoredPosition;
+        private static Vector2 Size(GameObject root, string name) => Named(root, name).GetComponent<RectTransform>().sizeDelta;
+        private static string CycleEffect(GameObject root) => Label(Named(root, "CycleButton").gameObject, "Effect").text;
         private static Button Button(GameObject root, string name) => Named(root, name).GetComponent<Button>();
         private static string Caption(GameObject root, string name) => Button(root, name).GetComponentInChildren<Text>().text;
     }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
@@ -45,9 +46,41 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.LobbyHud.IsNextMissionAvailable, Is.False);
                 Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home));
                 GameObject lobby = controller.LobbyHud.Root;
-                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("가르침  ·  임무 5  ·  기교 검술"));
+                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("가르침  ·  임무 5  ·  ???"),
+                    "The title would give away what the mission opens, so it waits until the mission can be played.");
                 Assert.That(ActiveLabel(lobby, "Home Mission State").text, Does.Contain("스테이지 01을 클리어하면 열립니다"));
                 Assert.That(ActiveButton(lobby, "Home Mission Open").interactable, Is.False, "The banner stays locked.");
+
+                // Until mission 8 opens the last lane the curriculum does not exist: no tab, link, progress or title line.
+                Assert.That(controller.Campaign.IsCurriculumOpen, Is.False);
+                Assert.That(scope.TitleSummary, Does.Contain("로비").And.Not.Contain("커리큘럼"));
+                Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null);
+                Assert.That(TryFindActive(lobby, "Home Open Curriculum"), Is.Null);
+                Assert.That(TryFindActive(lobby, "Header Curriculum"), Is.Null);
+                AssertNoActiveText(lobby, "커리큘럼", "Home");
+                controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
+                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home), "Asking for its page shows Home.");
+                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.False);
+                controller.LobbyHud.ShowTab(LobbyTab.Stages);
+                Assert.That(TryFindActive(lobby, "Selected Stage Curriculum"), Is.Null);
+                AssertNoActiveText(lobby, "커리큘럼", "Stages");
+
+                // The Q-only loadout: one column in the middle of the lane block, nothing to filter and no talk of lanes.
+                controller.LobbyHud.ShowTab(LobbyTab.Loadout);
+                Assert.That(ActiveLabel(lobby, "Loadout Counts").text, Is.EqualTo("Q 3/3"));
+                for (int slot = 1; slot <= 3; slot++)
+                {
+                    Assert.That(SlotX(lobby, "Q", slot), Is.EqualTo(-210f), "Q slot " + slot);
+                    Assert.That(TryFindActive(lobby, "Loadout Slot W " + slot), Is.Null, "W slot " + slot);
+                    Assert.That(TryFindActive(lobby, "Loadout Slot E " + slot), Is.Null, "E slot " + slot);
+                }
+                Assert.That(TryFindActive(lobby, "Loadout Heading W"), Is.Null);
+                Assert.That(TryFindActive(lobby, "Loadout Heading E"), Is.Null);
+                Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null, "One lane needs no filter row…");
+                Assert.That(TryFindActive(lobby, "Loadout Owned Hint"), Is.Null, "…nor its hint.");
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그"));
+                AssertNoActiveText(lobby, "커리큘럼", "Loadout");
+                controller.LobbyHud.ShowTab(LobbyTab.Home);
 
                 // Stage 1 fights with the Q lane only: the saved W/E skills, 숨고르기 and the steps stay out.
                 Assert.That(controller.StartCampaignStage(1), Is.True);
@@ -60,11 +93,47 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Named(controller.Hud.Root, "Current Q").gameObject.activeSelf, Is.True);
                 Assert.That(Named(controller.Hud.Root, "Current W").gameObject.activeSelf, Is.False);
                 Assert.That(Named(controller.Hud.Root, "Current E").gameObject.activeSelf, Is.False);
+                AssertLaneAt(controller, 'Q', 0f, "The only open lane sits in the middle.");
+                Assert.That(CycleEffect(controller), Is.EqualTo("맨 앞 한 칸"), "With one lane 넘기기 sends back only its front skill.");
+                Assert.That(Named(controller.Hud.Root, "CycleButton").GetComponent<RectTransform>().anchoredPosition.x, Is.EqualTo(-360f),
+                    "넘기기 keeps its place whatever is open.");
                 Assert.That(Named(controller.Hud.Root, "BreathButton").gameObject.activeSelf, Is.False,
                     "A closed 숨고르기 is not drawn in stages either.");
+                // Until all three schools are open no enemy skill is named, not even one from the open Q school.
+                GameObject enemyExplanation = Named(controller.Hud.Root, "Enemy Skill Explain").gameObject;
+                LegacySkill thrust = LegacySkillDefinitions.Skill(3);
+                Assert.That(thrust.LaneIndex, Is.EqualTo(1), "찌르기 is a W skill.");
+                foreach (LegacySkill enemySkill in new[] { thrust, LegacySkillDefinitions.Skill(1) })
+                {
+                    controller.Hud.ShowExplanation(enemySkill, true);
+                    Assert.That(Label(enemyExplanation, "Power Property").text, Is.EqualTo(LegacyCombatHud.EnemySkillCaption), enemySkill.Name);
+                    Assert.That(Label(enemyExplanation, "Explanation Hint").text, Is.EqualTo("Tab / 적 확인"),
+                        "The footer does not repeat the neutral badge.");
+                }
+                controller.Hud.HideExplanation();
                 Assert.That(controller.QueueBreath(), Is.False);
                 Assert.That(controller.QueueLane(1), Is.False);
                 Assert.That(controller.QueueLane(2), Is.False);
+
+                // A closed lane's keys do nothing: W held beside Q fills no bar, and 2/3 queue nothing.
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                controller.enabled = true;
+                Press(keyboard.qKey);
+                Press(keyboard.wKey);
+                yield return new WaitForSecondsRealtime(.6f);
+                Assert.That(HoldFill(controller, 'Q'), Is.GreaterThan(0f), "A held Q fills its bar.");
+                Assert.That(HoldFill(controller, 'W'), Is.Zero, "The closed W lane takes no hold.");
+                Release(keyboard.qKey);
+                Release(keyboard.wKey);
+                yield return null;
+                Press(keyboard.digit2Key);
+                Press(keyboard.digit3Key);
+                yield return null;
+                Release(keyboard.digit2Key);
+                Release(keyboard.digit3Key);
+                yield return null;
+                controller.enabled = false;
+                Assert.That(duel.PlayerQueue, Is.Empty, "A long hold does not queue, and 2/3 have no lane here.");
                 Assert.That(controller.QueueLane(0), Is.True);
                 Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1));
                 controller.CommitTurn();
@@ -89,6 +158,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(FindButton(controller.ResultHud.Root, "Result Next Stage").gameObject.activeSelf, Is.False);
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text, Does.Contain("새 임무 '기교 검술' 도착"),
                     "The stage result announces the mission that has just arrived.");
+                Assert.That(controller.Result.CurriculumOpen, Is.False);
+                Assert.That(Named(controller.ResultHud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.False,
+                    "The result has no curriculum row either.");
+                AssertNoActiveText(controller.ResultHud.Root, "커리큘럼", "Stage result");
                 Assert.That(controller.DismissBattleResult(), Is.True);
                 Assert.That(controller.IsInLobby, Is.True);
                 Assert.That(controller.Campaign.IsStageCleared(1), Is.True);
@@ -96,6 +169,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsNextMissionAvailable, Is.True);
                 Assert.That(controller.LobbyHud.IsNextMissionAvailable, Is.True);
                 controller.LobbyHud.ShowTab(LobbyTab.Home);
+                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("가르침  ·  임무 5  ·  기교 검술"),
+                    "A mission that can be played shows its title.");
                 Assert.That(ActiveLabel(lobby, "Home Mission State").text, Is.EqualTo("새 임무가 도착했습니다."));
                 Assert.That(ActiveButton(lobby, "Home Mission Open").interactable, Is.True);
                 Assert.That(controller.Campaign.IsStageWaitingForMission(2), Is.True);
@@ -171,6 +246,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(duel.GetLane(2).Count, Is.EqualTo(3), "Mission 5 teaches the E lane.");
                 Assert.That(Named(controller.Hud.Root, "Current W").gameObject.activeSelf, Is.False);
                 Assert.That(Named(controller.Hud.Root, "Current E").gameObject.activeSelf, Is.True);
+                AssertLaneAt(controller, 'Q', -78f, "Two open lanes sit side by side around the middle…");
+                AssertLaneAt(controller, 'E', 78f, "…with no gap where W will go.");
+                Assert.That(CycleEffect(controller), Is.EqualTo("모든 열 한 칸"));
                 Assert.That(Label(controller.Hud.Root, "Stage Label").text, Is.EqualTo("임무 05 / 09  ·  기교 검술"));
                 Assert.That(Named(controller.Hud.Root, "BreathButton").gameObject.activeSelf, Is.False);
                 Assert.That(controller.QueueBreath(), Is.False, "숨고르기 is still closed.");
@@ -199,18 +277,28 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsInBriefing, Is.False);
                 Assert.That(controller.LobbyHud.NextMission.Number, Is.EqualTo(6));
                 Assert.That(controller.LobbyHud.IsNextMissionAvailable, Is.False);
-                Assert.That(ActiveLabel(lobby, "Home Mission State").text, Does.Contain("스테이지 02을 클리어하면 열립니다"));
+                Assert.That(ActiveLabel(lobby, "Home Mission State").text, Does.Contain("스테이지 02를 클리어하면 열립니다"));
 
                 controller.LobbyHud.ShowTab(LobbyTab.Loadout);
-                Assert.That(ActiveLabel(lobby, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  W 잠김  ·  E 3/3"));
+                Assert.That(ActiveLabel(lobby, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  E 3/3"), "Only open lanes are counted.");
+                Assert.That(TryFindActive(lobby, "Loadout Heading W"), Is.Null, "The closed W lane is not drawn at all…");
+                Assert.That(TryFindActive(lobby, "Loadout Lane W"), Is.Null);
                 for (int slot = 1; slot <= 3; slot++)
                 {
-                    Assert.That(SlotCost(lobby, "W", slot), Is.EqualTo("임무로 열림"), "W slot " + slot);
+                    Assert.That(TryFindActive(lobby, "Loadout Slot W " + slot), Is.Null, "W slot " + slot);
                     Assert.That(SlotCost(lobby, "Q", slot), Does.StartWith("ACT "), "Q slot " + slot);
                     Assert.That(SlotCost(lobby, "E", slot), Does.StartWith("ACT "), "E slot " + slot);
+                    Assert.That(SlotX(lobby, "Q", slot), Is.EqualTo(-341f), "…and Q and E close up around the lane block's centre.");
+                    Assert.That(SlotX(lobby, "E", slot), Is.EqualTo(-79f), "E slot " + slot);
                 }
+                Assert.That(ActiveNamed(lobby, "Loadout Lane Q").GetComponent<RectTransform>().anchoredPosition.x, Is.EqualTo(-185f));
+                Assert.That(ActiveNamed(lobby, "Loadout Lane E").GetComponent<RectTransform>().anchoredPosition.x, Is.EqualTo(-81f),
+                    "The E filter sits right after Q's.");
+                Assert.That(ActiveLabel(lobby, "Loadout Owned Hint").text, Is.EqualTo("선택한 검술의 기술만 표시합니다"));
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("각 열 3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그"));
                 Assert.That(controller.UnequipSkill(LegacySkillDefinitions.Skill(3).Id), Is.False, "A closed lane's skills stay put.");
                 Assert.That(controller.Campaign.HasLoadoutChanges, Is.False);
+                Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null, "The curriculum still waits for the W lane.");
 
                 controller.LobbyHud.ShowTab(LobbyTab.Stages);
                 Assert.That(ActiveLabel(lobby, "Stage State 2").text, Is.EqualTo("도전 가능"));
@@ -221,6 +309,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(duel.GetLane(2).Count, Is.EqualTo(3), "Stages now fight with the E lane.");
                 Assert.That(duel.GetLane(1), Is.Empty);
                 Assert.That(Named(controller.Hud.Root, "Current E").gameObject.activeSelf, Is.True);
+                AssertLaneAt(controller, 'E', 78f, "Stages pack the same two lanes.");
                 Assert.That(controller.QueueLane(2), Is.True);
                 Assert.That(controller.QueueBreath(), Is.False);
             }
@@ -319,6 +408,88 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator ArcFinale_InTheStory_OpensTheLobbyWithoutPromisingTheCurriculum()
+        {
+            yield return null;
+            using (var scope = new UnlockScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                scope.ContinueFrom(PrologueMissions.Count - 1, 0);
+                Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(PrologueMissions.Count));
+                scope.StartBriefedMission();
+                scope.SetGuide(null);
+                scope.WinToSettled();
+                Assert.That(controller.ContinueDialogue(), Is.False, "The outro plays first.");
+                Assert.That(controller.IsShowingResult, Is.True);
+                Assert.That(controller.Result.CurriculumOpen, Is.False);
+                Assert.That(Label(controller.ResultHud.Root, "Result Notice").text, Does.Contain("편성과 스테이지"));
+                Assert.That(Named(controller.ResultHud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.False);
+                AssertNoActiveText(controller.ResultHud.Root, "커리큘럼", "Arc finale result");
+                Assert.That(controller.AdvanceFromBattleResult(), Is.True);
+                Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(TryFindActive(controller.LobbyHud.Root, "Tab Curriculum"), Is.Null);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator WLaneMission_OpensTheLastLaneAndWithItTheCurriculum()
+        {
+            yield return null;
+            using (var scope = new UnlockScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                scope.ContinueFrom(PrologueMissions.Count + 3, 4);
+                Assert.That(scope.TitleSummary, Does.Not.Contain("커리큘럼"), "With W still closed the title leaves it out.");
+                Assert.That(controller.IsInBriefing, Is.True);
+                Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(8));
+                Assert.That(Label(controller.BriefingHud.Root, "Objectives Text").text, Does.Contain("완료하면 W열과 커리큘럼이 열린다"));
+                Assert.That(controller.Campaign.IsCurriculumOpen, Is.False);
+                Assert.That(controller.LeaveBriefing(), Is.True);
+                GameObject lobby = controller.LobbyHud.Root;
+                Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null);
+                Assert.That(controller.OpenNextMission(), Is.True);
+                scope.StartBriefedMission();
+                Assert.That(controller.Session.Features.HasLane(1), Is.True, "Mission 8 teaches the W lane.");
+                AssertLaneAt(controller, 'Q', -156f, "Mission 8 is the first duel with all three lanes.");
+                AssertLaneAt(controller, 'W', 0f, "…W takes the middle…");
+                AssertLaneAt(controller, 'E', 156f, "…and E moves out to the right.");
+
+                scope.SetGuide(null);
+                scope.WinToSettled();
+                Assert.That(controller.ContinueDialogue(), Is.False, "The outro plays first.");
+                Assert.That(controller.IsShowingResult, Is.True);
+                Assert.That(controller.Campaign.IsCurriculumOpen, Is.True, "The win opens W, the last lane, and the curriculum with it.");
+                Assert.That(controller.Result.CurriculumOpen, Is.True);
+                Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
+                    Does.Contain(StoryMissions.Get(8).UnlockText).And.Contain("커리큘럼도 열렸습니다"));
+                Assert.That(Named(controller.ResultHud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.True);
+                Assert.That(controller.AdvanceFromBattleResult(), Is.True);
+                Assert.That(controller.IsInLobby, Is.True, "Mission 9 waits for stage 5.");
+
+                Assert.That(ActiveButton(lobby, "Tab Curriculum").interactable, Is.True, "The tab is there now…");
+                Assert.That(ActiveButton(lobby, "Home Open Curriculum").interactable, Is.True, "…with its Home link…");
+                Assert.That(ActiveLabel(lobby, "Header Curriculum").text, Is.EqualTo("커리큘럼  선택 안 함"), "…and its progress line.");
+                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("가르침  ·  임무 9  ·  ???"));
+                ActiveButton(lobby, "Home Open Curriculum").onClick.Invoke();
+                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
+                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
+                Assert.That(scope.Load().Campaign.CurriculumActive, Is.EqualTo("horizontal-cut"), "The choice is saved.");
+                controller.LobbyHud.ShowTab(LobbyTab.Loadout);
+                Assert.That(ActiveLabel(lobby, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  W 3/3  ·  E 3/3"));
+                Assert.That(SlotX(lobby, "Q", 1), Is.EqualTo(-472f));
+                Assert.That(SlotX(lobby, "W", 1), Is.EqualTo(-210f));
+                Assert.That(SlotX(lobby, "E", 1), Is.EqualTo(52f));
+
+                Assert.That(controller.StartCampaignStage(5), Is.True);
+                scope.WinToSettled();
+                Assert.That(controller.Result.CompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"), "Stage battles count now.");
+                Assert.That(controller.Campaign.OwnedSkills.Any(owned => owned.SkillId == 14), Is.True);
+                controller.ShowTitle();
+                Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text, Does.Contain("커리큘럼 1 / 10"));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator DirectApiUse_KeepsEveryFeature_AndNoStageWaitsForAMission()
         {
             yield return null;
@@ -353,6 +524,10 @@ namespace TurnLimbo.Presentation.Tests
                 LegacyQueuedDuel duel = controller.Session;
                 Assert.That(duel.Features, Is.EqualTo(CombatFeature.All));
                 for (int lane = 0; lane < 3; lane++) Assert.That(duel.GetLane(lane).Count, Is.EqualTo(3), "Lane " + lane);
+                AssertLaneAt(controller, 'Q', -156f, "With every lane open, Q is on the left…");
+                AssertLaneAt(controller, 'W', 0f, "…W in the middle…");
+                AssertLaneAt(controller, 'E', 156f, "…and E on the right.");
+                Assert.That(CycleEffect(controller), Is.EqualTo("모든 열 한 칸"));
                 Assert.That(Named(controller.Hud.Root, "BreathButton").gameObject.activeSelf, Is.True);
                 Assert.That(controller.QueueBreath(), Is.True);
                 controller.ReturnToLobby();
@@ -388,6 +563,25 @@ namespace TurnLimbo.Presentation.Tests
 
         private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
 
+        /// <summary>A lane's front card 'Current X' sits at (x, -4) in the battle dock and its 'Next X' at (x + 30, 40).</summary>
+        private static void AssertLaneAt(DuelPrototypeController controller, char lane, float x, string message)
+        {
+            Vector2 current = Named(controller.Hud.Root, "Current " + lane).GetComponent<RectTransform>().anchoredPosition;
+            Vector2 next = Named(controller.Hud.Root, "Next " + lane).GetComponent<RectTransform>().anchoredPosition;
+            Assert.That(Named(controller.Hud.Root, "Current " + lane).gameObject.activeSelf, Is.True, lane + " is open.");
+            Assert.That(current.x, Is.EqualTo(x).Within(.01f), message);
+            Assert.That(current.y, Is.EqualTo(-4f).Within(.01f), lane + " front card height.");
+            Assert.That(next.x, Is.EqualTo(x + 30f).Within(.01f), lane + " next card follows its lane.");
+            Assert.That(next.y, Is.EqualTo(40f).Within(.01f), lane + " next card height.");
+        }
+
+        /// <summary>What the 넘기기 button says it turns.</summary>
+        private static string CycleEffect(DuelPrototypeController controller)
+            => Named(controller.Hud.Root, "CycleButton").Find("Effect").GetComponent<Text>().text;
+
+        private static float HoldFill(DuelPrototypeController controller, char lane)
+            => Named(controller.Hud.Root, "Current " + lane).Find("KeyHoldImage").GetComponent<Image>().fillAmount;
+
         /// <summary>The lobby rebuilds its page and destroys the old one at the end of the frame (deactivated at once),
         /// so its nodes are looked up among active objects only.</summary>
         private static Transform TryFindActive(GameObject root, string name)
@@ -411,6 +605,16 @@ namespace TurnLimbo.Presentation.Tests
         private static string SlotCost(GameObject lobby, string lane, int slot)
             => Label(ActiveNamed(lobby, "Loadout Slot " + lane + " " + slot).gameObject, "Slot ACT").text;
 
+        private static float SlotX(GameObject lobby, string lane, int slot)
+            => ActiveNamed(lobby, "Loadout Slot " + lane + " " + slot).GetComponent<RectTransform>().anchoredPosition.x;
+
+        /// <summary>Nothing on screen under <paramref name="root"/> says <paramref name="word"/>.</summary>
+        private static void AssertNoActiveText(GameObject root, string word, string where)
+        {
+            foreach (Text text in root.GetComponentsInChildren<Text>())
+                Assert.That(text.text, Does.Not.Contain(word), where + ": " + text.name);
+        }
+
         private static Button FindButton(GameObject root, string name)
         {
             foreach (Button button in root.GetComponentsInChildren<Button>(true))
@@ -428,6 +632,8 @@ namespace TurnLimbo.Presentation.Tests
             private readonly Action<float, Keyboard> advance;
             public DuelPrototypeController Controller { get; }
             public GameSaveStore Store { get; }
+            /// <summary>What the title said about the save <see cref="ContinueFrom"/> continued.</summary>
+            public string TitleSummary { get; private set; }
 
             public UnlockScope()
             {
@@ -459,6 +665,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Store.TrySave(GameSave.Capture(prologue, campaign), out string error), Is.True, error);
                 Controller.ShowTitle();
                 Assert.That(Controller.TitleHud.CanContinue, Is.True);
+                TitleSummary = Label(Controller.TitleHud.Root, "Title Save Summary").text;
                 Assert.That(Controller.ContinueGame(), Is.True);
                 Assert.That(Controller.StoryProgressionEnabled, Is.True, "이어하기 follows the story's unlocks.");
                 Assert.That(Controller.Prologue.ClearedCount, Is.EqualTo(missionsWon));

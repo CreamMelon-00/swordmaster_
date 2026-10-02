@@ -30,7 +30,7 @@ namespace TurnLimbo.Presentation
         // 넘기기 pays with planning time: the button shows the price and a '-1초' rises off the timer when it is spent.
         private const float TimeSpentDuration = .7f;
         private static readonly Vector2 TimeSpentHome = new Vector2(294f, -5f);
-        private readonly Text cycleCost, timeSpent;
+        private readonly Text cycleCost, cycleEffect, timeSpent;
         private float laneCycleCost;
         private bool laneCycleAffordable = true;
         private float timeSpentRemaining;
@@ -60,6 +60,13 @@ namespace TurnLimbo.Presentation
         private readonly RectTransform guideEnemyFocus, guideActFocus;
         private bool missionMode, missionModeInitialized, missionTimed, missionBreath, highlightEnemyQueue;
         private readonly GameObject[] laneCards = new GameObject[3], nextPanels = new GameObject[3];
+        private const CombatFeature AllLanes = CombatFeature.LaneQ | CombatFeature.LaneW | CombatFeature.LaneE;
+        // The open lanes are packed in Q, W, E order and centred at this pitch: one lane at 0, two at ±78, three at
+        // -156/0/156. 넘기기 and 숨고르기 keep their places at ±360 whatever is open. Closed lanes stay hidden where they were.
+        private const float LanePitch = 156f;
+        private static readonly Vector2 CurrentCardHome = new Vector2(0, -4), NextCardHome = new Vector2(30, 40);
+        // The open lanes the cards were last placed for; laid out again only when a duel opens a different set.
+        private CombatFeature laidOutLanes = AllLanes;
         // 넘기기: each turned lane's next skill drops from the next card into the front card while a new next skill
         // slides in, and the card ticks like a gear. Real time, so it plays the same under Tab or bullet time.
         public const float LaneTurnDuration = .14f;
@@ -95,6 +102,10 @@ namespace TurnLimbo.Presentation
         private const int MaximumStateTexts = 4;
         public const string BreakCalloutText = "붕괴 ×2";
         public const string RecoveryCalloutText = "저항 회복";
+        /// <summary>The enemy explanation's badge until the player has opened all three schools.</summary>
+        public const string EnemySkillCaption = "상대 기술";
+        // The footer marks a named school's skill as the enemy's; the neutral badge already says so.
+        private const string EnemyHint = "상대 기술 · Tab / 적 확인", NeutralEnemyHint = "Tab / 적 확인";
         // Resistance loss reads in the resistance gauge's steel, lightened for the battlefield.
         public static readonly Color ResistanceDamageInk = new Color(.70f, .86f, .90f);
         private static readonly Color ResistanceDamageOutline = new Color(.05f, .13f, .17f);
@@ -208,14 +219,14 @@ namespace TurnLimbo.Presentation
             logButton.onClick.AddListener(() => { ToggleLog(); ClearSelection(logButton.gameObject); });
             for (int lane = 0; lane < 3; lane++)
             {
-                float x = (lane - 1) * 156;
-                var next = Panel("Next " + "QWE"[lane], controls, new Vector2(x + 30, 40), new Vector2(88, 104), RaisedSurface);
+                var x = new Vector2(LaneX(lane, AllLanes), 0);
+                var next = Panel("Next " + "QWE"[lane], controls, NextCardHome + x, new Vector2(88, 104), RaisedSurface);
                 nextIcons[lane] = Image("Next Skill Image", next.transform, null, NextIconHome, new Vector2(56, 56));
                 nextIcons[lane].preserveAspect = true;
                 nextIcons[lane].color = new Color(1, 1, 1, NextIconAlpha);
                 var nextLabel = Text("Next Label", next.transform, new Vector2(0, 41), new Vector2(76, 18), 14, TextAnchor.MiddleLeft);
                 nextLabel.text = "다음"; nextLabel.color = MutedText;
-                var card = Panel("Current " + "QWE"[lane], controls, new Vector2(x, -4), new Vector2(112, 124), Card, Border);
+                var card = Panel("Current " + "QWE"[lane], controls, CurrentCardHome + x, new Vector2(112, 124), Card, Border);
                 currentIcons[lane] = Image("Skill Image", card.transform, null, CurrentIconHome, new Vector2(56, 56));
                 currentIcons[lane].preserveAspect = true;
                 var key = Text("Key", card.transform, new Vector2(-32, 47), new Vector2(36, 22), 20, TextAnchor.MiddleLeft);
@@ -269,8 +280,8 @@ namespace TurnLimbo.Presentation
             Text("Label", cycle.transform, new Vector2(0, 30), new Vector2(132, 24), 18, TextAnchor.MiddleCenter).text = "넘기기";
             cycleCost = Text("Time Cost", cycle.transform, new Vector2(0, 7), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
             cycleCost.text = CycleCostText(0f); cycleCost.color = MutedText;
-            var cycleWhat = Text("Effect", cycle.transform, new Vector2(0, -17), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
-            cycleWhat.text = "모든 열 한 칸"; cycleWhat.color = Foreground;
+            cycleEffect = Text("Effect", cycle.transform, new Vector2(0, -17), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
+            cycleEffect.text = CycleEffectText(AllLanes); cycleEffect.color = Foreground;
             var cycleKey = Text("KeyHint", cycle.transform, new Vector2(0, -45), new Vector2(132, 18), 18, TextAnchor.MiddleCenter);
             cycleKey.text = "Shift"; cycleKey.color = Accent;
             var cycleHint = Text("Cycle Note", controls, new Vector2(-360, -81), new Vector2(200, 28), 12, TextAnchor.MiddleCenter);
@@ -349,7 +360,7 @@ namespace TurnLimbo.Presentation
             enemyDescription.name = "Effect";
             enemyEffectFeedback = SkillCardFeedbackGraphic.Create(enemyDescription.transform, "Current Effect Emphasis", 3f);
             enemyExplanationHint = Text("Explanation Hint", enemyExplanation, new Vector2(0, -157), new Vector2(416, 20), 14, TextAnchor.MiddleRight);
-            enemyExplanationHint.text = "상대 기술 · Tab / 적 확인"; enemyExplanationHint.color = DuelVisualTheme.Ink;
+            enemyExplanationHint.text = EnemyHint; enemyExplanationHint.color = DuelVisualTheme.Ink;
 
             BuildLogPanel(white);
 
@@ -491,6 +502,35 @@ namespace TurnLimbo.Presentation
 
         private static string CycleCostText(float seconds) => seconds > 0f ? seconds.ToString("0.#") + "초 소모" : "무료";
 
+        /// <summary>With a single lane there is only its front skill to send back; otherwise every open lane turns.</summary>
+        private static string CycleEffectText(CombatFeature openLanes) => openLanes.LaneCount() == 1 ? "맨 앞 한 칸" : "모든 열 한 칸";
+
+        /// <summary>A lane's front-card x among <paramref name="openLanes"/>: its place in Q, W, E order, centred.</summary>
+        private static float LaneX(int lane, CombatFeature openLanes)
+        {
+            int index = 0;
+            for (int before = 0; before < lane; before++)
+                if (openLanes.HasLane(before)) index++;
+            return (index - (openLanes.LaneCount() - 1) * .5f) * LanePitch;
+        }
+
+        /// <summary>Places the open lanes' cards side by side and words 넘기기 for them. Runs only when the open set
+        /// changes, so the cards rest where they were put between duels with the same lanes.</summary>
+        private void LayoutLanes(CombatFeature features)
+        {
+            CombatFeature open = features & AllLanes;
+            if (open == laidOutLanes || open == CombatFeature.None) return;
+            laidOutLanes = open;
+            for (int lane = 0; lane < laneCards.Length; lane++)
+            {
+                if (!open.HasLane(lane)) continue;
+                var x = new Vector2(LaneX(lane, open), 0);
+                ((RectTransform)laneCards[lane].transform).anchoredPosition = CurrentCardHome + x;
+                ((RectTransform)nextPanels[lane].transform).anchoredPosition = NextCardHome + x;
+            }
+            cycleEffect.text = CycleEffectText(open);
+        }
+
         private void AdvanceTimeSpent(float realDelta)
         {
             timeSpentRemaining = Mathf.Max(0f, timeSpentRemaining - Mathf.Max(0f, realDelta));
@@ -628,6 +668,7 @@ namespace TurnLimbo.Presentation
                 shownTurn = session.RoundNumber;
                 turnText.text = $"턴 {shownTurn}";
             }
+            LayoutLanes(session.Features);
             for (int lane = 0; lane < 3; lane++)
             {
                 var sequence = session.GetLane(lane);
@@ -785,7 +826,12 @@ namespace TurnLimbo.Presentation
             {
                 explainedEnemy = skill;
                 enemyName.text = skill.Name;
-                enemyStyle.SetLane(skill.LaneIndex, false);
+                // Schools are not named until the player has opened all three, so the badges stay alike and never
+                // hint at a school still to come: until then the badge only says whose skill it is.
+                bool named = displayedSession == null || displayedSession.Features.LaneCount() == 3;
+                if (named) enemyStyle.SetLane(skill.LaneIndex, false);
+                else enemyStyle.Clear(EnemySkillCaption);
+                enemyExplanationHint.text = named ? EnemyHint : NeutralEnemyHint;
                 enemyExplanationIcon.sprite = iconFor(skill.IconId);
                 enemyInfo.SetSkill(skill, true);
                 LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint);
@@ -1025,6 +1071,8 @@ namespace TurnLimbo.Presentation
             SetGuideFocus(-1, false, false, false);
             shownTurn = shownAct = -1;
             displayedSession = null;
+            // The next duel may open other lanes, so a skill explained again is shown afresh (its badge may change).
+            explainedPlayer = explainedEnemy = null;
             lastPlanning = false;
             shownBreathsRemaining = -1;
             UpdateBreathCount();

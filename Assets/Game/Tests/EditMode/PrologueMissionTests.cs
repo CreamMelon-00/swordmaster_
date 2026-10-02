@@ -146,6 +146,19 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void CoachCopy_TalksOfLanesTurningTogetherOnlyOnceTwoAreOpen()
+        {
+            // A one-lane coach never hints at lanes the player does not have yet.
+            foreach (PrologueMission mission in StoryMissions.All.Where(mission => mission.LaneCount == 1))
+                foreach (MissionGuideBeat beat in mission.CreateGuide().Beats)
+                    Assert.That(beat.Description, Does.Not.Contain("모든 열").And.Not.Contain("열이 여럿"), mission.Title + " · " + beat.Title);
+            // The first two-lane duel says that 넘기기 now turns every open lane at once.
+            PrologueMission firstTwoLanes = StoryMissions.All.First(mission => mission.LaneCount == 2);
+            Assert.That(firstTwoLanes.Number, Is.EqualTo(5));
+            Assert.That(firstTwoLanes.CreateGuide().Beats.Any(beat => beat.Description.Contains("넘기기는 열린 열을 모두 함께")), Is.True);
+        }
+
+        [Test]
         public void EveryGuide_ScriptedQueuesAreAffordableAndReachTheCommitBeat()
         {
             foreach (PrologueMission mission in PrologueMissions.All)

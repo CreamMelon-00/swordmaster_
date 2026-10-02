@@ -674,14 +674,19 @@ namespace TurnLimbo.Presentation
             ReadLaneKey(0, keyboard.qKey.isPressed, keyboard.qKey.wasPressedThisFrame, keyboard.qKey.wasReleasedThisFrame);
             ReadLaneKey(1, keyboard.wKey.isPressed, keyboard.wKey.wasPressedThisFrame, keyboard.wKey.wasReleasedThisFrame);
             ReadLaneKey(2, keyboard.eKey.isPressed, keyboard.eKey.wasPressedThisFrame, keyboard.eKey.wasReleasedThisFrame);
-            if (keyboard.digit1Key.wasPressedThisFrame) QueueLane(0);
-            if (keyboard.digit2Key.wasPressedThisFrame) QueueLane(1);
-            if (keyboard.digit3Key.wasPressedThisFrame) QueueLane(2);
+            if (keyboard.digit1Key.wasPressedThisFrame && IsLaneOpen(0)) QueueLane(0);
+            if (keyboard.digit2Key.wasPressedThisFrame && IsLaneOpen(1)) QueueLane(1);
+            if (keyboard.digit3Key.wasPressedThisFrame && IsLaneOpen(2)) QueueLane(2);
             if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame) CommitTurn();
         }
 
+        /// <summary>Whether this duel has the lane at all. A closed lane's keys do nothing: no hold bar, no
+        /// explanation, no queue, and they do not close an explanation another lane holds open.</summary>
+        private bool IsLaneOpen(int lane) => session != null && session.Features.HasLane(lane);
+
         private void ReadLaneKey(int lane, bool held, bool pressed, bool released)
         {
+            if (!IsLaneOpen(lane)) return;
             if (pressed && explainedSkill != null)
             {
                 explainedSkill = null;
@@ -691,7 +696,7 @@ namespace TurnLimbo.Presentation
             {
                 holdTimes[lane] += Time.unscaledDeltaTime;
                 hud.SetHoldProgress(lane, Mathf.Clamp01((holdTimes[lane] - 0.3f) / 0.5f));
-                // A lane the duel does not have (e.g. W/E in the Q-only missions) has nothing to explain.
+                // An open lane a fixture duel left empty has nothing to explain.
                 var laneSkills = session.GetLane(lane);
                 if (holdTimes[lane] >= 1f && laneSkills.Count > 0)
                 {
@@ -1002,9 +1007,13 @@ namespace TurnLimbo.Presentation
                 PrologueMission next = PrologueMissions.Get(save.PrologueCleared + 1);
                 return $"{MissionBriefingHud.ChapterName}  ·  임무 {next.Number} / {PrologueMissions.Count}  ·  {next.Title}";
             }
+            // 이어하기 follows the story, so the curriculum counts only once the saved missions have opened it.
+            var story = new PrologueRun();
+            story.TryRestore(save.PrologueCleared);
+            string curriculum = CampaignRun.OpensCurriculum(story.UnlockedFeatures)
+                ? $"커리큘럼 {save.Campaign.CurriculumCompleted.Count} / {campaign.Curriculum.Tree.Nodes.Count}  ·  " : string.Empty;
             return $"로비  ·  스테이지 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  " +
-                $"커리큘럼 {save.Campaign.CurriculumCompleted.Count} / {campaign.Curriculum.Tree.Nodes.Count}  ·  " +
-                $"임무 완료 {save.PrologueCleared} / {StoryMissions.Count}";
+                curriculum + $"임무 완료 {save.PrologueCleared} / {StoryMissions.Count}";
         }
 
         /// <summary>Writes the persistent progress after a settled change. Never during a battle's own state.</summary>
@@ -1138,7 +1147,7 @@ namespace TurnLimbo.Presentation
                 leftPortrait, rightPortrait);
         }
 
-        /// <summary>Makes a curriculum node the one in progress (lobby only).</summary>
+        /// <summary>Makes a curriculum node the one in progress (lobby only, once the curriculum is open).</summary>
         public bool SelectCurriculumNode(string nodeId)
         {
             if (!IsInLobby || !campaign.TrySelectCurriculumNode(nodeId)) return false;
@@ -1147,7 +1156,7 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
-        /// <summary>Clears the curriculum and the skills it granted (lobby only).</summary>
+        /// <summary>Clears the curriculum and the skills it granted (lobby only, once the curriculum is open).</summary>
         public bool ResetCurriculum()
         {
             if (!IsInLobby || !campaign.TryResetCurriculum()) return false;
@@ -1293,6 +1302,8 @@ namespace TurnLimbo.Presentation
             if (!campaign.TryCompleteBattle(session.Outcome)) return;
             AutoSave();
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
+            // A closed curriculum counted nothing; any progress an older save holds stays out of the result too.
+            bool curriculumOpen = campaign.IsCurriculumOpen;
             var result = new BattleResult(session.Outcome, false,
                 campaign.StageNumber, campaign.CurrentStage.Name,
                 campaign.LastReward, campaign.Currency, session.RoundNumber,
@@ -1300,8 +1311,9 @@ namespace TurnLimbo.Presentation
                 campaign.HighestUnlockedStage > unlockedBefore ? campaign.HighestUnlockedStage : 0,
                 victory && campaign.StageNumber < campaign.StageCount &&
                 campaign.StageNumber + 1 <= campaign.HighestUnlockedStage && campaign.StageNumber + 1 <= campaign.StageLimit,
-                campaign.LastCompletedCurriculumNode, campaign.Curriculum.Active, campaign.Curriculum.ActiveBattles,
-                campaign.Curriculum.IsFinished);
+                campaign.LastCompletedCurriculumNode, curriculumOpen ? campaign.Curriculum.Active : null,
+                curriculumOpen ? campaign.Curriculum.ActiveBattles : 0, curriculumOpen && campaign.Curriculum.IsFinished,
+                curriculumOpen);
             EndDuelPresentation();
             // Clearing the stage a lobby mission waited for brings that mission; the next stage waits for it.
             PrologueMission arrived = victory && prologue.IsArcComplete && IsNextMissionAvailable &&
@@ -1321,8 +1333,10 @@ namespace TurnLimbo.Presentation
                 SyncStoryProgression();
                 AutoSave();
             }
+            // After the story is synced, so mission 8's first win already reports the curriculum it opened.
             var result = new BattleResult(session.Outcome, true, mission.Number, mission.Title, 0, campaign.Currency,
-                session.RoundNumber, session.Player.Health, session.Enemy.Health, false, 0, victory);
+                session.RoundNumber, session.Player.Health, session.Enemy.Health, false, 0, victory,
+                curriculumOpen: campaign.IsCurriculumOpen);
             // A first win that opened something (넘기기 for mission 1, a feature for each lobby mission) announces it,
             // then where the story goes next.
             string unlockNotice = firstWin && !string.IsNullOrEmpty(mission.UnlockText)

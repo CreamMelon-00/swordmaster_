@@ -1,5 +1,6 @@
 using System;
 using TurnLimbo.Runtime.Campaign;
+using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -9,9 +10,12 @@ namespace TurnLimbo.Presentation
 {
     public enum LobbyTab { Home, Stages, Loadout, Curriculum }
 
-    /// <summary>Full-screen lobby pages. CampaignRun owns progression; view states survive page changes.</summary>
+    /// <summary>Full-screen lobby pages. CampaignRun owns progression; view states survive page changes.
+    /// Until <see cref="CampaignRun.IsCurriculumOpen"/> the curriculum does not exist here: no tab, link or progress line.</summary>
     public sealed class CampaignLobbyHud : IDisposable
     {
+        /// <summary>What a lobby mission that cannot be played yet is called: its title stays hidden until then.</summary>
+        public const string HiddenMissionTitle = "???";
         private const float TabWidth = 1300f;
         private const float TabHeight = 850f;
         private readonly LegacyDuelArt art;
@@ -160,6 +164,8 @@ namespace TurnLimbo.Presentation
         public void ShowTab(LobbyTab tab)
         {
             if (disposed) throw new ObjectDisposedException(nameof(CampaignLobbyHud));
+            // A closed curriculum has no page; asking for it shows Home.
+            if (tab == LobbyTab.Curriculum && currentRun != null && !currentRun.IsCurriculumOpen) tab = LobbyTab.Home;
             ClearSelection();
             bool changed = currentTab != tab;
             int direction = tab.CompareTo(currentTab);
@@ -219,6 +225,8 @@ namespace TurnLimbo.Presentation
         private void Rebuild(bool animate = false, int direction = 1)
         {
             if (currentRun == null) return;
+            // The tab may have been chosen for another run, or before this one's curriculum closed.
+            if (currentTab == LobbyTab.Curriculum && !currentRun.IsCurriculumOpen) currentTab = LobbyTab.Home;
             ClearDynamicRoot();
             BuildHeader(currentRun);
             pageRoot = Rect("Lobby Page", dynamicRoot, Vector2.zero, Vector2.zero);
@@ -256,15 +264,19 @@ namespace TurnLimbo.Presentation
             BuildTabButton(header.transform, LobbyTab.Home, "홈", -290f);
             BuildTabButton(header.transform, LobbyTab.Stages, "스테이지", -80f);
             BuildTabButton(header.transform, LobbyTab.Loadout, "편성", 130f);
-            BuildTabButton(header.transform, LobbyTab.Curriculum, "커리큘럼", 340f);
-            // Currency is still earned but has no use while the shop is gone, so the header shows the curriculum instead.
-            CurriculumNode active = run.Curriculum.Active;
-            bool finished = run.Curriculum.IsFinished;
-            Label("Header Curriculum", header.transform,
-                active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
-                    : finished ? "커리큘럼  모두 완료" : "커리큘럼  선택 안 함",
-                new Vector2(620f, 10f), new Vector2(285f, 58f), 22,
-                active != null ? Gold : finished ? Muted : DuelVisualTheme.Danger, TextAnchor.MiddleRight);
+            // The tabs keep their places; the curriculum's appears after them once it opens.
+            if (run.IsCurriculumOpen)
+            {
+                BuildTabButton(header.transform, LobbyTab.Curriculum, "커리큘럼", 340f);
+                // Currency is still earned but has no use while the shop is gone, so the header shows the curriculum instead.
+                CurriculumNode active = run.Curriculum.Active;
+                bool finished = run.Curriculum.IsFinished;
+                Label("Header Curriculum", header.transform,
+                    active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
+                        : finished ? "커리큘럼  모두 완료" : "커리큘럼  선택 안 함",
+                    new Vector2(620f, 10f), new Vector2(285f, 58f), 22,
+                    active != null ? Gold : finished ? Muted : DuelVisualTheme.Danger, TextAnchor.MiddleRight);
+            }
 
             if (currentTab == LobbyTab.Loadout || currentTab == LobbyTab.Curriculum || outcomeBanner == null) return;
             Label("Outcome Banner", header.transform, outcomeBanner, new Vector2(560f, -27f),
@@ -295,8 +307,9 @@ namespace TurnLimbo.Presentation
                 () => ShowTab(LobbyTab.Stages), true);
             Button("Home Open Loadout", inner.transform, "스킬 편성", new Vector2(0f, -25f), new Vector2(304f, 62f), true,
                 () => ShowTab(LobbyTab.Loadout));
-            Button("Home Open Curriculum", inner.transform, "커리큘럼", new Vector2(0f, -115f), new Vector2(304f, 62f), true,
-                () => ShowTab(LobbyTab.Curriculum));
+            if (run.IsCurriculumOpen)
+                Button("Home Open Curriculum", inner.transform, "커리큘럼", new Vector2(0f, -115f), new Vector2(304f, 62f), true,
+                    () => ShowTab(LobbyTab.Curriculum));
             if (restartJourney != null)
                 Button("Reset Journey", inner.transform, resetArmed ? "정말 초기화" : "여정 초기화",
                     new Vector2(0f, -290f), new Vector2(304f, 42f), true, ResetJourneyClicked, false, Muted);
@@ -307,16 +320,17 @@ namespace TurnLimbo.Presentation
             if (nextMission != null) BuildMissionBanner(pageRoot, "Home Mission", new Vector2(80f, 200f));
         }
 
-        /// <summary>The next lobby mission: its title and what it opens, with a briefing button once its stage is cleared.</summary>
+        /// <summary>The next lobby mission, with a briefing button once its stage is cleared. Until then its title is
+        /// hidden (<see cref="HiddenMissionTitle"/>), since the title would give away what it opens.</summary>
         private void BuildMissionBanner(Transform parent, string name, Vector2 position)
         {
             var border = Panel(name + " Border", parent, position, new Vector2(624f, 124f), nextMissionAvailable ? Accent : Border);
             var banner = Panel(name + " Banner", border.transform, Vector2.zero, new Vector2(620f, 120f), SurfaceInner);
             DuelVisualTheme.DressPanel(banner);
-            Label(name + " Title", banner.transform, $"{nextMission.Chapter}  ·  임무 {nextMission.Number}  ·  {nextMission.Title}",
+            Label(name + " Title", banner.transform, $"{nextMission.Chapter}  ·  임무 {nextMission.Number}  ·  {NextMissionTitle}",
                 new Vector2(-290f, 28f), new Vector2(360f, 36f), 22, nextMissionAvailable ? Gold : Muted);
             string requirement = nextMissionAvailable ? "새 임무가 도착했습니다."
-                : $"스테이지 {nextMission.RequiredClearedStage:00}을 클리어하면 열립니다.";
+                : KoreanParticle.Attach($"스테이지 {nextMission.RequiredClearedStage:00}", "을") + " 클리어하면 열립니다.";
             Label(name + " State", banner.transform, requirement, new Vector2(-290f, -18f), new Vector2(360f, 30f), 17, Foreground);
             Button(name + " Open", banner.transform, nextMissionAvailable ? "임무 브리핑" : "잠긴 임무", new Vector2(190f, 0f),
                 new Vector2(210f, 58f), nextMissionAvailable, () => openMission?.Invoke(), nextMissionAvailable);
@@ -326,7 +340,8 @@ namespace TurnLimbo.Presentation
         {
             var panel = Rect("Stages Panel", pageRoot, new Vector2(0f, -24f), new Vector2(1800f, 850f));
             Label("Tab Heading", panel, "출정 지도", new Vector2(-850f, 370f), new Vector2(700f, 54f), 40);
-            Label("Tab Subtitle", panel, "도전할 길을 고르고 오른쪽에서 상대와 커리큘럼 진행을 확인하세요.",
+            Label("Tab Subtitle", panel, run.IsCurriculumOpen ? "도전할 길을 고르고 오른쪽에서 상대와 커리큘럼 진행을 확인하세요."
+                    : "도전할 길을 고르고 오른쪽에서 상대를 확인하세요.",
                 new Vector2(-850f, 323f), new Vector2(1180f, 36f), 20, Muted);
             Rule("Tab Rule", panel, 289f, 1700f);
             if (nextMission != null && nextMissionAvailable)
@@ -364,11 +379,12 @@ namespace TurnLimbo.Presentation
                 $"적 체력  {stage.EnemyHealth}     저항  {stage.EnemyResistance}\n위력  +{stage.EnemyPowerBonus}",
                 new Vector2(-192f, -76f), new Vector2(384f, 62f), 22, Foreground);
             CurriculumNode active = run.Curriculum.Active;
-            Label("Selected Stage Curriculum", preview.transform,
-                active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
-                    : run.Curriculum.IsFinished ? "커리큘럼  모든 과정 완료" : "커리큘럼  진행 중인 과정 없음",
-                new Vector2(-192f, -137f), new Vector2(384f, 34f), 20,
-                active != null ? Gold : run.Curriculum.IsFinished ? Muted : DuelVisualTheme.Danger);
+            if (run.IsCurriculumOpen)
+                Label("Selected Stage Curriculum", preview.transform,
+                    active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
+                        : run.Curriculum.IsFinished ? "커리큘럼  모든 과정 완료" : "커리큘럼  진행 중인 과정 없음",
+                    new Vector2(-192f, -137f), new Vector2(384f, 34f), 20,
+                    active != null ? Gold : run.Curriculum.IsFinished ? Muted : DuelVisualTheme.Danger);
             int selected = selectedStageNumber;
             Button("Start Selected Stage", preview.transform,
                 run.HasLoadoutChanges ? "편성 저장 필요" : "도전  [Enter]", new Vector2(0f, -215f),
@@ -415,8 +431,10 @@ namespace TurnLimbo.Presentation
 
         private void BuildLoadout(CampaignRun run)
         {
-            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성",
-                "각 열 3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그");
+            // With one open lane there are no "lanes" to speak of yet.
+            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성", run.Features.LaneCount() == 1
+                ? "3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그"
+                : "각 열 3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그");
             loadoutHud = new CampaignLoadoutHud(panel, art, run,
                 (id, lane, slot) =>
                 {
@@ -552,7 +570,10 @@ namespace TurnLimbo.Presentation
         }
 
         private string MissionWaitText()
-            => nextMission != null ? $"먼저 임무 '{nextMission.Title}'을(를) 완료하세요" : "먼저 다음 임무를 완료하세요";
+            => nextMission != null && nextMissionAvailable ? $"먼저 임무 '{nextMission.Title}'을(를) 완료하세요" : "먼저 다음 임무를 완료하세요";
+
+        /// <summary>The next mission's title once it can be played, <see cref="HiddenMissionTitle"/> before.</summary>
+        private string NextMissionTitle => nextMissionAvailable ? nextMission.Title : HiddenMissionTitle;
 
         private static string StageState(CampaignRun run, int number)
             => number > run.HighestUnlockedStage ? "잠긴 스테이지"
