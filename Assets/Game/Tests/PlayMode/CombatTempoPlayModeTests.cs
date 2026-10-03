@@ -95,6 +95,49 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator LethalFirstHit_StopsTheRemainingAttackClips_AndShowsTheResult()
+        {
+            yield return null;
+            var controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            Assert.That(controller, Is.Not.Null);
+            controller.RestartMatch();
+            using (var scope = new TempoScope(true, 1, lethalFirstHit: true))
+            {
+                scope.Settings("{\"animationPlaybackSpeed\":2,\"attackInterval\":0.12,\"skillInterval\":0,\"hitStopDuration\":0}");
+                scope.BeginSlot();
+                var slot = controller.Session.CurrentSlot;
+                float firstImpact = 1f / 24f;
+                float firstClipEnd = 1f / 12f;
+                float secondClipStart = firstClipEnd + .12f;
+                Assert.That(slot.HitCount, Is.EqualTo(3));
+
+                scope.AdvanceToSlotTime(firstImpact - .001f);
+                scope.Advance(.002f);
+                Assert.That(controller.Session.Enemy.Health, Is.Zero);
+                Assert.That(slot.HitsResolved, Is.EqualTo(1));
+                Assert.That(slot.IsResolved, Is.True);
+                Assert.That(controller.ActiveSlotDuration, Is.LessThan(secondClipStart),
+                    "The fatal blow must shorten the slot before its next attack animation begins.");
+
+                scope.Until(() => controller.Session.CurrentSlot == null);
+                Assert.That(slot.HitsResolved, Is.EqualTo(1));
+                Assert.That(controller.Session.IsFinished, Is.True);
+                Assert.That(controller.Session.LastResolvedSlot, Is.Zero);
+                // The usual turn cleanup delay would extend past the next attack's start.
+                // Sample within that gap so a stray second attack pose cannot hide behind the result screen.
+                var phaseTime = typeof(DuelPrototypeController).GetField("phaseTime",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(phaseTime, Is.Not.Null);
+                scope.Until(() => (float)phaseTime.GetValue(controller) >= DuelPrototypeController.TurnCleanupDelay - .003f);
+                string pose = controller.ArenaView.PlayerRenderer.sprite.name;
+                Assert.That(pose.StartsWith("idle-frame-") || pose.EndsWith("frame-12"), Is.True,
+                    "The next attack must not restart after the finishing blow.");
+                scope.Until(() => controller.IsShowingResult);
+                Assert.That(slot.HitsResolved, Is.EqualTo(1));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator EditingTempoDuringSlot_AppliesOnlyToTheNextSkill()
         {
             yield return null;
@@ -248,7 +291,7 @@ namespace TurnLimbo.Presentation.Tests
             private readonly Action<float, Keyboard> advance;
             public DuelPrototypeController Controller { get; }
 
-            public TempoScope(bool multiHit, int enemyActionCount)
+            public TempoScope(bool multiHit, int enemyActionCount, bool lethalFirstHit = false)
             {
                 Controller = Object.FindAnyObjectByType<DuelPrototypeController>();
                 Assert.That(Controller, Is.Not.Null);
@@ -265,7 +308,8 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     WeakSlash(1, 0, multiHit ? 3 : 1), WeakSlash(3, 1, 1), WeakSlash(5, 2, 1)
                 };
-                SetField("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                SetField("session", new LegacyQueuedDuel(1000, 1000,
+                    lethalFirstHit ? 1 : 1000, lethalFirstHit ? 0 : 1000,
                     playerSkills, new[] { WeakSlash(1, 0, 1) }, new[] { enemyActionCount }, 1));
                 var method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
                 Assert.That(method, Is.Not.Null);

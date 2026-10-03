@@ -81,10 +81,12 @@ namespace TurnLimbo.Presentation
                 typeof(CanvasRenderer), typeof(Image), typeof(Button));
             rootObject.transform.SetParent(controller.LobbyHud.Root.transform, false);
             root = rootObject.GetComponent<RectTransform>();
-            root.anchorMin = new Vector2(1f, 0f);
-            root.anchorMax = new Vector2(1f, 0f);
-            root.pivot = new Vector2(1f, 0f);
-            root.anchoredPosition = new Vector2(-58f, 58f);
+            // Story is a global lobby action; keep it below the top-right status slip.
+            // The home page's lower-right area belongs to destination and mission notices.
+            root.anchorMin = new Vector2(1f, 1f);
+            root.anchorMax = new Vector2(1f, 1f);
+            root.pivot = new Vector2(1f, 1f);
+            root.anchoredPosition = new Vector2(-24f, -112f);
             root.sizeDelta = new Vector2(280f, 64f);
 
             Image background = rootObject.GetComponent<Image>();

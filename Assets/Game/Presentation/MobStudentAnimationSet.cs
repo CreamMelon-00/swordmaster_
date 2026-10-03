@@ -13,14 +13,15 @@ namespace TurnLimbo.Presentation
         public const float PixelsPerUnit = 40f;
         public const float GroundOffset = -2.23f;
         public const int IdleFrameCount = 8;
+        public const int MoveFrameCount = 1;
         public const int AttackFrameCount = 12;
         public const int SlashVariationCount = 3;
         public const int PierceVariationCount = 3;
         public const int BluntVariationCount = 3;
         public const int ReactionVariationCount = 2;
-        public const int RequiredSpriteCount = 120;
+        public const int RequiredSpriteCount = 121;
         // Retained for the inactive legacy lower-body travel clock in LegacyArenaView.
-        public const float MoveFrameDuration = .14f;
+        public const float MoveFrameDuration = .12f;
         public const string ResourceRoot = "SwordGirl/Animations/";
         private readonly Dictionary<string, Sequence> clips = new Dictionary<string, Sequence>();
         private readonly List<Sprite> ownedSprites = new List<Sprite>(RequiredSpriteCount);
@@ -28,6 +29,7 @@ namespace TurnLimbo.Presentation
         private bool disposed;
         private readonly Sprite[] blockPoses = new Sprite[ReactionVariationCount];
         private readonly Sprite[] hurtPoses = new Sprite[ReactionVariationCount];
+        private readonly Sprite movePose;
 
         public bool UsesFullBodyFrames => true;
         public bool HasRequiredAssets => !disposed && clips.Count == 10 &&
@@ -59,6 +61,7 @@ namespace TurnLimbo.Presentation
             blockPoses[1] = Load("poses/block-2");
             hurtPoses[0] = Load("poses/hurt");
             hurtPoses[1] = Load("poses/hurt-2");
+            movePose = Load("move/frame-01");
         }
 
         public Sprite GetBlockPose(int variant = 0) => disposed ? null : blockPoses[Mathf.Clamp(variant, 0, ReactionVariationCount - 1)];
@@ -70,6 +73,8 @@ namespace TurnLimbo.Presentation
             if (disposed || !clips.TryGetValue("idle", out var clip)) return null;
             return clip.Sample(Mathf.Max(0f, elapsed) % clip.Duration);
         }
+
+        public Sprite GetMove() => disposed ? null : movePose;
 
         public Sprite GetLower(float elapsed, bool moving, bool retreating = false) => null;
 

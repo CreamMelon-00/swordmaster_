@@ -32,7 +32,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
         }
 
-        internal LegacyHitImpact ReceiveHit(int power, bool resistanceHit, double receivedMultiplier, bool halveDamage = false)
+        internal LegacyHitImpact ReceiveHit(int power, bool resistanceHit, double receivedMultiplier,
+            bool halveDamage = false, int brokenTargetDamagePercent = 0)
         {
             int scaled = Round(power * receivedMultiplier);
             if (resistanceHit)
@@ -42,7 +43,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     // Original ShieldDamage calls Damage before setting shield to
                     // zero. The breaking hit's overflow is not doubled unless the
                     // resistance was already broken; its multiplier applies twice.
-                    LegacyHitImpact impact = ReceiveHealthDamage(scaled - Resistance, receivedMultiplier, halveDamage);
+                    LegacyHitImpact impact = ReceiveHealthDamage(scaled - Resistance, receivedMultiplier,
+                        halveDamage, brokenTargetDamagePercent);
                     Resistance = halveDamage ? Resistance - Round(Resistance / 2d) : 0;
                     return impact;
                 }
@@ -50,10 +52,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 Resistance -= scaled;
                 return new LegacyHitImpact(scaled, scaled);
             }
-            return ReceiveHealthDamage(power, receivedMultiplier, halveDamage);
+            return ReceiveHealthDamage(power, receivedMultiplier, halveDamage, brokenTargetDamagePercent);
         }
 
-        private LegacyHitImpact ReceiveHealthDamage(int power, double receivedMultiplier, bool halveDamage = false)
+        private LegacyHitImpact ReceiveHealthDamage(int power, double receivedMultiplier,
+            bool halveDamage = false, int brokenTargetDamagePercent = 0)
         {
             int pushPower = Round(power * receivedMultiplier);
             int damage = pushPower;
@@ -65,6 +68,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 pushPower = Round(pushPower / 2d);
                 damage = Round(damage / 2d);
             }
+            if (brokenTargetDamagePercent > 0)
+                damage = Round(damage * (1d + brokenTargetDamagePercent / 100d));
             Health = Math.Max(0, Health - damage);
             return new LegacyHitImpact(pushPower, damage);
         }
@@ -161,7 +166,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Null for an empty slot, including while <see cref="PendingPlayerCounter"/> awaits the first hit.</summary>
         public LegacySkill PlayerSkill { get; internal set; }
         public LegacySkill EnemySkill { get; }
-        /// <summary>Counts a pending counter's hits; shrinks if a dodge attempt cancels it.</summary>
+        /// <summary>Counts the remaining slot length, including a pending counter; shrinks after
+        /// a cancelled counter or a decisive hit.</summary>
         public int HitCount { get; internal set; }
         public int HitsResolved { get; internal set; }
         public bool IsResolved => HitsResolved >= HitCount;

@@ -11,6 +11,7 @@ namespace TurnLimbo.Presentation
     {
         public const int SortingOrder = 260;
         public const string GameTitle = "Turn Limbo";
+        // Retained for old content that addresses the previous room directly.
         public const string BackgroundResource = "LobbyRoom/room";
         private readonly LegacyDuelArt art;
         private readonly Action continueGame, newGame;
@@ -29,7 +30,8 @@ namespace TurnLimbo.Presentation
         public Button ConfirmButton => confirmButton;
         public Button CancelButton => cancelButton;
 
-        public TitleHud(Transform parent, LegacyDuelArt art, Action continueGame, Action newGame)
+        public TitleHud(Transform parent, LegacyDuelArt art, Action continueGame, Action newGame,
+            Sprite selectedRoomSprite = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
@@ -38,6 +40,7 @@ namespace TurnLimbo.Presentation
             root = Rect("Title HUD", parent, Vector2.zero, Vector2.zero);
             var canvas = root.gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
             canvas.sortingOrder = SortingOrder;
             var scaler = root.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -46,7 +49,7 @@ namespace TurnLimbo.Presentation
             root.gameObject.AddComponent<GraphicRaycaster>();
 
             Stretch(Panel("Title Backdrop", root, Vector2.zero, Vector2.zero, DuelVisualTheme.Surface).rectTransform);
-            Sprite room = LoadSprite(BackgroundResource);
+            Sprite room = selectedRoomSprite != null ? selectedRoomSprite : LobbyRoomBackdrop.PickRandom();
             var background = Panel("Title Background", root, Vector2.zero, new Vector2(1920f, 1080f), Color.white);
             background.sprite = room;
             background.enabled = room != null;
@@ -153,14 +156,6 @@ namespace TurnLimbo.Presentation
             else UnityEngine.Object.DestroyImmediate(root.gameObject);
         }
 
-        private static Sprite LoadSprite(string path)
-        {
-            Sprite sprite = Resources.Load<Sprite>(path);
-            if (sprite != null) return sprite;
-            Sprite[] all = Resources.LoadAll<Sprite>(path);
-            return all.Length > 0 ? all[0] : null;
-        }
-
         private Button ActionButton(string name, Transform parent, string caption, Vector2 position, Vector2 size,
             Action action, bool primary = false)
         {
@@ -226,5 +221,20 @@ namespace TurnLimbo.Presentation
         {
             if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);
         }
+    }
+
+    /// <summary>The four views of the same cabin; choose once when the game UI is created.</summary>
+    internal static class LobbyRoomBackdrop
+    {
+        private static readonly string[] VariantPaths =
+        {
+            "LobbyRoom/morning",
+            "LobbyRoom/day",
+            "LobbyRoom/evening",
+            "LobbyRoom/night"
+        };
+
+        internal static Sprite PickRandom()
+            => Resources.Load<Sprite>(VariantPaths[UnityEngine.Random.Range(0, VariantPaths.Length)]);
     }
 }

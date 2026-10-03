@@ -1,5 +1,9 @@
 # 검 전용 세부 역할 아이콘 제작
 
+> 2026-10-03 추가: 탐색(그림 16)과 몰아치기(그림 17)는 기존 15개 아틀라스를 유지하고 각각 `Assets/Game/Resources/SkillRoles/role16.png`, `role17.png`로 로드한다. 탐색은 사용자 요청에 따라 검 대신 눈을 중심 문양으로 쓴다. 편집 가능한 Aseprite 원본과 제작 조건은 `SkillIcons/README.md`에 있다.
+
+> 2026-10-03 기본 기술 재설계 이후의 실제 그림 매핑은 `../StarterSkillDesign.md`와 `../SkillRoleLanguage.md`가 우선한다. 이 문서의 아래 제작 프롬프트와 당시 1~9번 기술 대응은 제작 기록이다. 현재 Q2 연속 베기는 그림 11, W3 깊은 찌르기는 그림 14를 쓰며, E5·E6은 저항 직접 감소를 표현하는 전용 그림이 아직 없다.
+
 내장 이미지 생성 도구(built-in)를 사용해 이전 `SkillRoles/skill-role-atlas.png`를 편집했다. 무기를 모두 검으로 통일하고9기본+6추가 스킬의 실제 효과를 구분한다. 원본 생성 결과는 `C:/Users/User/.codex/generated_images/01a0dd3b-1ec7-7262-8afd-d810dd15286a/exec-9ee8703f-6ad3-4e6a-910d-c82bab709711.png`, 게임 사용 파일은 `Assets/Game/Resources/SkillRoles/skill-role-atlas.png`다. 이전9개 버전은 `Docs/Art/Archive/role-icons-v1.png`에 보존한다.
 
 ## 파일·임포트

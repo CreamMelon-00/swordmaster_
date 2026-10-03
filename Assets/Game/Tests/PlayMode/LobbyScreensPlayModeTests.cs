@@ -49,7 +49,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator EveryLobbyTab_FillsTheContentViewportWithoutModalBordersOrMovingNavigation()
+        public IEnumerator EveryLobbyTab_KeepsCompactNavigationSeparateFromTheContentPage()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -71,10 +71,13 @@ namespace TurnLimbo.Presentation.Tests
                     Transform header = Named(fixture.Hud.Root, "Lobby Header");
                     Assert.That(header.IsChildOf(page), Is.False, "Navigation stays outside the incoming page's fade and slide.");
                     RectTransform headerRect = header.GetComponent<RectTransform>();
-                    Assert.That(headerRect.anchorMin, Is.EqualTo(new Vector2(0f, 1f)));
-                    Assert.That(headerRect.anchorMax, Is.EqualTo(Vector2.one));
-                    Assert.That(headerRect.anchoredPosition, Is.EqualTo(Vector2.zero));
-                    Assert.That(headerRect.sizeDelta.y, Is.EqualTo(100f));
+                    RectTransform canvasRect = fixture.Hud.Root.GetComponent<RectTransform>();
+                    Assert.That(headerRect.rect.width, Is.InRange(700f, 900f),
+                        "Navigation is a compact desk menu rather than a full-width browser bar.");
+                    Assert.That(headerRect.rect.width, Is.LessThan(canvasRect.rect.width * .55f));
+                    Assert.That(headerRect.rect.height, Is.InRange(72f, 94f));
+                    Assert.That(headerRect.anchorMin.x, Is.EqualTo(0f));
+                    Assert.That(headerRect.anchorMax.x, Is.EqualTo(0f));
                     Assert.That(header.GetComponent<CanvasGroup>(), Is.Null, "The shared header must remain interactive during the page transition.");
                     foreach (Transform node in fixture.Hud.Root.GetComponentsInChildren<Transform>(true))
                     {
@@ -86,16 +89,33 @@ namespace TurnLimbo.Presentation.Tests
                     if (tab == LobbyTab.Home)
                     {
                         Assert.That(Named(fixture.Hud.Root, "Bedroom Background").GetComponent<Image>().sprite, Is.Not.Null);
-                        Assert.That(Named(fixture.Hud.Root, "Home Sidebar").GetComponent<RectTransform>().rect.width,
-                            Is.LessThan(400f), "The home page retains its room view beside a compact preparation rail.");
+                        Transform sidebar = Named(fixture.Hud.Root, "Home Sidebar");
+                        RectTransform sidebarRect = sidebar.GetComponent<RectTransform>();
+                        Assert.That(sidebarRect.rect.size,
+                            Is.EqualTo(new Vector2(300f, fixture.Run.IsCurriculumOpen ? 270f : 214f)));
+                        Assert.That(Named(fixture.Hud.Root, "Home Open Stages").IsChildOf(sidebar), Is.False,
+                            "The stage destination occupies the room instead of repeating the preparation menu.");
                     }
                     else
                     {
                         Image background = Named(page.gameObject, "Page Background").GetComponent<Image>();
-                        Assert.That(background, Is.Not.Null, "A dedicated page needs a full-content background, not a floating modal: " + tab);
-                        Assert.That(background.color.a, Is.EqualTo(1f).Within(.001f));
-                        Assert.That(background.GetComponentInChildren<DuelPanelTrim>(true), Is.Null,
-                            "The full-screen page must not be dressed as an ornate floating window.");
+                        Assert.That(background, Is.Not.Null, "A dedicated page needs an atmosphere layer: " + tab);
+                        Assert.That(background.color.a, Is.GreaterThan(.3f).And.LessThan(.9f),
+                            "The room must remain visible around the page's ledger surfaces.");
+                        Assert.That(background.GetComponent<DuelPanelTrim>(), Is.Null,
+                            "The atmosphere layer itself should remain an undecorated backdrop.");
+                        Image ledger = Named(page.gameObject, "Page Ledger").GetComponent<Image>();
+                        Assert.That(ledger.color.a, Is.EqualTo(1f).Within(.001f),
+                            "The content ledger must remain readable over the visible room.");
+                        Assert.That(ledger.rectTransform.rect.width, Is.LessThan(page.rect.width),
+                            "The ledger leaves some room visible at the page edges.");
+                        Assert.That(ledger.raycastTarget, Is.False);
+                        string panelName = tab == LobbyTab.Stages ? "Stages Panel"
+                            : tab == LobbyTab.Loadout ? "Loadout Panel" : "Curriculum Panel";
+                        RectTransform content = Named(page.gameObject, panelName).GetComponent<RectTransform>();
+                        Assert.That(content.rect.width * content.localScale.x,
+                            Is.LessThanOrEqualTo(ledger.rectTransform.rect.width + .5f),
+                            panelName + " must fit inside the ledger at the current screen ratio.");
                     }
                 }
             }
@@ -246,7 +266,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 fixture.Hud.ShowTab(LobbyTab.Loadout);
                 fixture.Click("Loadout Slot W 1");
-                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("찌르기"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("깊은 찌르기"));
                 int savedQFirst = fixture.Run.GetEquippedLane(0)[0].SkillId;
                 Assert.That(fixture.Run.TryPlaceLoadoutSkill(1, 0, 1), Is.True);
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
@@ -260,7 +280,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Hud.ShowTab(LobbyTab.Home);
                 fixture.Hud.ShowTab(LobbyTab.Loadout);
                 fixture.Finish();
-                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("찌르기"),
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("깊은 찌르기"),
                     "Leaving the page must not discard the selected lane and skill.");
                 Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Does.StartWith("저장 전 변경"));
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
@@ -287,7 +307,7 @@ namespace TurnLimbo.Presentation.Tests
                     Vector2.zero, 334f, "Keyword Test");
                 var backgrounds = new HashSet<Color>();
                 var inks = new HashSet<Color>();
-                foreach (int id in new[] { 1, 3, 8, 2, 5, 16, 17 })
+                foreach (int id in new[] { 1, 3, 8, 2, 9, 16, 17 })
                 {
                     view.SetSkill(Skill(id));
                     Transform first = Named(view.Root, "Keyword 1");
@@ -307,7 +327,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Hud.ShowTab(LobbyTab.Loadout);
                 fixture.Click("Loadout Slot W 1");
                 GameObject loadout = Named(fixture.Hud.Root, "Loadout Selected Detail").gameObject;
-                Assert.That(Label(loadout, "Keyword 1 Text").text, Does.Contain("10%"));
+                Assert.That(Label(loadout, "Keyword 1 Text").text, Does.Contain("고화력"));
                 AssertNoDamageRouting(loadout);
                 AssertReadableBadge(Named(loadout, "Keyword 1"), Label(loadout, "Keyword 1 Text").color, 3);
                 fixture.Hud.ShowTab(LobbyTab.Curriculum);
@@ -328,7 +348,7 @@ namespace TurnLimbo.Presentation.Tests
                     combat.ShowExplanation(Skill(8), true);
                     popup = Named(combat.Root, "Enemy Skill Explain").gameObject;
                     AssertNoDamageRouting(popup);
-                    Assert.That(Label(popup, "Effect").text, Does.Contain("30%"));
+                    Assert.That(Label(popup, "Effect").text, Does.Contain("25%"));
                 }
             }
             yield return null;

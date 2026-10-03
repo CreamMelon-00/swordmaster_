@@ -51,7 +51,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(1));
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True,
                     "The curriculum counts the battle before the result is shown.");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11));
 
                 Assert.That(controller.QueueLane(0), Is.False);
                 Assert.That(controller.StartCampaignStage(2), Is.False);
@@ -61,7 +61,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Result frames cannot pay a second reward.");
                 Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(1));
                 Assert.That(controller.Campaign.Curriculum.Active, Is.Null);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10), "…nor grant a skill twice.");
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11), "…nor grant a skill twice.");
 
                 Assert.That(controller.AdvanceFromBattleResult(), Is.True);
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));

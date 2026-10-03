@@ -39,6 +39,12 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.TitleHud.ContinueButton.interactable, Is.False);
                 Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text, Does.Contain("없습니다"));
                 Assert.That(controller.TitleHud.Root.GetComponent<Canvas>().sortingOrder, Is.EqualTo(TitleHud.SortingOrder));
+                Image titleRoom = NamedImage(controller.TitleHud.Root, "Title Background");
+                Image lobbyRoom = NamedImage(controller.LobbyHud.Root, "Bedroom Background");
+                Assert.That(titleRoom.sprite, Is.Not.Null);
+                Assert.That(new[] { "morning", "day", "evening", "night" }, Does.Contain(titleRoom.sprite.name));
+                Assert.That(titleRoom.sprite, Is.SameAs(lobbyRoom.sprite),
+                    "The title and lobby keep the same randomly chosen room.");
                 Assert.That(controller.ContinueGame(), Is.False);
                 Assert.That(controller.StartCampaignStage(1), Is.False);
                 Assert.That(controller.StartMission(), Is.False);
@@ -285,6 +291,14 @@ namespace TurnLimbo.Presentation.Tests
         {
             foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
                 if (candidate.name == name) return candidate.GetComponent<Text>();
+            Assert.Fail("Missing UI node: " + name);
+            return null;
+        }
+
+        private static Image NamedImage(GameObject root, string name)
+        {
+            foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
+                if (candidate.name == name) return candidate.GetComponent<Image>();
             Assert.Fail("Missing UI node: " + name);
             return null;
         }

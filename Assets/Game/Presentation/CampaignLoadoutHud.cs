@@ -8,8 +8,8 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Three draft slots for each open lane and one selected skill explanation. CampaignRun owns every loadout
-    /// mutation. A lane the story has not opened is not drawn at all; its saved skills wait in the run.</summary>
+    /// <summary>Three draft slots for each open lane, unplaced owned skills, and one selected skill explanation.
+    /// CampaignRun owns every loadout mutation. A lane the story has not opened is not drawn at all.</summary>
     public sealed class CampaignLoadoutHud : IDisposable
     {
         public sealed class ViewState
@@ -17,13 +17,14 @@ namespace TurnLimbo.Presentation
             public int ActiveLane { get; internal set; }
             public int SelectedSkillId { get; internal set; }
             public int SelectedSlot { get; internal set; } = -1;
-            public void Reset() { ActiveLane = SelectedSkillId = 0; SelectedSlot = -1; }
+            public float OwnedScrollOffset { get; internal set; }
+            public void Reset() { ActiveLane = SelectedSkillId = 0; SelectedSlot = -1; OwnedScrollOffset = 0f; }
         }
 
         private sealed class Card
         {
             public Button Button;
-            public Image Background, Icon;
+            public Image Background, Icon, TargetBorder;
             public Text Name, Cost, Marker;
             public CampaignLoadoutCardDrag Drag;
             public int SkillId;
@@ -36,20 +37,19 @@ namespace TurnLimbo.Presentation
         private readonly Action<int, int, int> placeSkill;
         private readonly Action<int> removeSkill;
         private readonly Action save, reset;
-        // Closed lanes have no heading, slots or filter: their entries stay null.
+        // Closed lanes have no heading or slots: their entries stay null.
         private readonly Card[,] slots = new Card[3, 3];
         private readonly SkillLaneBadge[] laneStyles = new SkillLaneBadge[3];
-        private readonly Button[] laneFilters = new Button[3];
-        /// <summary>The open lanes in Q, W, E order: the columns, filters and counts this view shows.</summary>
+        /// <summary>The open lanes in Q, W, E order.</summary>
         private readonly int[] openLanes;
         private readonly List<Card> ownedCards = new List<Card>();
-        private readonly Text detailName, detailRole, detailValues, detailEffect, damageHint, status, counts;
+        private readonly Text detailName, detailRole, status, placementHint, ownedEmpty;
         private readonly SkillLaneBadge detailStyle;
         private readonly SkillInfoView detailInfo;
         private readonly Image detailIcon;
         private readonly Button removeButton, saveButton, cancelButton;
         private RectTransform dragGhost, dragLayer;
-        private int draggedSkillId, draggedLane = -1, builtLane = -1, builtOwnedCount = -1;
+        private int draggedSkillId, draggedLane = -1;
         private bool disposed;
         private static Color CardColor => DuelVisualTheme.Card;
         private static Color Selected => DuelVisualTheme.Selected;
@@ -80,7 +80,7 @@ namespace TurnLimbo.Presentation
             var open = new List<int>();
             for (int lane = 0; lane < 3; lane++) if (run.IsLaneOpen(lane)) open.Add(lane);
             openLanes = open.ToArray();
-            // The remembered lane may be one this run has closed; the view then starts on the first open one.
+            // The remembered selection may belong to a lane this run has closed.
             State.ActiveLane = Mathf.Clamp(State.ActiveLane, 0, 2);
             if (!run.IsLaneOpen(State.ActiveLane)) State.ActiveLane = openLanes[0];
             root = Rect("Loadout Content", parent, Vector2.zero, Vector2.zero);
@@ -97,6 +97,10 @@ namespace TurnLimbo.Presentation
                 {
                     int selectedLane = lane, selectedSlot = slot;
                     var card = new Card();
+                    card.TargetBorder = Panel("Loadout Slot Target " + LaneNames[lane] + " " + (slot + 1), root,
+                        new Vector2(x, 189f - slot * 94f), new Vector2(250f, 92f),
+                        Color.Lerp(SkillLaneStyle.Paper(lane), Accent, .45f));
+                    card.TargetBorder.gameObject.SetActive(false);
                     card.Button = ActionButton("Loadout Slot " + LaneNames[lane] + " " + (slot + 1), root, null,
                         new Vector2(x, 189f - slot * 94f), new Vector2(242f, 84f),
                         () => ClickSlot(selectedLane, selectedSlot));
@@ -127,27 +131,13 @@ namespace TurnLimbo.Presentation
             detailRole = Label("Loadout Detail Role", detail.transform, new Vector2(45f, 116f), new Vector2(246f, 26f), 16, Accent);
             Fit(detailRole, 14, 16);
             detailInfo = new SkillInfoView(detail.transform, art.UIFont, new Vector2(0f, -17f), 334f, "Loadout");
-            detailValues = detailInfo.PowerText;
-            detailEffect = detailInfo.EffectText;
-            damageHint = detailInfo.DamageText;
             detailName.color = detailRole.color = DuelVisualTheme.Ink;
             removeButton = ActionButton("Loadout Remove Selected", detail.transform, "편성에서 빼기",
                 new Vector2(0f, -172f), new Vector2(190f, 34f), RemoveSelected);
 
             Label("Loadout Owned Heading", root, new Vector2(-479f, -124f), new Vector2(220f, 30f), 21).text = "보유 기술";
-            // One open lane has nothing to choose between, so the filter row and its hint appear from two lanes on.
-            if (openLanes.Length > 1)
-            {
-                for (int index = 0; index < openLanes.Length; index++)
-                {
-                    int selectedLane = openLanes[index];
-                    laneFilters[selectedLane] = ActionButton("Loadout Lane " + LaneNames[selectedLane], root,
-                        LaneNames[selectedLane] + " " + SkillLaneStyle.Name(selectedLane),
-                        new Vector2(-185f + index * 104f, -124f), new Vector2(90f, 32f), () => SelectLane(selectedLane));
-                }
-                Label("Loadout Owned Hint", root, new Vector2(394f, -134f), new Vector2(396f, 24f), 15, Muted,
-                    TextAnchor.MiddleRight).text = "선택한 검술의 기술만 표시합니다";
-            }
+            placementHint = Label("Loadout Owned Hint", root, new Vector2(389f, -124f),
+                new Vector2(380f, 28f), 16, Accent, TextAnchor.MiddleRight);
             var collection = Rect("Loadout Collection", root, new Vector2(0f, -222f), new Vector2(1200f, 126f));
             var scroll = collection.gameObject.AddComponent<ScrollRect>();
             var viewport = Panel("Loadout Collection Viewport", collection, Vector2.zero, new Vector2(1200f, 126f), Color.clear);
@@ -156,6 +146,9 @@ namespace TurnLimbo.Presentation
             ownedItems = Rect("Loadout Owned Items", viewport.transform, Vector2.zero, new Vector2(1200f, 126f));
             ownedItems.anchorMin = ownedItems.anchorMax = new Vector2(0f, 1f);
             ownedItems.pivot = new Vector2(0f, 1f);
+            ownedEmpty = Label("Loadout Owned Empty", viewport.transform, Vector2.zero,
+                new Vector2(1160f, 92f), 18, Muted, TextAnchor.MiddleCenter);
+            ownedEmpty.text = "남은 기술 없음";
             scroll.viewport = viewport.rectTransform;
             scroll.content = ownedItems;
             scroll.horizontal = true;
@@ -165,8 +158,7 @@ namespace TurnLimbo.Presentation
             scroll.movementType = ScrollRect.MovementType.Clamped;
 
             Panel("Loadout Footer Rule", root, new Vector2(0f, -296f), new Vector2(1190f, 2f), Border);
-            counts = Label("Loadout Counts", root, new Vector2(-250f, -319f), new Vector2(680f, 28f), 19);
-            status = Label("Loadout Status", root, new Vector2(-250f, -350f), new Vector2(680f, 28f), 16, Muted);
+            status = Label("Loadout Status", root, new Vector2(-250f, -349f), new Vector2(680f, 30f), 16, Muted);
             cancelButton = ActionButton("Loadout Cancel", root, "변경 취소", new Vector2(218f, -349f), new Vector2(196f, 48f),
                 ResetClicked);
             saveButton = ActionButton("Loadout Save", root, "편성 저장", new Vector2(459f, -349f), new Vector2(238f, 48f),
@@ -178,15 +170,15 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             ReconcileSelection();
+            int placementLane = PlacementLane();
             foreach (int lane in openLanes)
             {
-                laneStyles[lane].SetSelected(State.ActiveLane == lane);
-                if (laneFilters[lane] != null)
-                    laneFilters[lane].GetComponent<Image>().color = State.ActiveLane == lane ? Selected : CardColor;
+                laneStyles[lane].SetSelected(State.SelectedSkillId != 0 && State.ActiveLane == lane);
                 for (int slot = 0; slot < 3; slot++)
                 {
                     CampaignOwnedSkill owned = run.GetLoadoutSlot(lane, slot);
                     Card card = slots[lane, slot];
+                    bool target = lane == placementLane;
                     card.SkillId = owned?.SkillId ?? 0;
                     card.Drag.Configure(this, card.SkillId, lane, slot);
                     card.Icon.enabled = owned != null;
@@ -194,42 +186,62 @@ namespace TurnLimbo.Presentation
                     card.Name.text = owned?.Skill.Name ?? "빈 슬롯";
                     card.Name.color = owned == null ? Muted : Foreground;
                     card.Cost.text = owned == null ? string.Empty : "ACT " + owned.Skill.Cost;
-                    card.Background.color = State.ActiveLane == lane && State.SelectedSlot == slot ? Selected : CardColor;
+                    card.TargetBorder.gameObject.SetActive(target);
+                    card.Background.color = State.ActiveLane == lane && State.SelectedSlot == slot ? Selected
+                        : target ? Color.Lerp(CardColor, SkillLaneStyle.Paper(lane), .14f) : CardColor;
                 }
             }
-            if (builtLane != State.ActiveLane || builtOwnedCount != run.OwnedSkills.Count) BuildOwnedCards();
+            if (!OwnedCardsMatchDraft()) BuildOwnedCards();
             foreach (Card card in ownedCards)
             {
                 CampaignOwnedSkill owned = FindOwned(card.SkillId);
                 card.Name.text = owned.Skill.Name;
-                card.Marker.text = run.IsSkillInLoadout(card.SkillId) ? "편성" : string.Empty;
-                card.Background.color = State.SelectedSkillId == card.SkillId ? Selected : CardColor;
+                card.Background.color = State.SelectedSkillId == card.SkillId
+                    ? Color.Lerp(Selected, Accent, .18f) : CardColor;
             }
+            ownedEmpty.gameObject.SetActive(ownedCards.Count == 0);
+            placementHint.text = placementLane >= 0 && draggedSkillId == 0
+                ? LaneNames[placementLane] + " 칸을 눌러 배치" : string.Empty;
             RefreshDetail();
-            string laneCounts = string.Empty, missing = string.Empty;
+            bool hasEmptySlot = false;
             foreach (int lane in openLanes)
-            {
-                laneCounts += (laneCounts.Length > 0 ? "  ·  " : string.Empty) + LaneNames[lane] + " " + run.GetLoadoutCount(lane) + "/3";
-                if (run.GetLoadoutCount(lane) < 3)
-                    missing += (missing.Length > 0 ? " · " : string.Empty) + LaneNames[lane] + " " + (3 - run.GetLoadoutCount(lane)) + "개 부족";
-            }
-            counts.text = laneCounts;
-            status.text = !run.HasLoadoutChanges ? "저장된 편성"
-                : missing.Length > 0 ? "저장 전 변경 · " + missing : "저장 전 변경 · 저장하면 전투에 반영됩니다";
+                if (run.GetLoadoutCount(lane) < 3) hasEmptySlot = true;
+            status.text = hasEmptySlot ? "빈 칸을 채워야 저장할 수 있습니다"
+                : run.HasLoadoutChanges ? "저장 전 변경" : string.Empty;
             saveButton.interactable = run.CanSaveLoadout && run.HasLoadoutChanges;
             saveButton.GetComponentInChildren<Text>().color = saveButton.interactable ? DuelVisualTheme.Ink : Foreground;
             cancelButton.interactable = run.HasLoadoutChanges;
         }
 
-        private void BuildOwnedCards()
+        private int PlacementLane()
         {
-            foreach (Card card in ownedCards) { card.Button.gameObject.SetActive(false); Destroy(card.Button.gameObject); }
-            ownedCards.Clear();
-            builtLane = State.ActiveLane;
-            builtOwnedCount = run.OwnedSkills.Count;
+            if (draggedSkillId != 0) return draggedLane;
+            if (State.SelectedSlot >= 0 || run.IsSkillInLoadout(State.SelectedSkillId)) return -1;
+            CampaignOwnedSkill selected = FindOwned(State.SelectedSkillId);
+            return selected != null && run.IsLaneOpen(selected.Skill.LaneIndex) ? selected.Skill.LaneIndex : -1;
+        }
+
+        private bool OwnedCardsMatchDraft()
+        {
+            int index = 0;
             foreach (CampaignOwnedSkill owned in run.OwnedSkills)
             {
-                if (owned.Skill.LaneIndex != State.ActiveLane) continue;
+                if (!run.IsLaneOpen(owned.Skill.LaneIndex) || run.IsSkillInLoadout(owned.SkillId)) continue;
+                if (index >= ownedCards.Count || ownedCards[index].SkillId != owned.SkillId) return false;
+                index++;
+            }
+            return index == ownedCards.Count;
+        }
+
+        private void BuildOwnedCards()
+        {
+            float scrollOffset = ownedCards.Count == 0 ? State.OwnedScrollOffset
+                : Mathf.Max(0f, -ownedItems.anchoredPosition.x);
+            foreach (Card card in ownedCards) { card.Button.gameObject.SetActive(false); Destroy(card.Button.gameObject); }
+            ownedCards.Clear();
+            foreach (CampaignOwnedSkill owned in run.OwnedSkills)
+            {
+                if (!run.IsLaneOpen(owned.Skill.LaneIndex) || run.IsSkillInLoadout(owned.SkillId)) continue;
                 int id = owned.SkillId;
                 var card = new Card { SkillId = id };
                 card.Button = ActionButton("Loadout Owned Skill " + id, ownedItems, null,
@@ -244,25 +256,36 @@ namespace TurnLimbo.Presentation
                 Fit(card.Name, 13, 17);
                 card.Cost = Label("Owned ACT", card.Button.transform, new Vector2(-42f, -40f), new Vector2(90f, 20f), 15, Muted);
                 card.Cost.text = "ACT " + owned.Skill.Cost;
-                card.Marker = Label("Owned Equipped", card.Button.transform, new Vector2(54f, -40f), new Vector2(60f, 20f), 13,
-                    Accent, TextAnchor.MiddleRight);
+                card.Marker = Label("Owned Lane", card.Button.transform, new Vector2(54f, -40f),
+                    new Vector2(60f, 20f), 15, SkillLaneStyle.Paper(owned.Skill.LaneIndex), TextAnchor.MiddleRight);
+                card.Marker.text = LaneNames[owned.Skill.LaneIndex];
                 card.Drag = card.Button.gameObject.AddComponent<CampaignLoadoutCardDrag>();
-                card.Drag.Configure(this, id, State.ActiveLane, -1);
+                card.Drag.Configure(this, id, owned.Skill.LaneIndex, -1);
                 ownedCards.Add(card);
             }
             ownedItems.sizeDelta = new Vector2(Mathf.Max(1200f, ownedCards.Count * 200f), 126f);
-            ownedItems.anchoredPosition = Vector2.zero;
+            State.OwnedScrollOffset = Mathf.Min(scrollOffset, ownedItems.sizeDelta.x - 1200f);
+            ownedItems.anchoredPosition = new Vector2(-State.OwnedScrollOffset, 0f);
         }
 
         private void ReconcileSelection()
         {
             CampaignOwnedSkill selected = FindOwned(State.SelectedSkillId);
-            if (selected == null || selected.Skill.LaneIndex != State.ActiveLane)
+            if (selected == null)
             {
-                State.SelectedSkillId = 0;
                 State.SelectedSlot = Mathf.Clamp(State.SelectedSlot, -1, 2);
+                State.SelectedSkillId = State.SelectedSlot >= 0 && run.IsLaneOpen(State.ActiveLane)
+                    ? run.GetLoadoutSlot(State.ActiveLane, State.SelectedSlot)?.SkillId ?? 0 : 0;
                 return;
             }
+            if (!run.IsLaneOpen(selected.Skill.LaneIndex))
+            {
+                State.ActiveLane = openLanes[0];
+                State.SelectedSkillId = 0;
+                State.SelectedSlot = -1;
+                return;
+            }
+            State.ActiveLane = selected.Skill.LaneIndex;
             if (State.SelectedSlot < 0) return;
             if (run.GetLoadoutSlot(State.ActiveLane, State.SelectedSlot)?.SkillId == State.SelectedSkillId) return;
             State.SelectedSlot = -1;
@@ -275,14 +298,13 @@ namespace TurnLimbo.Presentation
             CampaignOwnedSkill owned = FindOwned(State.SelectedSkillId);
             detailIcon.enabled = owned != null;
             detailIcon.sprite = owned == null ? null : art.GetSkillIcon(owned.Skill.IconId);
+            detailStyle.Root.gameObject.SetActive(owned != null);
             removeButton.gameObject.SetActive(owned != null && run.IsSkillInLoadout(owned.SkillId) && run.IsLaneOpen(owned.Skill.LaneIndex));
             if (owned == null)
             {
-                detailStyle.Clear("선택한 기술");
                 detailName.text = State.SelectedSlot >= 0 ? "빈 슬롯" : "기술을 선택하세요";
-                detailRole.text = State.SelectedSlot >= 0
-                    ? LaneNames[State.ActiveLane] + " " + SkillLaneStyle.Name(State.ActiveLane) + "에 배치" : string.Empty;
-                detailInfo.SetEmptyMessage("기술을 클릭하면 설명을 봅니다.\n순서 변경·교체는 슬롯으로 끌어 놓으세요.");
+                detailRole.text = State.SelectedSlot >= 0 ? LaneNames[State.ActiveLane] : string.Empty;
+                detailInfo.Clear();
                 LayoutDetail();
                 return;
             }
@@ -296,8 +318,8 @@ namespace TurnLimbo.Presentation
 
         private void LayoutDetail()
         {
-            float footer = removeButton.gameObject.activeSelf ? 54f : 16f;
-            float height = 104f + detailInfo.Height + footer;
+            // Reserve the action area even when the selected skill cannot be removed.
+            float height = 104f + detailInfo.Height + 54f;
             detailFrame.sizeDelta = new Vector2(384f, height + 4f);
             detailFrame.anchoredPosition = new Vector2(423f, 284f - (height + 4f) / 2f);
             detailSurface.sizeDelta = new Vector2(380f, height);
@@ -314,13 +336,6 @@ namespace TurnLimbo.Presentation
             removeButton.GetComponent<RectTransform>().sizeDelta = new Vector2(310f, 34f);
         }
 
-        private void SelectLane(int lane)
-        {
-            CancelDrag();
-            if (State.ActiveLane != lane) { State.ActiveLane = lane; State.SelectedSkillId = 0; State.SelectedSlot = -1; }
-            Refresh();
-        }
-
         private void SelectOwned(int skillId)
         {
             CampaignOwnedSkill owned = FindOwned(skillId);
@@ -334,6 +349,13 @@ namespace TurnLimbo.Presentation
         private void ClickSlot(int lane, int slot)
         {
             if (disposed) return;
+            CampaignOwnedSkill selected = FindOwned(State.SelectedSkillId);
+            if (selected != null && State.SelectedSlot < 0 && !run.IsSkillInLoadout(selected.SkillId) &&
+                selected.Skill.LaneIndex == lane)
+            {
+                PlaceSelected(selected.SkillId, lane, slot);
+                return;
+            }
             State.ActiveLane = lane;
             State.SelectedSlot = slot;
             State.SelectedSkillId = run.GetLoadoutSlot(lane, slot)?.SkillId ?? 0;
@@ -380,9 +402,9 @@ namespace TurnLimbo.Presentation
             State.ActiveLane = lane;
             State.SelectedSkillId = skillId;
             State.SelectedSlot = slot;
-            Refresh();
             draggedSkillId = skillId;
             draggedLane = lane;
+            Refresh();
             Canvas canvas = root.GetComponentInParent<Canvas>();
             dragLayer = canvas == null ? root : canvas.rootCanvas.transform as RectTransform;
             dragGhost = Rect("Loadout Drag Ghost", dragLayer, Vector2.zero, new Vector2(76f, 76f));
@@ -416,17 +438,20 @@ namespace TurnLimbo.Presentation
 
         internal void CancelDrag()
         {
+            bool wasDragging = draggedSkillId != 0;
             draggedSkillId = 0;
             draggedLane = -1;
             if (dragGhost != null) { dragGhost.gameObject.SetActive(false); Destroy(dragGhost.gameObject); }
             dragGhost = dragLayer = null;
+            if (wasDragging && !disposed) Refresh();
         }
 
         public void Dispose()
         {
             if (disposed) return;
-            CancelDrag();
+            State.OwnedScrollOffset = Mathf.Max(0f, -ownedItems.anchoredPosition.x);
             disposed = true;
+            CancelDrag();
             root.gameObject.SetActive(false);
             foreach (Button button in root.GetComponentsInChildren<Button>(true)) button.onClick.RemoveAllListeners();
             Destroy(root.gameObject);

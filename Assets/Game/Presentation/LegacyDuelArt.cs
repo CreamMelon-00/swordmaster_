@@ -8,7 +8,8 @@ namespace TurnLimbo.Presentation
     /// <summary>Loads inherited duel art and the redesigned skill-button icons.</summary>
     public sealed class LegacyDuelArt : IDisposable
     {
-        public const int SkillIconCount = 15;
+        public const int SkillIconCount = 17;
+        private const int AtlasSkillIconCount = 15;
         private const string ResourceRoot = "LegacyDuel/";
         private const string SkillIconAtlas = "SkillRoles/skill-role-atlas";
         private const float OriginalFramesPerSecond = 12f;
@@ -54,9 +55,11 @@ namespace TurnLimbo.Presentation
                 "pa_enemy_1_st-Sheet", "pa_enemy_1_n-Sheet", "pa_enemy_1_g-Sheet");
 
             var roleIcons = Resources.LoadAll<Sprite>(SkillIconAtlas);
-            for (var skillId = 1; skillId <= SkillIconCount; skillId++)
+            for (var skillId = 1; skillId <= AtlasSkillIconCount; skillId++)
                 foreach (var icon in roleIcons)
                     if (icon.name == "role" + skillId) skillIcons[skillId] = icon;
+            for (var skillId = AtlasSkillIconCount + 1; skillId <= SkillIconCount; skillId++)
+                skillIcons[skillId] = Resources.Load<Sprite>("SkillRoles/role" + skillId);
 
             for (var lane = 0; lane < selectionSounds.Length; lane++)
                 selectionSounds[lane] = Resources.Load<AudioClip>(ResourceRoot + "Audio/add_skill_" + (lane + 1));

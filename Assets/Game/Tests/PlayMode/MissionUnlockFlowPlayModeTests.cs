@@ -65,20 +65,19 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryFindActive(lobby, "Selected Stage Curriculum"), Is.Null);
                 AssertNoActiveText(lobby, "커리큘럼", "Stages");
 
-                // The Q-only loadout: one column in the middle of the lane block, nothing to filter and no talk of lanes.
+                // The Q-only loadout shows only open slots and has no lane filter.
                 controller.LobbyHud.ShowTab(LobbyTab.Loadout);
-                Assert.That(ActiveLabel(lobby, "Loadout Counts").text, Is.EqualTo("Q 3/3"));
+                Assert.That(TryFindActive(lobby, "Loadout Counts"), Is.Null);
                 for (int slot = 1; slot <= 3; slot++)
                 {
-                    Assert.That(SlotX(lobby, "Q", slot), Is.EqualTo(-210f), "Q slot " + slot);
+                    Assert.That(TryFindActive(lobby, "Loadout Slot Q " + slot), Is.Not.Null, "Q slot " + slot);
                     Assert.That(TryFindActive(lobby, "Loadout Slot W " + slot), Is.Null, "W slot " + slot);
                     Assert.That(TryFindActive(lobby, "Loadout Slot E " + slot), Is.Null, "E slot " + slot);
                 }
                 Assert.That(TryFindActive(lobby, "Loadout Heading W"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Heading E"), Is.Null);
-                Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null, "One lane needs no filter row…");
-                Assert.That(TryFindActive(lobby, "Loadout Owned Hint"), Is.Null, "…nor its hint.");
-                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그"));
+                Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null);
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("보유 기술을 골라 강조된 칸을 누르세요."));
                 AssertNoActiveText(lobby, "커리큘럼", "Loadout");
                 controller.LobbyHud.ShowTab(LobbyTab.Home);
 
@@ -102,7 +101,7 @@ namespace TurnLimbo.Presentation.Tests
                 // Until all three schools are open no enemy skill is named, not even one from the open Q school.
                 GameObject enemyExplanation = Named(controller.Hud.Root, "Enemy Skill Explain").gameObject;
                 LegacySkill thrust = LegacySkillDefinitions.Skill(3);
-                Assert.That(thrust.LaneIndex, Is.EqualTo(1), "찌르기 is a W skill.");
+                Assert.That(thrust.LaneIndex, Is.EqualTo(1), "깊은 찌르기 is a W skill.");
                 foreach (LegacySkill enemySkill in new[] { thrust, LegacySkillDefinitions.Skill(1) })
                 {
                     controller.Hud.ShowExplanation(enemySkill, true);
@@ -119,17 +118,34 @@ namespace TurnLimbo.Presentation.Tests
                 var keyboard = InputSystem.AddDevice<Keyboard>();
                 controller.enabled = true;
                 Press(keyboard.qKey);
+                // UnityTest's InputTestFixture queues state events for the PlayerLoop. Let Q's
+                // press reach the device before sending the second keyboard event.
+                yield return null;
+                yield return null;
+                Assert.That(keyboard.qKey.isPressed, Is.True, "The open lane's held key reaches the test keyboard.");
                 Press(keyboard.wKey);
-                yield return new WaitForSecondsRealtime(.6f);
+                yield return null;
+                yield return null;
+                Assert.That(keyboard.qKey.isPressed, Is.True, "Holding a closed lane does not release Q.");
+                Assert.That(keyboard.wKey.isPressed, Is.True, "The closed lane's held key reaches the test keyboard.");
+                // A fixed wall-clock wait can complete after very few Editor frames during a batch run.
+                // Wait for the actual held-key input and HUD update, with a generous bounded deadline.
+                float holdDeadline = Time.realtimeSinceStartup + 2f;
+                while (HoldFill(controller, 'Q') <= 0f && Time.realtimeSinceStartup < holdDeadline)
+                    yield return null;
+                Assert.That(controller.CanChoose, Is.True);
                 Assert.That(HoldFill(controller, 'Q'), Is.GreaterThan(0f), "A held Q fills its bar.");
                 Assert.That(HoldFill(controller, 'W'), Is.Zero, "The closed W lane takes no hold.");
                 Release(keyboard.qKey);
+                yield return null;
                 Release(keyboard.wKey);
                 yield return null;
                 Press(keyboard.digit2Key);
+                yield return null;
                 Press(keyboard.digit3Key);
                 yield return null;
                 Release(keyboard.digit2Key);
+                yield return null;
                 Release(keyboard.digit3Key);
                 yield return null;
                 controller.enabled = false;
@@ -280,7 +296,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(ActiveLabel(lobby, "Home Mission State").text, Does.Contain("스테이지 02를 클리어하면 열립니다"));
 
                 controller.LobbyHud.ShowTab(LobbyTab.Loadout);
-                Assert.That(ActiveLabel(lobby, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  E 3/3"), "Only open lanes are counted.");
+                Assert.That(TryFindActive(lobby, "Loadout Counts"), Is.Null,
+                    "The visible slots carry their own capacity information.");
                 Assert.That(TryFindActive(lobby, "Loadout Heading W"), Is.Null, "The closed W lane is not drawn at all…");
                 Assert.That(TryFindActive(lobby, "Loadout Lane W"), Is.Null);
                 for (int slot = 1; slot <= 3; slot++)
@@ -288,14 +305,12 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(TryFindActive(lobby, "Loadout Slot W " + slot), Is.Null, "W slot " + slot);
                     Assert.That(SlotCost(lobby, "Q", slot), Does.StartWith("ACT "), "Q slot " + slot);
                     Assert.That(SlotCost(lobby, "E", slot), Does.StartWith("ACT "), "E slot " + slot);
-                    Assert.That(SlotX(lobby, "Q", slot), Is.EqualTo(-341f), "…and Q and E close up around the lane block's centre.");
-                    Assert.That(SlotX(lobby, "E", slot), Is.EqualTo(-79f), "E slot " + slot);
+                    Assert.That(SlotX(lobby, "Q", slot), Is.LessThan(SlotX(lobby, "E", slot)),
+                        "Open lanes appear together in Q/E order.");
                 }
-                Assert.That(ActiveNamed(lobby, "Loadout Lane Q").GetComponent<RectTransform>().anchoredPosition.x, Is.EqualTo(-185f));
-                Assert.That(ActiveNamed(lobby, "Loadout Lane E").GetComponent<RectTransform>().anchoredPosition.x, Is.EqualTo(-81f),
-                    "The E filter sits right after Q's.");
-                Assert.That(ActiveLabel(lobby, "Loadout Owned Hint").text, Is.EqualTo("선택한 검술의 기술만 표시합니다"));
-                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("각 열 3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그"));
+                Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null);
+                Assert.That(TryFindActive(lobby, "Loadout Lane E"), Is.Null);
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("보유 기술을 골라 강조된 칸을 누르세요."));
                 Assert.That(controller.UnequipSkill(LegacySkillDefinitions.Skill(3).Id), Is.False, "A closed lane's skills stay put.");
                 Assert.That(controller.Campaign.HasLoadoutChanges, Is.False);
                 Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null, "The curriculum still waits for the W lane.");
@@ -475,10 +490,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
                 Assert.That(scope.Load().Campaign.CurriculumActive, Is.EqualTo("horizontal-cut"), "The choice is saved.");
                 controller.LobbyHud.ShowTab(LobbyTab.Loadout);
-                Assert.That(ActiveLabel(lobby, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  W 3/3  ·  E 3/3"));
-                Assert.That(SlotX(lobby, "Q", 1), Is.EqualTo(-472f));
-                Assert.That(SlotX(lobby, "W", 1), Is.EqualTo(-210f));
-                Assert.That(SlotX(lobby, "E", 1), Is.EqualTo(52f));
+                Assert.That(TryFindActive(lobby, "Loadout Counts"), Is.Null);
+                Assert.That(SlotX(lobby, "Q", 1), Is.LessThan(SlotX(lobby, "W", 1)));
+                Assert.That(SlotX(lobby, "W", 1), Is.LessThan(SlotX(lobby, "E", 1)));
 
                 Assert.That(controller.StartCampaignStage(5), Is.True);
                 scope.WinToSettled();

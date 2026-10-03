@@ -35,6 +35,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 using (var fixture = new Fixture(width))
                 {
+                    float fixedHeight = fixture.View.Height;
                     foreach (LegacySkill skill in AllSkills())
                     {
                         foreach (bool enemy in new[] { false, true })
@@ -45,13 +46,12 @@ namespace TurnLimbo.Presentation.Tests
                             RectTransform body = fixture.View.Root.GetComponent<RectTransform>();
                             Assert.That(body.rect.width, Is.EqualTo(width).Within(.1f));
                             Assert.That(body.rect.height, Is.EqualTo(fixture.View.Height).Within(.1f));
-                            Assert.That(fixture.View.Height, Is.InRange(72f, 200f), skill.Name + " must not retain the old 224px body.");
+                            Assert.That(fixture.View.Height, Is.EqualTo(fixedHeight).Within(.1f), skill.Name + " must not resize the information card.");
                             Assert.That(Label(body.gameObject, "ACT Value").text, Is.EqualTo(skill.Cost.ToString()));
                             Assert.That(fixture.View.PowerText.text, Is.EqualTo(CampaignSkillText.Power(skill)));
                             Assert.That(fixture.View.AttackTypeText.text, Is.EqualTo(Type(skill.Property)));
                             Assert.That(Label(body.gameObject, "Hits Value").text,
                                 Is.EqualTo(skill.Kind == LegacySkillKind.Defence ? "같은 칸" : skill.AttackCount + "회"));
-                            Assert.That(fixture.View.EffectText.text, Is.Not.Empty);
                             if (enemy && (LegacySkillRoles.Get(skill) & LegacySkillRole.ActRecovery) != 0)
                                 Assert.That(fixture.View.EffectText.text, Does.Contain("플레이어 전용"));
                             AssertBodyFits(body, fixture.View.EffectText);
@@ -70,7 +70,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ShortLongSingleKeywordAndEmptySelection_ReflowAndKeepTheTopAnchored()
+        public IEnumerator ShortLongSingleKeywordAndEmptySelection_KeepTheSameSizeAndTopAnchor()
         {
             yield return null;
             using (var fixture = new Fixture(334f))
@@ -87,9 +87,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(first.anchoredPosition.x, Is.EqualTo(0f).Within(.1f));
                 Assert.That(Bounds(body, body.parent).yMax, Is.EqualTo(91f).Within(.1f));
 
-                fixture.View.SetSkill(Skill(3));
+                fixture.View.SetSkill(Skill(9));
                 fixture.View.PlaceTop(91f);
-                Assert.That(fixture.View.Height, Is.GreaterThan(shortHeight + 10f), "Three readable lines need more height than one.");
+                Assert.That(fixture.View.Height, Is.EqualTo(shortHeight).Within(.1f), "Long effects keep the same card size.");
                 Assert.That(Bounds(body, body.parent).yMax, Is.EqualTo(91f).Within(.1f));
                 Assert.That(Named(body.gameObject, "Keyword 2").gameObject.activeInHierarchy, Is.True);
                 Assert.That(first.rect.width, Is.LessThan(row.rect.width));
@@ -97,6 +97,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 fixture.View.SetEmptyMessage("기술을 선택하세요.\n카드를 끌어 편성할 수 있습니다.");
                 fixture.View.PlaceTop(91f);
+                Assert.That(fixture.View.Height, Is.EqualTo(shortHeight).Within(.1f));
                 Assert.That(fixture.View.EffectText.text, Does.Contain("기술을 선택"));
                 Assert.That(Named(body.gameObject, "Skill Attachments").gameObject.activeInHierarchy, Is.False);
                 Assert.That(Named(body.gameObject, "Skill Keywords").gameObject.activeInHierarchy, Is.False);
@@ -117,7 +118,26 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActualCombatPopups_ShrinkForShortDescriptionsAndKeepHeaderBodyAndHintSeparate()
+        public IEnumerator LongEmptyMessage_ReducesTextSizeWithinTheFixedCard()
+        {
+            yield return null;
+            using (var fixture = new Fixture(334f))
+            {
+                float height = fixture.View.Height;
+                const string line = "상대 조건 충족 시 효과 적용";
+                fixture.View.SetEmptyMessage(string.Join("\n", new[] { line, line, line, line, line, line, line, line }));
+                Canvas.ForceUpdateCanvases();
+                Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
+                Assert.That(fixture.View.EffectText.resizeTextForBestFit, Is.True);
+                Assert.That(fixture.View.EffectText.cachedTextGenerator.fontSizeUsedForBestFit,
+                    Is.LessThan(fixture.View.EffectText.fontSize));
+                AssertInside(fixture.View.EffectText.rectTransform, fixture.View.Root.GetComponent<RectTransform>());
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator ActualCombatPopups_KeepOneSizeAndHeaderBodyAndHintSeparate()
         {
             yield return null;
             var parent = new GameObject("Compact Skill Popup HUD Test");
@@ -131,12 +151,13 @@ namespace TurnLimbo.Presentation.Tests
                     Canvas.ForceUpdateCanvases();
                     GameObject popup = Named(hud.Root, enemy ? "Enemy Skill Explain" : "Skill Explain").gameObject;
                     float shortHeight = popup.GetComponent<RectTransform>().rect.height;
-                    Assert.That(shortHeight, Is.LessThan(320f), "One-line facts should not leave a 368px popup.");
+                    Assert.That(shortHeight, Is.LessThan(320f), "The fixed popup should remain compact.");
                     foreach (LegacySkill skill in AllSkills())
                     {
                         hud.ShowExplanation(skill, enemy);
                         Canvas.ForceUpdateCanvases();
                         RectTransform paper = popup.GetComponent<RectTransform>();
+                        Assert.That(paper.rect.height, Is.EqualTo(shortHeight).Within(.1f));
                         var body = Named(popup, "Skill Summary").GetComponent<RectTransform>();
                         Text description = Label(popup, "Effect");
                         AssertBodyFits(body, description);
@@ -148,8 +169,8 @@ namespace TurnLimbo.Presentation.Tests
                         AssertHeaderClear(popup, paper, "Name", enemy ? "Power Property" : "Power Cost Property", "Explanation Skill Icon");
                         foreach (SkillInfoAttachment badge in popup.GetComponentsInChildren<SkillInfoAttachment>()) AssertOnScreen(badge.rectTransform);
                     }
-                    hud.ShowExplanation(Skill(3), enemy);
-                    Assert.That(popup.GetComponent<RectTransform>().rect.height, Is.GreaterThan(shortHeight));
+                    hud.ShowExplanation(Skill(5), enemy);
+                    Assert.That(popup.GetComponent<RectTransform>().rect.height, Is.EqualTo(shortHeight).Within(.1f));
                     hud.ShowExplanation(Skill(14), enemy);
                     Assert.That(popup.GetComponent<RectTransform>().rect.height, Is.EqualTo(shortHeight).Within(.1f));
                 }
@@ -159,7 +180,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActualLoadoutDetail_ShrinksWithoutMovingItsTopOrHidingTheRemoveButton()
+        public IEnumerator ActualLoadoutDetail_KeepsItsSizeAndTopWithoutHidingTheRemoveButton()
         {
             yield return null;
             var parent = new GameObject("Compact Loadout Skill Detail Test");
@@ -179,6 +200,7 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     Click(lobby.Root, slot);
                     Canvas.ForceUpdateCanvases();
+                    Assert.That(border.rect.height, Is.EqualTo(shortHeight).Within(.1f));
                     Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(originalTop).Within(.1f), "Only the lower card edge moves during selection.");
                     RectTransform paper = Named(detail, "Detail Surface").GetComponent<RectTransform>();
                     RectTransform body = Named(detail, "Skill Summary").GetComponent<RectTransform>();
@@ -188,8 +210,9 @@ namespace TurnLimbo.Presentation.Tests
                     AssertHeaderClear(detail, paper, "Loadout Detail Name", "Loadout Detail Role", "Loadout Detail Icon");
                     Assert.That(run.HasLoadoutChanges, Is.False);
                 }
-                Click(lobby.Root, "Loadout Slot W 1");
-                Assert.That(border.rect.height, Is.GreaterThan(shortHeight));
+                // E's conditional response needs more lines than Q's brief effect, but not a larger window.
+                Click(lobby.Root, "Loadout Slot E 1");
+                Assert.That(border.rect.height, Is.EqualTo(shortHeight).Within(.1f));
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
             }
             finally { lobby?.Dispose(); Object.Destroy(parent); }
@@ -197,7 +220,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActualCurriculumDetail_ReflowsBelowAFixedTopAndReservesTheExclusiveLineOnlyWhenPresent()
+        public IEnumerator ActualCurriculumDetail_KeepsOneSizeAndReservesTheExclusiveLine()
         {
             yield return null;
             var parent = new GameObject("Compact Curriculum Skill Detail Test");
@@ -225,6 +248,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo(node.Title));
                     Assert.That(Label(detail, "ACT Value").text, Is.EqualTo(skill.Cost.ToString()));
                     Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo(CampaignSkillText.Power(skill)));
+                    Assert.That(border.rect.height, Is.EqualTo(plainHeight).Within(.1f));
                     Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(top).Within(.1f), "Only the lower card edge moves during selection.");
                     Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.EqualTo(node.ExclusiveWith.Count > 0));
                     AssertCurriculumSections(detail);
@@ -234,7 +258,7 @@ namespace TurnLimbo.Presentation.Tests
                 Canvas.ForceUpdateCanvases();
                 Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.True);
                 Assert.That(Label(detail, "Curriculum Exclusive").text, Does.Contain("르프리즈"));
-                Assert.That(border.rect.height, Is.EqualTo(plainHeight + 30f).Within(.1f), "An exclusive pair reserves one readable line.");
+                Assert.That(border.rect.height, Is.EqualTo(plainHeight).Within(.1f), "The exclusivity line has reserved space in every card.");
                 Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(top).Within(.1f));
                 AssertCurriculumSections(detail);
                 Click(lobby.Root, "Curriculum Node breathing");

@@ -357,6 +357,10 @@ namespace TurnLimbo.Presentation
             player.AnimationTime = enemy.AnimationTime = 0f;
             player.ReactionTime = enemy.ReactionTime = 0f;
             player.Chasing = enemy.Chasing = false;
+            ResetMovementPose(player);
+            ResetMovementPose(enemy);
+            SampleActor(player);
+            SampleActor(enemy);
         }
 
         /// <summary>넘기기 spent planning time: in 전투 planning, bullet time lets go for a moment (no effect otherwise).</summary>
@@ -390,13 +394,19 @@ namespace TurnLimbo.Presentation
             player.Chasing = enemy.Chasing = false;
             player.Skill = enemy.Skill = null;
             player.LowerTravelActive = player.HasLowerTravelProgress = false;
+            ResetMovementPose(player);
+            ResetMovementPose(enemy);
         }
 
         public void CloseDistance(float scaledDelta)
         {
             if (IsInRange || approaching || returning || HasPendingPush || stepping) return;
+            float playerStartX = player.Renderer.transform.localPosition.x;
+            float enemyStartX = enemy.Renderer.transform.localPosition.x;
             MoveFightersCloser(Mathf.Max(0f, scaledDelta), PursuitSpeed * pursuitMovementSpeed, !IsPursuing);
             SamplePlayerLowerBody(scaledDelta, scaledDelta);
+            SampleMovementPose(player, playerStartX, scaledDelta);
+            SampleMovementPose(enemy, enemyStartX, scaledDelta);
         }
 
         public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
@@ -407,6 +417,8 @@ namespace TurnLimbo.Presentation
             ClearPressureAttackTrail();
             player.Skill = playerSkill;
             enemy.Skill = enemySkill;
+            ResetMovementPose(player);
+            ResetMovementPose(enemy);
             player.ReactionTime = enemy.ReactionTime = 0f;
             player.GuardVariant = enemy.GuardVariant = 0;
             player.AttackVariants.Clear();
@@ -456,6 +468,10 @@ namespace TurnLimbo.Presentation
             // Slow playback can outlast the turn's final hit; a reaction never carries into planning.
             player.ReactionTime = enemy.ReactionTime = 0f;
             player.Chasing = enemy.Chasing = false;
+            ResetMovementPose(player);
+            ResetMovementPose(enemy);
+            SampleActor(player);
+            SampleActor(enemy);
         }
 
         /// <summary>Presentation only: the session/controller owns timing and step effects.</summary>
@@ -598,6 +614,7 @@ namespace TurnLimbo.Presentation
                 appearance = EnemyAppearance.Student;
             }
             enemyAppearance = appearance;
+            ResetMovementPose(enemy);
             enemy.HurtPlaying = false;
             enemy.HurtElapsed = enemy.IdleClock = 0f;
             SampleActor(enemy);
@@ -749,6 +766,10 @@ namespace TurnLimbo.Presentation
             stepAfterimages.Tick(realDelta);
             bool stepMovedThisFrame = stepping;
             TickStep(realDelta);
+            // Pushes and dodge/pressure afterimages keep their authored poses. Only travel uses the movement pose.
+            float playerTravelStartX = player.Renderer.transform.localPosition.x;
+            float enemyTravelStartX = enemy.Renderer.transform.localPosition.x;
+            float movementSampleDelta = scaledDelta;
             if (approaching)
             {
                 movementTime += scaledDelta;
@@ -765,10 +786,16 @@ namespace TurnLimbo.Presentation
             else if (IsPursuing && !stepMovedThisFrame) MoveFightersCloser(scaledDelta, PursuitSpeed * pursuitMovementSpeed, false);
             else if (bulletTime && !stepMovedThisFrame && !HasPendingPush)
             {
-                if (bulletTimeParting) bulletTimeParting = PartFighters(realDelta);
+                if (bulletTimeParting)
+                {
+                    movementSampleDelta = realDelta;
+                    bulletTimeParting = PartFighters(realDelta);
+                }
                 else DriftFightersCloser(scaledDelta);
             }
             SamplePlayerLowerBody(scaledDelta, stepMovedThisFrame ? realDelta : scaledDelta, stepMovedThisFrame);
+            SampleMovementPose(player, playerTravelStartX, movementSampleDelta);
+            SampleMovementPose(enemy, enemyTravelStartX, movementSampleDelta);
             foreach (var effect in effects)
             {
                 if (!effect.Active) continue;
@@ -1022,7 +1049,8 @@ namespace TurnLimbo.Presentation
                 int hitIndex = Mathf.FloorToInt(actor.AnimationTime / cycle);
                 Sprite attack = active && actor.Skill.Kind == LegacySkillKind.Attack
                     ? mobAnimations.GetAttackUpper(actor.Skill.Property, AttackVariant(actor, hitIndex), clipTime / OriginalClipDuration) : null;
-                actor.Renderer.sprite = attack != null ? attack : mobAnimations.GetIdleUpper(idleTime);
+                actor.Renderer.sprite = attack != null ? attack : actor.Moving
+                    ? mobAnimations.GetMove() : mobAnimations.GetIdleUpper(idleTime);
                 return;
             }
             if (actor == enemy && EnemyIsDummy)
@@ -1046,7 +1074,8 @@ namespace TurnLimbo.Presentation
                 Sprite attack = !guard && active && actor.Skill.Kind == LegacySkillKind.Attack
                     ? enemyAnimations.GetAttack(actor.Skill.Property, clipTime / OriginalClipDuration, AttackVariant(actor, hitIndex)) : null;
                 actor.Renderer.sprite = guard ? enemyAnimations.GetGuard(actor.GuardVariant)
-                    : attack != null ? attack : enemyAnimations.GetIdle(idleTime);
+                    : attack != null ? attack : actor.Moving
+                        ? enemyAnimations.GetMove() : enemyAnimations.GetIdle(idleTime);
                 return;
             }
             // Legacy clips: after its own frames, a defense or a finished attack still facing
@@ -1062,6 +1091,24 @@ namespace TurnLimbo.Presentation
             var time = active ? clipTime : idleTime % (2f / 3f);
             if (actor.Clips.TryGetValue(clipName, out var clip)) clip.SampleAnimation(actor.Renderer.gameObject, time);
         }
+
+        private void SampleMovementPose(Actor actor, float startX, float elapsed)
+        {
+            if (actor == enemy && EnemyIsDummy)
+            {
+                ResetMovementPose(actor);
+                SampleActor(actor);
+                return;
+            }
+
+            float travelX = actor.Renderer.transform.localPosition.x - startX;
+            if (Mathf.Abs(travelX) > .00001f) actor.Moving = true;
+            // A stopped combat clock holds the displayed pose; a real stop returns to idle.
+            else if (elapsed > 0f) actor.Moving = false;
+            SampleActor(actor);
+        }
+
+        private static void ResetMovementPose(Actor actor) => actor.Moving = false;
 
         private void SamplePlayerLowerBody(float scaledDelta, float movementDelta, bool stepProgress = false)
         {
@@ -1262,6 +1309,7 @@ namespace TurnLimbo.Presentation
             actor.ReactionIsBlock = false;
             actor.ReactionVariant = actor.GuardVariant = 0;
             actor.AttackVariants.Clear();
+            ResetMovementPose(actor);
             actor.Skill = null;
             actor.HurtPlaying = false;
             actor.HurtElapsed = actor.IdleClock = 0f;
@@ -1310,6 +1358,7 @@ namespace TurnLimbo.Presentation
             public Vector3 PushStart, PushEnd;
             public bool Pushing, Chasing;
             public float LowerAnimationTime;
+            public bool Moving;
             public Vector3 LastVisualPosition;
             public bool Retreating;
             public bool LowerTravelActive, HasLowerTravelProgress;

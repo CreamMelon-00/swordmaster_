@@ -3,19 +3,21 @@ using System.Collections.Generic;
 
 namespace TurnLimbo.Runtime.Campaign
 {
-    /// <summary>The persistent part of a <see cref="CampaignRun"/>: currency, cleared stages, curriculum progress and
-    /// the saved loadout. Owned skills follow from the completed curriculum nodes. Battle state, the unsaved loadout
+    /// <summary>The persistent part of a <see cref="CampaignRun"/>: currency, cleared stages, curriculum progress,
+    /// training wins and the saved loadout. Owned skills follow from the completed curriculum nodes. Battle state, the unsaved loadout
     /// draft and lobby selections are not kept. The data is not validated here; <see cref="CampaignRun.TryRestore"/>
     /// checks it against the game's rules.</summary>
     public sealed class CampaignSave
     {
         public CampaignSave(int currency, IEnumerable<int> clearedStages, IEnumerable<string> curriculumCompleted,
-            string curriculumActive, int curriculumBattles, IEnumerable<IEnumerable<int>> loadout)
+            string curriculumActive, int curriculumBattles, IEnumerable<IEnumerable<int>> loadout,
+            int trainingVictoryCount = 0)
         {
             if (clearedStages == null) throw new ArgumentNullException(nameof(clearedStages));
             if (curriculumCompleted == null) throw new ArgumentNullException(nameof(curriculumCompleted));
             if (loadout == null) throw new ArgumentNullException(nameof(loadout));
             Currency = currency;
+            TrainingVictoryCount = trainingVictoryCount;
             ClearedStages = new List<int>(clearedStages).AsReadOnly();
             CurriculumCompleted = new List<string>(curriculumCompleted).AsReadOnly();
             CurriculumActive = curriculumActive;
@@ -27,6 +29,8 @@ namespace TurnLimbo.Runtime.Campaign
         }
 
         public int Currency { get; }
+        /// <summary>Dummy fights won; omitted in older version 2 saves and then treated as zero.</summary>
+        public int TrainingVictoryCount { get; }
         /// <summary>Numbers of the cleared stages.</summary>
         public IReadOnlyList<int> ClearedStages { get; }
         /// <summary>Completed curriculum node ids in completion order.</summary>

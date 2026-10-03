@@ -5,13 +5,90 @@ using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Prologue;
+using TurnLimbo.Runtime.Save;
 
 namespace TurnLimbo.Core.Tests
 {
     public sealed class CurriculumTests
     {
         [Test]
-        public void DefaultTree_IsOrderedAndGrantsEachAcquisitionSkillFromExactlyOneNode()
+        public void StatOnlyNodes_ApplyCumulativelyAndFollowCompletedNodesThroughSaveAndReset()
+        {
+            var tree = new CurriculumTree(new[]
+            {
+                new CurriculumNode("conditioning", "기초 체력", CurriculumBranch.Guard, 0f, 0,
+                    Array.Empty<int>(), description: "체력과 저항을 높입니다.",
+                    statReward: new CurriculumStatReward(health: 20, resistance: 5)),
+                new CurriculumNode("tempo", "전투 호흡", CurriculumBranch.Guard, 0f, 1,
+                    Array.Empty<int>(), requiresAll: new[] { "conditioning" },
+                    description: "ACT와 턴 시간을 늘립니다.",
+                    statReward: new CurriculumStatReward(actGain: 2, actCapacity: 3, planningSeconds: 4)),
+            });
+            var run = new CampaignRun(tree);
+            Assert.That(run.CurriculumStats.IsEmpty, Is.True);
+
+            Assert.That(run.TrySelectCurriculumNode("conditioning"), Is.True);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
+            Assert.That(run.CurriculumStats.Health, Is.EqualTo(20));
+            Assert.That(run.CurriculumStats.Resistance, Is.EqualTo(5));
+            Assert.That(run.CreateDuel().Player.MaxHealth, Is.EqualTo(120));
+            Assert.That(run.CreateDuel().Player.MaxResistance, Is.EqualTo(55));
+            Assert.That(run.ReturnToLobby(), Is.True);
+
+            Assert.That(run.TrySelectCurriculumNode("tempo"), Is.True);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
+            Assert.That(run.CurriculumStats.ActGain, Is.EqualTo(2));
+            Assert.That(run.CurriculumStats.ActCapacity, Is.EqualTo(3));
+            Assert.That(run.CurriculumStats.PlanningSeconds, Is.EqualTo(4));
+            LegacyQueuedDuel duel = run.CreateDuel();
+            Assert.That(duel.Act, Is.EqualTo(5), "The gain bonus applies on the first turn.");
+            Assert.That(duel.PlayerMaximumAct, Is.EqualTo(13));
+
+            string text = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), run));
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string parseError), Is.True, parseError);
+            var restored = new CampaignRun(tree);
+            Assert.That(parsed.TryApply(new PrologueRun(), restored, out string restoreError), Is.True, restoreError);
+            Assert.That(restored.CurriculumStats.Health, Is.EqualTo(20));
+            Assert.That(restored.CurriculumStats.ActGain, Is.EqualTo(2));
+            Assert.That(restored.CurriculumStats.PlanningSeconds, Is.EqualTo(4));
+            Assert.That(restored.CreateDuel().Act, Is.EqualTo(5));
+            Assert.That(restored.TryResetCurriculum(), Is.True);
+            Assert.That(restored.CurriculumStats.IsEmpty, Is.True);
+            Assert.That(restored.CreateDuel().Player.MaxHealth, Is.EqualTo(100));
+            Assert.That(restored.CreateDuel().Act, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ActBonuses_UseTheIncreasedCapacity()
+        {
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 50, LegacyInitialSkills.All,
+                new[] { LegacySkillDefinitions.Skill(7) }, new[] { 1 },
+                playerActGainBonus: 2, playerActCapacityBonus: 3);
+            Assert.That(duel.Act, Is.EqualTo(5));
+            for (int turn = 0; turn < 3; turn++)
+            {
+                duel.Commit();
+                while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+                duel.BeginNextTurn();
+            }
+            Assert.That(duel.Act, Is.EqualTo(13));
+            Assert.That(duel.NextActGain, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void StatReward_RejectsNegativeBonusesAndNodesWithoutAnyReward()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() => new CurriculumStatReward(health: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new CurriculumStatReward(actGain: -1));
+            Assert.Throws<ArgumentException>(() => new CurriculumNode("empty", "빈 과정", CurriculumBranch.Guard,
+                0f, 0, Array.Empty<int>()));
+        }
+
+        [Test]
+        public void DefaultTree_IsOrderedAndGrantsEachCurriculumSkillFromExactlyOneNode()
         {
             CurriculumTree tree = CampaignCurriculum.Default;
             var earlier = new HashSet<string>();
@@ -35,10 +112,14 @@ namespace TurnLimbo.Core.Tests
                 granted.AddRange(node.SkillIds);
             }
             Assert.That(tree.Nodes.Count, Is.EqualTo(10));
-            CollectionAssert.AreEquivalent(CampaignSkillCatalog.AcquisitionSkills.Select(skill => skill.Id), granted);
+            var campaign = new CampaignRun();
+            var stageRewards = Enumerable.Range(1, campaign.StageCount)
+                .Select(stage => campaign.GetStage(stage).FirstClearSkillId).Where(id => id != 0).ToArray();
+            CollectionAssert.AreEquivalent(CampaignSkillCatalog.AcquisitionSkills.Select(skill => skill.Id).Except(stageRewards), granted);
+            foreach (int id in stageRewards) Assert.That(tree.FindGranting(id), Is.Null, "Stage rewards are not curriculum rewards.");
             foreach (LegacySkill skill in LegacyInitialSkills.All)
                 Assert.That(tree.FindGranting(skill.Id), Is.Null, "Starting skills are never granted.");
-            Assert.That(new CampaignRun().Curriculum.Tree, Is.SameAs(tree));
+            Assert.That(campaign.Curriculum.Tree, Is.SameAs(tree));
         }
 
         [Test]
@@ -238,7 +319,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Curriculum.Active, Is.Null);
             Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
             Assert.That(run.LastCompletedCurriculumNode, Is.Null);
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "The first stage clear grants 탐색 independently of the curriculum.");
             Assert.That(run.Curriculum.GetState("horizontal-cut"), Is.EqualTo(CurriculumNodeState.Available));
             Assert.That(run.TryResetCurriculum(), Is.False, "There is nothing to reset.");
         }
@@ -251,9 +332,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
 
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
-            CampaignOwnedSkill granted = run.OwnedSkills[run.OwnedSkills.Count - 1];
-            Assert.That(granted.SkillId, Is.EqualTo(17), "Granted skills follow the starting ones.");
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(11), "The curriculum skill and first-clear skill are separate rewards.");
+            CampaignOwnedSkill granted = run.OwnedSkills.Single(owned => owned.SkillId == 17);
             Assert.That(granted.Skill, Is.SameAs(CampaignSkillCatalog.AcquisitionSkills.First(skill => skill.Id == 17)));
             Assert.That(run.IsSkillEquipped(17), Is.False);
             Assert.That(run.IsSkillInLoadout(17), Is.False);

@@ -50,7 +50,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new HudFixture())
             {
                 Assert.That(fixture.Session.TryQueueLane(0), Is.True);
-                Assert.That(fixture.Session.TryQueueLane(0), Is.True);
+                Assert.That(fixture.Session.TryQueueLane(1), Is.True);
                 Assert.That(fixture.Session.Act, Is.Zero);
                 fixture.Refresh();
                 Assert.That(fixture.Button.interactable, Is.True);

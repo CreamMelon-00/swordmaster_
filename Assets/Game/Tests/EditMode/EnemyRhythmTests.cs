@@ -79,6 +79,25 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void RedesignedStarterRhythms_KeepTheHeavyTelegraphsAfterSkillCostsChange()
+        {
+            EnemyScript gatekeeper = CampaignEnemyRhythms.Script(CampaignEnemyRhythm.Gatekeeper);
+            Assert.That(Ids(gatekeeper.Turn(4)), Is.EqualTo(new[] { 4 }),
+                "The single open-slot blow still uses a costly W attack.");
+            Assert.That(gatekeeper.Turn(4)[0].Cost, Is.EqualTo(3));
+
+            EnemyScript opener = CampaignEnemyRhythms.Script(CampaignEnemyRhythm.Opener);
+            Assert.That(Ids(opener.Turn(1)), Is.EqualTo(new[] { 4, 3, 2 }));
+            Assert.That(Ids(opener.Turn(2)), Is.EqualTo(new[] { 4, 6, 3 }));
+            Assert.That(opener.Turn(1).Count(skill => skill.LaneIndex == 1), Is.EqualTo(2));
+            Assert.That(opener.Turn(2).Count(skill => skill.LaneIndex == 1), Is.EqualTo(2));
+
+            EnemyScript charge = CampaignEnemyRhythms.Script(CampaignEnemyRhythm.Charge);
+            Assert.That(Ids(charge.Turn(3)), Is.EqualTo(new[] { 3, 4 }));
+            Assert.That(charge.Turn(3).All(skill => skill.LaneIndex == 1 && skill.Kind == LegacySkillKind.Attack), Is.True);
+        }
+
+        [Test]
         public void Rhythms_AskTheirQuestions()
         {
             bool IsGuard(LegacySkill skill) => skill.Kind == LegacySkillKind.Defence;

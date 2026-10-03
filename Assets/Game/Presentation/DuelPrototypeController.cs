@@ -13,6 +13,7 @@ namespace TurnLimbo.Presentation
     public sealed class DuelPrototypeController : MonoBehaviour
     {
         private const float PlanningDuration = 10f;
+        private float CurrentPlanningDuration => planningDuration;
         /// <summary>넘기기 spends this much planning time while the planning timer runs (it is free while the clock is
         /// held: untimed missions and coached beats).</summary>
         public const float LaneCycleTimeCost = 1f;
@@ -72,6 +73,9 @@ namespace TurnLimbo.Presentation
         private float slotAttackInterval;
         private float slotImpactTime;
         private float slotCycleDuration;
+        private bool finishingHitPlayback;
+        private float finishingHitTime;
+        private float finishingClipEnd;
         private float slotAnticipationDuration;
         private float slotStepWindow;
         // Snapshotted with the base window at slot start, so live tuning never changes a skill mid-cue.
@@ -79,6 +83,7 @@ namespace TurnLimbo.Presentation
         private float slotStepMinimumWindow = LegacyStepTiming.DefaultMinimumWindow;
         private float betweenSlotsDuration;
         private float hitStopRemaining;
+        private float planningDuration = PlanningDuration;
         private float planningTime;
         private int highlightedSlot;
         private int inspectingEnemy;
@@ -121,9 +126,11 @@ namespace TurnLimbo.Presentation
         public PrologueMission ActiveMission => mission;
         public MissionGuide Guide => guide;
         public bool IsMission => mission != null;
+        public bool IsTrainingBattle => campaign != null && campaign.IsTrainingBattle;
         /// <summary>결투 or 전투 for the fight on screen (internal; changes presentation only). Missions say which;
         /// stages are 전투.</summary>
-        public EncounterKind Encounter => IsMission ? mission.Encounter : campaign.CurrentStage.Encounter;
+        public EncounterKind Encounter => IsTrainingBattle ? EncounterKind.Battle
+            : IsMission ? mission.Encounter : campaign.CurrentStage.Encounter;
         public bool IsShowingResult => viewPhase == ViewPhase.Outcome && battleResult != null;
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
         public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && !IsPlayingCutscene &&
@@ -181,7 +188,8 @@ namespace TurnLimbo.Presentation
         private bool IsInspecting => CanChoose && (guideInspectionRemaining > 0f ||
             Keyboard.current != null && Keyboard.current.tabKey.isPressed);
         // A coached beat never runs out of time; a mission may also have no timer at all.
-        private bool PlanningTimerRuns => !IsMission || mission.PlanningTimer && (guide == null || guide.IsFree);
+        private bool PlanningTimerRuns => !IsTrainingBattle &&
+            (!IsMission || mission.PlanningTimer && (guide == null || guide.IsFree));
         /// <summary>What 넘기기 costs right now: the planning time it spends, or 0 while the clock is held.</summary>
         public float LaneCycleCost => PlanningTimerRuns ? LaneCycleTimeCost : 0f;
         /// <summary>Whether enough planning time is left to pay for 넘기기.</summary>
@@ -218,18 +226,20 @@ namespace TurnLimbo.Presentation
                 () => { if (IsPlayingCutscene) AdvanceCutscene(); else ContinueDialogue(); },
                 () => { if (IsPlayingCutscene) SkipCutscene(); else FinishDialogue(); });
             cutsceneHud = new CutsceneHud(transform, art);
+            Sprite lobbyRoomSprite = LobbyRoomBackdrop.PickRandom();
             lobbyHud = new CampaignLobbyHud(transform, art,
                 id => SelectCurriculumNode(id), () => ResetCurriculum(), id => EquipSkill(id),
                 id => UnequipSkill(id), (id, direction) => MoveEquippedSkill(id, direction),
                 stage => StartCampaignStage(stage), RestartJourney,
                 (id, lane, slot) => PlaceLoadoutSkill(id, lane, slot),
-                () => SaveLoadout(), () => ResetLoadout(), () => OpenNextMission());
+                () => SaveLoadout(), () => ResetLoadout(), () => OpenNextMission(), lobbyRoomSprite,
+                () => StartTraining());
             resultHud = new BattleResultHud(transform, art, () => DismissBattleResult(),
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
             coachHud = new MissionCoachHud(transform, art, () => AdvanceGuide(),
                 ReturnToLobby, () => InspectGuideEnemy());
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
-            titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle());
+            titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite);
             saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
@@ -377,6 +387,8 @@ namespace TurnLimbo.Presentation
                     if (phaseTime >= betweenSlotsDuration) PrepareNextSlot();
                     break;
                 case ViewPhase.AfterTurn:
+                    if (finishingHitPlayback)
+                        arena.HoldSlotAtTime(Mathf.Min(finishingHitTime + phaseTime, finishingClipEnd));
                     if (phaseTime >= TurnCleanupDelay)
                     {
                         hud.BeginReturn();
@@ -533,6 +545,20 @@ namespace TurnLimbo.Presentation
                         Exchange(hit.PlayerSkill, hit.PlayerAttacked));
                 // Includes a deferred counter slot's start effects, which run inside this hit.
                 AnnounceBreaks(playerWasBroken, enemyWasBroken);
+                if (hit.Outcome != DuelMatchOutcome.InProgress)
+                {
+                    // Finish this strike's pose without allowing another attack cycle.
+                    finishingHitPlayback = true;
+                    finishingHitTime = attackTime;
+                    finishingClipEnd = Mathf.Max(attackTime, animationClipEnd - .0001f);
+                    slotDuration = animationClipEnd;
+                    hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
+                    arena.HoldSlotAtTime(attackTime);
+                    hud.RecordResolvedSlot(slot.PlayerSkill, slot.EnemySkill, playerSlotDamage, enemySlotDamage);
+                    session.CompleteCurrentSlot();
+                    PrepareNextSlot(true);
+                    return;
+                }
                 // A long frame must not batch several impacts before any push
                 // has been observed, nor immediately finish the final animation.
                 if (phaseTime >= animationClipEnd)
@@ -599,7 +625,7 @@ namespace TurnLimbo.Presentation
             int enemyResistanceBefore = session.Enemy.Resistance;
             session.BeginNextTurn();
             ClearHeldKeys();
-            planningTime = PlanningDuration;
+            planningTime = CurrentPlanningDuration;
             highlightedSlot = -1;
             inspectingEnemy = 0;
             explainedSkill = null;
@@ -650,6 +676,7 @@ namespace TurnLimbo.Presentation
 
         private void SetViewPhase(ViewPhase next)
         {
+            if (next != ViewPhase.AfterTurn) finishingHitPlayback = false;
             viewPhase = next;
             phaseTime = 0f;
         }
@@ -1202,6 +1229,11 @@ namespace TurnLimbo.Presentation
         public bool RetryBattleResult()
         {
             if (!IsShowingResult) return false;
+            if (battleResult.IsTraining)
+            {
+                ShowLobby();
+                return StartTraining();
+            }
             int number = battleResult.StageNumber;
             // A mission retry skips its intro, as a restarted StarCraft mission does.
             if (battleResult.IsMission)
@@ -1231,6 +1263,14 @@ namespace TurnLimbo.Presentation
         {
             if (!IsInLobby || !campaign.TryStartStage(stageNumber)) return false;
             StartStageBattle();
+            return true;
+        }
+
+        public bool StartTraining()
+        {
+            if (!IsInLobby || !campaign.TryStartTraining()) return false;
+            session = campaign.CreateDuel(System.Environment.TickCount);
+            ResetBattlePresentation();
             return true;
         }
 
@@ -1292,6 +1332,11 @@ namespace TurnLimbo.Presentation
         private void FinishStage()
         {
             if (IsShowingResult || !session.IsFinished) return;
+            if (IsTrainingBattle)
+            {
+                FinishTraining();
+                return;
+            }
             if (IsMission)
             {
                 FinishMission();
@@ -1313,13 +1358,28 @@ namespace TurnLimbo.Presentation
                 campaign.StageNumber + 1 <= campaign.HighestUnlockedStage && campaign.StageNumber + 1 <= campaign.StageLimit,
                 campaign.LastCompletedCurriculumNode, curriculumOpen ? campaign.Curriculum.Active : null,
                 curriculumOpen ? campaign.Curriculum.ActiveBattles : 0, curriculumOpen && campaign.Curriculum.IsFinished,
-                curriculumOpen);
+                curriculumOpen,
+                firstClear && victory && campaign.CurrentStage.FirstClearSkillId != 0
+                    ? LegacySkillDefinitions.Skill(campaign.CurrentStage.FirstClearSkillId).Name : null);
             EndDuelPresentation();
             // Clearing the stage a lobby mission waited for brings that mission; the next stage waits for it.
             PrologueMission arrived = victory && prologue.IsArcComplete && IsNextMissionAvailable &&
                 campaign.StageNumber == prologue.CurrentMission.RequiredClearedStage ? prologue.CurrentMission : null;
             battleResult = result;
             resultHud.Show(result, null, arrived != null ? $"새 임무 '{arrived.Title}' 도착 · 로비에서 브리핑을 여세요." : null);
+        }
+
+        private void FinishTraining()
+        {
+            int targetHealth = campaign.TrainingDummyHealth;
+            if (!campaign.TryCompleteBattle(session.Outcome)) return;
+            if (session.Outcome == DuelMatchOutcome.PlayerVictory) AutoSave();
+            var result = new BattleResult(session.Outcome, false, campaign.StageNumber, "허수아비 수련", 0, campaign.Currency,
+                Mathf.Max(1, session.RoundNumber), session.Player.Health, session.Enemy.Health,
+                false, 0, false, curriculumOpen: false, isTraining: true);
+            EndDuelPresentation();
+            battleResult = result;
+            resultHud.ShowTraining(result, targetHealth, campaign.TrainingDummyHealth);
         }
 
         /// <summary>A finished mission: record progress, play the outro on a victory, then show the result.</summary>
@@ -1427,6 +1487,7 @@ namespace TurnLimbo.Presentation
             resultHud.Hide();
             coachHud.Hide();
             hud.SetMissionMode(false);
+            hud.SetTrainingMode(false);
             hud.SetGuide(null);
             hud.SetGuideFocus(-1, false, false, false);
             campaign.ReturnToLobby();
@@ -1477,16 +1538,20 @@ namespace TurnLimbo.Presentation
             hitStopRemaining = betweenSlotsDuration = slotDuration = slotAttackInterval = slotImpactTime = slotCycleDuration = 0f;
             slotAnticipationDuration = slotStepWindow = 0f;
             slotPlaybackSpeed = 1f;
-            planningTime = PlanningDuration;
+            planningDuration = PlanningDuration + (IsMission ? 0 : campaign.CurriculumStats.PlanningSeconds);
+            planningTime = CurrentPlanningDuration;
             highlightedSlot = -1;
             inspectingEnemy = 0;
             explainedSkill = null;
-            arena.SetEnemyAppearance(IsMission ? mission.EnemyAppearance : EnemyAppearance.Student);
+            arena.SetEnemyAppearance(IsTrainingBattle ? EnemyAppearance.TrainingDummy
+                : IsMission ? mission.EnemyAppearance : EnemyAppearance.Student);
             arena.Reset();
             hud.Reset();
             hud.SetMissionMode(IsMission, IsMission && mission.PlanningTimer, IsMission && mission.BreathEnabled);
+            hud.SetTrainingMode(IsTrainingBattle);
             hud.SetGuide(guide);
             if (IsMission) hud.SetStage(mission.Number, MissionCountFor(mission), mission.Title);
+            else if (IsTrainingBattle) hud.SetStage(1, 1, "허수아비");
             else hud.SetStage(campaign.StageNumber, campaign.StageCount, campaign.CurrentStage.Name);
             SetViewPhase(ViewPhase.Planning);
             ClearHeldKeys();
@@ -1528,7 +1593,7 @@ namespace TurnLimbo.Presentation
             arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
             hud.SetLaneCycleCost(LaneCycleCost, CanAffordLaneCycle);
             hud.Refresh(session, planningTime, IsResolving, highlightedSlot, arena.ArenaCamera,
-                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta);
+                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta, CurrentPlanningDuration);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.Refresh(CanStep, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,
                 StepWindowFraction, session.UsedStepThisTurn, session.StepAttemptsThisTurn, session.StepMissedThisTurn,

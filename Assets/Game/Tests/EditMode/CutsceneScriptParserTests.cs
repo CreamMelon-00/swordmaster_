@@ -72,7 +72,7 @@ namespace TurnLimbo.Core.Tests
                 "﻿# 메모",
                 "@fade out 0",
                 "첫 줄",
-                "@left 엘리제 | 깨어난 사람",
+                "@left 엘리사 | 깨어난 사람",
                 "@actor elise at -3",
                 "둘째 줄",
                 "@show right 떠돌이 기사",
@@ -89,7 +89,7 @@ namespace TurnLimbo.Core.Tests
             DialogueLine first = steps[1].Line, second = steps[3].Line, third = steps[5].Line;
             Assert.That(first.Side, Is.EqualTo(DialogueSide.Narrator), "Lines before a speaker are narration.");
             Assert.That(first.SourceLineNumber, Is.EqualTo(3));
-            Assert.That(second.SpeakerName, Is.EqualTo("엘리제"));
+            Assert.That(second.SpeakerName, Is.EqualTo("엘리사"));
             Assert.That(second.SpeakerRole, Is.EqualTo("깨어난 사람"));
             Assert.That(third.Text, Is.EqualTo("@셋째 줄"), "Escapes still work.");
             Assert.That(third.Stage.Right.SpeakerName, Is.EqualTo("떠돌이 기사"), "Stage directives still carry over.");

@@ -27,6 +27,7 @@ namespace TurnLimbo.Presentation.Tests
 @actor dummy at 2
 첫째
 @fade in 1
+@actor elise pose idle
 @actor elise move 0 1 &
 @camera reset 1
 둘째
@@ -122,7 +123,7 @@ namespace TurnLimbo.Presentation.Tests
                 SpriteRenderer elise = arena.PlayerRenderer, other = arena.EnemyRenderer;
                 Assert.That(elise.gameObject.activeSelf, Is.True);
                 Assert.That(elise.transform.localPosition.x, Is.EqualTo(-3f));
-                Assert.That(elise.flipX, Is.True, "Elise is drawn facing right; facing left flips her.");
+                Assert.That(elise.flipX, Is.True, "Elisa is drawn facing right; facing left flips her.");
                 Assert.That(elise.sprite.name, Does.Contain("hurt"));
                 Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.TrainingDummy));
                 Assert.That(other.gameObject.activeSelf, Is.True);
@@ -149,10 +150,16 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.CutsceneHud.FadeAmount, Is.InRange(.01f, .99f), "The fade is under way.");
                 scope.Advance(.5f);
                 Assert.That(controller.CutsceneHud.FadeAmount, Is.Zero);
+                scope.Advance(.25f);
+                Assert.That(elise.sprite.name, Is.EqualTo("move-frame-01"), "The running pose replaces idle while she moves.");
+                Sprite movingPose = elise.sprite;
+                scope.Advance(.1f);
+                Assert.That(elise.sprite, Is.SameAs(movingPose), "The pose stays fixed during travel.");
                 // A little past the one-second hold, so float steps cannot leave it a hair short.
                 for (int frame = 0; frame < 24; frame++) scope.Advance(.05f);
                 Assert.That(dialogue.CurrentLine.Text, Is.EqualTo("둘째"));
-                Assert.That(elise.transform.localPosition.x, Is.EqualTo(0f).Within(1e-4f), "She slid to 0 while the camera reset.");
+                Assert.That(elise.transform.localPosition.x, Is.EqualTo(0f).Within(1e-4f), "She moved to 0 while the camera reset.");
+                Assert.That(elise.sprite.name, Does.StartWith("idle-frame-"), "The first stopped frame returns to idle.");
                 Assert.That(arena.ArenaCamera.orthographicSize, Is.EqualTo(6f).Within(1e-4f));
 
                 Assert.That(controller.AdvanceCutscene(), Is.True);

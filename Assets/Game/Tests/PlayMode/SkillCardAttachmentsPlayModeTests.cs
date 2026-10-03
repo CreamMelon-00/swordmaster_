@@ -96,10 +96,10 @@ namespace TurnLimbo.Presentation.Tests
                     Rect type = LocalBounds(Named(fixture.View.Root, "Type Attachment").GetComponent<RectTransform>(), fixture.Paper);
                     Assert.That(type.xMax, Is.GreaterThan(paper.xMax + 20f), "The type ribbon should visibly attach outside the right edge.");
                     Assert.That(type.xMax, Is.LessThanOrEqualTo(paper.xMax + SkillInfoView.AttachmentOverhang + 1f));
-                    Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("1"));
-                    Assert.That(fixture.View.PowerText.text, Is.EqualTo("5"));
+                    Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
+                    Assert.That(fixture.View.PowerText.text, Is.EqualTo("11–14"));
                     Assert.That(Label(fixture.View.Root, "Hits Label").text, Is.EqualTo("타격"));
-                    Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo("3회"));
+                    Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo("1회"));
                 }
                 yield return null;
             }
@@ -226,8 +226,8 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (var selection in new[]
                 {
                     new[] { "Loadout Slot Q 1", "참격", "4–5", "1" },
-                    new[] { "Loadout Slot W 1", "관통", "5", "1" },
-                    new[] { "Loadout Slot E 1", "타격", "6–9", "1" },
+                    new[] { "Loadout Slot W 1", "관통", "11–14", "2" },
+                    new[] { "Loadout Slot E 1", "타격", "4–6", "1" },
                     new[] { "Loadout Slot Q 3", "방어", "5–8", "1" },
                 })
                 {

@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             public readonly GameObject CanvasRoot;
             public readonly RectTransform Panel;
-            public readonly CampaignRun Run = new CampaignRun();
+            public readonly CampaignRun Run;
             public readonly LegacyDuelArt Art = new LegacyDuelArt();
             public readonly CampaignCurriculumHud.ViewState State = new CampaignCurriculumHud.ViewState();
             private readonly GameObject eventSystem;
@@ -27,9 +27,10 @@ namespace TurnLimbo.Presentation.Tests
             public CampaignCurriculumHud Hud;
             public int SelectCalls, ResetCalls;
 
-            public Fixture(bool callbacks = true)
+            public Fixture(bool callbacks = true, CurriculumTree tree = null)
             {
                 this.callbacks = callbacks;
+                Run = tree == null ? new CampaignRun() : new CampaignRun(tree);
                 if (EventSystem.current == null)
                     eventSystem = new GameObject("Curriculum View Test Event System", typeof(EventSystem));
                 CanvasRoot = new GameObject("Curriculum View Test Canvas", typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster), typeof(CanvasScaler));
@@ -81,6 +82,55 @@ namespace TurnLimbo.Presentation.Tests
                 if (eventSystem != null) Object.Destroy(eventSystem);
                 Art.Dispose();
             }
+        }
+
+        [UnityTest]
+        public IEnumerator StatRewards_ShowWithoutSkillIconsAndDoNotResizeTheDetail()
+        {
+            yield return null;
+            var tree = new CurriculumTree(new[]
+            {
+                new CurriculumNode("skill", "가로베기", CurriculumBranch.Slash, 0f, 0, new[] { 14 }),
+                new CurriculumNode("stats", "기초 체력", CurriculumBranch.Guard, 1f, 0, Array.Empty<int>(),
+                    statReward: new CurriculumStatReward(health: 5, resistance: 4, actGain: 1,
+                        actCapacity: 2, planningSeconds: 3)),
+                new CurriculumNode("mixed", "종합 훈련", CurriculumBranch.Guard, 2f, 0, new[] { 15 },
+                    statReward: new CurriculumStatReward(resistance: 2)),
+            });
+            using (var fixture = new Fixture(tree: tree))
+            {
+                GameObject root = fixture.Root;
+                var panel = (RectTransform)Named(root, "Curriculum Selected Detail");
+                float fixedHeight = panel.rect.height;
+                fixture.Hud.SelectNode("stats");
+                Canvas.ForceUpdateCanvases();
+                Assert.That(panel.rect.height, Is.EqualTo(fixedHeight).Within(.1f));
+                Assert.That(Named(root, "Curriculum Detail Icon").GetComponent<Image>().enabled, Is.False);
+                Assert.That(Named(Named(root, "Curriculum Node stats").gameObject, "Node Icon")
+                    .GetComponent<Image>().enabled, Is.False);
+                Assert.That(Label(Named(root, "Curriculum Node stats").gameObject, "Node Lane").text,
+                    Is.EqualTo("능력치"));
+                Assert.That(Label(root, "Curriculum Detail Heading").text, Is.EqualTo("능력치 보상"));
+                string reward = Label(root, "Curriculum Detail Effect").text;
+                Assert.That(reward, Does.Contain("최대 체력 +5").And.Contain("최대 저항 +4")
+                    .And.Contain("매 턴 ACT 회복 +1").And.Contain("ACT 상한 +2")
+                    .And.Contain("일반 스테이지 선택 시간 +3초"));
+                Assert.That(Label(root, "Curriculum Detail Effect").rectTransform.rect.height,
+                    Is.GreaterThanOrEqualTo(Label(root, "Curriculum Detail Effect").preferredHeight - 1f));
+
+                fixture.Hud.SelectNode("mixed");
+                Assert.That(panel.rect.height, Is.EqualTo(fixedHeight).Within(.1f));
+                Assert.That(Label(root, "Curriculum Detail Effect").text,
+                    Does.Contain("능력치 보상: 최대 저항 +2"));
+                fixture.Hud.SelectNode("stats");
+                Assert.That(fixture.Run.TrySelectCurriculumNode("stats"), Is.True);
+                Assert.That(fixture.Run.TryStartStage(1), Is.True);
+                Assert.That(fixture.Run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                fixture.Hud.Refresh();
+                Assert.That(Label(root, "Curriculum Availability").text, Does.Contain("능력치 보상이 적용됐습니다"));
+                Assert.That(panel.rect.height, Is.EqualTo(fixedHeight).Within(.1f));
+            }
+            yield return null;
         }
 
         [UnityTest]
@@ -304,7 +354,8 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Complete("breathing", DuelMatchOutcome.EnemyVictory);
                 AssertPrimary(primary, "완료한 과정", false);
                 Assert.That(availability.text, Is.EqualTo("완료했습니다. 얻은 기술은 편성에서 장착하세요."));
-                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10),
+                    "A lost stage battle advances curriculum but does not grant the stage-clear skill.");
                 Assert.That(fixture.Run.IsSkillInLoadout(17), Is.False, "A granted skill is not placed automatically.");
                 Assert.That(fixture.Run.IsSkillEquipped(17), Is.False);
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.False);
@@ -374,7 +425,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Hud.IsResetArmed, Is.False);
                 Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(fixture.Run.Curriculum.Active, Is.Null);
-                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10),
+                    "Reset removes curriculum skills but keeps the first stage reward.");
             }
         }
 
@@ -428,7 +480,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(reset.interactable, Is.False);
                 Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(fixture.Run.Curriculum.Active, Is.Null);
-                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10),
+                    "Reset keeps the first stage reward even after curriculum skills are removed.");
                 Assert.That(fixture.Run.IsSkillEquipped(14), Is.False);
                 Assert.That(fixture.Run.EquippedSkillCount, Is.EqualTo(9), "The emptied lane is refilled with a starting skill.");
                 Assert.That(fixture.Run.CanStartStage(1), Is.True);

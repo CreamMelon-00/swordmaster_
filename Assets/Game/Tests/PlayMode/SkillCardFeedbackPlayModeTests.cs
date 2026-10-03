@@ -75,6 +75,35 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator OpeningESkill_HighlightsEnemyAttackSlotsAndItsActualResistanceEffect()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                LegacySkill response = Skill(5, 2, property: LegacySkillProperty.Hit, hits: 2);
+                var duel = Duel(new[] { response }, new[]
+                {
+                    Skill(900, 0, property: LegacySkillProperty.Slash),
+                    Skill(901, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence),
+                    Skill(902, 0, property: LegacySkillProperty.Hit)
+                });
+                fixture.Refresh(duel);
+                fixture.Hud.ShowExplanation(response, false);
+                AssertTargets(fixture.Hud, new[] { 0, 2 }, 0);
+                Assert.That(fixture.Lane(2).ConditionReady, Is.True);
+                Assert.That(fixture.Effect(false).ConditionReady, Is.True);
+                Assert.That(duel.TryQueueLane(2), Is.True);
+                duel.Commit();
+                LegacyCurrentSlot slot = duel.BeginNextSlot();
+                fixture.ShowSlot(duel, slot);
+                Assert.That(slot.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(5));
+                Assert.That(fixture.Queue(true, 0).ConditionReady, Is.True);
+                Assert.That(fixture.Queue(true, 0).EffectActivated, Is.True);
+                Assert.That(fixture.Queue(true, 0).HasBuffParticles, Is.False);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator SelfRecoveryCondition_EmphasizesTheHeldEffectWithoutMatchingAnyEnemyCard()
         {
             yield return null;
@@ -217,7 +246,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(duel.TryQueueBreath(), Is.True);
                     duel.Commit(); duel.ResolveNextSlot();
                     fixture.ShowSlot(duel, duel.BeginNextSlot());
-                    Assert.That(fixture.Queue(true, 1).ProtectionBuffPercent, Is.EqualTo(buffId == 8 ? 30 : 0));
+                    Assert.That(fixture.Queue(true, 1).ProtectionBuffPercent, Is.EqualTo(buffId == 8 ? 25 : 0));
                     Assert.That(fixture.Queue(true, 1).HasBuffParticles, Is.EqualTo(buffId == 8));
                     fixture.Hud.HideExplanation();
                     Assert.That(fixture.Queue(true, 1).HasBuffParticles, Is.EqualTo(buffId == 8),
@@ -239,10 +268,10 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             using (var fixture = new Fixture())
             {
-                foreach (int id in new[] { 3, 8, 9, 10 })
+                foreach (int id in new[] { 8, 9, 10 })
                 {
-                    int amount = id == 3 ? 10 : id == 9 ? 3 : 30;
-                    int duration = id == 3 ? 3 : id == 10 ? 1 : 10;
+                    int amount = id == 8 ? 25 : id == 9 ? 20 : 30;
+                    int duration = id == 9 ? 2 : 1;
                     bool protection = id == 8;
                     var source = Skill(id, 0, id == 8 || id == 9 ? LegacySkillKind.Defence : LegacySkillKind.Attack);
                     var guard = Skill(100, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence);
@@ -270,10 +299,10 @@ namespace TurnLimbo.Presentation.Tests
                     fixture.Refresh(duel, .5f, 0f);
                     Assert.That(applied.gameObject.activeInHierarchy, Is.True);
                     Assert.That(fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodes));
-                    if (id == 10)
+                    if (id == 8 || id == 10)
                     {
                         duel.ResolveNextSlot(); fixture.ShowSlot(duel, duel.BeginNextSlot());
-                        Assert.That(applied.gameObject.activeInHierarchy, Is.False, "The one-slot Ready bonus has expired.");
+                        Assert.That(applied.gameObject.activeInHierarchy, Is.False, "A one-slot bonus expires before the third skill.");
                         Assert.That(fixture.Queue(false, 2).HasBuffParticles, Is.False);
                     }
                     fixture.Hud.Reset(); AssertNoBuffRows(fixture, false);
@@ -289,17 +318,17 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 var guard = Skill(100, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence);
-                var duel = Duel(new[] { Skill(3, 0), guard },
+                var duel = Duel(new[] { Skill(9, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence), guard },
                     new[] { Skill(8, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence), guard });
                 Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True); duel.Commit();
                 fixture.ShowSlot(duel, duel.BeginNextSlot());
-                Assert.That(fixture.Buff(true, "Granted Power Buff").text, Is.EqualTo("다음 3칸 위력 +10%"));
-                Assert.That(fixture.Buff(false, "Granted Protection Buff").text, Is.EqualTo("다음 10칸 피해 감소 30%"));
+                Assert.That(fixture.Buff(true, "Granted Power Buff").text, Is.EqualTo("다음 2칸 위력 +20%"));
+                Assert.That(fixture.Buff(false, "Granted Protection Buff").text, Is.EqualTo("다음 1칸 피해 감소 25%"));
                 Assert.That(fixture.Buff(true, "Granted Protection Buff").gameObject.activeInHierarchy, Is.False);
                 Assert.That(fixture.Buff(false, "Granted Power Buff").gameObject.activeInHierarchy, Is.False);
                 duel.ResolveNextSlot(); fixture.ShowSlot(duel, duel.BeginNextSlot());
-                Assert.That(fixture.Buff(true, "Active Power Buff").text, Is.EqualTo("현재 위력 +10%"));
-                Assert.That(fixture.Buff(false, "Active Protection Buff").text, Is.EqualTo("현재 피해 감소 30%"));
+                Assert.That(fixture.Buff(true, "Active Power Buff").text, Is.EqualTo("현재 위력 +20%"));
+                Assert.That(fixture.Buff(false, "Active Protection Buff").text, Is.EqualTo("현재 피해 감소 25%"));
                 fixture.Hud.BeginTurn();
                 AssertNoBuffRows(fixture, true); AssertNoBuffRows(fixture, false);
                 fixture.Hud.SetSkillFeedback(duel.CurrentSlot); fixture.Refresh(duel);
@@ -336,7 +365,8 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 var flow = Skill(8, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence);
-                var duel = Duel(new[] { Skill(3, 0), flow, flow }, new[] { Skill(3, 0), flow, flow });
+                var power = Skill(9, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence);
+                var duel = Duel(new[] { power, flow, flow }, new[] { power, flow, flow });
                 QueueThree(duel); duel.Commit();
                 fixture.ShowSlot(duel, duel.BeginNextSlot());
                 int nodes = fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length;

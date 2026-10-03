@@ -47,6 +47,54 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator OpeningESkill_ShowsAnAppliedResistanceCutOnlyAgainstAnAttack()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                LegacySkill response = LegacySkillDefinitions.Skill(5);
+                Assert.That(response.Name, Is.EqualTo("기세 꺾기"));
+                Assert.That(response.LaneIndex, Is.EqualTo(2));
+                var duel = new LegacyQueuedDuel(100, 100, 100, 100,
+                    new[] { response }, new[] { Attack(900, LegacySkillProperty.Slash) }, new[] { 1 });
+                Assert.That(duel.TryQueueLane(2), Is.True);
+                duel.Commit();
+                LegacyCurrentSlot matched = duel.BeginNextSlot();
+                Assert.That(matched.PlayerFeedback.ConditionMet, Is.True);
+                Assert.That(matched.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(5));
+                Assert.That(fixture.Cue.Show(true, response, matched.PlayerFeedback), Is.True);
+                Assert.That(fixture.PlayerTitle.text, Is.EqualTo("기세 꺾기 성공!"));
+                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("상대 저항 -5"));
+                fixture.Tick(.02f);
+                Assert.That(fixture.PlayerBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Strike));
+                Assert.That(fixture.PlayerBurst.gameObject.activeSelf, Is.True);
+
+                fixture.Cue.Reset();
+                var blocked = new LegacyQueuedDuel(100, 100, 100, 100,
+                    new[] { response }, new[] { Guard(901, "방어") }, new[] { 1 });
+                Assert.That(blocked.TryQueueLane(2), Is.True);
+                blocked.Commit();
+                LegacyCurrentSlot unmatched = blocked.BeginNextSlot();
+                Assert.That(unmatched.PlayerFeedback.ConditionMet, Is.False);
+                Assert.That(unmatched.PlayerFeedback.OpponentResistanceReduced, Is.Zero);
+                Assert.That(fixture.Cue.Show(true, response, unmatched.PlayerFeedback), Is.False);
+                Assert.That(fixture.Player.gameObject.activeSelf, Is.False);
+
+                var enemyDuel = new LegacyQueuedDuel(100, 100, 100, 100,
+                    new[] { Attack(902, LegacySkillProperty.Slash) }, new[] { response }, new[] { 1 });
+                Assert.That(enemyDuel.TryQueueLane(0), Is.True);
+                enemyDuel.Commit();
+                LegacyCurrentSlot enemyMatched = enemyDuel.BeginNextSlot();
+                Assert.That(enemyMatched.EnemyFeedback.OpponentResistanceReduced, Is.EqualTo(5));
+                Assert.That(fixture.Cue.Show(false, response, enemyMatched.EnemyFeedback), Is.True);
+                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 기세 꺾기 성공!"));
+                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("내 저항 -5"));
+                fixture.Tick(.02f);
+                Assert.That(fixture.EnemyBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Danger));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator EnemyGuard_MatchedResponseWarnsWithoutClaimingEnemyAct()
         {
             yield return null;

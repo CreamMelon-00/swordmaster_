@@ -18,7 +18,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new EnemyStudentAnimationSet())
             {
                 Assert.That(set.HasRequiredAssets, Is.True, string.Join(", ", set.MissingResources));
-                Assert.That(set.LoadedSpriteCount, Is.EqualTo(120));
+                Assert.That(set.LoadedSpriteCount, Is.EqualTo(EnemyStudentAnimationSet.RequiredSpriteCount));
                 var textures = new System.Collections.Generic.HashSet<Texture2D>();
                 foreach (string key in new[] { "block", "block-2", "hurt", "hurt-2" })
                 {

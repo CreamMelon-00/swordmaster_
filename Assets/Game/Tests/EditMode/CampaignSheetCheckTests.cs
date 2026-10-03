@@ -61,16 +61,16 @@ namespace TurnLimbo.Core.Tests
         public void CurriculumSkillRenumberedOrDeleted_IsAProblem()
         {
             List<string[]> rows = Rows();
-            Set(rows, 42, Column.Id, "43");
+            Set(rows, 42, Column.Id, "45");
             LegacySkillTable renumbered = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(renumbered), Is.EqualTo(new[]
             {
                 "ID 42 기술이 시트에 없습니다. 커리큘럼 과정 'quick-draw'이(가) 이 기술을 주므로 그 과정을 마치는 전투가 끝날 때 " +
                 "게임이 멈춥니다. ID를 바꾸거나 행을 지우지 마세요.",
             }));
-            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 43 쿠페: "));
+            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 45 쿠페: "));
 
-            rows.Remove(RowOf(rows, 43));
+            rows.Remove(RowOf(rows, 45));
             LegacySkillTable deleted = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(deleted).Single(), Does.StartWith("ID 42 기술이 시트에 없습니다."));
             Assert.That(CampaignSheetCheck.Warnings(deleted), Is.Empty);
@@ -87,6 +87,35 @@ namespace TurnLimbo.Core.Tests
                 "ID 3 기술이 시트에 없습니다. 코드가 이 ID를 씁니다(스테이지 적의 행동·반격기, 서막·수련 임무와 그 안내 문구). " +
                 "그 기술을 처음 쓰는 곳에서 게임이 멈추니 ID를 바꾸거나 행을 지우지 마세요.",
             }));
+        }
+
+        [Test]
+        public void MissingStageReward_IsReportedAndStopsFirstClearBeforeChangingTheRun()
+        {
+            List<string[]> rows = Rows();
+            rows.Remove(RowOf(rows, 43));
+            LegacySkillTable table = Parse(rows);
+            Assert.That(CampaignSheetCheck.Problems(table).Single(),
+                Does.StartWith("ID 43 기술이 시트에 없습니다. 스테이지 1 첫 클리어 보상이므로"));
+            string sheet = CsvTable.Write(rows);
+            try
+            {
+                LegacySkillDefinitions.Install(() => sheet);
+                var run = new CampaignRun();
+                Assert.That(run.TryStartStage(1), Is.True);
+                for (int attempt = 0; attempt < 2; attempt++)
+                {
+                    Assert.Throws<InvalidOperationException>(() => run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory));
+                    Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Battle));
+                    Assert.That(run.Currency, Is.Zero);
+                    Assert.That(run.IsStageCleared(1), Is.False);
+                    Assert.That(run.LastOutcome, Is.Null);
+                }
+            }
+            finally
+            {
+                LegacySkillDefinitions.Install(null);
+            }
         }
 
         [Test]

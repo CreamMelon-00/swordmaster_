@@ -24,7 +24,9 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             DuelPrototypeController controller = FindPrototype();
             controller.RestartMatch();
-            for (int lane = 0; lane < 3; lane++) Assert.That(controller.QueueLane(lane), Is.True);
+            Assert.That(controller.QueueLane(0), Is.True);
+            Assert.That(controller.QueueLane(2), Is.True);
+            Assert.That(controller.QueueLane(0), Is.True);
             Camera camera = controller.ArenaView.ArenaCamera;
             Transform player = controller.ArenaView.PlayerRenderer.transform;
             Transform enemy = controller.ArenaView.EnemyRenderer.transform;
@@ -71,7 +73,10 @@ namespace TurnLimbo.Presentation.Tests
             Transform root = controller.Hud.Root.transform;
             try
             {
-                for (int lane = 0; lane < 3; lane++) Assert.That(controller.QueueLane(lane), Is.True);
+                // Three opening slots stay affordable after W's first skill rises to ACT 2.
+                Assert.That(controller.QueueLane(0), Is.True);
+                Assert.That(controller.QueueLane(2), Is.True);
+                Assert.That(controller.QueueLane(0), Is.True);
                 yield return null;
                 AssertStackLayout(root);
                 controller.CommitTurn();
@@ -477,7 +482,7 @@ namespace TurnLimbo.Presentation.Tests
                 // the enemy's slot 1 at its panel's left edge, later slots to the right. Even spacing, 72 unless the
                 // row had to tighten to fit the screen.
                 float pitch = cards.Count < 2 ? 72f : Mathf.Abs(cards[1].anchoredPosition.x - cards[0].anchoredPosition.x);
-                Assert.That(pitch, Is.InRange(14f - .01f, 72f + .01f));
+                Assert.That(pitch, Is.InRange(12f - .01f, 72f + .01f));
                 for (int index = 0; index < cards.Count; index++)
                 {
                     RectTransform card = cards[index];

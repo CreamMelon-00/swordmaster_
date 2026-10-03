@@ -5,6 +5,7 @@ using NUnit.Framework;
 using TurnLimbo.Presentation;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -101,7 +102,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Battle));
                 Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("advance"));
                 Assert.That(controller.Campaign.Curriculum.ActiveBattles, Is.Zero);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
                 Release(keyboard.enterKey);
                 yield return null;
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
@@ -110,7 +111,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.WinStage();
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("advance"), Is.True);
                 Assert.That(controller.Campaign.Curriculum.Active, Is.Null);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10), "The finished battle grants the skill once.");
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(12), "The finished battle grants the skill once.");
             }
         }
 
@@ -130,7 +131,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Lobby));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60));
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11));
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Hud.Root.activeSelf, Is.False);
                 Assert.That(controller.CanChoose, Is.False);
@@ -139,7 +140,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(2f);
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Outcome frames cannot pay again.");
                 Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(1), "…nor count the battle again.");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11));
                 Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.False, "A completed node cannot run again.");
                 Assert.That(controller.Campaign.IsSkillEquipped(14), Is.False,
                     "A completed node grants its skill without equipping it.");
@@ -170,6 +171,58 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
                 Assert.That(controller.Hud.Root.transform.Find("Stage/Stage Label").GetComponent<Text>().text,
                     Does.Contain("02 / 08"));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Training_UsesDummyWithoutPlanningClock_ThenRetriesAtDoubleHealth()
+        {
+            yield return null;
+            using (var scope = new FlowScope())
+            {
+                var controller = scope.Controller;
+                scope.WinStage();
+                Assert.That(controller.StartCampaignStage(2), Is.True);
+                scope.WinStage();
+                int currency = controller.Campaign.Currency;
+                int cleared = controller.Campaign.ClearedStageCount;
+                int owned = controller.Campaign.OwnedSkills.Count;
+                int curriculum = controller.Campaign.Curriculum.CompletedCount;
+
+                Assert.That(controller.Campaign.IsTrainingUnlocked, Is.True);
+                Assert.That(controller.StartTraining(), Is.True);
+                Assert.That(controller.IsTrainingBattle, Is.True);
+                Assert.That(controller.ArenaView.EnemyAppearance, Is.EqualTo(EnemyAppearance.TrainingDummy));
+                Assert.That(controller.EnemyHealth, Is.EqualTo(50));
+                Assert.That(controller.Session.RoundLimit, Is.EqualTo(5));
+                Assert.That(controller.Guide, Is.Null);
+                Assert.That(controller.CoachHud.IsVisible, Is.False);
+                float planningTime = controller.TurnTimeRemaining;
+                scope.Advance(25f);
+                Assert.That(controller.CanChoose, Is.True, "Training has no real-time planning deadline.");
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(planningTime));
+                Assert.That(controller.LaneCycleCost, Is.Zero);
+                Assert.That(FindActive<Text>(controller.Hud.Root, "Untimed Hint").text,
+                    Is.EqualTo("수련 · 시간 제한 없음"));
+
+                scope.WinToResult();
+                Assert.That(controller.Result.IsTraining, Is.True);
+                Assert.That(FindActive<Text>(controller.ResultHud.Root, "Result Heading").text, Is.EqualTo("수련 성공"));
+                Assert.That(FindActive<Text>(controller.ResultHud.Root, "Result Notice").text,
+                    Does.Contain("가한 피해 50").And.Contain("다음 허수아비 체력 100"));
+                Assert.That(controller.Campaign.TrainingDummyHealth, Is.EqualTo(100));
+                Assert.That(controller.Campaign.Currency, Is.EqualTo(currency));
+                Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(cleared));
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(owned));
+                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(curriculum));
+
+                Assert.That(controller.RetryBattleResult(), Is.True);
+                Assert.That(controller.IsTrainingBattle, Is.True);
+                Assert.That(controller.EnemyHealth, Is.EqualTo(100));
+                Assert.That(controller.Session.RoundLimit, Is.EqualTo(5));
+                controller.ReturnToLobby();
+                Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(controller.Campaign.TrainingVictoryCount, Is.EqualTo(1));
             }
         }
 
@@ -248,7 +301,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(8));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(760));
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("breathing"), Is.True);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(12));
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(8));
                 controller.RestartJourney();
@@ -330,6 +383,13 @@ namespace TurnLimbo.Presentation.Tests
 
             public void WinStage()
             {
+                WinToResult();
+                Assert.That(Controller.DismissBattleResult(), Is.True);
+                Assert.That(Controller.LobbyHud.IsVisible, Is.True);
+            }
+
+            public void WinToResult()
+            {
                 // A tiny enemy fixture exercises real commit/hit/settling/result flow,
                 // without turning the check into a long balance/autoplay benchmark.
                 var zero = new LegacySkill(100, "Test", 1, 0, 0, LegacySkillKind.Attack,
@@ -339,8 +399,6 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 UntilResult();
-                Assert.That(Controller.DismissBattleResult(), Is.True);
-                Assert.That(Controller.LobbyHud.IsVisible, Is.True);
             }
 
             /// <summary>Loses at once and stops on the result, so a test can read it before dismissing.</summary>

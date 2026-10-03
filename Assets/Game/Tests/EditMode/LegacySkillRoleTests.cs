@@ -9,13 +9,13 @@ namespace TurnLimbo.Core.Tests
     public sealed class LegacySkillRoleTests
     {
         [TestCase(1, LegacySkillRole.ResistanceOnClash | LegacySkillRole.ActRecovery, "ACT 회복")]
-        [TestCase(2, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.HighPower, "고화력·연타")]
-        [TestCase(3, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.FollowupPower, "후속 위력")]
-        [TestCase(4, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower, "고화력")]
-        [TestCase(5, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit, "연타")]
-        [TestCase(6, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.HighPower, "고화력·연타")]
+        [TestCase(2, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit, "기본 연타")]
+        [TestCase(3, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower, "집중 단타")]
+        [TestCase(4, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower, "강한 단타")]
+        [TestCase(5, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.DirectResistanceDamage, "공격 대응")]
+        [TestCase(6, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.DirectResistanceDamage, "방어 대응")]
         [TestCase(7, LegacySkillRole.ActRecovery, "조건부 ACT")]
-        [TestCase(8, LegacySkillRole.DamageReduction, "피해 감소")]
+        [TestCase(8, LegacySkillRole.DamageReduction, "강한 방어·보호")]
         [TestCase(9, LegacySkillRole.FollowupPower, "후속 위력")]
         [TestCase(10, LegacySkillRole.ResistanceOnClash | LegacySkillRole.FollowupPower, "다음 칸 강화")]
         [TestCase(12, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.ActRecovery | LegacySkillRole.Vulnerability, "ACT 회복·취약")]
@@ -58,20 +58,27 @@ namespace TurnLimbo.Core.Tests
         {
             string recovery = LegacySkillRoles.GetDetail(FindSkill(1));
             StringAssert.Contains("다음 턴 ACT 회복량 +1", recovery);
-            string followup = LegacySkillRoles.GetDetail(FindSkill(3));
-            StringAssert.Contains("이후 3슬롯", followup);
-            StringAssert.Contains("공격·방어 위력 +10%", followup);
+            string strongStrike = LegacySkillRoles.GetDetail(FindSkill(3));
+            StringAssert.Contains("ACT 2", strongStrike);
+            StringAssert.Contains("강한 단타", strongStrike);
+            StringAssert.DoesNotContain("후속", strongStrike);
+            string heavierStrike = LegacySkillRoles.GetDetail(FindSkill(4));
+            StringAssert.Contains("ACT 3", heavierStrike);
+            string attackCounter = LegacySkillRoles.GetDetail(FindSkill(5));
+            StringAssert.Contains("상대가 공격이면", attackCounter);
+            StringAssert.Contains("저항을 직접 5", attackCounter);
+            string guardCounter = LegacySkillRoles.GetDetail(FindSkill(6));
+            StringAssert.Contains("상대가 방어이면", guardCounter);
+            StringAssert.Contains("저항을 직접 8", guardCounter);
             string guardedRecovery = LegacySkillRoles.GetDetail(FindSkill(7));
             StringAssert.Contains("상대가 타격 기술이면", guardedRecovery);
             StringAssert.Contains("다음 턴 ACT 회복량 +2", guardedRecovery);
             string reduction = LegacySkillRoles.GetDetail(FindSkill(8));
-            StringAssert.Contains("이번 턴의 이후 슬롯", reduction);
-            StringAssert.Contains("피해 -30%", reduction);
-            StringAssert.Contains("최대 10슬롯", reduction);
+            StringAssert.Contains("바로 다음 1슬롯", reduction);
+            StringAssert.Contains("25%", reduction);
             string parry = LegacySkillRoles.GetDetail(FindSkill(9));
-            StringAssert.Contains("이번 턴의 이후 슬롯", parry);
-            StringAssert.Contains("공격·방어 위력 +3%", parry);
-            StringAssert.Contains("최대 10슬롯", parry);
+            StringAssert.Contains("바로 뒤 2슬롯", parry);
+            StringAssert.Contains("공격·방어 위력 +20%", parry);
             StringAssert.DoesNotContain("다음 턴", parry);
         }
 
@@ -143,22 +150,22 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void DedicatedCurriculumArtwork_HasSixDistinctMappingsAndGrantedSnapshotPreservesNewIconId()
+        public void CurriculumArtwork_HasSixDistinctMappingsAndStartingAliasesPreserveTheirChosenIcons()
         {
             int[] expectedSkillIds = { 14, 15, 16, 17, 21, 32 };
-            var artIds = new HashSet<int>();
+            int[] expectedStartingIcons = { 1, 11, 14, 4, 5, 6, 7, 8, 9 };
+            var curriculumArtIds = new HashSet<int>();
             for (int i = 0; i < LegacyInitialSkills.All.Count; i++)
             {
-                Assert.That(LegacySkillDefinitions.Skill(i + 1).IconId, Is.EqualTo(i + 1));
-                Assert.That(artIds.Add(LegacySkillDefinitions.Skill(i + 1).IconId), Is.True);
+                Assert.That(LegacySkillDefinitions.Skill(i + 1).IconId, Is.EqualTo(expectedStartingIcons[i]));
             }
             for (int i = 0; i < expectedSkillIds.Length; i++)
             {
                 LegacySkill acquired = FindSkill(expectedSkillIds[i]);
                 Assert.That(acquired.IconId, Is.EqualTo(10 + i));
-                Assert.That(artIds.Add(acquired.IconId), Is.True);
+                Assert.That(curriculumArtIds.Add(acquired.IconId), Is.True);
             }
-            Assert.That(artIds.Count, Is.EqualTo(15));
+            Assert.That(curriculumArtIds.Count, Is.EqualTo(6));
 
             var run = new CampaignRun();
             Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
@@ -176,7 +183,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(snapshot.GetLane(0)[2].Id, Is.EqualTo(14));
             Assert.That(snapshot.GetLane(0)[2].IconId, Is.EqualTo(10));
             Assert.That(snapshot.EnemyQueue[0].IconId, Is.EqualTo(1));
-            Assert.That(snapshot.EnemyQueue[1].IconId, Is.EqualTo(2));
+            Assert.That(snapshot.EnemyQueue[1].IconId, Is.EqualTo(11));
         }
 
         private static LegacySkill FindSkill(int id)

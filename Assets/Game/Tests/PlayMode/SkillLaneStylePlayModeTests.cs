@@ -122,7 +122,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LoadoutHeadingsFiltersAndSelectedDetails_ShowSchoolWithoutChangingThreeSlotRules()
+        public IEnumerator LoadoutHeadingsAndSelectedDetails_ShowSchoolWithoutChangingThreeSlotRules()
         {
             yield return null;
             var parent = new GameObject("Skill School Loadout Test");
@@ -139,7 +139,8 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     string key = SkillLaneStyle.Key(lane);
                     Assert.That(Label(lobby.Root, "Loadout Heading " + key).text, Does.Contain(SkillLaneStyle.FullName(lane)));
-                    Assert.That(VisibleText(Named(lobby.Root, "Loadout Lane " + key).gameObject), Does.Contain(key + " " + SkillLaneStyle.Name(lane)));
+                    Assert.That(Find(lobby.Root, "Loadout Lane " + key), Is.Null,
+                        "All open schools are visible together without a lane filter.");
                     for (int slot = 1; slot <= 3; slot++)
                     {
                         string name = "Loadout Slot " + key + " " + slot;
@@ -151,7 +152,8 @@ namespace TurnLimbo.Presentation.Tests
                         Assert.That(run.HasLoadoutChanges, Is.False, "Reading a school tag does not reorder or replace skills.");
                     }
                 }
-                Assert.That(Label(lobby.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  W 3/3  ·  E 3/3"));
+                Assert.That(Find(lobby.Root, "Loadout Counts"), Is.Null,
+                    "The slot grid already shows how many skills are placed.");
                 CollectionAssert.AreEqual(saved, EquippedIds(run));
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(Named(lobby.Root, "Loadout Save").GetComponent<Button>().interactable, Is.False);
@@ -253,8 +255,6 @@ namespace TurnLimbo.Presentation.Tests
             for (int lane = 0; lane < 3; lane++) for (int slot = 0; slot < 3; slot++) result[lane * 3 + slot] = run.GetEquippedLane(lane)[slot].SkillId;
             return result;
         }
-        private static string VisibleText(GameObject root)
-        { string result = string.Empty; foreach (Text text in root.GetComponentsInChildren<Text>()) result += "\n" + text.text; return result; }
         private static void Click(GameObject root, string name) => Named(root, name).GetComponent<Button>().onClick.Invoke();
         private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
         private static Transform Find(GameObject root, string name)

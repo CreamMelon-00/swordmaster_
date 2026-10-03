@@ -12,9 +12,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// <summary>Semantic tone for a skill keyword; presentation colours it.</summary>
     public enum LegacySkillTone { Neutral, Recovery, Followup, Reduction, HighPower, MultiHit, Variance, Defence }
 
-    /// <summary>A skill's initial effect, applied once when its slot starts, in this order:
+    /// <summary>A skill's effects. Initial effects apply once when its slot starts, in this order:
     /// resistance recovery, then (if the opponent condition holds) direct resistance loss and ACT gain, then the buff.
-    /// The sheet rejects combinations this order cannot honour; see <see cref="LegacySkillSheet"/>.</summary>
+    /// Broken-target damage applies separately on each hit. The sheet rejects combinations the rules cannot honour;
+    /// see <see cref="LegacySkillSheet"/>.</summary>
     public sealed class LegacySkillEffect
     {
         public static LegacySkillEffect None { get; } = new LegacySkillEffect();
@@ -31,6 +32,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int ResistanceRecoveryPercent { get; internal set; }
         /// <summary>Resistance removed directly from the opponent; any excess never becomes health damage.</summary>
         public int OpponentResistanceReduction { get; internal set; }
+        /// <summary>Extra health damage on each hit when the target's resistance was already broken before that hit.</summary>
+        public int BrokenTargetDamagePercent { get; internal set; }
         /// <summary>When set, ACT gain and direct resistance loss need the same slot's opponent to have this property.</summary>
         public LegacySkillProperty? OpponentProperty { get; internal set; }
         /// <summary>When set, ACT gain and direct resistance loss need the same slot's opponent to be this kind.</summary>
@@ -51,6 +54,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (HasBuff && BuffProtectionPercent < 0) roles |= LegacySkillRole.Vulnerability;
                 if (ResistanceRecoveryPercent > 0) roles |= LegacySkillRole.ResistanceRecovery;
                 if (OpponentResistanceReduction > 0) roles |= LegacySkillRole.DirectResistanceDamage;
+                if (BrokenTargetDamagePercent > 0) roles |= LegacySkillRole.BrokenTargetDamage;
                 return roles;
             }
         }
@@ -132,7 +136,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The nine starting techniques (시작 rows), three per lane. Their sheet order within a lane is the default
         /// loadout order; everything else names a technique by id.</summary>
         public static IReadOnlyList<LegacySkill> InitialSkills => Table.InitialSkills;
-        /// <summary>The techniques beyond the starting nine (획득 rows); the campaign curriculum grants them.</summary>
+        /// <summary>The techniques beyond the starting nine (획득 rows); stage first clears and the curriculum grant them.</summary>
         public static IReadOnlyList<LegacySkill> AcquisitionSkills => Table.AcquisitionSkills;
 
         /// <summary>The loaded table. The first access reads the sheet; a sheet with problems throws its

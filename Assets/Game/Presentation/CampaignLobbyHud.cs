@@ -18,11 +18,19 @@ namespace TurnLimbo.Presentation
         public const string HiddenMissionTitle = "???";
         private const float TabWidth = 1300f;
         private const float TabHeight = 850f;
+        // The eight stops occupy an uneven, winding route instead of a catalogue grid.
+        private static readonly Vector2[] StageRoute =
+        {
+            new Vector2(-760f, 188f), new Vector2(-486f, 226f),
+            new Vector2(-215f, 162f), new Vector2(37f, 54f),
+            new Vector2(-226f, -51f), new Vector2(-506f, -18f),
+            new Vector2(-758f, -210f), new Vector2(-444f, -269f)
+        };
         private readonly LegacyDuelArt art;
         private readonly Action<int> unequip, startStage;
         private readonly Action<string> selectCurriculumNode;
         private readonly Action<int, int, int> placeLoadoutSkill;
-        private readonly Action restartJourney, saveLoadout, resetLoadout, resetCurriculum, openMission;
+        private readonly Action restartJourney, saveLoadout, resetLoadout, resetCurriculum, openMission, startTraining;
         // The next story mission after the 서막, and whether its stage is cleared so it can be played now.
         private PrologueMission nextMission;
         private bool nextMissionAvailable;
@@ -41,6 +49,10 @@ namespace TurnLimbo.Presentation
         private string outcomeBanner;
         private int selectedStageNumber = 1;
         private LobbyTab currentTab;
+
+        private float LedgerWidth => Mathf.Min(1600f, Mathf.Max(0f, pageRoot.rect.width - 120f));
+        private float LedgerHeight => Mathf.Min(currentTab == LobbyTab.Stages ? 760f : 940f,
+            Mathf.Max(0f, pageRoot.rect.height - 40f));
 
         private static Color Header => DuelVisualTheme.Surface;
         private static Color Surface => DuelVisualTheme.Surface;
@@ -65,7 +77,8 @@ namespace TurnLimbo.Presentation
             Action resetCurriculum, Action<int> equip, Action<int> unequip, Action<int, int> move,
             Action<int> startStage, Action restartJourney,
             Action<int, int, int> placeLoadoutSkill = null, Action saveLoadout = null,
-            Action resetLoadout = null, Action openMission = null)
+            Action resetLoadout = null, Action openMission = null, Sprite selectedRoomSprite = null,
+            Action startTraining = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
@@ -78,8 +91,9 @@ namespace TurnLimbo.Presentation
             this.saveLoadout = saveLoadout;
             this.resetLoadout = resetLoadout;
             this.openMission = openMission;
+            this.startTraining = startTraining;
 
-            roomSprite = Resources.Load<Sprite>("LobbyRoom/room");
+            roomSprite = selectedRoomSprite != null ? selectedRoomSprite : LobbyRoomBackdrop.PickRandom();
             bool complete = roomSprite != null && art.UIFont != null;
             for (int icon = 1; icon <= LegacyDuelArt.SkillIconCount; icon++)
                 complete &= art.GetSkillIcon(icon) != null;
@@ -88,6 +102,7 @@ namespace TurnLimbo.Presentation
             root = Rect("Campaign Lobby HUD", parent, Vector2.zero, Vector2.zero);
             var canvas = root.gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
             canvas.sortingOrder = 200;
             var scaler = root.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -118,7 +133,8 @@ namespace TurnLimbo.Presentation
             if (run.Phase == CampaignPhase.Battle)
             {
                 currentRun = run;
-                awaitingStageOutcome = true;
+                awaitingStageOutcome = !run.IsTrainingBattle;
+                if (run.IsTrainingBattle) outcomeBanner = null;
                 Hide();
                 return;
             }
@@ -205,7 +221,11 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             screenTransition.Finish();
-            if (currentRun != null && currentRun.Phase == CampaignPhase.Battle) awaitingStageOutcome = true;
+            if (currentRun != null && currentRun.Phase == CampaignPhase.Battle)
+            {
+                awaitingStageOutcome = !currentRun.IsTrainingBattle;
+                if (currentRun.IsTrainingBattle) outcomeBanner = null;
+            }
             ClearSelection();
             loadoutHud?.Dispose();
             loadoutHud = null;
@@ -233,10 +253,16 @@ namespace TurnLimbo.Presentation
             Stretch(pageRoot);
             pageRoot.sizeDelta = new Vector2(0f, -100f);
             pageRoot.anchoredPosition = new Vector2(0f, -50f);
+            Canvas.ForceUpdateCanvases();
             if (currentTab != LobbyTab.Home)
             {
-                var background = Panel("Page Background", pageRoot, Vector2.zero, Vector2.zero, Surface);
+                Color pageColor = Surface;
+                pageColor.a = .46f;
+                var background = Panel("Page Background", pageRoot, Vector2.zero, Vector2.zero, pageColor);
                 Stretch(background.rectTransform);
+                var ledger = Panel("Page Ledger", pageRoot, new Vector2(0f, -8f),
+                    new Vector2(LedgerWidth, LedgerHeight), Surface);
+                DuelVisualTheme.Frame(ledger);
             }
             switch (currentTab)
             {
@@ -251,114 +277,170 @@ namespace TurnLimbo.Presentation
 
         private void BuildHeader(CampaignRun run)
         {
-            var header = Panel("Lobby Header", dynamicRoot, Vector2.zero, new Vector2(0f, 100f), Header);
-            header.rectTransform.anchorMin = new Vector2(0f, 1f);
-            header.rectTransform.anchorMax = Vector2.one;
-            header.rectTransform.pivot = new Vector2(.5f, 1f);
+            var header = Panel("Lobby Header", dynamicRoot, Vector2.zero, new Vector2(820f, 82f), Header);
+            header.rectTransform.anchorMin = header.rectTransform.anchorMax = new Vector2(0f, 1f);
+            header.rectTransform.pivot = new Vector2(0f, 1f);
+            header.rectTransform.anchoredPosition = new Vector2(24f, -18f);
             DuelVisualTheme.DressPanel(header);
-            Label("Lobby Title", header.transform, "검술 클럽", new Vector2(-895f, 17f), new Vector2(270f, 48f), 34);
+            Label("Lobby Title", header.transform, "검술 클럽", new Vector2(-320f, 14f), new Vector2(180f, 38f), 28);
             Label("Campaign Progress", header.transform,
-                $"진행  {run.ClearedStageCount}/{run.StageCount}   ·   개방  {run.HighestUnlockedStage}/{run.StageCount}",
-                new Vector2(-895f, -24f), new Vector2(420f, 30f), 18, Muted);
+                $"진행 {run.ClearedStageCount}/{run.StageCount} · 개방 {run.HighestUnlockedStage}/{run.StageCount}",
+                new Vector2(-320f, -20f), new Vector2(180f, 24f), 14, Muted);
 
-            BuildTabButton(header.transform, LobbyTab.Home, "홈", -290f);
-            BuildTabButton(header.transform, LobbyTab.Stages, "스테이지", -80f);
-            BuildTabButton(header.transform, LobbyTab.Loadout, "편성", 130f);
-            // The tabs keep their places; the curriculum's appears after them once it opens.
+            BuildTabButton(header.transform, LobbyTab.Home, "방", -54f);
+            BuildTabButton(header.transform, LobbyTab.Stages, "출정", 72f);
+            BuildTabButton(header.transform, LobbyTab.Loadout, "편성", 198f);
+            if (run.IsCurriculumOpen)
+                BuildTabButton(header.transform, LobbyTab.Curriculum, "커리큘럼", 324f);
+
+            bool showOutcome = currentTab != LobbyTab.Loadout && currentTab != LobbyTab.Curriculum && outcomeBanner != null;
+            if (!run.IsCurriculumOpen && !showOutcome) return;
+            var status = Panel("Lobby Status Slip", dynamicRoot, Vector2.zero, new Vector2(450f, 82f), SurfaceInner);
+            status.rectTransform.anchorMin = status.rectTransform.anchorMax = new Vector2(1f, 1f);
+            status.rectTransform.pivot = new Vector2(1f, 1f);
+            status.rectTransform.anchoredPosition = new Vector2(-24f, -18f);
+            DuelVisualTheme.Frame(status);
             if (run.IsCurriculumOpen)
             {
-                BuildTabButton(header.transform, LobbyTab.Curriculum, "커리큘럼", 340f);
-                // Currency is still earned but has no use while the shop is gone, so the header shows the curriculum instead.
                 CurriculumNode active = run.Curriculum.Active;
                 bool finished = run.Curriculum.IsFinished;
-                Label("Header Curriculum", header.transform,
+                Label("Header Curriculum", status.transform,
                     active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
                         : finished ? "커리큘럼  모두 완료" : "커리큘럼  선택 안 함",
-                    new Vector2(620f, 10f), new Vector2(285f, 58f), 22,
+                    new Vector2(0f, showOutcome ? 17f : 0f), new Vector2(402f, 30f), 18,
                     active != null ? Gold : finished ? Muted : DuelVisualTheme.Danger, TextAnchor.MiddleRight);
             }
-
-            if (currentTab == LobbyTab.Loadout || currentTab == LobbyTab.Curriculum || outcomeBanner == null) return;
-            Label("Outcome Banner", header.transform, outcomeBanner, new Vector2(560f, -27f),
-                new Vector2(405f, 28f), 16, Muted, TextAnchor.MiddleRight);
+            if (showOutcome)
+                Label("Outcome Banner", status.transform, outcomeBanner,
+                    new Vector2(0f, run.IsCurriculumOpen ? -19f : 0f), new Vector2(402f, 28f), 15,
+                    Muted, TextAnchor.MiddleRight);
         }
 
         private void BuildTabButton(Transform parent, LobbyTab tab, string caption, float x)
         {
             bool selected = currentTab == tab;
-            Button("Tab " + tab, parent, caption, new Vector2(x, 0f), new Vector2(190f, 58f), true,
+            Button("Tab " + tab, parent, caption, new Vector2(x, 0f), new Vector2(116f, 48f), true,
                 () => ShowTab(tab), selected, selected ? DuelVisualTheme.Ink : Foreground);
         }
 
         private void BuildHome(CampaignRun run)
         {
-            var inner = Panel("Home Sidebar", pageRoot, new Vector2(195f, 0f), new Vector2(390f, 0f), Surface);
-            inner.rectTransform.anchorMin = Vector2.zero;
-            inner.rectTransform.anchorMax = new Vector2(0f, 1f);
-            DuelVisualTheme.DressPanel(inner);
-            Label("Home Heading", inner.transform, "오늘의 준비", new Vector2(-153f, 350f), new Vector2(306f, 54f), 31);
-            Label("Home Stage Summary", inner.transform,
-                $"개방 스테이지  {run.HighestUnlockedStage}/{run.StageCount}\n클리어  {run.ClearedStageCount}/{run.StageCount}",
-                new Vector2(-153f, 278f), new Vector2(306f, 76f), 20, Muted);
-            Rule("Home Rule", inner.transform, 215f, 306f);
-            Label("Home Hint", inner.transform, "방을 나서기 전에\n도전할 길과 기술 순서를 정하세요.",
-                new Vector2(-153f, 154f), new Vector2(306f, 72f), 19, Foreground);
-            Button("Home Open Stages", inner.transform, "출정", new Vector2(0f, 65f), new Vector2(304f, 62f), true,
-                () => ShowTab(LobbyTab.Stages), true);
-            Button("Home Open Loadout", inner.transform, "스킬 편성", new Vector2(0f, -25f), new Vector2(304f, 62f), true,
+            // Keep the middle of the room clear. Preparation and departure live at opposite edges.
+            bool hasCurriculum = run.IsCurriculumOpen;
+            bool hasTraining = run.IsTrainingUnlocked;
+            float upperShift = hasTraining ? 28f : 0f;
+            var inner = Panel("Home Sidebar", pageRoot, Vector2.zero,
+                new Vector2(300f, (hasCurriculum ? 270f : 214f) + (hasTraining ? 58f : 0f)), Surface);
+            AnchorHomePanel(inner.rectTransform, false, 32f, 36f);
+            DuelVisualTheme.Frame(inner);
+            Label("Home Heading", inner.transform, "출정 준비",
+                new Vector2(-126f, (hasCurriculum ? 94f : 67f) + upperShift), new Vector2(252f, 36f), 25);
+            Label("Home Hint", inner.transform, "기술을 정비하고 출발하세요.",
+                new Vector2(-126f, (hasCurriculum ? 51f : 29f) + upperShift), new Vector2(252f, 30f), 16, Muted);
+            Rule("Home Rule", inner.transform, (hasCurriculum ? 24f : 2f) + upperShift, 252f);
+            Button("Home Open Loadout", inner.transform, "기술 편성",
+                new Vector2(0f, (hasCurriculum ? -20f : -37f) + upperShift), new Vector2(252f, 44f), true,
                 () => ShowTab(LobbyTab.Loadout));
-            if (run.IsCurriculumOpen)
-                Button("Home Open Curriculum", inner.transform, "커리큘럼", new Vector2(0f, -115f), new Vector2(304f, 62f), true,
+            if (hasCurriculum)
+                Button("Home Open Curriculum", inner.transform, "커리큘럼", new Vector2(0f, -72f + upperShift), new Vector2(252f, 42f), true,
                     () => ShowTab(LobbyTab.Curriculum));
+            if (hasTraining)
+                Button("Home Open Training", inner.transform,
+                    run.HasLoadoutChanges ? "편성 저장 후 수련" : "허수아비 수련",
+                    new Vector2(0f, hasCurriculum ? -96f : -61f), new Vector2(252f, 44f),
+                    run.CanStartTraining, () => startTraining?.Invoke());
             if (restartJourney != null)
                 Button("Reset Journey", inner.transform, resetArmed ? "정말 초기화" : "여정 초기화",
-                    new Vector2(0f, -290f), new Vector2(304f, 42f), true, ResetJourneyClicked, false, Muted);
-            Label("Home Welcome", pageRoot, "다음 결투를 준비하세요", new Vector2(80f, 365f),
-                new Vector2(700f, 62f), 36, DuelVisualTheme.Paper, TextAnchor.MiddleCenter);
-            Label("Home Welcome Hint", pageRoot, "기술을 정비하고, 숲길 너머의 상대에게 도전합니다.", new Vector2(80f, 311f),
-                new Vector2(820f, 36f), 20, DuelVisualTheme.Paper, TextAnchor.MiddleCenter);
-            if (nextMission != null) BuildMissionBanner(pageRoot, "Home Mission", new Vector2(80f, 200f));
+                    new Vector2(0f, (hasCurriculum ? -114f : -82f) - upperShift), new Vector2(252f, 28f), true,
+                    ResetJourneyClicked, false, Muted);
+
+            var journey = Panel("Home Journey", pageRoot, Vector2.zero, new Vector2(510f, 230f), SurfaceInner);
+            AnchorHomePanel(journey.rectTransform, true, 32f, 122f);
+            DuelVisualTheme.DressPanel(journey);
+            CampaignStage destination = run.GetStage(Mathf.Clamp(run.HighestUnlockedStage, 1, run.StageCount));
+            Label("Home Welcome", journey.transform,
+                run.ClearedStageCount >= run.StageCount ? "완주한 여정" : "다음 목적지", new Vector2(-228f, 76f),
+                new Vector2(456f, 32f), 21, Gold);
+            var destinationName = Label("Home Destination", journey.transform, $"{destination.Number:00}  ·  {destination.Name}",
+                new Vector2(-228f, 26f), new Vector2(456f, 52f), 35, Foreground);
+            destinationName.resizeTextForBestFit = true;
+            destinationName.resizeTextMinSize = 27;
+            destinationName.resizeTextMaxSize = 35;
+            Label("Home Welcome Hint", journey.transform, "출정 지도에서 상대를 확인하세요.",
+                new Vector2(-228f, -23f), new Vector2(456f, 34f), 16, Muted);
+            Panel("Home Journey Rule", journey.transform, new Vector2(0f, -53f), new Vector2(456f, 2f), Border);
+            Button("Home Open Stages", journey.transform, "출정 지도  ▶", new Vector2(124f, -84f),
+                new Vector2(212f, 52f), true, () =>
+                {
+                    SelectStage(destination.Number);
+                    ShowTab(LobbyTab.Stages);
+                }, true);
+            if (nextMission != null)
+            {
+                var mission = BuildMissionBanner(pageRoot, "Home Mission", Vector2.zero);
+                // A locked mission is a footnote; an available mission deserves the upper alert position.
+                AnchorHomePanel(mission.rectTransform, true, 32f, nextMissionAvailable ? 366f : 36f);
+            }
+        }
+
+        private static void AnchorHomePanel(RectTransform panel, bool right, float edge, float bottom)
+        {
+            panel.anchorMin = panel.anchorMax = new Vector2(right ? 1f : 0f, 0f);
+            panel.anchoredPosition = new Vector2((right ? -1f : 1f) * (edge + panel.rect.width * .5f),
+                bottom + panel.rect.height * .5f);
         }
 
         /// <summary>The next lobby mission, with a briefing button once its stage is cleared. Until then its title is
         /// hidden (<see cref="HiddenMissionTitle"/>), since the title would give away what it opens.</summary>
-        private void BuildMissionBanner(Transform parent, string name, Vector2 position)
+        private Image BuildMissionBanner(Transform parent, string name, Vector2 position)
         {
-            var border = Panel(name + " Border", parent, position, new Vector2(624f, 124f), nextMissionAvailable ? Accent : Border);
-            var banner = Panel(name + " Banner", border.transform, Vector2.zero, new Vector2(620f, 120f), SurfaceInner);
-            DuelVisualTheme.DressPanel(banner);
-            Label(name + " Title", banner.transform, $"{nextMission.Chapter}  ·  임무 {nextMission.Number}  ·  {NextMissionTitle}",
-                new Vector2(-290f, 28f), new Vector2(360f, 36f), 22, nextMissionAvailable ? Gold : Muted);
+            float height = nextMissionAvailable ? 100f : 72f;
+            var border = Panel(name + " Border", parent, position, new Vector2(510f, height), nextMissionAvailable ? Accent : Border);
+            var banner = Panel(name + " Banner", border.transform, Vector2.zero, new Vector2(506f, height - 4f), SurfaceInner);
+            DuelVisualTheme.Frame(banner);
+            var missionTitle = Label(name + " Title", banner.transform, $"{nextMission.Chapter}  ·  임무 {nextMission.Number}  ·  {NextMissionTitle}",
+                new Vector2(-226f, nextMissionAvailable ? 22f : 15f), new Vector2(300f, 28f),
+                nextMissionAvailable ? 18 : 16, nextMissionAvailable ? Gold : Muted);
+            missionTitle.resizeTextForBestFit = true;
+            missionTitle.resizeTextMinSize = 14;
+            missionTitle.resizeTextMaxSize = nextMissionAvailable ? 18 : 16;
             string requirement = nextMissionAvailable ? "새 임무가 도착했습니다."
                 : KoreanParticle.Attach($"스테이지 {nextMission.RequiredClearedStage:00}", "을") + " 클리어하면 열립니다.";
-            Label(name + " State", banner.transform, requirement, new Vector2(-290f, -18f), new Vector2(360f, 30f), 17, Foreground);
-            Button(name + " Open", banner.transform, nextMissionAvailable ? "임무 브리핑" : "잠긴 임무", new Vector2(190f, 0f),
-                new Vector2(210f, 58f), nextMissionAvailable, () => openMission?.Invoke(), nextMissionAvailable);
+            Label(name + " State", banner.transform, requirement,
+                new Vector2(-226f, nextMissionAvailable ? -15f : -13f), new Vector2(300f, 24f),
+                nextMissionAvailable ? 15 : 14, Foreground);
+            Button(name + " Open", banner.transform, nextMissionAvailable ? "임무 브리핑" : "잠긴 임무", new Vector2(164f, 0f),
+                new Vector2(150f, nextMissionAvailable ? 50f : 40f), nextMissionAvailable,
+                () => openMission?.Invoke(), nextMissionAvailable);
+            return border;
         }
 
         private void BuildStages(CampaignRun run)
         {
             var panel = Rect("Stages Panel", pageRoot, new Vector2(0f, -24f), new Vector2(1800f, 850f));
-            Label("Tab Heading", panel, "출정 지도", new Vector2(-850f, 370f), new Vector2(700f, 54f), 40);
-            Label("Tab Subtitle", panel, run.IsCurriculumOpen ? "도전할 길을 고르고 오른쪽에서 상대와 커리큘럼 진행을 확인하세요."
-                    : "도전할 길을 고르고 오른쪽에서 상대를 확인하세요.",
-                new Vector2(-850f, 323f), new Vector2(1180f, 36f), 20, Muted);
-            Rule("Tab Rule", panel, 289f, 1700f);
+            panel.localScale = Vector3.one * Mathf.Min(1f, LedgerWidth / 1800f);
+            Label("Tab Heading", panel, "숲길의 기록", new Vector2(-844f, 357f), new Vector2(730f, 54f), 38);
+            Label("Tab Subtitle", panel, "발자국을 따라 목적지를 고르세요. 선택한 상대는 오른쪽 장부에 기록됩니다.",
+                new Vector2(-844f, 312f), new Vector2(1130f, 34f), 18, Muted);
             if (nextMission != null && nextMissionAvailable)
-                Button("Stages Open Mission", panel, $"새 임무  {nextMission.Title}  ▶", new Vector2(630f, 350f),
+                Button("Stages Open Mission", panel, $"새 임무  {nextMission.Title}  ▶", new Vector2(630f, 345f),
                     new Vector2(444f, 54f), true, () => openMission?.Invoke(), true);
-            const float cardWidth = 252f, cardHeight = 210f, gapX = 20f, gapY = 28f;
-            for (int number = 1; number <= run.StageCount; number++)
+
+            // Draw the route first so that all stage tickets stay in front of its lines.
+            for (int number = 2; number <= run.StageCount && number <= StageRoute.Length; number++)
+                ConnectStageStops(panel, number - 1, StageRoute[number - 2], StageRoute[number - 1],
+                    number <= run.HighestUnlockedStage);
+            for (int number = 1; number <= run.StageCount && number <= StageRoute.Length; number++)
             {
-                int column = (number - 1) % 4;
-                int row = (number - 1) / 4;
-                float x = -724f + column * (cardWidth + gapX);
-                float y = 143f - row * (cardHeight + gapY);
-                BuildStageCard(panel, run, number, new Vector2(x, y), new Vector2(cardWidth, cardHeight));
+                bool isSelected = number == selectedStageNumber;
+                bool frontier = number == run.HighestUnlockedStage && !run.IsStageCleared(number);
+                Vector2 size = isSelected ? new Vector2(222f, 130f)
+                    : frontier ? new Vector2(208f, 120f) : new Vector2(194f, 106f);
+                BuildStageCard(panel, run, number, StageRoute[number - 1], size);
             }
 
             CampaignStage stage = run.GetStage(selectedStageNumber);
-            var previewBorder = Panel("Selected Stage Preview Border", panel, new Vector2(630f, -40f),
+            var previewBorder = Panel("Selected Stage Preview Border", panel, new Vector2(630f, -45f),
                 new Vector2(444f, 568f), selectedStageNumber <= run.HighestUnlockedStage ? Accent : Border);
             var preview = Panel("Selected Stage Preview", previewBorder.transform, Vector2.zero,
                 new Vector2(440f, 564f), SurfaceInner);
@@ -385,6 +467,17 @@ namespace TurnLimbo.Presentation
                         : run.Curriculum.IsFinished ? "커리큘럼  모든 과정 완료" : "커리큘럼  진행 중인 과정 없음",
                     new Vector2(-192f, -137f), new Vector2(384f, 34f), 20,
                     active != null ? Gold : run.Curriculum.IsFinished ? Muted : DuelVisualTheme.Danger);
+            if (stage.FirstClearSkillId != 0)
+            {
+                string skillName = LegacySkillDefinitions.Skill(stage.FirstClearSkillId).Name;
+                Text reward = Label("Selected Stage Skill Reward", preview.transform,
+                    run.IsStageCleared(selectedStageNumber) ? $"첫 클리어 기술  {skillName} · 획득 완료"
+                        : $"첫 클리어 기술  {skillName}",
+                    new Vector2(-192f, -167f), new Vector2(384f, 24f), 20, Gold);
+                reward.resizeTextForBestFit = true;
+                reward.resizeTextMinSize = 15;
+                reward.resizeTextMaxSize = 20;
+            }
             int selected = selectedStageNumber;
             Button("Start Selected Stage", preview.transform,
                 run.HasLoadoutChanges ? "편성 저장 필요" : "도전  [Enter]", new Vector2(0f, -215f),
@@ -412,29 +505,41 @@ namespace TurnLimbo.Presentation
             });
             if (selected)
             {
-                var marker = Panel("Selected Marker", card.transform, new Vector2(0f, size.y * .5f - 3f),
-                    new Vector2(size.x, 6f), Accent);
+                var marker = Panel("Selected Marker", card.transform, new Vector2(-size.x * .5f + 4f, 0f),
+                    new Vector2(6f, size.y - 10f), Accent);
                 marker.raycastTarget = false;
             }
             CampaignStage stage = run.GetStage(number);
             float left = -size.x * .5f + 18f;
-            Label("Stage Number", card.transform, number.ToString("00"), new Vector2(left, 61f),
-                new Vector2(80f, 40f), 27, unlocked ? Gold : Muted);
-            Label("Stage Name", card.transform, stage.Name, new Vector2(left, 10f),
-                new Vector2(size.x - 36f, 56f), 22, unlocked ? Foreground : Muted);
+            Label("Stage Number", card.transform, number.ToString("00"), new Vector2(left, size.y * .5f - 22f),
+                new Vector2(64f, 28f), 23, unlocked ? Gold : Muted);
+            Label("Stage Name", card.transform, stage.Name, new Vector2(left, size.y < 115f ? -4f : 0f),
+                new Vector2(size.x - 36f, 40f), 19, unlocked ? Foreground : Muted);
             Label("Stage State " + number, card.transform,
                 !unlocked ? "잠김" : run.IsStageWaitingForMission(number) ? "임무 필요"
                 : cleared ? "클리어" : selected ? "선택됨" : "도전 가능",
-                new Vector2(left, -62f), new Vector2(size.x - 36f, 32f), 18,
+                new Vector2(left, -size.y * .5f + 20f), new Vector2(size.x - 36f, 24f), 15,
                 cleared || selected ? Accent : Muted);
+        }
+
+        private static void ConnectStageStops(Transform parent, int fromNumber, Vector2 from, Vector2 to, bool reached)
+        {
+            Vector2 direction = to - from;
+            float distance = direction.magnitude;
+            // Leave a gap at each ticket so the line reads as a path between stops.
+            float lineLength = Mathf.Max(0f, distance - 154f);
+            if (lineLength <= 0f) return;
+            Color color = reached ? Accent : Muted;
+            color.a = reached ? .75f : .35f;
+            var line = Panel("Stage Route " + fromNumber, parent, (from + to) * .5f,
+                new Vector2(lineLength, reached ? 4f : 2f), color);
+            line.rectTransform.localRotation = Quaternion.Euler(0f, 0f,
+                Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
         }
 
         private void BuildLoadout(CampaignRun run)
         {
-            // With one open lane there are no "lanes" to speak of yet.
-            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성", run.Features.LaneCount() == 1
-                ? "3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그"
-                : "각 열 3개 · 위부터 사용 · 클릭은 설명 선택, 배치는 드래그");
+            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성", "보유 기술을 골라 강조된 칸을 누르세요.");
             loadoutHud = new CampaignLoadoutHud(panel, art, run,
                 (id, lane, slot) =>
                 {
@@ -479,7 +584,7 @@ namespace TurnLimbo.Presentation
         {
             // These are page content coordinates, not a window, dimmer or modal backdrop.
             var panel = Rect(name, pageRoot, new Vector2(0f, -24f), new Vector2(TabWidth, TabHeight));
-            panel.localScale = Vector3.one * 1.2f;
+            panel.localScale = Vector3.one * Mathf.Min(1.2f, (LedgerWidth - 64f) / TabWidth);
             Label("Tab Heading", panel, heading, new Vector2(-590f, 368f),
                 new Vector2(620f, 48f), 31);
             Label("Tab Subtitle", panel, subtitle, new Vector2(-590f, 329f),

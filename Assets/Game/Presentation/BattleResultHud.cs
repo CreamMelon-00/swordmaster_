@@ -43,6 +43,7 @@ namespace TurnLimbo.Presentation
             root = Rect("Battle Result HUD", parent, Vector2.zero, Vector2.zero);
             var canvas = root.gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
             canvas.sortingOrder = 400;
             var scaler = root.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -57,37 +58,47 @@ namespace TurnLimbo.Presentation
             var border = Panel("Result Card Border", root, Vector2.zero, new Vector2(844f, 654f), Border);
             var card = Panel("Result Card", border.transform, Vector2.zero, new Vector2(840f, 650f), Surface);
             DuelVisualTheme.DressPanel(card);
-            heading = Label("Result Heading", card.transform, Vector2.up * 238f, new Vector2(760f, 76f), 58);
+            heading = Label("Result Heading", card.transform, Vector2.up * 238f, new Vector2(760f, 88f), 70);
             stage = Label("Result Stage", card.transform, Vector2.up * 179f, new Vector2(760f, 42f), 23, Muted);
             var rule = Panel("Result Rule", card.transform, Vector2.up * 144f, new Vector2(736f, 2f), Border);
             rounds = Statistic(card.transform, "Result Rounds", "진행 턴", -248f);
             playerHealth = Statistic(card.transform, "Result Player HP", "내 남은 HP", 0f);
             enemyHealth = Statistic(card.transform, "Result Enemy HP", "상대 남은 HP", 248f);
+            // Treat the result numbers as one score line. Separate boxes gave every number the same dashboard weight.
+            var leftDivider = Panel("Result Stat Divider Left", card.transform, new Vector2(-124f, 64f),
+                new Vector2(2f, 68f), Border);
+            var rightDivider = Panel("Result Stat Divider Right", card.transform, new Vector2(124f, 64f),
+                new Vector2(2f, 68f), Border);
             cardBorder = border.rectTransform;
             cardSurface = card.rectTransform;
             upperRows = new[]
             {
                 heading.rectTransform, stage.rectTransform, rule.rectTransform, (RectTransform)rounds.transform.parent,
                 (RectTransform)playerHealth.transform.parent, (RectTransform)enemyHealth.transform.parent,
+                leftDivider.rectTransform, rightDivider.rectTransform,
             };
             upperRowY = Array.ConvertAll(upperRows, row => row.anchoredPosition.y);
             // Currency is hidden while it has no use; this panel reports the curriculum instead.
             var progress = Panel("Result Curriculum Panel", card.transform, new Vector2(0f, -61f),
                 new Vector2(736f, 104f), Raised);
             curriculumPanel = progress.rectTransform;
-            DuelVisualTheme.Frame(progress);
+            Panel("Result Curriculum Accent", progress.transform, new Vector2(-366f, 0f),
+                new Vector2(4f, 104f), Accent);
             Label("Result Curriculum Heading", progress.transform, new Vector2(-210f, 27f), new Vector2(300f, 28f), 18, Muted).text = "커리큘럼";
             curriculum = Label("Result Curriculum", progress.transform, new Vector2(-210f, -14f), new Vector2(300f, 48f), 30, Gold);
             curriculum.resizeTextForBestFit = true;
             curriculum.resizeTextMinSize = 20;
             curriculum.resizeTextMaxSize = 30;
             curriculumDetail = Label("Result Curriculum Detail", progress.transform, new Vector2(170f, 0f), new Vector2(360f, 72f), 19);
+            curriculumDetail.resizeTextForBestFit = true;
+            curriculumDetail.resizeTextMinSize = 14;
+            curriculumDetail.resizeTextMaxSize = 19;
             notice = Label("Result Notice", card.transform, new Vector2(0f, NoticeY), new Vector2(736f, 78f), 20, Muted);
-            lobbyButton = ActionButton("Result Lobby", card.transform, "로비로", new Vector2(-248f, ActionY), returnToLobby);
-            retryButton = ActionButton("Result Retry", card.transform, "재도전", new Vector2(0f, ActionY), retry);
+            lobbyButton = ActionButton("Result Lobby", card.transform, "로비로", new Vector2(-262f, ActionY), returnToLobby);
+            retryButton = ActionButton("Result Retry", card.transform, "재도전", new Vector2(-43f, ActionY), retry);
             retryCaption = retryButton.GetComponentInChildren<Text>();
             lobbyCaption = lobbyButton.GetComponentInChildren<Text>();
-            nextButton = ActionButton("Result Next Stage", card.transform, "다음 스테이지", new Vector2(248f, ActionY), nextStage, true);
+            nextButton = ActionButton("Result Next Stage", card.transform, "다음 스테이지", new Vector2(231f, ActionY), nextStage, true);
             nextCaption = nextButton.GetComponentInChildren<Text>();
             Hide();
         }
@@ -127,14 +138,45 @@ namespace TurnLimbo.Presentation
             bool showLobby = !(result.IsMission && result.CanAdvance);
             lobbyButton.gameObject.SetActive(showLobby);
             nextButton.gameObject.SetActive(result.CanAdvance);
-            // The visible actions stay evenly spaced.
-            bool three = showLobby && result.CanAdvance;
-            float left = three ? -248f : -132f;
-            lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(left, actionY);
+            // A single forward action leads the eye. On defeat, retry takes that place.
+            SetActionProminence(nextButton, result.CanAdvance);
+            SetActionProminence(retryButton, !result.CanAdvance && result.CanRetry);
+            lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-262f, actionY);
             retryButton.GetComponent<RectTransform>().anchoredPosition =
-                new Vector2(!showLobby ? left : three ? 0f : 132f, actionY);
-            nextButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(three ? 248f : 132f, actionY);
+                new Vector2(!showLobby ? -165f : result.CanAdvance ? -43f : 231f, actionY);
+            nextButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(231f, actionY);
             ClearSelection();
+        }
+
+        /// <summary>The dummy session reports damage and the next target without suggesting campaign rewards.</summary>
+        public void ShowTraining(BattleResult result, int targetHealth, int nextTargetHealth)
+        {
+            if (result == null) throw new ArgumentNullException(nameof(result));
+            if (!result.IsTraining) throw new ArgumentException("A training result is required.", nameof(result));
+            if (targetHealth < 1) throw new ArgumentOutOfRangeException(nameof(targetHealth));
+            if (nextTargetHealth < 1) throw new ArgumentOutOfRangeException(nameof(nextTargetHealth));
+            Show(result);
+            heading.text = result.Victory ? "수련 성공" : "수련 종료";
+            heading.color = result.Victory ? Accent : Foreground;
+            stage.text = "허수아비 수련";
+            rounds.text = Mathf.Min(result.RoundNumber, 5) + " / 5";
+            enemyHealth.text = Mathf.Max(0, result.EnemyHealth) + " / " + targetHealth;
+            enemyHealth.resizeTextForBestFit = true;
+            enemyHealth.resizeTextMinSize = 18;
+            enemyHealth.resizeTextMaxSize = 40;
+            int damage = Mathf.Max(0, targetHealth - result.EnemyHealth);
+            notice.text = result.Victory
+                ? $"가한 피해 {damage}\n다음 허수아비 체력 {nextTargetHealth}"
+                : $"5턴 동안 가한 피해 {damage}";
+            retryCaption.text = result.Victory ? "다음 수련" : "재도전";
+            lobbyCaption.text = "로비로";
+            lobbyButton.gameObject.SetActive(true);
+            retryButton.interactable = true;
+            nextButton.gameObject.SetActive(false);
+            SetActionProminence(lobbyButton, false);
+            SetActionProminence(retryButton, true);
+            lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-153f, actionY);
+            retryButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(139f, actionY);
         }
 
         /// <summary>Shows the curriculum row, or closes the card up without it while the curriculum is closed.</summary>
@@ -194,7 +236,10 @@ namespace TurnLimbo.Presentation
             if (!result.Victory)
                 return result.Outcome == DuelMatchOutcome.Draw ? "승부가 나지 않았습니다. 재도전하거나 기술 편성을 바꿔보세요."
                     : "로비에서 편성을 바꾸거나 다시 도전해보세요.";
-            string clear = result.FirstClear ? "첫 클리어!" : "다시 클리어했습니다.";
+            string clear = result.FirstClear
+                ? string.IsNullOrEmpty(result.FirstClearSkillName) ? "첫 클리어!"
+                    : $"첫 클리어! 새 기술 '{result.FirstClearSkillName}' 획득"
+                : "다시 클리어했습니다.";
             return result.UnlockedStageNumber > 0 ? clear + $"\n스테이지 {result.UnlockedStageNumber:00} 개방!"
                 : clear + (result.CanAdvance ? "\n다음 스테이지에 도전할 수 있습니다." : "\n마지막 스테이지까지 마쳤습니다.");
         }
@@ -221,7 +266,11 @@ namespace TurnLimbo.Presentation
             {
                 curriculum.text = completed.Title + " 완료";
                 curriculum.color = Gold;
-                curriculumDetail.text = "새 기술  " + SkillNames(completed) + "\n편성에서 장착할 수 있습니다.";
+                string stats = StatRewardText(completed.StatReward);
+                curriculumDetail.text = completed.SkillIds.Count == 0
+                    ? "능력치 증가\n" + stats
+                    : completed.StatReward.IsEmpty ? "새 기술  " + SkillNames(completed) + "\n편성에서 장착할 수 있습니다."
+                        : "새 기술  " + SkillNames(completed) + "\n" + stats;
             }
             else if (active != null)
             {
@@ -247,31 +296,52 @@ namespace TurnLimbo.Presentation
         {
             var names = new System.Collections.Generic.List<string>();
             foreach (int id in node.SkillIds)
-                foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills)
-                    if (skill.Id == id) names.Add(skill.Name);
+            {
+                LegacySkill skill = LegacySkillDefinitions.Find(id)?.Skill;
+                if (skill != null) names.Add(skill.Name);
+            }
             return names.Count > 0 ? string.Join(", ", names) : "없음";
+        }
+
+        private static string StatRewardText(CurriculumStatReward reward)
+        {
+            var parts = new System.Collections.Generic.List<string>(5);
+            if (reward.Health > 0) parts.Add("최대 체력 +" + reward.Health);
+            if (reward.Resistance > 0) parts.Add("최대 저항 +" + reward.Resistance);
+            if (reward.ActGain > 0) parts.Add("매 턴 ACT 회복 +" + reward.ActGain);
+            if (reward.ActCapacity > 0) parts.Add("ACT 상한 +" + reward.ActCapacity);
+            if (reward.PlanningSeconds > 0) parts.Add("선택 시간 +" + reward.PlanningSeconds + "초");
+            return string.Join(" · ", parts);
         }
 
         private Text Statistic(Transform parent, string name, string caption, float x)
         {
-            var frame = Panel(name + " Panel", parent, new Vector2(x, 64f), new Vector2(232f, 110f), Raised);
-            DuelVisualTheme.Frame(frame);
+            var frame = Panel(name + " Panel", parent, new Vector2(x, 64f), new Vector2(232f, 110f), Color.clear);
             Label(name + " Label", frame.transform, Vector2.up * 29f, new Vector2(216f, 30f), 18, Muted).text = caption;
-            return Label(name, frame.transform, new Vector2(0f, -15f), new Vector2(216f, 52f), 36);
+            return Label(name, frame.transform, new Vector2(0f, -15f), new Vector2(216f, 52f), 40);
         }
 
         private Button ActionButton(string name, Transform parent, string caption, Vector2 position, Action action, bool primary = false)
         {
-            var image = Panel(name, parent, position, new Vector2(224f, 58f), primary ? Accent : Raised);
+            var image = Panel(name, parent, position, primary ? new Vector2(272f, 66f) : new Vector2(194f, 50f),
+                primary ? Accent : Raised);
             image.raycastTarget = true;
             var button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.navigation = new Navigation { mode = Navigation.Mode.None };
             DuelVisualTheme.StyleButton(button, primary);
-            Label("Button Label", image.transform, Vector2.zero, new Vector2(208f, 48f), 22,
+            Label("Button Label", image.transform, Vector2.zero, new Vector2(180f, 46f), 22,
                 primary ? DuelVisualTheme.Ink : Foreground).text = caption;
             button.onClick.AddListener(() => { ClearSelection(); action?.Invoke(); });
             return button;
+        }
+
+        private static void SetActionProminence(Button button, bool primary)
+        {
+            button.GetComponent<RectTransform>().sizeDelta = primary ? new Vector2(272f, 66f) : new Vector2(194f, 50f);
+            button.GetComponent<Image>().color = primary ? Accent : Raised;
+            button.GetComponentInChildren<Text>(true).color = primary ? DuelVisualTheme.Ink : Foreground;
+            DuelVisualTheme.Frame(button.targetGraphic as Image, primary);
         }
 
         private Text Label(string name, Transform parent, Vector2 position, Vector2 size, int fontSize, Color? color = null)

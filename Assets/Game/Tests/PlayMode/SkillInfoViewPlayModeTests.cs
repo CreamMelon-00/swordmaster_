@@ -37,9 +37,9 @@ namespace TurnLimbo.Presentation.Tests
             {
                 // Authored expectations, not values copied from the view model.
                 int[] ids = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19, 21, 32, 42 };
-                int[] costs = { 1, 2, 1, 2, 1, 3, 1, 1, 1, 1, 1, 1, 1, 5, 2, 2, 3, 2, 1 };
-                string[] powers = { "4–5", "11–15", "5", "11–15", "6–9", "16–20", "5–8", "7–11", "4–6", "2–3", "4–8", "6–12", "7–10", "3–20", "9–12", "7–11", "12–17", "8–12", "4–8" };
-                int[] hits = { 1, 2, 3, 1, 2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1 };
+                int[] costs = { 1, 1, 2, 3, 1, 2, 1, 3, 1, 1, 1, 1, 1, 5, 2, 2, 3, 2, 1 };
+                string[] powers = { "4–5", "8–9", "11–14", "13–16", "4–6", "8–11", "5–8", "12–15", "4–6", "2–3", "4–8", "6–12", "7–10", "3–20", "9–12", "7–11", "12–17", "8–12", "4–8" };
+                int[] hits = { 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1 };
                 for (int index = 0; index < ids.Length; index++)
                 {
                     LegacySkill skill = Skill(ids[index]);
@@ -51,6 +51,14 @@ namespace TurnLimbo.Presentation.Tests
                     {
                         Assert.That(Label(fixture.View.Root, "Power Label").text, Is.EqualTo("위력"), skill.Name);
                         Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo(hits[index] + "회"), skill.Name);
+                        if (hits[index] > 1)
+                        {
+                            AssertNoPowerSplittingExplanation(fixture.View.EffectText.text, skill.Name + " skill card");
+                            AssertNoPowerSplittingExplanation(CampaignSkillText.Effect(skill), skill.Name + " lobby effect");
+                            if (ids[index] == 2 || ids[index] == 15)
+                                Assert.That(fixture.View.EffectText.text, Is.Empty,
+                                    "An ordinary multi-hit skill needs no calculation paragraph: " + skill.Name);
+                        }
                     }
                     else
                     {
@@ -72,29 +80,44 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator KeywordsAndConditions_ExplainRecoveryFollowupAndMultiHitWithoutChangingRules()
+        public IEnumerator KeywordsAndConditions_ExplainTheStartingSchoolsWithoutChangingRules()
         {
             yield return null;
             using (var fixture = new Fixture())
             {
+                fixture.View.SetSkill(Skill(2));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("분할 연타"));
+                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("1"));
+                AssertNoPowerSplittingExplanation(fixture.View.EffectText.text, "연속 베기 skill card");
+
                 fixture.View.SetSkill(Skill(3));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("3").And.Contain("10%"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("이번 턴").And.Contain("3"));
-                Assert.That(VisibleText(fixture.View.Root), Does.Contain("분할").And.Contain("버림").And.Contain("최소 1"),
-                    "Three hits divide a rolled total; they do not multiply that total by three.");
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("고화력").And.Contain("단타"));
+                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("1회 공격"));
+                Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("10%"),
+                    "The first W skill no longer promises a following-slot buff.");
+
+                fixture.View.SetSkill(Skill(5));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -5").And.Contain("공격 대응"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("상대가 공격이면").And.Contain("저항 5 감소"));
+
+                fixture.View.SetSkill(Skill(6));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -8").And.Contain("방어 대응"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("상대가 방어이면").And.Contain("저항 8 감소"));
 
                 fixture.View.SetSkill(Skill(7));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT").And.Contain("2"));
                 Assert.That(fixture.View.EffectText.text, Does.Contain("타격").And.Contain("다음 턴"));
 
                 fixture.View.SetSkill(Skill(8));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("30%"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("이번 턴").And.Contain("10"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("25%").And.Contain("다음 1칸"));
+                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("3"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("이번 턴").And.Contain("다음 1칸"));
 
                 fixture.View.SetSkill(Skill(9));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("3%"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("20%").And.Contain("뒤 2칸"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("공격").And.Contain("방어").And.Contain("이번 턴").And.Contain("10"));
+                    Does.Contain("공격").And.Contain("방어").And.Contain("이번 턴").And.Contain("2"));
 
                 fixture.View.SetSkill(Skill(7), true);
                 Assert.That(VisibleText(fixture.View.Root), Does.Contain("플레이어 전용"),
@@ -139,7 +162,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(Skill(12));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT +3").And.Contain("배율 +50%"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("다음 턴").And.Contain("이번 턴 · 다음 1칸").And.Contain("2회 분할"));
+                    Does.Contain("다음 턴 ACT 회복 +3").And.Contain("이번 턴 · 다음 1칸 받는 피해 배율 +50%"));
                 Assert.That(CampaignSkillText.Effect(Skill(12)), Does.Contain("받는 피해").And.Contain("50%"));
 
                 fixture.View.SetSkill(Skill(19));
@@ -190,8 +213,29 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(null);
                 AssertNoVisibleValues(fixture.View);
                 fixture.View.SetSkill(Skill(3));
-                Assert.That(fixture.View.PowerText.text, Does.Contain("5"));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("10%"));
+                Assert.That(fixture.View.PowerText.text, Is.EqualTo("11–14"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("고화력"));
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator AdditionalCurriculumReward_UsesTheSameCardAndClearsWhenSelectionChanges()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                float height = fixture.View.Height;
+                LegacySkill skill = Skill(5);
+                fixture.View.SetSkill(skill, false, "능력치 보상: 최대 체력 +5 · 매 턴 ACT 회복 +1");
+                Assert.That(fixture.View.EffectText.text, Does.Contain("저항 5 감소").And.Contain("최대 체력 +5"));
+                Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
+                fixture.View.SetSkill(skill);
+                Assert.That(fixture.View.EffectText.text, Does.Not.Contain("최대 체력 +5"));
+                Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
+                fixture.View.SetEmptyMessage("최대 저항 +4 · 일반 스테이지 선택 시간 +3초");
+                Assert.That(fixture.View.EffectText.text, Does.Contain("선택 시간 +3초"));
+                Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
             }
             yield return null;
         }
@@ -241,9 +285,10 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 Click(lobby.Root, "Loadout Slot W 1");
                 GameObject detail = Named(lobby.Root, "Loadout Selected Detail").gameObject;
-                Assert.That(Label(detail, "Loadout Detail Name").text, Is.EqualTo("찌르기"));
-                Assert.That(Label(detail, "Loadout Detail Values").text, Does.Contain("5"));
-                Assert.That(Keywords(detail), Does.Contain("10%"));
+                Assert.That(Label(detail, "Loadout Detail Name").text, Is.EqualTo("깊은 찌르기"));
+                Assert.That(Label(detail, "Loadout Detail Values").text, Is.EqualTo("11–14"));
+                Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("2"));
+                Assert.That(Keywords(detail), Does.Contain("고화력"));
                 Click(lobby.Root, "Loadout Slot Q 3");
                 Assert.That(Label(detail, "Loadout Detail Name").text, Is.EqualTo("막기"));
                 Assert.That(Keywords(detail), Does.Contain("ACT").And.Contain("2"));
@@ -299,6 +344,12 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(Label(view.Root, "ACT Value").text, Is.Empty);
             Assert.That(Label(view.Root, "Hits Value").text, Is.Empty);
             Assert.That(Keywords(view.Root), Is.Empty);
+        }
+
+        private static void AssertNoPowerSplittingExplanation(string description, string context)
+        {
+            foreach (string fragment in new[] { "나눠", "나누", "나눕", "분할", "소수점", "버림", "최소 1", "2배" })
+                Assert.That(description, Does.Not.Contain(fragment), context + " still explains hit-power splitting: " + fragment);
         }
 
         private static string Keywords(GameObject root)

@@ -250,7 +250,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.LastCompletedCurriculumNode, Is.Null);
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
             Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(owned), "A battle grants nothing.");
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(owned + 1),
+                "The closed curriculum grants nothing, but stage 1 still awards 탐색.");
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
             Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False, "Not in maintenance either.");
             Assert.That(run.ReturnToLobby(), Is.True);

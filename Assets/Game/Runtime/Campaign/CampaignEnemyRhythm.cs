@@ -43,18 +43,18 @@ namespace TurnLimbo.Runtime.Campaign
             {
                 case CampaignEnemyRhythm.Gatekeeper:
                     return new EnemyScript(Turns(
-                        T(Slash, Thrust), T(Smash, Slash, Thrust), T(Guard, Parry, Guard, Deflect), T(HeavySmash)));
+                        T(Slash, DeepThrust), T(BreakMomentum, Slash, DeepThrust), T(Guard, FlowGuard, Guard, Deflect), T(PreciseThrust)));
                 case CampaignEnemyRhythm.Opener:
                     // Once the opening is spent it eases off a little, catching its breath behind a guard first.
                     return new EnemyScript(
-                        Turns(T(SharpSlash, Slash, Guard), T(Smash, PreciseThrust, Slash), T(Thrust, Smash, Slash)),
-                        Turns(T(SharpSlash, Smash, PreciseThrust), T(HeavySmash, Slash, Thrust)));
+                        Turns(T(DeepThrust, BreakMomentum, Guard), T(QuickSlash, BreakMomentum, PreciseThrust)),
+                        Turns(T(PreciseThrust, DeepThrust, QuickSlash), T(PreciseThrust, FindOpening, DeepThrust)));
                 case CampaignEnemyRhythm.Onslaught:
                     // One guard keeps the curriculum's defence-reading skills useful here too.
                     return new EnemyScript(Turns(
-                        T(Slash, Thrust, Slash, Thrust), T(Slash, Smash, Guard), T(Thrust, Slash, Thrust, Slash)));
+                        T(Slash, DeepThrust, Slash, DeepThrust), T(Slash, BreakMomentum, Guard), T(DeepThrust, Slash, DeepThrust, Slash)));
                 case CampaignEnemyRhythm.Charge:
-                    return new EnemyScript(Turns(T(Guard, Deflect), T(Guard), T(SharpSlash, HeavySmash)));
+                    return new EnemyScript(Turns(T(Guard, Deflect), T(Guard), T(DeepThrust, PreciseThrust)));
                 default:
                     return null;
             }
@@ -62,13 +62,13 @@ namespace TurnLimbo.Runtime.Campaign
 
         // The starting techniques by id, read from the sheet each time a script is built.
         private static LegacySkill Slash => LegacySkillDefinitions.Skill(1);
-        private static LegacySkill SharpSlash => LegacySkillDefinitions.Skill(2);
-        private static LegacySkill Thrust => LegacySkillDefinitions.Skill(3);
+        private static LegacySkill QuickSlash => LegacySkillDefinitions.Skill(2);
+        private static LegacySkill DeepThrust => LegacySkillDefinitions.Skill(3);
         private static LegacySkill PreciseThrust => LegacySkillDefinitions.Skill(4);
-        private static LegacySkill Smash => LegacySkillDefinitions.Skill(5);
-        private static LegacySkill HeavySmash => LegacySkillDefinitions.Skill(6);
+        private static LegacySkill BreakMomentum => LegacySkillDefinitions.Skill(5);
+        private static LegacySkill FindOpening => LegacySkillDefinitions.Skill(6);
         private static LegacySkill Guard => LegacySkillDefinitions.Skill(7);
-        private static LegacySkill Parry => LegacySkillDefinitions.Skill(8);
+        private static LegacySkill FlowGuard => LegacySkillDefinitions.Skill(8);
         private static LegacySkill Deflect => LegacySkillDefinitions.Skill(9);
 
         private static IReadOnlyList<LegacySkill> T(params LegacySkill[] actions) => actions;

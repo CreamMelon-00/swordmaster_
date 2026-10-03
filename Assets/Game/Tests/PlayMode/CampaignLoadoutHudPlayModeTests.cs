@@ -73,11 +73,17 @@ namespace TurnLimbo.Presentation.Tests
                         slotCount++;
                     }
                 Assert.That(slotCount, Is.EqualTo(9));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  W 3/3  ·  E 3/3"));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장된 편성"));
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Counts"), Is.Null,
+                    "The nine visible slots already show the loadout's capacity.");
+                foreach (string lane in new[] { "Q", "W", "E" })
+                    Assert.That(TryNamed(fixture.Hud.Root, "Loadout Lane " + lane), Is.Null,
+                        "All open lanes are visible together without a filter.");
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.False);
                 Assert.That(Button(fixture.Hud.Root, "Loadout Cancel").interactable, Is.False);
-                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(3));
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero,
+                    "Every starting skill is already in a slot.");
+                Assert.That(Label(fixture.Hud.Root, "Loadout Owned Empty").text, Is.EqualTo("남은 기술 없음"));
+                Assert.That(Named(fixture.Hud.Root, "Loadout Owned Empty").gameObject.activeSelf, Is.True);
                 ClickSelectionOnly(fixture, "Loadout Slot Q 1");
                 Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("베기"));
                 Assert.That(Label(fixture.Hud.Root, "Loadout Detail Role").text, Does.Contain("ACT 회복"));
@@ -95,17 +101,16 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ClosedLanes_AreNotDrawn_OpenOnesPackAroundTheBlockCentre_AndTheFilterMovesToAnOpenLane()
+        public IEnumerator ClosedLanes_AreNotDrawn_AndOpenLanesShareOneGridWithoutFilters()
         {
             yield return null;
             using (var fixture = new Fixture())
             {
                 AssertColumns(fixture, new[] { "Q", "W", "E" }, new[] { -472f, -210f, 52f });
-                ClickSelectionOnly(fixture, "Loadout Lane W");
-                ClickSelectionOnly(fixture, "Loadout Owned Skill 3");
+                ClickSelectionOnly(fixture, "Loadout Slot W 1");
                 Assert.That(fixture.State.ActiveLane, Is.EqualTo(1));
 
-                // Q and E, as after mission 5: W leaves no gap, and the remembered W filter moves to the first open lane.
+                // Q and E, as after mission 5: W leaves no gap, and selection moves to the first open lane.
                 fixture.Run.SetProgression(CombatFeature.LaneQ | CombatFeature.LaneE | CombatFeature.Cycle, int.MaxValue);
                 fixture.Build();
                 Assert.That(fixture.State.ActiveLane, Is.Zero);
@@ -115,32 +120,28 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryNamed(fixture.Hud.Root, "Loadout Heading W"), Is.Null);
                 for (int slot = 1; slot <= 3; slot++) Assert.That(TryNamed(fixture.Hud.Root, "Loadout Slot W " + slot), Is.Null);
                 Assert.That(TryNamed(fixture.Hud.Root, "Loadout Lane W"), Is.Null);
-                Assert.That(Position(fixture.Hud.Root, "Loadout Lane Q").x, Is.EqualTo(-185f));
-                Assert.That(Position(fixture.Hud.Root, "Loadout Lane E").x, Is.EqualTo(-81f));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Owned Hint").text, Is.EqualTo("선택한 검술의 기술만 표시합니다"));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  E 3/3"));
-                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(3));
-                ClickSelectionOnly(fixture, "Loadout Lane E");
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Lane Q"), Is.Null);
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Lane E"), Is.Null);
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Counts"), Is.Null);
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero);
+                ClickSelectionOnly(fixture, "Loadout Slot E 1");
                 Assert.That(fixture.State.ActiveLane, Is.EqualTo(2));
-                ClickSelectionOnly(fixture, "Loadout Lane Q");
+                ClickSelectionOnly(fixture, "Loadout Slot Q 1");
 
                 // The fallback is the first open lane, not always Q.
                 fixture.Run.SetProgression(CombatFeature.LaneW | CombatFeature.LaneE, int.MaxValue);
                 fixture.Build();
                 Assert.That(fixture.State.ActiveLane, Is.EqualTo(1));
                 AssertColumns(fixture, new[] { "W", "E" }, new[] { -341f, -79f });
-                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("W 3/3  ·  E 3/3"));
 
-                // One lane: its column takes the block's centre and there is nothing to filter.
+                // One lane: its column takes the block's centre.
                 fixture.Run.SetProgression(CombatFeature.LaneQ | CombatFeature.Cycle, int.MaxValue);
                 fixture.Build();
                 Assert.That(fixture.State.ActiveLane, Is.Zero);
                 AssertColumns(fixture, new[] { "Q" }, new[] { -210f });
                 foreach (string lane in new[] { "Q", "W", "E" })
                     Assert.That(TryNamed(fixture.Hud.Root, "Loadout Lane " + lane), Is.Null, lane + " filter");
-                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Owned Hint"), Is.Null);
-                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3"));
-                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(3));
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero);
                 DragCard(fixture, "Loadout Slot Q 1", "Loadout Slot Q 3");
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True, "The open lane is still edited by dragging.");
                 Button(fixture.Hud.Root, "Loadout Cancel").onClick.Invoke();
@@ -148,34 +149,70 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Run.ClearProgression();
                 fixture.Build();
                 AssertColumns(fixture, new[] { "Q", "W", "E" }, new[] { -472f, -210f, 52f });
-                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("Q 3/3  ·  W 3/3  ·  E 3/3"));
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Counts"), Is.Null);
             }
         }
 
         [UnityTest]
-        public IEnumerator LoadoutClick_OnlyChangesSelectionAndNeverDraftOrCommittedOrder()
+        public IEnumerator SlotClick_OnlyChangesSelectionWhenNoOwnedSkillIsSelected()
         {
             yield return null;
             using (var fixture = new Fixture())
             {
                 foreach (string lane in new[] { "Q", "W", "E" })
                 {
-                    ClickSelectionOnly(fixture, "Loadout Lane " + lane);
                     for (int slot = 1; slot <= 3; slot++)
                     {
                         ClickSelectionOnly(fixture, "Loadout Slot " + lane + " " + slot);
                         Assert.That(fixture.State.SelectedSlot, Is.EqualTo(slot - 1));
                         Assert.That(fixture.Run.HasLoadoutChanges, Is.False);
-                        int id = fixture.State.SelectedSkillId;
-                        ClickSelectionOnly(fixture, "Loadout Owned Skill " + id);
-                        Assert.That(fixture.State.SelectedSlot, Is.EqualTo(-1));
-                        Assert.That(fixture.State.SelectedSkillId, Is.EqualTo(id));
-                        Assert.That(fixture.Run.HasLoadoutChanges, Is.False);
                     }
                 }
                 Assert.That(fixture.PlaceCalls, Is.Zero);
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.False);
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장된 편성"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.Empty);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator OwnedSelection_HighlightsOnlyMatchingSlots_AndClickReplacesThenCompletesDraft()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                Assert.That(fixture.Run.TryUnequipSkill(1), Is.True);
+                fixture.Hud.Refresh();
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(1));
+                Assert.That(Named(fixture.Hud.Root, "Loadout Owned Empty").gameObject.activeSelf, Is.False);
+                Assert.That(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill 1"), Is.Not.Null);
+                ClickSelectionOnly(fixture, "Loadout Owned Skill 1");
+                Assert.That(fixture.State.SelectedSlot, Is.EqualTo(-1));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Owned Hint").text, Is.EqualTo("Q 칸을 눌러 배치"));
+                foreach (string lane in new[] { "Q", "W", "E" })
+                    for (int slot = 1; slot <= 3; slot++)
+                        Assert.That(Named(fixture.Hud.Root, "Loadout Slot Target " + lane + " " + slot).gameObject.activeSelf,
+                            Is.EqualTo(lane == "Q"), lane + " slot " + slot);
+
+                ClickSelectionOnly(fixture, "Loadout Slot W 1");
+                Assert.That(fixture.PlaceCalls, Is.Zero, "A different lane cannot accept the selected Q skill.");
+                ClickSelectionOnly(fixture, "Loadout Owned Skill 1");
+                Button(fixture.Hud.Root, "Loadout Slot Q 2").onClick.Invoke();
+                Assert.That(fixture.PlaceCalls, Is.EqualTo(1));
+                Assert.That(fixture.Run.GetLoadoutSlot(0, 1).SkillId, Is.EqualTo(1));
+                Assert.That(fixture.Run.GetLoadoutSlot(0, 0), Is.Null);
+                Assert.That(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill 1"), Is.Null,
+                    "The newly placed skill leaves the owned list immediately.");
+                Assert.That(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill 2"), Is.Not.Null,
+                    "The displaced skill becomes available again.");
+                Assert.That(fixture.Run.GetEquippedLane(0)[1].SkillId, Is.EqualTo(2),
+                    "The committed combat order changes only after save.");
+
+                ClickSelectionOnly(fixture, "Loadout Owned Skill 2");
+                Button(fixture.Hud.Root, "Loadout Slot Q 1").onClick.Invoke();
+                Assert.That(fixture.PlaceCalls, Is.EqualTo(2));
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero);
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장 전 변경"));
+                Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.True);
             }
         }
 
@@ -193,20 +230,20 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Run.GetLoadoutSlot(0, 0).SkillId, Is.EqualTo(2));
                 Assert.That(fixture.Run.GetLoadoutSlot(0, 1).SkillId, Is.EqualTo(1));
                 Assert.That(fixture.Run.GetEquippedLane(0)[0].SkillId, Is.EqualTo(1), "Combat order stays committed until save.");
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Does.StartWith("저장 전 변경"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장 전 변경"));
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.True);
                 Assert.That(fixture.State.SelectedSkillId, Is.EqualTo(1));
                 Assert.That(fixture.State.SelectedSlot, Is.EqualTo(1));
                 Button(fixture.Hud.Root, "Loadout Save").onClick.Invoke();
                 Assert.That(fixture.Run.GetEquippedLane(0)[0].SkillId, Is.EqualTo(2));
                 Assert.That(fixture.Run.GetEquippedLane(0)[1].SkillId, Is.EqualTo(1));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장된 편성"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.Empty);
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.False);
             }
         }
 
         [UnityTest]
-        public IEnumerator LoadoutRemove_ShowsBlankFixedSlotAndPreciseMissingCountThenCancelRestores()
+        public IEnumerator LoadoutRemove_ShowsBlankSlotAndAvailableSkill_ThenClickRestores()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -217,8 +254,10 @@ namespace TurnLimbo.Presentation.Tests
                 var slot = Button(fixture.Hud.Root, "Loadout Slot Q 1");
                 Assert.That(slot.gameObject.activeSelf, Is.True);
                 Assert.That(TextUnder(slot.transform, "Slot Name").text, Is.EqualTo("빈 슬롯"));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Counts").text, Is.EqualTo("Q 2/3  ·  W 3/3  ·  E 3/3"));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Does.Contain("Q 1개 부족"));
+                Assert.That(TryNamed(fixture.Hud.Root, "Loadout Counts"), Is.Null);
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text,
+                    Is.EqualTo("빈 칸을 채워야 저장할 수 있습니다"));
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(1));
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.False);
                 Assert.That(Button(fixture.Hud.Root, "Loadout Cancel").interactable, Is.True);
                 Assert.That(fixture.Run.GetEquippedLane(0).Count, Is.EqualTo(3));
@@ -228,14 +267,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(FindActiveGhost(fixture.CanvasRoot), Is.Null, "A blank slot cannot become a drag source.");
                 ExecuteEvents.Execute(slot.gameObject, blankPointer, ExecuteEvents.endDragHandler);
                 ClickSelectionOnly(fixture, "Loadout Owned Skill 1");
-                ClickSelectionOnly(fixture, "Loadout Slot Q 1");
-                Assert.That(fixture.Run.GetLoadoutSlot(0, 0), Is.Null, "Selecting an owned card then an empty slot never places a skill.");
-                Assert.That(fixture.State.SelectedSkillId, Is.Zero);
-                Assert.That(fixture.PlaceCalls, Is.Zero);
-                Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
-                DragCard(fixture, "Loadout Owned Skill 1", "Loadout Slot Q 1");
+                Button(fixture.Hud.Root, "Loadout Slot Q 1").onClick.Invoke();
                 Assert.That(fixture.Run.GetLoadoutSlot(0, 0).SkillId, Is.EqualTo(1));
+                Assert.That(fixture.PlaceCalls, Is.EqualTo(1));
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.False);
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero);
                 ClickSelectionOnly(fixture, "Loadout Slot Q 3");
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.False);
                 DragCard(fixture, "Loadout Slot Q 1", "Loadout Slot Q 3");
@@ -243,26 +279,29 @@ namespace TurnLimbo.Presentation.Tests
                 Button(fixture.Hud.Root, "Loadout Cancel").onClick.Invoke();
                 Assert.That(fixture.Run.GetLoadoutSlot(0, 0).SkillId, Is.EqualTo(1));
                 Assert.That(fixture.Run.GetLoadoutSlot(0, 2).SkillId, Is.EqualTo(7));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장된 편성"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.Empty);
             }
         }
 
         [UnityTest]
-        public IEnumerator LoadoutFilterAndSelection_PersistAcrossRebuildAndExplainOnlySelectedSkill()
+        public IEnumerator OwnedSelection_PersistsAcrossRebuild_AndSlotsSelectAnyOpenLane()
         {
             yield return null;
             using (var fixture = new Fixture())
             {
-                ClickSelectionOnly(fixture, "Loadout Lane W");
-                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(3));
+                Assert.That(fixture.Run.TryUnequipSkill(3), Is.True);
+                fixture.Build();
+                Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(1));
                 ClickSelectionOnly(fixture, "Loadout Owned Skill 3");
-                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Effect").text, Does.Contain("뒤 3칸").And.Contain("10%").And.Contain("이번 턴"));
-                Assert.That(Label(fixture.Hud.Root, "Hits Value").text, Is.EqualTo("3회"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Effect").text, Is.EqualTo("표시 위력으로 1회 공격"));
+                Assert.That(Label(fixture.Hud.Root, "Hits Value").text, Is.EqualTo("1회"));
+                Assert.That(Label(fixture.Hud.Root, "ACT Value").text, Is.EqualTo("2"));
                 fixture.Build();
                 Assert.That(fixture.State.ActiveLane, Is.EqualTo(1));
                 Assert.That(fixture.State.SelectedSkillId, Is.EqualTo(3));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("찌르기"));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Role").text, Is.EqualTo("뒤에 놓인 행동 강화"));
+                Assert.That(fixture.State.SelectedSlot, Is.EqualTo(-1));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("깊은 찌르기"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Role").text, Is.EqualTo("한 칸에 위력 집중"));
                 ClickSelectionOnly(fixture, "Loadout Slot Q 3");
                 Assert.That(fixture.PlaceCalls, Is.Zero, "Cross-lane click selects the other lane, never places the selected skill there.");
                 Assert.That(Label(fixture.Hud.Root, "Loadout Detail Effect").text, Does.Contain("상대가 타격").And.Contain("ACT 회복 +2"));
@@ -271,7 +310,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LoadoutOwnedClick_OnlyShowsDetailsAndNewSkillReplacesSlotByDragOnly()
+        public IEnumerator NewlyEarnedSkill_SelectsAndReplacesByClick_ThenLeavesOwnedList()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -280,21 +319,21 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Run.TryStartStage(1), Is.True);
                 Assert.That(fixture.Run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
                 Assert.That(fixture.Run.ReturnToLobby(), Is.True);
-                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10), "The completed node grants 가로베기.");
+                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(11),
+                    "The first stage grants 탐색 and the completed node grants 가로베기.");
                 fixture.Build();
                 ClickSelectionOnly(fixture, "Loadout Owned Skill 14");
                 Assert.That(fixture.State.SelectedSkillId, Is.EqualTo(14));
                 Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("가로베기"));
-                ClickSelectionOnly(fixture, "Loadout Slot Q 2");
-                Assert.That(fixture.State.SelectedSkillId, Is.EqualTo(2));
-                Assert.That(fixture.Run.HasLoadoutChanges, Is.False);
-                Assert.That(fixture.Run.IsSkillInLoadout(14), Is.False);
                 Assert.That(fixture.PlaceCalls, Is.Zero);
-                DragCard(fixture, "Loadout Owned Skill 14", "Loadout Slot Q 2");
+                Assert.That(Named(fixture.Hud.Root, "Loadout Slot Target Q 2").gameObject.activeSelf, Is.True);
+                Button(fixture.Hud.Root, "Loadout Slot Q 2").onClick.Invoke();
                 Assert.That(fixture.PlaceCalls, Is.EqualTo(1));
                 Assert.That(fixture.Run.GetLoadoutSlot(0, 1).SkillId, Is.EqualTo(14));
                 Assert.That(fixture.Run.GetEquippedLane(0)[1].SkillId, Is.EqualTo(2));
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
+                Assert.That(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill 14"), Is.Null);
+                Assert.That(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill 2"), Is.Not.Null);
                 ClickSelectionOnly(fixture, "Loadout Slot Q 1");
                 ClickSelectionOnly(fixture, "Loadout Owned Skill 2");
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True, "Selection also leaves an existing draft unchanged.");
@@ -323,6 +362,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Hud.IsDragging, Is.False);
                 Assert.That(FindActiveGhost(fixture.CanvasRoot), Is.Null);
 
+                Assert.That(fixture.Run.TryUnequipSkill(1), Is.True);
+                fixture.Hud.Refresh();
                 source = Button(fixture.Hud.Root, "Loadout Owned Skill 1").gameObject;
                 pointer = DragPointer(source);
                 ExecuteEvents.Execute(source, pointer, ExecuteEvents.beginDragHandler);
@@ -333,6 +374,12 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Hud.IsDragging, Is.False);
                 Assert.That(FindActiveGhost(fixture.CanvasRoot), Is.Null);
 
+                DragCard(fixture, "Loadout Owned Skill 1", "Loadout Slot Q 3");
+                Assert.That(fixture.PlaceCalls, Is.EqualTo(2));
+                Assert.That(fixture.Run.GetLoadoutSlot(0, 2).SkillId, Is.EqualTo(1));
+                Assert.That(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill 1"), Is.Null);
+
+                source = Button(fixture.Hud.Root, "Loadout Slot Q 3").gameObject;
                 pointer = DragPointer(source);
                 ExecuteEvents.Execute(source, pointer, ExecuteEvents.beginDragHandler);
                 Assert.That(fixture.Hud.IsDragging, Is.True);
@@ -422,6 +469,13 @@ namespace TurnLimbo.Presentation.Tests
         private static Transform TryNamed(GameObject root, string name)
         {
             foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true)) if (candidate.name == name) return candidate;
+            return null;
+        }
+
+        private static Transform ActiveNamed(GameObject root, string name)
+        {
+            foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
+                if (candidate.name == name && candidate.gameObject.activeInHierarchy) return candidate;
             return null;
         }
 

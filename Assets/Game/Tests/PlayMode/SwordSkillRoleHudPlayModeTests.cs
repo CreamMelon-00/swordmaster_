@@ -67,18 +67,17 @@ namespace TurnLimbo.Presentation.Tests
                 hud.ShowTab(LobbyTab.Loadout);
                 yield return null;
 
-                FindButton(hud.Root.transform, "Loadout Owned Skill 1").onClick.Invoke();
+                FindButton(hud.Root.transform, "Loadout Slot Q 1").onClick.Invoke();
                 Assert.That(FindTextUnder(hud.Root.transform, "Loadout Selected Detail", "Loadout Detail Role").text,
                     Does.Contain("ACT 회복"));
-                FindButton(hud.Root.transform, "Loadout Owned Skill 7").onClick.Invoke();
+                FindButton(hud.Root.transform, "Loadout Slot Q 3").onClick.Invoke();
                 Assert.That(FindTextUnder(hud.Root.transform, "Loadout Selected Detail", "Loadout Detail Role").text,
                     Does.Contain("조건부 ACT"));
                 string loadoutGuide = FindTextUnder(hud.Root.transform, "Loadout Panel", "Tab Subtitle").text;
-                Assert.That(loadoutGuide, Does.Contain("각 열 3개"));
+                Assert.That(loadoutGuide, Is.EqualTo("보유 기술을 골라 강조된 칸을 누르세요."));
                 Assert.That(loadoutGuide, Does.Not.Contain("공격끼리 대결할 때만 저항 피해"));
                 AssertPureRole(hud.Root.transform, 14, "단타");
                 AssertPureRole(hud.Root.transform, 17, "방어");
-                FindButton(hud.Root.transform, "Loadout Lane W").onClick.Invoke();
                 AssertPureRole(hud.Root.transform, 32, "방어");
 
                 hud.ShowTab(LobbyTab.Curriculum);

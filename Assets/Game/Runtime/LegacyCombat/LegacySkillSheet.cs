@@ -133,6 +133,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public const string InfoSecondarySymbol = "배지 보조 기호";
             public const string InfoSecondaryTone = "배지 보조 색";
             public const string InfoDescription = "배지 요약";
+            public const string BrokenTargetDamage = "붕괴 대상 추가 피해";
         }
 
         public const string StartingGroup = "시작";
@@ -165,6 +166,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Column.VariablePower, Column.ShortLabel, Column.Detail, Column.Purpose, Column.Effect,
             Column.InfoMain, Column.InfoEnemyMain, Column.InfoMainSymbol, Column.InfoMainTone, Column.InfoSecondary,
             Column.InfoEnemySecondary, Column.InfoSecondarySymbol, Column.InfoSecondaryTone, Column.InfoDescription,
+            Column.BrokenTargetDamage,
         });
 
         /// <summary>Reads a sheet. Every problem is collected first and thrown once as a <see cref="SkillSheetException"/>.</summary>
@@ -359,6 +361,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 BuffSlots = r.Integer(Column.BuffSlots, 0, required: false),
                 ResistanceRecoveryPercent = r.Integer(Column.ResistanceRecovery, 0, required: false, percent: true),
                 OpponentResistanceReduction = r.Integer(Column.ResistanceReduction, 0, required: false),
+                BrokenTargetDamagePercent = r.Integer(Column.BrokenTargetDamage, 0, required: false, percent: true),
                 OpponentProperty = r.Property(Column.OpponentProperty, required: false),
                 OpponentKind = r.Kind(Column.OpponentKind, required: false),
             };
@@ -402,6 +405,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.HasOpponentCondition && r.Ok(Column.ActGain, Column.ResistanceReduction) &&
                 effect.ActGain == 0 && effect.OpponentResistanceReduction == 0)
                 r.RowProblem("상대 조건은 ACT 회복이나 저항 감소가 있어야 합니다.");
+            if (effect.BrokenTargetDamagePercent > 0 && r.Ok(Column.Kind, Column.BrokenTargetDamage) &&
+                kind != LegacySkillKind.Attack)
+                r.RowProblem($"'{Column.BrokenTargetDamage}'은(는) 공격 기술에만 쓸 수 있습니다.");
             if ((highPower || variablePower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.HighPower}'과(와) '{Column.VariablePower}'은(는) 공격에만 붙일 수 있습니다.");
             if (text.Info != null && (text.Info.Main == null || text.Info.Description == null))
@@ -410,7 +416,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             var row = new ParsedRow { Id = id, Lane = lane, Starting = starting };
             if (!r.Valid) return row;
             bool hasEffect = effect.ActGain != 0 || effect.HasBuff || effect.ResistanceRecoveryPercent != 0 ||
-                effect.OpponentResistanceReduction != 0 || effect.HasOpponentCondition;
+                effect.OpponentResistanceReduction != 0 || effect.BrokenTargetDamagePercent != 0 ||
+                effect.HasOpponentCondition;
             row.Definition = new LegacySkillDefinition(
                 new LegacySkill(id, name, cost, minPower, maxPower, kind, property, hits, lane, description, animation, icon),
                 hasEffect ? effect : null, text, highPower, variablePower);
@@ -444,6 +451,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 [Column.BuffSlots] = Optional(effect.BuffSlots),
                 [Column.ResistanceRecovery] = Percent(effect.ResistanceRecoveryPercent),
                 [Column.ResistanceReduction] = Optional(effect.OpponentResistanceReduction),
+                [Column.BrokenTargetDamage] = Percent(effect.BrokenTargetDamagePercent),
                 [Column.OpponentProperty] = effect.OpponentProperty.HasValue ? LegacySkillLabels.Property(effect.OpponentProperty.Value) : string.Empty,
                 [Column.OpponentKind] = effect.OpponentKind.HasValue ? LegacySkillLabels.Kind(effect.OpponentKind.Value) : string.Empty,
                 [Column.HighPower] = definition.HighPower ? TrueCell : string.Empty,

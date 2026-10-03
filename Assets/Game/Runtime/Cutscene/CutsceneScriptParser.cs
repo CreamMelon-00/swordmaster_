@@ -253,7 +253,7 @@ namespace TurnLimbo.Runtime.Cutscene
         {
             float x = Number(id, line, value, "위치");
             if (Math.Abs(x) > CutsceneStep.MaximumX)
-                throw Error(id, line, $"위치는 -{CutsceneStep.MaximumX:0}~{CutsceneStep.MaximumX:0}입니다(전투 시작 위치는 엘리제 -5, 상대 5).");
+                throw Error(id, line, $"위치는 -{CutsceneStep.MaximumX:0}~{CutsceneStep.MaximumX:0}입니다(전투 시작 위치는 엘리사 -5, 상대 5).");
             return x;
         }
 

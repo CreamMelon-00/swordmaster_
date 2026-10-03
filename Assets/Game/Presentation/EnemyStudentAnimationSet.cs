@@ -10,7 +10,8 @@ namespace TurnLimbo.Presentation
     public sealed class EnemyStudentAnimationSet : IDisposable
     {
         public const string ResourceRoot = "EnemyStudent/Animations/";
-        public const int RequiredSpriteCount = 120;
+        public const int RequiredSpriteCount = 121;
+        public const int MoveFrameCount = 1;
         public const int AttackVariationCount = 3;
         public const int ReactionVariationCount = 2;
         private static readonly int[] IdleDurations = { 180, 140, 160, 140, 160, 140, 160, 180 };
@@ -20,6 +21,7 @@ namespace TurnLimbo.Presentation
         private readonly List<string> missing = new List<string>();
         private readonly Sprite[] guards = new Sprite[ReactionVariationCount];
         private readonly Sprite[] hurts = new Sprite[ReactionVariationCount];
+        private readonly Sprite movePose;
         private bool disposed;
         public bool HasRequiredAssets => !disposed && missing.Count == 0 && owned.Count == RequiredSpriteCount;
         public IReadOnlyList<string> MissingResources => missing;
@@ -39,11 +41,13 @@ namespace TurnLimbo.Presentation
                 guards[i] = Load("poses/block" + suffix);
                 hurts[i] = Load("poses/hurt" + suffix);
             }
+            movePose = Load("move/frame-01");
         }
 
         public Sprite GetGuard(int variantIndex = 0) => disposed ? null : guards[Mathf.Max(0, variantIndex) % ReactionVariationCount];
         public Sprite GetHurt(int variantIndex = 0) => disposed ? null : hurts[Mathf.Max(0, variantIndex) % ReactionVariationCount];
         public Sprite GetIdle(float time) => disposed ? null : Sample(clips["idle"], IdleDurations, Mathf.Max(0f, time) % 1.26f);
+        public Sprite GetMove() => disposed ? null : movePose;
         public Sprite GetAttack(LegacySkillProperty property, float phase, int variantIndex = 0)
         {
             if (disposed) return null;

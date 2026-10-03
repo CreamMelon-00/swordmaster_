@@ -297,8 +297,8 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void Pressure_UsesBuffedWholePowerAndIgnoresEnemyReceivedDamageReduction()
         {
-            LegacySkill opening = new LegacySkill(3, "support", 0, 5, 5,
-                LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 0, "");
+            LegacySkill opening = new LegacySkill(9, "support", 0, 5, 5,
+                LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 0, "");
             LegacySkill followup = new LegacySkill(100, "followup", 0, 20, 20,
                 LegacySkillKind.Attack, LegacySkillProperty.Slash, 3, 0, "");
             var duel = Duel(new[] { opening, followup }, new[] { Guard(8, 0), Attack(101, 1) }, count: 2);
@@ -309,8 +309,8 @@ namespace TurnLimbo.Core.Tests
             duel.BeginNextSlot();
             AssertStep(duel, LegacyStepAction.Pressure, true, true);
             LegacySlotResult result = duel.ResolveNextSlot();
-            Assert.That(result.EnemyHealthDamage, Is.EqualTo(22));
-            Assert.That(result.EnemyResistanceDamage, Is.EqualTo(15));
+            Assert.That(result.EnemyHealthDamage, Is.EqualTo(24));
+            Assert.That(result.EnemyResistanceDamage, Is.EqualTo(18));
         }
 
         [Test]

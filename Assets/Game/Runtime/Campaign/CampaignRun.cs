@@ -11,7 +11,9 @@ namespace TurnLimbo.Runtime.Campaign
     /// Currency is still earned and saved but has no use at the moment (the shop was replaced by the curriculum).</summary>
     public sealed class CampaignRun
     {
-        // 베기, 예리한 베기, 찌르기, 정교한 찌르기, 부수기, 강력한 부수기.
+        public const int TrainingBaseHealth = 50;
+        public const int TrainingRoundLimit = 5;
+        // The first six starting attacks, in sheet ID order; the sheet supplies their current names and effects.
         private static readonly int[] BasicRhythmSkillIds = { 1, 2, 3, 4, 5, 6 };
         private static readonly CampaignStage[] stages =
         {
@@ -24,9 +26,10 @@ namespace TurnLimbo.Runtime.Campaign
             new CampaignStage(7, "마지막 고갯길"),
             new CampaignStage(8, "숲의 끝 결투"),
         };
+        internal static IReadOnlyList<CampaignStage> StageDefinitions => stages;
 
         private readonly List<CampaignOwnedSkill> ownedSkills = new List<CampaignOwnedSkill>();
-        private readonly CurriculumProgress curriculum = new CurriculumProgress(CampaignCurriculum.Default);
+        private readonly CurriculumProgress curriculum;
         private readonly bool[] clearedStages = new bool[stages.Length];
         private readonly List<CampaignOwnedSkill>[] equippedLanes =
         {
@@ -37,9 +40,14 @@ namespace TurnLimbo.Runtime.Campaign
         {
             new CampaignOwnedSkill[3], new CampaignOwnedSkill[3], new CampaignOwnedSkill[3],
         };
+        private bool trainingBattle;
 
-        public CampaignRun()
+        public CampaignRun() : this(CampaignCurriculum.Default) { }
+
+        /// <summary>Uses a supplied curriculum tree for authored variants and rule tests.</summary>
+        public CampaignRun(CurriculumTree curriculumTree)
         {
+            curriculum = new CurriculumProgress(curriculumTree);
             OwnedSkills = ownedSkills.AsReadOnly();
             equippedLaneViews = new IReadOnlyList<CampaignOwnedSkill>[equippedLanes.Length];
             for (int i = 0; i < equippedLanes.Length; i++) equippedLaneViews[i] = equippedLanes[i].AsReadOnly();
@@ -53,11 +61,43 @@ namespace TurnLimbo.Runtime.Campaign
         public int LastReward { get; private set; }
         public int HighestUnlockedStage { get; private set; }
         public int ClearedStageCount { get; private set; }
+        /// <summary>Successful dummy fights. Only this count, not an in-progress fight, is saved.</summary>
+        public int TrainingVictoryCount { get; private set; }
+        /// <summary>The target's health for the next training fight, capped at the combat engine's int limit.</summary>
+        public int TrainingDummyHealth
+        {
+            get
+            {
+                int health = TrainingBaseHealth;
+                for (int i = 0; i < TrainingVictoryCount; i++)
+                {
+                    if (health > int.MaxValue / 2) return int.MaxValue;
+                    health *= 2;
+                }
+                return health;
+            }
+        }
+        public bool IsTrainingBattle => trainingBattle;
+        /// <summary>Training opens when stage 3 can be entered, including the story's stage gate.</summary>
+        public bool IsTrainingUnlocked => HighestUnlockedStage >= 3 && StageLimit >= 3;
+        public bool CanStartTraining => CanEditLoadout && CanEnterStage(3);
         public int EquippedSkillCount => equippedLanes[0].Count + equippedLanes[1].Count + equippedLanes[2].Count;
         public CampaignStage CurrentStage => stages[StageNumber - 1];
-        /// <summary>Starting skills first, then curriculum skills in the order they were granted.</summary>
+        /// <summary>Starting skills first, then stage and curriculum skills in the order they were granted.</summary>
         public IReadOnlyList<CampaignOwnedSkill> OwnedSkills { get; }
         public CurriculumProgress Curriculum => curriculum;
+        /// <summary>Permanent combat bonuses from completed curriculum nodes. Derived from completion order so
+        /// restoring an older save and resetting the curriculum cannot leave a separate bonus value behind.</summary>
+        public CurriculumStatReward CurriculumStats
+        {
+            get
+            {
+                var total = default(CurriculumStatReward);
+                foreach (string id in curriculum.Completed)
+                    total += curriculum.Tree.Find(id).StatReward;
+                return total;
+            }
+        }
         /// <summary>The node the last finished battle completed, or null.</summary>
         public CurriculumNode LastCompletedCurriculumNode { get; private set; }
         /// <summary>How the last stage battle ended, or null when none has finished since it began.</summary>
@@ -130,10 +170,23 @@ namespace TurnLimbo.Runtime.Campaign
             return true;
         }
 
+        public bool TryStartTraining()
+        {
+            if (!CanStartTraining) return false;
+            StageNumber = 3;
+            trainingBattle = true;
+            LastReward = 0;
+            LastCompletedCurriculumNode = null;
+            LastOutcome = null;
+            Phase = CampaignPhase.Battle;
+            return true;
+        }
+
         public bool ReturnToLobby()
         {
             if (Phase == CampaignPhase.Battle) return false;
             Phase = CampaignPhase.Lobby;
+            trainingBattle = false;
             return true;
         }
 
@@ -142,6 +195,7 @@ namespace TurnLimbo.Runtime.Campaign
             if (Phase != CampaignPhase.Battle) return false;
             LastReward = 0;
             Phase = CampaignPhase.Lobby;
+            trainingBattle = false;
             return true;
         }
 
@@ -279,11 +333,24 @@ namespace TurnLimbo.Runtime.Campaign
             if (Phase != CampaignPhase.Battle) return false;
             if (outcome != DuelMatchOutcome.PlayerVictory && outcome != DuelMatchOutcome.EnemyVictory
                 && outcome != DuelMatchOutcome.Draw) return false;
+            if (trainingBattle)
+            {
+                LastOutcome = outcome;
+                LastReward = 0;
+                LastCompletedCurriculumNode = null;
+                if (outcome == DuelMatchOutcome.PlayerVictory && TrainingVictoryCount < int.MaxValue)
+                    TrainingVictoryCount++;
+                Phase = CampaignPhase.Maintenance;
+                return true;
+            }
             // The node this battle completes must find its techniques in the sheet. They are looked up before anything
             // changes, so a sheet without one stops here with the sheet's own error and a retry cannot count the battle twice.
             CurriculumNode completing = IsCurriculumOpen ? curriculum.CompletesNext : null;
             if (completing != null)
                 foreach (int skillId in completing.SkillIds) _ = LegacySkillDefinitions.Skill(skillId);
+            int stageSkillRewardId = outcome == DuelMatchOutcome.PlayerVictory && !clearedStages[StageNumber - 1]
+                ? CurrentStage.FirstClearSkillId : 0;
+            if (stageSkillRewardId != 0) _ = LegacySkillDefinitions.Skill(stageSkillRewardId);
 
             LastOutcome = outcome;
             // Every finished battle counts toward the node in progress, as days pass in a national focus. A closed
@@ -304,6 +371,7 @@ namespace TurnLimbo.Runtime.Campaign
                 clearedStages[StageNumber - 1] = true;
                 ClearedStageCount++;
                 HighestUnlockedStage = Math.Max(HighestUnlockedStage, Math.Min(StageNumber + 1, StageCount));
+                if (stageSkillRewardId != 0) GrantSkill(stageSkillRewardId);
             }
             Phase = StageNumber == StageCount ? CampaignPhase.Completed : CampaignPhase.Maintenance;
             return true;
@@ -311,7 +379,7 @@ namespace TurnLimbo.Runtime.Campaign
 
         public bool TryStartNextStage()
         {
-            if (Phase != CampaignPhase.Maintenance || StageNumber >= StageCount) return false;
+            if (trainingBattle || Phase != CampaignPhase.Maintenance || StageNumber >= StageCount) return false;
             return TryStartStage(StageNumber + 1);
         }
 
@@ -327,13 +395,14 @@ namespace TurnLimbo.Runtime.Campaign
         public bool TrySelectCurriculumNode(string nodeId) => IsCurriculumOpen && CanEditLoadout && curriculum.TrySelect(nodeId);
 
         /// <summary>Clears the whole curriculum (lobby or maintenance, curriculum open): completed nodes, the node in
-        /// progress and every skill they granted. Saved lanes that lose a skill are refilled with that lane's starting skills.</summary>
+        /// progress and every skill they granted. Stage first-clear skills remain owned. Saved lanes that lose a skill
+        /// are refilled with that lane's starting skills.</summary>
         public bool TryResetCurriculum()
         {
             if (!IsCurriculumOpen || !CanEditLoadout || curriculum.CompletedCount == 0 && curriculum.Active == null) return false;
             curriculum.Reset();
             LastCompletedCurriculumNode = null;
-            ownedSkills.RemoveAll(owned => !IsStartingSkill(owned.SkillId));
+            ownedSkills.RemoveAll(owned => !IsStartingSkill(owned.SkillId) && !IsUnlockedStageSkill(owned.SkillId));
             RefillLanesWithStartingSkills();
             ResetLoadoutDraft();
             return true;
@@ -341,10 +410,17 @@ namespace TurnLimbo.Runtime.Campaign
 
         public LegacyQueuedDuel CreateDuel(int randomSeed = 1)
         {
+            CurriculumStatReward stats = CurriculumStats;
             var playerSkills = new LegacySkill[EquippedSkillCount];
             int index = 0;
             foreach (List<CampaignOwnedSkill> lane in equippedLanes)
                 foreach (CampaignOwnedSkill owned in lane) playerSkills[index++] = owned.Skill;
+
+            if (trainingBattle)
+                return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
+                    TrainingDummyHealth, 0, playerSkills, Array.Empty<LegacySkill>(), new[] { 0 }, randomSeed,
+                    features: Features, playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity,
+                    roundLimit: TrainingRoundLimit);
 
             LegacyCounter enemyCounter = CurrentStage.EnemyCounterBasis == null ? null
                 : new LegacyCounter(WithStagePower(CurrentStage.EnemyCounterBasis), CurrentStage.EnemyCountersPerTurn);
@@ -352,13 +428,17 @@ namespace TurnLimbo.Runtime.Campaign
             // Closed lanes keep their skills in the loadout; the duel leaves them out.
             EnemyScript script = CampaignEnemyRhythms.Script(CurrentStage.EnemyRhythm);
             if (script != null)
-                return new LegacyQueuedDuel(100, 50, CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
-                    playerSkills, script.Select(WithStagePower), randomSeed, enemyCounter: enemyCounter, features: Features);
+                return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
+                    CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills,
+                    script.Select(WithStagePower), randomSeed, enemyCounter: enemyCounter, features: Features,
+                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity);
             // The basic rhythm: the six basic skills in order, 2→3→2→1 actions a turn.
             var enemySkills = new LegacySkill[BasicRhythmSkillIds.Length];
             for (int i = 0; i < enemySkills.Length; i++) enemySkills[i] = WithStagePower(LegacySkillDefinitions.Skill(BasicRhythmSkillIds[i]));
-            return new LegacyQueuedDuel(100, 50, CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
-                playerSkills, enemySkills, new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter, features: Features);
+            return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
+                CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills, enemySkills,
+                new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter, features: Features,
+                playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity);
         }
 
         private LegacySkill WithStagePower(LegacySkill basis)
@@ -388,10 +468,12 @@ namespace TurnLimbo.Runtime.Campaign
             Array.Clear(clearedStages, 0, clearedStages.Length);
             HighestUnlockedStage = 1;
             ClearedStageCount = 0;
+            TrainingVictoryCount = 0;
+            trainingBattle = false;
             Phase = CampaignPhase.Lobby;
         }
 
-        /// <summary>The persistent state. Owned skills follow from the curriculum, so only its progress is kept.
+        /// <summary>The persistent state. Owned skills follow from the curriculum and stage clears, so only their progress is kept.
         /// Unsaved loadout edits and the battle in progress are not included.</summary>
         public CampaignSave CaptureSave()
         {
@@ -404,7 +486,8 @@ namespace TurnLimbo.Runtime.Campaign
                 loadout[lane] = new List<int>();
                 foreach (CampaignOwnedSkill skill in equippedLanes[lane]) loadout[lane].Add(skill.SkillId);
             }
-            return new CampaignSave(Currency, cleared, curriculum.Completed, curriculum.Active?.Id, curriculum.ActiveBattles, loadout);
+            return new CampaignSave(Currency, cleared, curriculum.Completed, curriculum.Active?.Id, curriculum.ActiveBattles,
+                loadout, TrainingVictoryCount);
         }
 
         /// <summary>Replaces this run with a saved state, back in the lobby with the saved loadout as the draft.
@@ -422,6 +505,8 @@ namespace TurnLimbo.Runtime.Campaign
             ownedSkills.Clear();
             foreach (LegacySkill skill in LegacyInitialSkills.All) ownedSkills.Add(new CampaignOwnedSkill(skill));
             foreach (string id in save.CurriculumCompleted) GrantSkills(curriculum.Tree.Find(id));
+            foreach (int number in save.ClearedStages)
+                if (stages[number - 1].FirstClearSkillId != 0) GrantSkill(stages[number - 1].FirstClearSkillId);
             for (int lane = 0; lane < equippedLanes.Length; lane++)
             {
                 equippedLanes[lane].Clear();
@@ -437,6 +522,8 @@ namespace TurnLimbo.Runtime.Campaign
                 HighestUnlockedStage = Math.Max(HighestUnlockedStage, Math.Min(number + 1, StageCount));
             }
             ClearedStageCount = save.ClearedStages.Count;
+            TrainingVictoryCount = save.TrainingVictoryCount;
+            trainingBattle = false;
             Currency = save.Currency;
             StageNumber = 1;
             LastReward = 0;
@@ -448,6 +535,7 @@ namespace TurnLimbo.Runtime.Campaign
         {
             if (save == null) return "저장 데이터가 없습니다.";
             if (save.Currency < 0) return $"재화가 음수입니다({save.Currency}).";
+            if (save.TrainingVictoryCount < 0) return $"수련 승리 횟수가 음수입니다({save.TrainingVictoryCount}).";
 
             var cleared = new HashSet<int>();
             foreach (int number in save.ClearedStages)
@@ -455,10 +543,12 @@ namespace TurnLimbo.Runtime.Campaign
                 if (!IsValidStage(number)) return $"없는 스테이지 {number}을(를) 클리어했다고 되어 있습니다.";
                 if (!cleared.Add(number)) return $"스테이지 {number}의 클리어가 중복되었습니다.";
             }
+            if (save.TrainingVictoryCount > 0 && (!cleared.Contains(1) || !cleared.Contains(2)))
+                return "스테이지 3 해금 전 수련 기록이 있습니다.";
 
             string curriculumError = curriculum.Validate(save.CurriculumCompleted, save.CurriculumActive, save.CurriculumBattles);
             if (curriculumError != null) return curriculumError;
-            // Owned skills are the starting skills plus what the completed nodes grant; the loadout may only use those.
+            // Owned skills follow completed nodes and first-clear stage rewards; the loadout may only use those.
             var owned = new Dictionary<int, LegacySkill>();
             foreach (LegacySkill skill in LegacyInitialSkills.All) owned[skill.Id] = skill;
             foreach (string id in save.CurriculumCompleted)
@@ -468,6 +558,14 @@ namespace TurnLimbo.Runtime.Campaign
                     if (skill == null) return $"커리큘럼 '{id}'이(가) 알 수 없는 기술 {skillId}을(를) 줍니다.";
                     owned[skillId] = skill;
                 }
+            foreach (int number in save.ClearedStages)
+            {
+                int skillId = stages[number - 1].FirstClearSkillId;
+                if (skillId == 0) continue;
+                LegacySkill skill = FindSheetSkill(skillId);
+                if (skill == null) return $"스테이지 {number} 첫 클리어 보상 기술 {skillId}이(가) 없습니다.";
+                owned[skillId] = skill;
+            }
 
             if (save.Loadout.Count != equippedLanes.Length) return $"편성 열이 {save.Loadout.Count}개입니다.";
             var equipped = new HashSet<int>();
@@ -489,10 +587,13 @@ namespace TurnLimbo.Runtime.Campaign
         private void GrantSkills(CurriculumNode node)
         {
             foreach (int skillId in node.SkillIds)
-            {
-                if (FindOwnedSkill(skillId) != null) continue;
+                GrantSkill(skillId);
+        }
+
+        private void GrantSkill(int skillId)
+        {
+            if (FindOwnedSkill(skillId) == null)
                 ownedSkills.Add(new CampaignOwnedSkill(LegacySkillDefinitions.Skill(skillId)));
-            }
         }
 
         // Any sheet row, not only 획득 ones: a node whose technique became a starting one then grants nothing new
@@ -503,6 +604,13 @@ namespace TurnLimbo.Runtime.Campaign
         {
             foreach (LegacySkill skill in LegacyInitialSkills.All)
                 if (skill.Id == skillId) return true;
+            return false;
+        }
+
+        private bool IsUnlockedStageSkill(int skillId)
+        {
+            for (int i = 0; i < clearedStages.Length; i++)
+                if (clearedStages[i] && stages[i].FirstClearSkillId == skillId) return true;
             return false;
         }
 
@@ -563,6 +671,7 @@ namespace TurnLimbo.Runtime.Campaign
         private void BeginStage(int number)
         {
             StageNumber = number;
+            trainingBattle = false;
             LastReward = 0;
             LastCompletedCurriculumNode = null;
             LastOutcome = null;
@@ -589,9 +698,10 @@ namespace TurnLimbo.Runtime.Campaign
             EnemyResistance = 15 + 3 * (number - 1);
             EnemyPowerBonus = number - 1;
             Reward = 60 + 10 * (number - 1);
+            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : 0;
             // Placeholder counters until enemy archetypes exist: a guard (막기, 7) that taxes a
-            // one-sided attack from stage five, a heavy smash (강력한 부수기, 6) that clashes with it from seven.
-            enemyCounterSkillId = number >= 7 ? 6 : number >= 5 ? 7 : 0;
+            // one-sided attack from stage five, then a strong thrust (정교한 찌르기, 4) from stage seven.
+            enemyCounterSkillId = number >= 7 ? 4 : number >= 5 ? 7 : 0;
             EnemyCountersPerTurn = enemyCounterSkillId == 0 ? 0 : 1;
         }
 
@@ -604,6 +714,8 @@ namespace TurnLimbo.Runtime.Campaign
         public LegacySkill EnemyCounterBasis => enemyCounterSkillId == 0 ? null : LegacySkillDefinitions.Skill(enemyCounterSkillId);
         public int EnemyCountersPerTurn { get; }
         public int Reward { get; }
+        /// <summary>The technique granted once for this stage's first victory, or zero if there is none.</summary>
+        public int FirstClearSkillId { get; }
         /// <summary>결투 or 전투: how the fight is presented (never shown, no rule effect). Every stage is 전투 for now.</summary>
         public EncounterKind Encounter => EncounterKind.Battle;
         /// <summary>How this stage's enemy spends its turns (internal; never named on screen).</summary>

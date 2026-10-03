@@ -97,7 +97,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
             Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"));
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(11), "The first clear also grants 탐색.");
             CampaignOwnedSkill owned = Owned(run, granted.Id);
             Assert.That(owned.Skill, Is.SameAs(granted));
             Assert.That(owned.Skill.IconId, Is.EqualTo(10));
@@ -126,7 +126,7 @@ namespace TurnLimbo.Core.Tests
                 CampaignStage stage = run.CurrentStage;
                 LegacyQueuedDuel duel = run.CreateDuel(number);
                 Assert.That(duel.PlayerCounter, Is.Null, "The player earns counters later.");
-                int expectedId = number >= 7 ? 6 : number >= 5 ? 7 : 0;
+                int expectedId = number >= 7 ? 4 : number >= 5 ? 7 : 0;
                 if (expectedId == 0)
                 {
                     Assert.That(stage.EnemyCounterBasis, Is.Null);
@@ -145,6 +145,48 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
                 if (number < 8) Assert.That(run.TryStartNextStage(), Is.True);
             }
+        }
+
+        [Test]
+        public void FirstClearStageSkills_AreGrantedOnceAndRestoredWithTheirLoadout()
+        {
+            var run = NewBattleRun();
+            Assert.That(run.GetStage(1).FirstClearSkillId, Is.EqualTo(43));
+            Assert.That(run.GetStage(2).FirstClearSkillId, Is.EqualTo(44));
+            Assert.That(run.GetStage(3).FirstClearSkillId, Is.Zero);
+
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
+            Assert.That(Owned(run, 43), Is.Null);
+            Assert.That(run.RetryCurrentStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(Owned(run, 43)?.Skill.Name, Is.EqualTo("탐색"));
+            Assert.That(run.IsSkillEquipped(43), Is.False);
+
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(Owned(run, 14), Is.Not.Null);
+            Assert.That(run.TryResetCurriculum(), Is.True);
+            Assert.That(Owned(run, 14), Is.Null);
+            Assert.That(Owned(run, 43), Is.Not.Null, "Curriculum reset keeps stage first-clear rewards.");
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "Reclearing does not award a second copy.");
+            Assert.That(run.TryStartNextStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(Owned(run, 44)?.Skill.Name, Is.EqualTo("몰아치기"));
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
+
+            Assert.That(run.TryUnequipSkill(7), Is.True);
+            Assert.That(run.TryEquipSkill(44), Is.True);
+            Assert.That(run.TrySaveLoadout(), Is.True);
+            CampaignSave save = run.CaptureSave();
+            var restored = new CampaignRun();
+            Assert.That(restored.TryRestore(save, out string error), Is.True, error);
+            Assert.That(Owned(restored, 43), Is.Not.Null);
+            Assert.That(Owned(restored, 44), Is.Not.Null);
+            Assert.That(restored.IsSkillEquipped(44), Is.True);
+            Assert.That(restored.TryStartStage(2), Is.True);
+            Assert.That(restored.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(restored.OwnedSkills.Count, Is.EqualTo(11));
         }
 
         [Test]
@@ -249,6 +291,101 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(duel.IsFinished, Is.False);
                 if (turn + 1 < expectedIds.Length) duel.BeginNextTurn();
             }
+        }
+
+        [Test]
+        public void Training_OpensWithStageThreeAndKeepsCampaignProgressUntouched()
+        {
+            var run = new CampaignRun();
+            Assert.That(run.IsTrainingUnlocked, Is.False);
+            Assert.That(run.CanStartTraining, Is.False);
+            Assert.That(run.TryStartTraining(), Is.False);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.IsTrainingUnlocked, Is.True);
+            run.SetProgression(CombatFeature.All, 2);
+            Assert.That(run.IsTrainingUnlocked, Is.False, "The story must open stage 3 too.");
+            run.SetProgression(CombatFeature.All, 3);
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            int currency = run.Currency;
+            int completed = run.Curriculum.CompletedCount;
+            int counted = run.Curriculum.ActiveBattles;
+
+            Assert.That(run.TryStartTraining(), Is.True);
+            Assert.That(run.IsTrainingBattle, Is.True);
+            LegacyQueuedDuel duel = run.CreateDuel(5);
+            Assert.That(duel.Enemy.Health, Is.EqualTo(50));
+            Assert.That(duel.Enemy.Resistance, Is.Zero);
+            Assert.That(duel.EnemyQueue, Is.Empty);
+            Assert.That(duel.EnemyCounter, Is.Null);
+            Assert.That(duel.RoundLimit, Is.EqualTo(5));
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.False, "Training cannot advance the campaign.");
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.False);
+            Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
+            Assert.That(run.LastOutcome, Is.EqualTo(DuelMatchOutcome.Draw));
+            Assert.That(run.LastReward, Is.Zero);
+            Assert.That(run.Currency, Is.EqualTo(currency));
+            Assert.That(run.ClearedStageCount, Is.EqualTo(2));
+            Assert.That(run.Curriculum.CompletedCount, Is.EqualTo(completed));
+            Assert.That(run.Curriculum.ActiveBattles, Is.EqualTo(counted));
+            Assert.That(run.TrainingVictoryCount, Is.Zero);
+            Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.IsTrainingBattle, Is.False);
+            Assert.That(run.TryStartStage(3), Is.True);
+            Assert.That(run.IsTrainingBattle, Is.False);
+            Assert.That(run.CreateDuel(5).EnemyQueue, Is.Not.Empty);
+        }
+
+        [Test]
+        public void Training_VictoriesDoubleNextHealthAndAbandonDoesNotCount()
+        {
+            var run = new CampaignRun();
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+
+            Assert.That(run.TryStartTraining(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TrainingVictoryCount, Is.EqualTo(1));
+            Assert.That(run.TrainingDummyHealth, Is.EqualTo(100));
+            Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.TryStartTraining(), Is.True);
+            Assert.That(run.CreateDuel().Enemy.Health, Is.EqualTo(100));
+            Assert.That(run.TryAbandonBattle(), Is.True);
+            Assert.That(run.IsTrainingBattle, Is.False);
+            Assert.That(run.TrainingVictoryCount, Is.EqualTo(1));
+            Assert.That(run.TryStartTraining(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TrainingVictoryCount, Is.EqualTo(2));
+            Assert.That(run.TrainingDummyHealth, Is.EqualTo(200));
+
+            run.Reset();
+            Assert.That(run.TrainingVictoryCount, Is.Zero);
+            Assert.That(run.TrainingDummyHealth, Is.EqualTo(50));
+            Assert.That(run.IsTrainingBattle, Is.False);
+        }
+
+        [Test]
+        public void TrainingHealth_CapsAtCombatMaximumWithoutOverflow()
+        {
+            var run = new CampaignRun();
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            CampaignSave basis = run.CaptureSave();
+            var capped = new CampaignSave(basis.Currency, basis.ClearedStages, basis.CurriculumCompleted,
+                basis.CurriculumActive, basis.CurriculumBattles, basis.Loadout, int.MaxValue);
+            Assert.That(run.TryRestore(capped, out string error), Is.True, error);
+            Assert.That(run.TrainingDummyHealth, Is.EqualTo(int.MaxValue));
+            Assert.That(run.TryStartTraining(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TrainingVictoryCount, Is.EqualTo(int.MaxValue));
+            Assert.That(run.TrainingDummyHealth, Is.EqualTo(int.MaxValue));
         }
 
         private static CampaignRun NewBattleRun()

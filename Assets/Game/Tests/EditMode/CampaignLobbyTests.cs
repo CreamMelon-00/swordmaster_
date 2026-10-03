@@ -143,7 +143,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             WinStage(run, 1);
             run.ReturnToLobby();
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
             Assert.That(run.IsSkillEquipped(14), Is.False);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.TryEquipSkill(14), Is.False);
@@ -232,7 +232,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.ReturnToLobby(), Is.False);
             Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"));
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
             CollectionAssert.AreEqual(new[] { 1, 2, 14 }, EquippedIds(run, 0));
             Assert.That(run.TryAbandonBattle(), Is.True);
             Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"), "An abandoned battle does not count.");

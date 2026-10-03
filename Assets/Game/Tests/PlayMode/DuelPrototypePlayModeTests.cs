@@ -58,13 +58,12 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(controller.Session.EnemyQueue.Count, Is.EqualTo(2));
             Assert.That(controller.QueueLane(0), Is.True);
             Assert.That(controller.QueueLane(1), Is.True);
-            Assert.That(controller.QueueLane(2), Is.True);
+            Assert.That(controller.QueueLane(2), Is.False, "The opening ACT 3 cannot also afford E after Q and W.");
             Assert.That(controller.PlayerHealth, Is.EqualTo(100));
             Assert.That(controller.EnemyHealth, Is.EqualTo(80));
-            Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(3));
+            Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(2));
             Assert.That(controller.Session.PlayerQueue[0].Id, Is.EqualTo(1));
             Assert.That(controller.Session.PlayerQueue[1].Id, Is.EqualTo(3));
-            Assert.That(controller.Session.PlayerQueue[2].Id, Is.EqualTo(5));
             Assert.That(controller.Session.GetLane(0)[0].Id, Is.EqualTo(2));
             Assert.That(controller.Session.Act, Is.Zero);
             Assert.That(controller.CanChoose, Is.True, "Running out of ACT must not auto-commit.");

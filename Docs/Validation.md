@@ -1,8 +1,44 @@
 # 첫 전투·연출·컴팩트 HUD 검증
 
-최근 검증일: 2026-10-02. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
+최근 검증일: 2026-10-03. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
 
-열려 있는 작업용 에디터와 구 프로젝트를 건드리지 않도록 Assets, Packages, ProjectSettings를 임시 복사한 프로젝트에서 검증했다. 레거시 프로젝트의 컴파일 복구나 패키지 수정은 하지 않았다.
+기본 기술 변경은 별도 Git 작업 폴더에서, 이번 UI 배치 변경은 Assets, Packages, ProjectSettings를 복사한 격리 프로젝트에서 검증했다. 아래 이전 작업 기록의 격리 사본은 그 당시 파일을 복사해 검사한 것이다. 레거시 프로젝트의 컴파일 복구나 패키지 수정은 하지 않았다.
+
+## 다단 기술의 사망 타격 후 중단 (2026-10-03)
+
+각 타격 순번에서 양쪽 공격을 모두 판정한 뒤 승패를 확인한다. 어느 쪽이든 쓰러지면 그 타격 이후의 남은 타격·공격 클립과 뒤의 큐를 중단한다. 사망하지 않은 다단 기술은 기존 순서대로 계속 처리한다. 아래 `자동 검증: 직전 컴팩트 HUD 변경`의 "사망 후에도 남은 타격 처리" 항목은 변경 전 동작을 검사한 당시 기록이며 현재 규칙의 검증 결과가 아니다.
+
+수정 후 `TurnLimbo.Core.Tests`와 `TurnLimbo.Presentation.Tests` C# 빌드는 오류 0개로 끝났다(후자에는 기존 경고 8개). 별도 규칙 실행 검사에서 첫 타격 승리, 같은 타격의 동시 치명, 사망하지 않은 정상 3타를 모두 통과했다. 격리 Unity 사본의 EditMode 실행은 라이선스 클라이언트 초기화가 60초 후 시간 초과되어 테스트 러너와 결과 XML에 도달하지 못했다(`Temp/MultiHitEditMode.log`). PlayMode는 실행하지 못했으므로 새 화면 연출 회귀 검사의 통과 여부는 확인되지 않았다.
+
+## 홈 스토리 버튼과 임무 안내 겹침 (2026-10-03)
+
+잠긴 임무 안내와 스토리 버튼이 로비 우하단에서 겹치는 것을 첨부 화면과 배치 좌표로 확인했다. 스토리 버튼을 우상단 현황 쪽지 아래로 옮기고 `LobbyStoryLauncherPlayModeTests.StoryEntry_DoesNotCoverHomePanelsAtWideAndNarrowResolutions`를 추가했다. 검사는 1600×900·1280×960에서 잠긴 임무 6과, 커리큘럼이 열린 뒤 잠긴 임무 9를 구성해 스토리 버튼이 임무·목적지·헤더·현황 쪽지 및 화면 경계와 겹치지 않는지 확인하도록 작성했다. 검사 종료 시 해상도·진행 기능·임무·탭을 복구한다.
+
+- 제작 코드와 검사 코드를 포함한 `TurnLimbo.Presentation.Tests` C# 빌드는 오류 0개로 끝났다. 기존 경고는 남아 있다. 검사 파일의 `git diff --check`도 통과했다.
+- 격리 Unity 사본에서 수정 전 PlayMode 재현을 세 차례 시도했으나 Unity 라이선스 클라이언트가 `LicenseClient-User` 연결을 거부하고 초기화가 반복되어 테스트 러너에 도달하지 못했다(`Logs/StoryOverlapRegressionBeforeFix.log`). 따라서 새 회귀 검사의 수정 전 실패와 수정 후 통과, 스토리 버튼이 포함된 실제 Game View 캡처는 아직 확인되지 않았다. 앞서 보존한 홈 캡처에는 별도 컴포넌트인 스토리 버튼이 포함되지 않았다.
+
+## 클럽 메뉴·장부형 로비와 전투 HUD 배치 (2026-10-03)
+
+로비 헤더를 왼쪽의 작은 메뉴로 줄이고 현황 표기를 분리했다. 홈은 좌하단 준비 장부와 우하단 목적지·임무 안내로 중앙 방 배경을 비운다. 스테이지는 비균일 경로와 상세 시트, 편성·커리큘럼은 방 배경이 보이는 장부형 면을 사용한다. 전투 조작부를 가운데 고정 폭으로 줄이고 기록·실행 버튼을 양옆에 배치했으며 결과 화면의 점수와 다음 행동 위계를 조정했다. 기존 노드 경로와 클릭 동작은 유지한다.
+
+- 첫 로비 배치의 4:3 대응까지 반영한 격리 사본에서 관련 PlayMode **43/43 통과**, 실패·건너뜀 0, 종료 코드 0이다. 대상은 `LobbyScreensPlayModeTests;CampaignLobbyHudPlayModeTests;CompactHudPlayModeTests;FixedHudPlayModeTests;DuelVisualThemePlayModeTests;ResultMissionHudPlayModeTests`이며 결과는 `Logs/UILayoutPlayModeResults.xml`, 실행 로그는 `Logs/UILayoutPlayModeFinal.log`다. 화면·버튼 노드, 실제 선택 동작, 장부 내부 본문 폭, 화면 경계와 결과 행동을 확인했다. 전체 PlayMode를 다시 실행한 결과는 아니다.
+- 최초 관련 실행에서 4:3 장부 폭이 화면보다 넓은 배치 문제를 발견했다(`Logs/UILayoutPlayModeFirst.xml`). 장부와 내부 패널을 화면 폭에 맞추고 위 43개를 재실행해 통과했다. 원본 작업 폴더의 `TurnLimbo.Presentation.Tests` C# 빌드는 오류 0개였고 기존 미할당 필드·구 Unity 검색 API 관련 경고 8개가 남았다.
+- 실제 Game View 캡처 8장을 육안 확인했다. 1600×900의 홈·스테이지·편성·전투 준비·승리와 1280×960의 홈·스테이지·편성 화면이다. `Logs/UILayout-Home-1600x900.png`, `UILayout-Stages-1600x900.png`, `UILayout-Loadout-1600x900.png`, `UILayout-Planning-1600x900.png`, `UILayout-Victory-1600x900.png` 및 해당 로비 화면의 `1280x960.png`를 보존했다. 4:3에서 메뉴, 목적지 카드, 경로, 상세 면이 화면 안에 들어오며 전투 조작부·결과 주 버튼도 겹치지 않는다. 촬영 기록은 `Logs/UILayoutVisualFinal.log`다.
+- 위 43/43 실행 뒤 전투의 중복된 작은 조작 설명 두 개를 숨기는 시각 정리를 추가했다. 최종 전투 화면을 재촬영하고 관련 `CompactHudPlayModeTests;FixedHudPlayModeTests` **15/15 통과**를 확인했다(`Logs/UILayoutPlanningPlayModeResults.xml`, `UILayoutPlanningPlayMode.log`). 이 마지막 변경에 대해 43개 전체를 재실행한 것은 아니다. 그래픽 Editor의 기존 `UnityEditor.Search.SearchDatabase` 시작 인덱싱 예외는 촬영 로그에 남았으나 게임 실행과 캡처는 완료됐다. 출시 빌드, 모든 화면 비율, 자연 플레이의 조작감은 이번 검증 범위가 아니다.
+- 홈 첫 후속 배치 변경 뒤 그 시점의 생산 파일과 해시가 일치하는 격리 사본에서 로비 관련 PlayMode **20/20 통과**, 실패·건너뜀 0, 종료 코드 0이다(`Logs/UILayoutHomeRevisionFinalResults.xml`, `UILayoutHomeRevisionFinal.log`). 준비 장부가 커리큘럼 열린 상태 300×270, 닫힌 상태 300×214로 같은 좌하단에 고정되는지, 목적지 510×230과 임무 510×100이 우측 같은 폭에 세로로 겹치지 않는지, 중앙 여백·화면 경계·목적지 버튼의 실제 단계 선택을 확인했다. 원본 작업 폴더 C# 빌드는 오류 0개, 기존 경고 8개였다. 이 변경 뒤 43개 전체를 다시 실행하지는 않았다.
+- 실제 Game View에서 1600×900과 1280×960의 홈을 커리큘럼 열린 상태와 닫힌 상태로 각각 촬영해 4장 모두 육안 확인했다. `Logs/UILayout-HomeRevision-1600x900.png`, `UILayout-HomeRevision-1280x960.png`, `UILayout-HomeRevision-Closed-1600x900.png`, `UILayout-HomeRevision-Closed-1280x960.png`에 보존했다. 중앙 방 배경이 보이고 좌우 장부·임무 안내·목적지가 겹치거나 잘리지 않는다. 촬영 로그는 `Logs/UILayoutHomeRevisionVisual.log`, `UILayoutHomeRevisionClosedVisual.log`이며 기존 SearchDatabase 시작 인덱싱 예외는 남았으나 캡처는 완료됐다.
+- 홈 위계를 다시 조정한 최신 생산 파일과 격리 사본의 SHA256이 일치한다(`CampaignLobbyHud.cs`: `F033E78A...`). 로비 배치·임무 전환을 포함한 PlayMode **27/27 통과**, 실패·건너뜀 0, 종료 코드 0이다(`Logs/UILayoutHomeHierarchyFinalResults.xml`, `UILayoutHomeHierarchyFinal.log`). 잠긴 임무는 510×72로 목적지 아래, 열려 클릭 가능한 임무는 510×100으로 목적지 위에 표시되며 각각 같은 우측 폭 안에서 겹치지 않는다. 잠긴 제목 `???`·해금 조건·비활성 버튼, 열린 제목·활성 버튼과 실제 임무 진행 흐름을 함께 확인했다. C# 빌드는 오류 0개, 기존 경고 8개다. 이 후속 변경 뒤 앞의 43개 전체를 다시 실행하지는 않았다.
+- 최신 홈 화면은 커리큘럼 닫힘/열림과 잠긴 임무의 1600×900·1280×960 네 장(`Logs/UILayout-HomeHierarchy-Closed-1600x900.png`, `UILayout-HomeHierarchy-Closed-1280x960.png`, `UILayout-HomeHierarchy-Open-1600x900.png`, `UILayout-HomeHierarchy-Open-1280x960.png`) 및 열린 임무의 1600×900 한 장(`Logs/UILayout-HomeHierarchy-Available-1600x900.png`)을 실제 Game View에서 촬영·육안 확인했다. 중앙 방 배경은 비어 있고 준비·목적지·임무 면은 화면 안에 있으며 겹치거나 잘리지 않는다. 촬영 로그는 `Logs/UILayoutHomeHierarchyClosedVisual.log`, `UILayoutHomeHierarchyOpenVisual.log`, `UILayoutHomeHierarchyAvailableVisual.log`다. 기존 SearchDatabase 시작 인덱싱 예외는 남았으나 캡처는 완료됐다.
+
+## 최신 변경: Q/W/E 기본 기술 재설계 (2026-10-03)
+
+시작 기술 9개의 ID·열·순서를 유지하면서 Q를 저비용 기본 공격·방어, E를 상대 행동 대응과 후속 강화, W를 한 칸 강공·강한 방어로 정리했다. 스킬 시트의 수치·조건·설명·배지를 바꾸고 서막·수련 안내, 적 리듬과 7~8단계 반격을 새 기술에 맞췄다. 저장 형식은 바꾸지 않았다. 기술별 계약은 `StarterSkillDesign.md`에 있다.
+
+- 격리된 Unity 작업 폴더에서 전체 EditMode **628/629 통과** 후, 남은 1개 검사의 옛 보호 버프 지속 기대값을 고쳐 해당 검사 **1/1 통과**했다. 첫 전체 실행의 다른 628개는 모두 통과했으며 마지막 한 줄 변경 뒤 전체 629개를 다시 실행하지는 않았다. 전체 결과 `Logs/StarterSkillsEditModeFinal.xml`, 단독 결과 `Logs/StarterSkillsForwardFinal.xml`과 같은 이름의 `.log` 파일을 보존했다.
+- 전체 PlayMode **347/348 통과** 후, 남은 1개 Q/W 동시 입력 검사의 이벤트 처리 순서를 고쳐 해당 검사 **1/1 통과**했다. 첫 전체 실행의 다른 347개는 모두 통과했으며 입력 검사 수정 뒤 전체 348개를 다시 실행하지는 않았다. 전체 결과 `Logs/StarterSkillsPlayModeFinal.xml`, 단독 결과 `Logs/StarterSkillsMissionInputFinal.xml`과 같은 이름의 `.log` 파일을 보존했다.
+- 전체 실행에서 실제로 발견한 낡은 ACT·타수·아이콘·버프 기대값을 새 규칙에 맞췄다. 긴 24칸 큐가 화면 경계를 약 1.8px 넘는 배치 문제도 최소 간격 14→12로 고쳤고, 재실행한 전체 PlayMode의 경계 검사를 통과했다. CSV 파싱·기존 저장 복원·서막 안내·양측 조건 효과와 발동 표시가 검사 범위에 포함된다.
+- 게임 스크립트 컴파일 오류와 새 게임 예외는 검사 결과에서 발견되지 않았다. 실제 플레이의 난이도·손맛과 모든 해상도는 아직 평가하지 않았다. E5·E6의 기존 그림에는 조건부 저항 감소 표식이 없어, 현재는 상세 배지·조건 강조·발동 이펙트로 효과를 알린다.
+- 기존 이동 애니메이션 작업과 변경 파일을 합친 원래 작업 폴더에서 `TurnLimbo.Presentation.Tests`와 `TurnLimbo.Core.Tests` C# 빌드가 각각 경고 0개·오류 0개로 끝났다. 이동 작업 자체의 Unity PlayMode 검증을 뜻하지는 않는다.
 
 ## 최신 변경: 발동 배지 축소와 캐릭터 옆 이펙트 (2026-10-02)
 

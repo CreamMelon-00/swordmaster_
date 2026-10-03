@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
 using TurnLimbo.Presentation;
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -13,18 +14,21 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class CompactHudPlayModeTests : InputTestFixture
     {
         [UnityTest]
-        public IEnumerator ButtonSkillSprites_AllFifteenLoadCenteredDistinctAndMatchArtLookup()
+        public IEnumerator ButtonSkillSprites_AllSeventeenLoadCenteredDistinctAndMatchArtLookup()
         {
             yield return null;
             var art = new LegacyDuelArt();
             var sprites = new HashSet<Sprite>();
             var imported = Resources.LoadAll<Sprite>("SkillRoles/skill-role-atlas");
-            Assert.That(imported.Length, Is.EqualTo(LegacyDuelArt.SkillIconCount));
+            Assert.That(imported.Length, Is.EqualTo(15), "The original atlas remains unchanged.");
             for (int skillId = 1; skillId <= LegacyDuelArt.SkillIconCount; skillId++)
             {
                 Sprite source = art.GetSkillIcon(skillId);
                 Assert.That(source, Is.Not.Null, "Role icon " + skillId + " must import.");
-                CollectionAssert.Contains(imported, source);
+                if (skillId <= 15)
+                    CollectionAssert.Contains(imported, source);
+                else
+                    Assert.That(source, Is.SameAs(Resources.Load<Sprite>("SkillRoles/role" + skillId)));
                 Assert.That(sprites.Add(source), Is.True, "Each skill must have its own Sprite.");
                 Assert.That(source.name, Is.EqualTo("role" + skillId));
                 Assert.That(source.rect.width, Is.GreaterThanOrEqualTo(128));
@@ -37,7 +41,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(source.texture.filterMode, Is.EqualTo(FilterMode.Point));
                 Assert.That(art.GetSkillIcon(skillId), Is.SameAs(source));
             }
-            foreach (int invalidId in new[] { -1, 0, 16, int.MaxValue })
+            // -1 is the separate breathing action's generated icon.
+            foreach (int invalidId in new[] { 0, 18, int.MaxValue })
                 Assert.That(art.GetSkillIcon(invalidId), Is.Null);
         }
 
@@ -51,15 +56,17 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 AssertLane(root, 0, 1, 2, 1);
-                AssertLane(root, 1, 3, 4, 1);
+                AssertLane(root, 1, 3, 4, 2);
                 AssertLane(root, 2, 5, 6, 1);
                 AssertIconColumn(root.Find("Enemy Requests"), new[] { 1, 2 });
+                yield return AdvanceEmptyTurnToSixAct(controller);
+                AssertIconColumn(root.Find("Enemy Requests"), new[] { 3, 4, 5 });
                 for (int lane = 0; lane < 3; lane++)
                     Assert.That(controller.QueueLane(lane), Is.True);
                 yield return null;
-                AssertLane(root, 0, 2, 7, 2);
-                AssertLane(root, 1, 4, 8, 2);
-                AssertLane(root, 2, 6, 9, 3);
+                AssertLane(root, 0, 2, 7, 1);
+                AssertLane(root, 1, 4, 8, 3);
+                AssertLane(root, 2, 6, 9, 2);
                 AssertIconColumn(root.Find("Player Requests"), new[] { 1, 3, 5 });
 
                 controller.CommitTurn();
@@ -67,12 +74,12 @@ namespace TurnLimbo.Presentation.Tests
                 while (controller.IsResolving && Time.realtimeSinceStartup < deadline) yield return null;
                 Assert.That(controller.IsResolving, Is.False, "The queue must finish before opening its log.");
                 Assert.That(controller.CanChoose, Is.True);
-                Assert.That(controller.Hud.LogCount, Is.EqualTo(3));
+                Assert.That(controller.Hud.LogCount, Is.EqualTo(5));
                 Get<Button>(root, "Input/Keys/LogButton").onClick.Invoke();
                 Assert.That(controller.Hud.LogOpen, Is.True);
                 const string logPath = "Log View/Log Scroll View/Viewport/Content/";
-                AssertIconColumn(root.Find(logPath + "Player"), new[] { 1, 3, 5 });
-                AssertIconColumn(root.Find(logPath + "Enemy"), new[] { 1, 2, 0 });
+                AssertIconColumn(root.Find(logPath + "Player"), new[] { 0, 0, 1, 3, 5 });
+                AssertIconColumn(root.Find(logPath + "Enemy"), new[] { 1, 2, 3, 4, 5 });
                 Get<Button>(root, "Log View/Close Log").onClick.Invoke();
                 Assert.That(controller.Hud.LogOpen, Is.False);
             }
@@ -90,7 +97,17 @@ namespace TurnLimbo.Presentation.Tests
             CanvasScaler scaler = root.GetComponent<CanvasScaler>();
             Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920, 1080)));
             Assert.That(scaler.matchWidthOrHeight, Is.EqualTo(.5f));
-            Assert.That(Get<RectTransform>(root, "Input").rect.height, Is.LessThanOrEqualTo(200f));
+            RectTransform input = Get<RectTransform>(root, "Input");
+            Assert.That(input.rect.width, Is.InRange(900f, 1050f),
+                "The battle commands occupy a compact center dock instead of a screen-wide footer.");
+            Assert.That(input.rect.height, Is.LessThanOrEqualTo(200f));
+            Rect dockBounds = ScreenRect(input);
+            RectTransform log = Get<RectTransform>(root, "Input/Keys/LogButton");
+            RectTransform commit = Get<RectTransform>(root, "Input/Keys/AButton");
+            Assert.That(ScreenRect(log).xMax, Is.LessThan(dockBounds.xMin), "The log command flanks the dock.");
+            Assert.That(ScreenRect(commit).xMin, Is.GreaterThan(dockBounds.xMax), "The commit command flanks the dock.");
+            AssertOnScreen(log);
+            AssertOnScreen(commit);
 
             Image fill = Get<Image>(root, "Input/Keys/Act_Gauge");
             Image track = Get<Image>(root, "Input/Keys/Act_BG");
@@ -116,9 +133,11 @@ namespace TurnLimbo.Presentation.Tests
             controller.RestartMatch();
             Transform root = controller.Hud.Root.transform;
             AssertLane(root, 0, 1, 2, 1);
-            AssertLane(root, 1, 3, 4, 1);
+            AssertLane(root, 1, 3, 4, 2);
             AssertLane(root, 2, 5, 6, 1);
             AssertAct(root, 3);
+            yield return AdvanceEmptyTurnToSixAct(controller);
+            int playerHealth = controller.PlayerHealth, enemyHealth = controller.EnemyHealth;
 
             for (int lane = 0; lane < 3; lane++)
             {
@@ -127,13 +146,23 @@ namespace TurnLimbo.Presentation.Tests
                 button.onClick.Invoke();
                 yield return null;
                 Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(lane + 1));
-                AssertAct(root, 2 - lane);
-                Assert.That(controller.PlayerHealth, Is.EqualTo(100));
-                Assert.That(controller.EnemyHealth, Is.EqualTo(80));
+                AssertAct(root, lane == 0 ? 5 : lane == 1 ? 3 : 2);
+                Assert.That(controller.PlayerHealth, Is.EqualTo(playerHealth));
+                Assert.That(controller.EnemyHealth, Is.EqualTo(enemyHealth));
             }
-            AssertLane(root, 0, 2, 7, 2);
-            AssertLane(root, 1, 4, 8, 2);
-            AssertLane(root, 2, 6, 9, 3);
+            AssertLane(root, 0, 2, 7, 1);
+            AssertLane(root, 1, 4, 8, 3);
+            AssertLane(root, 2, 6, 9, 2);
+            Assert.That(controller.CanChoose, Is.True);
+            Button unaffordable = LaneButton(root, 1);
+            Assert.That(unaffordable.interactable, Is.False, "The next W skill costs more than the remaining ACT.");
+            unaffordable.onClick.Invoke();
+            Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(3));
+            Assert.That(LaneButton(root, 2).interactable, Is.True);
+            LaneButton(root, 2).onClick.Invoke();
+            yield return null;
+            AssertAct(root, 0);
+            AssertLane(root, 2, 9, 5, 1);
             Assert.That(controller.CanChoose, Is.True, "ACT exhaustion leaves the turn in planning.");
             for (int lane = 0; lane < 3; lane++)
             {
@@ -143,14 +172,14 @@ namespace TurnLimbo.Presentation.Tests
                 // reject the unavailable action independently of visual state.
                 button.onClick.Invoke();
             }
-            Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(3));
+            Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(4));
             Assert.That(controller.Session.Act, Is.Zero);
-            AssertLane(root, 0, 2, 7, 2);
+            AssertLane(root, 0, 2, 7, 1);
             controller.RestartMatch();
             AssertAct(root, 3);
             Assert.That(controller.Session.PlayerQueue, Is.Empty);
             AssertLane(root, 0, 1, 2, 1);
-            AssertLane(root, 1, 3, 4, 1);
+            AssertLane(root, 1, 3, 4, 2);
             AssertLane(root, 2, 5, 6, 1);
             for (int lane = 0; lane < 3; lane++) Assert.That(LaneButton(root, lane).interactable, Is.True);
         }
@@ -196,12 +225,13 @@ namespace TurnLimbo.Presentation.Tests
             var root = controller.Hud.Root.transform;
             try
             {
+                yield return AdvanceEmptyTurnToSixAct(controller);
                 for (int lane = 0; lane < 3; lane++)
                 {
                     var button = LaneButton(root, lane);
                     ClickThroughRaycast(button);
                     Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(lane + 1));
-                    Assert.That(controller.Session.Act, Is.EqualTo(2 - lane));
+                    Assert.That(controller.Session.Act, Is.EqualTo(lane == 0 ? 5 : lane == 1 ? 3 : 2));
                 }
                 ClickThroughRaycast(Get<Button>(root, "Input/Keys/AButton"));
                 Assert.That(controller.IsResolving, Is.True);
@@ -242,13 +272,14 @@ namespace TurnLimbo.Presentation.Tests
                 AssertBar(status, "Resistance", 6);
                 AssertBar(status, "Resistance delayed", 6);
             }
+            yield return AdvanceEmptyTurnToSixAct(controller);
             Assert.That(controller.QueueLane(0), Is.True);
             Assert.That(controller.QueueLane(1), Is.True);
             Assert.That(controller.QueueLane(2), Is.True);
             yield return null;
             // The rows grow outward: the player's to the left, the enemy's to the right.
             AssertQueue(root.Find("Player Requests"), 3, true);
-            AssertQueue(root.Find("Enemy Requests"), 2, false);
+            AssertQueue(root.Find("Enemy Requests"), 3, false);
         }
 
         [UnityTest]
@@ -304,6 +335,18 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        private static IEnumerator AdvanceEmptyTurnToSixAct(DuelPrototypeController controller)
+        {
+            Assert.That(controller.Session.PlayerQueue, Is.Empty);
+            controller.CommitTurn();
+            float deadline = Time.realtimeSinceStartup + 25f;
+            while (controller.IsResolving && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(controller.IsResolving, Is.False, "The empty funding turn must finish.");
+            Assert.That(controller.CanChoose, Is.True);
+            Assert.That(controller.Session.RoundNumber, Is.EqualTo(2));
+            Assert.That(controller.Session.Act, Is.EqualTo(6));
+        }
+
         private static DuelPrototypeController FindPrototype()
         {
             DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
@@ -339,7 +382,7 @@ namespace TurnLimbo.Presentation.Tests
 
         private static void AssertIcon(Image image, int skillId)
         {
-            Sprite source = new LegacyDuelArt().GetSkillIcon(skillId);
+            Sprite source = new LegacyDuelArt().GetSkillIcon(LegacySkillDefinitions.Skill(skillId).IconId);
             Assert.That(source, Is.Not.Null);
             Assert.That(image.sprite, Is.Not.Null);
             // Every consumer must retain the matching newly drawn button art.
@@ -359,7 +402,7 @@ namespace TurnLimbo.Presentation.Tests
                 Image icon = Get<Image>(visible[index], "Icon");
                 if (skillIds[index] == 0)
                 {
-                    Assert.That(icon.enabled, Is.False, "An unmatched log slot must not invent an enemy icon.");
+                    Assert.That(icon.enabled, Is.False, "An unmatched log slot must not invent a skill icon.");
                     Assert.That(icon.sprite, Is.Null);
                 }
                 else AssertIcon(icon, skillIds[index]);

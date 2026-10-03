@@ -32,6 +32,76 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void StartingSkills_TeachBasicQConditionalEAndConcentratedW()
+        {
+            Assert.That(LegacyInitialSkills.All.Where(s => s.LaneIndex == 0).Select(s => s.Id),
+                Is.EqualTo(new[] { 1, 2, 7 }));
+            Assert.That(LegacyInitialSkills.All.Where(s => s.LaneIndex == 1).Select(s => s.Id),
+                Is.EqualTo(new[] { 3, 4, 8 }));
+            Assert.That(LegacyInitialSkills.All.Where(s => s.LaneIndex == 2).Select(s => s.Id),
+                Is.EqualTo(new[] { 5, 6, 9 }));
+
+            LegacySkill slash = LegacySkillDefinitions.Skill(1);
+            LegacySkill combo = LegacySkillDefinitions.Skill(2);
+            LegacySkill guard = LegacySkillDefinitions.Skill(7);
+            Assert.That(new[] { slash.Cost, combo.Cost, guard.Cost }, Is.EqualTo(new[] { 1, 1, 1 }));
+            Assert.That(combo.Name, Is.EqualTo("연속 베기"));
+            Assert.That(combo.AttackCount, Is.EqualTo(2));
+            Assert.That(combo.MaxPower, Is.EqualTo(9));
+            Assert.That(LegacySkillDefinitions.Find(combo).HighPower, Is.False,
+                "The basic Q combo must leave the concentrated burst role to W.");
+            Assert.That(guard.Kind, Is.EqualTo(LegacySkillKind.Defence));
+            Assert.That(LegacySkillDefinitions.Find(slash).Effect.ActGain, Is.EqualTo(1));
+            Assert.That(LegacySkillDefinitions.Find(guard).Effect.ActGain, Is.EqualTo(2));
+            Assert.That(LegacySkillDefinitions.Find(guard).Effect.OpponentProperty, Is.EqualTo(LegacySkillProperty.Hit));
+
+            LegacySkill deep = LegacySkillDefinitions.Skill(3);
+            LegacySkill precise = LegacySkillDefinitions.Skill(4);
+            LegacySkill parry = LegacySkillDefinitions.Skill(8);
+            Assert.That(new[] { deep.Cost, precise.Cost, parry.Cost }, Is.EqualTo(new[] { 2, 3, 3 }));
+            Assert.That(deep.MinPower, Is.GreaterThan(combo.MaxPower));
+            Assert.That(precise.MinPower, Is.GreaterThan(deep.MinPower));
+            Assert.That(parry.MinPower, Is.GreaterThan(guard.MaxPower));
+            Assert.That(deep.AttackCount, Is.EqualTo(1));
+            Assert.That(precise.AttackCount, Is.EqualTo(1));
+            Assert.That(parry.Kind, Is.EqualTo(LegacySkillKind.Defence));
+            Assert.That(LegacySkillDefinitions.Find(parry).Effect.BuffProtectionPercent, Is.EqualTo(25));
+            Assert.That(LegacySkillDefinitions.Find(parry).Effect.BuffSlots, Is.EqualTo(1));
+
+            LegacySkill pressure = LegacySkillDefinitions.Skill(5);
+            LegacySkill opening = LegacySkillDefinitions.Skill(6);
+            LegacySkill deflect = LegacySkillDefinitions.Skill(9);
+            Assert.That(new[] { pressure.Cost, opening.Cost, deflect.Cost }, Is.EqualTo(new[] { 1, 2, 1 }));
+            Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Attack));
+            Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentResistanceReduction, Is.EqualTo(5));
+            Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Defence));
+            Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentResistanceReduction, Is.EqualTo(8));
+            Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffPowerPercent, Is.EqualTo(20));
+            Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffSlots, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void FirstTwoStageQRewards_UseDedicatedArtworkAndTheirOwnRules()
+        {
+            LegacySkill scout = LegacySkillDefinitions.Skill(43);
+            Assert.That((scout.Name, scout.Cost, scout.MinPower, scout.MaxPower, scout.LaneIndex),
+                Is.EqualTo(("탐색", 1, 2, 3, 0)));
+            Assert.That(scout.Kind, Is.EqualTo(LegacySkillKind.Defence));
+            Assert.That(scout.IconId, Is.EqualTo(16));
+            Assert.That(LegacySkillDefinitions.Find(scout).Effect.ActGain, Is.EqualTo(1));
+
+            LegacySkill barrage = LegacySkillDefinitions.Skill(44);
+            Assert.That((barrage.Name, barrage.Cost, barrage.MinPower, barrage.MaxPower, barrage.AttackCount),
+                Is.EqualTo(("몰아치기", 3, 10, 15, 4)));
+            Assert.That(barrage.Kind, Is.EqualTo(LegacySkillKind.Attack));
+            Assert.That(barrage.Property, Is.EqualTo(LegacySkillProperty.Slash));
+            Assert.That(barrage.LaneIndex, Is.Zero);
+            Assert.That(barrage.IconId, Is.EqualTo(17));
+            Assert.That(LegacySkillDefinitions.Find(barrage).Effect.BrokenTargetDamagePercent, Is.EqualTo(25));
+            Assert.That((LegacySkillRoles.Get(barrage) & LegacySkillRole.BrokenTargetDamage) != 0, Is.True);
+        }
+
+        [Test]
         public void Find_UsesTheIdForCopiesAndIgnoresUnknownSkills()
         {
             foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
@@ -60,15 +130,15 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ShippedSheet_HoldsTheNineteenTechniquesInTableOrder()
+        public void ShippedSheet_HoldsTheTwentyOneTechniquesInTableOrder()
         {
             string path = Path.Combine(Environment.CurrentDirectory, LegacySkillDefinitions.SheetAssetPath);
             byte[] bytes = File.ReadAllBytes(path);
             Assert.That(bytes.Take(3).ToArray(), Is.EqualTo(new byte[] { 0xEF, 0xBB, 0xBF }), "UTF-8 with a byte order mark, for Excel.");
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
-            Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42 }));
+            Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
-            Assert.That(table.AcquisitionSkills.Select(s => s.Id), Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42 }));
+            Assert.That(table.AcquisitionSkills.Select(s => s.Id), Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
                 "The runtime reads the same file.");
             Assert.That(LegacySkillDefinitions.Table.SheetId, Is.EqualTo(LegacySkillDefinitions.SheetAssetPath));
@@ -76,10 +146,10 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ShippedSheet_UsesOnlyIconsTheAtlasHas()
+        public void ShippedSheet_UsesOnlyImportedIcons()
         {
-            // Presentation's LegacyDuelArt.SkillIconCount; the runtime does not know the atlas.
-            const int skillIconCount = 15;
+            // Presentation's LegacyDuelArt.SkillIconCount; the runtime does not know the art source.
+            const int skillIconCount = 17;
             foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 Assert.That(definition.Skill.IconId, Is.InRange(1, skillIconCount), "icon of " + definition.Skill.Id);
         }
@@ -90,6 +160,8 @@ namespace TurnLimbo.Core.Tests
         [TestCase(42, "쿠페")]
         [TestCase(1, "베기")]
         [TestCase(17, "호흡")]
+        [TestCase(43, "탐색")]
+        [TestCase(44, "몰아치기")]
         public void ShippedSheet_NamesTheTechniques(int id, string name)
         {
             Assert.That(LegacySkillDefinitions.Skill(id).Name, Is.EqualTo(name));
@@ -142,7 +214,7 @@ namespace TurnLimbo.Core.Tests
                     return good.Replace(",베기,", ",새 베기,");
                 });
                 Assert.That(LegacySkillDefinitions.Skill(1).Name, Is.EqualTo("새 베기"));
-                Assert.That(LegacySkillDefinitions.Skill(2).Name, Is.EqualTo("예리한 베기"));
+                Assert.That(LegacySkillDefinitions.Skill(2).Name, Is.EqualTo("연속 베기"));
                 Assert.That(LegacySkillDefinitions.InitialSkills[0].Name, Is.EqualTo("새 베기"));
                 Assert.That(reads, Is.EqualTo(3), "A good table is read once.");
             }
@@ -195,17 +267,17 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(LegacySkillDefinitions.All[0].Skill.Id, Is.EqualTo(7));
                 Assert.That(LegacyInitialSkills.All.Select(s => s.Id), Is.EqualTo(new[] { 7, 1, 2, 3, 4, 5, 6, 8, 9 }));
 
-                Assert.That(PrologueMissions.Get(1).PlayerSkills.Select(s => s.Name), Is.EqualTo(new[] { "새 베기", "예리한 베기" }));
+                Assert.That(PrologueMissions.Get(1).PlayerSkills.Select(s => s.Name), Is.EqualTo(new[] { "새 베기", "연속 베기" }));
                 Assert.That(PrologueMissions.Get(4).EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 1, 5, 7, 2 }));
                 Assert.That(StoryMissions.Get(8).PlayerSkills.Select(s => s.Id), Is.EqualTo(new[] { 1, 2, 7, 3, 4, 8, 5, 6, 9 }));
-                Assert.That(new LegacyQueuedDuel().EnemyQueue.Select(s => s.Name), Is.EqualTo(new[] { "새 베기", "예리한 베기" }));
+                Assert.That(new LegacyQueuedDuel().EnemyQueue.Select(s => s.Name), Is.EqualTo(new[] { "새 베기", "연속 베기" }));
                 Assert.That(CampaignEnemyRhythms.Script(CampaignEnemyRhythm.Gatekeeper).Turn(1).Select(s => s.Id), Is.EqualTo(new[] { 1, 3 }));
 
                 var run = new CampaignRun();
                 Assert.That(run.GetStage(5).EnemyCounterBasis, Is.SameAs(LegacySkillDefinitions.Skill(7)));
-                Assert.That(run.GetStage(7).EnemyCounterBasis, Is.SameAs(LegacySkillDefinitions.Skill(6)));
+                Assert.That(run.GetStage(7).EnemyCounterBasis, Is.SameAs(LegacySkillDefinitions.Skill(4)));
                 Assert.That(run.TryStartStage(1), Is.True);
-                Assert.That(run.CreateDuel().EnemyQueue.Select(s => s.Name), Is.EqualTo(new[] { "새 베기", "예리한 베기" }));
+                Assert.That(run.CreateDuel().EnemyQueue.Select(s => s.Name), Is.EqualTo(new[] { "새 베기", "연속 베기" }));
                 Assert.That(run.GetEquippedLane(0).Select(s => s.SkillId), Is.EqualTo(new[] { 7, 1, 2 }),
                     "Only the default loadout follows the starting rows' order.");
             }

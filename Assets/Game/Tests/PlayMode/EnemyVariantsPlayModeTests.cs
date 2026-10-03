@@ -20,7 +20,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new EnemyStudentAnimationSet())
             {
                 Assert.That(set.HasRequiredAssets, Is.True, string.Join(", ", set.MissingResources));
-                Assert.That(set.LoadedSpriteCount, Is.EqualTo(120));
+                Assert.That(set.LoadedSpriteCount, Is.EqualTo(EnemyStudentAnimationSet.RequiredSpriteCount));
                 Assert.That(set.GetHurt().name, Is.EqualTo("enemy-poses-hurt"));
                 var textures = new System.Collections.Generic.HashSet<Texture2D>();
                 foreach (var type in Types) for (int variant = 0; variant < 3; variant++)

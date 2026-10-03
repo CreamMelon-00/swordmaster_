@@ -19,7 +19,7 @@ namespace TurnLimbo.Runtime.Cutscene
         Actor,
     }
 
-    /// <summary>Who stands in the scene. Elise is the player's figure; the knight and the dummy share the other one,
+    /// <summary>Who stands in the scene. Elisa is the player's figure; the knight and the dummy share the other one,
     /// so only one of them can be on stage at a time.</summary>
     public enum CutsceneActor
     {
@@ -53,7 +53,7 @@ namespace TurnLimbo.Runtime.Cutscene
     {
         /// <summary>The breathing loop.</summary>
         Idle,
-        /// <summary>The hit reaction: held for Elise and the knight, played once for the dummy.</summary>
+        /// <summary>The hit reaction: held for Elisa and the knight, played once for the dummy.</summary>
         Hurt,
         /// <summary>The guard reaction, held (not for the dummy).</summary>
         Block,

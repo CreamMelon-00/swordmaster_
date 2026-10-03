@@ -20,8 +20,40 @@ namespace TurnLimbo.Runtime.Campaign
         Excluded,
     }
 
+    /// <summary>Permanent bonuses granted by a completed curriculum node. All values are increases over the
+    /// campaign's normal combat values; the planning time bonus applies to stage battles, not story missions.</summary>
+    public readonly struct CurriculumStatReward
+    {
+        public CurriculumStatReward(int health = 0, int resistance = 0, int actGain = 0,
+            int actCapacity = 0, int planningSeconds = 0)
+        {
+            if (health < 0) throw new ArgumentOutOfRangeException(nameof(health));
+            if (resistance < 0) throw new ArgumentOutOfRangeException(nameof(resistance));
+            if (actGain < 0) throw new ArgumentOutOfRangeException(nameof(actGain));
+            if (actCapacity < 0) throw new ArgumentOutOfRangeException(nameof(actCapacity));
+            if (planningSeconds < 0) throw new ArgumentOutOfRangeException(nameof(planningSeconds));
+            Health = health;
+            Resistance = resistance;
+            ActGain = actGain;
+            ActCapacity = actCapacity;
+            PlanningSeconds = planningSeconds;
+        }
+
+        public int Health { get; }
+        public int Resistance { get; }
+        public int ActGain { get; }
+        public int ActCapacity { get; }
+        public int PlanningSeconds { get; }
+        public bool IsEmpty => Health == 0 && Resistance == 0 && ActGain == 0 && ActCapacity == 0 && PlanningSeconds == 0;
+
+        public static CurriculumStatReward operator +(CurriculumStatReward left, CurriculumStatReward right)
+            => new CurriculumStatReward(checked(left.Health + right.Health),
+                checked(left.Resistance + right.Resistance), checked(left.ActGain + right.ActGain),
+                checked(left.ActCapacity + right.ActCapacity), checked(left.PlanningSeconds + right.PlanningSeconds));
+    }
+
     /// <summary>One curriculum node, like a HOI4 national focus: it takes <see cref="Battles"/> finished battles
-    /// while it is the node in progress, and completing it grants its skills.</summary>
+    /// while it is the node in progress, and completing it grants its skills and permanent stat bonuses.</summary>
     public sealed class CurriculumNode
     {
         private readonly SkillNameText title, description;
@@ -31,7 +63,8 @@ namespace TurnLimbo.Runtime.Campaign
         /// <param name="description">May hold <see cref="LegacySkillNames"/> tokens, formatted when read.</param>
         public CurriculumNode(string id, string title, CurriculumBranch branch, float column, int row,
             IEnumerable<int> skillIds, IEnumerable<string> requiresAll = null, IEnumerable<string> requiresAny = null,
-            IEnumerable<string> exclusiveWith = null, int battles = 1, string description = null)
+            IEnumerable<string> exclusiveWith = null, int battles = 1, string description = null,
+            CurriculumStatReward statReward = default)
         {
             if (string.IsNullOrWhiteSpace(id) || HasWhiteSpace(id))
                 throw new ArgumentException("A curriculum node id must be one word.", nameof(id));
@@ -43,8 +76,11 @@ namespace TurnLimbo.Runtime.Campaign
             Column = column;
             Row = row;
             SkillIds = new List<int>(skillIds ?? throw new ArgumentNullException(nameof(skillIds))).AsReadOnly();
+            if (SkillIds.Count == 0 && statReward.IsEmpty)
+                throw new ArgumentException("A curriculum node must grant a skill or a stat bonus.", nameof(skillIds));
             if (title == null && SkillIds.Count != 1)
                 throw new ArgumentException("Only a node that grants one skill can take its title from the skill.", nameof(title));
+            StatReward = statReward;
             RequiresAll = new List<string>(requiresAll ?? Array.Empty<string>()).AsReadOnly();
             RequiresAny = new List<string>(requiresAny ?? Array.Empty<string>()).AsReadOnly();
             ExclusiveWith = new List<string>(exclusiveWith ?? Array.Empty<string>()).AsReadOnly();
@@ -70,6 +106,8 @@ namespace TurnLimbo.Runtime.Campaign
         public int Row { get; }
         /// <summary>Skills granted on completion.</summary>
         public IReadOnlyList<int> SkillIds { get; }
+        /// <summary>Permanent stat bonuses granted on completion; empty for a skill-only node.</summary>
+        public CurriculumStatReward StatReward { get; }
         /// <summary>Every one of these must be completed first.</summary>
         public IReadOnlyList<string> RequiresAll { get; }
         /// <summary>When not empty, at least one of these must be completed first.</summary>

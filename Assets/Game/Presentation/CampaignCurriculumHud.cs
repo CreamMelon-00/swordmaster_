@@ -92,6 +92,8 @@ namespace TurnLimbo.Presentation
             detailRule = Panel("Curriculum Detail Rule", detail.transform, Vector2.zero, new Vector2(334f, 2f), Border).rectTransform;
             requirement = Label("Curriculum Requirement", detail.transform, Vector2.zero, new Vector2(334f, 26f), 17);
             exclusive = Label("Curriculum Exclusive", detail.transform, Vector2.zero, new Vector2(334f, 26f), 17);
+            Fit(requirement, 11, 17);
+            Fit(exclusive, 11, 17);
             availability = Label("Curriculum Availability", detail.transform, Vector2.zero, new Vector2(334f, 44f), 17);
             // Longer explanations shrink to stay within the two lines reserved for them.
             Fit(availability, 12, 17);
@@ -205,6 +207,13 @@ namespace TurnLimbo.Presentation
             if (skill != null)
                 Label("Node Lane", card.Button.transform, new Vector2(22f, 30f), new Vector2(40f, 22f), 15, Muted,
                     TextAnchor.MiddleCenter).text = SkillLaneStyle.Key(skill.LaneIndex);
+            else if (!node.StatReward.IsEmpty)
+            {
+                Text rewardLabel = Label("Node Lane", card.Button.transform, new Vector2(22f, 30f),
+                    new Vector2(52f, 22f), 15, Muted, TextAnchor.MiddleCenter);
+                Fit(rewardLabel, 11, 15);
+                rewardLabel.text = "능력치";
+            }
             if (node.ExclusiveWith.Count > 0 || HasExclusivePartner(node))
                 Label("Node Exclusive", card.Button.transform, new Vector2(38f, 8f), new Vector2(40f, 20f), 13,
                     DuelVisualTheme.Danger, TextAnchor.MiddleCenter).text = "택1";
@@ -258,18 +267,20 @@ namespace TurnLimbo.Presentation
             CurriculumNode node = curriculum.Tree.Find(State.SelectedNodeId);
             CurriculumNodeState state = curriculum.GetState(node.Id);
             LegacySkill skill = GrantedSkill(node);
+            string rewardText = StatRewardText(node.StatReward);
             if (skill != null)
             {
                 detailStyle.SetLane(skill.LaneIndex);
                 detailIcon.enabled = true;
                 detailIcon.sprite = art.GetSkillIcon(skill.IconId);
-                detailInfo.SetSkill(skill);
+                detailInfo.SetSkill(skill, false, rewardText.Length > 0 ? "능력치 보상: " + rewardText : null);
             }
             else
             {
-                detailStyle.Clear("커리큘럼");
+                detailStyle.Clear("능력치 보상");
                 detailIcon.enabled = false;
-                detailInfo.Clear();
+                detailIcon.sprite = null;
+                detailInfo.SetEmptyMessage(rewardText);
             }
             detailName.text = node.Title;
             purpose.text = $"{BranchName(node.Branch)} 과정  ·  전투 {node.Battles}회";
@@ -280,8 +291,11 @@ namespace TurnLimbo.Presentation
             exclusive.text = ExclusiveText(node, curriculum.Tree);
             bool fixedByProgress = curriculum.Active != null && curriculum.ActiveBattles > 0;
             availability.text = !Editing ? "로비에서 이용할 수 있습니다."
-                : state == CurriculumNodeState.Completed ? "완료했습니다. 얻은 기술은 편성에서 장착하세요."
-                : state == CurriculumNodeState.Active ? $"진행 중 · 전투 {curriculum.ActiveBattles}/{node.Battles}. 전투를 마치면 기술을 얻습니다."
+                : state == CurriculumNodeState.Completed ? skill == null ? "완료했습니다. 능력치 보상이 적용됐습니다."
+                    : rewardText.Length > 0 ? "완료했습니다. 기술은 편성에서 장착하고 능력치 보상은 적용됐습니다."
+                    : "완료했습니다. 얻은 기술은 편성에서 장착하세요."
+                : state == CurriculumNodeState.Active ? $"진행 중 · 전투 {curriculum.ActiveBattles}/{node.Battles}. 전투를 마치면 "
+                    + (skill == null ? "능력치 보상을 얻습니다." : rewardText.Length > 0 ? "기술과 능력치 보상을 얻습니다." : "기술을 얻습니다.")
                 : state == CurriculumNodeState.Excluded ? "함께 고를 수 없는 과정을 이미 마쳤습니다. 초기화하면 다시 고를 수 있습니다."
                 : state == CurriculumNodeState.Locked ? "선행 과정을 먼저 마치세요."
                 : fixedByProgress ? "진행 중인 과정을 마친 뒤에 고를 수 있습니다."
@@ -301,7 +315,8 @@ namespace TurnLimbo.Presentation
         {
             bool hasExclusive = !string.IsNullOrEmpty(exclusive.text);
             exclusive.gameObject.SetActive(hasExclusive);
-            float height = 104f + detailInfo.Height + 20f + 30f + (hasExclusive ? 30f : 0f) + 52f + 50f + 20f;
+            // The optional exclusivity line keeps its space so selecting nodes cannot resize the panel.
+            float height = 104f + detailInfo.Height + 20f + 30f + 30f + 52f + 50f + 20f;
             detailFrame.sizeDelta = new Vector2(384f, height + 4f);
             detailFrame.anchoredPosition = new Vector2(423f, 272f - (height + 4f) / 2f);
             detailSurface.sizeDelta = new Vector2(380f, height);
@@ -316,11 +331,8 @@ namespace TurnLimbo.Presentation
             cursor -= 12f;
             requirement.rectTransform.anchoredPosition = new Vector2(0f, cursor - 13f);
             cursor -= 30f;
-            if (hasExclusive)
-            {
-                exclusive.rectTransform.anchoredPosition = new Vector2(0f, cursor - 13f);
-                cursor -= 30f;
-            }
+            exclusive.rectTransform.anchoredPosition = new Vector2(0f, cursor - 13f);
+            cursor -= 30f;
             availability.rectTransform.anchoredPosition = new Vector2(0f, cursor - 22f);
             cursor -= 52f;
             primaryAction.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, cursor - 25f);
@@ -346,6 +358,17 @@ namespace TurnLimbo.Presentation
             if (names.Count == 0) return string.Empty;
             // The last name picks 과 or 와.
             return "택1  " + KoreanParticle.Attach(string.Join(", ", names), "과") + " 함께 고를 수 없음";
+        }
+
+        private static string StatRewardText(CurriculumStatReward reward)
+        {
+            var parts = new List<string>(5);
+            if (reward.Health > 0) parts.Add("최대 체력 +" + reward.Health);
+            if (reward.Resistance > 0) parts.Add("최대 저항 +" + reward.Resistance);
+            if (reward.ActGain > 0) parts.Add("매 턴 ACT 회복 +" + reward.ActGain);
+            if (reward.ActCapacity > 0) parts.Add("ACT 상한 +" + reward.ActCapacity);
+            if (reward.PlanningSeconds > 0) parts.Add("일반 스테이지 선택 시간 +" + reward.PlanningSeconds + "초");
+            return string.Join(" · ", parts);
         }
 
         public static string BranchName(CurriculumBranch branch)

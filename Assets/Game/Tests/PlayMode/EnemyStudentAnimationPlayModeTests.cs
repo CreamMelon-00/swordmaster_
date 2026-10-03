@@ -18,10 +18,25 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new EnemyStudentAnimationSet())
             {
                 Assert.That(set.HasRequiredAssets, Is.True, string.Join(", ", set.MissingResources));
-                Assert.That(set.LoadedSpriteCount, Is.EqualTo(120));
+                Assert.That(set.LoadedSpriteCount, Is.EqualTo(EnemyStudentAnimationSet.RequiredSpriteCount));
                 Assert.That(set.GetIdle(0).name, Is.EqualTo("enemy-idle-frame-01"));
                 Assert.That(set.GetIdle(.181f).name, Is.EqualTo("enemy-idle-frame-02"));
                 Assert.That(set.GetIdle(1.26f), Is.SameAs(set.GetIdle(0)));
+                Sprite idleSource = Resources.Load<Sprite>(EnemyStudentAnimationSet.ResourceRoot + "idle/frame-01");
+                Assert.That(EnemyStudentAnimationSet.MoveFrameCount, Is.EqualTo(1));
+                for (int frame = 1; frame <= EnemyStudentAnimationSet.MoveFrameCount; frame++)
+                {
+                    Sprite move = Resources.Load<Sprite>(EnemyStudentAnimationSet.ResourceRoot + "move/frame-" + frame.ToString("00"));
+                    Assert.That(move, Is.Not.Null);
+                    Assert.That(move.rect.size, Is.EqualTo(idleSource.rect.size));
+                    Assert.That(move.pivot, Is.EqualTo(idleSource.pivot));
+                    Assert.That(move.pixelsPerUnit, Is.EqualTo(idleSource.pixelsPerUnit));
+                    Assert.That(move.texture.filterMode, Is.EqualTo(FilterMode.Point));
+                    Assert.That(move.texture.mipmapCount, Is.EqualTo(1));
+                }
+                Assert.That(Resources.Load<Sprite>(EnemyStudentAnimationSet.ResourceRoot + "move/frame-02"), Is.Null);
+                Assert.That(set.GetMove().name, Is.EqualTo("enemy-move-frame-01"));
+                Assert.That(set.GetMove(), Is.SameAs(set.GetMove()), "Movement holds one pose throughout travel.");
                 foreach (var property in new[] { LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit })
                 {
                     Sprite contact = set.GetAttack(property, .5f);

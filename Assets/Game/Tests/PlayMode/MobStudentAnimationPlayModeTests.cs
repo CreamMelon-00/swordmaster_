@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var animations = new MobStudentAnimationSet())
             {
                 Assert.That(animations.HasRequiredAssets, Is.True, string.Join(", ", animations.MissingResources));
-                Assert.That(animations.LoadedSpriteCount, Is.EqualTo(120));
+                Assert.That(animations.LoadedSpriteCount, Is.EqualTo(MobStudentAnimationSet.RequiredSpriteCount));
                 foreach (string key in new[] { "idle", "slash", "slash-2", "slash-3", "pierce", "pierce-2", "pierce-3", "blunt", "blunt-2", "blunt-3" })
                     for (int i = 1; i <= (key == "idle" ? 8 : 12); i++)
                     {
@@ -38,6 +38,20 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That((source.pivot.y - adapted.pivot.y) / adapted.pixelsPerUnit,
                     Is.EqualTo(MobStudentAnimationSet.GroundOffset).Within(.0001f));
                 Assert.That(animations.GetLower(1f, true), Is.Null, "Full-body art must not double-render old legs.");
+                Assert.That(MobStudentAnimationSet.MoveFrameCount, Is.EqualTo(1));
+                for (int frame = 1; frame <= MobStudentAnimationSet.MoveFrameCount; frame++)
+                {
+                    Sprite move = Resources.Load<Sprite>(MobStudentAnimationSet.ResourceRoot + "move/frame-" + frame.ToString("00"));
+                    Assert.That(move, Is.Not.Null);
+                    Assert.That(move.rect.size, Is.EqualTo(source.rect.size));
+                    Assert.That(move.pivot, Is.EqualTo(source.pivot));
+                    Assert.That(move.pixelsPerUnit, Is.EqualTo(source.pixelsPerUnit));
+                    Assert.That(move.texture.filterMode, Is.EqualTo(FilterMode.Point));
+                    Assert.That(move.texture.mipmapCount, Is.EqualTo(1));
+                }
+                Assert.That(Resources.Load<Sprite>(MobStudentAnimationSet.ResourceRoot + "move/frame-02"), Is.Null);
+                Assert.That(animations.GetMove().name, Is.EqualTo("move-frame-01"));
+                Assert.That(animations.GetMove(), Is.SameAs(animations.GetMove()), "Movement holds one pose throughout travel.");
             }
             yield return null;
         }
@@ -71,6 +85,64 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(animations.HasRequiredAssets, Is.False);
                 Assert.That(animations.GetIdleUpper(0), Is.Null);
             }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator BothStudents_UseRunPoseDuringApproachAndCloseDistanceThenStandAtRest()
+        {
+            var host = new GameObject("Movement Pose Test");
+            using (var art = new LegacyDuelArt())
+            using (var arena = LegacyArenaView.Create(host.transform, art, null))
+            {
+                arena.BeginApproach();
+                arena.Tick(.015f, .015f);
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("move-frame-01"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-move-frame-01"));
+                Sprite playerHeld = arena.PlayerRenderer.sprite;
+                Sprite enemyHeld = arena.EnemyRenderer.sprite;
+                arena.Tick(0f, .03f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerHeld), "Hit stop holds the movement pose.");
+                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyHeld));
+                arena.Tick(.02f, .02f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerHeld));
+                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyHeld));
+                arena.Tick(.02f, .02f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerHeld));
+                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyHeld));
+                arena.Tick(.02f, .02f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerHeld));
+                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyHeld));
+                arena.Tick(.02f, .02f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerHeld));
+                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyHeld));
+                arena.Tick(0f, .2f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerHeld));
+                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyHeld));
+                // With the authored 1.2 movement multiplier, the opening gap closes in about .078 s.
+                arena.Tick(.01f, .01f);
+                arena.Tick(.01f, .01f);
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
+
+                arena.Reset();
+                arena.CloseDistance(.01f);
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("move-frame-01"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-move-frame-01"));
+                arena.CloseDistance(.02f);
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("move-frame-01"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-move-frame-01"));
+                arena.Tick(.01f, .01f);
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
+
+                arena.Reset();
+                arena.BeginSlot(LegacySkillDefinitions.Skill(7), LegacySkillDefinitions.Skill(7));
+                arena.CloseDistance(.02f);
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.Contain("block"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.Contain("block"));
+            }
+            Object.Destroy(host);
             yield return null;
         }
 

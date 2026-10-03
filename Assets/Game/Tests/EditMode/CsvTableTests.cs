@@ -15,11 +15,11 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void Read_SplitsRecordsAndFields_NumberingRowsFromOne()
         {
-            IReadOnlyList<CsvRecord> records = CsvTable.Read("ID,이름,ACT\n1,베기,1\n2,예리한 베기,2\n");
+            IReadOnlyList<CsvRecord> records = CsvTable.Read("ID,이름,ACT\n1,베기,1\n2,연속 베기,1\n");
             Assert.That(records.Count, Is.EqualTo(3), "The last line break does not open a row.");
             Assert.That(records.Select(record => record.RowNumber), Is.EqualTo(new[] { 1, 2, 3 }));
             Assert.That(records[0].Fields, Is.EqualTo(new[] { "ID", "이름", "ACT" }));
-            Assert.That(records[2].Fields, Is.EqualTo(new[] { "2", "예리한 베기", "2" }));
+            Assert.That(records[2].Fields, Is.EqualTo(new[] { "2", "연속 베기", "1" }));
             Assert.That(records[1][7], Is.Empty, "A short row reads empty past its end.");
             Assert.That(CsvTable.Read(string.Empty), Is.Empty);
             Assert.That(Fields("a,"), Is.EqualTo(new[] { new[] { "a", "" } }), "A trailing comma is one more empty field.");

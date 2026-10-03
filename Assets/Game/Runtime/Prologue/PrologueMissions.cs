@@ -12,7 +12,7 @@ namespace TurnLimbo.Runtime.Prologue
     {
         public const string EnemySilhouette = "EnemyStudent/Animations/idle/frame-01";
         public const string DummySilhouette = "TrainingDummy/Animations/idle/frame-01";
-        // Briefings show where the scene happens: Elise wakes in the misty forest and meets the knight in it.
+        // Briefings show where the scene happens: Elisa wakes in the misty forest and meets the knight in it.
         private const string MistForest = "ForestArena/forest-far-mist";
         private const string Forest = "ForestArena/forest-far";
         private const string Continue = "계속 버튼 · Enter";
@@ -23,10 +23,10 @@ namespace TurnLimbo.Runtime.Prologue
         /// <summary>The 서막's lane plus 넘기기, which mission 1's win opens.</summary>
         private const CombatFeature QWithCycle = CombatFeature.LaneQ | CombatFeature.Cycle;
 
-        // Sheet techniques by id: 베기, 예리한 베기, 부수기, 막기.
+        // Sheet techniques by id: 베기, 연속 베기, 기세 꺾기, 막기.
         private static readonly MissionSkill Slash = MissionSkill.Table(1);
-        private static readonly MissionSkill SharpSlash = MissionSkill.Table(2);
-        private static readonly MissionSkill Smash = MissionSkill.Table(5);
+        private static readonly MissionSkill DoubleSlash = MissionSkill.Table(2);
+        private static readonly MissionSkill BreakMomentum = MissionSkill.Table(5);
         private static readonly MissionSkill Guard = MissionSkill.Table(7);
 
         // The practice skills are not sheet rows. Their ids (1001-1003) sit in the range the sheet may not use, since
@@ -48,7 +48,7 @@ namespace TurnLimbo.Runtime.Prologue
                 new[] { "허수아비를 쓰러뜨린다" },
                 new[] { new MissionEnemy("허수아비", DummySilhouette, EnemyAppearance.TrainingDummy) },
                 24, 10, new MissionSkill[] { LegacyCommonActions.Breathe }, new[] { 1 },
-                new[] { Slash, SharpSlash }, false, new[]
+                new[] { Slash, DoubleSlash }, false, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "처음 쥔 검",
                         "기술은 바로 쓰지 않고 먼저 순서대로 예약합니다. 이번 상대는 반격하지 않으니 마음껏 베어 보세요.", Continue),
@@ -68,13 +68,13 @@ namespace TurnLimbo.Runtime.Prologue
                 new[] { "맞부딪쳐 상대의 저항을 무너뜨린다", "떠돌이 기사를 쓰러뜨린다" },
                 new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
                 36, 12, new MissionSkill[] { PracticeSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 1 },
-                new[] { Slash, SharpSlash }, false, new[]
+                new[] { Slash, DoubleSlash }, false, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "상대도 공격합니다",
                         "이번 상대는 같은 순번에 공격을 예약합니다. 공격끼리 부딪치면 체력 대신 저항이 먼저 깎입니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Inspect, "상대의 기술을 살펴보세요",
                         "상대 머리 위에도 이번 턴의 기술 큐가 보입니다. Tab을 누르고 있으면 상세 설명이 열립니다.",
-                        "Tab 누르고 있기 · ← / → 순번 확인"),
+                        "Tab 누르고 있기 · 좌우 방향키로 순번 확인"),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "공격을 예약하세요",
                         "Q로 {기술:1:를} 예약해 상대의 첫 공격과 같은 순번에 맞세우세요.", QueueOnce, lane: 0),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "두 번째 순번도 맞세우세요",
@@ -97,7 +97,7 @@ namespace TurnLimbo.Runtime.Prologue
                 new[] { "상대의 내려치기를 {기술:7:로} 받아낸다", "떠돌이 기사를 쓰러뜨린다" },
                 new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
                 40, 15, new MissionSkill[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard }, new[] { 3, 2 },
-                new[] { Slash, Guard, SharpSlash }, false, new[]
+                new[] { Slash, Guard, DoubleSlash }, false, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "막고, 되갚으세요",
                         "이번 상대는 공격하고, 내려치고, 막기도 합니다. 방어는 같은 순번의 공격 피해를 방어 수치만큼 줄입니다.", Continue),
@@ -119,8 +119,8 @@ namespace TurnLimbo.Runtime.Prologue
             new PrologueMission(4, "떠돌이 기사", Forest,
                 new[] { "제한 시간 안에 기술을 예약한다", "떠돌이 기사를 쓰러뜨린다" },
                 new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
-                55, 15, new[] { Slash, Smash, Guard, SharpSlash }, new[] { 2, 2, 3 },
-                new[] { Slash, Guard, SharpSlash }, true, new[]
+                55, 15, new[] { Slash, BreakMomentum, Guard, DoubleSlash }, new[] { 2, 2, 3 },
+                new[] { Slash, Guard, DoubleSlash }, true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "이제 제한 시간이 흐릅니다",
                         "지금부터는 턴마다 10초 안에 예약을 마쳐야 합니다. 시간이 다 되면 예약한 만큼 자동으로 확정됩니다. 넘기기도 한 번에 1초를 씁니다.", Continue),

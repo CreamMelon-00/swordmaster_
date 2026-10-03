@@ -58,7 +58,7 @@ namespace TurnLimbo.Presentation
         private readonly Outline[] guideLaneFocus = new Outline[3];
         private readonly Outline guideCommitFocus;
         private readonly RectTransform guideEnemyFocus, guideActFocus;
-        private bool missionMode, missionModeInitialized, missionTimed, missionBreath, highlightEnemyQueue;
+        private bool missionMode, missionModeInitialized, missionTimed, missionBreath, trainingMode, highlightEnemyQueue;
         private readonly GameObject[] laneCards = new GameObject[3], nextPanels = new GameObject[3];
         private const CombatFeature AllLanes = CombatFeature.LaneQ | CombatFeature.LaneW | CombatFeature.LaneE;
         // The open lanes are packed in Q, W, E order and centred at this pitch: one lane at 0, two at ±78, three at
@@ -125,10 +125,13 @@ namespace TurnLimbo.Presentation
         private float viewAngle, angleFrom, angleTarget, angleElapsed = .15f;
         private float logFrom = 1080, logTarget = 1080, logElapsed = .5f;
         private bool canOpenLog;
-        private int inspectedSlot = -1, shownTurn = -1, shownAct = -1;
+        private int inspectedSlot = -1, shownTurn = -1, shownAct = -1, shownMaxAct = -1;
         private bool slotAnimation;
         private bool assetsAvailable = true;
-        private const float DockHeight = 200;
+        // A compact command desk leaves the arena visible on both sides. Its two end buttons sit on
+        // small tabs outside the desk, but remain in the same input group for the planning fade.
+        private const float DockWidth = 980f, DockHeight = 200f, DockBottomInset = 14f;
+        private const float EndButtonX = 550f;
         private static readonly Color Surface = DuelVisualTheme.Surface;
         private static readonly Color RaisedSurface = DuelVisualTheme.RaisedSurface;
         private static readonly Color Card = DuelVisualTheme.Card;
@@ -181,6 +184,7 @@ namespace TurnLimbo.Presentation
             root = Rect("Legacy Combat HUD", parent, Vector2.zero, Vector2.zero, Vector2.one * .5f);
             canvas = root.gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.pixelPerfect = true;
             canvas.sortingOrder = 100;
             var scaler = root.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -205,15 +209,23 @@ namespace TurnLimbo.Presentation
             BuildCinematicBox(topBar, true, white);
             BuildCinematicBox(bottomBar, false, white);
 
-            var inputImage = Panel("Input", root, Vector2.zero, new Vector2(0, DockHeight));
+            var inputImage = Panel("Input", root, new Vector2(0f, DockBottomInset),
+                new Vector2(DockWidth, DockHeight));
             Dress(inputImage);
             inputPanel = inputImage.rectTransform;
-            inputPanel.anchorMin = Vector2.zero; inputPanel.anchorMax = new Vector2(1, 0); inputPanel.pivot = new Vector2(.5f, 0);
+            inputPanel.anchorMin = inputPanel.anchorMax = new Vector2(.5f, 0f);
+            inputPanel.pivot = new Vector2(.5f, 0f);
             var controls = Rect("Keys", inputPanel, Vector2.zero, Vector2.zero, Vector2.one * .5f);
             controls.anchorMin = Vector2.zero; controls.anchorMax = Vector2.one;
             inputs = controls.gameObject.AddComponent<CanvasGroup>();
-            var logImage = Panel("LogButton", controls, new Vector2(80, 0), new Vector2(96, 112));
-            Pin(logImage.rectTransform, new Vector2(0, .5f));
+            // Thin metal joins make the log and seal feel attached to the desk, without covering their hit areas.
+            Image("Left Desk Join", controls, white, new Vector2(-503f, -4f), new Vector2(34f, 4f), Border);
+            Image("Right Desk Join", controls, white, new Vector2(503f, -4f), new Vector2(34f, 4f), Border);
+            Color dividerInk = Accent;
+            dividerInk.a = .45f;
+            Image("Left Tool Divider", controls, white, new Vector2(-266f, -4f), new Vector2(2f, 112f), dividerInk);
+            Image("Right Tool Divider", controls, white, new Vector2(266f, -4f), new Vector2(2f, 112f), dividerInk);
+            var logImage = Panel("LogButton", controls, new Vector2(-EndButtonX, -4f), new Vector2(96, 112));
             BuildActionIcon(logImage.transform, "combat-log", "기록", "L");
             var logButton = AddButton(logImage);
             logButton.onClick.AddListener(() => { ToggleLog(); ClearSelection(logButton.gameObject); });
@@ -233,11 +245,9 @@ namespace TurnLimbo.Presentation
                 key.text = "QWE"[lane].ToString(); key.color = Accent;
                 var styleName = Text("Style Name", card.transform, new Vector2(17, 47), new Vector2(62, 18), 14, TextAnchor.MiddleRight);
                 styleName.text = SkillLaneStyle.Name(lane); styleName.color = Foreground;
-                skillNames[lane] = Text("Skill Name", card.transform, new Vector2(0, -28), new Vector2(108, 20), 14, TextAnchor.MiddleCenter);
+                skillNames[lane] = Text("Skill Name", card.transform, new Vector2(0, -28), new Vector2(108, 20), 16, TextAnchor.MiddleCenter);
                 skillNames[lane].supportRichText = false;
-                skillNames[lane].resizeTextForBestFit = true;
-                skillNames[lane].resizeTextMinSize = 10;
-                skillNames[lane].resizeTextMaxSize = 14;
+                skillNames[lane].resizeTextForBestFit = false;
                 costs[lane] = Text("SkillCost", card.transform, new Vector2(0, -47), new Vector2(92, 22), 18, TextAnchor.MiddleRight);
                 costs[lane].color = Foreground;
                 holdImages[lane] = Image("KeyHoldImage", card.transform, white, new Vector2(0, -59), new Vector2(104, 3), Accent);
@@ -254,19 +264,19 @@ namespace TurnLimbo.Presentation
                 laneCards[lane] = card.gameObject;
                 nextPanels[lane] = next.gameObject;
             }
-            var breathe = Panel("BreathButton", controls, new Vector2(360, -4), new Vector2(144, 124), RaisedSurface);
+            var breathe = Panel("BreathButton", controls, new Vector2(360, -4), new Vector2(136, 112), Card);
             var breathIcon = Image("Icon", breathe.transform, art.GetSkillIcon(LegacyCommonActions.Breathe.IconId),
-                new Vector2(-44, 20), Vector2.one * 40);
+                new Vector2(-42, 17), Vector2.one * 36);
             breathIcon.preserveAspect = true;
-            Text("Label", breathe.transform, new Vector2(20, 30), new Vector2(92, 24), 18,
+            Text("Label", breathe.transform, new Vector2(22, 27), new Vector2(84, 22), 17,
                 TextAnchor.MiddleCenter).text = "숨고르기";
-            var breathCost = Text("ACT Cost", breathe.transform, new Vector2(20, 7), new Vector2(92, 18), 14,
+            var breathCost = Text("ACT Cost", breathe.transform, new Vector2(22, 3), new Vector2(84, 18), 14,
                 TextAnchor.MiddleCenter);
             breathCost.text = "ACT 0"; breathCost.color = MutedText;
-            breathCount = Text("Remaining", breathe.transform, new Vector2(0, -17), new Vector2(132, 18), 14,
+            breathCount = Text("Remaining", breathe.transform, new Vector2(0, -18), new Vector2(124, 18), 14,
                 TextAnchor.MiddleCenter);
             breathCount.color = Foreground;
-            var breathKey = Text("KeyHint", breathe.transform, new Vector2(0, -45), new Vector2(132, 18), 18,
+            var breathKey = Text("KeyHint", breathe.transform, new Vector2(0, -42), new Vector2(124, 18), 17,
                 TextAnchor.MiddleCenter);
             breathKey.text = "S"; breathKey.color = Accent;
             var note = Text("Breath Note", controls, new Vector2(360, -81), new Vector2(200, 28), 12,
@@ -276,13 +286,13 @@ namespace TurnLimbo.Presentation
             breathButton = AddButton(breathe);
             breathButton.onClick.AddListener(QueueBreathFromButton);
             // 넘기기 mirrors 숨고르기 on the other side of the lanes.
-            var cycle = Panel("CycleButton", controls, new Vector2(-360, -4), new Vector2(144, 124), RaisedSurface);
-            Text("Label", cycle.transform, new Vector2(0, 30), new Vector2(132, 24), 18, TextAnchor.MiddleCenter).text = "넘기기";
-            cycleCost = Text("Time Cost", cycle.transform, new Vector2(0, 7), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
+            var cycle = Panel("CycleButton", controls, new Vector2(-360, -4), new Vector2(136, 112), Card);
+            Text("Label", cycle.transform, new Vector2(0, 27), new Vector2(124, 22), 17, TextAnchor.MiddleCenter).text = "넘기기";
+            cycleCost = Text("Time Cost", cycle.transform, new Vector2(0, 3), new Vector2(124, 18), 14, TextAnchor.MiddleCenter);
             cycleCost.text = CycleCostText(0f); cycleCost.color = MutedText;
-            cycleEffect = Text("Effect", cycle.transform, new Vector2(0, -17), new Vector2(132, 18), 14, TextAnchor.MiddleCenter);
+            cycleEffect = Text("Effect", cycle.transform, new Vector2(0, -18), new Vector2(124, 18), 14, TextAnchor.MiddleCenter);
             cycleEffect.text = CycleEffectText(AllLanes); cycleEffect.color = Foreground;
-            var cycleKey = Text("KeyHint", cycle.transform, new Vector2(0, -45), new Vector2(132, 18), 18, TextAnchor.MiddleCenter);
+            var cycleKey = Text("KeyHint", cycle.transform, new Vector2(0, -42), new Vector2(124, 18), 17, TextAnchor.MiddleCenter);
             cycleKey.text = "Shift"; cycleKey.color = Accent;
             var cycleHint = Text("Cycle Note", controls, new Vector2(-360, -81), new Vector2(200, 28), 12, TextAnchor.MiddleCenter);
             cycleHint.text = "맨 앞 기술을 쓰지 않고\n뒤로 보냄"; cycleHint.color = MutedText;
@@ -294,11 +304,10 @@ namespace TurnLimbo.Presentation
             Filled(actFill, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
             for (int unit = 1; unit < 10; unit++)
                 Image("ACT Divider " + unit, controls, white, new Vector2(-260 + unit * 52, -90), new Vector2(2, 8), Surface);
-            actText = Text("Act_Value", controls, new Vector2(0, -75), new Vector2(140, 20), 18, TextAnchor.MiddleCenter);
-            actText.color = MutedText;
+            actText = Text("Act_Value", controls, new Vector2(0, -78), new Vector2(160, 22), 22, TextAnchor.MiddleCenter);
+            actText.color = Foreground;
             guideActFocus = GuideFocusFrame("Guide ACT Focus", controls, new Vector2(0f, -81f), new Vector2(540f, 39f));
-            var start = Panel("AButton", controls, new Vector2(-80, 0), new Vector2(96, 112), RaisedSurface, Accent);
-            Pin(start.rectTransform, new Vector2(1, .5f));
+            var start = Panel("AButton", controls, new Vector2(EndButtonX, -4f), new Vector2(96, 112), RaisedSurface, Accent);
             BuildActionIcon(start.transform, "confirm-turn", "확정", "Space");
             commitButton = AddButton(start, true);
             guideCommitGroup = start.gameObject.AddComponent<CanvasGroup>();
@@ -338,6 +347,7 @@ namespace TurnLimbo.Presentation
             playerExplanationIcon.preserveAspect = true;
             playerName = Text("Name", playerExplanation, new Vector2(35, 148), new Vector2(326, 34), 26, TextAnchor.MiddleLeft);
             playerName.color = DuelVisualTheme.Ink;
+            FitExplanationLabel(playerName, 16);
             playerStyle = new SkillLaneBadge(playerExplanation, art.UIFont, "Power Cost Property", Vector2.zero);
             playerDetails = playerStyle.Label;
             playerInfo = new SkillInfoView(playerExplanation, art.UIFont, new Vector2(0, -18), 416, "Player");
@@ -346,6 +356,7 @@ namespace TurnLimbo.Presentation
             playerEffectFeedback = SkillCardFeedbackGraphic.Create(playerDescription.transform, "Current Effect Emphasis", 3f);
             playerExplanationHint = Text("Explanation Hint", playerExplanation, new Vector2(0, -157), new Vector2(416, 20), 14, TextAnchor.MiddleRight);
             playerExplanationHint.text = "키를 놓으면 닫기"; playerExplanationHint.color = DuelVisualTheme.Ink;
+            FitExplanationLabel(playerExplanationHint, 11);
             var enemyExplanationImage = Panel("Enemy Skill Explain", root, new Vector2(-480, 160), new Vector2(460, 368), DuelVisualTheme.Paper);
             Dress(enemyExplanationImage);
             enemyExplanation = enemyExplanationImage.rectTransform;
@@ -353,6 +364,7 @@ namespace TurnLimbo.Presentation
             enemyExplanationIcon.preserveAspect = true;
             enemyName = Text("Name", enemyExplanation, new Vector2(35, 148), new Vector2(326, 34), 26, TextAnchor.MiddleLeft);
             enemyName.color = DuelVisualTheme.Ink;
+            FitExplanationLabel(enemyName, 16);
             enemyStyle = new SkillLaneBadge(enemyExplanation, art.UIFont, "Power Property", Vector2.zero);
             enemyDetails = enemyStyle.Label;
             enemyInfo = new SkillInfoView(enemyExplanation, art.UIFont, new Vector2(0, -18), 416, "Enemy");
@@ -361,6 +373,7 @@ namespace TurnLimbo.Presentation
             enemyEffectFeedback = SkillCardFeedbackGraphic.Create(enemyDescription.transform, "Current Effect Emphasis", 3f);
             enemyExplanationHint = Text("Explanation Hint", enemyExplanation, new Vector2(0, -157), new Vector2(416, 20), 14, TextAnchor.MiddleRight);
             enemyExplanationHint.text = EnemyHint; enemyExplanationHint.color = DuelVisualTheme.Ink;
+            FitExplanationLabel(enemyExplanationHint, 11);
 
             BuildLogPanel(white);
 
@@ -404,12 +417,27 @@ namespace TurnLimbo.Presentation
             missionTimed = timed;
             missionBreath = breath;
             ApplyInputAvailability();
-            bool showTimer = !enabled || timed;
-            timerTrack.gameObject.SetActive(showTimer);
-            timerFill.gameObject.SetActive(showTimer);
-            untimedHint.gameObject.SetActive(!showTimer);
+            UpdateTimerPresentation();
             UpdateStageLabel();
             if (!enabled) SetGuideFocus(-1, false, false, false);
+        }
+
+        /// <summary>Training keeps normal skill availability, but has no planning clock or stage numbering.</summary>
+        public void SetTrainingMode(bool enabled)
+        {
+            if (disposed || trainingMode == enabled) return;
+            trainingMode = enabled;
+            UpdateTimerPresentation();
+            UpdateStageLabel();
+        }
+
+        private void UpdateTimerPresentation()
+        {
+            bool showTimer = !trainingMode && (!missionMode || missionTimed);
+            timerTrack.gameObject.SetActive(showTimer);
+            timerFill.gameObject.SetActive(showTimer);
+            untimedHint.text = trainingMode ? "수련 · 시간 제한 없음" : "임무 · 시간 제한 없음";
+            untimedHint.gameObject.SetActive(!showTimer);
         }
 
         /// <summary>The mission coach whose current beat gates queueing and committing, or null for free play.</summary>
@@ -557,11 +585,12 @@ namespace TurnLimbo.Presentation
         {
             bool cycleShown = CycleShown;
             cycleButton.gameObject.SetActive(cycleShown);
-            cycleNote.gameObject.SetActive(cycleShown);
+            // The button already names its cost and effect. The tiny repeated note crowded the compact desk.
+            cycleNote.gameObject.SetActive(false);
             cycleButton.interactable = CanCycle();
             bool breathShown = BreathShown;
             breathButton.gameObject.SetActive(breathShown);
-            breathNote.gameObject.SetActive(breathShown);
+            breathNote.gameObject.SetActive(false);
             breathButton.interactable = CanQueueBreath();
             bool allowCommit = guide == null || guide.AllowsCommit;
             commitButton.interactable = lastPlanning && allowCommit;
@@ -608,12 +637,13 @@ namespace TurnLimbo.Presentation
             highlightEnemyQueue = enemy;
             UpdateGuideEnemyFocus();
             guideActFocus.gameObject.SetActive(act);
-            actText.color = act ? Accent : MutedText;
+            actText.color = act ? Accent : Foreground;
         }
 
         private void UpdateStageLabel()
         {
-            stageText.text = missionMode ? $"임무 {stageNumber:00} / {stageCount:00}  ·  {stageName}"
+            stageText.text = trainingMode ? $"수련  ·  {stageName}"
+                : missionMode ? $"임무 {stageNumber:00} / {stageCount:00}  ·  {stageName}"
                 : $"{stageNumber:00} / {stageCount:00}  ·  {stageName}";
         }
 
@@ -628,7 +658,8 @@ namespace TurnLimbo.Presentation
         }
 
         public void Refresh(LegacyQueuedDuel session, float timeRemaining, bool isResolving, int currentSlot,
-            Camera camera, Transform player, Transform enemy, float delta = 0, float realDelta = -1)
+            Camera camera, Transform player, Transform enemy, float delta = 0, float realDelta = -1,
+            float planningDuration = 10f)
         {
             if (disposed || session == null) return;
             displayedSession = session;
@@ -637,7 +668,7 @@ namespace TurnLimbo.Presentation
             float actualDelta = realDelta < 0 ? delta : Mathf.Max(0, realDelta);
             transition = Mathf.MoveTowards(transition, targetTransition, delta * 2);
             float ease = 1 - Mathf.Pow(1 - transition, 3);
-            inputPanel.sizeDelta = new Vector2(0, DockHeight * (1 - OutQuad(transition)));
+            inputPanel.sizeDelta = new Vector2(DockWidth, DockHeight * (1 - OutQuad(transition)));
             timerPanel.anchoredPosition = new Vector2(0, Mathf.Lerp(-36, 64, ease));
             cinematicElapsed = Mathf.Min(.3f, cinematicElapsed + actualDelta);
             cinematic = Mathf.Lerp(cinematicFrom, cinematicTarget, OutQuad(cinematicElapsed / .3f));
@@ -654,14 +685,15 @@ namespace TurnLimbo.Presentation
             canOpenLog = planning;
             inputs.alpha = planning ? 1 : 0;
             inputs.interactable = inputs.blocksRaycasts = planning;
-            float ratio = Mathf.Clamp01(timeRemaining / 10);
+            float ratio = Mathf.Clamp01(timeRemaining / Mathf.Max(0.01f, planningDuration));
             timerFill.fillAmount = ratio;
             timerFill.color = Color.Lerp(DuelVisualTheme.Danger, Accent, ratio);
-            actFill.fillAmount = Mathf.Clamp01(session.Act / 10f);
-            if (shownAct != session.Act)
+            actFill.fillAmount = Mathf.Clamp01(session.Act / (float)session.PlayerMaximumAct);
+            if (shownAct != session.Act || shownMaxAct != session.PlayerMaximumAct)
             {
                 shownAct = session.Act;
-                actText.text = $"{shownAct} / 10 ACT";
+                shownMaxAct = session.PlayerMaximumAct;
+                actText.text = $"{shownAct} / {shownMaxAct} ACT";
             }
             if (shownTurn != session.RoundNumber)
             {
@@ -920,6 +952,14 @@ namespace TurnLimbo.Presentation
             hint.rectTransform.anchoredPosition = new Vector2(0f, -top + 16f);
         }
 
+        private static void FitExplanationLabel(Text label, int minSize)
+        {
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = minSize;
+            label.resizeTextMaxSize = label.fontSize;
+        }
+
         public void HideExplanation()
         {
             playerExplanation.gameObject.SetActive(false);
@@ -1067,9 +1107,10 @@ namespace TurnLimbo.Presentation
         public void Reset()
         {
             if (disposed) return;
+            SetTrainingMode(false);
             SetMissionMode(false);
             SetGuideFocus(-1, false, false, false);
-            shownTurn = shownAct = -1;
+            shownTurn = shownAct = shownMaxAct = -1;
             displayedSession = null;
             // The next duel may open other lanes, so a skill explained again is shown afresh (its badge may change).
             explainedPlayer = explainedEnemy = null;
@@ -1617,7 +1658,7 @@ namespace TurnLimbo.Presentation
         /// than the room to the screen edge tightens its spacing so the cards overlap a little.</summary>
         private sealed class QueueView
         {
-            private const float Pitch = 72f, CardSize = 64f, MinimumPitch = 14f;
+            private const float Pitch = 72f, CardSize = 64f, MinimumPitch = 12f;
             private readonly List<RectTransform> visibleItems = new List<RectTransform>();
             public bool GrowsLeft => player;
             public readonly RectTransform Root;
@@ -1672,7 +1713,7 @@ namespace TurnLimbo.Presentation
                 UpdateFeedback();
             }
             /// <summary>Fits the row into <paramref name="room"/> (from the panel's inner edge to the screen edge it grows
-            /// toward), tightening the spacing down to a floor when it would not fit at full spacing.</summary>
+            /// toward), tightening the spacing down to a readable floor when it would not fit at full spacing.</summary>
             public void Fit(float room)
             {
                 int count = visibleItems.Count;

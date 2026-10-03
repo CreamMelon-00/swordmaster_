@@ -1,5 +1,7 @@
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Sheets;
 
 namespace TurnLimbo.Core.Tests
 {
@@ -11,6 +13,10 @@ namespace TurnLimbo.Core.Tests
         [TestCase(42, LegacySkillKind.Defence, LegacySkillProperty.Defence, true)]
         [TestCase(42, LegacySkillKind.Attack, LegacySkillProperty.Defence, false)]
         [TestCase(42, LegacySkillKind.Attack, LegacySkillProperty.Hit, false)]
+        [TestCase(5, LegacySkillKind.Attack, LegacySkillProperty.Slash, true)]
+        [TestCase(5, LegacySkillKind.Defence, LegacySkillProperty.Defence, false)]
+        [TestCase(6, LegacySkillKind.Defence, LegacySkillProperty.Defence, true)]
+        [TestCase(6, LegacySkillKind.Attack, LegacySkillProperty.Hit, false)]
         public void OpponentMatcher_UsesExistingPropertyAndKindRules(int id, LegacySkillKind kind,
             LegacySkillProperty property, bool matches)
         {
@@ -21,7 +27,9 @@ namespace TurnLimbo.Core.Tests
         }
 
         [TestCase(1)]
+        [TestCase(2)]
         [TestCase(3)]
+        [TestCase(4)]
         [TestCase(8)]
         [TestCase(9)]
         [TestCase(10)]
@@ -111,6 +119,52 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.Enemy.Resistance, Is.EqualTo(50));
         }
 
+        [TestCase(5, LegacySkillKind.Attack, true, 5)]
+        [TestCase(5, LegacySkillKind.Attack, false, 5)]
+        [TestCase(5, LegacySkillKind.Defence, true, 0)]
+        [TestCase(6, LegacySkillKind.Defence, true, 8)]
+        [TestCase(6, LegacySkillKind.Defence, false, 8)]
+        [TestCase(6, LegacySkillKind.Attack, true, 0)]
+        public void StarterTrickFeedback_AppliesDirectResistanceOnlyAgainstItsOpposingKind(
+            int id, LegacySkillKind opposingKind, bool playerUsesTrick, int expectedReduction)
+        {
+            LegacySkill trick = Skill(id, 1);
+            LegacySkill opponent = opposingKind == LegacySkillKind.Attack
+                ? Skill(900, 1, LegacySkillKind.Attack, LegacySkillProperty.Slash)
+                : Guard(901, 100);
+            var duel = Duel(new[] { playerUsesTrick ? trick : opponent },
+                new[] { playerUsesTrick ? opponent : trick }, 1, playerResistance: 10, enemyResistance: 10);
+            Queue(duel);
+            duel.Commit();
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            LegacySkillFeedback feedback = playerUsesTrick ? slot.PlayerFeedback : slot.EnemyFeedback;
+
+            Assert.That(feedback.ConditionMet, Is.EqualTo(expectedReduction > 0));
+            Assert.That(feedback.EffectActivated, Is.EqualTo(expectedReduction > 0));
+            Assert.That(feedback.OpponentResistanceReduced, Is.EqualTo(expectedReduction));
+            Assert.That((playerUsesTrick ? duel.Enemy : duel.Player).Resistance, Is.EqualTo(10 - expectedReduction));
+            Assert.That((playerUsesTrick ? duel.Enemy : duel.Player).Health, Is.EqualTo(1000),
+                "A direct resistance reduction never spills into health before the hit.");
+            Assert.That(duel.NextActGain, Is.EqualTo(3));
+            AssertNoGrantedBuff(feedback);
+        }
+
+        [TestCase(5)]
+        [TestCase(6)]
+        public void StarterTrickFeedback_CapsDirectReductionAtRemainingResistance(int id)
+        {
+            LegacySkill matchedOpponent = id == 5 ? Skill(900, 1) : Guard(901, 100);
+            var duel = Duel(new[] { Skill(id, 1) }, new[] { matchedOpponent }, 1, enemyResistance: 3);
+            Queue(duel);
+            duel.Commit();
+            LegacySkillFeedback feedback = duel.BeginNextSlot().PlayerFeedback;
+            Assert.That(feedback.ConditionMet, Is.True);
+            Assert.That(feedback.EffectActivated, Is.True);
+            Assert.That(feedback.OpponentResistanceReduced, Is.EqualTo(3));
+            Assert.That(duel.Enemy.Resistance, Is.Zero);
+            Assert.That(duel.Enemy.Health, Is.EqualTo(1000));
+        }
+
         [TestCase(50, 10, true, 45)]
         [TestCase(50, 2, true, 50)]
         [TestCase(50, 0, false, 50)]
@@ -146,7 +200,7 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void PowerSnapshot_TracksAdditiveBuffsBeforeTickAndRemainsStableAfterLaterSlots()
         {
-            var duel = Duel(new[] { Guard(9, 100), Skill(3, 10), Skill(10, 10), Skill(100, 20), Skill(101, 20), Skill(102, 20) },
+            var duel = Duel(new[] { Guard(9, 100), Guard(9, 100), Skill(10, 10), Skill(100, 20), Skill(101, 20), Skill(102, 20) },
                 new[] { Skill(900, 1) }, 6, playerResistance: 1000, enemyResistance: 1000);
             Queue(duel, 6);
             duel.Commit();
@@ -155,23 +209,23 @@ namespace TurnLimbo.Core.Tests
             Assert.That(original.PlayerFeedback.EffectActivated, Is.True);
             Assert.That(original.PlayerFeedback.ConditionMet, Is.False);
             CompleteSlot(duel);
-            LegacyCurrentSlot stab = duel.BeginNextSlot();
-            Assert.That(stab.PlayerFeedback.PowerBuffPercent, Is.EqualTo(3));
+            LegacyCurrentSlot secondParry = duel.BeginNextSlot();
+            Assert.That(secondParry.PlayerFeedback.PowerBuffPercent, Is.EqualTo(20));
             CompleteSlot(duel);
             LegacyCurrentSlot ready = duel.BeginNextSlot();
-            Assert.That(ready.PlayerFeedback.PowerBuffPercent, Is.EqualTo(13));
+            Assert.That(ready.PlayerFeedback.PowerBuffPercent, Is.EqualTo(40));
             CompleteSlot(duel);
             LegacyCurrentSlot combined = duel.BeginNextSlot();
-            Assert.That(combined.PlayerFeedback.PowerBuffPercent, Is.EqualTo(43));
+            Assert.That(combined.PlayerFeedback.PowerBuffPercent, Is.EqualTo(50));
             Assert.That(combined.PlayerFeedback.HasPowerBuff, Is.True);
             Assert.That(combined.PlayerFeedback.HasBeneficialBuff, Is.True);
             Assert.That(combined.PlayerFeedback.EffectActivated, Is.False);
-            Assert.That(CompleteSlot(duel).EnemyResistanceDamage, Is.EqualTo(28));
-            Assert.That(duel.BeginNextSlot().PlayerFeedback.PowerBuffPercent, Is.EqualTo(13));
+            Assert.That(CompleteSlot(duel).EnemyResistanceDamage, Is.EqualTo(30));
+            Assert.That(duel.BeginNextSlot().PlayerFeedback.PowerBuffPercent, Is.Zero);
             CompleteSlot(duel);
-            Assert.That(duel.BeginNextSlot().PlayerFeedback.PowerBuffPercent, Is.EqualTo(3));
+            Assert.That(duel.BeginNextSlot().PlayerFeedback.PowerBuffPercent, Is.Zero);
             CompleteSlot(duel);
-            Assert.That(combined.PlayerFeedback.PowerBuffPercent, Is.EqualTo(43));
+            Assert.That(combined.PlayerFeedback.PowerBuffPercent, Is.EqualTo(50));
             Assert.That(original.PlayerFeedback.PowerBuffPercent, Is.Zero);
         }
 
@@ -179,12 +233,12 @@ namespace TurnLimbo.Core.Tests
         public void EnemyPowerSnapshot_UsesEnemyBuffsAndDoesNotClaimPlayerRecovery()
         {
             var duel = Duel(new[] { Guard(100, 100) },
-                new[] { Guard(9, 100), Skill(3, 10), Skill(10, 10), Skill(900, 20) }, 4);
+                new[] { Guard(9, 100), Guard(9, 100), Skill(10, 10), Skill(900, 20) }, 4);
             Queue(duel, 4);
             duel.Commit();
             for (int i = 0; i < 3; i++) duel.ResolveNextSlot();
             LegacyCurrentSlot slot = duel.BeginNextSlot();
-            Assert.That(slot.EnemyFeedback.PowerBuffPercent, Is.EqualTo(43));
+            Assert.That(slot.EnemyFeedback.PowerBuffPercent, Is.EqualTo(50));
             Assert.That(slot.EnemyFeedback.HasPowerBuff, Is.True);
             Assert.That(slot.PlayerFeedback.PowerBuffPercent, Is.Zero);
             Assert.That(duel.NextActGain, Is.EqualTo(3));
@@ -216,28 +270,45 @@ namespace TurnLimbo.Core.Tests
             CompleteSlot(duel);
 
             LegacyCurrentSlot protectedSlot = duel.BeginNextSlot();
-            Assert.That(protectedSlot.PlayerFeedback.ProtectionBuffPercent, Is.EqualTo(30));
+            Assert.That(protectedSlot.PlayerFeedback.ProtectionBuffPercent, Is.EqualTo(25));
             Assert.That(protectedSlot.PlayerFeedback.PowerBuffPercent, Is.Zero);
             Assert.That(protectedSlot.PlayerFeedback.HasBeneficialBuff, Is.True);
-            Assert.That(CompleteSlot(duel).PlayerHealthDamage, Is.EqualTo(7));
+            Assert.That(CompleteSlot(duel).PlayerHealthDamage, Is.EqualTo(8));
         }
 
         [Test]
         public void ProtectionSnapshot_CapsFullProtectionAndNetsForwardVulnerability()
         {
-            LegacySkill protect = Guard(8, 100);
-            var duel = Duel(new[] { protect, protect, protect, protect, Skill(12, 1), Skill(100, 1) },
-                new[] { Skill(900, 10) }, 6, playerResistance: 1000);
-            Queue(duel, 6);
-            duel.Commit();
-            for (int i = 0; i < 4; i++) duel.ResolveNextSlot();
-            LegacyCurrentSlot fullyProtected = duel.BeginNextSlot();
-            Assert.That(fullyProtected.PlayerFeedback.ProtectionBuffPercent, Is.EqualTo(100));
-            Assert.That(CompleteSlot(duel).PlayerResistanceDamage, Is.Zero);
-            LegacyCurrentSlot vulnerable = duel.BeginNextSlot();
-            Assert.That(vulnerable.PlayerFeedback.ProtectionBuffPercent, Is.EqualTo(70));
-            Assert.That(vulnerable.PlayerFeedback.HasBeneficialBuff, Is.True);
-            Assert.That(CompleteSlot(duel).PlayerResistanceDamage, Is.EqualTo(3));
+            // The shipped W guard protects only one following slot. A temporary valid sheet with longer
+            // buffs exercises the interpreter's cap and additive vulnerability without changing that design.
+            var rows = CsvTable.Read(LegacySkillSheet.Write(LegacySkillDefinitions.Table))
+                .Select(record => record.Fields.ToArray()).ToList();
+            string[] guardRow = rows.Single(row => row[0] == "8");
+            guardRow[LegacySkillSheet.Headers.ToList().IndexOf(LegacySkillSheet.Column.ProtectionBuff)] = "60%";
+            guardRow[LegacySkillSheet.Headers.ToList().IndexOf(LegacySkillSheet.Column.BuffSlots)] = "3";
+            string sheet = CsvTable.Write(rows);
+            try
+            {
+                LegacySkillDefinitions.Install(() => sheet);
+                LegacySkill protect = Guard(8, 100);
+                var duel = Duel(new[] { protect, protect, Skill(12, 1), Skill(100, 1) },
+                    new[] { Skill(900, 10) }, 4, playerResistance: 1000);
+                Queue(duel, 4);
+                duel.Commit();
+                duel.ResolveNextSlot();
+                duel.ResolveNextSlot();
+                LegacyCurrentSlot fullyProtected = duel.BeginNextSlot();
+                Assert.That(fullyProtected.PlayerFeedback.ProtectionBuffPercent, Is.EqualTo(100));
+                Assert.That(CompleteSlot(duel).PlayerResistanceDamage, Is.Zero);
+                LegacyCurrentSlot vulnerable = duel.BeginNextSlot();
+                Assert.That(vulnerable.PlayerFeedback.ProtectionBuffPercent, Is.EqualTo(70));
+                Assert.That(vulnerable.PlayerFeedback.HasBeneficialBuff, Is.True);
+                Assert.That(CompleteSlot(duel).PlayerResistanceDamage, Is.EqualTo(3));
+            }
+            finally
+            {
+                LegacySkillDefinitions.Install(null);
+            }
         }
 
         [Test]
@@ -271,16 +342,15 @@ namespace TurnLimbo.Core.Tests
             Assert.That(slot.PlayerFeedback.PowerBuffPercent, Is.Zero);
             Assert.That(slot.PlayerFeedback.HasPowerBuff, Is.False);
             Assert.That(slot.PlayerFeedback.HasBeneficialBuff, Is.False);
-            Assert.That(slot.PlayerFeedback.ProtectionBuffPercent, Is.EqualTo(wait ? 30 : 0));
+            Assert.That(slot.PlayerFeedback.ProtectionBuffPercent, Is.Zero,
+                "The shipped W guard protects only the immediately following slot.");
             AssertNoGrantedBuff(slot.PlayerFeedback);
         }
 
-        [TestCase(3, true, 10, 0, 3)]
-        [TestCase(3, false, 10, 0, 3)]
-        [TestCase(8, true, 0, 30, 10)]
-        [TestCase(8, false, 0, 30, 10)]
-        [TestCase(9, true, 3, 0, 10)]
-        [TestCase(9, false, 3, 0, 10)]
+        [TestCase(8, true, 0, 25, 1)]
+        [TestCase(8, false, 0, 25, 1)]
+        [TestCase(9, true, 20, 0, 2)]
+        [TestCase(9, false, 20, 0, 2)]
         [TestCase(10, true, 30, 0, 1)]
         [TestCase(10, false, 30, 0, 1)]
         public void GrantedBuffFeedback_ReportsActualAcquisitionThenFollowingApplicationForEitherFighter(
@@ -333,15 +403,15 @@ namespace TurnLimbo.Core.Tests
             duel.ResolveNextSlot();
             LegacyCurrentSlot second = duel.BeginNextSlot();
 
-            Assert.That(second.EnemyFeedback.ProtectionBuffPercent, Is.EqualTo(30));
-            Assert.That(second.EnemyFeedback.GrantedProtectionBuffPercent, Is.EqualTo(30));
+            Assert.That(second.EnemyFeedback.ProtectionBuffPercent, Is.EqualTo(25));
+            Assert.That(second.EnemyFeedback.GrantedProtectionBuffPercent, Is.EqualTo(25));
             Assert.That(second.EnemyFeedback.HasBeneficialBuff, Is.True);
             Assert.That(second.EnemyFeedback.HasGrantedBeneficialBuff, Is.True);
             CompleteSlot(duel);
             LegacyCurrentSlot following = duel.BeginNextSlot();
-            Assert.That(following.EnemyFeedback.ProtectionBuffPercent, Is.EqualTo(60));
+            Assert.That(following.EnemyFeedback.ProtectionBuffPercent, Is.EqualTo(25));
             AssertNoGrantedBuff(following.EnemyFeedback);
-            Assert.That(second.EnemyFeedback.GrantedBuffSlots, Is.EqualTo(10));
+            Assert.That(second.EnemyFeedback.GrantedBuffSlots, Is.EqualTo(1));
         }
 
         [TestCase(true)]
@@ -371,6 +441,9 @@ namespace TurnLimbo.Core.Tests
         }
 
         [TestCase(1)]
+        [TestCase(3)]
+        [TestCase(5)]
+        [TestCase(6)]
         [TestCase(7)]
         [TestCase(19)]
         [TestCase(42)]

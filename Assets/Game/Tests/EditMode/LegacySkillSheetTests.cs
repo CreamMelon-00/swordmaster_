@@ -14,7 +14,7 @@ namespace TurnLimbo.Core.Tests
     public sealed class LegacySkillSheetTests
     {
         // Sheet rows of the shipped table as written: the header is row 1, then ids in table order.
-        private const int Row1 = 2, Row2 = 3, Row7 = 8, Row16 = 13, Row17 = 14, Row42 = 20;
+        private const int Row1 = 2, Row2 = 3, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row42 = 20, Row43 = 21;
 
         /// <summary>The shipped table as the writer lays it out, one string array per sheet row.</summary>
         private static List<string[]> Rows()
@@ -95,8 +95,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(csv[0], Is.EqualTo('\ufeff'), "Excel needs the mark to read Korean.");
             Assert.That(csv, Does.Not.Contain("\r"));
             Assert.That(csv.Substring(1, csv.IndexOf('\n') - 1), Is.EqualTo(string.Join(",", LegacySkillSheet.Headers)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(36));
-            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(36));
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(37));
+            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(37));
         }
 
         [Test]
@@ -167,7 +167,7 @@ namespace TurnLimbo.Core.Tests
             rows.Insert(3, new[] { "  " });
             rows.Insert(4, Enumerable.Repeat(" ", width).ToArray());
             LegacySkillTable table = Parse(rows);
-            Assert.That(table.All.Count, Is.EqualTo(19));
+            Assert.That(table.All.Count, Is.EqualTo(21));
             Assert.That(table.All[0].Skill.Id, Is.EqualTo(1));
 
             Set(rows, 2, Column.Cost, "1.5");
@@ -199,6 +199,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.MaxPower, "열", "0 이상의 정수")]
         [TestCase(Column.Icon, "0", "1 이상의 정수")]
         [TestCase(Column.ActGain, "-2", "0 이상의 정수")]
+        [TestCase(Column.BrokenTargetDamage, "-1%", "0 이상의 정수")]
         [TestCase(Column.PowerBuff, "10.5%", "정수여야 합니다 (끝에 %를 붙여도 됩니다)")]
         [TestCase(Column.BuffSlots, "-1", "0 이상의 정수")]
         [TestCase(Column.ResistanceRecovery, "-10%", "0 이상의 정수")]
@@ -230,13 +231,13 @@ namespace TurnLimbo.Core.Tests
             Set(rows, 3, Column.Kind, "attack");
             Set(rows, 3, Column.Property, "  PENETRATE ");
             Set(rows, 3, Column.Lane, "w");
-            Set(rows, 3, Column.PowerBuff, "10");
-            Set(rows, 3, Column.InfoMainSymbol, "followup");
-            Set(rows, 3, Column.InfoMainTone, "Followup");
-            Set(rows, 8, Column.ProtectionBuff, " 30 % ");
-            Set(rows, 2, Column.HighPower, "TRUE");
+            Set(rows, 9, Column.PowerBuff, "20");
+            Set(rows, 9, Column.InfoMainSymbol, "followup");
+            Set(rows, 9, Column.InfoMainTone, "Followup");
+            Set(rows, 8, Column.ProtectionBuff, " 25 % ");
+            Set(rows, 2, Column.HighPower, "false");
             Set(rows, 4, Column.HighPower, "○");
-            Set(rows, 6, Column.HighPower, "예");
+            Set(rows, 6, Column.HighPower, "아니오");
             Set(rows, 16, Column.VariablePower, "y");
             Set(rows, 14, Column.HighPower, "X");
             Set(rows, 15, Column.HighPower, "아니오");
@@ -252,24 +253,24 @@ namespace TurnLimbo.Core.Tests
         public void BlankOptionalCells_ReadTheirDefaults()
         {
             List<string[]> rows = Rows();
-            Set(rows, 3, Column.InfoMainSymbol, "");
-            Set(rows, 3, Column.InfoMainTone, "");
-            Set(rows, 3, Column.InfoSecondarySymbol, "");
-            Set(rows, 3, Column.InfoSecondaryTone, "");
-            Set(rows, 3, Column.InfoSecondary, "");
-            Set(rows, 3, Column.Purpose, "");
-            Set(rows, 3, Column.Description, "");
-            LegacySkillDefinition thrust = Parse(rows).Find(3);
-            Assert.That(thrust.Text.Info.MainSymbol, Is.EqualTo(LegacySkillSymbol.Act));
-            Assert.That(thrust.Text.Info.MainTone, Is.EqualTo(LegacySkillTone.Neutral));
-            Assert.That(thrust.Text.Info.SecondarySymbol, Is.EqualTo(LegacySkillSymbol.Hits));
-            Assert.That(thrust.Text.Info.SecondaryTone, Is.EqualTo(LegacySkillTone.Neutral));
-            Assert.That(thrust.Text.Info.Secondary, Is.Empty);
-            Assert.That(thrust.Text.Info.EnemyMain, Is.Null);
-            Assert.That(thrust.Text.Purpose, Is.Null);
-            Assert.That(thrust.Skill.Description, Is.Empty);
-            Assert.That(thrust.Skill.IconId, Is.EqualTo(3));
-            Assert.That(thrust.Skill.AnimationName, Is.EqualTo("Penetrate"));
+            Set(rows, 5, Column.InfoMainSymbol, "");
+            Set(rows, 5, Column.InfoMainTone, "");
+            Set(rows, 5, Column.InfoSecondarySymbol, "");
+            Set(rows, 5, Column.InfoSecondaryTone, "");
+            Set(rows, 5, Column.InfoSecondary, "");
+            Set(rows, 5, Column.Purpose, "");
+            Set(rows, 5, Column.Description, "");
+            LegacySkillDefinition trick = Parse(rows).Find(5);
+            Assert.That(trick.Text.Info.MainSymbol, Is.EqualTo(LegacySkillSymbol.Act));
+            Assert.That(trick.Text.Info.MainTone, Is.EqualTo(LegacySkillTone.Neutral));
+            Assert.That(trick.Text.Info.SecondarySymbol, Is.EqualTo(LegacySkillSymbol.Hits));
+            Assert.That(trick.Text.Info.SecondaryTone, Is.EqualTo(LegacySkillTone.Neutral));
+            Assert.That(trick.Text.Info.Secondary, Is.Empty);
+            Assert.That(trick.Text.Info.EnemyMain, Is.Null);
+            Assert.That(trick.Text.Purpose, Is.Null);
+            Assert.That(trick.Skill.Description, Is.Empty);
+            Assert.That(trick.Skill.IconId, Is.EqualTo(5));
+            Assert.That(trick.Skill.AnimationName, Is.EqualTo("Hit"));
             Assert.That(Parse(rows).Find(7).Skill.AnimationName, Is.EqualTo("Defense"));
             Assert.That(Parse(rows).Find(2).Text.Info, Is.Null, "A row with no badge cell has no badges.");
             Assert.That(Parse(rows).Find(2).Effect, Is.SameAs(LegacySkillEffect.None));
@@ -283,12 +284,12 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Problem(rows), Is.EqualTo($"{Row1}행 (ID 1) '최대 위력'(5)이(가) '최소 위력'(9)보다 작습니다."));
 
             rows = Rows();
-            Set(rows, 3, Column.BuffSlots, "");
-            Assert.That(Problem(rows), Is.EqualTo("4행 (ID 3) '위력 버프'나 '보호 버프'를 쓰려면 '버프 칸'이(가) 1 이상이어야 합니다."));
+            Set(rows, 9, Column.BuffSlots, "");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row9}행 (ID 9) '위력 버프'나 '보호 버프'를 쓰려면 '버프 칸'이(가) 1 이상이어야 합니다."));
 
             rows = Rows();
-            Set(rows, 3, Column.PowerBuff, "0%");
-            Assert.That(Problem(rows), Is.EqualTo("4행 (ID 3) '버프 칸'이(가) 있으면 '위력 버프'나 '보호 버프'도 있어야 합니다."));
+            Set(rows, 9, Column.PowerBuff, "0%");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row9}행 (ID 9) '버프 칸'이(가) 있으면 '위력 버프'나 '보호 버프'도 있어야 합니다."));
         }
 
         [Test]
@@ -332,6 +333,17 @@ namespace TurnLimbo.Core.Tests
             rows = Rows();
             Set(rows, 42, Column.Id, "16");
             Assert.That(Problem(rows), Is.EqualTo($"{Row42}행 (ID 16) ID가 {Row16}행과 겹칩니다. ID는 기술마다 달라야 합니다."));
+        }
+
+        [Test]
+        public void BrokenTargetBonus_RequiresAnAttackAndRoundTripsThroughTheSheet()
+        {
+            List<string[]> rows = Rows();
+            Assert.That(RowOf(rows, 44)[Index(Column.BrokenTargetDamage)], Is.EqualTo("25%"));
+            Assert.That(Parse(rows).Find(44).Effect.BrokenTargetDamagePercent, Is.EqualTo(25));
+
+            Set(rows, 43, Column.BrokenTargetDamage, "25%");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row43}행 (ID 43) '붕괴 대상 추가 피해'은(는) 공격 기술에만 쓸 수 있습니다."));
         }
 
         [Test]
@@ -386,7 +398,7 @@ namespace TurnLimbo.Core.Tests
 
             rows = Rows();
             foreach (string[] row in rows.Skip(1)) if (row[Index(Column.Group)] == "획득") row[Index(Column.Group)] = "";
-            Assert.That(Problems(rows).Count(problem => problem.Contains("'구분'")), Is.EqualTo(10),
+            Assert.That(Problems(rows).Count(problem => problem.Contains("'구분'")), Is.EqualTo(12),
                 "Blank groups are cell problems; the table rules wait until every row's group reads.");
 
             rows = Rows().Take(10).ToList();
@@ -407,7 +419,7 @@ namespace TurnLimbo.Core.Tests
             {
                 $"{Row1}행 '속성': 'y'은(는) 쓸 수 없습니다. 참격, 타격, 관통, 방어 중 하나를 적으세요.",
                 $"{Row1}행 'ACT': 'x'은(는) 0 이상의 정수여야 합니다.",
-                $"{Row2}행 (ID 2) '최대 위력'(15)이(가) '최소 위력'(99)보다 작습니다.",
+                $"{Row2}행 (ID 2) '최대 위력'(9)이(가) '최소 위력'(99)보다 작습니다.",
                 $"{Row16}행 '열': 칸이 비어 있습니다. Q, W, E 중 하나를 적으세요.",
             }));
             Assert.That(error.Message, Does.StartWith("기술 시트 'Skills/test.csv'"));
@@ -420,7 +432,7 @@ namespace TurnLimbo.Core.Tests
         {
             string csv = LegacySkillSheet.Write(LegacySkillDefinitions.Table) + "99,\"열린 따옴표\n";
             var error = Assert.Throws<SkillSheetException>(() => LegacySkillSheet.Parse("test", csv));
-            Assert.That(error.Problems.Single(), Does.StartWith("21행: "));
+            Assert.That(error.Problems.Single(), Does.StartWith("23행: "));
         }
 
         [Test]
@@ -444,7 +456,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(changes.Changed, Is.EqualTo(1));
             Assert.That(changes.Reordered, Is.False, "12 is new, so the others keep their order.");
             Assert.That(changes.HasChanges, Is.True);
-            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 19개)"));
+            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 21개)"));
         }
 
         [Test]
@@ -454,7 +466,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillSheetChanges same = LegacySkillSheet.Describe(current, Parse(Rows()));
             Assert.That(same.HasChanges, Is.False);
             Assert.That(same.Lines, Is.Empty);
-            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 19개)."));
+            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 21개)."));
 
             List<string[]> rows = Rows();
             string[] guard = RowOf(rows, 7);
@@ -466,7 +478,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(moved.Summary, Does.Contain("순서 변경"));
 
             LegacySkillSheetChanges fresh = LegacySkillSheet.Describe(null, current);
-            Assert.That(fresh.Added, Is.EqualTo(19));
+            Assert.That(fresh.Added, Is.EqualTo(21));
             Assert.That(fresh.Lines[0], Is.EqualTo("추가: 1 베기"));
             Assert.That(fresh.Reordered, Is.False);
         }

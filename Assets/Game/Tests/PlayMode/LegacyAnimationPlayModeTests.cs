@@ -96,7 +96,9 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var arena = controller.ArenaView;
-                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(3));
+                var threeHitThrust = new LegacySkill(903, "Three-hit thrust", 1, 6, 6,
+                    LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 1, string.Empty);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), threeHitThrust);
                 arena.Tick(LegacyArenaView.OriginalImpactTime - .001f, 0);
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-04$"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.Match("^enemy-pierce(?:-[23])?-frame-04$"));
@@ -114,7 +116,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                     "Once the opponent's strikes end, the exchange is over.");
 
-                arena.BeginSlot(LegacySkillDefinitions.Skill(3), LegacySkillDefinitions.Skill(1));
+                arena.BeginSlot(threeHitThrust, LegacySkillDefinitions.Skill(1));
                 arena.Tick(LegacyArenaView.OriginalClipDuration + .001f, 0);
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"),
                     "The remade enemy holds its guard after a finished attack.");

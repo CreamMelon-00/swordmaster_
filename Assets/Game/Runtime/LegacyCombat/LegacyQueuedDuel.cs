@@ -22,8 +22,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly List<SkillBuff> enemyBuffs = new List<SkillBuff>();
         private readonly int playerMaxHealth;
         private readonly int playerMaxResistance;
+        private readonly int playerBaseActGain;
+        private readonly int playerMaximumAct;
         private readonly int enemyMaxHealth;
         private readonly int enemyMaxResistance;
+        private readonly int roundLimit;
         private readonly int randomSeed;
         private Random random;
         private LegacySkill[] committedPlayerQueue;
@@ -45,23 +48,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, int randomSeed = 1,
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
-            CombatFeature features = CombatFeature.All)
+            CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
+            int roundLimit = int.MaxValue)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills, enemySkills,
-                enemyTurnActionCounts, null, randomSeed, playerCounter, enemyCounter, features) { }
+                enemyTurnActionCounts, null, randomSeed, playerCounter, enemyCounter, features,
+                playerActGainBonus, playerActCapacityBonus, roundLimit) { }
 
         /// <summary>A duel whose enemy follows <paramref name="enemyScript"/> turn by turn.</summary>
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, EnemyScript enemyScript, int randomSeed = 1,
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
-            CombatFeature features = CombatFeature.All)
+            CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
+            int roundLimit = int.MaxValue)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills,
                 (enemyScript ?? throw new ArgumentNullException(nameof(enemyScript))).AllSkills, enemyScript.TurnSizes,
-                enemyScript, randomSeed, playerCounter, enemyCounter, features) { }
+                enemyScript, randomSeed, playerCounter, enemyCounter, features,
+                playerActGainBonus, playerActCapacityBonus, roundLimit) { }
 
         private LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, EnemyScript enemyScript, int randomSeed,
-            LegacyCounter playerCounter, LegacyCounter enemyCounter, CombatFeature features)
+            LegacyCounter playerCounter, LegacyCounter enemyCounter, CombatFeature features,
+            int playerActGainBonus, int playerActCapacityBonus, int roundLimit)
         {
             this.enemyScript = enemyScript;
             PlayerCounter = playerCounter;
@@ -71,14 +79,22 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Features = features;
             if (playerHealth <= 0 || enemyHealth <= 0 || playerResistance < 0 || enemyResistance < 0)
                 throw new ArgumentOutOfRangeException(nameof(playerHealth));
+            if (playerActGainBonus < 0) throw new ArgumentOutOfRangeException(nameof(playerActGainBonus));
+            if (playerActCapacityBonus < 0) throw new ArgumentOutOfRangeException(nameof(playerActCapacityBonus));
+            if (roundLimit < 1) throw new ArgumentOutOfRangeException(nameof(roundLimit));
+            this.roundLimit = roundLimit;
+            playerBaseActGain = checked(BaseActGain + playerActGainBonus);
+            playerMaximumAct = checked(MaximumAct + playerActCapacityBonus);
             initialPlayerSkills = CopySkills(playerSkills, nameof(playerSkills));
-            enemyPattern = CopySkills(enemySkills, nameof(enemySkills));
+            enemyPattern = CopySkills(enemySkills, nameof(enemySkills), allowEmpty: true);
             if (enemyTurnActionCounts == null || enemyTurnActionCounts.Count == 0)
                 throw new ArgumentException("At least one enemy turn action count is required.", nameof(enemyTurnActionCounts));
             enemyActionCounts = new int[enemyTurnActionCounts.Count];
             for (int i = 0; i < enemyActionCounts.Length; i++)
             {
-                if (enemyTurnActionCounts[i] < 1) throw new ArgumentOutOfRangeException(nameof(enemyTurnActionCounts));
+                // A passive target has no skills and queues no actions. Other enemies still need at least one.
+                if (enemyPattern.Length == 0 ? enemyTurnActionCounts[i] != 0 : enemyTurnActionCounts[i] < 1)
+                    throw new ArgumentOutOfRangeException(nameof(enemyTurnActionCounts));
                 enemyActionCounts[i] = enemyTurnActionCounts[i];
             }
             playerMaxHealth = playerHealth;
@@ -96,8 +112,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacyFighterState Player { get; private set; }
         public LegacyFighterState Enemy { get; private set; }
         public int RoundNumber { get; private set; }
+        public int RoundLimit => roundLimit;
         public int Act { get; private set; }
         public int NextActGain { get; private set; }
+        public int PlayerBaseActGain => playerBaseActGain;
+        public int PlayerMaximumAct => playerMaximumAct;
         public LegacyDuelPhase Phase { get; private set; }
         public DuelMatchOutcome Outcome { get; private set; }
         public IReadOnlyList<LegacySkill> PlayerQueue { get; }
@@ -258,6 +277,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             nextSlot = 0;
             slotCount = Math.Max(committedPlayerQueue.Length, committedEnemyQueue.Length);
             Phase = LegacyDuelPhase.Resolving;
+            if (slotCount == 0 && RoundNumber >= roundLimit)
+            {
+                Outcome = DuelMatchOutcome.Draw;
+                Phase = LegacyDuelPhase.Finished;
+            }
         }
 
         public bool TryStep(LegacyStepAction action, bool timingSuccessful, out bool success)
@@ -402,8 +426,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             bool enemyAttacked = HasAttackHit(slot.EnemySkill, hitIndex);
             LegacyHitImpact playerImpact = default;
             LegacyHitImpact enemyImpact = default;
-            // Both actions remain valid throughout the slot, including after a
-            // lethal hit. Original Controller checks death after its full wait.
+            // Both actions at this hit index resolve before checking the outcome.
+            // Later hits in the slot stop once either fighter falls.
             if (playerAttacked)
             {
                 enemyImpact = ResolveSingleHit(slot.PlayerSkill, slot.EnemySkill,
@@ -426,11 +450,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     slot.EnemyPower, slot.PlayerPower, Player, slot.PlayerReceivedMultiplier, halveDamage);
             }
             slot.HitsResolved++;
+            DuelMatchOutcome hitOutcome = DetermineOutcome();
+            if (hitOutcome != DuelMatchOutcome.InProgress)
+                slot.HitCount = slot.HitsResolved;
             return new LegacyHitResult(slot, hitIndex, playerAttacked, enemyAttacked,
                 playerHealth - Player.Health, enemyHealth - Enemy.Health,
                 playerResistance - Player.Resistance, enemyResistance - Enemy.Resistance,
                 playerImpact, enemyImpact,
-                slot.IsResolved ? DetermineOutcome() : DuelMatchOutcome.InProgress,
+                hitOutcome,
                 enemyAttacked && slot.DodgeSucceeded, slot.PressureSucceeded);
         }
 
@@ -442,6 +469,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LastResolvedSlot = slot.SlotIndex;
             nextSlot++;
             Outcome = DetermineOutcome();
+            if (Outcome == DuelMatchOutcome.InProgress && nextSlot >= slotCount && RoundNumber >= roundLimit)
+                Outcome = DuelMatchOutcome.Draw;
             if (Outcome != DuelMatchOutcome.InProgress) Phase = LegacyDuelPhase.Finished;
             CurrentSlot = null;
             return new LegacySlotResult(slot.SlotIndex, slot.PlayerSkill, slot.EnemySkill,
@@ -467,7 +496,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             enemyPatternIndex = 0;
             RoundNumber = 1;
             Act = 0;
-            NextActGain = BaseActGain;
+            NextActGain = playerBaseActGain;
             // A miss in the abandoned match must not cost the new match its opening ACT.
             StepMissedThisTurn = false;
             StepAttemptsThisTurn = StepSuccessStreak = 0;
@@ -477,8 +506,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private void StartPlanningTurn()
         {
-            Act = Math.Min(MaximumAct, Act + NextActGain - (StepMissedThisTurn ? BaseActGain : 0));
-            NextActGain = BaseActGain;
+            Act = Math.Min(playerMaximumAct, Act + NextActGain - (StepMissedThisTurn ? playerBaseActGain : 0));
+            NextActGain = playerBaseActGain;
             StepAttemptsThisTurn = StepSuccessStreak = 0;
             StepMissedThisTurn = false;
             BreathsQueuedThisTurn = 0;
@@ -541,7 +570,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int power = attackerPower;
             if (defender != null && defender.Kind == LegacySkillKind.Defence)
                 power = Math.Max(0, attackerPower - defenderPower / attacker.AttackCount);
-            return target.ReceiveHit(power, resistanceHit, receivedMultiplier, halveDamage);
+            // The target must already be broken before this hit. A hit that first breaks resistance
+            // keeps its ordinary overflow, while later hits in the same skill receive the bonus.
+            int brokenBonus = target.IsResistanceBroken
+                ? LegacySkillDefinitions.Find(attacker)?.Effect.BrokenTargetDamagePercent ?? 0 : 0;
+            return target.ReceiveHit(power, resistanceHit, receivedMultiplier, halveDamage, brokenBonus);
         }
 
         private LegacySkillFeedback ApplyInitialSkillEffects(LegacySkill skill, LegacySkill opposingSkill,
@@ -615,7 +648,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (--buffs[i].SlotsRemaining == 0) buffs.RemoveAt(i);
         }
 
-        // The six basic attacks by id, 베기 through 강력한 부수기.
+        // The first six starting attacks by ID. Their names and effects come from the skill sheet.
         private static LegacySkill[] FirstSixSkills()
         {
             var result = new LegacySkill[6];
@@ -623,9 +656,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return result;
         }
 
-        private static LegacySkill[] CopySkills(IReadOnlyList<LegacySkill> source, string argument)
+        private static LegacySkill[] CopySkills(IReadOnlyList<LegacySkill> source, string argument, bool allowEmpty = false)
         {
-            if (source == null || source.Count == 0) throw new ArgumentException("At least one skill is required.", argument);
+            if (source == null || !allowEmpty && source.Count == 0)
+                throw new ArgumentException("At least one skill is required.", argument);
             var copy = new LegacySkill[source.Count];
             for (int i = 0; i < copy.Length; i++) copy[i] = source[i] ?? throw new ArgumentException("Skills cannot be null.", argument);
             return copy;

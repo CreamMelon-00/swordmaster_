@@ -48,8 +48,7 @@ namespace TurnLimbo.Presentation
                 secondaryTone = skill.AttackCount > 1 ? LegacySkillTone.MultiHit : LegacySkillTone.Neutral;
             }
             string description = defence ? "같은 순서의 상대 공격 피해를\n방어 수치만큼 줄입니다."
-                : skill.AttackCount > 1 ? "위력을 " + skill.AttackCount + "회로 나눠 공격\n소수점 버림 · 한 타 최소 1"
-                : "표시 위력으로 1회 공격";
+                : skill.AttackCount > 1 ? string.Empty : "표시 위력으로 1회 공격";
             return new SkillInfoContent(main, mainSymbol, mainTone, secondary, LegacySkillSymbol.Hits, secondaryTone, description);
         }
     }

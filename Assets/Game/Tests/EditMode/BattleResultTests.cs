@@ -11,7 +11,7 @@ namespace TurnLimbo.Core.Tests
         public void FirstVictory_KeepsRewardAndNewUnlockInImmutableSnapshot()
         {
             var result = new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
-                60, 105, 4, 87, 0, true, 2, true);
+                60, 105, 4, 87, 0, true, 2, true, firstClearSkillName: "탐색");
             Assert.That(result.Victory, Is.True);
             Assert.That(result.IsMission, Is.False);
             Assert.That(result.StageNumber, Is.EqualTo(1));
@@ -22,6 +22,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(result.PlayerHealth, Is.EqualTo(87));
             Assert.That(result.EnemyHealth, Is.Zero);
             Assert.That(result.FirstClear, Is.True);
+            Assert.That(result.FirstClearSkillName, Is.EqualTo("탐색"));
             Assert.That(result.UnlockedStageNumber, Is.EqualTo(2));
             Assert.That(result.CanAdvance, Is.True);
             Assert.That(result.CanRetry, Is.True);
@@ -117,6 +118,28 @@ namespace TurnLimbo.Core.Tests
         {
             Assert.Throws<ArgumentException>(() => Create(unlockedStageNumber: 2));
             Assert.Throws<ArgumentException>(() => Create(firstClear: true, unlockedStageNumber: 1));
+        }
+
+        [Test]
+        public void SkillRewardName_RequiresFirstClear()
+        {
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1,
+                "숲길 입구", 30, 30, 2, 80, 0, false, 0, true, firstClearSkillName: "탐색"));
+        }
+
+        [Test]
+        public void TrainingResult_CannotClaimCampaignRewardsOrProgress()
+        {
+            var result = new BattleResult(DuelMatchOutcome.Draw, false, 3, "허수아비 수련",
+                0, 120, 5, 100, 12, false, 0, false, curriculumOpen: false, isTraining: true);
+            Assert.That(result.IsTraining, Is.True);
+            Assert.That(result.IsMission, Is.False);
+            Assert.That(result.Reward, Is.Zero);
+            Assert.That(result.CanAdvance, Is.False);
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 3,
+                "허수아비 수련", 1, 120, 5, 100, 0, false, 0, false, isTraining: true));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 3,
+                "허수아비 수련", 0, 120, 5, 100, 0, false, 0, true, isTraining: true));
         }
 
         [Test]

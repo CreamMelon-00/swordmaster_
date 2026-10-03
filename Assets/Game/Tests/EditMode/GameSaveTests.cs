@@ -41,9 +41,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(target.Curriculum.Active.Id, Is.EqualTo("advance"));
             Assert.That(target.Curriculum.ActiveBattles, Is.Zero);
             Assert.That(target.LastCompletedCurriculumNode, Is.Null, "A loaded game has no last battle.");
-            CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 14, 15 },
+            CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 14, 15, 43, 44 },
                 target.OwnedSkills.Select(owned => owned.SkillId),
-                "Owned skills are the starting ones and then what the completed nodes grant, in completion order.");
+                "Owned skills follow completed nodes and first-clear stage rewards, regardless of grant order.");
             Assert.That(target.CanStartStage(3), Is.True);
             Assert.That(target.CreateDuel(1).GetLane(0)[0].Id, Is.EqualTo(14), "The saved loadout fights.");
             Assert.That(GameSaveCodec.Serialize(GameSave.Capture(targetPrologue, target)), Is.EqualTo(text),
@@ -70,6 +70,46 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Fingerprint(campaign), Is.EqualTo(Fingerprint(new CampaignRun())));
         }
 
+        [Test]
+        public void ExistingVersionTwoSave_RestoresTheSameSkillIdsAndLanesAfterStarterRedesign()
+        {
+            const string olderSave = "turn-limbo-save 2\nprologue 4\ncurrency 0\ncleared\n" +
+                "curriculum-done\ncurriculum-active\n" +
+                "lane 0 1 2 7\nlane 1 3 4 8\nlane 2 5 6 9\n";
+            Assert.That(GameSaveCodec.TryParse(olderSave, out GameSave parsed, out string error), Is.True, error);
+            var prologue = new PrologueRun();
+            var campaign = new CampaignRun();
+            Assert.That(parsed.TryApply(prologue, campaign, out error), Is.True, error);
+            Assert.That(prologue.ClearedCount, Is.EqualTo(4));
+            Assert.That(campaign.GetEquippedLane(0).Select(entry => entry.SkillId), Is.EqualTo(new[] { 1, 2, 7 }));
+            Assert.That(campaign.GetEquippedLane(1).Select(entry => entry.SkillId), Is.EqualTo(new[] { 3, 4, 8 }));
+            Assert.That(campaign.GetEquippedLane(2).Select(entry => entry.SkillId), Is.EqualTo(new[] { 5, 6, 9 }));
+            Assert.That(campaign.OwnedSkills.Select(entry => entry.SkillId), Is.EqualTo(Enumerable.Range(1, 9)));
+            Assert.That(campaign.GetEquippedLane(0)[1].Skill.Name, Is.EqualTo("연속 베기"),
+                "A pre-redesign ID now reads its current definition without changing the saved lane.");
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign)), Is.EqualTo(olderSave));
+            Assert.That(campaign.TrainingVictoryCount, Is.Zero, "The optional field is absent in older saves.");
+        }
+
+        [Test]
+        public void TrainingVictories_RoundTripInVersionTwoWithoutChangingStageOrCurriculum()
+        {
+            CampaignRun source = PlayedCampaign();
+            Assert.That(source.TryStartTraining(), Is.True);
+            Assert.That(source.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            string text = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), source));
+            StringAssert.Contains("\ntraining-wins 1\n", text);
+
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            var restored = new CampaignRun();
+            Assert.That(restored.TryRestore(parsed.Campaign, out error), Is.True, error);
+            Assert.That(restored.TrainingVictoryCount, Is.EqualTo(1));
+            Assert.That(restored.TrainingDummyHealth, Is.EqualTo(100));
+            Assert.That(restored.HighestUnlockedStage, Is.EqualTo(3));
+            Assert.That(restored.Curriculum.ActiveBattles, Is.Zero);
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), restored)), Is.EqualTo(text));
+        }
+
         [TestCase(new int[0], 1)]
         [TestCase(new[] { 1 }, 2)]
         [TestCase(new[] { 1, 2 }, 3)]
@@ -93,6 +133,8 @@ namespace TurnLimbo.Core.Tests
             var broken = new Dictionary<string, GameSave>
             {
                 ["negative currency"] = Save(2, With(valid, currency: -1)),
+                ["negative training victories"] = Save(2, With(valid, trainingWins: -1)),
+                ["training before stage three"] = Save(2, With(valid, cleared: new[] { 1 }, trainingWins: 1)),
                 ["stage 0"] = Save(2, With(valid, cleared: new[] { 0 })),
                 ["stage 9"] = Save(2, With(valid, cleared: new[] { 9 })),
                 ["duplicate clear"] = Save(2, With(valid, cleared: new[] { 1, 1 })),
@@ -158,6 +200,9 @@ namespace TurnLimbo.Core.Tests
                 ["missing curriculum-active"] = RemoveLine(valid, "curriculum-active"),
                 ["missing lane"] = RemoveLine(valid, "lane 2"),
                 ["repeated currency"] = valid + "currency 5\n",
+                ["repeated training wins"] = valid + "training-wins 1\ntraining-wins 2\n",
+                ["training wins not a number"] = valid + "training-wins many\n",
+                ["training wins pair"] = valid + "training-wins 1 2\n",
                 ["repeated curriculum-done"] = valid + "curriculum-done horizontal-cut\n",
                 ["repeated curriculum-active"] = valid + "curriculum-active\n",
                 ["node without battles"] = valid.Replace("curriculum-active\n", "curriculum-active advance\n"),
@@ -273,9 +318,10 @@ namespace TurnLimbo.Core.Tests
 
         private static CampaignSave With(CampaignSave basis, int? currency = null, IEnumerable<int> cleared = null,
             IEnumerable<string> done = null, string active = null, int? battles = null,
-            IEnumerable<IEnumerable<int>> loadout = null)
+            IEnumerable<IEnumerable<int>> loadout = null, int? trainingWins = null)
             => new CampaignSave(currency ?? basis.Currency, cleared ?? basis.ClearedStages, done ?? basis.CurriculumCompleted,
-                active ?? basis.CurriculumActive, battles ?? basis.CurriculumBattles, loadout ?? basis.Loadout);
+                active ?? basis.CurriculumActive, battles ?? basis.CurriculumBattles, loadout ?? basis.Loadout,
+                trainingWins ?? basis.TrainingVictoryCount);
 
         private static IEnumerable<IEnumerable<int>> SwapFirst(List<List<int>> lanes, int lane, int id)
             => lanes.Select((ids, index) => index == lane ? new[] { id }.Concat(ids.Skip(1)).ToList() : ids);
@@ -288,11 +334,14 @@ namespace TurnLimbo.Core.Tests
         private static string Fingerprint(CampaignRun run, bool persistentOnly = false)
         {
             var value = new StringBuilder();
-            value.Append(run.Currency).Append('|').Append(run.HighestUnlockedStage).Append('|').Append(run.ClearedStageCount);
+            value.Append(run.Currency).Append('|').Append(run.HighestUnlockedStage).Append('|').Append(run.ClearedStageCount)
+                .Append('|').Append(run.TrainingVictoryCount);
             for (int stage = 1; stage <= run.StageCount; stage++) value.Append(run.IsStageCleared(stage) ? 'c' : '-');
             value.Append(";c").Append(string.Join(",", run.Curriculum.Completed))
                 .Append(";a").Append(run.Curriculum.Active?.Id ?? "-").Append(':').Append(run.Curriculum.ActiveBattles);
-            foreach (CampaignOwnedSkill owned in run.OwnedSkills) value.Append(";o").Append(owned.SkillId);
+            // The save stores completed nodes and cleared stages, not the battle order that interleaved their grants.
+            foreach (int skillId in run.OwnedSkills.Select(owned => owned.SkillId).OrderBy(id => id))
+                value.Append(";o").Append(skillId);
             for (int lane = 0; lane < 3; lane++)
             {
                 foreach (CampaignOwnedSkill owned in run.GetEquippedLane(lane)) value.Append(";e").Append(lane).Append(':').Append(owned.SkillId);

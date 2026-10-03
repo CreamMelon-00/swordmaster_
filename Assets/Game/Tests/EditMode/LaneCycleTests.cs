@@ -113,7 +113,7 @@ namespace TurnLimbo.Core.Tests
             LegacyQueuedDuel duel = mission.CreateDuel(1);
             Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacySkillDefinitions.Skill(1).Id));
             Assert.That(duel.TryCycleLanes(), Is.True);
-            Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacySkillDefinitions.Skill(2).Id), "예리한 베기 comes forward.");
+            Assert.That(duel.GetLane(0)[0].Id, Is.EqualTo(LegacySkillDefinitions.Skill(2).Id), "연속 베기 comes forward.");
         }
     }
 }

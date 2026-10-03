@@ -18,7 +18,8 @@ namespace TurnLimbo.Runtime.Save
     /// </code>
     /// <c>curriculum-done</c> lists completed node ids in order; <c>curriculum-active</c> is the node in progress and its
     /// counted battles, or nothing after the key when no node is in progress; <c>lane</c> (index, three ids) appears
-    /// once per lane. Owned skills are not stored: they follow from the completed nodes.
+    /// once per lane. Optional <c>training-wins N</c> records successful dummy fights; absent means zero, keeping
+    /// earlier version 2 saves readable. Owned skills are not stored: they follow from the completed nodes.
     /// Parsing is strict: unknown keys, missing or repeated keys and other versions are rejected. Game rules are
     /// checked later by <see cref="GameSave.TryApply"/>.</summary>
     public static class GameSaveCodec
@@ -34,6 +35,9 @@ namespace TurnLimbo.Runtime.Save
             text.Append(Header).Append(' ').Append(GameSave.CurrentVersion).Append('\n');
             text.Append("prologue ").Append(save.PrologueCleared).Append('\n');
             text.Append("currency ").Append(campaign.Currency).Append('\n');
+            // Keep zero absent so existing version 2 files round-trip byte for byte.
+            if (campaign.TrainingVictoryCount != 0)
+                text.Append("training-wins ").Append(campaign.TrainingVictoryCount).Append('\n');
             text.Append("cleared");
             foreach (int number in campaign.ClearedStages) text.Append(' ').Append(number);
             text.Append('\n');
@@ -64,7 +68,7 @@ namespace TurnLimbo.Runtime.Save
             string[] lines = source.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             if (lines.Length > 0 && lines[0].Length > 0 && lines[0][0] == '﻿') lines[0] = lines[0].Substring(1);
 
-            int? prologue = null, currency = null;
+            int? prologue = null, currency = null, trainingWins = null;
             List<int> cleared = null;
             List<string> curriculumDone = null;
             bool curriculumActiveRead = false;
@@ -119,6 +123,11 @@ namespace TurnLimbo.Runtime.Save
                         if (values.Length != 1) return Fail(out error, lineNumber, "currency에는 값이 하나만 필요합니다.");
                         currency = values[0];
                         break;
+                    case "training-wins":
+                        if (trainingWins.HasValue) return Fail(out error, lineNumber, "training-wins가 두 번 있습니다.");
+                        if (values.Length != 1) return Fail(out error, lineNumber, "training-wins에는 값이 하나만 필요합니다.");
+                        trainingWins = values[0];
+                        break;
                     case "cleared":
                         if (cleared != null) return Fail(out error, lineNumber, "cleared가 두 번 있습니다.");
                         cleared = new List<int>(values);
@@ -143,7 +152,8 @@ namespace TurnLimbo.Runtime.Save
                 if (lanes[lane] == null) return Fail(out error, 0, $"lane {lane} 항목이 없습니다.");
 
             save = new GameSave(prologue.Value,
-                new CampaignSave(currency.Value, cleared, curriculumDone, curriculumActive, curriculumBattles, lanes));
+                new CampaignSave(currency.Value, cleared, curriculumDone, curriculumActive, curriculumBattles, lanes,
+                    trainingWins ?? 0));
             error = null;
             return true;
         }

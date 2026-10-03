@@ -14,11 +14,13 @@ namespace TurnLimbo.Runtime.Campaign
         /// <param name="curriculumFinished">Whether no curriculum node is left to start after this battle.</param>
         /// <param name="curriculumOpen">Whether the curriculum exists for the player yet (see
         /// <see cref="CampaignRun.IsCurriculumOpen"/>). A closed one is never shown and reports no progress.</param>
+        /// <param name="firstClearSkillName">The technique awarded by this stage's first clear, if any.</param>
         public BattleResult(DuelMatchOutcome outcome, bool isMission, int stageNumber, string stageName,
             int reward, int currency, int roundNumber, int playerHealth, int enemyHealth,
             bool firstClear, int unlockedStageNumber, bool canAdvance,
             CurriculumNode completedCurriculumNode = null, CurriculumNode activeCurriculumNode = null, int activeCurriculumBattles = 0,
-            bool curriculumFinished = false, bool curriculumOpen = true)
+            bool curriculumFinished = false, bool curriculumOpen = true, string firstClearSkillName = null,
+            bool isTraining = false)
         {
             if (outcome != DuelMatchOutcome.PlayerVictory && outcome != DuelMatchOutcome.EnemyVictory
                 && outcome != DuelMatchOutcome.Draw) throw new ArgumentOutOfRangeException(nameof(outcome));
@@ -35,6 +37,8 @@ namespace TurnLimbo.Runtime.Campaign
                 throw new ArgumentException("Only a campaign victory can award currency.", nameof(reward));
             if ((!victory || isMission) && firstClear)
                 throw new ArgumentException("Only a campaign victory can be a first clear.", nameof(firstClear));
+            if (!firstClear && !string.IsNullOrEmpty(firstClearSkillName))
+                throw new ArgumentException("Only a first-clear victory can grant a technique.", nameof(firstClearSkillName));
             if ((!victory || isMission) && unlockedStageNumber != 0)
                 throw new ArgumentException("Only a campaign victory can unlock a stage.", nameof(unlockedStageNumber));
             if (unlockedStageNumber != 0 && (!firstClear || unlockedStageNumber <= stageNumber))
@@ -43,6 +47,9 @@ namespace TurnLimbo.Runtime.Campaign
                 throw new ArgumentException("Only a victory can advance.", nameof(canAdvance));
             if (isMission && (completedCurriculumNode != null || activeCurriculumNode != null || curriculumFinished))
                 throw new ArgumentException("Opening-arc missions do not count toward the curriculum.", nameof(completedCurriculumNode));
+            if (isTraining && (isMission || reward != 0 || firstClear || unlockedStageNumber != 0 || canAdvance ||
+                               completedCurriculumNode != null || activeCurriculumNode != null || curriculumFinished))
+                throw new ArgumentException("Training results cannot award or advance campaign progress.", nameof(isTraining));
             if (!curriculumOpen && (completedCurriculumNode != null || activeCurriculumNode != null || curriculumFinished))
                 throw new ArgumentException("A closed curriculum has no progress to report.", nameof(curriculumOpen));
             if (activeCurriculumNode == null ? activeCurriculumBattles != 0
@@ -51,6 +58,7 @@ namespace TurnLimbo.Runtime.Campaign
 
             Outcome = outcome;
             IsMission = isMission;
+            IsTraining = isTraining;
             StageNumber = stageNumber;
             StageName = stageName;
             Reward = reward;
@@ -66,10 +74,12 @@ namespace TurnLimbo.Runtime.Campaign
             ActiveCurriculumBattles = activeCurriculumBattles;
             CurriculumFinished = curriculumFinished;
             CurriculumOpen = curriculumOpen;
+            FirstClearSkillName = firstClearSkillName;
         }
 
         public DuelMatchOutcome Outcome { get; }
         public bool IsMission { get; }
+        public bool IsTraining { get; }
         public int StageNumber { get; }
         public string StageName { get; }
         public int Reward { get; }
@@ -87,6 +97,7 @@ namespace TurnLimbo.Runtime.Campaign
         public bool CurriculumFinished { get; }
         /// <summary>Whether the curriculum was open when the battle ended; the result says nothing about it otherwise.</summary>
         public bool CurriculumOpen { get; }
+        public string FirstClearSkillName { get; }
         public bool Victory => Outcome == DuelMatchOutcome.PlayerVictory;
         public bool CanRetry => true;
     }

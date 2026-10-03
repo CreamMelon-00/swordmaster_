@@ -1,13 +1,15 @@
 # 버튼형 기술 아이콘
 
+> 이 문서는 첫 9개 `SkillButtons/skill1.png`~`skill9.png`의 제작 기록이다. 현재 전투 화면은 `SkillRoles/skill-role-atlas.png`의 검 전용 그림을 쓴다. 2026-10-03 기본 기술 이름·역할은 `../StarterSkillDesign.md`를 따른다.
+
 ## 적용 범위
 
-현재 첫 결투에서 사용하는 9개 기술의 아이콘을 새 키캡형 버튼으로 제작했다. 전투 규칙, 비용, 키 배치, 기술열 순서, HUD 레이아웃은 변경하지 않는다.
+제작 당시 첫 결투에서 사용하던 9개 기술의 아이콘을 새 키캡형 버튼으로 제작했다. 당시 전투 규칙, 비용, 키 배치, 기술열 순서, HUD 레이아웃은 변경하지 않았다.
 이미지 생성 스킬의 기본 내장 도구(image_gen)를 사용했다. 생성 후 픽셀을 별도 스크립트로 그리거나 수정하지 않고 최종 PNG를 프로젝트에 복사했다.
 
 최종 파일: `Assets/Game/Resources/SkillButtons/skill1.png`부터 `skill9.png`.
 원본 퍼즐 PNG는 `Assets/Game/Resources/LegacyDuel/Icons/`에 그대로 보존한다.
-`LegacyDuelArt.GetSkillIcon`이 새 세트를 로드하며 현재·다음·플레이어/적 큐·전투 기록 모두 같은 매핑을 사용한다.
+당시 `LegacyDuelArt.GetSkillIcon`이 이 세트를 로드했고 현재·다음·플레이어/적 큐·전투 기록이 같은 매핑을 사용했다. 지금은 위에 적은 검 전용 atlas가 이 역할을 맡는다.
 
 ## 시각 규칙
 

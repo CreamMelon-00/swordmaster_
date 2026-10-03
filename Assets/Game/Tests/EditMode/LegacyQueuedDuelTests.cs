@@ -29,19 +29,19 @@ namespace TurnLimbo.Core.Tests
             var duel = new LegacyQueuedDuel();
 
             Assert.That(duel.TryQueueLane(0), Is.True);
-            Assert.That(duel.TryQueueLane(1), Is.True);
             Assert.That(duel.TryQueueLane(2), Is.True);
+            Assert.That(duel.TryQueueLane(1), Is.False, "The W opener costs 2 ACT, more than the remaining 1.");
 
-            Assert.That(duel.Act, Is.Zero);
+            Assert.That(duel.Act, Is.EqualTo(1));
             Assert.That(duel.Player.Health, Is.EqualTo(100));
             Assert.That(duel.Enemy.Health, Is.EqualTo(80));
             Assert.That(duel.Player.Resistance, Is.EqualTo(50));
             Assert.That(duel.Enemy.Resistance, Is.EqualTo(15));
             Assert.That(duel.RoundNumber, Is.EqualTo(1));
             Assert.That(duel.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
-            CollectionAssert.AreEqual(new[] { 1, 3, 5 }, Ids(duel.PlayerQueue));
+            CollectionAssert.AreEqual(new[] { 1, 5 }, Ids(duel.PlayerQueue));
             CollectionAssert.AreEqual(new[] { 2, 7, 1 }, Ids(duel.GetLane(0)));
-            CollectionAssert.AreEqual(new[] { 4, 8, 3 }, Ids(duel.GetLane(1)));
+            CollectionAssert.AreEqual(new[] { 3, 4, 8 }, Ids(duel.GetLane(1)));
             CollectionAssert.AreEqual(new[] { 6, 9, 5 }, Ids(duel.GetLane(2)));
         }
 
@@ -49,11 +49,12 @@ namespace TurnLimbo.Core.Tests
         public void UnaffordableSkill_DoesNotRotateOrEnterQueue()
         {
             var duel = new LegacyQueuedDuel();
+            duel.TryQueueLane(0);
             duel.TryQueueLane(2);
 
             Assert.That(duel.TryQueueLane(2), Is.False);
-            Assert.That(duel.Act, Is.EqualTo(2));
-            CollectionAssert.AreEqual(new[] { 5 }, Ids(duel.PlayerQueue));
+            Assert.That(duel.Act, Is.EqualTo(1));
+            CollectionAssert.AreEqual(new[] { 1, 5 }, Ids(duel.PlayerQueue));
             CollectionAssert.AreEqual(new[] { 6, 9, 5 }, Ids(duel.GetLane(2)));
         }
 
@@ -195,7 +196,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Stab_BoostsFollowingThreeSkillsWithinSamePhase()
+        public void DeepThrust_SpendsTwoActForOneStrongHitWithoutBuffingLaterSkills()
         {
             LegacySkill stab = LegacySkillDefinitions.Skill(3);
             var strike = new LegacySkill(100, "test", 0, 20, 20, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 1, "");
@@ -203,9 +204,8 @@ namespace TurnLimbo.Core.Tests
             for (int i = 0; i < 5; i++) Assert.That(duel.TryQueueLane(1), Is.True);
             duel.Commit();
 
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(3));
-            for (int i = 0; i < 3; i++) Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(22));
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(20));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.InRange(11, 14));
+            for (int i = 0; i < 4; i++) Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(20));
         }
 
         [Test]
@@ -363,34 +363,114 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void LethalEarlyHit_DoesNotStopLaterHitsOrDeclareVictoryBeforeSlotCompletes()
+        public void LethalFirstHit_StopsBothSkillsBeforeTheirRemainingHits()
         {
             var duel = TestDuel(new[] { Attack(100, 4, 2) }, new[] { Attack(101, 3, 3) }, new[] { 1 }, 3, 0);
             duel.TryQueueLane(0);
             duel.Commit();
-            duel.BeginNextSlot();
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
 
             LegacyHitResult first = duel.ResolveNextHit();
+            Assert.That(first.PlayerAttacked, Is.True);
+            Assert.That(first.EnemyAttacked, Is.True, "Both attacks in the lethal frame still resolve.");
             Assert.That(duel.Enemy.Health, Is.Zero);
             Assert.That(duel.Player.Health, Is.EqualTo(1));
-            Assert.That(first.Outcome, Is.EqualTo(DuelMatchOutcome.InProgress));
-            Assert.That(duel.IsFinished, Is.False);
+            Assert.That(slot.HitsResolved, Is.EqualTo(1));
+            Assert.That(first.IsFinalHit, Is.True);
+            Assert.That(first.Outcome, Is.EqualTo(DuelMatchOutcome.PlayerVictory));
+            Assert.That(duel.IsCurrentSlotResolved, Is.True);
+            Assert.Throws<InvalidOperationException>(() => duel.ResolveNextHit());
 
-            LegacyHitResult second = duel.ResolveNextHit();
-            Assert.That(second.EnemyAttacked, Is.True);
-            Assert.That(duel.Player.Health, Is.Zero);
-            Assert.That(second.IsFinalHit, Is.False);
-            Assert.That(duel.Outcome, Is.EqualTo(DuelMatchOutcome.InProgress));
-
-            LegacyHitResult third = duel.ResolveNextHit();
-            Assert.That(third.PlayerAttacked, Is.False);
-            Assert.That(third.EnemyAttacked, Is.True);
-            Assert.That(third.IsFinalHit, Is.True);
-            Assert.That(third.Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
-            Assert.That(duel.IsFinished, Is.False);
             LegacySlotResult complete = duel.CompleteCurrentSlot();
-            Assert.That(complete.Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
+            Assert.That(complete.Outcome, Is.EqualTo(DuelMatchOutcome.PlayerVictory));
+            Assert.That(complete.PlayerHealthDamage, Is.EqualTo(2));
+            Assert.That(complete.EnemyHealthDamage, Is.EqualTo(3));
             Assert.That(duel.IsFinished, Is.True);
+            Assert.That(duel.Player.Health, Is.EqualTo(1));
+            Assert.Throws<InvalidOperationException>(() => duel.ResolveNextSlot());
+        }
+
+        [Test]
+        public void SimultaneousLethalFirstHit_DealsBothImpactsBeforeStoppingMultiHitSkills()
+        {
+            var duel = TestDuel(new[] { Attack(100, 6, 3) }, new[] { Attack(101, 6, 3) },
+                new[] { 1 }, 3, 0);
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+
+            LegacyHitResult first = duel.ResolveNextHit();
+
+            Assert.That(first.PlayerAttacked, Is.True);
+            Assert.That(first.EnemyAttacked, Is.True);
+            Assert.That(first.PlayerHealthDamage, Is.EqualTo(3));
+            Assert.That(first.EnemyHealthDamage, Is.EqualTo(3));
+            Assert.That(duel.Player.Health, Is.Zero);
+            Assert.That(duel.Enemy.Health, Is.Zero);
+            Assert.That(slot.HitsResolved, Is.EqualTo(1));
+            Assert.That(first.IsFinalHit, Is.True);
+            Assert.That(first.Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory),
+                "The existing simultaneous defeat priority applies within the lethal hit.");
+            Assert.Throws<InvalidOperationException>(() => duel.ResolveNextHit());
+            Assert.That(duel.CompleteCurrentSlot().Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
+        }
+
+        [Test]
+        public void Scout_GrantsOneExtraActOnTheNextTurn()
+        {
+            var duel = new LegacyQueuedDuel(100, 50, 100, 50,
+                new[] { LegacySkillDefinitions.Skill(43) }, new[] { Guard(901, 0) }, new[] { 1 }, 7);
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            Assert.That(duel.Act, Is.EqualTo(2), "The skill still spends one ACT during planning.");
+            duel.Commit();
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            Assert.That(slot.PlayerFeedback.ActGainGranted, Is.EqualTo(1));
+            Assert.That(duel.NextActGain, Is.EqualTo(4));
+            duel.ResolveNextHit();
+            duel.CompleteCurrentSlot();
+            duel.BeginNextTurn();
+            Assert.That(duel.Act, Is.EqualTo(6));
+            Assert.That(duel.NextActGain, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Barrage_AddsDamageOnlyToHitsAfterTheTargetHasBroken()
+        {
+            LegacySkill barrage = LegacySkillDefinitions.Skill(44);
+            var ordinary = new LegacySkill(944, "ordinary four hits", barrage.Cost,
+                barrage.MinPower, barrage.MaxPower, barrage.Kind, barrage.Property,
+                barrage.AttackCount, barrage.LaneIndex, "");
+            LegacyQueuedDuel enhanced = BarrageDuel(barrage);
+            LegacyQueuedDuel baseline = BarrageDuel(ordinary);
+            Assert.That(enhanced.TryQueueLane(0), Is.True);
+            Assert.That(baseline.TryQueueLane(0), Is.True);
+            enhanced.Commit();
+            baseline.Commit();
+            enhanced.BeginNextSlot();
+            baseline.BeginNextSlot();
+
+            LegacyHitResult breaking = enhanced.ResolveNextHit();
+            LegacyHitResult plainBreaking = baseline.ResolveNextHit();
+            Assert.That(enhanced.Enemy.IsResistanceBroken, Is.True);
+            Assert.That(breaking.EnemyHealthDamage, Is.EqualTo(plainBreaking.EnemyHealthDamage),
+                "The resistance-breaking hit does not count as hitting an already broken target.");
+
+            LegacyHitResult followup = enhanced.ResolveNextHit();
+            LegacyHitResult plainFollowup = baseline.ResolveNextHit();
+            int expected = (int)Math.Round(plainFollowup.EnemyHealthDamage * 1.25,
+                MidpointRounding.ToEven);
+            Assert.That(followup.EnemyHealthDamage, Is.EqualTo(expected));
+            Assert.That(followup.EnemyHealthDamage, Is.GreaterThan(plainFollowup.EnemyHealthDamage));
+            Assert.That(followup.EnemyPushPower, Is.EqualTo(plainFollowup.EnemyPushPower),
+                "The bonus changes health damage, not knockback power.");
+
+            for (int hit = 2; hit < 4; hit++)
+            {
+                enhanced.ResolveNextHit();
+                baseline.ResolveNextHit();
+            }
+            Assert.That(enhanced.CurrentSlot.HitsResolved, Is.EqualTo(4));
+            Assert.That(enhanced.CurrentSlot.IsResolved, Is.True);
         }
 
         [Test]
@@ -413,7 +493,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(idle.EnemyHealthDamage, Is.Zero);
             Assert.That(idle.IsFinalHit, Is.True);
             duel.CompleteCurrentSlot();
-            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(102));
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(119),
+                "The following 100-power attack gains 20%, then the enemy's 1-point guard is subtracted.");
         }
 
         [Test]
@@ -501,9 +582,56 @@ namespace TurnLimbo.Core.Tests
             Assert.That(hit.EnemyPushPower, Is.EqualTo(4));
         }
 
+        [Test]
+        public void PassiveEnemy_QueuesNothingAndEndsAfterFiveTurnsWithoutAHit()
+        {
+            var duel = new LegacyQueuedDuel(100, 50, 50, 0, new[] { Attack(100, 1) },
+                System.Array.Empty<LegacySkill>(), new[] { 0 }, roundLimit: 5);
+
+            for (int round = 1; round <= 5; round++)
+            {
+                Assert.That(duel.RoundNumber, Is.EqualTo(round));
+                Assert.That(duel.EnemyQueue, Is.Empty);
+                duel.Commit();
+                if (round < 5)
+                {
+                    Assert.That(duel.IsTurnResolved, Is.True);
+                    Assert.That(duel.IsFinished, Is.False);
+                    duel.BeginNextTurn();
+                }
+            }
+
+            Assert.That(duel.IsFinished, Is.True);
+            Assert.That(duel.Outcome, Is.EqualTo(DuelMatchOutcome.Draw));
+            Assert.That(duel.Player.Health, Is.EqualTo(100));
+            Assert.That(duel.Enemy.Health, Is.EqualTo(50));
+        }
+
+        [Test]
+        public void PassiveEnemy_KillOnTheLastTurnWinsBeforeTheTurnLimit()
+        {
+            var duel = new LegacyQueuedDuel(100, 50, 1, 0, new[] { Attack(100, 1) },
+                System.Array.Empty<LegacySkill>(), new[] { 0 }, roundLimit: 5);
+            for (int round = 1; round < 5; round++)
+            {
+                duel.Commit();
+                duel.BeginNextTurn();
+            }
+
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            Assert.That(duel.ResolveNextSlot().Outcome, Is.EqualTo(DuelMatchOutcome.PlayerVictory));
+            Assert.That(duel.IsFinished, Is.True);
+            Assert.That(duel.RoundNumber, Is.EqualTo(5));
+        }
+
         private static LegacyQueuedDuel TestDuel(LegacySkill[] playerSkills, LegacySkill[] enemySkills,
             int[] counts, int health = 100, int resistance = 50)
             => new LegacyQueuedDuel(health, resistance, health, resistance, playerSkills, enemySkills, counts);
+
+        private static LegacyQueuedDuel BarrageDuel(LegacySkill skill)
+            => new LegacyQueuedDuel(100, 50, 100, 1,
+                new[] { skill }, new[] { Attack(902, 1) }, new[] { 1 }, 17);
 
         private static LegacySkill Attack(int id, int power, int hits = 1)
             => new LegacySkill(id, "test attack", 1, power, power, LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, 0, "");

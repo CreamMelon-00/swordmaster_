@@ -98,7 +98,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.EnemyQueue[1].Id, Is.EqualTo(4));
             Assert.That(duel.EnemyQueue[2].Id, Is.EqualTo(5));
             Assert.That(duel.EnemyQueue[2].Kind, Is.EqualTo(LegacySkillKind.Attack));
-            Assert.That(duel.EnemyQueue[2].MinPower, Is.EqualTo(6 + stageNumber - 1));
+            Assert.That(duel.EnemyQueue[2].MinPower, Is.EqualTo(4 + stageNumber - 1));
         }
 
         // From stage three every enemy rhythm (CampaignEnemyRhythms) forecasts a guard within its first three turns,
@@ -175,15 +175,15 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Ready_StacksAdditivelyWithExistingThreeSkillStabBuff()
+        public void Ready_StacksAdditivelyWithDeflectsTwoSlotBuff()
         {
-            var duel = Duel(new[] { Attack(3, 10), Imported(10, 10), Attack(100, 20) },
+            var duel = Duel(new[] { Guard(9, 100), Imported(10, 10), Attack(100, 20) },
                 new[] { Attack(900, 1) }, new[] { 3 });
             Queue(duel, 0, 3);
             duel.Commit();
             duel.ResolveNextSlot();
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(11));
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(28));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(12));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(30));
         }
 
         [Test]
@@ -209,8 +209,9 @@ namespace TurnLimbo.Core.Tests
             duel.Commit();
             duel.ResolveNextSlot();
 
-            Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(7));
-            Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(12));
+            Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(8));
+            Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(15),
+                "W's one-slot protection expires before Forward's vulnerability applies again.");
         }
 
         [Test]

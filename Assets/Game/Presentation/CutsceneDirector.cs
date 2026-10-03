@@ -226,7 +226,7 @@ namespace TurnLimbo.Presentation
                     figure.MoveTo = step.X;
                     figure.MoveElapsed = 0f;
                     figure.MoveSeconds = step.Seconds;
-                    figure.Moving = step.Seconds > 0f;
+                    figure.Moving = step.Seconds > 0f && !Mathf.Approximately(figure.MoveFrom, figure.MoveTo);
                     if (!figure.Moving) figure.X = step.X;
                     break;
                 case CutsceneActorAction.Face:
@@ -311,7 +311,7 @@ namespace TurnLimbo.Presentation
                 MobStudentAnimationSet set = arena.PlayerAnimations;
                 if (figure.Attacking) return set.GetAttackUpper(Property(figure.Attack), 0, AttackPhase(figure.AttackElapsed));
                 return figure.Pose == CutscenePose.Hurt ? set.GetHurtPose() : figure.Pose == CutscenePose.Block
-                    ? set.GetBlockPose() : set.GetIdleUpper(figure.PoseClock);
+                    ? set.GetBlockPose() : figure.Moving ? set.GetMove() : set.GetIdleUpper(figure.PoseClock);
             }
             if (otherIsDummy)
             {
@@ -321,7 +321,7 @@ namespace TurnLimbo.Presentation
             EnemyStudentAnimationSet knight = arena.EnemyAnimations;
             if (figure.Attacking) return knight.GetAttack(Property(figure.Attack), AttackPhase(figure.AttackElapsed));
             return figure.Pose == CutscenePose.Hurt ? knight.GetHurt() : figure.Pose == CutscenePose.Block
-                ? knight.GetGuard() : knight.GetIdle(figure.PoseClock);
+                ? knight.GetGuard() : figure.Moving ? knight.GetMove() : knight.GetIdle(figure.PoseClock);
         }
 
         // The animation sets take the duel's half-cycle phase (the blade connects at 0.5); undo that mapping so the

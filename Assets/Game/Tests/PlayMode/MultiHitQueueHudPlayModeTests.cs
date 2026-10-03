@@ -88,9 +88,17 @@ namespace TurnLimbo.Presentation.Tests
                 freeSkills.Add(new LegacySkill(source.Id, source.Name, 0, source.MinPower, source.MaxPower,
                     source.Kind, source.Property, source.AttackCount, source.LaneIndex,
                     source.Description, source.AnimationName, source.IconId));
+            // W's first starter is now a single strong hit. Put E's actual three-hit starter
+            // first in its lane so this fixture still tests an unresolved multi-hit slot.
+            LegacySkill threeHit = freeSkills.Find(skill => skill.Id == 6);
+            LegacySkill slash = freeSkills.Find(skill => skill.Id == 1);
+            Assert.That(threeHit, Is.Not.Null);
+            Assert.That(threeHit.AttackCount, Is.EqualTo(3));
+            freeSkills.Remove(threeHit);
+            freeSkills.Insert(0, threeHit);
             var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000, freeSkills,
-                new[] { freeSkills[2], freeSkills[0] }, new[] { 2 }, 1);
-            Assert.That(duel.TryQueueLane(1), Is.True);
+                new[] { threeHit, slash }, new[] { 2 }, 1);
+            Assert.That(duel.TryQueueLane(2), Is.True);
             Assert.That(duel.TryQueueLane(0), Is.True);
             return duel;
         }

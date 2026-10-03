@@ -121,16 +121,24 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Lobby Header"), DuelVisualTheme.Surface);
+                AssertThemed(Find<Image>(fixture.Lobby.Root, "Lobby Status Slip"), DuelVisualTheme.RaisedSurface);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Home Sidebar"), DuelVisualTheme.Surface);
+                AssertThemed(Find<Image>(fixture.Lobby.Root, "Home Journey"), DuelVisualTheme.RaisedSurface);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Home Open Stages"), DuelVisualTheme.Accent);
                 AssertDecorationsIgnoreInput(fixture.Lobby.Root);
 
+                fixture.Lobby.ShowTab(LobbyTab.Stages);
+                AssertThemed(Find<Image>(fixture.Lobby.Root, "Page Ledger"), DuelVisualTheme.Surface);
+                AssertDecorationsIgnoreInput(fixture.Lobby.Root);
+
                 fixture.Lobby.ShowTab(LobbyTab.Loadout);
+                AssertThemed(Find<Image>(fixture.Lobby.Root, "Page Ledger"), DuelVisualTheme.Surface);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Detail Surface"), DuelVisualTheme.Paper);
                 AssertButtonHasTrim(Find<Button>(fixture.Lobby.Root, "Loadout Slot Q 1"));
                 AssertDecorationsIgnoreInput(fixture.Lobby.Root);
 
                 fixture.Lobby.ShowTab(LobbyTab.Curriculum);
+                AssertThemed(Find<Image>(fixture.Lobby.Root, "Page Ledger"), DuelVisualTheme.Surface);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Curriculum Detail Surface"), DuelVisualTheme.Paper);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Curriculum Tree"), DuelVisualTheme.Track);
                 AssertButtonHasTrim(Find<Button>(fixture.Lobby.Root, "Curriculum Node horizontal-cut"));
@@ -161,6 +169,7 @@ namespace TurnLimbo.Presentation.Tests
                 var home = Find<Button>(fixture.Lobby.Root, "Home Open Stages");
                 AssertPointerRoutesToButton(fixture.Lobby.Root, home);
 
+                Assert.That(fixture.Run.TryUnequipSkill(1), Is.True);
                 fixture.Lobby.ShowTab(LobbyTab.Loadout);
                 yield return WaitForPageTransition(fixture.Lobby);
                 var slot = Find<Button>(fixture.Lobby.Root, "Loadout Slot Q 1");
@@ -221,14 +230,15 @@ namespace TurnLimbo.Presentation.Tests
 
                 LegacyCombatHud combat = fixture.Combat();
                 combat.ShowExplanation(fixture.Run.OwnedSkills[0].Skill, false);
-                combat.ShowExplanation(fixture.Run.OwnedSkills[0].Skill, true);
                 var playerDetail = Find<Image>(combat.Root, "Skill Explain");
-                var enemyDetail = Find<Image>(combat.Root, "Enemy Skill Explain");
                 AssertPaperDetails(playerDetail.transform.Find("Surface").GetComponent<Image>(),
                     playerDetail.gameObject, "Name", "Power Cost Property", "Effect");
+                AssertSharedDamageRoutingRemoved(playerDetail.gameObject, "Player Damage Hint");
+
+                combat.ShowExplanation(fixture.Run.OwnedSkills[0].Skill, true);
+                var enemyDetail = Find<Image>(combat.Root, "Enemy Skill Explain");
                 AssertPaperDetails(enemyDetail.transform.Find("Surface").GetComponent<Image>(),
                     enemyDetail.gameObject, "Name", "Power Property", "Effect");
-                AssertSharedDamageRoutingRemoved(playerDetail.gameObject, "Player Damage Hint");
                 AssertSharedDamageRoutingRemoved(enemyDetail.gameObject, "Enemy Damage Hint");
             }
             yield return null;

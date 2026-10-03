@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
@@ -33,7 +34,7 @@ namespace TurnLimbo.Core.Tests
         {
             var duel = new LegacyQueuedDuel();
             Assert.That(duel.TryQueueLane(0), Is.True);
-            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.TryQueueLane(0), Is.True);
             Assert.That(duel.TryQueueLane(2), Is.True);
             Assert.That(duel.Act, Is.Zero);
             int[][] lanes = { Ids(duel.GetLane(0)), Ids(duel.GetLane(1)), Ids(duel.GetLane(2)) };
@@ -72,7 +73,7 @@ namespace TurnLimbo.Core.Tests
             CollectionAssert.AreEqual(new[] { 2, 7, 1 }, Ids(duel.GetLane(0)));
             CollectionAssert.AreEqual(new[] { 4, 8, 3 }, Ids(duel.GetLane(1)));
             CollectionAssert.AreEqual(new[] { 5, 6, 9 }, Ids(duel.GetLane(2)));
-            Assert.That(duel.Act, Is.EqualTo(1));
+            Assert.That(duel.Act, Is.Zero, "Q's 1 ACT and W's 2 ACT consume the opening pool.");
             duel.Commit();
             Assert.That(duel.ResolutionSlotCount, Is.EqualTo(5));
             Assert.That(duel.TryQueueBreath(), Is.False);
@@ -308,23 +309,27 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void LethalMultiHitAgainstBreath_CompletesTheCurrentSlotThenStopsFurtherBreaths()
+        public void LethalFirstHitAgainstBreath_StopsRemainingHitsAndFurtherBreaths()
         {
             var duel = new LegacyQueuedDuel(3, 50, 100, 50, new[] { Attack(100, 1) },
                 new[] { Attack(900, 12, hits: 3) }, new[] { 1 });
             Assert.That(duel.TryQueueBreath(), Is.True);
             Assert.That(duel.TryQueueBreath(), Is.True);
             duel.Commit();
-            duel.BeginNextSlot();
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
             LegacyHitResult first = duel.ResolveNextHit();
             Assert.That(duel.Player.Health, Is.Zero);
-            Assert.That(first.IsFinalHit, Is.False);
-            Assert.That(duel.IsFinished, Is.False);
-            duel.ResolveNextHit();
-            Assert.That(duel.ResolveNextHit().IsFinalHit, Is.True);
+            Assert.That(first.EnemyAttacked, Is.True);
+            Assert.That(first.PlayerHealthDamage, Is.EqualTo(3));
+            Assert.That(slot.HitsResolved, Is.EqualTo(1));
+            Assert.That(first.IsFinalHit, Is.True);
+            Assert.That(first.Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
+            Assert.That(duel.IsCurrentSlotResolved, Is.True);
+            Assert.Throws<InvalidOperationException>(() => duel.ResolveNextHit());
             Assert.That(duel.CompleteCurrentSlot().Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
             Assert.That(duel.IsFinished, Is.True);
             Assert.That(duel.LastResolvedSlot, Is.Zero);
+            Assert.Throws<InvalidOperationException>(() => duel.ResolveNextSlot());
             Assert.That(duel.TryQueueBreath(), Is.False);
             Assert.That(duel.BreathsQueuedThisTurn, Is.EqualTo(2));
         }
