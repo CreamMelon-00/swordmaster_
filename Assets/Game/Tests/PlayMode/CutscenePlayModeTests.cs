@@ -3,12 +3,14 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Cutscene;
 using TurnLimbo.Runtime.Prologue;
 using TurnLimbo.Runtime.Save;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -22,13 +24,13 @@ namespace TurnLimbo.Presentation.Tests
         private const string Staged = @"@fade out 0
 @bars on 0
 @camera -2 4 0
-@actor elise at -3 left
-@actor elise pose hurt
+@actor elisa at -3 left
+@actor elisa pose hurt
 @actor dummy at 2
 첫째
 @fade in 1
-@actor elise pose idle
-@actor elise move 0 1 &
+@actor elisa pose idle
+@actor elisa move 0 1 &
 @camera reset 1
 둘째
 @image ForestArena/forest-far 0
@@ -37,6 +39,39 @@ namespace TurnLimbo.Presentation.Tests
 @actor knight attack slash &
 셋째
 @image off 0";
+
+        private const string Effects = @"@actor elisa at -5 right
+@actor knight at 5 left
+@flashback on 0
+@ambience aura-loop 0
+@sound flashback
+(첫째)
+@flashback off 0
+@shake 0.5 1 &
+@charge knight 1 hold &
+@aura knight on 0
+둘째
+@charge knight stop
+@actor senior at -8 right
+@actor senior move -6 1 &
+셋째
+@actor senior attack slash &
+넷째";
+
+        [TestCase("forest-ominous")]
+        [TestCase("flashback")]
+        [TestCase("charge")]
+        [TestCase("charge-cut")]
+        [TestCase("aura-loop")]
+        [TestCase("shake")]
+        public void PlaceholderSounds_ArePresentShortAndMono(string name)
+        {
+            AudioClip clip = Resources.Load<AudioClip>(CutsceneStep.SoundFolder + name);
+            Assert.That(clip, Is.Not.Null, "Resources/" + CutsceneStep.SoundFolder + name);
+            Assert.That(clip.channels, Is.EqualTo(1));
+            Assert.That(clip.length, Is.InRange(.3f, 6f));
+            if (name == "aura-loop") Assert.That(clip.length, Is.EqualTo(2f).Within(.01f), "The loop is two seconds long.");
+        }
 
         [Test]
         public void OpeningResource_IsPresentAndValid_AndItsImagesLoad()
@@ -48,6 +83,21 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(script.Steps, Is.Not.Empty);
             foreach (CutsceneStep step in script.Steps.Where(step => step.Kind == CutsceneStepKind.Image && step.Resource != null))
                 Assert.That(Resources.Load<Sprite>(step.Resource), Is.Not.Null, $"Line {step.SourceLineNumber}: {step.Resource}");
+        }
+
+        [Test]
+        public void PrologueSceneResources_LoadAndParseWithTheirMissionsCast()
+        {
+            // The 서막's scenes have no dialogue to fall back on, so each must load and parse as the controller reads it.
+            foreach (PrologueMission mission in PrologueMissions.All)
+            {
+                foreach (string path in new[] { mission.IntroCutscene, mission.OutroCutscene, mission.Empowerment?.Scene }.Where(path => path != null))
+                {
+                    TextAsset source = Resources.Load<TextAsset>(path);
+                    Assert.That(source, Is.Not.Null, "Resources/" + path + ".txt");
+                    Assert.DoesNotThrow(() => CutsceneScriptParser.Parse(path, source.text, mission.SceneCast), path);
+                }
+            }
         }
 
         [UnityTest]
@@ -120,11 +170,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.ArenaCamera.transform.localPosition.x, Is.EqualTo(-2f));
                 Assert.That(arena.ArenaCamera.transform.localPosition.y, Is.EqualTo(-1.9f).Within(1e-4f),
                     "Zooming in lowers the camera so the feet stay put.");
-                SpriteRenderer elise = arena.PlayerRenderer, other = arena.EnemyRenderer;
-                Assert.That(elise.gameObject.activeSelf, Is.True);
-                Assert.That(elise.transform.localPosition.x, Is.EqualTo(-3f));
-                Assert.That(elise.flipX, Is.True, "Elisa is drawn facing right; facing left flips her.");
-                Assert.That(elise.sprite.name, Does.Contain("hurt"));
+                SpriteRenderer elisa = arena.PlayerRenderer, other = arena.EnemyRenderer;
+                Assert.That(elisa.gameObject.activeSelf, Is.True);
+                Assert.That(elisa.transform.localPosition.x, Is.EqualTo(-3f));
+                Assert.That(elisa.flipX, Is.True, "Elisa is drawn facing right; facing left flips her.");
+                Assert.That(elisa.sprite.name, Does.Contain("hurt"));
                 Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.TrainingDummy));
                 Assert.That(other.gameObject.activeSelf, Is.True);
                 Assert.That(other.transform.localPosition.x, Is.EqualTo(2f));
@@ -151,15 +201,15 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(.5f);
                 Assert.That(controller.CutsceneHud.FadeAmount, Is.Zero);
                 scope.Advance(.25f);
-                Assert.That(elise.sprite.name, Is.EqualTo("move-frame-01"), "The running pose replaces idle while she moves.");
-                Sprite movingPose = elise.sprite;
+                Assert.That(elisa.sprite.name, Is.EqualTo("move-frame-01"), "The running pose replaces idle while she moves.");
+                Sprite movingPose = elisa.sprite;
                 scope.Advance(.1f);
-                Assert.That(elise.sprite, Is.SameAs(movingPose), "The pose stays fixed during travel.");
+                Assert.That(elisa.sprite, Is.SameAs(movingPose), "The pose stays fixed during travel.");
                 // A little past the one-second hold, so float steps cannot leave it a hair short.
                 for (int frame = 0; frame < 24; frame++) scope.Advance(.05f);
                 Assert.That(dialogue.CurrentLine.Text, Is.EqualTo("둘째"));
-                Assert.That(elise.transform.localPosition.x, Is.EqualTo(0f).Within(1e-4f), "She moved to 0 while the camera reset.");
-                Assert.That(elise.sprite.name, Does.StartWith("idle-frame-"), "The first stopped frame returns to idle.");
+                Assert.That(elisa.transform.localPosition.x, Is.EqualTo(0f).Within(1e-4f), "She moved to 0 while the camera reset.");
+                Assert.That(elisa.sprite.name, Does.StartWith("idle-frame-"), "The first stopped frame returns to idle.");
                 Assert.That(arena.ArenaCamera.orthographicSize, Is.EqualTo(6f).Within(1e-4f));
 
                 Assert.That(controller.AdvanceCutscene(), Is.True);
@@ -180,6 +230,135 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Named(dialogue.Root, "Dialogue Close").GetComponentInChildren<Text>().text, Does.Contain("닫기"));
                 scope.AssertArenaRestored();
             }
+        }
+
+        [UnityTest]
+        public IEnumerator EffectCommands_DrainTheColourShakeTheCameraPlaySoundsAndPowerTheFigures_ThenCleanUp()
+        {
+            yield return null;
+            using (var scope = new CutsceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                LegacyArenaView arena = controller.ArenaView;
+                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("Cutscene/effects", Effects)), Is.True);
+                CutsceneDirector director = controller.Cutscene;
+                Assert.That(arena.FlashbackAmount, Is.EqualTo(1f), "The flashback drains the colour at once.");
+                Assert.That(Grade(arena).saturation.value, Is.EqualTo(-100f).Within(1e-3f));
+                Assert.That(Label(controller.DialogueHud.Root, "Dialogue Body").color, Is.EqualTo(DialogueHud.MonologueColor),
+                    "The box is not graded: a thought keeps its colour over the black-and-white scene.");
+                Assert.That(director.Audio.LastSound.name, Is.EqualTo("flashback"));
+                Assert.That(director.Audio.AmbienceClip.name, Is.EqualTo("aura-loop"));
+                Assert.That(director.Audio.AmbienceVolume, Is.EqualTo(1f));
+                Assert.That(director.SeniorRenderer, Is.Not.Null, "The script uses the senior knight, so he is made…");
+                Assert.That(director.SeniorRenderer.gameObject.activeSelf, Is.False, "…but stays off stage until placed.");
+
+                Assert.That(controller.AdvanceCutscene(), Is.True);
+                Assert.That(controller.DialogueHud.CurrentLine.Text, Is.EqualTo("둘째"), "Effects written with & keep the line up.");
+                Assert.That(arena.FlashbackAmount, Is.Zero);
+                Assert.That(Grade(arena).saturation.value, Is.EqualTo(0f).Within(1e-3f));
+                DuelPowerAura knight = arena.EnemyPowerAura;
+                Assert.That(knight.IsCharging && knight.IsAuraOn, Is.True);
+                Assert.That(knight.AuraAmount, Is.EqualTo(1f));
+                var framing = new Vector3(0f, -1.5f, -10f);
+                scope.Advance(.1f);
+                Assert.That(director.IsShaking, Is.True);
+                float offset = Vector3.Distance(arena.ArenaCamera.transform.localPosition, framing);
+                Assert.That(offset, Is.GreaterThan(1e-4f), "The camera shakes…");
+                Assert.That(offset, Is.LessThan(.8f), "…within its strength.");
+                scope.Advance(.4f);
+                Assert.That(knight.ChargeGlow, Is.GreaterThan(0f));
+                Assert.That(knight.ActiveMoteCount, Is.GreaterThan(0));
+                Assert.That(knight.Root.parent, Is.SameAs(arena.EnemyRenderer.transform), "The effect sits on the knight's figure.");
+                for (int frame = 0; frame < 12; frame++) scope.Advance(.05f);
+                Assert.That(director.IsShaking, Is.False);
+                Assert.That(arena.ArenaCamera.transform.localPosition.x, Is.EqualTo(0f).Within(1e-4f), "The shake dies away to the framing.");
+                Assert.That(arena.ArenaCamera.transform.localPosition.y, Is.EqualTo(-1.5f).Within(1e-4f));
+                Assert.That(knight.IsCharging && knight.IsChargeHeld, Is.True, "A held charge outlasts its second…");
+                Assert.That(knight.ChargeGlow, Is.EqualTo(1f), "…at full glow, waiting for the cut.");
+
+                Assert.That(controller.AdvanceCutscene(), Is.True);
+                Assert.That(knight.IsCharging, Is.False);
+                Assert.That(knight.ChargeGlow, Is.Zero, "stop cuts the charge off at once…");
+                Assert.That(knight.AuraAmount, Is.EqualTo(1f), "…and leaves the aura alone.");
+                SpriteRenderer senior = director.SeniorRenderer;
+                Assert.That(senior.gameObject.activeSelf, Is.True);
+                Assert.That(senior.transform.localPosition.x, Is.EqualTo(-8f));
+                Assert.That(senior.flipX, Is.False, "He is drawn facing right.");
+                Assert.That(senior.sprite.name, Does.StartWith("senior-idle-upper-"));
+                Assert.That(arena.PlayerRenderer.gameObject.activeSelf && arena.EnemyRenderer.gameObject.activeSelf, Is.True,
+                    "He stands with both fighters.");
+                scope.Advance(.3f);
+                Assert.That(director.SeniorLowerRenderer.sprite.name, Does.StartWith("senior-move-lower-"), "His legs walk as he travels.");
+                Assert.That(senior.transform.localPosition.x, Is.InRange(-8f, -6f));
+                for (int frame = 0; frame < 16; frame++) scope.Advance(.05f);
+                Assert.That(senior.transform.localPosition.x, Is.EqualTo(-6f).Within(1e-4f));
+                Assert.That(director.SeniorLowerRenderer.sprite.name, Is.EqualTo("senior-idle-lower-1"));
+
+                Assert.That(controller.AdvanceCutscene(), Is.True);
+                scope.Advance(.5f);
+                Assert.That(senior.sprite.name, Does.StartWith("senior-slash-1-upper-"), "His stroke plays while the line is up.");
+
+                Assert.That(controller.AdvanceCutscene(), Is.True);
+                Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(director.Audio.AmbienceClip == null && director.Audio.LastSound == null, Is.True,
+                    "The scene's sounds stop with it.");
+                Assert.That(knight.IsAuraOn, Is.False, "Back in the lobby the arena is reset, aura and all.");
+                yield return null;
+                Assert.That(senior == null, Is.True, "The senior knight leaves with the scene.");
+                scope.AssertArenaRestored();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AnAuraLitInAScene_StaysOnTheFighterAfterIt_UntilTheArenaResets()
+        {
+            yield return null;
+            using (var scope = new CutsceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                LegacyArenaView arena = controller.ArenaView;
+                // Directly on the arena, as a battle's event scene will play; the controller's own cleanup would reset it.
+                var director = new CutsceneDirector(CutsceneScriptParser.Parse("Cutscene/test",
+                        "@actor knight at 5 left\n@charge knight 3 &\n@aura knight on 0.5\n@flashback on 0\n하나"),
+                    arena, controller.CutsceneHud, controller.DialogueHud, null);
+                director.Start();
+                director.Tick(.5f);
+                Assert.That(arena.EnemyPowerAura.AuraAmount, Is.EqualTo(1f).Within(1e-4f));
+                Assert.That(arena.EnemyPowerAura.IsCharging, Is.True);
+                Assert.That(director.SeniorRenderer, Is.Null, "No senior knight is made for a scene without him.");
+                director.Dispose();
+                Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.True, "The aura carries on into the fight…");
+                Assert.That(arena.EnemyPowerAura.IsCharging, Is.False, "…but a charge belongs to the scene…");
+                Assert.That(arena.FlashbackAmount, Is.Zero, "…and so does the flashback.");
+                arena.Tick(.1f, .1f);
+                Assert.That(arena.EnemyPowerAura.ActiveMoteCount, Is.GreaterThan(0), "The arena keeps it alive on its own clock.");
+                arena.Reset();
+                Assert.That(arena.EnemyPowerAura.IsAuraOn || arena.EnemyPowerAura.AuraAmount > 0f, Is.False);
+                Assert.That(arena.EnemyPowerAura.ActiveMoteCount, Is.Zero);
+            }
+        }
+
+        [Test]
+        public void AMissingSound_IsAWarning_AndTheSceneGoesOn()
+        {
+            var warnings = new System.Collections.Generic.List<string>();
+            Application.LogCallback capture = (message, stack, type) => { if (type == LogType.Warning) warnings.Add(message); };
+            Application.logMessageReceived += capture;
+            try
+            {
+                using (var scope = new CutsceneScope())
+                {
+                    DuelPrototypeController controller = scope.Controller;
+                    Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("Cutscene/test",
+                        "@sound nothing-here\n@ambience nor-here 1 &\n하나")), Is.True);
+                    Assert.That(controller.DialogueHud.CurrentLine.Text, Is.EqualTo("하나"));
+                    Assert.That(controller.Cutscene.Audio.AmbienceClip, Is.Null);
+                    Assert.That(controller.SkipCutscene(), Is.True);
+                }
+            }
+            finally { Application.logMessageReceived -= capture; }
+            Assert.That(warnings.Any(message => Regex.IsMatch(message, "line 1: no sound at Resources/Sfx/nothing-here")), Is.True);
+            Assert.That(warnings.Any(message => Regex.IsMatch(message, "line 2: no sound at Resources/Sfx/nor-here")), Is.True);
         }
 
         [Test]
@@ -292,6 +471,12 @@ namespace TurnLimbo.Presentation.Tests
 
         private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
 
+        private static ColorAdjustments Grade(LegacyArenaView arena)
+        {
+            Assert.That(arena.ArenaProfile.TryGet(out ColorAdjustments adjustments), Is.True);
+            return adjustments;
+        }
+
         private sealed class CutsceneScope : IDisposable
         {
             private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
@@ -338,6 +523,9 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 Assert.That(arena.ArenaCamera.orthographicSize, Is.EqualTo(6f));
                 Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.Student));
+                Assert.That(arena.FlashbackAmount, Is.Zero, "In colour again.");
+                foreach (DuelPowerAura power in new[] { arena.PlayerPowerAura, arena.EnemyPowerAura })
+                    Assert.That(power.IsAuraOn || power.IsCharging || power.ActiveMoteCount > 0, Is.False, "No power left on.");
             }
 
             public void Dispose()

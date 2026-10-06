@@ -36,14 +36,26 @@ namespace TurnLimbo.Presentation
         private readonly MaterialPropertyBlock ringProperties = new MaterialPropertyBlock();
         private readonly MaterialPropertyBlock outlineProperties = new MaterialPropertyBlock();
         private float pulseTime;
+        private bool hidden;
         private bool disposed;
 
         /// <summary>Whether the fighter is broken; the visuals fade toward this state.</summary>
         public bool IsBroken { get; private set; }
         /// <summary>Current fade, from 0 (hidden) to 1 (fully shown).</summary>
         public float Intensity { get; private set; }
-        public bool IsVisible => HasRequiredAssets && Intensity > 0f;
+        public bool IsVisible => HasRequiredAssets && Intensity > 0f && !hidden;
         public bool HasRequiredAssets { get; }
+        /// <summary>Keeps the outline and ring off without changing the state, while a cutscene poses the fighter in the
+        /// middle of a battle (the copies would otherwise show the battle's frame).</summary>
+        public bool Hidden
+        {
+            get => hidden;
+            set
+            {
+                hidden = value;
+                Apply();
+            }
+        }
         public int OutlineRendererCount => (upperOutline?.Length ?? 0) + (lowerOutline?.Length ?? 0);
 
         /// <param name="lower">The separate lower-body renderer of a layered actor, or null.</param>
@@ -108,7 +120,7 @@ namespace TurnLimbo.Presentation
             float pulse = 0.55f + 0.45f * (0.5f + 0.5f * Mathf.Sin(pulseTime / PulsePeriod * 2f * Mathf.PI));
             Color color = Tint;
             color.a = Intensity * pulse;
-            bool visible = Intensity > 0f;
+            bool visible = Intensity > 0f && !hidden;
             Follow(upperOutline, upperSource, visible, color, outlineProperties);
             Follow(lowerOutline, lowerSource, visible, color, outlineProperties);
             if (ring == null) return;

@@ -295,7 +295,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.Student), "No duel yet: the arena keeps the student.");
 
                 Assert.That(controller.StartMission(), Is.True);
-                scope.FinishDialogue();
+                scope.SkipIntro();
                 Assert.That(controller.IsMission, Is.True);
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(1));
                 Assert.That(controller.HasRequiredArt, Is.True, "The required art includes the dummy's 18 cels.");
@@ -314,7 +314,7 @@ namespace TurnLimbo.Presentation.Tests
                 float playerStart = arena.PlayerRenderer.transform.localPosition.x;
                 string firstHurt = null;
                 int frames = 0;
-                while (!controller.CanChoose && !controller.IsShowingDialogue && !controller.IsShowingResult && frames++ < 2000)
+                while (!controller.CanChoose && !controller.IsPlayingScene && !controller.IsShowingResult && frames++ < 2000)
                 {
                     scope.Advance(.025f);
                     string cel = arena.EnemyRenderer.sprite.name;
@@ -322,7 +322,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(enemy.localPosition, Is.EqualTo(stand), "The dummy never walks or gets pushed.");
                     if (firstHurt == null && cel.StartsWith("dummy-hurt-frame-")) firstHurt = cel;
                 }
-                Assert.That(controller.CanChoose || controller.IsShowingDialogue || controller.IsShowingResult, Is.True,
+                Assert.That(controller.CanChoose || controller.IsPlayingScene || controller.IsShowingResult, Is.True,
                     "The turn must settle.");
                 Assert.That(firstHurt, Is.EqualTo(Hurt(1)), "A landed hit starts the authored reaction from its first cel.");
                 Assert.That(arena.PlayerRenderer.transform.localPosition.x, Is.GreaterThan(playerStart), "Only the player closes in.");
@@ -341,7 +341,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 controller.StartNewGame();
                 Assert.That(controller.StartMission(), Is.True);
-                scope.FinishDialogue();
+                scope.SkipIntro();
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(1));
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo(Idle(1)), "Every attempt at the first mission fields the dummy.");
 
@@ -355,7 +355,7 @@ namespace TurnLimbo.Presentation.Tests
                     Is.SameAs(Resources.Load<Sprite>(PrologueMissions.EnemySilhouette)));
 
                 Assert.That(controller.StartMission(), Is.True);
-                scope.FinishDialogue();
+                scope.SkipIntro();
                 Assert.That(controller.IsMission, Is.True);
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(2));
                 Assert.That(controller.ActiveMission.EnemyAppearance, Is.EqualTo(EnemyAppearance.Student));
@@ -427,13 +427,12 @@ namespace TurnLimbo.Presentation.Tests
 
             public void Advance(float delta) => advance(delta, null);
 
-            /// <summary>Reads a mission intro to its end, which starts the duel.</summary>
-            public void FinishDialogue()
+            /// <summary>Skips a mission's intro scene (its battlefield cutscene, or its dialogue), which starts the duel.</summary>
+            public void SkipIntro()
             {
-                Assert.That(Controller.IsShowingDialogue, Is.True, "Each mission opens with its intro dialogue.");
-                int lines = 0;
-                while (Controller.IsShowingDialogue && lines++ < 200) Controller.ContinueDialogue();
-                Assert.That(Controller.IsShowingDialogue, Is.False);
+                Assert.That(Controller.IsPlayingScene, Is.True, "Each mission opens with its intro scene.");
+                Assert.That(Controller.SkipScene(), Is.True);
+                Assert.That(Controller.IsPlayingScene, Is.False);
             }
 
             public void Dispose()

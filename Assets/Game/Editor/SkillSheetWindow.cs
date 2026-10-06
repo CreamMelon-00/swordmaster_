@@ -358,7 +358,8 @@ namespace TurnLimbo.EditorTools
                     SheetFile.ReadAllText(SheetFilePath));
                 IReadOnlyList<string> codeProblems = CampaignSheetCheck.Problems(table);
                 List<string> warnings = Warnings(table);
-                string counts = $"기술 {table.All.Count}개 (시작 {table.InitialSkills.Count}개, 획득 {table.AcquisitionSkills.Count}개)";
+                string counts = $"기술 {table.All.Count}개 (시작 {table.InitialSkills.Count}개, 획득 {table.AcquisitionSkills.Count}개" +
+                    (table.EnemySkills.Count > 0 ? $", 적 {table.EnemySkills.Count}개)" : ")");
                 if (codeProblems.Count > 0)
                     ShowResult(MessageType.Error, $"시트 규칙 문제는 없지만 게임 코드와 맞지 않는 곳이 {codeProblems.Count}개 있습니다. " +
                         $"줄마다 적힌 대로 고치세요. {counts}.", codeProblems.Concat(warnings));

@@ -5,10 +5,10 @@ using TurnLimbo.Runtime.LegacyCombat;
 
 namespace TurnLimbo.Runtime.Prologue
 {
-    /// <summary>Progress through the linear story chain. Winning the current mission opens the next; the 서막
-    /// missions (those needing no cleared stage) open the lobby, and each later mission also waits for its stage.
-    /// Replays never move progress. What the won missions unlock is derived from the count, so saving the count
-    /// is enough.</summary>
+    /// <summary>Progress through the linear story chain. Completing the current mission (winning it, or losing the 서막's
+    /// last mission after 이아's 수훈) opens the next; the 서막 missions (those needing no cleared stage) open the lobby,
+    /// and each later mission also waits for its stage. Replays never move progress. What the completed missions unlock
+    /// is derived from the count, so saving the count is enough.</summary>
     public sealed class PrologueRun
     {
         /// <summary>What the player always has once the story starts: the Q lane.</summary>
@@ -75,10 +75,12 @@ namespace TurnLimbo.Runtime.Prologue
 
         public bool IsCleared(int number) => number >= 1 && number <= ClearedCount;
 
-        /// <summary>Records a finished mission. Returns true only when this win opened the next mission (or completed the arc).</summary>
-        public bool TryComplete(int number, DuelMatchOutcome outcome)
+        /// <summary>Records a finished mission. Returns true only when this first completion opened the next mission (or
+        /// completed the arc). A win completes a mission; so does a defeat after a forced-loss empowerment was applied
+        /// (<paramref name="empowered"/>, <see cref="PrologueMission.Completes"/>), as in the 서막's last mission.</summary>
+        public bool TryComplete(int number, DuelMatchOutcome outcome, bool empowered = false)
         {
-            if (outcome != DuelMatchOutcome.PlayerVictory || number != ClearedCount + 1 || IsComplete) return false;
+            if (number != ClearedCount + 1 || IsComplete || !missions[number - 1].Completes(outcome, empowered)) return false;
             ClearedCount++;
             return true;
         }

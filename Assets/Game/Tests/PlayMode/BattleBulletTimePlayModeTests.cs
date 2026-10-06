@@ -148,7 +148,7 @@ namespace TurnLimbo.Presentation.Tests
                 DuelPrototypeController controller = scope.Controller;
                 controller.StartNewGame();
                 Assert.That(controller.StartMission(), Is.True);
-                for (int line = 0; line < 200 && controller.IsShowingDialogue; line++) controller.ContinueDialogue();
+                Assert.That(controller.SkipScene(), Is.True, "The intro scene comes first.");
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(1));
                 Assert.That(controller.Encounter, Is.EqualTo(EncounterKind.Duel));
                 // Leaving mission 1 with it marked won opens mission 2's briefing.
@@ -156,7 +156,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.ReturnToLobby();
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.StartMission(), Is.True);
-                for (int line = 0; line < 200 && controller.IsShowingDialogue; line++) controller.ContinueDialogue();
+                Assert.That(controller.SkipScene(), Is.True, "The intro scene comes first.");
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(2));
                 Assert.That(controller.Encounter, Is.EqualTo(EncounterKind.Duel), "The 서막 is 결투.");
                 LegacyArenaView arena = controller.ArenaView;

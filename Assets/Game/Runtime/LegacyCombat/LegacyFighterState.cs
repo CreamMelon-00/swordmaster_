@@ -5,15 +5,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
 {
     public sealed class LegacyFighterState
     {
-        internal LegacyFighterState(int maxHealth, int maxResistance)
+        internal LegacyFighterState(int maxHealth, int maxResistance, int healthFloor = 0)
         {
             if (maxHealth <= 0 || maxResistance < 0) throw new ArgumentOutOfRangeException(nameof(maxHealth));
+            if (healthFloor < 0 || healthFloor >= maxHealth) throw new ArgumentOutOfRangeException(nameof(healthFloor));
             MaxHealth = Health = maxHealth;
             MaxResistance = Resistance = maxResistance;
+            HealthFloor = healthFloor;
         }
 
         public int Health { get; private set; }
         public int MaxHealth { get; }
+        /// <summary>Damage never takes health below this; above zero, the fighter cannot be defeated.</summary>
+        public int HealthFloor { get; }
         public int Resistance { get; private set; }
         public int MaxResistance { get; }
         public bool IsResistanceBroken => Resistance <= 0;
@@ -70,14 +74,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             if (brokenTargetDamagePercent > 0)
                 damage = Round(damage * (1d + brokenTargetDamagePercent / 100d));
-            Health = Math.Max(0, Health - damage);
+            Health = Math.Max(HealthFloor, Health - damage);
             return new LegacyHitImpact(pushPower, damage);
         }
 
         internal LegacyHitImpact ReceiveFlatHealthDamage(int power)
         {
             int damage = Math.Max(0, power);
-            Health = Math.Max(0, Health - damage);
+            Health = Math.Max(HealthFloor, Health - damage);
             return new LegacyHitImpact(damage, damage);
         }
 
@@ -97,6 +101,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Resistance = Math.Max(0, Resistance - Math.Max(0, amount));
             return previous - Resistance;
         }
+
+        /// <summary>상대 붕괴: all resistance goes at once, leaving the same broken state a breaking hit leaves (zero
+        /// resistance; BeginTurn keeps it one more turn, then restores it). Returns the resistance taken.</summary>
+        internal int BreakResistance() => ReduceResistance(Resistance);
 
         private static int Round(double value) => Math.Max(0, (int)Math.Round(value, MidpointRounding.ToEven));
     }
@@ -199,7 +207,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         internal LegacyHitResult(LegacyCurrentSlot slot, int hitIndex, bool playerAttacked, bool enemyAttacked,
             int playerHealthDamage, int enemyHealthDamage, int playerResistanceDamage,
             int enemyResistanceDamage, LegacyHitImpact playerImpact, LegacyHitImpact enemyImpact,
-            DuelMatchOutcome outcome, bool playerDodged = false, bool playerPressured = false)
+            DuelMatchOutcome outcome, bool playerDodged = false, bool playerPressured = false,
+            bool enemyReachedHealthThreshold = false)
         {
             SlotIndex = slot.SlotIndex;
             PlayerSkill = slot.PlayerSkill;
@@ -219,6 +228,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyDisplayedDamage = enemyImpact.DisplayedDamage;
             IsFinalHit = slot.IsResolved;
             Outcome = outcome;
+            EnemyReachedHealthThreshold = enemyReachedHealthThreshold;
         }
 
         public int SlotIndex { get; }
@@ -239,5 +249,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyDisplayedDamage { get; }
         public bool IsFinalHit { get; }
         public DuelMatchOutcome Outcome { get; }
+        /// <summary>This is the hit that first brought the enemy to the duel's health threshold or below
+        /// (<see cref="LegacyQueuedDuel.EnemyHealthThresholdPercent"/>) while the duel goes on: the moment a story
+        /// event may interrupt. At most once per attempt.</summary>
+        public bool EnemyReachedHealthThreshold { get; }
     }
 }

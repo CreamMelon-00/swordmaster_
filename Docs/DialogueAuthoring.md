@@ -37,6 +37,7 @@ Unity 안에서 작성하려면 상단 `Turn Limbo → 다이얼로그 편집기
 - 해당 위치에서 마지막으로 지정한 화자를 계속 사용할 때는 이름 없이 `@left` 또는 `@right`만 적을 수 있다.
 - 일반 문장 한 줄이 플레이어가 한 번 넘기는 단위다. 한 줄은 공백을 포함해 최대 240자이며, 넘으면 줄 번호와 함께 오류가 난다. 긴 내용은 의미가 끊기는 지점에서 다음 표시 줄로 나눈다.
 - 실제 표시 문장이 `@` 또는 `#`으로 시작해야 하면 `\@`, `\#`으로 적는다.
+- 줄 전체를 괄호로 감싼 문장 `( … )`은 **독백**(속마음)이다. 괄호는 그대로 보이고, 본문이 독백 색(차분한 푸른 회색)으로 바뀐다. 말하는 화자가 있든(`@left 엘리사`) 나레이션이든 같고, 컷신의 대사에도 똑같이 적용된다. 앞뒤 공백은 무시하지만, 괄호가 줄의 일부만 감싸면(`(생각) 하고 말했다`) 보통 대사다. 반각 괄호 `(` `)`만 해당하고 전각 `（` `）`는 해당하지 않는다.
 - 지시어는 소문자 그대로 적는다. `@Left`처럼 대소문자가 다르면 인식하지 않는다.
 - 화자 선언의 `|`는 역할·호칭을 적을 때만 한 번 사용할 수 있다. 역할이 없다면 `|`도 쓰지 않는다.
 - 파일명은 영문 소문자·숫자·하이픈 조합을 권장한다. 예: `chapter-01-intro.txt`.
@@ -85,9 +86,11 @@ Unity 안에서 작성하려면 상단 `Turn Limbo → 다이얼로그 편집기
 controller.StartDialogue("Dialogue/chapter-01-intro");
 ```
 
+독백인지는 `DialogueLine.IsMonologue`(규칙은 `DialogueLine.IsMonologueText`)가 판단하고, `DialogueHud`가 본문 색(`DialogueHud.MonologueColor`)을 바꾼다.
+
 확장자 `.txt`는 로드 경로에 쓰지 않는다. 현재 로비 홈 화면의 `스토리` 버튼은 `Assets/Game/Resources/Dialogue/dialogue.txt`, 즉 `Dialogue/dialogue`를 연다. 씬이 시작되자마자 자동으로 재생하지는 않는다.
 
-스토리 임무는 `Dialogue/mission-NN-intro`(시작)와 `Dialogue/mission-NN-outro`(승리 후)를 자동으로 재생한다(NN은 서막 `01`~`04`, 수련 `05`~`09`). 지금은 모두 `테스트` 한 줄이다. 이 대사는 끝까지 넘기거나 Escape로 건너뛰면 다음 단계(전투 또는 결과)로 넘어간다. 상세는 `PrologueMissions.md`와 `StoryUnlocks.md`를 따른다.
+스토리 임무는 시작 장면과 종료 장면(승리 뒤, 4 임무는 수훈 뒤의 패배 뒤)을 자동으로 재생한다. 먼저 전장 컷신 `Cutscene/mission-NN-intro`·`-outro`(`Cutscene.md`)를 찾고, 없으면 대사 `Dialogue/mission-NN-intro`·`-outro`를 재생한다(NN은 서막 `01`~`04`, 수련 `05`~`09`). 서막 네 임무의 장면은 원고로 쓴 컷신이고, 수련 임무는 아직 `테스트` 한 줄짜리 대사다. 4 임무 전투 중의 수훈 장면도 같다(`Cutscene/mission-04-event`, 없으면 `Dialogue/mission-04-event`). 장면은 끝까지 넘기거나 Escape로 건너뛰면 다음 단계로 넘어간다. 시작 장면은 전투, 종료 장면은 결과 창, 4 임무의 종료 장면은 로비(서막을 마침), 수훈 장면은 수훈이 적용된 채 이어지는 전투다. 상세는 `PrologueMissions.md`와 `StoryUnlocks.md`를 따른다.
 첫 버전의 시작 API는 안전한 상태 전환을 위해 로비에서만 대화를 열도록 제한되어 있다.
 
 ## 기본 조작

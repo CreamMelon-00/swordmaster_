@@ -221,15 +221,20 @@ namespace TurnLimbo.Presentation
             => missionNumber >= 1 && missionNumber <= StoryMissions.Count ? StoryMissions.Get(missionNumber).Chapter
                 : MissionBriefingHud.ChapterName;
 
+        /// <summary>The 서막 is over and what it opens, in two lines: a win of its last mission says it here, and since
+        /// that mission ends in a forced loss with no result, the lobby it leads to says it the first time
+        /// (<see cref="CampaignLobbyHud.SetArrivalNotice"/>).</summary>
+        public static string PrologueCompleteNotice(bool curriculumOpen) => curriculumOpen
+            ? "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
+            : "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 스테이지가 열립니다.";
+
         private static string BuildNotice(BattleResult result, bool toLobby)
         {
             if (result.IsMission)
                 return !result.Victory
                     ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 로비로 돌아갈 수 있습니다."
                         : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
-                    : result.StageNumber == PrologueMissions.Count ? result.CurriculumOpen
-                        ? "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
-                        : "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 스테이지가 열립니다."
+                    : result.StageNumber == PrologueMissions.Count ? PrologueCompleteNotice(result.CurriculumOpen)
                     : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n여정을 계속하면 로비로 돌아갑니다."
                         : "임무를 완료했습니다.\n다음 임무로 넘어갈 수 있습니다."
                     : toLobby ? "「깨어남」은 이미 마쳤습니다.\n여정을 계속하면 로비로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";

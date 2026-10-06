@@ -14,16 +14,17 @@ namespace TurnLimbo.Runtime.Campaign
     public static class CampaignSheetCheck
     {
         /// <summary>The technique ids code names besides the curriculum's: the stage enemies' basic cycle (1-6) and
-        /// rhythms (1-9), the enemy counters (4, 7), the 서막 missions (1, 2, 5, 7), the 수련 missions' lanes (1-9),
-        /// the default duel (1-6) and the {기술:ID} tokens in mission copy (1, 2, 3, 5, 7). Ids from
-        /// <see cref="LegacySkillSheet.ReservedIdStart"/> up are the practice skills', which the sheet already refuses.</summary>
-        public static IReadOnlyList<int> CodeSkillIds { get; } = Array.AsReadOnly(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+        /// rhythms (1-9), the enemy counters (4, 7), the 서막 missions (1, 2, 5, 7, and 500 라우다레 in 이아's 수훈 script),
+        /// the 수련 missions' lanes (1-9), the default duel (1-6) and the {기술:ID} tokens in mission copy (1, 2, 3, 5, 7).
+        /// Ids from <see cref="LegacySkillSheet.ReservedIdStart"/> up are the practice skills', which the sheet already refuses.</summary>
+        public static IReadOnlyList<int> CodeSkillIds { get; } = Array.AsReadOnly(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 500 });
 
         /// <summary>What the game cannot run with, one Korean line each; empty when the sheet fits the code.
         /// <list type="bullet">
         /// <item>A technique a <see cref="CampaignCurriculum.Default"/> node grants is missing (completing the node would
-        /// stop the battle's end) or is a 시작 row (the node would grant nothing; the curriculum gives 획득 rows).</item>
-        /// <item>A first-clear stage reward is missing or is a 시작 row.</item>
+        /// stop the battle's end), is a 시작 row (the node would grant nothing; the curriculum gives 획득 rows) or is an
+        /// 적 row (the player would own an enemy-only technique).</item>
+        /// <item>A first-clear stage reward is missing or is a 시작 or 적 row.</item>
         /// <item>An id of <see cref="CodeSkillIds"/> is missing.</item>
         /// </list></summary>
         public static IReadOnlyList<string> Problems(LegacySkillTable table)
@@ -42,6 +43,10 @@ namespace TurnLimbo.Runtime.Campaign
                         problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.StartingGroup}'입니다. " +
                             $"커리큘럼 과정 '{node.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
                             "(시작 기술이면 그 과정을 마쳐도 새로 얻는 기술이 없습니다).");
+                    else if (table.IsEnemy(definition))
+                        problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.EnemyGroup}'입니다. " +
+                            $"커리큘럼 과정 '{node.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
+                            "(적 기술은 플레이어가 얻거나 편성하지 않습니다).");
                     reported.Add(id);
                 }
             foreach (CampaignStage stage in CampaignRun.StageDefinitions)
@@ -53,6 +58,9 @@ namespace TurnLimbo.Runtime.Campaign
                     problems.Add($"ID {id} 기술이 시트에 없습니다. 스테이지 {stage.Number} 첫 클리어 보상이므로 이 기술을 지급할 때 게임이 멈춥니다. ID를 바꾸거나 행을 지우지 마세요.");
                 else if (table.IsStarting(definition))
                     problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.StartingGroup}'입니다. " +
+                        $"스테이지 {stage.Number} 첫 클리어 보상이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다.");
+                else if (table.IsEnemy(definition))
+                    problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.EnemyGroup}'입니다. " +
                         $"스테이지 {stage.Number} 첫 클리어 보상이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다.");
                 reported.Add(id);
             }

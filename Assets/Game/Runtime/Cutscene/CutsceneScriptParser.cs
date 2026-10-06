@@ -27,37 +27,52 @@ namespace TurnLimbo.Runtime.Cutscene
     public static class CutsceneScriptParser
     {
         private static readonly string[] DialogueDirectives = { "@narrator", "@left", "@right", "@show", "@hide", "@move" };
-        private static readonly string[] StagingDirectives = { "@wait", "@fade", "@bars", "@camera", "@image", "@actor" };
+        private static readonly string[] StagingDirectives =
+        {
+            "@wait", "@fade", "@bars", "@camera", "@image", "@actor",
+            "@flashback", "@shake", "@sound", "@ambience", "@charge", "@aura",
+        };
         // Lets the dialogue parser validate stage directives after the last line and files with no dialogue at all.
         private const string Sentinel = "\n@narrator\n__TURN_LIMBO_CUTSCENE_END__\n";
 
-        private sealed class ActorState
+        // What the script has put on stage so far, to catch commands that cannot apply.
+        private sealed class StageState
         {
-            public bool EliseVisible, KnightVisible, DummyVisible;
+            public bool ElisaVisible, KnightVisible, DummyVisible, SeniorVisible;
+            public bool ImageShown, AmbiencePlaying;
 
             public bool IsVisible(CutsceneActor actor)
-                => actor == CutsceneActor.Elise ? EliseVisible : actor == CutsceneActor.Knight ? KnightVisible : DummyVisible;
+                => actor == CutsceneActor.Elisa ? ElisaVisible : actor == CutsceneActor.Knight ? KnightVisible
+                    : actor == CutsceneActor.Dummy ? DummyVisible : SeniorVisible;
 
             public void Set(CutsceneActor actor, bool visible)
             {
-                if (actor == CutsceneActor.Elise) EliseVisible = visible;
+                if (actor == CutsceneActor.Elisa) ElisaVisible = visible;
                 else if (actor == CutsceneActor.Knight) KnightVisible = visible;
-                else DummyVisible = visible;
+                else if (actor == CutsceneActor.Dummy) DummyVisible = visible;
+                else SeniorVisible = visible;
             }
         }
 
-        public static CutsceneScript Parse(string scriptId, string source)
+        /// <summary>Reads a cutscene that starts on a bare stage (the opening): every figure is placed with <c>@actor … at</c>.</summary>
+        public static CutsceneScript Parse(string scriptId, string source) => Parse(scriptId, source, null);
+
+        /// <summary>Reads a cutscene that starts with <paramref name="onStage"/> already standing where the arena has them,
+        /// as a mission's scenes do (<see cref="Prologue.PrologueMission.SceneCast"/>): commands may use those figures
+        /// without placing them first, and the script may still restage them.</summary>
+        public static CutsceneScript Parse(string scriptId, string source, IReadOnlyList<CutsceneActor> onStage)
         {
             if (string.IsNullOrWhiteSpace(scriptId)) throw new ArgumentException("A cutscene id is required.", nameof(scriptId));
             if (source == null) throw new ArgumentNullException(nameof(source));
+            CutsceneActor[] cast = CutsceneScript.CheckCast(onStage);
             string id = scriptId.Trim();
             string[] lines = source.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             if (lines.Length > 0 && lines[0].Length > 0 && lines[0][0] == '﻿') lines[0] = lines[0].Substring(1);
 
             var staging = new List<CutsceneStep>();
             var masked = new StringBuilder(source.Length + Sentinel.Length);
-            var actors = new ActorState();
-            bool imageShown = false;
+            var state = new StageState();
+            foreach (CutsceneActor actor in cast) state.Set(actor, true);
             for (int index = 0; index < lines.Length; index++)
             {
                 int lineNumber = index + 1;
@@ -66,14 +81,15 @@ namespace TurnLimbo.Runtime.Cutscene
                 string command = line.StartsWith("@", StringComparison.Ordinal) ? FirstToken(line) : null;
                 if (command != null && Array.IndexOf(StagingDirectives, command) >= 0)
                 {
-                    staging.Add(ParseStaging(id, lineNumber, command, Arguments(line, command), actors, ref imageShown));
+                    staging.Add(ParseStaging(id, lineNumber, command, Arguments(line, command), state));
                     masked.Append('#');
                     continue;
                 }
                 if (command != null && Array.IndexOf(DialogueDirectives, command) < 0)
                     throw new CutsceneParseException(id, lineNumber,
                         $"알 수 없는 지시어 '{command}'입니다. 대사 지시어(@narrator, @left, @right, @show, @hide, @move)나 " +
-                        "연출 지시어(@wait, @fade, @bars, @camera, @image, @actor)를 소문자로 적으세요.");
+                        "연출 지시어(@wait, @fade, @bars, @camera, @image, @actor, @flashback, @shake, @sound, @ambience, " +
+                        "@charge, @aura)를 소문자로 적으세요.");
                 masked.Append(lines[index]);
             }
             masked.Append(Sentinel);
@@ -100,11 +116,10 @@ namespace TurnLimbo.Runtime.Cutscene
             }
             while (stagingIndex < staging.Count) steps.Add(staging[stagingIndex++]);
             if (steps.Count == 0) throw new CutsceneParseException(id, 0, "연출 명령이나 대사가 하나도 없습니다.");
-            return new CutsceneScript(id, steps);
+            return new CutsceneScript(id, steps, cast);
         }
 
-        private static CutsceneStep ParseStaging(string id, int line, string command, string[] args, ActorState actors,
-            ref bool imageShown)
+        private static CutsceneStep ParseStaging(string id, int line, string command, string[] args, StageState state)
         {
             bool waits = true;
             if (args.Length > 0 && args[args.Length - 1] == "&")
@@ -150,24 +165,103 @@ namespace TurnLimbo.Runtime.Cutscene
                     Expect(id, line, args, 1, 2, "@image <Resources 경로> [초] 또는 @image off [초]");
                     if (args[0] == "off")
                     {
-                        if (!imageShown) throw Error(id, line, "보이는 그림이 없어 @image off를 할 수 없습니다.");
-                        imageShown = false;
+                        if (!state.ImageShown) throw Error(id, line, "보이는 그림이 없어 @image off를 할 수 없습니다.");
+                        state.ImageShown = false;
                         return CutsceneStep.ForImage(line, null, OptionalSeconds(id, line, args, 1), waits);
                     }
-                    imageShown = true;
+                    state.ImageShown = true;
                     return CutsceneStep.ForImage(line, args[0], OptionalSeconds(id, line, args, 1), waits);
                 }
+                case "@flashback":
+                {
+                    Expect(id, line, args, 1, 2, "@flashback on|off [초]");
+                    bool on = args[0] == "on" ? true : args[0] == "off" ? false
+                        : throw Error(id, line, "@flashback 다음에는 on(흑백으로) 또는 off(원래 색으로)를 적으세요.");
+                    return CutsceneStep.ForFlashback(line, on, OptionalSeconds(id, line, args, 1), waits);
+                }
+                case "@shake":
+                {
+                    Expect(id, line, args, 1, 2, "@shake <세기> [초]");
+                    float strength = Number(id, line, args[0], "흔들림 세기");
+                    if (strength <= 0f || strength > CutsceneStep.MaximumShake)
+                        throw Error(id, line, $"흔들림 세기는 0보다 크고 {CutsceneStep.MaximumShake.ToString("0.0", CultureInfo.InvariantCulture)} 이하입니다(0.2 약하게, 0.5 세게).");
+                    float seconds = args.Length > 1 ? Seconds(id, line, args[1]) : CutsceneStep.DefaultShakeSeconds;
+                    if (seconds <= 0f) throw Error(id, line, "흔들리는 시간은 0보다 길어야 합니다(안 쓰면 0.5초).");
+                    return CutsceneStep.ForShake(line, strength, seconds, waits);
+                }
+                case "@sound":
+                {
+                    if (!waits) throw Error(id, line, "@sound는 소리를 틀고 바로 다음 명령으로 넘어가므로 &를 붙이지 않습니다.");
+                    Expect(id, line, args, 1, 2, "@sound <이름> [볼륨]");
+                    float volume = 1f;
+                    if (args.Length > 1)
+                    {
+                        volume = Number(id, line, args[1], "볼륨");
+                        if (volume < 0f || volume > 1f) throw Error(id, line, "볼륨은 0~1입니다(안 쓰면 1).");
+                    }
+                    return CutsceneStep.ForSound(line, args[0], volume);
+                }
+                case "@ambience":
+                {
+                    Expect(id, line, args, 1, 2, "@ambience <이름> [초] 또는 @ambience off [초]");
+                    if (args[0] == "off")
+                    {
+                        if (!state.AmbiencePlaying) throw Error(id, line, "틀어 둔 배경 소리가 없어 @ambience off를 할 수 없습니다.");
+                        state.AmbiencePlaying = false;
+                        return CutsceneStep.ForAmbience(line, null, OptionalSeconds(id, line, args, 1), waits);
+                    }
+                    state.AmbiencePlaying = true;
+                    return CutsceneStep.ForAmbience(line, args[0], OptionalSeconds(id, line, args, 1), waits);
+                }
+                case "@charge":
+                {
+                    const string usage = "@charge <인물> <초> [hold] 또는 @charge <인물> stop";
+                    CutsceneActor actor = OnStageActor(id, line, args, usage, state);
+                    Expect(id, line, args, 2, 3, usage);
+                    if (args[1] == "stop")
+                    {
+                        Expect(id, line, args, 2, 2, "@charge <인물> stop");
+                        RejectNoWait(id, line, waits, "@charge stop");
+                        return CutsceneStep.ForChargeStop(line, actor);
+                    }
+                    float seconds = Seconds(id, line, args[1]);
+                    if (seconds <= 0f) throw Error(id, line, "힘을 모으는 시간은 0보다 길어야 합니다. 끊으려면 stop을 적으세요.");
+                    if (args.Length == 3 && args[2] != "hold")
+                        throw Error(id, line, "@charge <인물> <초> 다음에는 hold만 적을 수 있습니다(다 모은 채 stop까지 붙든다).");
+                    return CutsceneStep.ForCharge(line, actor, seconds, waits, args.Length == 3);
+                }
+                case "@aura":
+                {
+                    CutsceneActor actor = OnStageActor(id, line, args, "@aura <인물> on|off [초]", state);
+                    Expect(id, line, args, 2, 3, "@aura <인물> on|off [초]");
+                    bool on = args[1] == "on" ? true : args[1] == "off" ? false
+                        : throw Error(id, line, "@aura <인물> 다음에는 on 또는 off를 적으세요.");
+                    return CutsceneStep.ForAura(line, actor, on, OptionalSeconds(id, line, args, 2), waits);
+                }
                 default:
-                    return ParseActor(id, line, args, waits, actors);
+                    return ParseActor(id, line, args, waits, state);
             }
         }
 
-        private static CutsceneStep ParseActor(string id, int line, string[] args, bool waits, ActorState actors)
+        // The actor of @charge or @aura, who must already stand on stage.
+        private static CutsceneActor OnStageActor(string id, int line, string[] args, string usage, StageState state)
         {
-            if (args.Length < 2) throw Error(id, line, "@actor <elise|knight|dummy> <at|hide|move|face|pose|attack> ... 형식으로 적으세요.");
-            CutsceneActor actor = args[0] == "elise" ? CutsceneActor.Elise : args[0] == "knight" ? CutsceneActor.Knight
-                : args[0] == "dummy" ? CutsceneActor.Dummy
-                : throw Error(id, line, $"인물 '{args[0]}'을(를) 모릅니다. elise, knight, dummy 중 하나를 적으세요.");
+            if (args.Length < 2) throw Error(id, line, $"형식은 '{usage}'입니다.");
+            CutsceneActor actor = Actor(id, line, args[0]);
+            if (!state.IsVisible(actor))
+                throw Error(id, line, $"{args[0]}이(가) 무대에 없습니다. 먼저 @actor {args[0]} at <x>로 세우세요.");
+            return actor;
+        }
+
+        private static CutsceneActor Actor(string id, int line, string value)
+            => value == "elisa" ? CutsceneActor.Elisa : value == "knight" ? CutsceneActor.Knight
+                : value == "dummy" ? CutsceneActor.Dummy : value == "senior" ? CutsceneActor.Senior
+                : throw Error(id, line, $"인물 '{value}'을(를) 모릅니다. elisa, knight, dummy, senior 중 하나를 적으세요.");
+
+        private static CutsceneStep ParseActor(string id, int line, string[] args, bool waits, StageState actors)
+        {
+            if (args.Length < 2) throw Error(id, line, "@actor <elisa|knight|dummy|senior> <at|hide|move|face|pose|attack> ... 형식으로 적으세요.");
+            CutsceneActor actor = Actor(id, line, args[0]);
             string action = args[1];
             if (action != "at" && !actors.IsVisible(actor))
                 throw Error(id, line, $"{args[0]}이(가) 무대에 없습니다. 먼저 @actor {args[0]} at <x>로 세우세요.");
@@ -177,8 +271,9 @@ namespace TurnLimbo.Runtime.Cutscene
                 {
                     RejectNoWait(id, line, waits, "@actor at");
                     Expect(id, line, args, 3, 4, "@actor <인물> at <x> [left|right]");
+                    // Only the knight and the dummy share a figure; Elisa and the senior knight have their own.
                     CutsceneActor partner = actor == CutsceneActor.Knight ? CutsceneActor.Dummy
-                        : actor == CutsceneActor.Dummy ? CutsceneActor.Knight : CutsceneActor.Elise;
+                        : actor == CutsceneActor.Dummy ? CutsceneActor.Knight : actor;
                     if (partner != actor && actors.IsVisible(partner))
                         throw Error(id, line, "기사와 허수아비는 같은 자리를 씁니다. 먼저 다른 쪽을 @actor ... hide로 내리세요.");
                     CutsceneFacing facing = args.Length == 4 ? Facing(id, line, args[3]) : CutsceneFacing.Unchanged;
@@ -208,6 +303,8 @@ namespace TurnLimbo.Runtime.Cutscene
                         : throw Error(id, line, "자세는 idle, hurt, block 중 하나입니다.");
                     if (actor == CutsceneActor.Dummy && pose == CutscenePose.Block)
                         throw Error(id, line, "허수아비에는 막는 자세가 없습니다(idle, hurt).");
+                    if (actor == CutsceneActor.Senior && pose != CutscenePose.Idle)
+                        throw Error(id, line, "상급기사는 아직 임시 그림이라 맞는·막는 자세가 없습니다(idle만).");
                     return CutsceneStep.ForActor(line, actor, CutsceneActorAction.Pose, pose: pose);
                 }
                 case "attack":

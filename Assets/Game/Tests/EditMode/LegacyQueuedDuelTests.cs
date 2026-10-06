@@ -625,6 +625,124 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.RoundNumber, Is.EqualTo(5));
         }
 
+        [Test]
+        public void EnemyHealthFloor_KeepsTheEnemyStanding_WhateverHitsIt()
+        {
+            var duel = new LegacyQueuedDuel(100, 50, 50, 10, new[] { Attack(900, 999) },
+                System.Array.Empty<LegacySkill>(), new[] { 0 }, enemyHealthFloor: 1);
+            Assert.That(duel.EnemyHealthFloor, Is.EqualTo(1));
+            Assert.That(duel.Enemy.HealthFloor, Is.EqualTo(1));
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            duel.BeginNextSlot();
+            LegacyHitResult hit = duel.ResolveNextHit();
+            Assert.That(duel.Enemy.Health, Is.EqualTo(1));
+            Assert.That(hit.EnemyHealthDamage, Is.EqualTo(49), "The health actually lost.");
+            Assert.That(hit.EnemyDisplayedDamage, Is.EqualTo(999), "The number shown stays the blow's, as at zero.");
+            Assert.That(hit.Outcome, Is.EqualTo(DuelMatchOutcome.InProgress));
+            Assert.That(duel.CompleteCurrentSlot().Outcome, Is.EqualTo(DuelMatchOutcome.InProgress));
+            Assert.That(duel.Enemy.IsDefeated || duel.IsFinished, Is.False);
+
+            // Pressure's flat bonus respects the floor too.
+            duel.BeginNextTurn();
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            duel.BeginNextSlot();
+            Assert.That(duel.TryStep(LegacyStepAction.Pressure, true, out bool pressed) && pressed, Is.True);
+            Assert.That(duel.ResolveNextSlot().Outcome, Is.EqualTo(DuelMatchOutcome.InProgress));
+            Assert.That(duel.Enemy.Health, Is.EqualTo(1));
+
+            Assert.That(new LegacyQueuedDuel().EnemyHealthFloor, Is.Zero);
+            Assert.Throws<ArgumentOutOfRangeException>(() => new LegacyQueuedDuel(100, 50, 50, 10, new[] { Attack(900, 1) },
+                System.Array.Empty<LegacySkill>(), new[] { 0 }, enemyHealthFloor: 50));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new LegacyQueuedDuel(100, 50, 50, 10, new[] { Attack(900, 1) },
+                System.Array.Empty<LegacySkill>(), new[] { 0 }, enemyHealthFloor: -1));
+        }
+
+        [Test]
+        public void EnemyHealthThreshold_ReportsTheExactHitThatFirstReachesIt_OncePerAttempt()
+        {
+            // 40 health, threshold 50%: 20 or less. Three 10-power hits leave 30, 20, 10.
+            var duel = new LegacyQueuedDuel(100, 50, 40, 10, new[] { Attack(900, 10) },
+                System.Array.Empty<LegacySkill>(), new[] { 0 }, enemyHealthThresholdPercent: 50);
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                for (int i = 0; i < 3; i++) Assert.That(duel.TryQueueLane(0), Is.True);
+                duel.Commit();
+                var reached = new System.Collections.Generic.List<bool>();
+                while (!duel.IsTurnResolved)
+                {
+                    duel.BeginNextSlot();
+                    while (!duel.IsCurrentSlotResolved) reached.Add(duel.ResolveNextHit().EnemyReachedHealthThreshold);
+                    duel.CompleteCurrentSlot();
+                }
+                Assert.That(reached, Is.EqualTo(new[] { false, true, false }), "Exactly half counts, and only the first time.");
+                Assert.That(duel.EnemyHealthThresholdReached, Is.True);
+                duel.Reset();
+                Assert.That(duel.EnemyHealthThresholdReached, Is.False, "A retry starts fresh.");
+            }
+            Assert.That(new LegacyQueuedDuel().EnemyHealthThresholdPercent, Is.Zero);
+        }
+
+        [Test]
+        public void EnemyHealthThreshold_IsNotReportedOnAHitThatEndsTheDuel()
+        {
+            // Both fighters are unguarded (no resistance): the clash takes the enemy from 40 to 10 and the player from 20 to 0.
+            var duel = new LegacyQueuedDuel(20, 0, 40, 0, new[] { Attack(900, 15) },
+                new[] { Attack(901, 10) }, new[] { 1 }, enemyHealthThresholdPercent: 50);
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            duel.BeginNextSlot();
+            LegacyHitResult hit = duel.ResolveNextHit();
+            Assert.That(duel.Enemy.Health, Is.EqualTo(10));
+            Assert.That(hit.Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
+            Assert.That(hit.EnemyReachedHealthThreshold || duel.EnemyHealthThresholdReached, Is.False, "Nothing is left to interrupt.");
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => new LegacyQueuedDuel(100, 50, 50, 10, new[] { Attack(900, 1) },
+                System.Array.Empty<LegacySkill>(), new[] { 0 }, enemyHealthThresholdPercent: 100));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new LegacyQueuedDuel(100, 50, 50, 10, new[] { Attack(900, 1) },
+                System.Array.Empty<LegacySkill>(), new[] { 0 }, enemyHealthThresholdPercent: -1));
+        }
+
+        [Test]
+        public void ReplaceEnemyScript_StartsAtTheNextPlanningTurn_AndResetBringsBackTheOriginalEnemy()
+        {
+            LegacySkill a = Attack(900, 1), b = Attack(901, 1), c = Attack(902, 1);
+            var script = new EnemyScript(new[] { new[] { b }, new[] { c } });
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { Guard(903, 1) }, new[] { a, a }, new[] { 2 });
+
+            // During planning: the queue already shown stays for this turn.
+            duel.ReplaceEnemyScript(script);
+            CollectionAssert.AreEqual(new[] { 900, 900 }, Ids(duel.EnemyQueue));
+            ResolveTurn(duel);
+            duel.BeginNextTurn();
+            CollectionAssert.AreEqual(new[] { 901 }, Ids(duel.EnemyQueue), "The script's own first turn, whatever the round.");
+            ResolveTurn(duel);
+            duel.BeginNextTurn();
+            CollectionAssert.AreEqual(new[] { 902 }, Ids(duel.EnemyQueue));
+            ResolveTurn(duel);
+            duel.BeginNextTurn();
+            CollectionAssert.AreEqual(new[] { 901 }, Ids(duel.EnemyQueue), "It loops.");
+
+            // Mid-turn: the committed queue plays out, then the new enemy queues.
+            duel.Reset();
+            CollectionAssert.AreEqual(new[] { 900, 900 }, Ids(duel.EnemyQueue), "Reset brings back the original enemy.");
+            duel.Commit();
+            duel.ResolveNextSlot();
+            duel.ReplaceEnemyScript(script);
+            Assert.That(duel.ResolveNextSlot().EnemySkill.Id, Is.EqualTo(900));
+            duel.BeginNextTurn();
+            CollectionAssert.AreEqual(new[] { 901 }, Ids(duel.EnemyQueue));
+
+            // A replacement still waiting when the attempt restarts is dropped.
+            duel.ReplaceEnemyScript(new EnemyScript(new[] { new[] { c } }));
+            duel.Reset();
+            ResolveTurn(duel);
+            duel.BeginNextTurn();
+            CollectionAssert.AreEqual(new[] { 900, 900 }, Ids(duel.EnemyQueue));
+            Assert.Throws<ArgumentNullException>(() => duel.ReplaceEnemyScript(null));
+        }
+
         private static LegacyQueuedDuel TestDuel(LegacySkill[] playerSkills, LegacySkill[] enemySkills,
             int[] counts, int health = 100, int resistance = 50)
             => new LegacyQueuedDuel(health, resistance, health, resistance, playerSkills, enemySkills, counts);

@@ -17,15 +17,30 @@ namespace TurnLimbo.Runtime.Cutscene
         /// <summary>A full-screen image over the scene, or none (<see cref="CutsceneStep.Resource"/> null).</summary>
         Image,
         Actor,
+        /// <summary>The world turns black and white (<see cref="CutsceneStep.FlashbackOn"/>) or back to colour.</summary>
+        Flashback,
+        /// <summary>The camera shakes by <see cref="CutsceneStep.Strength"/>, dying away over the step's seconds.</summary>
+        Shake,
+        /// <summary>A sound played once (<see cref="CutsceneStep.Resource"/>) at <see cref="CutsceneStep.Volume"/>.</summary>
+        Sound,
+        /// <summary>A looping sound fading in (<see cref="CutsceneStep.Resource"/>), or out when the resource is null.</summary>
+        Ambience,
+        /// <summary>Power gathering on an actor for the step's seconds, or cut off (<see cref="CutsceneStep.ChargeStops"/>).</summary>
+        Charge,
+        /// <summary>A lasting aura around an actor, fading in or out (<see cref="CutsceneStep.AuraOn"/>).</summary>
+        Aura,
     }
 
     /// <summary>Who stands in the scene. Elisa is the player's figure; the knight and the dummy share the other one,
-    /// so only one of them can be on stage at a time.</summary>
+    /// so only one of them can be on stage at a time. The senior knight (상급기사) has a third figure of his own.</summary>
     public enum CutsceneActor
     {
-        Elise,
+        Elisa,
         Knight,
         Dummy,
+        /// <summary>상급기사. Until he has art of his own he wears the MobStudent set: idle, sliding moves and strokes,
+        /// no hurt or guard pose.</summary>
+        Senior,
     }
 
     public enum CutsceneActorAction
@@ -78,6 +93,12 @@ namespace TurnLimbo.Runtime.Cutscene
         public const float MaximumCameraSize = 6f;
         public const float MaximumSeconds = 30f;
         public const float MaximumX = 30f;
+        /// <summary>How long a shake lasts when the script gives no seconds.</summary>
+        public const float DefaultShakeSeconds = .5f;
+        /// <summary>The strongest shake: the camera's largest offset in world units at the duel framing (size 6).</summary>
+        public const float MaximumShake = 1.5f;
+        /// <summary>Where <c>@sound</c> and <c>@ambience</c> find their clips under Resources.</summary>
+        public const string SoundFolder = "Sfx/";
 
         private CutsceneStep(CutsceneStepKind kind, int sourceLineNumber, float seconds, bool waits)
         {
@@ -102,13 +123,24 @@ namespace TurnLimbo.Runtime.Cutscene
         public bool BarsOn { get; private set; }
         public float X { get; private set; }
         public float CameraSize { get; private set; }
-        /// <summary>The image's Resources path, or null to take the image away.</summary>
+        /// <summary>The image's or sound's Resources path, or null to take the image away or end the ambience.</summary>
         public string Resource { get; private set; }
         public CutsceneActor Actor { get; private set; }
         public CutsceneActorAction Action { get; private set; }
         public CutsceneFacing Facing { get; private set; }
         public CutscenePose Pose { get; private set; }
         public CutsceneAttack Attack { get; private set; }
+        public bool FlashbackOn { get; private set; }
+        /// <summary>A shake's largest camera offset (world units at the duel framing).</summary>
+        public float Strength { get; private set; }
+        /// <summary>A sound's volume, 0 to 1.</summary>
+        public float Volume { get; private set; }
+        /// <summary>A charge that is cut off at once instead of started.</summary>
+        public bool ChargeStops { get; private set; }
+        /// <summary>A charge that reaches full glow in its seconds and then holds there until <c>@charge … stop</c>
+        /// (it never flares on its own).</summary>
+        public bool ChargeHolds { get; private set; }
+        public bool AuraOn { get; private set; }
 
         public static CutsceneStep ForLine(DialogueLine line)
         {
@@ -151,14 +183,61 @@ namespace TurnLimbo.Runtime.Cutscene
                 Actor = actor, Action = action, X = x, Facing = facing, Pose = pose, Attack = attack,
             };
         }
+
+        public static CutsceneStep ForFlashback(int lineNumber, bool on, float seconds, bool waits)
+            => new CutsceneStep(CutsceneStepKind.Flashback, lineNumber, seconds, waits) { FlashbackOn = on };
+
+        public static CutsceneStep ForShake(int lineNumber, float strength, float seconds, bool waits)
+        {
+            if (strength <= 0f || strength > MaximumShake || float.IsNaN(strength)) throw new ArgumentOutOfRangeException(nameof(strength));
+            return new CutsceneStep(CutsceneStepKind.Shake, lineNumber, seconds, waits) { Strength = strength };
+        }
+
+        /// <summary>A sound never holds the cutscene: it starts and the next step runs at once.</summary>
+        public static CutsceneStep ForSound(int lineNumber, string name, float volume = 1f)
+        {
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A sound needs a name.", nameof(name));
+            if (volume < 0f || volume > 1f || float.IsNaN(volume)) throw new ArgumentOutOfRangeException(nameof(volume));
+            return new CutsceneStep(CutsceneStepKind.Sound, lineNumber, 0f, true) { Resource = SoundFolder + name.Trim(), Volume = volume };
+        }
+
+        /// <param name="name">The looping sound to fade in, or null to fade the current one out.</param>
+        public static CutsceneStep ForAmbience(int lineNumber, string name, float seconds, bool waits)
+        {
+            if (name != null && name.Trim().Length == 0) throw new ArgumentException("An ambience needs a name.", nameof(name));
+            return new CutsceneStep(CutsceneStepKind.Ambience, lineNumber, seconds, waits)
+            {
+                Resource = name == null ? null : SoundFolder + name.Trim(), Volume = 1f,
+            };
+        }
+
+        /// <param name="hold">Hold at full glow after <paramref name="seconds"/> until a stop (<see cref="ChargeHolds"/>).
+        /// A waiting step still holds the cutscene only for <paramref name="seconds"/>.</param>
+        public static CutsceneStep ForCharge(int lineNumber, CutsceneActor actor, float seconds, bool waits, bool hold = false)
+        {
+            if (seconds <= 0f) throw new ArgumentOutOfRangeException(nameof(seconds));
+            return new CutsceneStep(CutsceneStepKind.Charge, lineNumber, seconds, waits) { Actor = actor, ChargeHolds = hold };
+        }
+
+        public static CutsceneStep ForChargeStop(int lineNumber, CutsceneActor actor)
+            => new CutsceneStep(CutsceneStepKind.Charge, lineNumber, 0f, true) { Actor = actor, ChargeStops = true };
+
+        public static CutsceneStep ForAura(int lineNumber, CutsceneActor actor, bool on, float seconds, bool waits)
+            => new CutsceneStep(CutsceneStepKind.Aura, lineNumber, seconds, waits) { Actor = actor, AuraOn = on };
     }
 
-    /// <summary>A parsed cutscene: its steps in source order.</summary>
+    /// <summary>A parsed cutscene: its steps in source order, and who already stands on stage when it starts.</summary>
     public sealed class CutsceneScript
     {
+        private static readonly CutsceneActor[] NoActors = new CutsceneActor[0];
         private readonly CutsceneStep[] steps;
+        private readonly CutsceneActor[] onStage;
 
-        public CutsceneScript(string id, IReadOnlyList<CutsceneStep> steps)
+        public CutsceneScript(string id, IReadOnlyList<CutsceneStep> steps) : this(id, steps, null) { }
+
+        /// <param name="onStage">The figures standing where the scene finds them (a mission's scenes start on its
+        /// battlefield); null or empty for a scene that starts on a bare stage.</param>
+        public CutsceneScript(string id, IReadOnlyList<CutsceneStep> steps, IReadOnlyList<CutsceneActor> onStage)
         {
             if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("A cutscene id is required.", nameof(id));
             if (steps == null) throw new ArgumentNullException(nameof(steps));
@@ -169,6 +248,7 @@ namespace TurnLimbo.Runtime.Cutscene
                 this.steps[index] = steps[index] ?? throw new ArgumentException("Cutscene steps cannot be null.", nameof(steps));
                 if (this.steps[index].Kind == CutsceneStepKind.Line) LineCount++;
             }
+            this.onStage = CheckCast(onStage);
             Id = id.Trim();
         }
 
@@ -176,5 +256,27 @@ namespace TurnLimbo.Runtime.Cutscene
         public IReadOnlyList<CutsceneStep> Steps => steps;
         /// <summary>How many dialogue lines the player advances through.</summary>
         public int LineCount { get; }
+        /// <summary>The figures already on stage when the scene starts, where the arena has them; empty for a bare stage.</summary>
+        public IReadOnlyList<CutsceneActor> OnStage => onStage;
+        public bool StartsOnStage(CutsceneActor actor) => Array.IndexOf(onStage, actor) >= 0;
+
+        /// <summary>A copy of a starting cast; throws for a repeated actor, or the knight and the dummy together (they
+        /// share one figure).</summary>
+        internal static CutsceneActor[] CheckCast(IReadOnlyList<CutsceneActor> cast)
+        {
+            if (cast == null || cast.Count == 0) return NoActors;
+            var copy = new CutsceneActor[cast.Count];
+            for (int index = 0; index < copy.Length; index++)
+            {
+                if (!Enum.IsDefined(typeof(CutsceneActor), cast[index]))
+                    throw new ArgumentOutOfRangeException(nameof(cast));
+                if (Array.IndexOf(copy, cast[index], 0, index) >= 0)
+                    throw new ArgumentException("An actor can only be on stage once.", nameof(cast));
+                copy[index] = cast[index];
+            }
+            if (Array.IndexOf(copy, CutsceneActor.Knight) >= 0 && Array.IndexOf(copy, CutsceneActor.Dummy) >= 0)
+                throw new ArgumentException("The knight and the dummy share one figure.", nameof(cast));
+            return copy;
+        }
     }
 }

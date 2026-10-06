@@ -539,6 +539,81 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
         }
 
+        [UnityTest]
+        public IEnumerator ArrivalNotice_ShowsOnceInTheStatusSlip_UntilABattleOutcomeOrAResetReplacesIt()
+        {
+            yield return null;
+            var parent = new GameObject("Lobby Arrival Notice Test");
+            var run = new CampaignRun();
+            CampaignLobbyHud hud = null;
+            hud = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null,
+                stage =>
+                {
+                    Assert.That(run.TryStartStage(stage), Is.True);
+                    hud.Hide();
+                }, null);
+            using (hud)
+            {
+                // A story session as the 서막 ends: Q and 넘기기, the curriculum still closed.
+                run.SetProgression(CombatFeature.LaneQ | CombatFeature.Cycle, 1);
+                Assert.That(run.IsCurriculumOpen, Is.False);
+                string notice = BattleResultHud.PrologueCompleteNotice(false);
+                Assert.That(notice.Split('\n').Length, Is.EqualTo(2), "Two lines, as the old result said it.");
+                hud.SetArrivalNotice(notice);
+                Assert.That(TryFindText(hud, "Outcome Banner"), Is.Null, "The note waits for the lobby to show.");
+                hud.Show(run);
+                AssertNoticeFits(hud, notice);
+                hud.ShowTab(LobbyTab.Stages);
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo(notice), "It stays in the slip like a battle's outcome.");
+                hud.ShowTab(LobbyTab.Home);
+                hud.Show(run);
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo(notice), "A refresh keeps it.");
+
+                hud.ResetView();
+                hud.Show(run);
+                Assert.That(TryFindText(hud, "Outcome Banner"), Is.Null, "A reset clears it…");
+                hud.SetArrivalNotice(notice);
+                hud.ResetView();
+                hud.Show(run);
+                Assert.That(TryFindText(hud, "Outcome Banner"), Is.Null, "…even before it was shown.");
+
+                // With the curriculum's line above it (a game opened through the API), both still fit.
+                run.ClearProgression();
+                string openNotice = BattleResultHud.PrologueCompleteNotice(true);
+                hud.SetArrivalNotice(openNotice);
+                hud.Show(run);
+                Text banner = AssertNoticeFits(hud, openNotice);
+                Rect curriculum = ScreenBounds(FindText(hud, "Header Curriculum").rectTransform);
+                Assert.That(ScreenBounds(banner.rectTransform).yMax, Is.LessThanOrEqualTo(curriculum.yMin + 1f),
+                    "The note sits under the curriculum line.");
+
+                hud.ShowTab(LobbyTab.Stages);
+                FindButton(hud, "Start Selected Stage").onClick.Invoke();
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
+                Assert.That(run.ReturnToLobby(), Is.True);
+                hud.Show(run);
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("전투 종료"), "A stage battle's outcome replaces it…");
+                hud.Show(run);
+                Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("전투 종료"), "…and it does not come back.");
+            }
+            Object.Destroy(parent);
+            yield return null;
+        }
+
+        /// <summary>The note in the status slip, every line of it inside the slip.</summary>
+        private static Text AssertNoticeFits(CampaignLobbyHud hud, string notice)
+        {
+            Canvas.ForceUpdateCanvases();
+            Text banner = FindText(hud, "Outcome Banner");
+            Assert.That(banner.text, Is.EqualTo(notice));
+            Assert.That(banner.preferredHeight, Is.LessThanOrEqualTo(banner.rectTransform.rect.height + .5f), "No line is cut off.");
+            Rect slip = ScreenBounds(FindRect(hud, "Lobby Status Slip"));
+            Rect note = ScreenBounds(banner.rectTransform);
+            Assert.That(note.yMin, Is.GreaterThanOrEqualTo(slip.yMin - 1f), "The note stays inside the slip.");
+            Assert.That(note.yMax, Is.LessThanOrEqualTo(slip.yMax + 1f));
+            return banner;
+        }
+
         private static CampaignLobbyHud CreateHud(GameObject parent)
             => new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
 

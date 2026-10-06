@@ -5,7 +5,8 @@ using TurnLimbo.Runtime.LegacyCombat;
 namespace TurnLimbo.Runtime.Prologue
 {
     /// <summary>The opening arc before the lobby opens (like StarCraft II's Mar Sara missions): one short,
-    /// linear mission per basic rule. Titles, stats and copy are placeholders; the dialogues are stubs.
+    /// linear mission per basic rule, ending in a forced loss to 이아 (mission 4). Titles, stats and coach copy are
+    /// placeholders; the scenes come from the author's manuscript (Docs/PrologueManuscript.md).
     /// The missions played from the lobby afterwards are <see cref="LobbyMissions"/>; <see cref="StoryMissions"/>
     /// is the whole chain.</summary>
     public static class PrologueMissions
@@ -28,6 +29,10 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly MissionSkill DoubleSlash = MissionSkill.Table(2);
         private static readonly MissionSkill BreakMomentum = MissionSkill.Table(5);
         private static readonly MissionSkill Guard = MissionSkill.Table(7);
+        // 라우다레: 이아's 수훈 technique, an enemy-only (적) sheet row. It breaks the player as it starts and strikes five times.
+        private static readonly MissionSkill Laudare = MissionSkill.Table(500);
+        // Where the battle of mission 4 pauses for 이아's 수훈.
+        private const string EmpowermentScene = "Cutscene/mission-04-event";
 
         // The practice skills are not sheet rows. Their ids (1001-1003) sit in the range the sheet may not use, since
         // definitions, roles and texts are found by id.
@@ -115,18 +120,26 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Free, "승리하세요",
                         "공격과 방어를 섞어 상대를 쓰러뜨리세요.", FreeKeys),
                 }, features: QWithCycle, encounter: EncounterKind.Duel),
-            // 4. No new rule, but the planning timer starts: the arc's first real duel.
+            // 4. No new rule, but the planning timer starts: the arc's first real duel, which the player cannot win. The
+            // briefing still says 떠돌이 기사; she names herself 이아 in the intro, so the battle says 이아. She cannot
+            // fall (health floor 1). The hit that brings her to half health pauses the battle for her 수훈; from the
+            // next turn she uses 라우다레 every turn (at least 50 health damage to the broken player, so two turns from
+            // full health), and the player's defeat then completes the 서막 with the outro instead of a result screen.
+            // So the briefing and the coach ask the player to fight her to the end, never to win (or that it is lost).
             new PrologueMission(4, "떠돌이 기사", Forest,
-                new[] { "제한 시간 안에 기술을 예약한다", "떠돌이 기사를 쓰러뜨린다" },
+                new[] { "제한 시간 안에 기술을 예약한다", "떠돌이 기사와 끝까지 겨룬다" },
                 new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
                 55, 15, new[] { Slash, BreakMomentum, Guard, DoubleSlash }, new[] { 2, 2, 3 },
                 new[] { Slash, Guard, DoubleSlash }, true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "이제 제한 시간이 흐릅니다",
                         "지금부터는 턴마다 10초 안에 예약을 마쳐야 합니다. 시간이 다 되면 예약한 만큼 자동으로 확정됩니다. 넘기기도 한 번에 1초를 씁니다.", Continue),
-                    new MissionGuideBeat(MissionGuideStepKind.Free, "떠돌이 기사",
-                        "배운 것을 모두 써서 떠돌이 기사를 꺾으세요.", FreeKeys),
-                }, features: QWithCycle, encounter: EncounterKind.Duel),
+                    // The coach speaks during the battle, so it already says 이아.
+                    new MissionGuideBeat(MissionGuideStepKind.Free, "이아",
+                        "배운 것을 모두 써서 이아와 겨루세요.", FreeKeys),
+                }, features: QWithCycle, encounter: EncounterKind.Duel, battleEnemyName: "이아", enemyHealthFloor: 1,
+                empowerment: new MissionEmpowerment(50, EmpowermentScene, new[] { new[] { Laudare } },
+                    keepsAura: true, forcedLoss: true)),
         };
 
         public static IReadOnlyList<PrologueMission> All => missions;

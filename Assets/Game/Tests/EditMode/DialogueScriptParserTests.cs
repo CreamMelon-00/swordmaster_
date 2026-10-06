@@ -224,5 +224,38 @@ namespace TurnLimbo.Core.Tests
             Assert.That(first.Current.Text, Is.EqualTo("둘째 줄"));
             Assert.That(second.Current.Text, Is.EqualTo("첫 줄"));
         }
+
+        [Test]
+        public void LinesWrappedInParentheses_AreMonologue_WithOrWithoutASpeaker_AndKeepThem()
+        {
+            DialogueScript script = DialogueScriptParser.Parse("monologue", string.Join("\n",
+                "(나를 향하던 목소리가 끊기자, 어두운 방에 불이 켜지듯 눈앞이 밝아졌다.)",
+                "@left 엘리사 | ???",
+                "(이 검은…)",
+                "윽…",
+                "(여긴 어디지…) 하고 중얼거렸다.",
+                "  (일단 움직여볼까…)  "));
+            var monologue = new bool[script.Lines.Count];
+            for (int index = 0; index < monologue.Length; index++) monologue[index] = script.Lines[index].IsMonologue;
+            Assert.That(monologue, Is.EqualTo(new[] { true, true, false, false, true }));
+            Assert.That(script.Lines[0].Side, Is.EqualTo(DialogueSide.Narrator), "Narration can be a thought too.");
+            Assert.That(script.Lines[1].SpeakerName, Is.EqualTo("엘리사"));
+            Assert.That(script.Lines[1].Text, Is.EqualTo("(이 검은…)"), "The parentheses stay on screen.");
+        }
+
+        [TestCase("(…)", true)]
+        [TestCase(" (공백) ", true)]
+        [TestCase("()", true)]
+        [TestCase("(", false)]
+        [TestCase(")", false)]
+        [TestCase("(앞) 뒤", false)]
+        [TestCase("앞 (뒤)", false)]
+        [TestCase("（전각）", false)]
+        [TestCase("", false)]
+        [TestCase(null, false)]
+        public void IsMonologueText_NeedsTheWholeTrimmedLineInParentheses(string text, bool expected)
+        {
+            Assert.That(DialogueLine.IsMonologueText(text), Is.EqualTo(expected));
+        }
     }
 }

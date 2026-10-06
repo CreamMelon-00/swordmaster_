@@ -14,7 +14,7 @@ namespace TurnLimbo.Core.Tests
     public sealed class LegacySkillSheetTests
     {
         // Sheet rows of the shipped table as written: the header is row 1, then ids in table order.
-        private const int Row1 = 2, Row2 = 3, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row42 = 20, Row43 = 21;
+        private const int Row1 = 2, Row2 = 3, Row5 = 6, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row42 = 20, Row43 = 21, Row500 = 23;
 
         /// <summary>The shipped table as the writer lays it out, one string array per sheet row.</summary>
         private static List<string[]> Rows()
@@ -95,8 +95,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(csv[0], Is.EqualTo('\ufeff'), "Excel needs the mark to read Korean.");
             Assert.That(csv, Does.Not.Contain("\r"));
             Assert.That(csv.Substring(1, csv.IndexOf('\n') - 1), Is.EqualTo(string.Join(",", LegacySkillSheet.Headers)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(37));
-            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(37));
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(38));
+            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(38));
         }
 
         [Test]
@@ -167,7 +167,7 @@ namespace TurnLimbo.Core.Tests
             rows.Insert(3, new[] { "  " });
             rows.Insert(4, Enumerable.Repeat(" ", width).ToArray());
             LegacySkillTable table = Parse(rows);
-            Assert.That(table.All.Count, Is.EqualTo(21));
+            Assert.That(table.All.Count, Is.EqualTo(22));
             Assert.That(table.All[0].Skill.Id, Is.EqualTo(1));
 
             Set(rows, 2, Column.Cost, "1.5");
@@ -187,7 +187,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.Id, "0", "1 이상의 정수")]
         [TestCase(Column.Id, "", "비어 있습니다")]
         [TestCase(Column.Name, " ", "비어 있습니다")]
-        [TestCase(Column.Group, "기본", "시작, 획득 중 하나")]
+        [TestCase(Column.Group, "기본", "시작, 획득, 적 중 하나")]
         [TestCase(Column.Lane, "R", "Q, W, E 중 하나")]
         [TestCase(Column.Kind, "베기", "공격, 방어 중 하나")]
         [TestCase(Column.Kind, "대기", "공용 행동")]
@@ -305,14 +305,16 @@ namespace TurnLimbo.Core.Tests
 
             rows = Rows();
             Set(rows, 16, Column.OpponentProperty, "참격");
-            Assert.That(Problem(rows), Is.EqualTo($"{Row16}행 (ID 16) 상대 조건은 ACT 회복이나 저항 감소가 있어야 합니다."));
+            Assert.That(Problem(rows), Is.EqualTo($"{Row16}행 (ID 16) 상대 조건은 ACT 회복, 저항 감소나 상대 붕괴가 있어야 합니다."));
 
             rows = Rows();
             Set(rows, 42, Column.ActGain, "");
             Parse(rows);
             Set(rows, 42, Column.ResistanceReduction, "");
-            Assert.That(Problem(rows), Is.EqualTo($"{Row42}행 (ID 42) 상대 조건은 ACT 회복이나 저항 감소가 있어야 합니다."),
+            Assert.That(Problem(rows), Is.EqualTo($"{Row42}행 (ID 42) 상대 조건은 ACT 회복, 저항 감소나 상대 붕괴가 있어야 합니다."),
                 "Either amount is enough; neither is not.");
+            Set(rows, 42, Column.OpponentBreak, "O");
+            Assert.That(Parse(rows).Find(42).Effect.BreaksOpponent, Is.True, "A break is enough too.");
         }
 
         [Test]
@@ -344,6 +346,75 @@ namespace TurnLimbo.Core.Tests
 
             Set(rows, 43, Column.BrokenTargetDamage, "25%");
             Assert.That(Problem(rows), Is.EqualTo($"{Row43}행 (ID 43) '붕괴 대상 추가 피해'은(는) 공격 기술에만 쓸 수 있습니다."));
+        }
+
+        [Test]
+        public void EnemyRows_StayOutOfTheStartingAndAcquisitionSets_AndRoundTripTheirGroup()
+        {
+            List<string[]> rows = Rows();
+            Assert.That(RowOf(rows, 500)[Index(Column.Group)], Is.EqualTo(LegacySkillSheet.EnemyGroup));
+            LegacySkillTable table = Parse(rows);
+            LegacySkillDefinition laudare = table.Find(500);
+            Assert.That(table.GroupOf(laudare), Is.EqualTo(LegacySkillGroup.Enemy));
+            Assert.That(table.IsEnemy(laudare) && !table.IsStarting(laudare), Is.True);
+            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500 }));
+            Assert.That(table.InitialSkills.Concat(table.AcquisitionSkills).Any(s => s.Id == 500), Is.False);
+            Assert.That(table.IsEnemy(table.Find(1)), Is.False);
+            Assert.That(table.IsEnemy(null), Is.False);
+            LegacySkillTable without = Parse(rows.Where(row => row[0] != "500").ToList());
+            Assert.Throws<ArgumentException>(() => without.GroupOf(laudare), "A row the table lacks has no group.");
+
+            // Any lane, as many as wanted: the three-per-lane rule counts starting rows only.
+            string[] second = RowOf(rows, 500).ToArray();
+            second[Index(Column.Id)] = "501";
+            second[Index(Column.Lane)] = "W";
+            rows.Add(second);
+            Assert.That(Parse(rows).EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501 }));
+
+            // Starting and enemy rows alone still leave the curriculum nothing to grant.
+            rows = Rows().Where(row => row[Index(Column.Group)] != LegacySkillSheet.AcquisitionGroup).ToList();
+            Assert.That(Problem(rows), Does.Contain("'획득'인 기술이 하나도 없습니다"));
+
+            // Enemies never recover ACT.
+            rows = Rows();
+            Set(rows, 500, Column.ActGain, "2");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row500}행 (ID 500) '구분'이(가) '적'인 기술은 'ACT 회복'을(를) 쓸 수 없습니다. 적은 ACT를 회복하지 않습니다."));
+
+            rows = Rows();
+            Set(rows, 500, Column.Group, LegacySkillSheet.AcquisitionGroup);
+            LegacySkillSheetChanges changes = LegacySkillSheet.Describe(LegacySkillDefinitions.Table, Parse(rows));
+            Assert.That(changes.Lines, Is.EqualTo(new[] { "변경: 500 라우다레 — 구분" }));
+            Assert.That(Parse(rows).AcquisitionSkills.Last().Id, Is.EqualTo(500));
+        }
+
+        [Test]
+        public void OpponentBreak_IsAYesNoCell_AnEffectOfItsOwn_AndNeverBesideADirectReduction()
+        {
+            List<string[]> rows = Rows();
+            Assert.That(RowOf(rows, 500)[Index(Column.OpponentBreak)], Is.EqualTo("O"));
+            Assert.That(RowOf(rows, 1)[Index(Column.OpponentBreak)], Is.Empty);
+            Assert.That(Parse(rows).Find(500).Effect.BreaksOpponent, Is.True);
+            Assert.That(Parse(rows).Find(5).Effect.BreaksOpponent, Is.False);
+
+            // A row with no other effect gets an effect of its own; the writer spells it O.
+            Set(rows, 2, Column.OpponentBreak, "예");
+            LegacySkillTable table = Parse(rows);
+            Assert.That(table.Find(2).Effect, Is.Not.SameAs(LegacySkillEffect.None));
+            Assert.That(table.Find(2).Effect.BreaksOpponent, Is.True);
+            Assert.That(RowOf(CsvTable.Read(LegacySkillSheet.Write(table)).Select(r => r.Fields.ToArray()).ToList(), 2)
+                [Index(Column.OpponentBreak)], Is.EqualTo("O"));
+            Assert.That(LegacySkillSheet.Describe(LegacySkillDefinitions.Table, table).Lines,
+                Is.EqualTo(new[] { "변경: 2 연속 베기 — 상대 붕괴" }));
+
+            rows = Rows();
+            Set(rows, 5, Column.OpponentBreak, "O");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row5}행 (ID 5) '상대 붕괴'이(가) 있으면 '저항 감소'은(는) 쓸 수 없습니다. 붕괴가 저항을 모두 없앱니다."));
+            Set(rows, 5, Column.ResistanceReduction, "");
+            Assert.That(Parse(rows).Find(5).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Attack), "A condition may gate the break.");
+
+            rows = Rows();
+            Set(rows, 500, Column.OpponentBreak, "maybe");
+            Assert.That(Problem(rows), Does.StartWith($"{Row500}행 '상대 붕괴': 'maybe'은(는) 예/아니오로 읽을 수 없습니다."));
         }
 
         [Test]
@@ -432,7 +503,7 @@ namespace TurnLimbo.Core.Tests
         {
             string csv = LegacySkillSheet.Write(LegacySkillDefinitions.Table) + "99,\"열린 따옴표\n";
             var error = Assert.Throws<SkillSheetException>(() => LegacySkillSheet.Parse("test", csv));
-            Assert.That(error.Problems.Single(), Does.StartWith("23행: "));
+            Assert.That(error.Problems.Single(), Does.StartWith("24행: "));
         }
 
         [Test]
@@ -456,7 +527,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(changes.Changed, Is.EqualTo(1));
             Assert.That(changes.Reordered, Is.False, "12 is new, so the others keep their order.");
             Assert.That(changes.HasChanges, Is.True);
-            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 21개)"));
+            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 22개)"));
         }
 
         [Test]
@@ -466,7 +537,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillSheetChanges same = LegacySkillSheet.Describe(current, Parse(Rows()));
             Assert.That(same.HasChanges, Is.False);
             Assert.That(same.Lines, Is.Empty);
-            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 21개)."));
+            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 22개)."));
 
             List<string[]> rows = Rows();
             string[] guard = RowOf(rows, 7);
@@ -478,7 +549,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(moved.Summary, Does.Contain("순서 변경"));
 
             LegacySkillSheetChanges fresh = LegacySkillSheet.Describe(null, current);
-            Assert.That(fresh.Added, Is.EqualTo(21));
+            Assert.That(fresh.Added, Is.EqualTo(22));
             Assert.That(fresh.Lines[0], Is.EqualTo("추가: 1 베기"));
             Assert.That(fresh.Reordered, Is.False);
         }

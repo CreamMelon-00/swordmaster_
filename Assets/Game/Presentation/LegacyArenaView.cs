@@ -44,7 +44,8 @@ namespace TurnLimbo.Presentation
         private const float PressureTrailSampleInterval = 0.035f;
         // Sample just before a looping clip's end so its final keyframe does not wrap to the first.
         private const float GuardHoldOffset = 0.0001f;
-        private const int ArenaLayer = 30;
+        // Internal: cutscenes add their own figures and effects on this layer (CutsceneDirector).
+        internal const int ArenaLayer = 30;
         private const int MaximumEffects = 24;
         private static readonly Color NormalSkyColor = new Color(0.12f, 0.23f, 0.20f, 1f);
         private readonly GameObject arenaRoot;
@@ -89,6 +90,12 @@ namespace TurnLimbo.Presentation
         private readonly Material breakMaterial;
         private readonly DuelBreakAura playerBreakAura;
         private readonly DuelBreakAura enemyBreakAura;
+        private readonly DuelPowerAura playerPowerAura;
+        private readonly DuelPowerAura enemyPowerAura;
+        // A cutscene's flashback: 1 turns the whole arena black and white over the battle grade.
+        private float flashbackAmount;
+        // The battle as a cutscene in its middle found it (SuspendForCutscene), or null.
+        private Suspension suspension;
         private LegacyStepAction stepAction;
         private float stepTime;
         private float stepDistance;
@@ -135,6 +142,14 @@ namespace TurnLimbo.Presentation
         public DuelImpactGlow ImpactGlow => impactGlow;
         public DuelBreakAura PlayerBreakAura => playerBreakAura;
         public DuelBreakAura EnemyBreakAura => enemyBreakAura;
+        /// <summary>Golden power on each fighter (cutscene @charge/@aura, the battle's 수훈 aura). It stays as it was left
+        /// until <see cref="Reset"/> clears it, and is ticked on the combat clock here (by the cutscene while one plays).</summary>
+        public DuelPowerAura PlayerPowerAura => playerPowerAura;
+        public DuelPowerAura EnemyPowerAura => enemyPowerAura;
+        /// <summary>How far a cutscene flashback has drained the colour: 0 normal, 1 black and white.</summary>
+        public float FlashbackAmount => flashbackAmount;
+        /// <summary>Whether a cutscene is playing in the middle of the battle (<see cref="SuspendForCutscene"/>).</summary>
+        public bool IsSuspendedForCutscene => suspension != null;
         public int ActiveStepAfterimageCount => stepAfterimages.ActiveCount;
         public bool IsStepping => stepping;
         public bool IsPressureAttackTrailActive => pressureAttackTrail;
@@ -161,6 +176,8 @@ namespace TurnLimbo.Presentation
         internal MobStudentAnimationSet PlayerAnimations => mobAnimations;
         internal EnemyStudentAnimationSet EnemyAnimations => enemyAnimations;
         internal TrainingDummyAnimationSet DummyAnimations => dummyAnimations;
+        internal Transform Root => arenaRoot.transform;
+        internal Material SpriteMaterial => spriteMaterial;
         public bool CameraRotate { get; set; }
         public bool ApproachComplete => !approaching;
         public Vector3 DuelCenter => (player.Renderer.transform.localPosition + enemy.Renderer.transform.localPosition) * 0.5f;
@@ -294,6 +311,8 @@ namespace TurnLimbo.Presentation
             else Debug.LogWarning("Break aura shader DuelVFX/BreakSilhouette is missing or unsupported.");
             playerBreakAura = new DuelBreakAura(player.Renderer, player.LowerRenderer, playerShadow, breakMaterial, ArenaLayer);
             enemyBreakAura = new DuelBreakAura(enemy.Renderer, null, enemyShadow, breakMaterial, ArenaLayer);
+            playerPowerAura = new DuelPowerAura(player.Renderer.transform, spriteMaterial, ArenaLayer, 11);
+            enemyPowerAura = new DuelPowerAura(enemy.Renderer.transform, spriteMaterial, ArenaLayer, 23);
             effectPrefab = Resources.Load<GameObject>("LegacyArena/VFX/DefaultParticle");
             Reset();
         }
@@ -315,8 +334,12 @@ namespace TurnLimbo.Presentation
             aberration.intensity.value = 0f;
             colorAdjustments.postExposure.value = 0f;
             bulletTimeRequested = bulletTimeWasActive = bulletTimeParting = false;
-            bulletTimeAmount = saturationPulse = bulletTimeRelease = 0f;
+            bulletTimeAmount = saturationPulse = bulletTimeRelease = flashbackAmount = 0f;
             bulletTimeReleasing = false;
+            // A new duel never resumes a suspended one; what it hid comes back with nothing to show.
+            suspension = null;
+            impactGlow.Hidden = stepAfterimages.Hidden = false;
+            playerBreakAura.Hidden = enemyBreakAura.Hidden = false;
             ApplyGrade();
             ResetActor(player, new Vector3(-5f, -0.5f, 0f));
             ResetActor(enemy, new Vector3(5f, -0.5f, 0f));
@@ -334,6 +357,8 @@ namespace TurnLimbo.Presentation
             impactGlow.Reset();
             playerBreakAura.Reset();
             enemyBreakAura.Reset();
+            playerPowerAura.Reset();
+            enemyPowerAura.Reset();
             RefreshBloom();
             foreach (var effect in effects)
             {
@@ -818,6 +843,8 @@ namespace TurnLimbo.Presentation
             // After the actors and the lower body were sampled for this frame.
             playerBreakAura.Tick(scaledDelta);
             enemyBreakAura.Tick(scaledDelta);
+            playerPowerAura.Tick(scaledDelta);
+            enemyPowerAura.Tick(scaledDelta);
         }
 
         /// <summary>Shows which fighters are broken (incoming HP damage x2). The cue lasts until the
@@ -989,11 +1016,94 @@ namespace TurnLimbo.Presentation
             return Separation < target - .001f;
         }
 
-        /// <summary>The fatal pulse plus the 전투 planning grade (less colour, a cold filter).</summary>
+        /// <summary>Drains the colour for a cutscene flashback: 0 is the normal grade, 1 is black and white. Only the
+        /// arena is graded, so the dialogue box and other screens keep their colour. <see cref="Reset"/> clears it.</summary>
+        public void SetFlashback(float amount)
+        {
+            if (disposed) return;
+            flashbackAmount = float.IsNaN(amount) ? 0f : Mathf.Clamp01(amount);
+            ApplyGrade();
+        }
+
+        /// <summary>A cutscene is about to play in the middle of the battle (the 서막's 수훈 event) and will pose the
+        /// fighters and move the camera itself: remembers their places, facing and frames, the camera, the flashback and
+        /// the enemy's look, and hides the passing effects of the hit it paused on (sparks, glow, step afterimages, break
+        /// outlines), which would otherwise hang frozen over the scene. The hit's grade (the decisive close-up's
+        /// chromatic aberration, exposure and saturation pulse, and the impact flash's exposure) is set aside too: it only
+        /// fades on the battle's clock, which stops for the scene, so the scene plays under the neutral grade. The
+        /// battle's own state (pushes, reactions, the slot's clock) is untouched; <see cref="ResumeAfterCutscene"/> puts
+        /// the picture back exactly.</summary>
+        internal void SuspendForCutscene()
+        {
+            if (disposed || suspension != null) return;
+            var saved = new Suspension
+            {
+                Player = FigurePicture.Of(player.Renderer), Enemy = FigurePicture.Of(enemy.Renderer),
+                PlayerLower = player.LowerRenderer != null ? FigurePicture.Of(player.LowerRenderer) : default,
+                CameraPosition = ArenaCamera.transform.localPosition, CameraRotation = ArenaCamera.transform.localRotation,
+                CameraSize = ArenaCamera.orthographicSize, Appearance = enemyAppearance, Flashback = flashbackAmount,
+                Aberration = aberration.intensity.value, FatalExposure = fatalExposure, ImpactFlash = impactFlashTime,
+                SaturationPulse = saturationPulse,
+            };
+            foreach (var effect in effects)
+            {
+                if (!effect.Active || !effect.Instance.activeSelf) continue;
+                effect.Instance.SetActive(false);
+                saved.HiddenEffects.Add(effect);
+            }
+            impactGlow.Hidden = stepAfterimages.Hidden = true;
+            playerBreakAura.Hidden = enemyBreakAura.Hidden = true;
+            aberration.intensity.value = 0f;
+            fatalExposure = impactFlashTime = saturationPulse = 0f;
+            RefreshExposure();
+            ApplyGrade();
+            suspension = saved;
+        }
+
+        /// <summary>The cutscene in the middle of the battle is over: the fighters, camera, grade and the hit's effects are
+        /// back as <see cref="SuspendForCutscene"/> found them, so the battle carries on from the frame it paused on (a
+        /// decisive close-up's grade fades from there, with its camera). A fighter's power aura is not part of it: what
+        /// the scene lit stays lit.</summary>
+        internal void ResumeAfterCutscene()
+        {
+            if (disposed || suspension == null) return;
+            Suspension saved = suspension;
+            suspension = null;
+            if (enemyAppearance != saved.Appearance) SetEnemyAppearance(saved.Appearance);
+            saved.Player.ApplyTo(player.Renderer);
+            saved.Enemy.ApplyTo(enemy.Renderer);
+            if (player.LowerRenderer != null) saved.PlayerLower.ApplyTo(player.LowerRenderer);
+            ArenaCamera.transform.localPosition = saved.CameraPosition;
+            ArenaCamera.transform.localRotation = saved.CameraRotation;
+            ArenaCamera.orthographicSize = saved.CameraSize;
+            aberration.intensity.value = saved.Aberration;
+            fatalExposure = saved.FatalExposure;
+            impactFlashTime = saved.ImpactFlash;
+            saturationPulse = saved.SaturationPulse;
+            RefreshExposure();
+            // Re-applies the grade with the pulse that is back.
+            SetFlashback(saved.Flashback);
+            foreach (var effect in saved.HiddenEffects)
+                if (effect.Active) effect.Instance.SetActive(true);
+            impactGlow.Hidden = stepAfterimages.Hidden = false;
+            playerBreakAura.Hidden = enemyBreakAura.Hidden = false;
+            // The backdrop follows the camera that is back, with the step focus's darkening as it was.
+            RefreshStepBackdrop();
+        }
+
+        /// <summary>The fatal pulse plus the 전투 planning grade (less colour, a cold filter), and a cutscene's flashback
+        /// over both (full desaturation, no tint).</summary>
         private void ApplyGrade()
         {
-            colorAdjustments.saturation.value = saturationPulse - settings.BattleDesaturation * bulletTimeAmount;
-            colorAdjustments.colorFilter.value = Color.Lerp(Color.white, BulletTimeCoolColor, settings.BattleCoolTint * bulletTimeAmount);
+            float saturation = saturationPulse - settings.BattleDesaturation * bulletTimeAmount;
+            Color filter = Color.Lerp(Color.white, BulletTimeCoolColor, settings.BattleCoolTint * bulletTimeAmount);
+            if (flashbackAmount > 0f)
+            {
+                saturation = Mathf.Lerp(saturation, -100f, flashbackAmount);
+                filter = Color.Lerp(filter, Color.white, flashbackAmount);
+            }
+            colorAdjustments.saturation.value = saturation;
+            colorAdjustments.colorFilter.value = filter;
         }
 
         private void MoveFightersCloser(float delta, float speed, bool bothMayApproach)
@@ -1334,6 +1444,8 @@ namespace TurnLimbo.Presentation
             impactGlow.Dispose();
             playerBreakAura.Dispose();
             enemyBreakAura.Dispose();
+            playerPowerAura.Dispose();
+            enemyPowerAura.Dispose();
             Object.Destroy(arenaRoot);
             if (spriteMaterial != null) Object.Destroy(spriteMaterial);
             if (breakMaterial != null) Object.Destroy(breakMaterial);
@@ -1366,6 +1478,44 @@ namespace TurnLimbo.Presentation
             // The training dummy's single hurt clip and the idle phase it resumes from.
             public bool HurtPlaying;
             public float HurtElapsed, IdleClock;
+        }
+
+        /// <summary>What a cutscene may change on one of the fighters' renderers.</summary>
+        private struct FigurePicture
+        {
+            public Vector3 Position, Scale;
+            public Color Color;
+            public Sprite Sprite;
+            public bool FlipX, Enabled, Active;
+
+            public static FigurePicture Of(SpriteRenderer renderer) => new FigurePicture
+            {
+                Position = renderer.transform.localPosition, Scale = renderer.transform.localScale, Color = renderer.color,
+                Sprite = renderer.sprite, FlipX = renderer.flipX, Enabled = renderer.enabled, Active = renderer.gameObject.activeSelf,
+            };
+
+            public void ApplyTo(SpriteRenderer renderer)
+            {
+                renderer.transform.localPosition = Position;
+                renderer.transform.localScale = Scale;
+                renderer.color = Color;
+                renderer.sprite = Sprite;
+                renderer.flipX = FlipX;
+                renderer.enabled = Enabled;
+                if (renderer.gameObject.activeSelf != Active) renderer.gameObject.SetActive(Active);
+            }
+        }
+
+        private sealed class Suspension
+        {
+            public FigurePicture Player, Enemy, PlayerLower;
+            public Vector3 CameraPosition;
+            public Quaternion CameraRotation;
+            public float CameraSize, Flashback;
+            // The hit's grade: chromatic aberration, the close-up's exposure, the impact flash's time left, the saturation pulse.
+            public float Aberration, FatalExposure, ImpactFlash, SaturationPulse;
+            public EnemyAppearance Appearance;
+            public readonly List<ImpactEffect> HiddenEffects = new List<ImpactEffect>();
         }
 
         private sealed class ImpactEffect

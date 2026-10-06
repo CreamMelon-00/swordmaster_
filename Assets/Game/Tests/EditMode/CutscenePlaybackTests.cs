@@ -30,7 +30,7 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void InstantStepsRunTogether_TimedStepsHold_AndTheEndCompletes()
         {
-            CutscenePlayback playback = Play("@fade out 0\n@actor elise at 0\n@fade in 2\n@bars on 1 &\n@wait 0.5", out var stage);
+            CutscenePlayback playback = Play("@fade out 0\n@actor elisa at 0\n@fade in 2\n@bars on 1 &\n@wait 0.5", out var stage);
             Assert.That(stage.Log, Is.EqualTo(new[] { "run 1", "run 2", "run 3" }), "The first timed step holds.");
             Assert.That(playback.HoldRemaining, Is.EqualTo(2f));
             playback.Tick(1.5f);
@@ -50,7 +50,7 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void LinesWaitForThePlayer_StayUpBetweenLines_AndHideBeforeTheSceneMovesOn()
         {
-            CutscenePlayback playback = Play("첫째\n@actor elise at 0\n둘째\n@camera 2 4 1 &\n셋째\n@wait 1\n@actor elise hide", out var stage);
+            CutscenePlayback playback = Play("첫째\n@actor elisa at 0\n둘째\n@camera 2 4 1 &\n셋째\n@wait 1\n@actor elisa hide", out var stage);
             Assert.That(stage.Log, Is.EqualTo(new[] { "show 첫째 1/3" }));
             Assert.That(playback.CurrentLine.Text, Is.EqualTo("첫째"));
             playback.Tick(10f);
@@ -85,9 +85,44 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void EffectsHoldForTheirTime_SoundsAndCutsNever_AndAmpersandLetsTheLineStayUp()
+        {
+            CutscenePlayback playback = Play(string.Join("\n",
+                "@actor knight at 4",                  // 1
+                "@sound forest-ominous",               // 2
+                "@ambience aura-loop 1 &",             // 3
+                "이아",                                 // 4
+                "@charge knight 2 &",                  // 5
+                "@sound charge",                       // 6
+                "수훈",                                 // 7
+                "@charge knight stop",                 // 8
+                "@shake 0.5",                          // 9
+                "@flashback on 1.5",                   // 10
+                "@aura knight on 2 &",                 // 11
+                "@ambience off 0.5"), out var stage);  // 12
+            Assert.That(stage.Log, Is.EqualTo(new[] { "run 1", "run 2", "run 3", "show 이아 1/2" }),
+                "A sound and a loop fading in with & run straight through to the line.");
+            Assert.That(playback.Advance(), Is.True);
+            Assert.That(stage.Log.GetRange(4, 3), Is.EqualTo(new[] { "run 5", "run 6", "show 수훈 2/2" }),
+                "A charge written with & keeps the box up while power gathers.");
+            Assert.That(playback.Advance(), Is.True);
+            Assert.That(stage.Log.GetRange(7, 3), Is.EqualTo(new[] { "run 8", "hide", "run 9" }),
+                "The cut is instant and keeps the box; the shake holds, so the box goes away before it.");
+            Assert.That(playback.HoldRemaining, Is.EqualTo(CutsceneStep.DefaultShakeSeconds));
+            playback.Tick(CutsceneStep.DefaultShakeSeconds);
+            Assert.That(stage.Log[10], Is.EqualTo("run 10"));
+            Assert.That(playback.HoldRemaining, Is.EqualTo(1.5f), "The flashback holds while the colour drains.");
+            playback.Tick(1.5f);
+            Assert.That(stage.Log.GetRange(11, 2), Is.EqualTo(new[] { "run 11", "run 12" }));
+            Assert.That(playback.HoldRemaining, Is.EqualTo(.5f), "The loop's fade-out holds.");
+            playback.Tick(.5f);
+            Assert.That(playback.IsComplete, Is.True);
+        }
+
+        [Test]
         public void AnInstantOnlyCutscene_CompletesOnStart()
         {
-            CutscenePlayback playback = Play("@actor elise at 0\n@fade out 0", out var stage);
+            CutscenePlayback playback = Play("@actor elisa at 0\n@fade out 0", out var stage);
             Assert.That(playback.IsComplete, Is.True);
             Assert.That(stage.Log, Is.EqualTo(new[] { "run 1", "run 2" }));
         }

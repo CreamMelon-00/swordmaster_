@@ -27,6 +27,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(21, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower, "고화력")]
         [TestCase(32, LegacySkillRole.None, "방어")]
         [TestCase(42, LegacySkillRole.ResistanceOnClash | LegacySkillRole.ActRecovery | LegacySkillRole.DirectResistanceDamage, "방어 대응·저항 감소")]
+        [TestCase(500, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.HighPower | LegacySkillRole.OpponentBreak, "붕괴 연타")]
         public void SupportedSkills_ReportOnlyImplementedRoles(int id, LegacySkillRole expected, string label)
         {
             LegacySkill skill = FindSkill(id);
@@ -95,7 +96,6 @@ namespace TurnLimbo.Core.Tests
             StringAssert.Contains("플레이어 전용", advance);
             StringAssert.Contains("이번 턴의 바로 다음 1슬롯", advance);
             StringAssert.Contains("받는 피해 배율 +50%", advance);
-            StringAssert.Contains("2회", advance);
 
             string fightingSpirit = LegacySkillRoles.GetDetail(FindSkill(19));
             StringAssert.Contains("기술 시작 시 최대 저항의 10%", fightingSpirit);
@@ -190,6 +190,7 @@ namespace TurnLimbo.Core.Tests
         {
             foreach (LegacySkill skill in LegacyInitialSkills.All) if (skill.Id == id) return skill;
             foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills) if (skill.Id == id) return skill;
+            foreach (LegacySkill skill in LegacySkillDefinitions.EnemySkills) if (skill.Id == id) return skill;
             Assert.Fail("Missing supported skill " + id);
             return null;
         }

@@ -45,8 +45,11 @@ namespace TurnLimbo.Presentation
         private readonly bool assetsAvailable;
         private CampaignRun currentRun;
         private bool disposed, resetArmed, awaitingStageOutcome;
-        // The header note after a stage battle: its outcome and any curriculum node it completed.
+        // The header note after a stage battle: its outcome and any curriculum node it completed. Or a one-time arrival
+        // note (the 서막's end: what it opened), which may run to two lines.
         private string outcomeBanner;
+        // An arrival note waiting for the next Show (SetArrivalNotice).
+        private string arrivalNotice;
         private int selectedStageNumber = 1;
         private LobbyTab currentTab;
 
@@ -161,9 +164,24 @@ namespace TurnLimbo.Presentation
                 outcomeBanner = completed != null ? $"{outcome}  ·  커리큘럼 완료: {completed.Title}" : outcome;
                 awaitingStageOutcome = false;
             }
+            if (arrivalNotice != null)
+            {
+                outcomeBanner = arrivalNotice;
+                arrivalNotice = null;
+            }
 
             root.gameObject.SetActive(true);
             Rebuild();
+        }
+
+        /// <summary>A one-time note for the lobby's next <see cref="Show"/> (the 서막's end, which has no result screen, says
+        /// what it opened). It takes the status slip's outcome line, one or two lines, until a stage battle's outcome
+        /// replaces it, a training battle or <see cref="ResetView"/> clears it. It is never saved. Null or empty cancels a
+        /// note that has not been shown yet.</summary>
+        public void SetArrivalNotice(string notice)
+        {
+            if (disposed) return;
+            arrivalNotice = string.IsNullOrEmpty(notice) ? null : notice;
         }
 
         /// <summary>The next lobby mission (null when none) and whether it can be played now. Shown on Home and Stages.</summary>
@@ -195,7 +213,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             ClearSelection();
             awaitingStageOutcome = false;
-            outcomeBanner = null;
+            outcomeBanner = arrivalNotice = null;
             resetArmed = false;
             selectedStageNumber = 1;
             loadoutState.Reset();
@@ -300,6 +318,8 @@ namespace TurnLimbo.Presentation
             status.rectTransform.pivot = new Vector2(1f, 1f);
             status.rectTransform.anchoredPosition = new Vector2(-24f, -18f);
             DuelVisualTheme.Frame(status);
+            // A two-line note (the 서막's end) takes more of the slip's height; the slip itself keeps its size.
+            bool twoLines = showOutcome && outcomeBanner.IndexOf('\n') >= 0;
             if (run.IsCurriculumOpen)
             {
                 CurriculumNode active = run.Curriculum.Active;
@@ -307,12 +327,13 @@ namespace TurnLimbo.Presentation
                 Label("Header Curriculum", status.transform,
                     active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
                         : finished ? "커리큘럼  모두 완료" : "커리큘럼  선택 안 함",
-                    new Vector2(0f, showOutcome ? 17f : 0f), new Vector2(402f, 30f), 18,
+                    new Vector2(0f, showOutcome ? twoLines ? 22f : 17f : 0f), new Vector2(402f, 30f), 18,
                     active != null ? Gold : finished ? Muted : DuelVisualTheme.Danger, TextAnchor.MiddleRight);
             }
             if (showOutcome)
                 Label("Outcome Banner", status.transform, outcomeBanner,
-                    new Vector2(0f, run.IsCurriculumOpen ? -19f : 0f), new Vector2(402f, 28f), 15,
+                    new Vector2(0f, !run.IsCurriculumOpen ? 0f : twoLines ? -15f : -19f),
+                    new Vector2(402f, !twoLines ? 28f : run.IsCurriculumOpen ? 44f : 64f), 15,
                     Muted, TextAnchor.MiddleRight);
         }
 

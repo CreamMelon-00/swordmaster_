@@ -77,6 +77,30 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void EnemyRowGrantedByANodeOrAStage_IsAProblem_AndNeverAWarning()
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 14, Column.Group, LegacySkillSheet.EnemyGroup);
+            Set(rows, 44, Column.Group, LegacySkillSheet.EnemyGroup);
+            LegacySkillTable table = Parse(rows);
+            Assert.That(CampaignSheetCheck.Problems(table), Is.EqualTo(new[]
+            {
+                "ID 14 가로베기의 '구분'이(가) '적'입니다. 커리큘럼 과정 'horizontal-cut'이(가) 주는 기술이라 '획득'이어야 합니다 " +
+                "(적 기술은 플레이어가 얻거나 편성하지 않습니다).",
+                "ID 44 몰아치기의 '구분'이(가) '적'입니다. 스테이지 2 첫 클리어 보상이라 '획득'이어야 합니다.",
+            }));
+            Assert.That(CampaignSheetCheck.Warnings(table), Is.Empty, "No node grants 500, and it needs none.");
+        }
+
+        [Test]
+        public void MissingEnemySkillOfTheForcedLoss_IsAProblem()
+        {
+            List<string[]> rows = Rows();
+            rows.Remove(RowOf(rows, 500));
+            Assert.That(CampaignSheetCheck.Problems(Parse(rows)).Single(), Does.StartWith("ID 500 기술이 시트에 없습니다. 코드가 이 ID를 씁니다"));
+        }
+
+        [Test]
         public void CodeSkillRenumbered_IsAProblem()
         {
             List<string[]> rows = Rows();
@@ -155,6 +179,7 @@ namespace TurnLimbo.Core.Tests
                     foreach (MissionGuideBeat beat in mission.CreateGuide().Beats)
                         copy.AddRange(new[] { beat.Title, beat.Description, beat.InputHint });
                     foreach (LegacySkill skill in mission.PlayerSkills.Concat(mission.EnemySkills)) used.Add(skill.Id);
+                    foreach (LegacySkill skill in mission.Empowerment?.EnemyScript.AllSkills ?? new LegacySkill[0]) used.Add(skill.Id);
                 }
                 foreach (string text in copy.Where(text => text != null))
                     foreach (Match match in Regex.Matches(text, @"\[\[(\d+)\]\]")) used.Add(int.Parse(match.Groups[1].Value));

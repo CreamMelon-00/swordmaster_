@@ -18,6 +18,9 @@ namespace TurnLimbo.Presentation
         private readonly Image backdropImage;
         private static readonly Color BackdropColor =
             new Color(DuelVisualTheme.Track.r, DuelVisualTheme.Track.g, DuelVisualTheme.Track.b, .76f);
+        /// <summary>The body text of a monologue line (<see cref="DialogueLine.IsMonologue"/>): a cool, quieter tone
+        /// set apart from the warm paper colour of speech.</summary>
+        public static readonly Color MonologueColor = new Color(.66f, .78f, .86f, 1f);
         private readonly Button backdropButton, nextButton, closeButton;
         private bool disposed;
 
@@ -126,6 +129,8 @@ namespace TurnLimbo.Presentation
             CurrentLine = line;
             root.gameObject.SetActive(true);
             body.text = line.Text;
+            // A thought in parentheses keeps them and reads in its own colour.
+            body.color = line.IsMonologue ? MonologueColor : DuelVisualTheme.Foreground;
             progress.text = $"{currentIndex + 1:00} / {lineCount:00}";
             bool narrator = !line.ShowsNameplate;
             nameplate.gameObject.SetActive(!narrator);

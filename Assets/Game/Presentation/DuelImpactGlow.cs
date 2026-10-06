@@ -41,6 +41,13 @@ namespace TurnLimbo.Presentation
         public bool HasRequiredAssets => !disposed && shader != null && shader.isSupported &&
             quad != null && material != null;
 
+        /// <summary>Keeps every glow off screen without ending it, while a cutscene plays in the middle of a battle.</summary>
+        public bool Hidden
+        {
+            get => !disposed && !root.gameObject.activeSelf;
+            set { if (!disposed) root.gameObject.SetActive(!value); }
+        }
+
         public DuelImpactGlow(Transform parent, int arenaLayer, DuelPresentationSettings settings)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));

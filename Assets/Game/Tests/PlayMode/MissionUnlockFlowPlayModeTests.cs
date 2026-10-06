@@ -271,9 +271,9 @@ namespace TurnLimbo.Presentation.Tests
 
                 scope.SetGuide(null);
                 scope.WinToSettled();
-                Assert.That(controller.IsShowingDialogue, Is.True, "The outro plays before the result.");
+                Assert.That(controller.IsPlayingScene, Is.True, "The outro plays before the result.");
                 Assert.That(scope.Load().PrologueCleared, Is.EqualTo(5), "The first win is saved.");
-                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.SkipScene(), Is.True);
                 Assert.That(controller.IsShowingResult, Is.True);
                 Assert.That(controller.Result.IsMission, Is.True);
                 Assert.That(controller.Result.Victory, Is.True);
@@ -433,14 +433,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(PrologueMissions.Count));
                 scope.StartBriefedMission();
                 scope.SetGuide(null);
-                scope.WinToSettled();
-                Assert.That(controller.ContinueDialogue(), Is.False, "The outro plays first.");
-                Assert.That(controller.IsShowingResult, Is.True);
-                Assert.That(controller.Result.CurriculumOpen, Is.False);
-                Assert.That(Label(controller.ResultHud.Root, "Result Notice").text, Does.Contain("편성과 스테이지"));
-                Assert.That(Named(controller.ResultHud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.False);
-                AssertNoActiveText(controller.ResultHud.Root, "커리큘럼", "Arc finale result");
-                Assert.That(controller.AdvanceFromBattleResult(), Is.True);
+                scope.ForcedLossToSettled();
+                Assert.That(scope.Load().PrologueCleared, Is.EqualTo(PrologueMissions.Count),
+                    "The defeat after 이아's 수훈 completes the 서막 and is saved before the outro.");
+                if (controller.IsPlayingScene) Assert.That(controller.SkipScene(), Is.True, "The outro plays first.");
+                Assert.That(controller.IsShowingResult, Is.False, "No result screen for the forced loss.");
                 Assert.That(controller.IsInLobby, Is.True);
                 Assert.That(TryFindActive(controller.LobbyHud.Root, "Tab Curriculum"), Is.Null);
             }
@@ -471,7 +468,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 scope.SetGuide(null);
                 scope.WinToSettled();
-                Assert.That(controller.ContinueDialogue(), Is.False, "The outro plays first.");
+                Assert.That(controller.SkipScene(), Is.True, "The outro plays first.");
                 Assert.That(controller.IsShowingResult, Is.True);
                 Assert.That(controller.Campaign.IsCurriculumOpen, Is.True, "The win opens W, the last lane, and the curriculum with it.");
                 Assert.That(controller.Result.CurriculumOpen, Is.True);
@@ -693,13 +690,13 @@ namespace TurnLimbo.Presentation.Tests
                 return save;
             }
 
-            /// <summary>Starts the briefed mission and reads through its one-line intro.</summary>
+            /// <summary>Starts the briefed mission and skips its intro scene.</summary>
             public void StartBriefedMission()
             {
                 Assert.That(Controller.StartMission(), Is.True);
-                Assert.That(Controller.IsShowingDialogue, Is.True, "Each mission opens with its intro.");
-                Assert.That(Controller.ContinueDialogue(), Is.False);
-                Assert.That(Controller.IsShowingDialogue, Is.False);
+                Assert.That(Controller.IsPlayingScene, Is.True, "Each mission opens with its intro.");
+                Assert.That(Controller.SkipScene(), Is.True);
+                Assert.That(Controller.IsPlayingScene, Is.False);
                 Assert.That(Controller.IsMission, Is.True);
                 Assert.That(Controller.CanChoose, Is.True);
             }
@@ -728,8 +725,33 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 int frames = 0;
-                while (!Controller.IsShowingResult && !Controller.IsShowingDialogue && frames++ < 2000) advance(.025f, null);
-                Assert.That(Controller.IsShowingResult || Controller.IsShowingDialogue, Is.True);
+                while (!Controller.IsShowingResult && !Controller.IsPlayingScene && frames++ < 2000) advance(.025f, null);
+                Assert.That(Controller.IsShowingResult || Controller.IsPlayingScene, Is.True);
+            }
+
+            /// <summary>The 서막's last mission with a fixture duel: one strike takes 이아 to half health (her 수훈, whose
+            /// scene is skipped when there is one), then the empowered enemy defeats the player. Stops on the outro, or
+            /// wherever the story went when there is none.</summary>
+            public void ForcedLossToSettled()
+            {
+                var strike = new LegacySkill(202, "Test Strike", 1, 30, 30, LegacySkillKind.Attack,
+                    LegacySkillProperty.Slash, 1, 0, "", iconId: 1);
+                typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller,
+                    new LegacyQueuedDuel(100, 50, 40, 10, new[] { strike }, new[] { LegacyCommonActions.Breathe }, new[] { 1 }, 5,
+                        features: CombatFeature.LaneQ | CombatFeature.Cycle, enemyHealthFloor: 1, enemyHealthThresholdPercent: 50));
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                Assert.That(Controller.QueueLane(0), Is.True);
+                Controller.CommitTurn();
+                int frames = 0;
+                while (Controller.IsMission && !Controller.IsShowingResult && frames++ < 8000)
+                {
+                    if (Controller.IsBattlePausedForEvent) Assert.That(Controller.SkipScene(), Is.True);
+                    else if (Controller.IsPlayingScene) break;
+                    else if (Controller.CanChoose) Controller.CommitTurn();
+                    advance(.025f, null);
+                }
+                Assert.That(Controller.IsMissionEmpowered || !Controller.IsMission, Is.True, "The event fired before the loss.");
+                Assert.That(Controller.IsShowingResult, Is.False, "A forced loss shows no defeat result.");
             }
 
             public void Dispose()

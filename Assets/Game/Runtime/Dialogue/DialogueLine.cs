@@ -92,6 +92,16 @@ namespace TurnLimbo.Runtime.Dialogue
         public string Text { get; }
         public DialogueStageSnapshot Stage { get; }
         public bool ShowsNameplate => Side != DialogueSide.Narrator;
+        /// <summary>A thought rather than speech: the whole line is wrapped in parentheses, like "(여긴…)". It is shown
+        /// with its parentheses, in the monologue colour, with or without a speaker.</summary>
+        public bool IsMonologue => IsMonologueText(Text);
+
+        public static bool IsMonologueText(string text)
+        {
+            if (text == null) return false;
+            string trimmed = text.Trim();
+            return trimmed.Length >= 2 && trimmed[0] == '(' && trimmed[trimmed.Length - 1] == ')';
+        }
 
         private static DialogueStageSnapshot CreateDefaultStage(DialogueSide side, string speakerName,
             string speakerRole)

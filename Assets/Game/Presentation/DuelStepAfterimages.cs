@@ -29,6 +29,13 @@ namespace TurnLimbo.Presentation
             }
         }
 
+        /// <summary>Keeps every afterimage off screen without ending it, while a cutscene plays in the middle of a battle.</summary>
+        public bool Hidden
+        {
+            get => !disposed && !root.gameObject.activeSelf;
+            set { if (!disposed) root.gameObject.SetActive(!value); }
+        }
+
         public DuelStepAfterimages(Transform parent, Material sharedSpriteMaterial, int arenaLayer, bool layeredActor = false)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));

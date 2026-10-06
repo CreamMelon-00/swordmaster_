@@ -62,6 +62,17 @@ namespace TurnLimbo.Presentation
         private CutsceneDirector cutscene;
         private System.Action cutsceneContinuation;
         private int cutsceneOpenedFrame = -1;
+        // A mission's battlefield scene leaves its last picture when it ends, for the result to show over (whatever
+        // follows restages the arena). Other scenes hand the arena back at its duel framing.
+        private bool cutsceneKeepsStage;
+        // A mission's mid-battle event (the 서막's 수훈): the hit that reached its threshold waits for its hit stop, then
+        // the battle pauses for the scene. Once the empowerment is applied, the rest of the attempt is empowered.
+        private bool missionEventPending;
+        private bool missionEmpowered;
+        // A battle paused for a mission event scene or dialogue; it resumes where it stopped.
+        private bool battlePausedForEvent;
+        // Reads a mission cutscene's text by Resources path, or null when there is none (tests supply their own).
+        private System.Func<string, string> missionSceneText = ReadTextResource;
         private AudioSource effectsSource;
         private AudioClip criticalSound;
         private ViewPhase viewPhase;
@@ -118,6 +129,13 @@ namespace TurnLimbo.Presentation
         public bool IsInTitle => showingTitle && !IsShowingDialogue && !IsPlayingCutscene && titleHud != null && titleHud.IsVisible;
         public bool IsPlayingCutscene => cutscene != null;
         public CutsceneDirector Cutscene => cutscene;
+        /// <summary>A story scene holds the screen: a cutscene, or a dialogue (missions without a cutscene file).</summary>
+        public bool IsPlayingScene => IsPlayingCutscene || IsShowingDialogue;
+        /// <summary>Whether the battle on screen is paused for a mission's mid-battle event scene (the 서막's 수훈).</summary>
+        public bool IsBattlePausedForEvent => battlePausedForEvent;
+        /// <summary>Whether this mission attempt's empowerment has been applied (the 서막's last mission after 이아's 수훈):
+        /// the enemy follows its new script, and a forced-loss defeat now completes the mission.</summary>
+        public bool IsMissionEmpowered => missionEmpowered;
         public CutsceneHud CutsceneHud => cutsceneHud;
         public DialogueHud DialogueHud => dialogueHud;
         public DialogueLine CurrentDialogueLine => dialogueSession?.Current;
@@ -166,7 +184,8 @@ namespace TurnLimbo.Presentation
                 return features;
             }
         }
-        public bool CanStep => session != null && StepFeatures.AllowsAnyStep() && session.Phase == LegacyDuelPhase.Resolving &&
+        public bool CanStep => session != null && !battlePausedForEvent && StepFeatures.AllowsAnyStep() &&
+            session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
              viewPhase == ViewPhase.PlayingSlot || viewPhase == ViewPhase.BetweenSlots);
         private float TimeUntilFirstImpact => viewPhase == ViewPhase.SkillWindup
@@ -350,6 +369,13 @@ namespace TurnLimbo.Presentation
             if (IsResolving) speed = Mathf.Min(speed, arena.StepPresentationSpeed);
             float stoppedTime = Mathf.Min(realDelta, hitStopRemaining);
             hitStopRemaining = Mathf.Max(0f, hitStopRemaining - stoppedTime);
+            // The hit that brought the enemy to the event's threshold has landed and its hit stop has played out: the
+            // battle pauses here for the scene, before its clock moves on, and resumes from this frame afterwards.
+            if (missionEventPending && hitStopRemaining <= 0f)
+            {
+                OpenMissionEvent();
+                return;
+            }
             float delta = (realDelta - stoppedTime) * speed;
             // 전투 planning is bullet time in the arena only; the planning clock above is unchanged.
             arena.SetPlanningState(planningTime, IsInspecting, CanChoose && Encounter == EncounterKind.Battle);
@@ -545,6 +571,9 @@ namespace TurnLimbo.Presentation
                         Exchange(hit.PlayerSkill, hit.PlayerAttacked));
                 // Includes a deferred counter slot's start effects, which run inside this hit.
                 AnnounceBreaks(playerWasBroken, enemyWasBroken);
+                // The first hit that brings the enemy to a mission event's threshold (never one that ends the duel).
+                if (hit.EnemyReachedHealthThreshold && mission?.Empowerment != null && !missionEmpowered)
+                    missionEventPending = true;
                 if (hit.Outcome != DuelMatchOutcome.InProgress)
                 {
                     // Finish this strike's pose without allowing another attack cycle.
@@ -945,17 +974,119 @@ namespace TurnLimbo.Presentation
             }
         }
 
-        private void OpenCutscene(CutsceneScript script, System.Action continuation)
+        /// <param name="battlefield">A mission whose scene this is: its fighters stand at their battle starting places
+        /// first (<see cref="StageBattlefield"/>), and its last picture stays when it ends (a victory's result shows over
+        /// the outro's end, not over a reset arena).</param>
+        private void OpenCutscene(CutsceneScript script, System.Action continuation, PrologueMission battlefield = null,
+            bool enemyAura = false)
         {
             // From a bare forest arena: no title, briefing, lobby, result, coach, dialogue or duel HUD.
             ClearBattleScreens();
             lobbyHud.Hide();
+            if (battlefield != null) StageBattlefield(battlefield, enemyAura);
+            BeginCutscene(script, continuation, false, battlefield != null);
+        }
+
+        private void BeginCutscene(CutsceneScript script, System.Action continuation, bool resumesBattle, bool keepsStage = false)
+        {
             cutsceneContinuation = continuation;
+            cutsceneKeepsStage = keepsStage;
             cutsceneOpenedFrame = Time.frameCount;
-            cutscene = new CutsceneDirector(script, arena, cutsceneHud, dialogueHud, defaultDialoguePortraitCatalog);
+            cutscene = new CutsceneDirector(script, arena, cutsceneHud, dialogueHud, defaultDialoguePortraitCatalog, resumesBattle);
             cutscene.Start();
             if (cutscene.IsComplete) FinishCutscene();
         }
+
+        /// <summary>A mission scene's starting picture: the mission's fighters as its battle starts them (Elisa at -5 facing
+        /// right, the dummy or the knight at 5 facing left), the camera at the duel framing, no fade. With
+        /// <paramref name="enemyAura"/> the enemy still wears the 수훈 aura the battle ended with.</summary>
+        private void StageBattlefield(PrologueMission shown, bool enemyAura)
+        {
+            arena.SetEnemyAppearance(shown.EnemyAppearance);
+            arena.Reset();
+            if (enemyAura) arena.EnemyPowerAura.SetAura(true);
+        }
+
+        /// <summary>Plays one of a mission's scenes: its battlefield cutscene (<paramref name="cutscenePath"/>, parsed with
+        /// the mission's fighters on stage) when that file exists, otherwise its dialogue (<paramref name="dialoguePath"/>),
+        /// then runs <paramref name="continuation"/> once the player reaches its end or skips it. Returns false (and runs
+        /// nothing) when neither plays.</summary>
+        private bool PlayMissionScene(PrologueMission shown, string cutscenePath, string dialoguePath,
+            System.Action continuation, bool enemyAura = false)
+        {
+            CutsceneScript script = LoadMissionCutscene(shown, cutscenePath);
+            if (script == null) return PlayMissionDialogue(dialoguePath, continuation);
+            OpenCutscene(script, continuation, shown, enemyAura);
+            return true;
+        }
+
+        /// <summary>A mission's cutscene, or null when the file does not exist (the dialogue then plays) or cannot be read
+        /// (a warning).</summary>
+        private CutsceneScript LoadMissionCutscene(PrologueMission shown, string resourcePath)
+        {
+            string source = string.IsNullOrWhiteSpace(resourcePath) ? null : missionSceneText(resourcePath);
+            if (source == null) return null;
+            try
+            {
+                return CutsceneScriptParser.Parse(resourcePath, source, shown.SceneCast);
+            }
+            catch (CutsceneParseException exception)
+            {
+                Debug.LogWarning(exception.Message);
+                return null;
+            }
+        }
+
+        private static string ReadTextResource(string resourcePath)
+        {
+            TextAsset asset = Resources.Load<TextAsset>(resourcePath);
+            return asset != null ? asset.text : null;
+        }
+
+        /// <summary>A mission's mid-battle event (the 서막's 수훈), on the frame the battle paused on: the duel HUD, coach
+        /// and step cues leave, and the scene plays on the arena as it stands (or its dialogue over it). Its end, or
+        /// Escape, applies the empowerment and the battle carries on from that frame. Without either file the
+        /// empowerment applies at once.</summary>
+        private void OpenMissionEvent()
+        {
+            missionEventPending = false;
+            PrologueMission shown = mission;
+            if (shown?.Empowerment == null || missionEmpowered) return;
+            battlePausedForEvent = true;
+            hud.Root.SetActive(false);
+            coachHud.Hide();
+            stepAudio.Stop();
+            ClearHeldKeys();
+            CutsceneScript script = LoadMissionCutscene(shown, shown.Empowerment.Scene);
+            if (script != null) BeginCutscene(script, ResumeMissionBattle, true);
+            else if (!PlayMissionDialogue(shown.EventDialogue, ResumeMissionBattle)) ResumeMissionBattle();
+        }
+
+        /// <summary>The event scene is over (or skipped): the enemy is empowered and the paused battle resumes exactly
+        /// where it stopped, its remaining hits and slots included.</summary>
+        private void ResumeMissionBattle()
+        {
+            battlePausedForEvent = false;
+            ApplyEmpowerment();
+            hud.Root.SetActive(true);
+            ClearHeldKeys();
+            RefreshHud(0f);
+            RefreshGuide();
+        }
+
+        /// <summary>From the next planning turn the enemy follows the empowered script; the turn in progress keeps its
+        /// queue. The 수훈 aura stays on the enemy until the battle ends (lit here if the scene did not light it).</summary>
+        private void ApplyEmpowerment()
+        {
+            MissionEmpowerment empowerment = mission?.Empowerment;
+            if (empowerment == null || missionEmpowered) return;
+            missionEmpowered = true;
+            session.ReplaceEnemyScript(empowerment.EnemyScript);
+            if (empowerment.KeepsAura && !arena.EnemyPowerAura.IsAuraOn) arena.EnemyPowerAura.SetAura(true, EmpowermentAuraFade);
+        }
+
+        /// <summary>How long the 수훈 aura takes to fade in when the scene did not light it (skipped early, or no scene).</summary>
+        private const float EmpowermentAuraFade = .4f;
 
         /// <summary>Moves past the cutscene's waiting line. Returns false while a timed step plays.</summary>
         public bool AdvanceCutscene()
@@ -976,7 +1107,10 @@ namespace TurnLimbo.Presentation
         private void FinishCutscene()
         {
             System.Action next = cutsceneContinuation;
-            StopCutscene();
+            // A scene in the middle of a battle hands the arena back as the battle left it, ready to resume. A mission's
+            // battlefield scene keeps its last picture: its result shows over it, and the battle, briefing or lobby that
+            // follows restages the arena anyway.
+            EndCutscene(!cutscene.ResumesBattle && !cutsceneKeepsStage);
             next?.Invoke();
         }
 
@@ -985,13 +1119,30 @@ namespace TurnLimbo.Presentation
         public bool StopCutscene()
         {
             if (cutscene == null) return false;
+            EndCutscene(true);
+            return true;
+        }
+
+        private void EndCutscene(bool resetArena)
+        {
             CutsceneDirector stopping = cutscene;
             cutscene = null;
             cutsceneContinuation = null;
+            cutsceneKeepsStage = false;
             cutsceneOpenedFrame = -1;
             stopping.Dispose();
+            if (!resetArena) return;
             arena.SetEnemyAppearance(EnemyAppearance.Student);
             arena.Reset();
+        }
+
+        /// <summary>Escape on a story scene: skips the cutscene, or the rest of the dialogue, and continues whatever it
+        /// was leading to. Returns false when no scene is showing.</summary>
+        public bool SkipScene()
+        {
+            if (SkipCutscene()) return true;
+            if (!IsShowingDialogue) return false;
+            FinishDialogue();
             return true;
         }
 
@@ -1050,12 +1201,14 @@ namespace TurnLimbo.Presentation
             if (!saveStore.TrySave(GameSave.Capture(prologue, campaign), out string error)) Debug.LogWarning(error);
         }
 
-        /// <summary>Starts the briefed mission: its intro dialogue first, then the duel. Skipping the intro starts it too.</summary>
+        /// <summary>Starts the briefed mission: its intro scene first (the battlefield cutscene, or the dialogue where there
+        /// is none), then the duel. Skipping the intro starts it too.</summary>
         public bool StartMission()
         {
             if (!IsInBriefing || prologue.CurrentMission == null) return false;
-            int number = prologue.CurrentMission.Number;
-            if (!PlayMissionDialogue(prologue.CurrentMission.IntroDialogue, () => BeginMissionBattle(number)))
+            PrologueMission briefed = prologue.CurrentMission;
+            int number = briefed.Number;
+            if (!PlayMissionScene(briefed, briefed.IntroCutscene, briefed.IntroDialogue, () => BeginMissionBattle(number)))
                 BeginMissionBattle(number);
             return true;
         }
@@ -1382,16 +1535,32 @@ namespace TurnLimbo.Presentation
             resultHud.ShowTraining(result, targetHealth, campaign.TrainingDummyHealth);
         }
 
-        /// <summary>A finished mission: record progress, play the outro on a victory, then show the result.</summary>
+        /// <summary>A finished mission: record progress, play the outro on a victory, then show the result. A forced loss
+        /// (the player's defeat after the 서막's 수훈) completes the mission like a win but shows no result: its outro
+        /// plays, then the story goes on as the old win's 여정 계속 did (to the lobby after the 서막).</summary>
         private void FinishMission()
         {
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
+            bool forcedLoss = !victory && mission.Completes(session.Outcome, missionEmpowered);
             guide?.Finish();
-            bool firstWin = prologue.TryComplete(mission.Number, session.Outcome);
+            bool firstWin = prologue.TryComplete(mission.Number, session.Outcome, missionEmpowered);
             if (firstWin)
             {
                 SyncStoryProgression();
                 AutoSave();
+            }
+            if (forcedLoss)
+            {
+                PrologueMission lost = mission;
+                // The outro starts with the 수훈 aura still on the enemy; its @aura … off ends it.
+                bool aura = missionEmpowered && lost.Empowerment.KeepsAura;
+                // No result says that the 서막 is over and what it opened, as the old win's did: the lobby the story
+                // reaches next says it, the first time only (replays and 이어하기 do not).
+                if (firstWin && lost.Number == PrologueMissions.Count)
+                    lobbyHud.SetArrivalNotice(BattleResultHud.PrologueCompleteNotice(campaign.IsCurriculumOpen));
+                EndDuelPresentation();
+                if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura)) ShowBriefing();
+                return;
             }
             // After the story is synced, so mission 8's first win already reports the curriculum it opened.
             var result = new BattleResult(session.Outcome, true, mission.Number, mission.Title, 0, campaign.Currency,
@@ -1404,12 +1573,14 @@ namespace TurnLimbo.Presentation
                     : IsNextMissionAvailable ? "\n다음 임무가 열렸습니다." : "\n다음 스테이지를 깨면 다음 임무가 열립니다.")
                 : null;
             EndDuelPresentation();
-            if (victory && PlayMissionDialogue(mission.OutroDialogue, () => ShowResult(result, unlockNotice))) return;
+            if (victory && PlayMissionScene(mission, mission.OutroCutscene, mission.OutroDialogue,
+                () => ShowResult(result, unlockNotice))) return;
             ShowResult(result, unlockNotice);
         }
 
         private void EndDuelPresentation()
         {
+            ClearMissionEvent();
             effectsSource.Stop();
             hitStopRemaining = 0f;
             stepAudio.Stop();
@@ -1458,6 +1629,8 @@ namespace TurnLimbo.Presentation
 
         private void ClearMissionState()
         {
+            ClearMissionEvent();
+            missionEmpowered = false;
             mission = null;
             guide = null;
             showingBriefing = false;
@@ -1517,6 +1690,9 @@ namespace TurnLimbo.Presentation
         {
             StopCutscene();
             CloseDialogue();
+            // A new attempt starts unempowered; the arena reset below takes any 수훈 aura away.
+            ClearMissionEvent();
+            missionEmpowered = false;
             battleResult = null;
             guideInspectionRemaining = 0f;
             showingBriefing = false;
@@ -1553,10 +1729,20 @@ namespace TurnLimbo.Presentation
             if (IsMission) hud.SetStage(mission.Number, MissionCountFor(mission), mission.Title);
             else if (IsTrainingBattle) hud.SetStage(1, 1, "허수아비");
             else hud.SetStage(campaign.StageNumber, campaign.StageCount, campaign.CurrentStage.Name);
+            // A mission names its enemy as the battle knows it (이아 in the 서막's last mission, unlike its briefing).
+            hud.SetEnemyName(IsMission ? mission.BattleEnemyName : null);
             SetViewPhase(ViewPhase.Planning);
             ClearHeldKeys();
             RefreshHud(0f);
             RefreshGuide();
+        }
+
+        /// <summary>Drops a pending or paused mission event (the battle is left, restarted or over). Whether the attempt was
+        /// empowered stays until the mission is left or the next attempt starts, so the mission's end can still tell.</summary>
+        private void ClearMissionEvent()
+        {
+            missionEventPending = false;
+            battlePausedForEvent = false;
         }
 
         private void RefreshGuide()
@@ -1619,6 +1805,11 @@ namespace TurnLimbo.Presentation
 
         private void OnDestroy()
         {
+            // First, while the arena and the screens it touches still exist: it releases the senior knight's runtime art
+            // and its sounds, and gives a suspended battle's arena back. Its continuation never runs.
+            cutscene?.Dispose();
+            cutscene = null;
+            cutsceneContinuation = null;
             dialogueHud?.Dispose();
             cutsceneHud?.Dispose();
             resultHud?.Dispose();

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.Cutscene;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 
@@ -26,6 +27,26 @@ namespace TurnLimbo.Core.Tests
             }
             Assert.Throws<ArgumentOutOfRangeException>(() => PrologueMissions.Get(0));
             Assert.Throws<ArgumentOutOfRangeException>(() => PrologueMissions.Get(5));
+        }
+
+        [Test]
+        public void MissionScenes_AreLookedUpByNumber_AndStartWithTheMissionsFightersOnStage()
+        {
+            foreach (PrologueMission mission in StoryMissions.All)
+            {
+                Assert.That(mission.IntroCutscene, Is.EqualTo($"Cutscene/mission-{mission.Number:00}-intro"));
+                Assert.That(mission.OutroCutscene, Is.EqualTo($"Cutscene/mission-{mission.Number:00}-outro"));
+                Assert.That(mission.EventDialogue, Is.EqualTo($"Dialogue/mission-{mission.Number:00}-event"));
+                CutsceneActor enemy = mission.EnemyAppearance == EnemyAppearance.TrainingDummy ? CutsceneActor.Dummy : CutsceneActor.Knight;
+                Assert.That(mission.SceneCast, Is.EqualTo(new[] { CutsceneActor.Elisa, enemy }), mission.Title);
+            }
+            Assert.That(PrologueMissions.Get(1).SceneCast, Does.Contain(CutsceneActor.Dummy), "The first mission strikes the straw dummy.");
+            Assert.That(PrologueMissions.Get(4).Empowerment.Scene, Is.EqualTo("Cutscene/mission-04-event"));
+            // The controller parses a mission's scenes with its cast, so they may use the fighters at once.
+            CutsceneScript intro = CutsceneScriptParser.Parse(PrologueMissions.Get(1).IntroCutscene,
+                "@actor dummy pose hurt\n(허수아비?)", PrologueMissions.Get(1).SceneCast);
+            Assert.That(intro.Steps.Count, Is.EqualTo(2));
+            Assert.That(intro.OnStage, Is.EqualTo(PrologueMissions.Get(1).SceneCast));
         }
 
         [Test]

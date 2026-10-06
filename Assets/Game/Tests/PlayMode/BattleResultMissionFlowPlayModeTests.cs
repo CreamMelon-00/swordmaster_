@@ -148,12 +148,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.CanChoose, Is.False);
 
                 Assert.That(controller.StartMission(), Is.True);
-                Assert.That(controller.IsShowingDialogue, Is.True, "Each mission opens with its intro dialogue.");
-                Assert.That(controller.CurrentDialogueLine.Text, Is.EqualTo("테스트"));
+                Assert.That(controller.IsPlayingScene, Is.True, "Each mission opens with its intro scene.");
                 Assert.That(controller.IsMission, Is.False, "The duel waits for the intro.");
                 Assert.That(controller.StartMission(), Is.False);
-                Assert.That(controller.ContinueDialogue(), Is.False);
-                Assert.That(controller.IsShowingDialogue, Is.False);
+                Assert.That(controller.SkipScene(), Is.True);
+                Assert.That(controller.IsPlayingScene, Is.False);
                 Assert.That(controller.IsMission, Is.True);
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(1));
                 Assert.That(controller.BriefingHud.IsVisible, Is.False);
@@ -196,19 +195,18 @@ namespace TurnLimbo.Presentation.Tests
                 for (int turn = 0; turn < 4; turn++)
                 {
                     scope.AdvanceUntilSettled();
-                    if (controller.IsShowingDialogue || controller.IsShowingResult) break;
+                    if (controller.IsPlayingScene || controller.IsShowingResult) break;
                     Assert.That(controller.Guide.IsFree, Is.True, "The first turn hands the dummy over to free play.");
                     bool queued = false;
                     while (controller.QueueLane(0)) queued = true;
                     Assert.That(queued, Is.True);
                     controller.CommitTurn();
                 }
-                Assert.That(controller.IsShowingDialogue, Is.True, "A mission victory plays its outro before the result.");
-                Assert.That(controller.CurrentDialogueLine.Text, Is.EqualTo("테스트"));
+                Assert.That(controller.IsPlayingScene, Is.True, "A mission victory plays its outro before the result.");
                 Assert.That(controller.IsShowingResult, Is.False);
                 Assert.That(controller.Prologue.ClearedCount, Is.EqualTo(1));
                 Assert.That(controller.Session.Player.Health, Is.EqualTo(100), "The dummy never hits back.");
-                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.SkipScene(), Is.True);
                 Assert.That(controller.IsShowingResult, Is.True);
                 Assert.That(controller.Result.IsMission, Is.True);
                 Assert.That(controller.Result.Victory, Is.True);
@@ -223,7 +221,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(CampaignFingerprint(controller.Campaign), Is.EqualTo(campaignBefore));
 
                 Assert.That(controller.RetryBattleResult(), Is.True);
-                Assert.That(controller.IsShowingDialogue, Is.False, "A retry skips the intro.");
+                Assert.That(controller.IsPlayingScene, Is.False, "A retry skips the intro.");
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(1));
                 Assert.That(controller.Guide.StepIndex, Is.Zero);
                 Assert.That(controller.CanChoose, Is.True);
@@ -243,12 +241,12 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 Press(keyboard.enterKey);
                 yield return null;
-                Assert.That(controller.IsShowingDialogue, Is.True, "Enter on the briefing starts the mission intro.");
+                Assert.That(controller.IsPlayingScene, Is.True, "Enter on the briefing starts the mission intro.");
                 Release(keyboard.enterKey);
                 yield return null;
                 Press(keyboard.escapeKey);
                 yield return null;
-                Assert.That(controller.IsShowingDialogue, Is.False);
+                Assert.That(controller.IsPlayingScene, Is.False);
                 Assert.That(controller.IsMission, Is.True, "Skipping the intro still starts the mission.");
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(2));
                 Assert.That(controller.Session.Enemy.MaxHealth, Is.EqualTo(36));
@@ -273,7 +271,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LastMission_RunsItsTimerAfterTheOpeningBeat_AndItsVictoryOpensTheLobby()
+        public IEnumerator LastMission_RunsItsTimerAfterTheOpeningBeat_AndItsForcedLossOpensTheLobby()
         {
             yield return null;
             using (var scope = new FlowScope())
@@ -281,15 +279,17 @@ namespace TurnLimbo.Presentation.Tests
                 DuelPrototypeController controller = scope.Controller;
                 controller.StartNewGame();
                 Assert.That(controller.StartMission(), Is.True);
-                Assert.That(controller.CloseDialogue(), Is.True);
-                Assert.That(controller.IsMission, Is.False, "Closing the dialogue for cleanup never starts the duel.");
+                Assert.That(controller.StopCutscene() || controller.CloseDialogue(), Is.True);
+                Assert.That(controller.IsMission, Is.False, "Stopping the intro for cleanup never starts the duel.");
+                controller.StartNewGame();
                 Assert.That(controller.IsInBriefing, Is.True);
 
                 for (int number = 1; number < PrologueMissions.Count; number++)
                     Assert.That(controller.Prologue.TryComplete(number, DuelMatchOutcome.PlayerVictory), Is.True);
                 Assert.That(controller.StartMission(), Is.True);
-                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.SkipScene(), Is.True);
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(PrologueMissions.Count));
+                Assert.That(controller.Hud.EnemyName, Is.EqualTo("이아"), "She named herself in the intro.");
                 Assert.That(controller.Session.GetLane(0).Count, Is.EqualTo(3));
                 scope.Advance(1f);
                 Assert.That(controller.TurnTimeRemaining, Is.EqualTo(10f), "A coached beat holds the clock.");
@@ -298,20 +298,13 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(1f);
                 Assert.That(controller.TurnTimeRemaining, Is.LessThan(10f), "The last mission runs the planning timer.");
 
-                scope.WinToSettled();
-                Assert.That(controller.IsShowingDialogue, Is.True);
-                Assert.That(controller.ContinueDialogue(), Is.False);
-                Assert.That(controller.IsShowingResult, Is.True);
-                Assert.That(controller.Prologue.IsArcComplete, Is.True, "The 서막 is over; the lobby missions wait for their stages.");
-                Assert.That(controller.Result.CanAdvance, Is.True);
-                Assert.That(Label(controller.ResultHud.Root, "Result Notice").text, Does.Contain("커리큘럼"),
-                    "The last mission announces the loadout and curriculum.");
-                Assert.That(FindButton(controller.ResultHud.Root, "Result Next Stage").GetComponentInChildren<Text>().text,
-                    Is.EqualTo("여정 계속"));
-                Assert.That(FindButton(controller.ResultHud.Root, "Result Lobby").gameObject.activeSelf, Is.False);
-
-                Assert.That(controller.AdvanceFromBattleResult(), Is.True);
-                Assert.That(controller.IsInLobby, Is.True, "The lobby opens once the arc is over.");
+                scope.SetGuide(null);
+                scope.ForcedLossToSettled();
+                Assert.That(controller.Prologue.IsArcComplete, Is.True, "The defeat after 이아's 수훈 ends the 서막.");
+                Assert.That(controller.Result, Is.Null);
+                Assert.That(controller.ResultHud.IsVisible, Is.False, "No defeat result: the outro comes straight on.");
+                if (controller.IsPlayingScene) Assert.That(controller.SkipScene(), Is.True, "Skipping the outro…");
+                Assert.That(controller.IsInLobby, Is.True, "…goes where the old win's 여정 계속 went: the lobby.");
                 Assert.That(controller.IsInBriefing, Is.False);
                 Assert.That(controller.IsMission, Is.False);
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
@@ -334,14 +327,6 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
-
-        private static Button FindButton(GameObject root, string name)
-        {
-            foreach (Button button in root.GetComponentsInChildren<Button>(true))
-                if (button.name == name) return button;
-            Assert.Fail("Missing button " + name + ".");
-            return null;
-        }
 
         private static string CampaignFingerprint(CampaignRun run)
         {
@@ -391,12 +376,37 @@ namespace TurnLimbo.Presentation.Tests
                 AdvanceUntilResult();
             }
 
-            /// <summary>Wins at once; a mission then stops on its outro dialogue instead of the result.</summary>
+            /// <summary>Wins at once; a mission then stops on its outro scene instead of the result.</summary>
             public void WinToSettled()
             {
                 WinQueued();
                 AdvanceUntilSettled();
-                Assert.That(Controller.IsShowingDialogue || Controller.IsShowingResult, Is.True);
+                Assert.That(Controller.IsPlayingScene || Controller.IsShowingResult, Is.True);
+            }
+
+            /// <summary>The 서막's last mission with a fixture duel: one strike takes 이아 to half health (her 수훈, whose
+            /// scene is skipped when there is one), then the empowered enemy defeats the player. Stops on the outro, or
+            /// wherever the story went when there is none.</summary>
+            public void ForcedLossToSettled()
+            {
+                var strike = new LegacySkill(202, "Test Strike", 1, 30, 30, LegacySkillKind.Attack,
+                    LegacySkillProperty.Slash, 1, 0, "", iconId: 1);
+                typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller,
+                    new LegacyQueuedDuel(100, 50, 40, 10, new[] { strike }, new[] { LegacyCommonActions.Breathe }, new[] { 1 }, 5,
+                        features: CombatFeature.LaneQ | CombatFeature.Cycle, enemyHealthFloor: 1, enemyHealthThresholdPercent: 50));
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                Assert.That(Controller.QueueLane(0), Is.True);
+                Controller.CommitTurn();
+                int frames = 0;
+                while (Controller.IsMission && !Controller.IsShowingResult && frames++ < 8000)
+                {
+                    if (Controller.IsBattlePausedForEvent) Assert.That(Controller.SkipScene(), Is.True);
+                    else if (Controller.IsPlayingScene) break;
+                    else if (Controller.CanChoose) Controller.CommitTurn();
+                    advance(.025f, null);
+                }
+                Assert.That(Controller.IsMissionEmpowered || !Controller.IsMission, Is.True, "The event fired before the loss.");
+                Assert.That(Controller.IsShowingResult, Is.False, "A forced loss shows no defeat result.");
             }
 
             private void WinQueued()
@@ -421,14 +431,14 @@ namespace TurnLimbo.Presentation.Tests
                 AdvanceUntilResult();
             }
 
-            /// <summary>Advances until planning, a result, or a dialogue that holds the flow.</summary>
+            /// <summary>Advances until planning, a result, or a scene that holds the flow.</summary>
             public void AdvanceUntilSettled()
             {
                 int frames = 0;
-                while (!Controller.IsShowingResult && !Controller.IsShowingDialogue && !Controller.CanChoose &&
+                while (!Controller.IsShowingResult && !Controller.IsPlayingScene && !Controller.CanChoose &&
                     frames++ < 2000) Advance(.025f);
-                Assert.That(Controller.IsShowingResult || Controller.IsShowingDialogue || Controller.CanChoose, Is.True,
-                    "The actual presentation must settle into planning, a dialogue or a result.");
+                Assert.That(Controller.IsShowingResult || Controller.IsPlayingScene || Controller.CanChoose, Is.True,
+                    "The actual presentation must settle into planning, a scene or a result.");
             }
 
             private void AdvanceUntilResult()

@@ -396,6 +396,17 @@ namespace TurnLimbo.Presentation
             Reset();
         }
 
+        /// <summary>The enemy's name at the right of its status panel's HP row (missions name their enemy as the battle
+        /// knows it); null or empty shows none, as stages and training do.</summary>
+        public void SetEnemyName(string name)
+        {
+            if (disposed) return;
+            enemyStatus.Name.text = name ?? string.Empty;
+        }
+
+        /// <summary>The enemy name the status panel shows, or empty.</summary>
+        public string EnemyName => enemyStatus.Name.text;
+
         public void SetStage(int stageNumber, int stageCount, string stageName)
         {
             this.stageNumber = stageNumber;
@@ -1109,6 +1120,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             SetTrainingMode(false);
             SetMissionMode(false);
+            SetEnemyName(null);
             SetGuideFocus(-1, false, false, false);
             shownTurn = shownAct = shownMaxAct = -1;
             displayedSession = null;
@@ -1243,6 +1255,14 @@ namespace TurnLimbo.Presentation
             healthLabel.text = "HP"; healthLabel.color = MutedText;
             var resistanceLabel = Text("Resistance Label", status, new Vector2(0, -4), new Vector2(196, 18), 14, TextAnchor.MiddleLeft);
             resistanceLabel.text = "저항"; resistanceLabel.color = MutedText;
+            if (enemy)
+            {
+                // Who the player fights, across from the HP label (SetEnemyName); stages leave it empty.
+                result.Name = Text("Battle Name", status, new Vector2(0, 27), new Vector2(196, 18), 14, TextAnchor.MiddleRight);
+                result.Name.color = Foreground;
+                result.Name.supportRichText = false;
+                result.Name.text = string.Empty;
+            }
             Image("HP Track", status, null, new Vector2(0, 10), new Vector2(196, 10), Track);
             result.HealthLag = Image("HP delayed", status, white, new Vector2(0, 10), new Vector2(196, 10), DuelVisualTheme.Danger);
             result.Health = Image("HP", status, white, new Vector2(0, 10), new Vector2(196, 10), DuelVisualTheme.Health);
@@ -1587,6 +1607,8 @@ namespace TurnLimbo.Presentation
             public Image Health, HealthLag, Resistance, ResistanceLag;
             public Text ActivePowerBuff, ActiveProtectionBuff, GrantedPowerBuff, GrantedProtectionBuff;
             public Text Counter;
+            /// <summary>The enemy panel's name label; null on the player's.</summary>
+            public Text Name;
             private LegacySkillFeedback shownBuffFeedback;
             private LegacyCounter shownCounter;
             private int shownCounterUses = -1;

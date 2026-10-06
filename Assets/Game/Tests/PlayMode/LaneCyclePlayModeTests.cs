@@ -211,7 +211,7 @@ namespace TurnLimbo.Presentation.Tests
                 DuelPrototypeController controller = scope.Controller;
                 controller.StartNewGame();
                 Assert.That(controller.StartMission(), Is.True);
-                scope.FinishDialogue();
+                scope.SkipIntro();
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(1));
                 Assert.That(controller.AdvanceGuide(), Is.True);
                 scope.Advance(0f);
@@ -229,7 +229,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(2));
                 Assert.That(controller.StartMission(), Is.True);
-                scope.FinishDialogue();
+                scope.SkipIntro();
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(2));
                 MissionGuide guide = controller.Guide;
                 LegacyQueuedDuel duel = controller.Session;
@@ -342,13 +342,12 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(condition(), Is.True, "The real controller should complete the turn within ten simulated seconds.");
             }
 
-            /// <summary>Reads a mission intro to its end, which starts the duel.</summary>
-            public void FinishDialogue()
+            /// <summary>Skips a mission's intro scene (its battlefield cutscene, or its dialogue), which starts the duel.</summary>
+            public void SkipIntro()
             {
-                Assert.That(Controller.IsShowingDialogue, Is.True, "Each mission opens with its intro dialogue.");
-                int lines = 0;
-                while (Controller.IsShowingDialogue && lines++ < 200) Controller.ContinueDialogue();
-                Assert.That(Controller.IsShowingDialogue, Is.False);
+                Assert.That(Controller.IsPlayingScene, Is.True, "Each mission opens with its intro scene.");
+                Assert.That(Controller.SkipScene(), Is.True);
+                Assert.That(Controller.IsPlayingScene, Is.False);
             }
 
             private static LegacySkill Skill(int id, string name, int lane)

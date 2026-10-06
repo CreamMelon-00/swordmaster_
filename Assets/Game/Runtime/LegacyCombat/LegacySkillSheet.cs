@@ -21,32 +21,43 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<string> Problems { get; }
     }
 
-    /// <summary>The techniques one sheet defines: every row in sheet order, split into the starting rows (시작) and the
-    /// rows the curriculum grants (획득).</summary>
+    /// <summary>A sheet row's 구분: who uses the technique.</summary>
+    public enum LegacySkillGroup
+    {
+        /// <summary>시작: the player has it from the start; three per lane are the default loadout.</summary>
+        Starting,
+        /// <summary>획득: a curriculum node or a stage's first clear grants it.</summary>
+        Acquisition,
+        /// <summary>적: only an enemy uses it (a story enemy's script names it by id). It never reaches the loadout,
+        /// the curriculum or the starting set.</summary>
+        Enemy,
+    }
+
+    /// <summary>The techniques one sheet defines: every row in sheet order, split into the starting rows (시작), the
+    /// rows the curriculum grants (획득) and the enemy-only rows (적).</summary>
     public sealed class LegacySkillTable
     {
         private readonly Dictionary<int, LegacySkillDefinition> byId = new Dictionary<int, LegacySkillDefinition>();
-        private readonly HashSet<int> startingIds = new HashSet<int>();
+        private readonly Dictionary<int, LegacySkillGroup> groupById = new Dictionary<int, LegacySkillGroup>();
 
-        internal LegacySkillTable(string sheetId, IReadOnlyList<LegacySkillDefinition> definitions, IReadOnlyList<bool> starting)
+        internal LegacySkillTable(string sheetId, IReadOnlyList<LegacySkillDefinition> definitions, IReadOnlyList<LegacySkillGroup> groups)
         {
             SheetId = sheetId;
             var initial = new List<LegacySkill>();
             var acquisition = new List<LegacySkill>();
+            var enemy = new List<LegacySkill>();
             for (int index = 0; index < definitions.Count; index++)
             {
                 LegacySkill skill = definitions[index].Skill;
                 byId.Add(skill.Id, definitions[index]);
-                if (starting[index])
-                {
-                    startingIds.Add(skill.Id);
-                    initial.Add(skill);
-                }
-                else acquisition.Add(skill);
+                groupById.Add(skill.Id, groups[index]);
+                (groups[index] == LegacySkillGroup.Starting ? initial
+                    : groups[index] == LegacySkillGroup.Acquisition ? acquisition : enemy).Add(skill);
             }
             All = Array.AsReadOnly(definitions.ToArray());
             InitialSkills = initial.AsReadOnly();
             AcquisitionSkills = acquisition.AsReadOnly();
+            EnemySkills = enemy.AsReadOnly();
         }
 
         public string SheetId { get; }
@@ -56,10 +67,25 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacySkill> InitialSkills { get; }
         /// <summary>The 획득 rows in sheet order.</summary>
         public IReadOnlyList<LegacySkill> AcquisitionSkills { get; }
+        /// <summary>The 적 rows in sheet order: enemy-only techniques, never the player's.</summary>
+        public IReadOnlyList<LegacySkill> EnemySkills { get; }
 
         public LegacySkillDefinition Find(int id) => byId.TryGetValue(id, out LegacySkillDefinition definition) ? definition : null;
 
-        public bool IsStarting(LegacySkillDefinition definition) => definition != null && startingIds.Contains(definition.Skill.Id);
+        public bool IsStarting(LegacySkillDefinition definition) => Is(definition, LegacySkillGroup.Starting);
+
+        public bool IsEnemy(LegacySkillDefinition definition) => Is(definition, LegacySkillGroup.Enemy);
+
+        /// <summary>The 구분 of this table's row with the definition's id; throws for an id the table lacks.</summary>
+        public LegacySkillGroup GroupOf(LegacySkillDefinition definition)
+        {
+            if (definition == null) throw new ArgumentNullException(nameof(definition));
+            return groupById.TryGetValue(definition.Skill.Id, out LegacySkillGroup group) ? group
+                : throw new ArgumentException($"Sheet '{SheetId}' has no technique {definition.Skill.Id}.", nameof(definition));
+        }
+
+        private bool Is(LegacySkillDefinition definition, LegacySkillGroup group)
+            => definition != null && groupById.TryGetValue(definition.Skill.Id, out LegacySkillGroup found) && found == group;
     }
 
     /// <summary>What a new sheet changes against the current one, for the editor's confirmation.</summary>
@@ -134,10 +160,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public const string InfoSecondaryTone = "배지 보조 색";
             public const string InfoDescription = "배지 요약";
             public const string BrokenTargetDamage = "붕괴 대상 추가 피해";
+            public const string OpponentBreak = "상대 붕괴";
         }
 
         public const string StartingGroup = "시작";
         public const string AcquisitionGroup = "획득";
+        public const string EnemyGroup = "적";
         /// <summary>Ids from here up belong to techniques written in code, the 서막's practice skills (1001-1003). They are
         /// looked up by id like sheet rows, so a sheet row with one of these ids would take them over; the sheet may not use them.</summary>
         public const int ReservedIdStart = 1000;
@@ -166,7 +194,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Column.VariablePower, Column.ShortLabel, Column.Detail, Column.Purpose, Column.Effect,
             Column.InfoMain, Column.InfoEnemyMain, Column.InfoMainSymbol, Column.InfoMainTone, Column.InfoSecondary,
             Column.InfoEnemySecondary, Column.InfoSecondarySymbol, Column.InfoSecondaryTone, Column.InfoDescription,
-            Column.BrokenTargetDamage,
+            Column.BrokenTargetDamage, Column.OpponentBreak,
         });
 
         /// <summary>Reads a sheet. Every problem is collected first and thrown once as a <see cref="SkillSheetException"/>.</summary>
@@ -200,8 +228,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (reader.IsBlank || reader.Cell(Column.Id).StartsWith("#", StringComparison.Ordinal)) continue;
                 ParsedRow row = ReadRow(reader);
                 if (!reader.Ok(Column.Group, Column.Lane)) membershipKnown = false;
-                else if (row.Starting) perLane[row.Lane]++;
-                else anyAcquisition = true;
+                else if (row.Group == LegacySkillGroup.Starting) perLane[row.Lane]++;
+                else if (row.Group == LegacySkillGroup.Acquisition) anyAcquisition = true;
                 if (reader.Ok(Column.Id))
                 {
                     if (firstRowById.TryGetValue(row.Id, out int first))
@@ -223,13 +251,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (problems.Count > 0) throw new SkillSheetException(sheetId, problems);
 
             var definitions = new LegacySkillDefinition[rows.Count];
-            var starting = new bool[rows.Count];
+            var groups = new LegacySkillGroup[rows.Count];
             for (int index = 0; index < rows.Count; index++)
             {
                 definitions[index] = rows[index].Definition;
-                starting[index] = rows[index].Starting;
+                groups[index] = rows[index].Group;
             }
-            return new LegacySkillTable(sheetId, definitions, starting);
+            return new LegacySkillTable(sheetId, definitions, groups);
         }
 
         /// <summary>The whole sheet as CSV text: UTF-8 byte order mark (so Excel reads Korean), LF line ends,
@@ -237,15 +265,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public static string Write(LegacySkillTable table)
         {
             if (table == null) throw new ArgumentNullException(nameof(table));
-            return Write(table.All, table.IsStarting);
+            return Write(table.All, table.GroupOf);
         }
 
-        public static string Write(IReadOnlyList<LegacySkillDefinition> definitions, Func<LegacySkillDefinition, bool> isStarting)
+        public static string Write(IReadOnlyList<LegacySkillDefinition> definitions, Func<LegacySkillDefinition, LegacySkillGroup> groupOf)
         {
             if (definitions == null) throw new ArgumentNullException(nameof(definitions));
-            if (isStarting == null) throw new ArgumentNullException(nameof(isStarting));
+            if (groupOf == null) throw new ArgumentNullException(nameof(groupOf));
             var rows = new List<IReadOnlyList<string>>(definitions.Count + 1) { Headers };
-            foreach (LegacySkillDefinition definition in definitions) rows.Add(Cells(definition, isStarting(definition)));
+            foreach (LegacySkillDefinition definition in definitions) rows.Add(Cells(definition, groupOf(definition)));
             return "\ufeff" + CsvTable.Write(rows);
         }
 
@@ -266,8 +294,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     added++;
                     continue;
                 }
-                string[] oldCells = Cells(previous, before.IsStarting(previous));
-                string[] newCells = Cells(definition, after.IsStarting(definition));
+                string[] oldCells = Cells(previous, before.GroupOf(previous));
+                string[] newCells = Cells(definition, after.GroupOf(definition));
                 var fields = new List<string>();
                 for (int index = 0; index < Headers.Count; index++)
                     if (oldCells[index] != newCells[index]) fields.Add(Headers[index]);
@@ -297,7 +325,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private sealed class ParsedRow
         {
             public int Id, Lane;
-            public bool Starting;
+            public LegacySkillGroup Group;
             public LegacySkillDefinition Definition;
         }
 
@@ -342,7 +370,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 r.Problem(Column.Id, $"'{r.Cell(Column.Id)}'은(는) 쓸 수 없습니다. {ReservedIdStart} 이상은 코드에 있는 서막 연습 기술" +
                     $"(연습 베기 등)이 쓰는 번호입니다. 1~{ReservedIdStart - 1} 중 쓰지 않는 번호를 적으세요.");
             string name = r.Required(Column.Name);
-            bool starting = r.Group();
+            LegacySkillGroup group = r.Group();
             int lane = r.Lane();
             LegacySkillKind kind = r.Kind(Column.Kind, required: true) ?? LegacySkillKind.Attack;
             LegacySkillProperty property = r.Property(Column.Property, required: true) ?? LegacySkillProperty.Slash;
@@ -362,6 +390,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 ResistanceRecoveryPercent = r.Integer(Column.ResistanceRecovery, 0, required: false, percent: true),
                 OpponentResistanceReduction = r.Integer(Column.ResistanceReduction, 0, required: false),
                 BrokenTargetDamagePercent = r.Integer(Column.BrokenTargetDamage, 0, required: false, percent: true),
+                BreaksOpponent = r.Boolean(Column.OpponentBreak),
                 OpponentProperty = r.Property(Column.OpponentProperty, required: false),
                 OpponentKind = r.Kind(Column.OpponentKind, required: false),
             };
@@ -402,29 +431,35 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 r.RowProblem($"상대 조건은 '{Column.OpponentProperty}'과(와) '{Column.OpponentKind}' 중 하나만 쓸 수 있습니다.");
             if (effect.HasOpponentCondition && r.Ok(Column.ResistanceRecovery) && effect.ResistanceRecoveryPercent > 0)
                 r.RowProblem($"'{Column.ResistanceRecovery}'은(는) 그 자체가 조건이라 상대 조건과 함께 쓸 수 없습니다.");
-            if (effect.HasOpponentCondition && r.Ok(Column.ActGain, Column.ResistanceReduction) &&
-                effect.ActGain == 0 && effect.OpponentResistanceReduction == 0)
-                r.RowProblem("상대 조건은 ACT 회복이나 저항 감소가 있어야 합니다.");
+            if (effect.HasOpponentCondition && r.Ok(Column.ActGain, Column.ResistanceReduction, Column.OpponentBreak) &&
+                effect.ActGain == 0 && effect.OpponentResistanceReduction == 0 && !effect.BreaksOpponent)
+                r.RowProblem("상대 조건은 ACT 회복, 저항 감소나 상대 붕괴가 있어야 합니다.");
+            // The break already takes all of the resistance, so a direct loss beside it would never show.
+            if (effect.BreaksOpponent && r.Ok(Column.ResistanceReduction) && effect.OpponentResistanceReduction > 0)
+                r.RowProblem($"'{Column.OpponentBreak}'이(가) 있으면 '{Column.ResistanceReduction}'은(는) 쓸 수 없습니다. 붕괴가 저항을 모두 없앱니다.");
             if (effect.BrokenTargetDamagePercent > 0 && r.Ok(Column.Kind, Column.BrokenTargetDamage) &&
                 kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.BrokenTargetDamage}'은(는) 공격 기술에만 쓸 수 있습니다.");
+            // Enemies never recover ACT, so on an enemy-only row the cell could only mislead.
+            if (group == LegacySkillGroup.Enemy && r.Ok(Column.Group, Column.ActGain) && effect.ActGain > 0)
+                r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.ActGain}'을(를) 쓸 수 없습니다. 적은 ACT를 회복하지 않습니다.");
             if ((highPower || variablePower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.HighPower}'과(와) '{Column.VariablePower}'은(는) 공격에만 붙일 수 있습니다.");
             if (text.Info != null && (text.Info.Main == null || text.Info.Description == null))
                 r.RowProblem($"배지 칸을 하나라도 쓰면 '{Column.InfoMain}'과(와) '{Column.InfoDescription}'을(를) 모두 적어야 합니다.");
 
-            var row = new ParsedRow { Id = id, Lane = lane, Starting = starting };
+            var row = new ParsedRow { Id = id, Lane = lane, Group = group };
             if (!r.Valid) return row;
             bool hasEffect = effect.ActGain != 0 || effect.HasBuff || effect.ResistanceRecoveryPercent != 0 ||
                 effect.OpponentResistanceReduction != 0 || effect.BrokenTargetDamagePercent != 0 ||
-                effect.HasOpponentCondition;
+                effect.BreaksOpponent || effect.HasOpponentCondition;
             row.Definition = new LegacySkillDefinition(
                 new LegacySkill(id, name, cost, minPower, maxPower, kind, property, hits, lane, description, animation, icon),
                 hasEffect ? effect : null, text, highPower, variablePower);
             return row;
         }
 
-        private static string[] Cells(LegacySkillDefinition definition, bool starting)
+        private static string[] Cells(LegacySkillDefinition definition, LegacySkillGroup group)
         {
             LegacySkill skill = definition.Skill;
             LegacySkillEffect effect = definition.Effect;
@@ -434,7 +469,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 [Column.Id] = Number(skill.Id),
                 [Column.Name] = skill.Name,
-                [Column.Group] = starting ? StartingGroup : AcquisitionGroup,
+                [Column.Group] = group == LegacySkillGroup.Starting ? StartingGroup
+                    : group == LegacySkillGroup.Acquisition ? AcquisitionGroup : EnemyGroup,
                 [Column.Lane] = LaneLetters[skill.LaneIndex].ToString(),
                 [Column.Kind] = LegacySkillLabels.Kind(skill.Kind),
                 [Column.Property] = LegacySkillLabels.Property(skill.Property),
@@ -452,6 +488,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 [Column.ResistanceRecovery] = Percent(effect.ResistanceRecoveryPercent),
                 [Column.ResistanceReduction] = Optional(effect.OpponentResistanceReduction),
                 [Column.BrokenTargetDamage] = Percent(effect.BrokenTargetDamagePercent),
+                [Column.OpponentBreak] = effect.BreaksOpponent ? TrueCell : string.Empty,
                 [Column.OpponentProperty] = effect.OpponentProperty.HasValue ? LegacySkillLabels.Property(effect.OpponentProperty.Value) : string.Empty,
                 [Column.OpponentKind] = effect.OpponentKind.HasValue ? LegacySkillLabels.Kind(effect.OpponentKind.Value) : string.Empty,
                 [Column.HighPower] = definition.HighPower ? TrueCell : string.Empty,
@@ -542,13 +579,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 return 0;
             }
 
-            public bool Group()
+            public LegacySkillGroup Group()
             {
                 string cell = Cell(Column.Group);
-                if (cell == StartingGroup) return true;
-                if (cell == AcquisitionGroup) return false;
-                Problem(Column.Group, Choice(cell, $"{StartingGroup}, {AcquisitionGroup}"));
-                return false;
+                if (cell == StartingGroup) return LegacySkillGroup.Starting;
+                if (cell == AcquisitionGroup) return LegacySkillGroup.Acquisition;
+                if (cell == EnemyGroup) return LegacySkillGroup.Enemy;
+                Problem(Column.Group, Choice(cell, $"{StartingGroup}, {AcquisitionGroup}, {EnemyGroup}"));
+                return LegacySkillGroup.Acquisition;
             }
 
             public int Lane()

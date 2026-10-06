@@ -302,6 +302,35 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(controller.Campaign.Currency, Is.EqualTo(currency));
         }
 
+        [UnityTest]
+        public IEnumerator DialogueHud_DrawsAThoughtInParenthesesInTheMonologueColour_WithOrWithoutASpeaker()
+        {
+            yield return null;
+            var parent = new GameObject("Dialogue Monologue Test");
+            DialogueHud hud = null;
+            try
+            {
+                hud = new DialogueHud(parent.transform, new LegacyDuelArt(), null, null);
+                DialogueScript script = DialogueScriptParser.Parse("monologue-test",
+                    "(눈앞이 밝아졌다.)\n@left 엘리사 | ???\n(이 검은…)\n윽…");
+                Text body = Label(hud.Root, "Dialogue Body");
+                hud.Show(script.Lines[0], 0, 3);
+                Assert.That(body.text, Is.EqualTo("(눈앞이 밝아졌다.)"), "The parentheses stay.");
+                Assert.That(body.color, Is.EqualTo(DialogueHud.MonologueColor), "Narration can be a thought.");
+                hud.Show(script.Lines[1], 1, 3);
+                Assert.That(body.color, Is.EqualTo(DialogueHud.MonologueColor));
+                Assert.That(Label(hud.Root, "Dialogue Speaker").text, Is.EqualTo("엘리사"));
+                hud.Show(script.Lines[2], 2, 3);
+                Assert.That(body.color, Is.EqualTo(DuelVisualTheme.Foreground), "Speech is back in the usual colour.");
+                Assert.That(DialogueHud.MonologueColor, Is.Not.EqualTo(DuelVisualTheme.Foreground));
+            }
+            finally
+            {
+                hud?.Dispose();
+                Object.Destroy(parent);
+            }
+        }
+
         private static DialogueScript Script()
             => DialogueScriptParser.Parse("hud-test",
                 "나레이션 문장\n@left 왼쪽 화자 | 왼쪽 역할\n왼쪽 대사\n@right 오른쪽 화자 | 오른쪽 역할\n오른쪽 대사");

@@ -52,7 +52,9 @@ namespace TurnLimbo.Presentation
             Color tint = playerSide ? ActInk : DuelVisualTheme.Danger;
             if (feedback.OpponentResistanceReduced > 0)
             {
-                detail = (playerSide ? "상대 저항 -" : "내 저항 -") + feedback.OpponentResistanceReduced;
+                // The sheet never pairs a break with a direct reduction, so a break owns the whole amount.
+                detail = feedback.OpponentBroken ? (playerSide ? "상대 붕괴" : "내 저항 붕괴")
+                    : (playerSide ? "상대 저항 -" : "내 저항 -") + feedback.OpponentResistanceReduced;
                 if (playerSide) tint = DuelVisualTheme.Accent;
             }
             if (feedback.ResistanceRestored > 0)

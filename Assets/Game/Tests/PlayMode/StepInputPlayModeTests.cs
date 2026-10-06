@@ -296,7 +296,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.StartNewGame();
                 Assert.That(controller.CanStep, Is.False);
                 Assert.That(controller.StartMission(), Is.True);
-                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.SkipScene(), Is.True);
                 Assert.That(controller.AdvanceGuide(), Is.True);
                 Assert.That(controller.QueueLane(0), Is.True);
                 Assert.That(controller.QueueLane(0), Is.True);

@@ -17,6 +17,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         Vulnerability = 1 << 8,
         DirectResistanceDamage = 1 << 9,
         BrokenTargetDamage = 1 << 10,
+        OpponentBreak = 1 << 11,
     }
 
     /// <summary>Presentation metadata for implemented rules, never a new combat authority.</summary>

@@ -13,9 +13,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
     public enum LegacySkillTone { Neutral, Recovery, Followup, Reduction, HighPower, MultiHit, Variance, Defence }
 
     /// <summary>A skill's effects. Initial effects apply once when its slot starts, in this order:
-    /// resistance recovery, then (if the opponent condition holds) direct resistance loss and ACT gain, then the buff.
-    /// Broken-target damage applies separately on each hit. The sheet rejects combinations the rules cannot honour;
-    /// see <see cref="LegacySkillSheet"/>.</summary>
+    /// resistance recovery, then (if the opponent condition holds) direct resistance loss, the opponent's break and
+    /// ACT gain, then the buff. Broken-target damage applies separately on each hit. The sheet rejects combinations
+    /// the rules cannot honour; see <see cref="LegacySkillSheet"/>.</summary>
     public sealed class LegacySkillEffect
     {
         public static LegacySkillEffect None { get; } = new LegacySkillEffect();
@@ -34,9 +34,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int OpponentResistanceReduction { get; internal set; }
         /// <summary>Extra health damage on each hit when the target's resistance was already broken before that hit.</summary>
         public int BrokenTargetDamagePercent { get; internal set; }
-        /// <summary>When set, ACT gain and direct resistance loss need the same slot's opponent to have this property.</summary>
+        /// <summary>The opponent's resistance drops to zero, so it is broken exactly as if a hit had broken it: it takes
+        /// double health damage and recovers at the usual turn. Every hit of the slot already meets a broken target.</summary>
+        public bool BreaksOpponent { get; internal set; }
+        /// <summary>When set, ACT gain, direct resistance loss and the break need the same slot's opponent to have this property.</summary>
         public LegacySkillProperty? OpponentProperty { get; internal set; }
-        /// <summary>When set, ACT gain and direct resistance loss need the same slot's opponent to be this kind.</summary>
+        /// <summary>When set, ACT gain, direct resistance loss and the break need the same slot's opponent to be this kind.</summary>
         public LegacySkillKind? OpponentKind { get; internal set; }
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
@@ -55,6 +58,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (ResistanceRecoveryPercent > 0) roles |= LegacySkillRole.ResistanceRecovery;
                 if (OpponentResistanceReduction > 0) roles |= LegacySkillRole.DirectResistanceDamage;
                 if (BrokenTargetDamagePercent > 0) roles |= LegacySkillRole.BrokenTargetDamage;
+                if (BreaksOpponent) roles |= LegacySkillRole.OpponentBreak;
                 return roles;
             }
         }
@@ -138,6 +142,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public static IReadOnlyList<LegacySkill> InitialSkills => Table.InitialSkills;
         /// <summary>The techniques beyond the starting nine (획득 rows); stage first clears and the curriculum grant them.</summary>
         public static IReadOnlyList<LegacySkill> AcquisitionSkills => Table.AcquisitionSkills;
+        /// <summary>The enemy-only techniques (적 rows), such as 이아's 라우다레 in the 서막's last mission. The player never
+        /// owns, equips or learns them; enemies name them by id.</summary>
+        public static IReadOnlyList<LegacySkill> EnemySkills => Table.EnemySkills;
 
         /// <summary>The loaded table. The first access reads the sheet; a sheet with problems throws its
         /// <see cref="SkillSheetException"/> on every access until <see cref="Install"/> or <see cref="Reload"/>.

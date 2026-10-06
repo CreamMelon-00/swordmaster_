@@ -12,8 +12,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly LegacySkill[] initialPlayerSkills;
         private readonly LegacySkill[] enemyPattern;
         // A turn-by-turn enemy (opening, then loop); null for the original skill cycle with per-turn action counts.
-        private readonly EnemyScript enemyScript;
+        private readonly EnemyScript initialEnemyScript;
         private readonly int[] enemyActionCounts;
+        // The script the enemy follows now (ReplaceEnemyScript swaps it at a planning turn), counted from its first round.
+        private EnemyScript enemyScript, pendingEnemyScript;
+        private int enemyScriptFirstRound;
         private readonly List<LegacySkill>[] lanes = { new List<LegacySkill>(), new List<LegacySkill>(), new List<LegacySkill>() };
         private readonly IReadOnlyList<LegacySkill>[] laneViews;
         private readonly List<LegacySkill> playerQueue = new List<LegacySkill>();
@@ -26,6 +29,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly int playerMaximumAct;
         private readonly int enemyMaxHealth;
         private readonly int enemyMaxResistance;
+        private readonly int enemyHealthFloor;
+        private readonly int enemyHealthThresholdPercent;
         private readonly int roundLimit;
         private readonly int randomSeed;
         private Random random;
@@ -44,34 +49,39 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacyQueuedDuel() : this(100, 50, 80, 15, LegacyInitialSkills.All,
             FirstSixSkills(), new[] { 2, 3, 2, 1 }, Environment.TickCount) { }
 
+        /// <param name="enemyHealthFloor">Damage never takes the enemy's health below this; above zero the enemy cannot
+        /// be defeated (서막 mission 4). Must stay under <paramref name="enemyHealth"/>.</param>
+        /// <param name="enemyHealthThresholdPercent">0 for none, otherwise the percent of the enemy's maximum health whose
+        /// first crossing is reported (<see cref="LegacyHitResult.EnemyReachedHealthThreshold"/>); below 100.</param>
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, int randomSeed = 1,
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
-            int roundLimit = int.MaxValue)
+            int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills, enemySkills,
                 enemyTurnActionCounts, null, randomSeed, playerCounter, enemyCounter, features,
-                playerActGainBonus, playerActCapacityBonus, roundLimit) { }
+                playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent) { }
 
         /// <summary>A duel whose enemy follows <paramref name="enemyScript"/> turn by turn.</summary>
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, EnemyScript enemyScript, int randomSeed = 1,
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
-            int roundLimit = int.MaxValue)
+            int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills,
                 (enemyScript ?? throw new ArgumentNullException(nameof(enemyScript))).AllSkills, enemyScript.TurnSizes,
                 enemyScript, randomSeed, playerCounter, enemyCounter, features,
-                playerActGainBonus, playerActCapacityBonus, roundLimit) { }
+                playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent) { }
 
         private LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, EnemyScript enemyScript, int randomSeed,
             LegacyCounter playerCounter, LegacyCounter enemyCounter, CombatFeature features,
-            int playerActGainBonus, int playerActCapacityBonus, int roundLimit)
+            int playerActGainBonus, int playerActCapacityBonus, int roundLimit,
+            int enemyHealthFloor, int enemyHealthThresholdPercent)
         {
-            this.enemyScript = enemyScript;
+            initialEnemyScript = enemyScript;
             PlayerCounter = playerCounter;
             EnemyCounter = enemyCounter;
             if (!features.HasLane(0) && !features.HasLane(1) && !features.HasLane(2))
@@ -82,6 +92,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (playerActGainBonus < 0) throw new ArgumentOutOfRangeException(nameof(playerActGainBonus));
             if (playerActCapacityBonus < 0) throw new ArgumentOutOfRangeException(nameof(playerActCapacityBonus));
             if (roundLimit < 1) throw new ArgumentOutOfRangeException(nameof(roundLimit));
+            if (enemyHealthFloor < 0 || enemyHealthFloor >= enemyHealth) throw new ArgumentOutOfRangeException(nameof(enemyHealthFloor));
+            if (enemyHealthThresholdPercent < 0 || enemyHealthThresholdPercent >= 100)
+                throw new ArgumentOutOfRangeException(nameof(enemyHealthThresholdPercent));
+            this.enemyHealthFloor = enemyHealthFloor;
+            this.enemyHealthThresholdPercent = enemyHealthThresholdPercent;
             this.roundLimit = roundLimit;
             playerBaseActGain = checked(BaseActGain + playerActGainBonus);
             playerMaximumAct = checked(MaximumAct + playerActCapacityBonus);
@@ -147,6 +162,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public CombatFeature Features { get; }
         public int PlayerCountersRemaining { get; private set; }
         public int EnemyCountersRemaining { get; private set; }
+        /// <summary>The enemy's health never drops below this; above zero the enemy cannot be defeated.</summary>
+        public int EnemyHealthFloor => enemyHealthFloor;
+        /// <summary>0 for none, otherwise the percent of the enemy's maximum health whose first crossing a hit reports.</summary>
+        public int EnemyHealthThresholdPercent => enemyHealthThresholdPercent;
+        /// <summary>Whether a hit of this attempt has brought the enemy to <see cref="EnemyHealthThresholdPercent"/> or below
+        /// (<see cref="LegacyHitResult.EnemyReachedHealthThreshold"/>). <see cref="Reset"/> clears it.</summary>
+        public bool EnemyHealthThresholdReached { get; private set; }
+
+        /// <summary>From the next planning turn the enemy follows <paramref name="script"/> from its first turn, as when
+        /// 이아 receives 수훈 in the 서막's last mission. The turn in progress keeps the queue it showed, even during
+        /// planning. A later call before that turn replaces this one; <see cref="Reset"/> brings back the original enemy.</summary>
+        public void ReplaceEnemyScript(EnemyScript script)
+            => pendingEnemyScript = script ?? throw new ArgumentNullException(nameof(script));
 
         /// <summary>This turn's slots whose one-sided player attack the enemy's counter answers, in order:
         /// the current slot while its counter plays, then the upcoming ones. The enemy never steps, so this is exact.</summary>
@@ -453,12 +481,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
             DuelMatchOutcome hitOutcome = DetermineOutcome();
             if (hitOutcome != DuelMatchOutcome.InProgress)
                 slot.HitCount = slot.HitsResolved;
+            // Only while the duel goes on: a hit that also ends it leaves nothing to interrupt.
+            bool thresholdReached = enemyHealthThresholdPercent > 0 && !EnemyHealthThresholdReached &&
+                hitOutcome == DuelMatchOutcome.InProgress &&
+                (long)Enemy.Health * 100 <= (long)enemyHealthThresholdPercent * Enemy.MaxHealth;
+            if (thresholdReached) EnemyHealthThresholdReached = true;
             return new LegacyHitResult(slot, hitIndex, playerAttacked, enemyAttacked,
                 playerHealth - Player.Health, enemyHealth - Enemy.Health,
                 playerResistance - Player.Resistance, enemyResistance - Enemy.Resistance,
                 playerImpact, enemyImpact,
                 hitOutcome,
-                enemyAttacked && slot.DodgeSucceeded, slot.PressureSucceeded);
+                enemyAttacked && slot.DodgeSucceeded, slot.PressureSucceeded, thresholdReached);
         }
 
         public LegacySlotResult CompleteCurrentSlot()
@@ -489,11 +522,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             random = new Random(randomSeed);
             Player = new LegacyFighterState(playerMaxHealth, playerMaxResistance);
-            Enemy = new LegacyFighterState(enemyMaxHealth, enemyMaxResistance);
+            Enemy = new LegacyFighterState(enemyMaxHealth, enemyMaxResistance, enemyHealthFloor);
             for (int i = 0; i < lanes.Length; i++) lanes[i].Clear();
             foreach (LegacySkill skill in initialPlayerSkills)
                 if (Features.HasLane(skill.LaneIndex)) lanes[skill.LaneIndex].Add(skill);
             enemyPatternIndex = 0;
+            enemyScript = initialEnemyScript;
+            pendingEnemyScript = null;
+            enemyScriptFirstRound = 1;
+            EnemyHealthThresholdReached = false;
             RoundNumber = 1;
             Act = 0;
             NextActGain = playerBaseActGain;
@@ -521,7 +558,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             enemyBuffs.Clear();
             playerQueue.Clear();
             enemyQueue.Clear();
-            if (enemyScript != null) enemyQueue.AddRange(enemyScript.Turn(RoundNumber));
+            if (pendingEnemyScript != null)
+            {
+                enemyScript = pendingEnemyScript;
+                pendingEnemyScript = null;
+                enemyScriptFirstRound = RoundNumber;
+            }
+            if (enemyScript != null) enemyQueue.AddRange(enemyScript.Turn(RoundNumber - enemyScriptFirstRound + 1));
             else
             {
                 int count = enemyActionCounts[(RoundNumber - 1) % enemyActionCounts.Length];
@@ -589,7 +632,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect ?? LegacySkillEffect.None;
             bool opponentMatched = LegacySkillConditions.MatchesOpponent(skill, opposingSkill);
             bool conditionMet = opponentMatched;
-            bool effectActivated = false;
+            bool effectActivated = false, opponentBroken = false;
             int actGainGranted = 0, resistanceRestored = 0, opponentResistanceReduced = 0;
             SkillBuff grantedBuff = null;
             if (effect.ResistanceRecoveryPercent > 0)
@@ -607,6 +650,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     opponentResistanceReduced = (player ? Enemy : Player).ReduceResistance(effect.OpponentResistanceReduction);
                     if (opponentResistanceReduced > 0) effectActivated = true;
                 }
+                if (effect.BreaksOpponent)
+                {
+                    // Before any hit, so every hit of this slot (including broken-target bonuses) meets a broken target.
+                    // An opponent already broken loses nothing more.
+                    int taken = (player ? Enemy : Player).BreakResistance();
+                    if (taken > 0)
+                    {
+                        opponentResistanceReduced += taken;
+                        opponentBroken = effectActivated = true;
+                    }
+                }
                 if (effect.ActGain > 0 && player)
                 {
                     actGainGranted = effect.ActGain;
@@ -622,7 +676,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             return new LegacySkillFeedback(skill, conditionMet, effectActivated, powerBuffPercent, protectionBuffPercent,
                 grantedBuff?.AttackPercent ?? 0, grantedBuff?.DefencePercent ?? 0, grantedBuff?.SlotsRemaining ?? 0,
-                actGainGranted, resistanceRestored, opponentResistanceReduced);
+                actGainGranted, resistanceRestored, opponentResistanceReduced, opponentBroken);
         }
 
         private static double AttackMultiplier(List<SkillBuff> buffs, out int powerBuffPercent)

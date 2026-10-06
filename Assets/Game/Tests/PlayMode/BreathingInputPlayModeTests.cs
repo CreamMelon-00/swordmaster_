@@ -136,7 +136,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.Controller.IsInBriefing, Is.True);
                 Assert.That(scope.Controller.QueueBreath(), Is.False);
                 Assert.That(scope.Controller.StartMission(), Is.True);
-                Assert.That(scope.Controller.ContinueDialogue(), Is.False);
+                Assert.That(scope.Controller.SkipScene(), Is.True);
                 Assert.That(scope.Controller.IsMission, Is.True);
                 Assert.That(scope.Controller.QueueBreath(), Is.False);
                 Assert.That(scope.Controller.AdvanceGuide(), Is.True);

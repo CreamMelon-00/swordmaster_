@@ -1,5 +1,7 @@
 # 서막 임무
 
+2026-10-06. 작가의 원고(`PrologueManuscript.md`)를 정본으로 반영했다. 서막 네 임무의 시작·종료 장면은 대사 파일이 아니라 **전장 컷신**(`Cutscene/mission-NN-intro|outro`)이다. 4 임무는 이아의 **수훈** 뒤 반드시 지는 전투(강제 패배)이고, 그 패배가 서막을 마친다. 4 임무의 적은 브리핑에서 `떠돌이 기사`, 전투(상태 창·코치)에서 `이아`다(인트로에서 이름을 밝히므로). 아래 흐름·표·코드가 새 기준이다.
+
 2026-10-01. 화면 표기를 바꿨다 — 챕터명 `서막` → **깨어남**, 임무 제목 `처음 쥔 검 / 인사는 칼로 / 받아내는 법 / 떠돌이 기사`, 적 이름은 허수아비를 빼고 모두 **떠돌이 기사**(한 사람). 코드·문서의 `서막`·`PrologueMissions` 같은 식별자는 그대로다. 이야기의 기준은 `Narrative.md`다.
 
 2026-10-01. 브리핑 배경을 이야기의 장소에 맞췄다. 1 임무는 깨어나는 안개 숲(`ForestArena/forest-far-mist`), 2~4 임무는 숲(`ForestArena/forest-far`)이다. 거처(`LobbyRoom/room`)와 학교 교문은 서막 브리핑에 쓰지 않는다. 엘리사는 4 임무 뒤에 거처에 들어가고, 학교는 숲 다음 이야기다.
@@ -10,12 +12,27 @@
 
 0. **깨어남 오프닝**: 타이틀의 새 게임을 고르면 임무 1 브리핑 전에 컷신(`Cutscene/opening`)이 한 번 나온다. Escape로 건너뛸 수 있다. 이어하기로는 다시 나오지 않는다(`Cutscene.md`).
 1. **브리핑**: 임무 배경 이미지, `서막 · 임무 N / 4`, 임무 제목, 목표, 등장하는 적(실루엣과 이름)을 보여 준다. 조작은 하단 가운데 **임무 시작** 버튼(또는 Enter) 하나다. 서막 브리핑에는 돌아갈 곳이 없어 Escape가 동작하지 않는다(수련 임무의 브리핑에는 **로비로 [Esc]**가 있다). 게임 안에 지도를 그리지는 않는다.
-2. **시작 대사**: `Dialogue/mission-NN-intro`를 재생한다. 끝까지 넘기거나 Escape로 건너뛰면 전투가 시작된다.
+2. **시작 장면**: `Cutscene/mission-NN-intro`가 있으면 그 컷신을 전장에서 재생한다. 장면은 전투가 시작될 때의 모습에서 시작한다. 엘리사는 -5에서 오른쪽을, 임무의 적(1 임무는 허수아비, 2~4 임무는 기사)은 5에서 왼쪽을 보고 서 있고, 카메라는 결투 화면 그대로이며 페이드는 없다. 대본이 인물을 다시 세울 수 있다(`Cutscene.md`의 '임무 장면'). 컷신 파일이 없으면 `Dialogue/mission-NN-intro` 대사를 재생한다(수련 임무 5~9). 끝까지 넘기거나 Escape로 건너뛰면 전투가 시작된다.
 3. **전투**: 코치 안내(`MissionCoachHud`)가 필요한 조작만 허용하고, 마지막 안내 뒤에는 자유 전투가 된다. Escape나 안내의 **임무 포기**를 누르면 다음 임무의 브리핑으로 돌아간다(지금 할 수 있는 임무가 없으면 로비).
-4. **종료 대사**: 승리했을 때만 `Dialogue/mission-NN-outro`를 재생한다. 패배하면 바로 결과로 간다.
-5. **결과**: `임무 완료`/`임무 실패`. 승리하면 **재도전**(시작 대사 없이 같은 임무를 다시 한다)과 **다음 임무**, 실패하면 **브리핑으로**와 **재도전**이 있다. 마지막 임무를 이기면 **다음 임무**가 **여정 계속**이 되어 로비를 연다. 서막을 마친 뒤 다시 한 임무의 출구는 모두 로비로 간다. 수련 임무의 결과는 `BattleResults.md`를 따른다.
+   - **이아의 수훈(4 임무)**: 이아의 체력을 처음으로 50% 이하로 만든 타격에서, 그 타격의 히트 스톱이 끝난 프레임에 전투가 멈춘다. 전투 시계·제한 시간·입력이 모두 멈추고, 전투 HUD·코치·스텝 안내가 사라진다. 그 순간의 전장(두 사람의 자리·방향, 카메라)에서 `Cutscene/mission-04-event`가 시작한다. 장면이 끝나거나 Escape로 건너뛰면 **수훈**이 적용된다. 다음 계획 턴부터 이아는 적 전용 기술 라우다레(ID 500)만 쓰고(이번 턴의 이아 큐는 그대로), 수훈 기운이 전투가 끝날 때까지 이아에게 남는다(장면이 켜지 않았으면 이때 켠다). 전투는 멈춘 프레임에서 그대로 이어진다. 진행 중이던 칸의 남은 타격과 남은 칸도 그대로 이어진다. 장면 파일이 없으면 `Dialogue/mission-04-event` 대사를 쓰고, 그것도 없으면 멈추지 않고 바로 수훈을 적용한다. 수훈은 한 도전에 한 번이다. 재도전·포기 뒤의 새 도전은 수훈 없이 시작한다.
+   - 4 임무의 이아는 쓰러지지 않는다(체력 하한 1). 패배를 보장하는 것은 라우다레의 압도적인 위력이고, 하한은 보조다(`MissionFourTests`의 시뮬레이션).
+4. **종료 장면**: 승리했을 때 `Cutscene/mission-NN-outro`를(없으면 `Dialogue/mission-NN-outro`를) 재생하고 결과로 간다. 시작 장면처럼 전투 시작 위치에서 시작한다. 컷신이 끝나도 전장은 장면의 마지막 모습 그대로이고, 결과 창이 그 위에 뜬다(1 임무 뒤에는 허수아비가 그대로 서 있다). 패배하면 바로 결과로 간다.
+   - **강제 패배(4 임무)**: 수훈 뒤에 엘리사가 지면 임무를 마친 것으로 기록하고 처음 이긴 것처럼 자동 저장한다(서막 완료, 로비가 열린다). 패배 결과 창은 없다. 바로 `Cutscene/mission-04-outro`를 재생하고, 예전 4 임무 승리의 **여정 계속**이 가던 곳(로비)으로 간다. 종료 장면은 이아가 수훈 기운을 두른 채 시작하고, 장면의 `@aura knight off`가 기운을 끈다. 결과 창이 없으므로, 예전 승리 결과 창의 안내(`「깨어남」의 임무를 모두 마쳤습니다.` / `이제 편성과 스테이지가 열립니다.`)는 처음 마쳤을 때 도착한 로비의 상태 쪽지에 한 번 나온다(`LobbyAndLoadout.md`). 저장하지 않으므로 이어하기에서는 다시 나오지 않는다. 수훈 전에 지면 보통의 `임무 실패`다(재도전 가능).
+5. **결과**: `임무 완료`/`임무 실패`. 승리하면 **재도전**(시작 장면 없이 같은 임무를 다시 한다)과 **다음 임무**, 실패하면 **브리핑으로**와 **재도전**이 있다. 다음 임무를 지금 할 수 없으면 **다음 임무**가 **여정 계속**이 되어 로비를 연다. 서막을 마친 뒤 다시 한 임무의 출구는 모두 로비로 간다. 4 임무의 강제 패배에는 결과 창이 없다. 수련 임무의 결과는 `BattleResults.md`를 따른다.
 
-서막 대사 파일 8개(수련 임무까지 18개)에는 지금 `테스트` 한 줄만 들어 있다. 스토리는 나중에 이 파일에 쓴다(`DialogueAuthoring.md`). 파일이 없거나 형식이 틀리면 경고를 남기고 대사 없이 진행한다.
+서막 네 임무의 장면은 원고로 쓴 컷신 파일이다(`Resources/Cutscene/mission-01-intro`~`mission-04-outro`, 4 임무의 `mission-04-event` 포함, `PrologueManuscript.md`). 원고의 대사를 글자 그대로 옮겼고, 원고의 연출 지시는 바로 위에 `#` 메모로 남겼다. 예전의 `테스트` 대사 파일(`Dialogue/mission-01~04-intro|outro`)은 지워서 장면 하나에 파일 하나다. 수련 임무 5~9는 아직 `Dialogue/mission-NN-intro|outro` 대사(`테스트` 한 줄)를 쓴다(`DialogueAuthoring.md`). 컷신이 형식이 틀리면 경고를 남기고 대사 파일로 넘어가고, 둘 다 없으면 장면 없이 진행한다. 서막 장면에는 대신할 대사 파일이 없으므로 형식이 틀리면 장면 없이 진행한다. EditMode `PrologueSceneFileTests`가 모든 장면 파일을 게임처럼 읽어 이를 막는다.
+
+| 장면 | 원고 구간 | 시작 모습과 끝 |
+|---|---|---|
+| `mission-01-intro` | `{서막 - 임무 1 시작}` | 엘리사와 허수아비가 전투 시작 위치에 서 있다. 대사만 있다. 끝나면 전투 |
+| `mission-01-outro` | `{서막 - 임무 1 끝}` | 승리 뒤. 마지막 외침(`??? \| ???`)은 오른쪽 화면 밖의 떠돌이 기사다. 끝나면 결과 |
+| `mission-02-intro` | `{서막 - 임무 2 시작}` | 떠돌이 기사가 오른쪽 화면 밖에서 달려 들어온다. 회상(흑백). 끝나면 전투 |
+| `mission-02-outro` | `{서막 - 임무 2 끝}` | 떠돌이 기사가 오른쪽 화면 밖으로 도망가고 장면이 끝난다. 끝나면 결과 |
+| `mission-03-intro` | `{서막 - 임무 3 시작}` | 떠돌이 기사가 등을 보이고 섰다가 말할 때 돌아선다. 끝나면 전투 |
+| `mission-03-outro` | `{서막 - 임무 3 끝}` | 화면 흔들림(`[화면 연출]`). 끝나면 결과 |
+| `mission-04-intro` | `{서막 - 임무 4 시작}` | 이아가 이름을 밝힌다. 클로즈업, 힘 모으기(다 모여도 터지지 않고 붙든다, `@charge … hold`)와 끊김. `{전투 시작}`에서 끝나고 전투 |
+| `mission-04-event` | `{서막 - 임무 4 진행 중 \| …}` | 전투가 멈춘 자리에서 두 사람이 처음 자리로 물러선 뒤 수훈. 기운을 켜고 `{전투 재개}`에서 끝난다 |
+| `mission-04-outro` | `{서막 - 임무 4 끝 \| 플레이어 캐릭터 패배 시}` | 엘리사는 쓰러진 자세, 이아는 기운을 두른 채 시작. 기운이 꺼지고, 왼쪽 끝에서 상급기사가 들어온다. 화면이 어두워지며 서막이 끝나고 로비 |
 
 ## 임무
 
@@ -24,7 +41,7 @@
 | 1 처음 쥔 검 | 예약·확정·타격감. 이기면 넘기기가 열린다 | 허수아비 HP24/저항10, 공격하지 않음(숨고르기만) | 소개 → Q → Q → 확정 → 관찰 → 자유 |
 | 2 인사는 칼로 | 적 큐 확인, 공격 대결의 저항 피해, 붕괴 ×2, ACT 회복, 넘기기 | 떠돌이 기사 36/12, 연습 베기·연습 내려치기 | 소개 → 적 확인(Tab) → Q(베기) → Q(연속 베기) → 확정 → 관찰(첫 턴에 붕괴) → ACT → 넘기기(Shift, 연속 베기를 앞으로) → 자유 |
 | 3 받아내는 법 | 방어, 기술열 회전, 타격 막기의 ACT 보상 | 떠돌이 기사 40/15, 베기·내려치기·막기 | 소개 → Q(베기) → Q(막기) → 확정 → 관찰 → ACT → 자유 |
-| 4 떠돌이 기사 | 제한 시간 | 떠돌이 기사 55/15, 기본 기술 | 소개 → 자유 |
+| 4 떠돌이 기사 | 제한 시간. 반드시 진다(강제 패배) | 떠돌이 기사(전투에서는 이아) 55/15, 기본 기술, 체력 하한 1. 체력 50% 이하에서 수훈 → 라우다레만 | 소개 → 자유(`배운 것을 모두 써서 이아와 겨루세요.`, 코치는 `이아`라고 부른다) |
 
 - 플레이어는 HP100/저항50이고 **Q열 하나만** 쓴다. W/E 카드와 다음 칸은 화면에서 숨기고, Q 카드를 도크 가운데(x 0)에 둔다(`CompactHudDesign.md`). W/E 키와 2/3은 무시한다. 2~4 임무는 넘기기(Shift)도 쓴다. 열이 하나라 넘기기 버튼의 효과 줄은 `맨 앞 한 칸`이고, 2 임무의 넘기기 안내도 여러 열을 말하지 않는다. 1 임무에는 넘기기 버튼이 없고 Shift도 무시한다.
 - 편성은 로비가 열리기 전이라 쓸 수 없다. 커리큘럼은 서막 뒤에도 없다가 임무 8로 세 열이 모두 열리면 생긴다(`Curriculum.md`). 스텝(A/D)·숨고르기와 W/E열은 서막 뒤에도 닫혀 있다가 수련 임무가 연다(`StoryUnlocks.md`). 보상 재화와 스테이지 해금도 없고, 서막 임무는 커리큘럼 진행에 세지 않는다(`Curriculum.md`).
@@ -32,7 +49,8 @@
 - 서막 임무는 모두 **결투**다. 편성 중 두 사람이 서 있는 원래 화면을 쓴다(`DuelAndBattle.md`).
 - 1 임무의 적은 공격하지 않으므로 Q만 눌러도 두 턴 안에 이긴다. 초반 플레이 시간을 최소로 줄이기 위한 것이다.
 - Q의 연속 베기(2)는 ACT 1의 2연타이며 총 위력을 두 타로 나눕니다. 두 번째 임무의 코치가 이 기술을 베기(1) 다음에 예약해 첫 턴 저항 붕괴를 보여 줍니다. 막기(7)의 타격 대응 다음 턴 ACT +2는 그대로입니다(`StarterSkillDesign.md`).
-- 적 이름·수치·문구는 모두 임시값이다.
+- 적 이름·수치·문구는 모두 임시값이다. 4 임무는 반드시 지는 전투라, 브리핑의 목표는 `떠돌이 기사와 끝까지 겨룬다`, 코치는 `배운 것을 모두 써서 이아와 겨루세요.`다. 이긴다고 약속하지도, 진다고 미리 알리지도 않는다(2026-10-06, 예전에는 `떠돌이 기사를 쓰러뜨린다`·`… 이아를 꺾으세요.`). `MissionFourTests`가 4 임무의 목표와 코치 문구에 `쓰러뜨`·`꺾`·`이기`·`승리`·`패배`·`진다`가 없는지 본다.
+- 이름은 알게 된 뒤부터 쓴다. 2·3 임무와 4 임무 브리핑은 `떠돌이 기사`, 4 임무 전투의 상태 창(HP 줄 오른쪽 이름)과 코치는 `이아`다. 전투 화면 위의 단계 표시는 임무 제목(`임무 04 / 04 · 떠돌이 기사`)이라 그대로다. 수련 임무는 아직 `떠돌이 기사`다.
 
 ## 허수아비 (1 임무의 적)
 
@@ -50,12 +68,20 @@
 ## 코드
 
 - Runtime `Prologue/PrologueMissions`: 네 임무의 정적 데이터(배경·목표·적·수치·Q열·코치 순서). 수련 임무는 `LobbyMissions`, 서막과 수련을 이은 전체 사슬은 `StoryMissions`다(`StoryUnlocks.md`).
-- Runtime `Prologue/PrologueMission`: 임무 하나. `CreateDuel`, `CreateGuide`, 대사 경로, 전투가 허용하는 열·기능(`Features`, 1 임무는 Q열만, 2~4 임무는 Q열과 넘기기), 이기면 여는 기능(`Unlocks`, 서막은 1 임무의 넘기기만), 필요 스테이지(`RequiredClearedStage`, 서막은 0), 챕터 이름(`Chapter`, `서막`), 적 외형(`EnemyAppearance`).
+- Runtime `Prologue/PrologueMission`: 임무 하나. `CreateDuel`, `CreateGuide`, 전투가 허용하는 열·기능(`Features`, 1 임무는 Q열만, 2~4 임무는 Q열과 넘기기), 이기면 여는 기능(`Unlocks`, 서막은 1 임무의 넘기기만), 필요 스테이지(`RequiredClearedStage`, 서막은 0), 챕터 이름(`Chapter`, `서막`), 적 외형(`EnemyAppearance`).
+  - 장면 경로: 컷신 `IntroCutscene`·`OutroCutscene`(`Cutscene/mission-NN-intro|outro`)과 그 대신 쓰는 대사 `IntroDialogue`·`OutroDialogue`·`EventDialogue`(`Dialogue/mission-NN-…`).
+  - `SceneCast`: 임무 장면이 시작할 때 무대에 서 있는 인물(엘리사와 기사, 1 임무는 엘리사와 허수아비). 컨트롤러는 임무 장면을 이 인물들과 함께 읽는다(`CutsceneScriptParser.Parse(id, 글, SceneCast)`).
+  - `BattleEnemyName`(전투의 적 이름, 4 임무 `이아`), `EnemyHealthFloor`(4 임무 1), `Empowerment`(`MissionEmpowerment`: 50%, 장면 `Cutscene/mission-04-event`, 라우다레 대본, 기운 유지, 강제 패배), `Completes(결과, 수훈 적용 여부)`.
+- Runtime `Prologue/PrologueRun.TryComplete(번호, 결과, 수훈 적용 여부)`: 승리, 또는 수훈 뒤 4 임무의 패배를 완료로 센다.
 - Runtime `MissionEnemy.Appearance`와 `EnemyAppearance`(`Student`/`TrainingDummy`, `Prologue/PrologueMission.cs`): 브리핑의 적과 전장의 적 외형. 1 임무만 `TrainingDummy`다.
 - Runtime `Prologue/MissionGuide`: 코치 순서. 소개/예약/적 확인/확정/관찰/넘기기/자유 단계마다 허용 입력을 정한다(수련 임무의 숨고르기·회피·압박 단계도 여기 있다). 전투 판정은 바꾸지 않는다.
-- Runtime `Prologue/PrologueRun`: 서막과 수련을 이은 9개 사슬에서 순서대로 이긴 임무만 진행한다. 앞쪽 4개(`ArcMissionCount`)를 이기면 로비가 열린다(`IsArcComplete`). 이미 깬 임무를 다시 이겨도 진행은 바뀌지 않는다.
-- Presentation `MissionBriefingHud`(정렬 250), `MissionCoachHud`(300). `LegacyCombatHud.SetMissionMode`는 임무 이름 표시, 제한 시간 표시 전환, 숨고르기 표시(임무가 연 경우만)를 맡는다.
+- Runtime `Prologue/PrologueRun`: 서막과 수련을 이은 9개 사슬에서 순서대로 마친 임무만 진행한다. 앞쪽 4개(`ArcMissionCount`)를 마치면 로비가 열린다(`IsArcComplete`). 이미 마친 임무를 다시 해도 진행은 바뀌지 않는다.
+- Presentation `MissionBriefingHud`(정렬 250), `MissionCoachHud`(300). `LegacyCombatHud.SetMissionMode`는 임무 이름 표시, 제한 시간 표시 전환, 숨고르기 표시(임무가 연 경우만)를 맡는다. `LegacyCombatHud.SetEnemyName`·`EnemyName`은 적 상태 창의 HP 줄 오른쪽에 전투의 적 이름(`Battle Name`)을 쓴다. 임무 전투만 쓰고, 스테이지와 수련 대련은 비워 둔다. 강제 패배로 서막을 처음 마치면 컨트롤러가 `BattleResultHud.PrologueCompleteNotice`를 `CampaignLobbyHud.SetArrivalNotice`로 넘겨 로비에서 한 번 보여 준다.
 - Presentation `TrainingDummyAnimationSet`: 허수아비 프레임 로드(다른 캐릭터와 같은 지면 보정)와 대기·피격 샘플링. `LegacyArenaView.SetEnemyAppearance`가 전투마다 적 외형을 고른다. 컨트롤러는 전투를 준비할 때(`ResetBattlePresentation`) 임무면 그 임무의 외형, 스테이지면 학생을 고르고, 전투 화면을 정리할 때(`ClearBattleScreens`) 학생으로 되돌린다.
-- `DuelPrototypeController`: `ShowTitle`(Awake) → 타이틀의 새 게임(`NewGameFromTitle` → `StartNewGame` → 오프닝 컷신 `PlayCutscene("Cutscene/opening")`, 끝나거나 건너뛰면 `ShowBriefing`) 또는 이어하기(`ContinueGame`) → 다음 임무의 브리핑(지금 할 수 있는 임무가 없으면 로비), `StartMission` → 대사 → 전투(`SaveSystem.md`). 대사가 끝나야 다음 단계로 넘어간다. 정리용 `CloseDialogue`는 다음 단계로 넘어가지 않는다. `RestartJourney`(로비의 여정 초기화)는 스토리(서막·수련) 진행을 유지하고 로비를 연다.
+- `DuelPrototypeController`: `ShowTitle`(Awake) → 타이틀의 새 게임(`NewGameFromTitle` → `StartNewGame` → 오프닝 컷신 `PlayCutscene("Cutscene/opening")`, 끝나거나 건너뛰면 `ShowBriefing`) 또는 이어하기(`ContinueGame`) → 다음 임무의 브리핑(지금 할 수 있는 임무가 없으면 로비), `StartMission` → 시작 장면 → 전투(`SaveSystem.md`). 장면이 끝나야 다음 단계로 넘어간다. 정리용 `CloseDialogue`·`StopCutscene`은 다음 단계로 넘어가지 않는다. `RestartJourney`(로비의 여정 초기화)는 스토리(서막·수련) 진행을 유지하고 로비를 연다.
+  - 임무 장면: `PlayMissionScene`이 컷신(`SceneCast`와 함께 읽음)을 먼저 찾고 없으면 대사를 연다. 컷신이면 화면을 정리한 뒤 `StageBattlefield`로 그 임무의 두 사람을 전투 시작 위치에 세운다(종료 장면은 수훈 기운까지). `IsPlayingScene`(컷신이나 대사가 화면을 잡고 있음)과 `SkipScene`(Escape와 같이 장면을 건너뛰고 흐름을 이어 감)이 공개 API다.
+  - 수훈: `UpdateSlot`이 `LegacyHitResult.EnemyReachedHealthThreshold` 타격을 표시해 두고, 히트 스톱이 끝난 프레임에 `AdvancePresentation`이 `OpenMissionEvent`를 부른다. 장면은 `CutsceneDirector(…, resumesBattle: true)`로 열려, 전장을 `LegacyArenaView.SuspendForCutscene`으로 잠시 맡겼다가 끝날 때 `ResumeAfterCutscene`으로 돌려받는다(컨트롤러는 이때 전장을 초기화하지 않는다). 끝나거나 건너뛰면 `ResumeMissionBattle` → `ApplyEmpowerment`(`ReplaceEnemyScript`, 기운)로 이어진다. `IsBattlePausedForEvent`, `IsMissionEmpowered`로 상태를 볼 수 있고, 멈춘 동안에는 스텝(`CanStep`)도 막힌다. 새 도전(`ResetBattlePresentation`)과 임무를 떠날 때(`ClearMissionState`) 수훈 상태를 지운다.
+  - 강제 패배: `FinishMission`이 `PrologueMission.Completes(결과, 수훈)`로 판단하고, 결과 창 대신 종료 장면 → `ShowBriefing`(서막 뒤에는 로비)으로 간다.
+- 테스트: PlayMode `MissionScenePlayModeTests`(테스트에서 쓴 장면을 컨트롤러에 넘겨 시작·종료 장면의 무대, 대사로의 대체, 수훈의 멈춤·전장 복원·재개·라우다레, 강제 패배 → 종료 장면 → 로비와 그 로비의 서막 완료 안내, 종료 장면의 마지막 모습 위의 결과 창, 수훈 전 패배와 새 도전, 이아 표기, 전투 중 장면의 전장·화면 보정 복원), `CampaignLobbyHudPlayModeTests`(로비 상태 쪽지의 한 번뿐인 안내), 그리고 장면 종류에 상관없이 넘기도록 고친 `BattleResultMissionFlowPlayModeTests`(마지막 임무는 강제 패배 흐름) 등. EditMode `MissionFourTests`(데이터, 강제 패배 시뮬레이션, 지는 전투에 맞는 목표·코치 문구), `PrologueMissionTests`(장면 경로·무대 인물), `CutsceneScriptParserTests`(서 있는 인물로 시작하는 장면), `PrologueSceneFileTests`(실제 장면 파일: 형식, 원고의 이름표와 서는 쪽, 소리 파일, 대사 파일과의 중복, 4 임무의 기운).
 
-스토리(서막·수련) 진행은 임무를 처음 이길 때마다 자동 저장되며, 타이틀의 이어하기로 다음 임무의 브리핑부터 다시 시작한다(서막 뒤에는 그 임무를 지금 할 수 있을 때만, 아니면 로비, `SaveSystem.md`).
+스토리(서막·수련) 진행은 임무를 처음 마칠 때마다(4 임무는 강제 패배로) 자동 저장되며, 타이틀의 이어하기로 다음 임무의 브리핑부터 다시 시작한다(서막 뒤에는 그 임무를 지금 할 수 있을 때만, 아니면 로비, `SaveSystem.md`).

@@ -156,13 +156,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.NewGameFromTitle(), Is.True);
                 Assert.That(controller.SkipCutscene(), Is.True);
                 Assert.That(controller.StartMission(), Is.True);
-                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.SkipScene(), Is.True);
                 Assert.That(controller.IsMission, Is.True);
                 scope.SetGuide(null);
                 scope.WinToSettled();
-                Assert.That(controller.IsShowingDialogue, Is.True, "The outro plays first.");
+                Assert.That(controller.IsPlayingScene, Is.True, "The outro plays first.");
                 Assert.That(scope.Load().PrologueCleared, Is.EqualTo(1), "The win is saved before the outro.");
-                Assert.That(controller.ContinueDialogue(), Is.False);
+                Assert.That(controller.SkipScene(), Is.True);
                 Assert.That(controller.IsShowingResult, Is.True);
 
                 controller.ShowTitle();
@@ -347,8 +347,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 int frames = 0;
-                while (!Controller.IsShowingResult && !Controller.IsShowingDialogue && frames++ < 2000) advance(.025f, null);
-                Assert.That(Controller.IsShowingResult || Controller.IsShowingDialogue, Is.True);
+                while (!Controller.IsShowingResult && !Controller.IsPlayingScene && frames++ < 2000) advance(.025f, null);
+                Assert.That(Controller.IsShowingResult || Controller.IsPlayingScene, Is.True);
             }
 
             public void Dispose()

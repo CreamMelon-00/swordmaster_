@@ -13,11 +13,11 @@ namespace TurnLimbo.Core.Tests
     public sealed class LegacySkillDefinitionTests
     {
         [Test]
-        public void Table_SplitsIntoStartingSkillsAndCurriculumSkills()
+        public void Table_SplitsIntoStartingCurriculumAndEnemySkills()
         {
             IReadOnlyList<LegacySkillDefinition> all = LegacySkillDefinitions.All;
-            Assert.That(all.Select(d => d.Skill).ToArray(),
-                Is.EqualTo(LegacyInitialSkills.All.Concat(CampaignSkillCatalog.AcquisitionSkills).ToArray()));
+            Assert.That(all.Select(d => d.Skill).ToArray(), Is.EqualTo(LegacyInitialSkills.All
+                .Concat(CampaignSkillCatalog.AcquisitionSkills).Concat(LegacySkillDefinitions.EnemySkills).ToArray()));
             // The curriculum may grow; the starting set stays at nine.
             Assert.That(LegacyInitialSkills.All.Count, Is.EqualTo(9));
             Assert.That(CampaignSkillCatalog.AcquisitionSkills.Count, Is.GreaterThan(0));
@@ -102,6 +102,35 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void Laudare_IsIasEnemyOnlyFiveHitSlashThatBreaksItsTarget()
+        {
+            LegacySkill laudare = LegacySkillDefinitions.Skill(500);
+            Assert.That((laudare.Name, laudare.Cost, laudare.MinPower, laudare.MaxPower, laudare.AttackCount, laudare.LaneIndex),
+                Is.EqualTo(("라우다레", 0, 30, 35, 5, 0)));
+            Assert.That(laudare.Kind, Is.EqualTo(LegacySkillKind.Attack));
+            Assert.That(laudare.Property, Is.EqualTo(LegacySkillProperty.Slash));
+            Assert.That(laudare.IconId, Is.EqualTo(2), "A slash icon no other row uses.");
+            LegacySkillDefinition definition = LegacySkillDefinitions.Find(laudare);
+            Assert.That(definition.Effect.BreaksOpponent, Is.True);
+            Assert.That(definition.Effect.HasOpponentCondition, Is.False, "It breaks whatever it meets.");
+            Assert.That(definition.HighPower, Is.True);
+            Assert.That(LegacySkillDefinitions.Table.IsEnemy(definition), Is.True);
+            Assert.That(LegacySkillDefinitions.EnemySkills, Is.EqualTo(new[] { laudare }));
+            Assert.That(LegacyInitialSkills.All.Concat(CampaignSkillCatalog.AcquisitionSkills), Has.No.Member(laudare));
+            Assert.That(definition.Text.Info.EnemyMain, Is.EqualTo("내 저항 붕괴"), "The player reads it as the enemy's skill.");
+            Assert.That(CampaignCurriculum.Default.FindGranting(500), Is.Null);
+
+            // The player can neither equip it nor load a save that does.
+            var run = new CampaignRun();
+            Assert.That(run.TryEquipSkill(500), Is.False);
+            Assert.That(run.OwnedSkills.Any(owned => owned.SkillId == 500), Is.False);
+            var save = new CampaignSave(0, new int[0], new string[0], null, 0,
+                new[] { new[] { 500, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
+            Assert.That(run.TryRestore(save, out string error), Is.False);
+            Assert.That(error, Does.Contain("500"));
+        }
+
+        [Test]
         public void Find_UsesTheIdForCopiesAndIgnoresUnknownSkills()
         {
             foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
@@ -130,15 +159,16 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ShippedSheet_HoldsTheTwentyOneTechniquesInTableOrder()
+        public void ShippedSheet_HoldsTheTwentyTwoTechniquesInTableOrder()
         {
             string path = Path.Combine(Environment.CurrentDirectory, LegacySkillDefinitions.SheetAssetPath);
             byte[] bytes = File.ReadAllBytes(path);
             Assert.That(bytes.Take(3).ToArray(), Is.EqualTo(new byte[] { 0xEF, 0xBB, 0xBF }), "UTF-8 with a byte order mark, for Excel.");
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
-            Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44 }));
+            Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 500 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id), Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44 }));
+            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
                 "The runtime reads the same file.");
             Assert.That(LegacySkillDefinitions.Table.SheetId, Is.EqualTo(LegacySkillDefinitions.SheetAssetPath));
