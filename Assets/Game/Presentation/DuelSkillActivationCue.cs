@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.UI;
@@ -62,6 +63,15 @@ namespace TurnLimbo.Presentation
                 detail = Join(detail, "저항 회복 +" + feedback.ResistanceRestored);
                 if (playerSide) tint = RecoveryInk;
             }
+            if (feedback.ConditionalDamagePercent > 0 && effect != null)
+            {
+                // The 상대 상태 조건 already holds and the slot's hits reach health (the opponent is broken or not
+                // attacking, and no guard absorbs them), so they carry the multiplier. The enemy's cue comes before the
+                // dodge window and reads as a warning: a dodge still cancels the strike.
+                detail = Join(detail, ConditionalDamageText(feedback.ConditionalDamagePercent) + " (" + (playerSide ? "상대 " : "내 ") +
+                    (effect.OpponentState == LegacyOpponentState.Broken ? "저항 붕괴" : "체력 " + effect.OpponentHealthPercent + "% 이하") + ")");
+                if (playerSide) tint = DuelVisualTheme.Accent;
+            }
             if (feedback.ActGainGranted > 0)
                 detail = Join(detail, "다음 턴 ACT 회복 +" + feedback.ActGainGranted);
             if (feedback.GrantedPowerBuffPercent > 0)
@@ -84,7 +94,7 @@ namespace TurnLimbo.Presentation
             view.Outline.effectColor = tint;
             view.Tint = tint;
             view.BurstStyle = !playerSide ? DuelSkillBurstStyle.Danger
-                : feedback.OpponentResistanceReduced > 0 ? DuelSkillBurstStyle.Strike
+                : feedback.OpponentResistanceReduced > 0 || feedback.ConditionalDamagePercent > 0 ? DuelSkillBurstStyle.Strike
                 : feedback.ResistanceRestored > 0 ? DuelSkillBurstStyle.Recovery
                 : DuelSkillBurstStyle.Shield;
             view.Elapsed = 0f;
@@ -122,6 +132,10 @@ namespace TurnLimbo.Presentation
         }
 
         private static string Join(string left, string right) => string.IsNullOrEmpty(left) ? right : left + " · " + right;
+
+        // 200 → "피해 2배", 150 → "피해 1.5배".
+        private static string ConditionalDamageText(int percent)
+            => "피해 " + (percent / 100d).ToString("0.##", CultureInfo.InvariantCulture) + "배";
 
         private CueView CreateView(string name, bool playerSide, Font font)
         {

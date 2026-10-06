@@ -421,6 +421,29 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 playerPowerBuffPercent, playerProtectionBuffPercent);
             slot.EnemyFeedback = ApplyInitialSkillEffects(slot.EnemySkill, slot.PlayerSkill, enemyBuffs, false,
                 enemyPowerBuffPercent, enemyProtectionBuffPercent);
+            // With both sides' initial effects in, a 조건 피해 배율 whose state condition already holds keeps holding for the
+            // slot (nothing restores health or resistance before the slot ends). Report it as armed only when the slot's
+            // hits will also reach health, since the multiplier has nothing else to multiply.
+            slot.PlayerFeedback = slot.PlayerFeedback.WithConditionalDamage(
+                ArmedConditionalDamage(slot.PlayerSkill, slot.EnemySkill, slot.PlayerPower, slot.EnemyPower, Enemy));
+            slot.EnemyFeedback = slot.EnemyFeedback.WithConditionalDamage(
+                ArmedConditionalDamage(slot.EnemySkill, slot.PlayerSkill, slot.EnemyPower, slot.PlayerPower, Player));
+        }
+
+        /// <summary>The 조건 피해 배율 a slot's hits carry from its start: the condition holds against <paramref name="target"/>
+        /// and the hits reach health, as <see cref="ResolveSingleHit"/> deals them. That means the target is already broken
+        /// or its skill is not an attack (a clash against whole resistance takes resistance only; a breaking hit's overflow
+        /// is still multiplied, silently), and a guard does not absorb the hit. A dodge comes later and is not foreseen.</summary>
+        private static int ArmedConditionalDamage(LegacySkill skill, LegacySkill opposingSkill, int power, int opposingPower,
+            LegacyFighterState target)
+        {
+            if (skill == null || skill.IsWait || skill.Kind != LegacySkillKind.Attack) return 0;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            if (effect == null || effect.ConditionalDamagePercent <= 0 || !effect.OpponentStateHolds(target)) return 0;
+            if (opposingSkill != null && opposingSkill.Kind == LegacySkillKind.Attack && !target.IsResistanceBroken) return 0;
+            if (opposingSkill != null && opposingSkill.Kind == LegacySkillKind.Defence &&
+                power <= opposingPower / skill.AttackCount) return 0;
+            return effect.ConditionalDamagePercent;
         }
 
         // The last moment a dodge can be attempted has passed: settle the pending counter.
@@ -454,12 +477,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             bool enemyAttacked = HasAttackHit(slot.EnemySkill, hitIndex);
             LegacyHitImpact playerImpact = default;
             LegacyHitImpact enemyImpact = default;
+            bool playerConditionMet = false, enemyConditionMet = false;
             // Both actions at this hit index resolve before checking the outcome.
             // Later hits in the slot stop once either fighter falls.
             if (playerAttacked)
             {
                 enemyImpact = ResolveSingleHit(slot.PlayerSkill, slot.EnemySkill,
-                    slot.PlayerPower, slot.EnemyPower, Enemy, slot.EnemyReceivedMultiplier);
+                    slot.PlayerPower, slot.EnemyPower, Enemy, slot.EnemyReceivedMultiplier, false, out playerConditionMet);
                 if (slot.PressureSucceeded)
                 {
                     // Add one whole rolled skill power, divided across its hits
@@ -475,7 +499,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 bool halveDamage = slot.PressureSucceeded && slot.PlayerSkill != null &&
                     slot.PlayerSkill.Kind == LegacySkillKind.Defence;
                 playerImpact = ResolveSingleHit(slot.EnemySkill, slot.PlayerSkill,
-                    slot.EnemyPower, slot.PlayerPower, Player, slot.PlayerReceivedMultiplier, halveDamage);
+                    slot.EnemyPower, slot.PlayerPower, Player, slot.PlayerReceivedMultiplier, halveDamage, out enemyConditionMet);
             }
             slot.HitsResolved++;
             DuelMatchOutcome hitOutcome = DetermineOutcome();
@@ -491,7 +515,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 playerResistance - Player.Resistance, enemyResistance - Enemy.Resistance,
                 playerImpact, enemyImpact,
                 hitOutcome,
-                enemyAttacked && slot.DodgeSucceeded, slot.PressureSucceeded, thresholdReached);
+                enemyAttacked && slot.DodgeSucceeded, slot.PressureSucceeded, thresholdReached,
+                playerConditionMet, enemyConditionMet);
         }
 
         public LegacySlotResult CompleteCurrentSlot()
@@ -607,17 +632,22 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         private static LegacyHitImpact ResolveSingleHit(LegacySkill attacker, LegacySkill defender, int attackerPower,
-            int defenderPower, LegacyFighterState target, double receivedMultiplier, bool halveDamage = false)
+            int defenderPower, LegacyFighterState target, double receivedMultiplier, bool halveDamage,
+            out bool conditionMet)
         {
             bool resistanceHit = defender != null && defender.Kind == LegacySkillKind.Attack;
             int power = attackerPower;
             if (defender != null && defender.Kind == LegacySkillKind.Defence)
                 power = Math.Max(0, attackerPower - defenderPower / attacker.AttackCount);
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(attacker)?.Effect;
             // The target must already be broken before this hit. A hit that first breaks resistance
             // keeps its ordinary overflow, while later hits in the same skill receive the bonus.
-            int brokenBonus = target.IsResistanceBroken
-                ? LegacySkillDefinitions.Find(attacker)?.Effect.BrokenTargetDamagePercent ?? 0 : 0;
-            return target.ReceiveHit(power, resistanceHit, receivedMultiplier, halveDamage, brokenBonus);
+            int brokenBonus = target.IsResistanceBroken ? effect?.BrokenTargetDamagePercent ?? 0 : 0;
+            // 조건 피해 배율: the target's state as this hit lands (its health and resistance before the hit), so a
+            // multi-hit attack may meet it partway through; a breaking hit's overflow takes it if the condition held.
+            conditionMet = effect != null && effect.ConditionalDamagePercent > 0 && effect.OpponentStateHolds(target);
+            return target.ReceiveHit(power, resistanceHit, receivedMultiplier, halveDamage, brokenBonus,
+                conditionMet ? effect.ConditionalDamagePercent : 0);
         }
 
         private LegacySkillFeedback ApplyInitialSkillEffects(LegacySkill skill, LegacySkill opposingSkill,
@@ -635,7 +665,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             bool effectActivated = false, opponentBroken = false;
             int actGainGranted = 0, resistanceRestored = 0, opponentResistanceReduced = 0;
             SkillBuff grantedBuff = null;
-            if (effect.ResistanceRecoveryPercent > 0)
+            // 상대 상태 조건 gates the recovery: the opponent's state as the recovery applies, first of this side's
+            // effects (the player's initial effects come before the enemy's).
+            if (effect.ResistanceRecoveryPercent > 0 &&
+                (!effect.HasOpponentStateCondition || effect.OpponentStateHolds(player ? Enemy : Player)))
             {
                 // A self condition: it reports whether anything was actually restored.
                 LegacyFighterState fighter = player ? Player : Enemy;

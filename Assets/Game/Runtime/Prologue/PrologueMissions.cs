@@ -29,8 +29,12 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly MissionSkill DoubleSlash = MissionSkill.Table(2);
         private static readonly MissionSkill BreakMomentum = MissionSkill.Table(5);
         private static readonly MissionSkill Guard = MissionSkill.Table(7);
-        // 라우다레: 이아's 수훈 technique, an enemy-only (적) sheet row. It breaks the player as it starts and strikes five times.
+        // 이아's 수훈 techniques, enemy-only (적) sheet rows named after the Dominican motto (laudare, benedicere,
+        // praedicare). 라우다레 breaks the player as it starts and strikes five times; 베네디체레 guards and, the player
+        // being broken, recovers up to a quarter of her resistance (nothing when she is whole); 프레디카레 strikes once, doubled on a player at 30% health or less.
         private static readonly MissionSkill Laudare = MissionSkill.Table(500);
+        private static readonly MissionSkill Benedicere = MissionSkill.Table(501);
+        private static readonly MissionSkill Praedicare = MissionSkill.Table(502);
         // Where the battle of mission 4 pauses for 이아's 수훈.
         private const string EmpowermentScene = "Cutscene/mission-04-event";
 
@@ -123,8 +127,10 @@ namespace TurnLimbo.Runtime.Prologue
             // 4. No new rule, but the planning timer starts: the arc's first real duel, which the player cannot win. The
             // briefing still says 떠돌이 기사; she names herself 이아 in the intro, so the battle says 이아. She cannot
             // fall (health floor 1). The hit that brings her to half health pauses the battle for her 수훈; from the
-            // next turn she uses 라우다레 every turn (at least 50 health damage to the broken player, so two turns from
-            // full health), and the player's defeat then completes the 서막 with the outro instead of a result screen.
+            // next turn she plays the motto every turn: 라우다레 (it breaks the player and deals at least 50 health
+            // damage), 베네디체레, then 프레디카레 (doubled again on a player at 30% or less), which ends a full-health
+            // player in that first turn or the next. The player's defeat then completes the 서막 with the outro instead
+            // of a result screen.
             // So the briefing and the coach ask the player to fight her to the end, never to win (or that it is lost).
             new PrologueMission(4, "떠돌이 기사", Forest,
                 new[] { "제한 시간 안에 기술을 예약한다", "떠돌이 기사와 끝까지 겨룬다" },
@@ -138,7 +144,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Free, "이아",
                         "배운 것을 모두 써서 이아와 겨루세요.", FreeKeys),
                 }, features: QWithCycle, encounter: EncounterKind.Duel, battleEnemyName: "이아", enemyHealthFloor: 1,
-                empowerment: new MissionEmpowerment(50, EmpowermentScene, new[] { new[] { Laudare } },
+                empowerment: new MissionEmpowerment(50, EmpowermentScene, new[] { new[] { Laudare, Benedicere, Praedicare } },
                     keepsAura: true, forcedLoss: true)),
         };
 

@@ -205,8 +205,9 @@ namespace TurnLimbo.Presentation.Tests
                 scope.AdvanceUntil(() => controller.CanChoose, "The turn plays out to the next planning.");
                 Assert.That(controller.EnemyHealth, Is.EqualTo(10), "The flurry's last hit landed after the scene.");
                 Assert.That(controller.Session.EnemyQueue, Is.Not.Empty);
-                Assert.That(controller.Session.EnemyQueue.Select(skill => skill.Id), Is.All.EqualTo(Laudare),
-                    "From the next turn she uses 라우다레.");
+                Assert.That(controller.Session.EnemyQueue.Select(skill => skill.Id),
+                    Is.EqualTo(MissionFour.Empowerment.EnemyScript.Turn(1).Select(skill => skill.Id)).And.EqualTo(new[] { Laudare, 501, 502 }),
+                    "From the next turn she plays the motto: 라우다레, 베네디체레, 프레디카레.");
                 Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.True);
 
                 scope.LoseTheBattle();

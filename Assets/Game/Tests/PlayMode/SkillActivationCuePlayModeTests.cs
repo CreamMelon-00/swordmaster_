@@ -362,6 +362,87 @@ namespace TurnLimbo.Presentation.Tests
             finally { Time.timeScale = originalTimeScale; }
         }
 
+        [UnityTest]
+        public IEnumerator StateConditions_AnnounceTheGatedRecoveryAndTheArmedMultiplier()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                // 라우다레 breaks the player, whose 20-power slash wears the enemy to 30; 베네디체레 then recovers 12.
+                LegacySkill benedicere = LegacySkillDefinitions.Skill(501);
+                var broken = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { Fixed(900, LegacySkillKind.Attack, 20) },
+                    new EnemyScript(new[] { new[] { LegacySkillDefinitions.Skill(500), benedicere } }), 3);
+                Assert.That(broken.TryQueueLane(0), Is.True);
+                broken.Commit();
+                broken.ResolveNextSlot();
+                LegacyCurrentSlot recovery = broken.BeginNextSlot();
+                Assert.That(recovery.EnemyFeedback.ResistanceRestored, Is.EqualTo(12));
+                Assert.That(fixture.Cue.Show(false, benedicere, recovery.EnemyFeedback), Is.True);
+                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 베네디체레 성공!"));
+                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("저항 회복 +12"));
+
+                // 프레디카레 against a player at 30% health: armed from the slot's start.
+                fixture.Cue.Reset();
+                LegacySkill praedicare = LegacySkillDefinitions.Skill(502);
+                var low = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { Fixed(901, LegacySkillKind.Attack, 1) },
+                    new EnemyScript(new[] { new[] { Fixed(902, LegacySkillKind.Attack, 700), praedicare } }), 3);
+                low.Commit();
+                low.ResolveNextSlot();
+                LegacyCurrentSlot strike = low.BeginNextSlot();
+                Assert.That(strike.EnemyFeedback.ConditionalDamagePercent, Is.EqualTo(200));
+                Assert.That(fixture.Cue.Show(false, praedicare, strike.EnemyFeedback), Is.True);
+                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 프레디카레 성공!"));
+                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("피해 2배 (내 체력 30% 이하)"));
+                fixture.Tick(.02f);
+                Assert.That(fixture.EnemyBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Danger));
+
+                // The same strike clashing with the player's slash while her resistance is whole: it takes resistance only,
+                // so nothing is doubled and nothing is announced.
+                fixture.Cue.Reset();
+                var clash = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { Fixed(901, LegacySkillKind.Attack, 1) },
+                    new EnemyScript(new[] { new[] { Fixed(902, LegacySkillKind.Attack, 700), praedicare } }), 3);
+                Assert.That(clash.TryQueueBreath() && clash.TryQueueLane(0), Is.True);
+                clash.Commit();
+                clash.ResolveNextSlot();
+                Assert.That(clash.Player.Health, Is.EqualTo(300));
+                LegacyCurrentSlot clashing = clash.BeginNextSlot();
+                Assert.That(clashing.EnemyFeedback.ConditionalDamagePercent, Is.Zero);
+                Assert.That(fixture.Cue.Show(false, praedicare, clashing.EnemyFeedback), Is.False);
+                Assert.That(fixture.Enemy.gameObject.activeSelf, Is.False);
+
+                // The same strike as the player's: nothing against a healthy enemy, a strike burst once she is at 30%.
+                fixture.Cue.Reset();
+                var healthy = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { praedicare },
+                    new EnemyScript(new[] { new[] { Fixed(903, LegacySkillKind.Defence, 1) } }), 3);
+                Assert.That(healthy.TryQueueLane(0), Is.True);
+                healthy.Commit();
+                LegacyCurrentSlot whole = healthy.BeginNextSlot();
+                Assert.That(whole.PlayerFeedback.ConditionMet || whole.PlayerFeedback.EffectActivated, Is.False);
+                Assert.That(fixture.Cue.Show(true, praedicare, whole.PlayerFeedback), Is.False, "A healthy enemy arms nothing.");
+                Assert.That(fixture.Player.gameObject.activeSelf, Is.False);
+
+                // A 701 slash through her 1-power guard leaves her at 300 of 1000.
+                var weakened = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { Fixed(904, LegacySkillKind.Attack, 701), praedicare },
+                    new EnemyScript(new[] { new[] { Fixed(903, LegacySkillKind.Defence, 1), Fixed(905, LegacySkillKind.Defence, 1) } }), 3);
+                Assert.That(weakened.TryQueueLane(0) && weakened.TryQueueLane(0), Is.True);
+                weakened.Commit();
+                weakened.ResolveNextSlot();
+                Assert.That(weakened.Enemy.Health, Is.EqualTo(300));
+                LegacyCurrentSlot armed = weakened.BeginNextSlot();
+                Assert.That(armed.PlayerFeedback.ConditionalDamagePercent, Is.EqualTo(200));
+                Assert.That(fixture.Cue.Show(true, praedicare, armed.PlayerFeedback), Is.True);
+                Assert.That(fixture.PlayerTitle.text, Is.EqualTo("프레디카레 성공!"));
+                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("피해 2배 (상대 체력 30% 이하)"));
+                Assert.That(fixture.PlayerTitle.color, Is.EqualTo(DuelVisualTheme.Accent));
+                fixture.Tick(.02f);
+                Assert.That(fixture.PlayerBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Strike));
+            }
+        }
+
+        private static LegacySkill Fixed(int id, LegacySkillKind kind, int power)
+            => new LegacySkill(id, "fixed", 0, power, power, kind,
+                kind == LegacySkillKind.Attack ? LegacySkillProperty.Slash : LegacySkillProperty.Defence, 1, 0, string.Empty);
+
         private static LegacyCurrentSlot BeginSlot(LegacySkill player, LegacySkill enemy,
             int playerResistance = 100)
         {

@@ -237,7 +237,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActualController_ClosesUpOnlyOnBreaksAndFinishingBlows()
+        public IEnumerator ActualController_ClosesUpOnBreaksFinishingBlowsAndQuarterHealthHitsOnly()
         {
             yield return null;
             DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
@@ -251,7 +251,9 @@ namespace TurnLimbo.Presentation.Tests
             MethodInfo advance = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
             try
             {
-                // A big hit into a guard: still a gold, larger number, but no slow close-up.
+                Assert.That(controller.PresentationSettings.DecisiveHealthDamagePercent, Is.EqualTo(25));
+
+                // A big hit into a guard, under a quarter of the enemy's health: still a gold, larger number, but no slow close-up.
                 var big = new LegacyQueuedDuel(100, 50, 100, 50,
                     new[] { Attack(900, 20) }, new[] { Guard(901, 1) }, new[] { 1 });
                 sessionField.SetValue(controller, big);
@@ -276,6 +278,25 @@ namespace TurnLimbo.Presentation.Tests
                     advance.Invoke(controller, new object[] { .02f, null });
                 Assert.That(finish.Enemy.Health, Is.Zero);
                 Assert.That(controller.ArenaView.IsFatalFocus, Is.True);
+
+                // One hit taking exactly a quarter of the enemy's health is decisive too, with nothing broken or finished.
+                LegacyQueuedDuel quarter = HitOnce(controller, sessionField, reset, begin, advance,
+                    new[] { Attack(900, 26) }, new[] { Guard(901, 1) }, duel => duel.Enemy.Health < 100);
+                Assert.That(quarter.Enemy.Health, Is.EqualTo(75));
+                Assert.That(quarter.Enemy.IsResistanceBroken || quarter.Enemy.IsDefeated, Is.False);
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.True, "A quarter of her health in one hit is a decisive moment.");
+
+                // The same on the player: the enemy's 26 through the player's 1-power guard.
+                LegacyQueuedDuel taken = HitOnce(controller, sessionField, reset, begin, advance,
+                    new[] { Guard(901, 1) }, new[] { Attack(900, 26) }, duel => duel.Player.Health < 100);
+                Assert.That(taken.Player.Health, Is.EqualTo(75));
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.True, "Either direction.");
+
+                // 40 against an attacking enemy is resistance, not health: no close-up, though the number is large.
+                LegacyQueuedDuel clash = HitOnce(controller, sessionField, reset, begin, advance,
+                    new[] { Attack(900, 40) }, new[] { Attack(901, 1) }, duel => duel.Enemy.Resistance < 50);
+                Assert.That((clash.Enemy.Resistance, clash.Enemy.Health), Is.EqualTo((10, 100)));
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.False, "Resistance loss never counts towards the quarter.");
             }
             finally
             {
@@ -284,6 +305,80 @@ namespace TurnLimbo.Presentation.Tests
                 controller.enabled = originalEnabled;
             }
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DecisiveHealthDamagePercent_IsClampedAndZeroSwitchesTheQuarterTriggerOff()
+        {
+            yield return null;
+            var settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
+            try
+            {
+                Assert.That(settings.DecisiveHealthDamagePercent, Is.EqualTo(LegacyDecisiveHit.DefaultHealthDamagePercent));
+                JsonUtility.FromJsonOverwrite("{\"decisiveHealthDamagePercent\":-5}", settings);
+                Assert.That(settings.DecisiveHealthDamagePercent, Is.Zero);
+                JsonUtility.FromJsonOverwrite("{\"decisiveHealthDamagePercent\":999}", settings);
+                Assert.That(settings.DecisiveHealthDamagePercent, Is.EqualTo(100));
+            }
+            finally { Object.Destroy(settings); }
+
+            DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            Assert.That(controller, Is.Not.Null);
+            bool originalEnabled = controller.enabled;
+            LegacyQueuedDuel originalSession = controller.Session;
+            controller.enabled = false;
+            FieldInfo sessionField = typeof(DuelPrototypeController).GetField("session", PrivateInstance);
+            FieldInfo settingsField = typeof(DuelPrototypeController).GetField("presentationSettings", PrivateInstance);
+            MethodInfo reset = typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance);
+            MethodInfo begin = typeof(DuelPrototypeController).GetMethod("BeginSlotAnimation", PrivateInstance);
+            MethodInfo advance = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
+            var original = (DuelPresentationSettings)settingsField.GetValue(controller);
+            string assetBefore = JsonUtility.ToJson(original);
+            // A temporary clone, never the persistent Inspector asset.
+            DuelPresentationSettings off = Object.Instantiate(original);
+            JsonUtility.FromJsonOverwrite("{\"decisiveHealthDamagePercent\":0}", off);
+            try
+            {
+                settingsField.SetValue(controller, off);
+                LegacyQueuedDuel quarter = HitOnce(controller, sessionField, reset, begin, advance,
+                    new[] { Attack(900, 26) }, new[] { Guard(901, 1) }, duel => duel.Enemy.Health < 100);
+                Assert.That(quarter.Enemy.Health, Is.EqualTo(75));
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.False, "At 0 a quarter of her health is only a big number.");
+
+                LegacyQueuedDuel finish = HitOnce(controller, sessionField, reset, begin, advance,
+                    new[] { Attack(900, 20) }, new[] { Guard(901, 1) }, duel => duel.Enemy.Health < 10, enemyHealth: 10);
+                Assert.That(finish.Enemy.Health, Is.Zero);
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.True, "The finishing blow keeps its close-up.");
+            }
+            finally
+            {
+                settingsField.SetValue(controller, original);
+                Object.Destroy(off);
+                sessionField.SetValue(controller, originalSession);
+                controller.RestartMatch();
+                controller.enabled = originalEnabled;
+            }
+            Assert.That(JsonUtility.ToJson(original), Is.EqualTo(assetBefore));
+            yield return null;
+        }
+
+        /// <summary>Plays the first slot of a 100/50 against 100/50 duel (or the given enemy health) on the controller until
+        /// <paramref name="landed"/> holds, so the arena still shows that hit's presentation.</summary>
+        private static LegacyQueuedDuel HitOnce(DuelPrototypeController controller, FieldInfo sessionField, MethodInfo reset,
+            MethodInfo begin, MethodInfo advance, LegacySkill[] player, LegacySkill[] enemy,
+            System.Func<LegacyQueuedDuel, bool> landed, int enemyHealth = 100)
+        {
+            var duel = new LegacyQueuedDuel(100, 50, enemyHealth, 50, player, enemy, new[] { 1 });
+            sessionField.SetValue(controller, duel);
+            reset.Invoke(controller, null);
+            Assert.That(controller.ArenaView.IsFatalFocus, Is.False, "Each case starts without a close-up.");
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            begin.Invoke(controller, null);
+            for (int i = 0; i < 400 && !landed(duel); i++)
+                advance.Invoke(controller, new object[] { .02f, null });
+            Assert.That(landed(duel), Is.True);
+            return duel;
         }
 
         private static List<SpriteRenderer> Outline(SpriteRenderer actor)

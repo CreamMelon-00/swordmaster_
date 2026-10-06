@@ -161,6 +161,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public const string InfoDescription = "배지 요약";
             public const string BrokenTargetDamage = "붕괴 대상 추가 피해";
             public const string OpponentBreak = "상대 붕괴";
+            public const string OpponentState = "상대 상태 조건";
+            public const string ConditionalDamage = "조건 피해 배율";
         }
 
         public const string StartingGroup = "시작";
@@ -194,7 +196,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Column.VariablePower, Column.ShortLabel, Column.Detail, Column.Purpose, Column.Effect,
             Column.InfoMain, Column.InfoEnemyMain, Column.InfoMainSymbol, Column.InfoMainTone, Column.InfoSecondary,
             Column.InfoEnemySecondary, Column.InfoSecondarySymbol, Column.InfoSecondaryTone, Column.InfoDescription,
-            Column.BrokenTargetDamage, Column.OpponentBreak,
+            Column.BrokenTargetDamage, Column.OpponentBreak, Column.OpponentState, Column.ConditionalDamage,
         });
 
         /// <summary>Reads a sheet. Every problem is collected first and thrown once as a <see cref="SkillSheetException"/>.</summary>
@@ -393,7 +395,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 BreaksOpponent = r.Boolean(Column.OpponentBreak),
                 OpponentProperty = r.Property(Column.OpponentProperty, required: false),
                 OpponentKind = r.Kind(Column.OpponentKind, required: false),
+                ConditionalDamagePercent = r.Multiplier(Column.ConditionalDamage),
             };
+            effect.OpponentState = r.OpponentState(out int opponentHealthPercent);
+            effect.OpponentHealthPercent = opponentHealthPercent;
             bool highPower = r.Boolean(Column.HighPower);
             bool variablePower = r.Boolean(Column.VariablePower);
             var text = new LegacySkillText
@@ -440,6 +445,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.BrokenTargetDamagePercent > 0 && r.Ok(Column.Kind, Column.BrokenTargetDamage) &&
                 kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.BrokenTargetDamage}'은(는) 공격 기술에만 쓸 수 있습니다.");
+            // The state condition gates only the recovery and the multiplier, and a row has one condition, so a feedback's
+            // single flag and the screens' single preview say which one.
+            if (effect.HasOpponentStateCondition && effect.HasOpponentCondition)
+                r.RowProblem($"'{Column.OpponentState}'은(는) '{Column.OpponentProperty}'이나 '{Column.OpponentKind}'과(와) " +
+                    "함께 쓸 수 없습니다. 조건은 기술마다 하나입니다.");
+            if (effect.HasOpponentStateCondition && r.Ok(Column.ResistanceRecovery, Column.ConditionalDamage) &&
+                effect.ResistanceRecoveryPercent == 0 && effect.ConditionalDamagePercent == 0)
+                r.RowProblem($"'{Column.OpponentState}'은(는) '{Column.ResistanceRecovery}'이나 '{Column.ConditionalDamage}'이(가) 있어야 합니다.");
+            if (effect.ConditionalDamagePercent > 0 && r.Ok(Column.OpponentState) && !effect.HasOpponentStateCondition)
+                r.RowProblem($"'{Column.ConditionalDamage}'은(는) '{Column.OpponentState}'이(가) 있어야 합니다. 어떤 상대에게 배율을 줄지 적으세요.");
+            if (effect.ConditionalDamagePercent > 0 && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
+                r.RowProblem($"'{Column.ConditionalDamage}'은(는) 공격 기술에만 쓸 수 있습니다.");
             // Enemies never recover ACT, so on an enemy-only row the cell could only mislead.
             if (group == LegacySkillGroup.Enemy && r.Ok(Column.Group, Column.ActGain) && effect.ActGain > 0)
                 r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.ActGain}'을(를) 쓸 수 없습니다. 적은 ACT를 회복하지 않습니다.");
@@ -452,7 +469,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (!r.Valid) return row;
             bool hasEffect = effect.ActGain != 0 || effect.HasBuff || effect.ResistanceRecoveryPercent != 0 ||
                 effect.OpponentResistanceReduction != 0 || effect.BrokenTargetDamagePercent != 0 ||
-                effect.BreaksOpponent || effect.HasOpponentCondition;
+                effect.BreaksOpponent || effect.HasOpponentCondition || effect.HasOpponentStateCondition ||
+                effect.ConditionalDamagePercent != 0;
             row.Definition = new LegacySkillDefinition(
                 new LegacySkill(id, name, cost, minPower, maxPower, kind, property, hits, lane, description, animation, icon),
                 hasEffect ? effect : null, text, highPower, variablePower);
@@ -489,6 +507,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 [Column.ResistanceReduction] = Optional(effect.OpponentResistanceReduction),
                 [Column.BrokenTargetDamage] = Percent(effect.BrokenTargetDamagePercent),
                 [Column.OpponentBreak] = effect.BreaksOpponent ? TrueCell : string.Empty,
+                [Column.OpponentState] = LegacySkillLabels.OpponentState(effect.OpponentState, effect.OpponentHealthPercent),
+                [Column.ConditionalDamage] = Percent(effect.ConditionalDamagePercent),
                 [Column.OpponentProperty] = effect.OpponentProperty.HasValue ? LegacySkillLabels.Property(effect.OpponentProperty.Value) : string.Empty,
                 [Column.OpponentKind] = effect.OpponentKind.HasValue ? LegacySkillLabels.Kind(effect.OpponentKind.Value) : string.Empty,
                 [Column.HighPower] = definition.HighPower ? TrueCell : string.Empty,
@@ -645,6 +665,26 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (LegacySkillLabels.TryParseTone(cell, out LegacySkillTone tone)) return tone;
                 Problem(header, Choice(cell, "비워 두거나 " + Labels((LegacySkillTone[])Enum.GetValues(typeof(LegacySkillTone)), LegacySkillLabels.Tone)));
                 return null;
+            }
+
+            /// <summary>상대 상태 조건: blank for none, 붕괴, or 체력 N% 이하.</summary>
+            public LegacyOpponentState OpponentState(out int healthPercent)
+            {
+                string cell = Cell(Column.OpponentState);
+                healthPercent = 0;
+                if (cell.Length == 0) return LegacyOpponentState.None;
+                if (LegacySkillLabels.TryParseOpponentState(cell, out LegacyOpponentState state, out healthPercent)) return state;
+                Problem(Column.OpponentState, Choice(cell, "비워 두거나 붕괴, 체력 N% 이하(N은 1~99의 정수, 예: 체력 30% 이하)"));
+                return LegacyOpponentState.None;
+            }
+
+            /// <summary>A damage multiplier in percent: blank (or 0) for none, otherwise over 100.</summary>
+            public int Multiplier(string header)
+            {
+                int percent = Integer(header, 0, required: false, percent: true);
+                if (percent > 0 && percent <= 100)
+                    Problem(header, $"'{Cell(header)}'은(는) 100%보다 커야 합니다(200%는 피해 2배). 배율을 쓰지 않으려면 비워 두세요.");
+                return percent > 100 ? percent : 0;
             }
 
             public bool Boolean(string header)

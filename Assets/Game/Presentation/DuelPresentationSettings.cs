@@ -48,8 +48,12 @@ namespace TurnLimbo.Presentation
         [Header("피해 숫자 — 다음 표시부터 적용")]
         [SerializeField, Range(80, 240), Tooltip("기본 글자 크기. 작은 피해도 읽을 수 있는 크기를 유지합니다.")]
         private int damageTextFontSize = 168;
-        [SerializeField, Range(1f, 1.8f), Tooltip("저항 붕괴·마무리 일격·큰 타격(표시 피해 12 이상) 숫자의 추가 크기 배율. 새로운 치명타 판정을 만들지 않습니다.")]
+        [SerializeField, Range(1f, 1.8f), Tooltip("결정타(저항 붕괴·마무리 일격·큰 체력 피해)와 큰 타격(표시 피해 12 이상) 숫자의 추가 크기 배율. 새로운 치명타 판정을 만들지 않습니다.")]
         private float criticalDamageScale = 1.3f;
+
+        [Header("결정타 연출 — 다음 타격부터 적용")]
+        [SerializeField, Range(0, 100), Tooltip("한 번의 타격이 대상 최대 체력의 이 비율(%) 이상을 체력 피해로 깎으면 저항 붕괴·마무리 일격처럼 0.15배 슬로·집중 카메라·색 번쩍임·화면 기울기·크리티컬 효과음을 씁니다. 양쪽 타격 모두 해당합니다. 저항 피해는 세지 않고, 연타는 한 타격씩 봅니다. 0이면 이 조건만 끕니다.")]
+        private int decisiveHealthDamagePercent = LegacyDecisiveHit.DefaultHealthDamagePercent;
 
         [Header("스텝 — 다음 스킬부터 적용")]
         [SerializeField, Range(0f, 1f), Tooltip("첫 타격 전 예고 시간(게임 시계 초). 연타의 동작·타격 간격은 유지합니다.")]
@@ -135,6 +139,8 @@ namespace TurnLimbo.Presentation
         public float MovementSpeedMultiplier => Safe(movementSpeedMultiplier, 0.5f, 2f, 1.2f);
         public int DamageTextFontSize => Mathf.Clamp(damageTextFontSize, 80, 240);
         public float CriticalDamageScale => Safe(criticalDamageScale, 1f, 1.8f, 1.3f);
+        /// <summary>The share of the target's maximum health one hit must take as health to be decisive (0..100; 0 is off).</summary>
+        public int DecisiveHealthDamagePercent => Mathf.Clamp(decisiveHealthDamagePercent, 0, 100);
         public float StepAnticipationDuration => Safe(stepAnticipationDuration, 0f, 1f, 0.24f);
         public float StepTimingWindow => Safe(stepTimingWindow, 0.03f, 0.25f, 0.1f);
         public float StepWindowDecay => Safe(stepWindowDecay, 0.3f, 1f, LegacyStepTiming.DefaultDecay);
@@ -181,6 +187,7 @@ namespace TurnLimbo.Presentation
             cameraFollowDeadZone = CameraFollowDeadZone; impactCameraShake = ImpactCameraShake;
             movementDistanceMultiplier = MovementDistanceMultiplier; movementSpeedMultiplier = MovementSpeedMultiplier;
             damageTextFontSize = DamageTextFontSize; criticalDamageScale = CriticalDamageScale;
+            decisiveHealthDamagePercent = DecisiveHealthDamagePercent;
             stepAnticipationDuration = StepAnticipationDuration; stepTimingWindow = StepTimingWindow;
             stepWindowDecay = StepWindowDecay; stepMinimumWindow = StepMinimumWindow;
             stepDodgeDistance = StepDodgeDistance; stepPressureDistance = StepPressureDistance;

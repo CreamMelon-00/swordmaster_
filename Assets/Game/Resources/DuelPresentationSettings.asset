@@ -32,6 +32,7 @@ MonoBehaviour:
   movementSpeedMultiplier: 1.2
   damageTextFontSize: 168
   criticalDamageScale: 1.3
+  decisiveHealthDamagePercent: 25
   stepAnticipationDuration: 0.24
   stepTimingWindow: 0.1
   stepWindowDecay: 0.65

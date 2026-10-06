@@ -1,4 +1,6 @@
 using System;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace TurnLimbo.Runtime.LegacyCombat
 {
@@ -6,6 +8,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// enum's English name (any case) so a designer may type either.</summary>
     public static class LegacySkillLabels
     {
+        private const string BrokenState = "붕괴", HealthState = "체력", AtMost = "이하";
+        // 체력 N% 이하, spaces optional between the parts; ASCII digits only (a leading zero still reads).
+        private static readonly Regex HealthPattern = new Regex(@"^체력\s*([0-9]{1,3})\s*%\s*이하$", RegexOptions.CultureInvariant);
         private static readonly LegacySkillProperty[] properties =
             { LegacySkillProperty.Slash, LegacySkillProperty.Hit, LegacySkillProperty.Penetrate, LegacySkillProperty.Defence, LegacySkillProperty.None };
         private static readonly LegacySkillKind[] kinds = { LegacySkillKind.Attack, LegacySkillKind.Defence, LegacySkillKind.Wait };
@@ -70,6 +75,39 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 case LegacySkillTone.Variance: return "편차";
                 default: return "방어";
             }
+        }
+
+        /// <summary>A 상대 상태 조건 as the sheet writes it: <c>붕괴</c>, <c>체력 30% 이하</c>, or empty for none.</summary>
+        public static string OpponentState(LegacyOpponentState state, int healthPercent)
+        {
+            switch (state)
+            {
+                case LegacyOpponentState.Broken: return BrokenState;
+                case LegacyOpponentState.HealthAtMost:
+                    return HealthState + " " + healthPercent.ToString(CultureInfo.InvariantCulture) + "% " + AtMost;
+                default: return string.Empty;
+            }
+        }
+
+        /// <summary>Reads <c>붕괴</c> or <c>체력 N% 이하</c> with N from 1 to 99; spaces between the parts are optional
+        /// (<c>체력30%이하</c>, <c>체력 30 % 이하</c>). Blank and anything else read false.</summary>
+        public static bool TryParseOpponentState(string text, out LegacyOpponentState state, out int healthPercent)
+        {
+            state = LegacyOpponentState.None;
+            healthPercent = 0;
+            string trimmed = text?.Trim() ?? string.Empty;
+            if (trimmed == BrokenState)
+            {
+                state = LegacyOpponentState.Broken;
+                return true;
+            }
+            Match match = HealthPattern.Match(trimmed);
+            if (!match.Success || !int.TryParse(match.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int percent) ||
+                percent < 1 || percent > 99)
+                return false;
+            state = LegacyOpponentState.HealthAtMost;
+            healthPercent = percent;
+            return true;
         }
 
         /// <summary>Reads a label or an English enum name. <see cref="LegacySkillProperty.None"/> reads too; the sheet

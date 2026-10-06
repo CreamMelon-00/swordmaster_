@@ -16,6 +16,24 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 : opposingSkill.Kind == effect.OpponentKind.Value;
         }
 
+        /// <summary>Whether the skill has a 상대 상태 조건 (붕괴, 체력 N% 이하) for its recovery or damage multiplier.</summary>
+        public static bool HasOpponentStateCondition(LegacySkill skill)
+            => LegacySkillDefinitions.Find(skill)?.Effect.HasOpponentStateCondition == true;
+
+        /// <summary>Whether the skill's 상대 상태 조건 holds against <paramref name="opponent"/> as it stands and something
+        /// it gates would act for <paramref name="self"/>: the 조건 피해 배율, or a 저항 회복 with room to restore (as
+        /// <see cref="MatchesSelfCondition"/>). It reads the condition only: a slot starting in this state reports
+        /// <see cref="LegacySkillFeedback.ConditionMet"/> when the recovery restores something or the multiplier is armed
+        /// (its hits reach health, <see cref="LegacySkillFeedback.ConditionalDamagePercent"/>); the multiplier is checked
+        /// again on every hit.</summary>
+        public static bool MatchesOpponentState(LegacySkill skill, LegacyFighterState self, LegacyFighterState opponent)
+        {
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            if (effect == null || !effect.HasOpponentStateCondition || !effect.OpponentStateHolds(opponent)) return false;
+            return (effect.ConditionalDamagePercent > 0 && skill.Kind == LegacySkillKind.Attack) ||
+                MatchesSelfCondition(skill, self);
+        }
+
         public static bool HasSelfCondition(LegacySkill skill)
             => LegacySkillDefinitions.Find(skill)?.Effect.ResistanceRecoveryPercent > 0;
 
@@ -56,6 +74,29 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 (GrantedPowerBuffPercent > 0 || GrantedProtectionBuffPercent > 0);
         }
 
+        private LegacySkillFeedback(LegacySkillFeedback source, int conditionalDamagePercent)
+        {
+            ConditionMet = source.ConditionMet || conditionalDamagePercent > 0;
+            EffectActivated = source.EffectActivated || conditionalDamagePercent > 0;
+            ActGainGranted = source.ActGainGranted;
+            ResistanceRestored = source.ResistanceRestored;
+            OpponentResistanceReduced = source.OpponentResistanceReduced;
+            OpponentBroken = source.OpponentBroken;
+            ConditionalDamagePercent = conditionalDamagePercent;
+            PowerBuffPercent = source.PowerBuffPercent;
+            ProtectionBuffPercent = source.ProtectionBuffPercent;
+            HasPowerBuff = source.HasPowerBuff;
+            HasBeneficialBuff = source.HasBeneficialBuff;
+            GrantedPowerBuffPercent = source.GrantedPowerBuffPercent;
+            GrantedProtectionBuffPercent = source.GrantedProtectionBuffPercent;
+            GrantedBuffSlots = source.GrantedBuffSlots;
+            HasGrantedBeneficialBuff = source.HasGrantedBeneficialBuff;
+        }
+
+        /// <summary>This snapshot with the 조건 피해 배율 the slot's hits carry from its start; zero keeps it as it is.</summary>
+        internal LegacySkillFeedback WithConditionalDamage(int percent)
+            => percent > 0 ? new LegacySkillFeedback(this, percent) : this;
+
         /// <summary>The conditional rule matched; actual state changes are reported separately.</summary>
         public bool ConditionMet { get; }
         public bool EffectActivated { get; }
@@ -68,6 +109,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int OpponentResistanceReduced { get; }
         /// <summary>This slot's start broke the opposing fighter (상대 붕괴). False when it was already broken.</summary>
         public bool OpponentBroken { get; }
+        /// <summary>The 조건 피해 배율 (a percent over 100) the slot's hits carry because the technique's 상대 상태 조건
+        /// already held against the opponent once both sides' initial effects were in, and the hits will reach health:
+        /// the opponent is broken or not attacking, and a guard does not absorb the hit. It then counts as the matched
+        /// condition and an activated effect. Zero otherwise (a clash against whole resistance, an absorbing guard), though
+        /// a hit of the slot may still multiply health damage, such as a breaking hit's overflow or a later hit that
+        /// meets the condition (<see cref="LegacyHitResult.PlayerAttackConditionMet"/>). The enemy's armed strike may still
+        /// be dodged afterwards.</summary>
+        public int ConditionalDamagePercent { get; }
         /// <summary>Additive power bonus used to roll this slot, before its buff uses are consumed.</summary>
         public int PowerBuffPercent { get; }
         /// <summary>Net received-damage reduction used by this slot, from zero to one hundred percent.</summary>

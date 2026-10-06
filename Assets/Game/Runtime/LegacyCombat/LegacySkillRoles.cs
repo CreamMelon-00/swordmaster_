@@ -18,6 +18,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         DirectResistanceDamage = 1 << 9,
         BrokenTargetDamage = 1 << 10,
         OpponentBreak = 1 << 11,
+        /// <summary>조건 피해 배율: more health damage to a target in the row's 상대 상태 조건.</summary>
+        ConditionalDamage = 1 << 12,
     }
 
     /// <summary>Presentation metadata for implemented rules, never a new combat authority.</summary>

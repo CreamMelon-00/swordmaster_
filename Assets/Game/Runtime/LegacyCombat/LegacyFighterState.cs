@@ -36,8 +36,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
         }
 
+        /// <param name="conditionalDamagePercent">The attacker's 조건 피해 배율 when its 상대 상태 조건 held against this
+        /// fighter before the hit, otherwise zero. It multiplies the health damage last, a breaking hit's overflow included.</param>
         internal LegacyHitImpact ReceiveHit(int power, bool resistanceHit, double receivedMultiplier,
-            bool halveDamage = false, int brokenTargetDamagePercent = 0)
+            bool halveDamage = false, int brokenTargetDamagePercent = 0, int conditionalDamagePercent = 0)
         {
             int scaled = Round(power * receivedMultiplier);
             if (resistanceHit)
@@ -48,7 +50,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     // zero. The breaking hit's overflow is not doubled unless the
                     // resistance was already broken; its multiplier applies twice.
                     LegacyHitImpact impact = ReceiveHealthDamage(scaled - Resistance, receivedMultiplier,
-                        halveDamage, brokenTargetDamagePercent);
+                        halveDamage, brokenTargetDamagePercent, conditionalDamagePercent);
                     Resistance = halveDamage ? Resistance - Round(Resistance / 2d) : 0;
                     return impact;
                 }
@@ -56,11 +58,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 Resistance -= scaled;
                 return new LegacyHitImpact(scaled, scaled);
             }
-            return ReceiveHealthDamage(power, receivedMultiplier, halveDamage, brokenTargetDamagePercent);
+            return ReceiveHealthDamage(power, receivedMultiplier, halveDamage, brokenTargetDamagePercent, conditionalDamagePercent);
         }
 
         private LegacyHitImpact ReceiveHealthDamage(int power, double receivedMultiplier,
-            bool halveDamage = false, int brokenTargetDamagePercent = 0)
+            bool halveDamage = false, int brokenTargetDamagePercent = 0, int conditionalDamagePercent = 0)
         {
             int pushPower = Round(power * receivedMultiplier);
             int damage = pushPower;
@@ -74,6 +76,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             if (brokenTargetDamagePercent > 0)
                 damage = Round(damage * (1d + brokenTargetDamagePercent / 100d));
+            // 조건 피해 배율 last, on whatever the rules above left; the knockback (push power) keeps the plain value.
+            if (conditionalDamagePercent > 0)
+                damage = Round(damage * (conditionalDamagePercent / 100d));
             Health = Math.Max(HealthFloor, Health - damage);
             return new LegacyHitImpact(pushPower, damage);
         }
@@ -208,7 +213,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int playerHealthDamage, int enemyHealthDamage, int playerResistanceDamage,
             int enemyResistanceDamage, LegacyHitImpact playerImpact, LegacyHitImpact enemyImpact,
             DuelMatchOutcome outcome, bool playerDodged = false, bool playerPressured = false,
-            bool enemyReachedHealthThreshold = false)
+            bool enemyReachedHealthThreshold = false, bool playerAttackConditionMet = false,
+            bool enemyAttackConditionMet = false)
         {
             SlotIndex = slot.SlotIndex;
             PlayerSkill = slot.PlayerSkill;
@@ -229,6 +235,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             IsFinalHit = slot.IsResolved;
             Outcome = outcome;
             EnemyReachedHealthThreshold = enemyReachedHealthThreshold;
+            PlayerAttackConditionMet = playerAttackConditionMet;
+            EnemyAttackConditionMet = enemyAttackConditionMet;
         }
 
         public int SlotIndex { get; }
@@ -253,5 +261,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// (<see cref="LegacyQueuedDuel.EnemyHealthThresholdPercent"/>) while the duel goes on: the moment a story
         /// event may interrupt. At most once per attempt.</summary>
         public bool EnemyReachedHealthThreshold { get; }
+        /// <summary>The player's attack at this hit met its technique's 상대 상태 조건 against the enemy as it landed, so
+        /// its 조건 피해 배율 multiplied whatever health damage it dealt (none for a hit the resistance absorbed).</summary>
+        public bool PlayerAttackConditionMet { get; }
+        /// <summary>The enemy's attack at this hit met its technique's 상대 상태 조건 against the player as it landed
+        /// (never for a dodged hit), so its 조건 피해 배율 multiplied whatever health damage it dealt.</summary>
+        public bool EnemyAttackConditionMet { get; }
     }
 }

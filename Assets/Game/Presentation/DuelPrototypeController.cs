@@ -362,7 +362,7 @@ namespace TurnLimbo.Presentation
                 if (keyboard.aKey.wasPressedThisFrame) TryStep(LegacyStepAction.Dodge, timing, out _);
                 if (keyboard.dKey.wasPressedThisFrame) TryStep(LegacyStepAction.Pressure, timing, out _);
             }
-            // Slow motion belongs to decisive moments only: a break or a finishing blow, and step successes.
+            // Slow motion belongs to decisive moments only (a break, a finishing blow or a heavy hit), and step successes.
             float speed = IsInspecting ? 0.2f : IsResolving && arena.IsFatalFocus ? LegacyArenaView.DecisiveSlowMotionScale : 1f;
             // Keep local cinematic slow motion on the established combat clock;
             // the step gesture, camera and feedback lifetime still use real time.
@@ -625,9 +625,10 @@ namespace TurnLimbo.Presentation
             int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, bool finishingBlow,
             LegacyArenaView.HitExchange exchange)
         {
-            // Only decisive moments (a break or the finishing blow) get the slow close-up, tilt and
-            // critical sound; a merely big number is still gold and larger.
-            bool decisive = resistanceBroke || finishingBlow;
+            // Only decisive moments get the slow close-up, tilt and critical sound: a break, the finishing blow, or one hit
+            // taking a set share of the target's maximum health (LegacyDecisiveHit). A merely big number is still gold and larger.
+            bool decisive = LegacyDecisiveHit.IsDecisive(resistanceBroke, finishingBlow, healthDamage,
+                (playerAttacks ? session.Enemy : session.Player).MaxHealth, presentationSettings.DecisiveHealthDamagePercent);
             bool emphasised = decisive || displayedDamage >= 12;
             // A resistance-only hit displays exactly its resistance loss. Anything more reached
             // the body, even when the health change was clamped at zero.

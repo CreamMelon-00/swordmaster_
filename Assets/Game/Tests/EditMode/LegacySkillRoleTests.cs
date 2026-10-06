@@ -28,6 +28,8 @@ namespace TurnLimbo.Core.Tests
         [TestCase(32, LegacySkillRole.None, "방어")]
         [TestCase(42, LegacySkillRole.ResistanceOnClash | LegacySkillRole.ActRecovery | LegacySkillRole.DirectResistanceDamage, "방어 대응·저항 감소")]
         [TestCase(500, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.HighPower | LegacySkillRole.OpponentBreak, "붕괴 연타")]
+        [TestCase(501, LegacySkillRole.ResistanceRecovery, "조건부 저항 회복")]
+        [TestCase(502, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower | LegacySkillRole.ConditionalDamage, "마무리 일격")]
         public void SupportedSkills_ReportOnlyImplementedRoles(int id, LegacySkillRole expected, string label)
         {
             LegacySkill skill = FindSkill(id);

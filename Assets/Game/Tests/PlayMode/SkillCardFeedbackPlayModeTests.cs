@@ -125,6 +125,50 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator OpponentStateCondition_PreviewsTheEnemysStateWithoutMatchingAnyEnemyCard()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                // 프레디카레 (doubled at 30% health or less) held in Q beside a 700 slash; the enemy only guards.
+                LegacySkill finisher = LegacySkillDefinitions.Skill(502);
+                var slash = new LegacySkill(101, "Feedback 101", 0, 700, 700, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0,
+                    "피드백 조건 설명", iconId: 1);
+                var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000, new[] { finisher, slash },
+                    new[] { Skill(900, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence) }, new[] { 1 });
+                fixture.Refresh(duel);
+                fixture.Hud.ShowExplanation(finisher, false);
+                AssertTargets(fixture.Hud, Array.Empty<int>(), -1, "A state condition marks no enemy card.");
+                Assert.That(fixture.Lane(0).ConditionReady, Is.False);
+                Assert.That(fixture.Hint.text, Does.Contain("조건: 상대 체력 30% 이하"));
+
+                // The slash through the 2-power guard leaves the enemy at 302; 프레디카레 itself (22~30 through the guard)
+                // then takes her to 300 or less.
+                Assert.That(duel.TryCycleLanes(), Is.True);
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                duel.Commit();
+                duel.ResolveNextSlot();
+                duel.BeginNextTurn();
+                Assert.That(duel.Enemy.Health, Is.EqualTo(302));
+                fixture.Hud.BeginTurn(); fixture.Refresh(duel);
+                fixture.Hud.ShowExplanation(finisher, false);
+                Assert.That(fixture.Lane(0).ConditionReady, Is.False, "302 of 1000 is above 30%.");
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                Assert.That(duel.PlayerQueue[0], Is.SameAs(finisher));
+                duel.Commit();
+                duel.ResolveNextSlot();
+                duel.BeginNextTurn();
+                Assert.That(duel.Enemy.Health, Is.LessThanOrEqualTo(300));
+                fixture.Hud.BeginTurn(); fixture.Refresh(duel);
+                fixture.Hud.ShowExplanation(finisher, false);
+                Assert.That(fixture.Lane(0).ConditionReady, Is.True);
+                Assert.That(fixture.Effect(false).ConditionReady, Is.True);
+                Assert.That(fixture.Hint.text, Does.Contain("현재 상대 상태: 조건 충족"));
+                AssertTargets(fixture.Hud, Array.Empty<int>(), -1);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator ActualConditionalEffects_EmphasizeOnlyChangesThatActuallyOccurred()
         {
             yield return null;

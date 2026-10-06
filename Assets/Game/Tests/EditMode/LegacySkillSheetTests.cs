@@ -14,7 +14,8 @@ namespace TurnLimbo.Core.Tests
     public sealed class LegacySkillSheetTests
     {
         // Sheet rows of the shipped table as written: the header is row 1, then ids in table order.
-        private const int Row1 = 2, Row2 = 3, Row5 = 6, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row42 = 20, Row43 = 21, Row500 = 23;
+        private const int Row1 = 2, Row2 = 3, Row5 = 6, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row19 = 19, Row42 = 20, Row43 = 21,
+            Row44 = 22, Row500 = 23, Row501 = 24, Row502 = 25;
 
         /// <summary>The shipped table as the writer lays it out, one string array per sheet row.</summary>
         private static List<string[]> Rows()
@@ -95,8 +96,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(csv[0], Is.EqualTo('\ufeff'), "Excel needs the mark to read Korean.");
             Assert.That(csv, Does.Not.Contain("\r"));
             Assert.That(csv.Substring(1, csv.IndexOf('\n') - 1), Is.EqualTo(string.Join(",", LegacySkillSheet.Headers)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(38));
-            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(38));
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(40));
+            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(40));
         }
 
         [Test]
@@ -167,7 +168,7 @@ namespace TurnLimbo.Core.Tests
             rows.Insert(3, new[] { "  " });
             rows.Insert(4, Enumerable.Repeat(" ", width).ToArray());
             LegacySkillTable table = Parse(rows);
-            Assert.That(table.All.Count, Is.EqualTo(22));
+            Assert.That(table.All.Count, Is.EqualTo(24));
             Assert.That(table.All[0].Skill.Id, Is.EqualTo(1));
 
             Set(rows, 2, Column.Cost, "1.5");
@@ -206,6 +207,9 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.ResistanceReduction, "많이", "0 이상의 정수")]
         [TestCase(Column.OpponentProperty, "아무거나", "비워 두거나 참격, 타격, 관통, 방어 중 하나")]
         [TestCase(Column.OpponentKind, "대기", "공용 행동")]
+        [TestCase(Column.OpponentState, "아무거나", "비워 두거나 붕괴, 체력 N% 이하(N은 1~99의 정수, 예: 체력 30% 이하) 중 하나")]
+        [TestCase(Column.ConditionalDamage, "-1%", "0 이상의 정수")]
+        [TestCase(Column.ConditionalDamage, "100%", "100%보다 커야 합니다")]
         [TestCase(Column.HighPower, "maybe", "O, ○, TRUE, 1, 예, Y")]
         [TestCase(Column.ShortLabel, "", "비어 있습니다")]
         [TestCase(Column.Detail, "", "비어 있습니다")]
@@ -357,19 +361,19 @@ namespace TurnLimbo.Core.Tests
             LegacySkillDefinition laudare = table.Find(500);
             Assert.That(table.GroupOf(laudare), Is.EqualTo(LegacySkillGroup.Enemy));
             Assert.That(table.IsEnemy(laudare) && !table.IsStarting(laudare), Is.True);
-            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500 }));
-            Assert.That(table.InitialSkills.Concat(table.AcquisitionSkills).Any(s => s.Id == 500), Is.False);
+            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
+            Assert.That(table.InitialSkills.Concat(table.AcquisitionSkills).Any(s => s.Id >= 500), Is.False);
             Assert.That(table.IsEnemy(table.Find(1)), Is.False);
             Assert.That(table.IsEnemy(null), Is.False);
             LegacySkillTable without = Parse(rows.Where(row => row[0] != "500").ToList());
             Assert.Throws<ArgumentException>(() => without.GroupOf(laudare), "A row the table lacks has no group.");
 
             // Any lane, as many as wanted: the three-per-lane rule counts starting rows only.
-            string[] second = RowOf(rows, 500).ToArray();
-            second[Index(Column.Id)] = "501";
-            second[Index(Column.Lane)] = "W";
-            rows.Add(second);
-            Assert.That(Parse(rows).EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501 }));
+            string[] another = RowOf(rows, 500).ToArray();
+            another[Index(Column.Id)] = "503";
+            another[Index(Column.Lane)] = "W";
+            rows.Add(another);
+            Assert.That(Parse(rows).EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502, 503 }));
 
             // Starting and enemy rows alone still leave the curriculum nothing to grant.
             rows = Rows().Where(row => row[Index(Column.Group)] != LegacySkillSheet.AcquisitionGroup).ToList();
@@ -415,6 +419,125 @@ namespace TurnLimbo.Core.Tests
             rows = Rows();
             Set(rows, 500, Column.OpponentBreak, "maybe");
             Assert.That(Problem(rows), Does.StartWith($"{Row500}행 '상대 붕괴': 'maybe'은(는) 예/아니오로 읽을 수 없습니다."));
+        }
+
+        [TestCase("붕괴", LegacyOpponentState.Broken, 0)]
+        [TestCase(" 붕괴 ", LegacyOpponentState.Broken, 0)]
+        [TestCase("체력 30% 이하", LegacyOpponentState.HealthAtMost, 30)]
+        [TestCase("체력30%이하", LegacyOpponentState.HealthAtMost, 30)]
+        [TestCase("체력 30 % 이하", LegacyOpponentState.HealthAtMost, 30)]
+        [TestCase("체력  1%  이하", LegacyOpponentState.HealthAtMost, 1)]
+        [TestCase("체력 99% 이하", LegacyOpponentState.HealthAtMost, 99)]
+        public void OpponentState_ReadsTheBrokenAndHealthForms_AndWritesThemOneWay(string cell, LegacyOpponentState state, int percent)
+        {
+            // 르프리즈's recovery, gated.
+            List<string[]> rows = Rows();
+            Set(rows, 19, Column.OpponentState, cell);
+            LegacySkillTable table = Parse(rows);
+            LegacySkillEffect effect = table.Find(19).Effect;
+            Assert.That((effect.OpponentState, effect.OpponentHealthPercent), Is.EqualTo((state, percent)));
+            Assert.That(effect.ResistanceRecoveryPercent, Is.EqualTo(10));
+            string written = RowOf(CsvTable.Read(LegacySkillSheet.Write(table)).Select(r => r.Fields.ToArray()).ToList(), 19)
+                [Index(Column.OpponentState)];
+            Assert.That(written, Is.EqualTo(state == LegacyOpponentState.Broken ? "붕괴" : $"체력 {percent}% 이하"));
+            Assert.That(LegacySkillLabels.OpponentState(state, percent), Is.EqualTo(written));
+            Assert.That(LegacySkillSheet.Describe(LegacySkillDefinitions.Table, table).Lines,
+                Is.EqualTo(new[] { "변경: 19 르프리즈 — 상대 상태 조건" }));
+            Assert.That(LegacySkillSheet.Describe(table, Parse(CsvTable.Read(LegacySkillSheet.Write(table))
+                .Select(r => r.Fields.ToArray()).ToList())).HasChanges, Is.False, "Any spelling reads back the same.");
+        }
+
+        [TestCase("붕괴함")]
+        [TestCase("broken")]
+        [TestCase("체력 30")]
+        [TestCase("체력 30 이하")]
+        [TestCase("체력 0% 이하")]
+        [TestCase("체력 100% 이하")]
+        [TestCase("체력 30% 미만")]
+        [TestCase("HP 30% 이하")]
+        [TestCase("체력 -5% 이하")]
+        [TestCase("체력 30.5% 이하")]
+        [TestCase("저항 30% 이하")]
+        public void OpponentState_RefusesOtherForms_NamingTheOnesItReads(string cell)
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 19, Column.OpponentState, cell);
+            Assert.That(Problem(rows), Is.EqualTo($"{Row19}행 '상대 상태 조건': '{cell}'은(는) 쓸 수 없습니다. " +
+                "비워 두거나 붕괴, 체력 N% 이하(N은 1~99의 정수, 예: 체력 30% 이하) 중 하나를 적으세요."));
+            Assert.That(LegacySkillLabels.TryParseOpponentState(cell, out LegacyOpponentState state, out int percent), Is.False);
+            Assert.That((state, percent), Is.EqualTo((LegacyOpponentState.None, 0)));
+        }
+
+        [Test]
+        public void ConditionalDamage_IsAPercentOverAHundred_AndBlankOrZeroIsNone()
+        {
+            List<string[]> rows = Rows();
+            Assert.That(RowOf(rows, 502)[Index(Column.OpponentState)], Is.EqualTo("체력 30% 이하"));
+            Assert.That(RowOf(rows, 502)[Index(Column.ConditionalDamage)], Is.EqualTo("200%"));
+            Assert.That(RowOf(rows, 501)[Index(Column.OpponentState)], Is.EqualTo("붕괴"));
+            Assert.That(RowOf(rows, 501)[Index(Column.ConditionalDamage)], Is.Empty);
+            Assert.That(RowOf(rows, 1)[Index(Column.OpponentState)] + RowOf(rows, 1)[Index(Column.ConditionalDamage)], Is.Empty);
+            foreach (var spelling in new[] { ("200", 200), (" 150 % ", 150), ("101%", 101), ("1000%", 1000) })
+            {
+                Set(rows, 502, Column.ConditionalDamage, spelling.Item1);
+                Assert.That(Parse(rows).Find(502).Effect.ConditionalDamagePercent, Is.EqualTo(spelling.Item2), spelling.Item1);
+            }
+            foreach (string cell in new[] { "100%", "50", "1" })
+            {
+                Set(rows, 502, Column.ConditionalDamage, cell);
+                Assert.That(Problem(rows), Is.EqualTo($"{Row502}행 '조건 피해 배율': '{cell}'은(는) 100%보다 커야 합니다(200%는 피해 2배). " +
+                    "배율을 쓰지 않으려면 비워 두세요."));
+            }
+            // Zero reads as blank, which leaves the state condition with nothing to gate.
+            Set(rows, 502, Column.ConditionalDamage, "0%");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row502}행 (ID 502) '상대 상태 조건'은(는) '저항 회복'이나 '조건 피해 배율'이(가) 있어야 합니다."));
+        }
+
+        [Test]
+        public void StateConditionRules_GateARecoveryOrAMultiplier_StandAlone_AndTheMultiplierNeedsAnAttack()
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 2, Column.OpponentState, "붕괴");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row2}행 (ID 2) '상대 상태 조건'은(는) '저항 회복'이나 '조건 피해 배율'이(가) 있어야 합니다."));
+
+            rows = Rows();
+            Set(rows, 2, Column.ConditionalDamage, "150%");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row2}행 (ID 2) '조건 피해 배율'은(는) '상대 상태 조건'이(가) 있어야 합니다. " +
+                "어떤 상대에게 배율을 줄지 적으세요."));
+
+            rows = Rows();
+            Set(rows, 501, Column.ConditionalDamage, "200%");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row501}행 (ID 501) '조건 피해 배율'은(는) 공격 기술에만 쓸 수 있습니다."));
+
+            // One condition per row: 쿠페's 상대 종류 조건 already gates its ACT and resistance cut.
+            rows = Rows();
+            Set(rows, 42, Column.OpponentState, "체력 50% 이하");
+            Set(rows, 42, Column.ConditionalDamage, "150%");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row42}행 (ID 42) '상대 상태 조건'은(는) '상대 속성 조건'이나 '상대 종류 조건'과(와) " +
+                "함께 쓸 수 없습니다. 조건은 기술마다 하나입니다."));
+
+            // Unlike an opponent condition, a state condition may gate 저항 회복, here beside a multiplier and the broken
+            // target bonus of 몰아치기.
+            rows = Rows();
+            Set(rows, 44, Column.OpponentState, "붕괴");
+            Set(rows, 44, Column.ResistanceRecovery, "10%");
+            Set(rows, 44, Column.ConditionalDamage, "150%");
+            LegacySkillTable table = Parse(rows);
+            LegacySkillEffect effect = table.Find(44).Effect;
+            Assert.That((effect.OpponentState, effect.ResistanceRecoveryPercent, effect.ConditionalDamagePercent, effect.BrokenTargetDamagePercent),
+                Is.EqualTo((LegacyOpponentState.Broken, 10, 150, 25)));
+            Assert.That(effect.Roles, Is.EqualTo(LegacySkillRole.ResistanceRecovery | LegacySkillRole.BrokenTargetDamage |
+                LegacySkillRole.ConditionalDamage));
+            Assert.That(LegacySkillSheet.Describe(LegacySkillDefinitions.Table, table).Lines,
+                Is.EqualTo(new[] { "변경: 44 몰아치기 — 저항 회복, 상대 상태 조건, 조건 피해 배율" }));
+            LegacySkillTable reread = LegacySkillSheet.Parse("again", LegacySkillSheet.Write(table));
+            Assert.That(Dump(reread.Find(44)), Is.EqualTo(Dump(table.Find(44))));
+
+            // A state condition alone is an effect of its own, never LegacySkillEffect.None.
+            rows = Rows();
+            Set(rows, 17, Column.OpponentState, "체력 40% 이하");
+            Set(rows, 17, Column.ResistanceRecovery, "20%");
+            Assert.That(Parse(rows).Find(17).Effect, Is.Not.SameAs(LegacySkillEffect.None));
         }
 
         [Test]
@@ -503,7 +626,7 @@ namespace TurnLimbo.Core.Tests
         {
             string csv = LegacySkillSheet.Write(LegacySkillDefinitions.Table) + "99,\"열린 따옴표\n";
             var error = Assert.Throws<SkillSheetException>(() => LegacySkillSheet.Parse("test", csv));
-            Assert.That(error.Problems.Single(), Does.StartWith("24행: "));
+            Assert.That(error.Problems.Single(), Does.StartWith("26행: "));
         }
 
         [Test]
@@ -527,7 +650,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(changes.Changed, Is.EqualTo(1));
             Assert.That(changes.Reordered, Is.False, "12 is new, so the others keep their order.");
             Assert.That(changes.HasChanges, Is.True);
-            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 22개)"));
+            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 24개)"));
         }
 
         [Test]
@@ -537,7 +660,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillSheetChanges same = LegacySkillSheet.Describe(current, Parse(Rows()));
             Assert.That(same.HasChanges, Is.False);
             Assert.That(same.Lines, Is.Empty);
-            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 22개)."));
+            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 24개)."));
 
             List<string[]> rows = Rows();
             string[] guard = RowOf(rows, 7);
@@ -549,7 +672,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(moved.Summary, Does.Contain("순서 변경"));
 
             LegacySkillSheetChanges fresh = LegacySkillSheet.Describe(null, current);
-            Assert.That(fresh.Added, Is.EqualTo(22));
+            Assert.That(fresh.Added, Is.EqualTo(24));
             Assert.That(fresh.Lines[0], Is.EqualTo("추가: 1 베기"));
             Assert.That(fresh.Reordered, Is.False);
         }

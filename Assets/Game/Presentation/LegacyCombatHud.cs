@@ -117,6 +117,8 @@ namespace TurnLimbo.Presentation
         private int playerDamageSequence, enemyDamageSequence;
         private LegacySkill explainedPlayer, explainedEnemy;
         private LegacySkill conditionPreview;
+        private LegacySkill stateHintSkill;
+        private string stateHint;
         private LegacyCurrentSlot feedbackSlot;
         private Camera worldCamera;
         private bool disposed;
@@ -916,15 +918,33 @@ namespace TurnLimbo.Presentation
             LegacySkill opponent = displayedSession == null || !opponentCondition ? null
                 : nextSlot < displayedSession.EnemyQueue.Count ? displayedSession.EnemyQueue[nextSlot]
                 : displayedSession.EnemyCounterFacing(skill);
+            // A 상대 상태 조건 (붕괴, 체력 N% 이하) reads the enemy as it stands, like the self condition reads the player;
+            // the sheet never pairs it with an opponent condition, and it marks no enemy card.
+            bool stateCondition = !opponentCondition && LegacySkillConditions.HasOpponentStateCondition(skill);
             bool ready = displayedSession != null && (opponentCondition
                 ? opponent != null && LegacySkillConditions.MatchesOpponent(skill, opponent)
+                : stateCondition ? LegacySkillConditions.MatchesOpponentState(skill, displayedSession.Player, displayedSession.Enemy)
                 : LegacySkillConditions.MatchesSelfCondition(skill, displayedSession.Player));
             for (int lane = 0; lane < laneFeedback.Length; lane++)
                 laneFeedback[lane].SetState(false, ready && skill != null && skill.LaneIndex == lane, false);
-            playerExplanationHint.text = ready ? opponentCondition
-                ? "지금 예약하면 조건 충족 · 놓으면 닫기" : "현재 저항: 회복 가능 · 놓으면 닫기"
-                : opponentCondition ? "테두리 친 상대 기술에 맞춰 예약 · 놓으면 닫기" : "키를 놓으면 닫기";
+            playerExplanationHint.text = ready ? opponentCondition ? "지금 예약하면 조건 충족 · 놓으면 닫기"
+                    : stateCondition ? "현재 상대 상태: 조건 충족 · 놓으면 닫기" : "현재 저항: 회복 가능 · 놓으면 닫기"
+                : opponentCondition ? "테두리 친 상대 기술에 맞춰 예약 · 놓으면 닫기"
+                : stateCondition ? StateConditionHint(skill) : "키를 놓으면 닫기";
             if (lastPlanning) playerEffectFeedback.SetState(false, ready, false);
+        }
+
+        // "조건: 상대 체력 30% 이하 · 놓으면 닫기", formatted once per inspected skill since the hint refreshes every frame.
+        private string StateConditionHint(LegacySkill skill)
+        {
+            if (!ReferenceEquals(stateHintSkill, skill))
+            {
+                LegacySkillEffect effect = LegacySkillDefinitions.Find(skill).Effect;
+                stateHintSkill = skill;
+                stateHint = "조건: 상대 " + LegacySkillLabels.OpponentState(effect.OpponentState, effect.OpponentHealthPercent) +
+                    " · 놓으면 닫기";
+            }
+            return stateHint;
         }
 
         private void ClearConditionPreview()

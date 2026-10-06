@@ -115,7 +115,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(definition.Effect.HasOpponentCondition, Is.False, "It breaks whatever it meets.");
             Assert.That(definition.HighPower, Is.True);
             Assert.That(LegacySkillDefinitions.Table.IsEnemy(definition), Is.True);
-            Assert.That(LegacySkillDefinitions.EnemySkills, Is.EqualTo(new[] { laudare }));
+            Assert.That(LegacySkillDefinitions.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
             Assert.That(LegacyInitialSkills.All.Concat(CampaignSkillCatalog.AcquisitionSkills), Has.No.Member(laudare));
             Assert.That(definition.Text.Info.EnemyMain, Is.EqualTo("내 저항 붕괴"), "The player reads it as the enemy's skill.");
             Assert.That(CampaignCurriculum.Default.FindGranting(500), Is.Null);
@@ -128,6 +128,43 @@ namespace TurnLimbo.Core.Tests
                 new[] { new[] { 500, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
             Assert.That(run.TryRestore(save, out string error), Is.False);
             Assert.That(error, Does.Contain("500"));
+        }
+
+        [Test]
+        public void BenedicereAndPraedicare_FollowLaudareInIasMottoTurn()
+        {
+            LegacySkill benedicere = LegacySkillDefinitions.Skill(501);
+            Assert.That((benedicere.Name, benedicere.Cost, benedicere.MinPower, benedicere.MaxPower, benedicere.AttackCount, benedicere.LaneIndex),
+                Is.EqualTo(("베네디체레", 0, 5, 10, 1, 0)));
+            Assert.That((benedicere.Kind, benedicere.Property), Is.EqualTo((LegacySkillKind.Defence, LegacySkillProperty.Defence)));
+            Assert.That(benedicere.IconId, Is.EqualTo(13), "르프리즈's recovering guard.");
+            LegacySkillDefinition guard = LegacySkillDefinitions.Find(benedicere);
+            Assert.That((guard.Effect.ResistanceRecoveryPercent, guard.Effect.OpponentState), Is.EqualTo((25, LegacyOpponentState.Broken)));
+            Assert.That(guard.Effect.HasOpponentCondition || guard.HighPower, Is.False);
+            Assert.That(guard.Text.Info.Secondary, Is.EqualTo("상대 붕괴 시"));
+            Assert.That(guard.Text.Info.EnemySecondary, Is.EqualTo("내 저항 붕괴 시"), "The player reads it as the enemy's skill.");
+
+            LegacySkill praedicare = LegacySkillDefinitions.Skill(502);
+            Assert.That((praedicare.Name, praedicare.Cost, praedicare.MinPower, praedicare.MaxPower, praedicare.AttackCount, praedicare.LaneIndex),
+                Is.EqualTo(("프레디카레", 0, 24, 32, 1, 0)));
+            Assert.That((praedicare.Kind, praedicare.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Slash)));
+            Assert.That(praedicare.IconId, Is.EqualTo(12), "알티바호's single downward strike.");
+            LegacySkillDefinition finisher = LegacySkillDefinitions.Find(praedicare);
+            Assert.That((finisher.Effect.OpponentState, finisher.Effect.OpponentHealthPercent, finisher.Effect.ConditionalDamagePercent),
+                Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 200)));
+            Assert.That(finisher.HighPower, Is.True);
+            Assert.That(finisher.Text.Info.Secondary, Is.EqualTo("상대 체력 30% 이하"));
+            Assert.That(finisher.Text.Info.EnemySecondary, Is.EqualTo("내 체력 30% 이하"));
+
+            var run = new CampaignRun();
+            foreach (LegacySkillDefinition definition in new[] { guard, finisher })
+            {
+                Assert.That(LegacySkillDefinitions.Table.IsEnemy(definition), Is.True);
+                Assert.That(definition.Skill.Description, Is.EqualTo("서막 4 임무 이아의 수훈 기술."));
+                Assert.That(definition.Text.Purpose ?? definition.Text.Effect, Is.Null, "Never in the lobby.");
+                Assert.That(CampaignCurriculum.Default.FindGranting(definition.Skill.Id), Is.Null);
+                Assert.That(run.TryEquipSkill(definition.Skill.Id), Is.False);
+            }
         }
 
         [Test]
@@ -159,16 +196,17 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ShippedSheet_HoldsTheTwentyTwoTechniquesInTableOrder()
+        public void ShippedSheet_HoldsTheTwentyFourTechniquesInTableOrder()
         {
             string path = Path.Combine(Environment.CurrentDirectory, LegacySkillDefinitions.SheetAssetPath);
             byte[] bytes = File.ReadAllBytes(path);
             Assert.That(bytes.Take(3).ToArray(), Is.EqualTo(new byte[] { 0xEF, 0xBB, 0xBF }), "UTF-8 with a byte order mark, for Excel.");
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
-            Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 500 }));
+            Assert.That(table.All.Select(d => d.Skill.Id),
+                Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 500, 501, 502 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id), Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44 }));
-            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500 }));
+            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
                 "The runtime reads the same file.");
             Assert.That(LegacySkillDefinitions.Table.SheetId, Is.EqualTo(LegacySkillDefinitions.SheetAssetPath));
@@ -330,6 +368,21 @@ namespace TurnLimbo.Core.Tests
                 if (effect.HasOpponentCondition)
                     Assert.That(effect.ActGain > 0 || effect.OpponentResistanceReduction > 0, Is.True, id);
                 Assert.That(effect.HasBuff, Is.EqualTo(effect.BuffPowerPercent != 0 || effect.BuffProtectionPercent != 0), id);
+                // 상대 상태 조건 stands alone and gates a recovery or a multiplier; the multiplier needs it and an attack.
+                if (effect.HasOpponentStateCondition)
+                {
+                    Assert.That(effect.HasOpponentCondition, Is.False, id);
+                    Assert.That(effect.ResistanceRecoveryPercent > 0 || effect.ConditionalDamagePercent > 0, Is.True, id);
+                }
+                if (effect.OpponentState == LegacyOpponentState.HealthAtMost)
+                    Assert.That(effect.OpponentHealthPercent, Is.InRange(1, 99), id);
+                else Assert.That(effect.OpponentHealthPercent, Is.Zero, id);
+                if (effect.ConditionalDamagePercent != 0)
+                {
+                    Assert.That(effect.ConditionalDamagePercent, Is.GreaterThan(100), id);
+                    Assert.That(effect.HasOpponentStateCondition, Is.True, id);
+                    Assert.That(definition.Skill.Kind, Is.EqualTo(LegacySkillKind.Attack), id);
+                }
                 if (definition.HighPower || definition.VariablePower)
                     Assert.That(definition.Skill.Kind, Is.EqualTo(LegacySkillKind.Attack), id);
             }

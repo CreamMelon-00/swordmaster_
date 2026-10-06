@@ -92,12 +92,14 @@ namespace TurnLimbo.Core.Tests
             Assert.That(CampaignSheetCheck.Warnings(table), Is.Empty, "No node grants 500, and it needs none.");
         }
 
-        [Test]
-        public void MissingEnemySkillOfTheForcedLoss_IsAProblem()
+        [TestCase(500)]
+        [TestCase(501)]
+        [TestCase(502)]
+        public void MissingEnemySkillOfTheForcedLoss_IsAProblem(int id)
         {
             List<string[]> rows = Rows();
-            rows.Remove(RowOf(rows, 500));
-            Assert.That(CampaignSheetCheck.Problems(Parse(rows)).Single(), Does.StartWith("ID 500 기술이 시트에 없습니다. 코드가 이 ID를 씁니다"));
+            rows.Remove(RowOf(rows, id));
+            Assert.That(CampaignSheetCheck.Problems(Parse(rows)).Single(), Does.StartWith($"ID {id} 기술이 시트에 없습니다. 코드가 이 ID를 씁니다"));
         }
 
         [Test]

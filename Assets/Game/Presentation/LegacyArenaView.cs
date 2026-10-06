@@ -647,7 +647,8 @@ namespace TurnLimbo.Presentation
 
         /// <param name="fatal">A heavy hit: it lands on the body, shakes twice as hard and glows gold.</param>
         /// <param name="closeUp">With <paramref name="fatal"/>, also starts the slow close-up and colour flash.
-        /// The controller reserves it for decisive moments: a resistance break or a finishing blow.</param>
+        /// The controller reserves it for decisive moments: a resistance break, a finishing blow, or one hit taking a set
+        /// share of the target's maximum health (<see cref="LegacyDecisiveHit"/>).</param>
         public void PresentHit(bool playerAttacks, int hpDamage, int resistanceDamage, bool guarded,
             bool fatal, int pushPower = -1, HitExchange exchange = HitExchange.None, bool closeUp = true)
         {

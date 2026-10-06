@@ -12,10 +12,24 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// <summary>Semantic tone for a skill keyword; presentation colours it.</summary>
     public enum LegacySkillTone { Neutral, Recovery, Followup, Reduction, HighPower, MultiHit, Variance, Defence }
 
+    /// <summary>A sheet row's 상대 상태 조건: the state the opposing fighter must be in for the row's resistance recovery
+    /// and conditional damage multiplier (<see cref="LegacySkillEffect.OpponentState"/>).</summary>
+    public enum LegacyOpponentState
+    {
+        /// <summary>No state condition.</summary>
+        None,
+        /// <summary>붕괴: the opponent's resistance is broken (zero).</summary>
+        Broken,
+        /// <summary>체력 N% 이하: the opponent's health is at most <see cref="LegacySkillEffect.OpponentHealthPercent"/>
+        /// percent of its maximum.</summary>
+        HealthAtMost,
+    }
+
     /// <summary>A skill's effects. Initial effects apply once when its slot starts, in this order:
-    /// resistance recovery, then (if the opponent condition holds) direct resistance loss, the opponent's break and
-    /// ACT gain, then the buff. Broken-target damage applies separately on each hit. The sheet rejects combinations
-    /// the rules cannot honour; see <see cref="LegacySkillSheet"/>.</summary>
+    /// resistance recovery (if the opponent state condition holds), then (if the opponent condition holds) direct
+    /// resistance loss, the opponent's break and ACT gain, then the buff. Broken-target damage and the conditional
+    /// damage multiplier apply separately on each hit. The sheet rejects combinations the rules cannot honour;
+    /// see <see cref="LegacySkillSheet"/>.</summary>
     public sealed class LegacySkillEffect
     {
         public static LegacySkillEffect None { get; } = new LegacySkillEffect();
@@ -41,9 +55,35 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacySkillProperty? OpponentProperty { get; internal set; }
         /// <summary>When set, ACT gain, direct resistance loss and the break need the same slot's opponent to be this kind.</summary>
         public LegacySkillKind? OpponentKind { get; internal set; }
+        /// <summary>상대 상태 조건: when set, the resistance recovery happens only if the opposing fighter is in this state
+        /// as the recovery applies (at the slot's start), and <see cref="ConditionalDamagePercent"/> applies to a hit only
+        /// if the target is in this state as that hit lands. It never gates the opponent-condition effects or the buff.</summary>
+        public LegacyOpponentState OpponentState { get; internal set; }
+        /// <summary>For <see cref="LegacyOpponentState.HealthAtMost"/>, the percent of maximum health (1-99) the opponent's
+        /// health must be at or below; zero otherwise.</summary>
+        public int OpponentHealthPercent { get; internal set; }
+        /// <summary>조건 피해 배율: a percent over 100 that multiplies each hit's health damage while
+        /// <see cref="OpponentState"/> holds against the target at that hit, after the broken target's doubling, the
+        /// defensive pressure's halving and <see cref="BrokenTargetDamagePercent"/>. Zero for none; attacks only.</summary>
+        public int ConditionalDamagePercent { get; internal set; }
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
+        public bool HasOpponentStateCondition => OpponentState != LegacyOpponentState.None;
         public bool HasBuff => BuffSlots > 0;
+
+        /// <summary>Whether <paramref name="opponent"/> is in <see cref="OpponentState"/> now; false without a state
+        /// condition or an opponent. Health compares exactly: at most N percent means health × 100 ≤ N × maximum.</summary>
+        public bool OpponentStateHolds(LegacyFighterState opponent)
+        {
+            if (opponent == null) return false;
+            switch (OpponentState)
+            {
+                case LegacyOpponentState.Broken: return opponent.IsResistanceBroken;
+                case LegacyOpponentState.HealthAtMost:
+                    return (long)opponent.Health * 100 <= (long)OpponentHealthPercent * opponent.MaxHealth;
+                default: return false;
+            }
+        }
 
         /// <summary>The roles this effect implies; the skill's kind, hits and design tags add the rest.</summary>
         public LegacySkillRole Roles
@@ -59,6 +99,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (OpponentResistanceReduction > 0) roles |= LegacySkillRole.DirectResistanceDamage;
                 if (BrokenTargetDamagePercent > 0) roles |= LegacySkillRole.BrokenTargetDamage;
                 if (BreaksOpponent) roles |= LegacySkillRole.OpponentBreak;
+                if (ConditionalDamagePercent > 0) roles |= LegacySkillRole.ConditionalDamage;
                 return roles;
             }
         }
