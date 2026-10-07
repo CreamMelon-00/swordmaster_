@@ -154,7 +154,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.StartMissionFour();
                 Assert.That(barks.Script, Is.Not.Null, "The 서막's last mission has its bark file…");
                 Assert.That(barks.Script.Id, Is.EqualTo(BarkScript.MissionResource(4)));
-                // Three hits of 10 on a breathing 40-health 이아: the second crosses half, the third comes after the scene.
+                // Three hits of 10 on a breathing 40-health 이아: the second crosses half and ends this turn.
                 var flurry = new LegacySkill(201, "Test Flurry", 1, 30, 30, LegacySkillKind.Attack, LegacySkillProperty.Slash, 3, 0, "",
                     iconId: 1);
                 scope.Install(new LegacyQueuedDuel(100, 50, 40, 10, new[] { flurry }, new[] { LegacyCommonActions.Breathe },
@@ -174,12 +174,15 @@ namespace TurnLimbo.Presentation.Tests
 
                 Assert.That(controller.SkipScene(), Is.True);
                 Assert.That(controller.IsMissionEmpowered, Is.True);
+                Assert.That(controller.CanChoose && controller.Session.RoundNumber == 2, Is.True);
+                Assert.That(controller.EnemyHealth, Is.EqualTo(20), "The flurry's last hit is cancelled by the scene.");
                 Assert.That(barks.Tracker.Current(BarkSpeaker.Enemy)?.Text, Is.EqualTo("이것이 수훈이다."), "The resumed battle hears 수훈…");
                 scope.Advance(Frame);
                 Assert.That(barks.ShownText(BarkSpeaker.Enemy), Is.EqualTo("이것이 수훈이다."));
                 AssertPlacement(controller);
-                scope.AdvanceUntil(() => controller.EnemyHealth == 10, "The flurry's last hit lands after the scene.");
-                Assert.That(barks.ShownText(BarkSpeaker.Enemy), Is.EqualTo("이것이 수훈이다."), "…and a heavy hit does not cut it off.");
+                for (int frame = 0; frame < 5; frame++) scope.Advance(Frame);
+                Assert.That(controller.EnemyHealth, Is.EqualTo(20), "The previous turn never resumes under the bark.");
+                Assert.That(barks.ShownText(BarkSpeaker.Enemy), Is.EqualTo("이것이 수훈이다."), "…and the new planning turn leaves it audible.");
             }
         }
 

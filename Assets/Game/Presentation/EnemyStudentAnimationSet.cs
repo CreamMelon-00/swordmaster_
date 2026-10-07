@@ -10,6 +10,8 @@ namespace TurnLimbo.Presentation
     public sealed class EnemyStudentAnimationSet : IDisposable
     {
         public const string ResourceRoot = "EnemyStudent/Animations/";
+        public const string CadetAResourceRoot = "EnemyVariants/CadetA/Animations/";
+        public const string CadetBResourceRoot = "EnemyVariants/CadetB/Animations/";
         public const int RequiredSpriteCount = 121;
         public const int MoveFrameCount = 1;
         public const int AttackVariationCount = 3;
@@ -22,13 +24,17 @@ namespace TurnLimbo.Presentation
         private readonly Sprite[] guards = new Sprite[ReactionVariationCount];
         private readonly Sprite[] hurts = new Sprite[ReactionVariationCount];
         private readonly Sprite movePose;
+        private readonly string resourceRoot;
+        private readonly string spriteNamePrefix;
         private bool disposed;
         public bool HasRequiredAssets => !disposed && missing.Count == 0 && owned.Count == RequiredSpriteCount;
         public IReadOnlyList<string> MissingResources => missing;
         public int LoadedSpriteCount => owned.Count;
 
-        public EnemyStudentAnimationSet()
+        public EnemyStudentAnimationSet(string resourceRoot = ResourceRoot, string spriteNamePrefix = "enemy")
         {
+            this.resourceRoot = resourceRoot ?? throw new ArgumentNullException(nameof(resourceRoot));
+            this.spriteNamePrefix = spriteNamePrefix ?? throw new ArgumentNullException(nameof(spriteNamePrefix));
             foreach (string key in new[] { "idle", "slash", "slash-2", "slash-3", "pierce", "pierce-2", "pierce-3", "blunt", "blunt-2", "blunt-3" })
             {
                 var frames = new Sprite[key == "idle" ? 8 : 12];
@@ -81,14 +87,14 @@ namespace TurnLimbo.Presentation
 
         private Sprite Load(string path)
         {
-            Sprite source = Resources.Load<Sprite>(ResourceRoot + path);
-            if (source == null) { missing.Add(ResourceRoot + path); return null; }
+            Sprite source = Resources.Load<Sprite>(resourceRoot + path);
+            if (source == null) { missing.Add(resourceRoot + path); return null; }
             Vector2 pivot = source.pivot;
             pivot.y -= MobStudentAnimationSet.GroundOffset * source.pixelsPerUnit;
             Sprite sprite = Sprite.Create(source.texture, source.rect,
                 new Vector2(pivot.x / source.rect.width, pivot.y / source.rect.height),
                 source.pixelsPerUnit, 0, SpriteMeshType.FullRect);
-            sprite.name = "enemy-" + path.Replace('/', '-');
+            sprite.name = spriteNamePrefix + "-" + path.Replace('/', '-');
             sprite.hideFlags = HideFlags.HideAndDontSave;
             owned.Add(sprite);
             return sprite;

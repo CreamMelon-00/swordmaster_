@@ -8,7 +8,7 @@ using Object = UnityEngine.Object;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Stages a cutscene on the forest arena while the duel is not ticking: it places, poses and trembles the
+    /// <summary>Stages a cutscene on the active arena while the duel is not ticking: it places, poses and trembles the
     /// figures (the two fighters, and the senior knight who only exists in cutscenes), moves and shakes the camera,
     /// drains the colour for flashbacks, runs the figures' power effects and the scene's sounds, flashes up remembered
     /// tutorial screens (<see cref="TutorialRecallAlbum"/>), and drives the <see cref="CutsceneHud"/> layers and the
@@ -24,7 +24,6 @@ namespace TurnLimbo.Presentation
     /// exactly as the battle paused it.</summary>
     public sealed class CutsceneDirector : ICutsceneStage, IDisposable
     {
-        private const float GroundY = -.5f;
         private const float CameraY = -1.5f;
         // Zooming in lowers the camera so the figures' feet stay near the same screen height.
         private const float CameraDropPerSize = .2f;
@@ -592,7 +591,7 @@ namespace TurnLimbo.Presentation
             camera.transform.localPosition = new Vector3(cameraX.Value + shake.x,
                 CameraHeight(size) + cameraLift.Value + shake.y, -10f);
             camera.transform.localRotation = Quaternion.Euler(0f, 0f, cameraTilt.Value);
-            arena.ForestBackdrop.Tick(camera, false, delta);
+            arena.TickBackdrop(camera, false, delta);
         }
 
         /// <summary>The shake's camera offset now: noise that dies away (quadratically) over its seconds, scaled with
@@ -611,7 +610,7 @@ namespace TurnLimbo.Presentation
             SpriteRenderer renderer = figure.Renderer;
             if (renderer.gameObject.activeSelf != figure.Visible) renderer.gameObject.SetActive(figure.Visible);
             if (!figure.Visible) return;
-            renderer.transform.localPosition = new Vector3(figure.X + TrembleOffset(figure), GroundY, 0f);
+            renderer.transform.localPosition = new Vector3(figure.X + TrembleOffset(figure), arena.ActorGroundY, 0f);
             renderer.transform.localScale = Vector3.one;
             renderer.color = Color.white;
             renderer.flipX = figure.FacesRight != figure.FacesRightByDefault;
@@ -679,12 +678,12 @@ namespace TurnLimbo.Presentation
             return figure.TrembleStrength * ease * wave;
         }
 
-        private static void RestoreFigure(Figure figure)
+        private void RestoreFigure(Figure figure)
         {
             SpriteRenderer renderer = figure.Renderer;
             if (renderer == null) return;
             // A scene cut short in a tremble leaves the figure exactly at its place.
-            if (figure.Trembling && figure.Visible) renderer.transform.localPosition = new Vector3(figure.X, GroundY, 0f);
+            if (figure.Trembling && figure.Visible) renderer.transform.localPosition = new Vector3(figure.X, arena.ActorGroundY, 0f);
             figure.Trembling = false;
             renderer.flipX = false;
             renderer.color = Color.white;

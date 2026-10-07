@@ -1,0 +1,1 @@
+VERIFIED: 3 runtime layers, 2172x916 output, original 2172x724 content unchanged at y=160..883, top padding=160, bottom padding=32

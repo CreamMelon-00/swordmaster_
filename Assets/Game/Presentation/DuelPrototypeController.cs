@@ -38,7 +38,9 @@ namespace TurnLimbo.Presentation
         private DuelStepHud stepHud;
         private DuelStepAudio stepAudio;
         private DuelResistanceFeedback resistanceFeedback;
+        private DuelBreakImpactCue breakImpactCue;
         private DuelSkillActivationCue skillActivationCue;
+        private DuelSkillLevelUpCue skillLevelUpCue;
         private DialogueHud dialogueHud;
         private DialogueSession dialogueSession;
         private DialoguePortraitCatalog defaultDialoguePortraitCatalog;
@@ -46,6 +48,7 @@ namespace TurnLimbo.Presentation
         private CampaignRun campaign;
         private CampaignLobbyHud lobbyHud;
         private BattleResultHud resultHud;
+        private DuelPauseHud pauseHud;
         private MissionCoachHud coachHud;
         private MissionBriefingHud briefingHud;
         private TitleHud titleHud;
@@ -65,6 +68,7 @@ namespace TurnLimbo.Presentation
         private CutsceneHud cutsceneHud;
         private CutsceneDirector cutscene;
         private System.Action cutsceneContinuation;
+        private bool lastCutsceneCompletedNaturally;
         private int cutsceneOpenedFrame = -1;
         // The first missions' coached screens, captured for the 서막's tutorial recall (@recall); kept for the session.
         private TutorialRecallAlbum recallAlbum;
@@ -75,7 +79,8 @@ namespace TurnLimbo.Presentation
         // the battle pauses for the scene. Once the empowerment is applied, the rest of the attempt is empowered.
         private bool missionEventPending;
         private bool missionEmpowered;
-        // A battle paused for a mission event scene or dialogue; it resumes where it stopped.
+        private bool skillExperienceDirty;
+        // A battle paused for a mission event scene or dialogue; the triggering hit ends that turn.
         private bool battlePausedForEvent;
         // The finishing blow's slow motion, bars and freeze frame (every battle), and the 수훈 phase's cut-ins, grade, hum
         // and shakes (the 서막's last mission after its event).
@@ -131,6 +136,8 @@ namespace TurnLimbo.Presentation
         public CampaignRun Campaign => campaign;
         public CampaignLobbyHud LobbyHud => lobbyHud;
         public BattleResultHud ResultHud => resultHud;
+        public DuelPauseHud PauseHud => pauseHud;
+        public bool IsPaused => pauseHud != null && pauseHud.IsVisible;
         public MissionCoachHud CoachHud => coachHud;
         public MissionBriefingHud BriefingHud => briefingHud;
         public TitleHud TitleHud => titleHud;
@@ -204,7 +211,7 @@ namespace TurnLimbo.Presentation
         public LegacyCombatHud Hud => hud;
         public DuelStepHud StepHud => stepHud;
         public bool IsResolving => viewPhase != ViewPhase.Planning && viewPhase != ViewPhase.Outcome;
-        public bool CanChoose => viewPhase == ViewPhase.Planning && session.Phase == LegacyDuelPhase.Planning;
+        public bool CanChoose => !IsPaused && viewPhase == ViewPhase.Planning && session.Phase == LegacyDuelPhase.Planning;
         public int PlayerHealth => session.Player.Health;
         public int EnemyHealth => session.Enemy.Health;
         public DuelMatchOutcome Outcome => session.Outcome;
@@ -229,7 +236,7 @@ namespace TurnLimbo.Presentation
             }
         }
         // A cut-in holds the battle: no step is judged against its held cue.
-        public bool CanStep => session != null && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
+        public bool CanStep => session != null && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
             StepFeatures.AllowsAnyStep() &&
             session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
@@ -293,7 +300,9 @@ namespace TurnLimbo.Presentation
             stepHud = new DuelStepHud(hud.Root.transform, art, presentationSettings);
             stepAudio = new DuelStepAudio(transform);
             resistanceFeedback = new DuelResistanceFeedback(hud.Root.transform, art.UIFont);
+            breakImpactCue = new DuelBreakImpactCue(hud.Root.transform);
             skillActivationCue = new DuelSkillActivationCue(hud.Root.transform, art.UIFont);
+            skillLevelUpCue = new DuelSkillLevelUpCue(transform, art.UIFont);
             // A cutscene's lines use the same dialogue box: its buttons advance or skip the cutscene instead.
             dialogueHud = new DialogueHud(transform, art,
                 () => { if (IsPlayingCutscene) AdvanceCutscene(); else ContinueDialogue(); },
@@ -315,6 +324,8 @@ namespace TurnLimbo.Presentation
                 () => StartTraining());
             resultHud = new BattleResultHud(transform, art, () => DismissBattleResult(),
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
+            pauseHud = new DuelPauseHud(transform, art, () => ResumeBattle(),
+                () => RetryPausedBattle(), () => AbandonPausedBattle());
             coachHud = new MissionCoachHud(transform, art, () => AdvanceGuide(),
                 () => AbandonBattle(), () => InspectGuideEnemy());
             recallAlbum = new TutorialRecallAlbum(this);
@@ -335,9 +346,21 @@ namespace TurnLimbo.Presentation
         private void AdvancePresentation(float realDelta, Keyboard keyboard)
         {
             realDelta = Mathf.Max(0f, realDelta);
+            if (IsPaused)
+            {
+                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) ResumeBattle();
+                return;
+            }
+            // Break impulses use real time even during the finale's frozen frame and the result hand-off.
+            breakImpactCue.Tick(realDelta, arena.ArenaCamera,
+                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
+            // Level-up is its own overlay, so it can finish over a result even after the duel HUD closes.
+            skillLevelUpCue.Tick(realDelta, arena.ArenaCamera, arena.PlayerRenderer.transform);
+            // A step judged on the last skill still finishes its real-time result during the turn hand-off.
+            stepHud.Tick(realDelta);
             // The 수훈 hum fades out on whatever screen follows the battle.
             empowermentCues.TickAudio(realDelta);
-            // The forest's bed follows the scene: in under battles and forest scenes, out on the title, lobby and briefing.
+            // The forest's bed follows forest scenes only; indoor fights use their own quiet room tone.
             forestAmbience.Tick(realDelta, ForestIsTheScene, ForestVisibility, StoryLoopLevel);
             if (IsPlayingCutscene)
             {
@@ -414,8 +437,9 @@ namespace TurnLimbo.Presentation
             }
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
             {
-                // A decided battle is not abandoned: Escape skips its finishing blow to the result or the outro.
-                AbandonBattle();
+                // A decided battle keeps its established skip-to-result behavior.
+                if (session.IsFinished || finale.IsRunning) AbandonBattle();
+                else PauseBattle();
                 return;
             }
             // The finishing blow's freeze frame (and the 서막's final fall into black and white after it): nothing moves, not
@@ -453,8 +477,8 @@ namespace TurnLimbo.Presentation
             if (finale.IsRunning) speed = finale.CombatSpeed;
             float stoppedTime = Mathf.Min(realDelta, hitStopRemaining);
             hitStopRemaining = Mathf.Max(0f, hitStopRemaining - stoppedTime);
-            // The hit that brought the enemy to the event's threshold has landed and its hit stop has played out: the
-            // battle pauses here for the scene, before its clock moves on, and resumes from this frame afterwards.
+            // The hit that brought the enemy to the event's threshold has landed and its hit stop has played out.
+            // Pause here for the scene; remaining hits and slots are discarded when it ends.
             if (missionEventPending && hitStopRemaining <= 0f)
             {
                 OpenMissionEvent();
@@ -551,7 +575,6 @@ namespace TurnLimbo.Presentation
             arena.TickPressureAttackTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
             if (viewPhase != ViewPhase.Outcome)
             {
-                stepHud.Tick(realDelta);
                 RefreshHudClock(delta, realDelta);
             }
         }
@@ -710,7 +733,8 @@ namespace TurnLimbo.Presentation
                     if (missionEmpowered) empowermentCues.NotifyEnemyHit(mission.Empowerment, hit.EnemySkill);
                 }
                 // Includes a deferred counter slot's start effects, which run inside this hit.
-                AnnounceBreaks(playerWasBroken, enemyWasBroken);
+                AnnounceBreaks(playerWasBroken, enemyWasBroken,
+                    hit.EnemyAttacked && !hit.PlayerDodged, hit.PlayerAttacked);
                 // The first hit that brings the enemy to a mission event's threshold (never one that ends the duel).
                 if (hit.EnemyReachedHealthThreshold && mission?.Empowerment != null && !missionEmpowered)
                     missionEventPending = true;
@@ -729,9 +753,7 @@ namespace TurnLimbo.Presentation
                     slotDuration = animationClipEnd;
                     hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
                     arena.HoldSlotAtTime(attackTime);
-                    hud.RecordResolvedSlot(slot.PlayerSkill, slot.EnemySkill, playerSlotDamage, enemySlotDamage);
-                    session.CompleteCurrentSlot();
-                    PrepareNextSlot(true);
+                    CompleteResolvedSkillSlot(slot);
                     return;
                 }
                 // A long frame must not batch several impacts before any push
@@ -744,20 +766,54 @@ namespace TurnLimbo.Presentation
             }
             if (phaseTime >= slotDuration && slot.IsResolved)
             {
-                hud.RecordResolvedSlot(slot.PlayerSkill, slot.EnemySkill, playerSlotDamage, enemySlotDamage);
-                session.CompleteCurrentSlot();
-                PrepareNextSlot(true);
+                CompleteResolvedSkillSlot(slot);
+            }
+        }
+
+        private void CompleteResolvedSkillSlot(LegacyCurrentSlot slot)
+        {
+            RecordResolvedSkillSlot(slot);
+            session.CompleteCurrentSlot();
+            PrepareNextSlot(true);
+        }
+
+        private void RecordResolvedSkillSlot(LegacyCurrentSlot slot)
+        {
+            hud.RecordResolvedSlot(slot.PlayerSkill, slot.EnemySkill, playerSlotDamage, enemySlotDamage);
+            CampaignOwnedSkill owned = slot.PlayerSkill == null ? null : campaign.GetOwnedSkill(slot.PlayerSkill.Id);
+            int previousLevel = owned?.Level ?? 0;
+            if (campaign.TryGainClashExperience(slot.PlayerSkill, slot.EnemySkill))
+            {
+                skillExperienceDirty = true;
+                if (owned.Level > previousLevel) skillLevelUpCue.Show(owned.Skill, owned.Level);
             }
         }
 
         /// <summary>Calls out every fighter whose resistance broke during the last rules step, whether a
         /// hit or a skill effect (such as 쿠페's direct reduction) broke it, and updates the break aura.</summary>
-        private void AnnounceBreaks(bool playerWasBroken, bool enemyWasBroken)
+        private void AnnounceBreaks(bool playerWasBroken, bool enemyWasBroken,
+            bool playerHitPresented = false, bool enemyHitPresented = false)
         {
-            if (!playerWasBroken && session.Player.IsResistanceBroken)
+            bool playerBroke = !playerWasBroken && session.Player.IsResistanceBroken;
+            bool enemyBroke = !enemyWasBroken && session.Enemy.IsResistanceBroken;
+            if (playerBroke)
+            {
                 hud.ShowBreakCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
-            if (!enemyWasBroken && session.Enemy.IsResistanceBroken)
+                breakImpactCue.Show(true);
+            }
+            if (enemyBroke)
+            {
                 hud.ShowBreakCallout(false, arena.EnemyRenderer.transform.position, arena.EnemyRenderer.transform);
+                breakImpactCue.Show(false);
+            }
+            // A direct effect has no impact animation to play the decisive sound. A deferred effect can also
+            // break someone whose hit was dodged, so use the presented hit for each target instead of the slot phase.
+            bool needsBreakSound = (playerBroke && !playerHitPresented) || (enemyBroke && !enemyHitPresented);
+            if (needsBreakSound && criticalSound != null)
+            {
+                effectsSource.pitch = playerBroke ? .82f : .96f;
+                effectsSource.PlayOneShot(criticalSound, .72f);
+            }
             arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
         }
 
@@ -794,10 +850,10 @@ namespace TurnLimbo.Presentation
             if (decisive) hud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
             hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber);
-            effectsSource.pitch = Random.Range(0.75f, 1.25f);
+            effectsSource.pitch = resistanceBroke ? (playerAttacks ? .96f : .82f) : Random.Range(0.75f, 1.25f);
             art.PlayClash(effectsSource, false, Random.value >= 0.5f);
             if (decisive && criticalSound != null)
-                effectsSource.PlayOneShot(criticalSound, 0.55f);
+                effectsSource.PlayOneShot(criticalSound, resistanceBroke ? .72f : .55f);
         }
 
         private void StartPlanning()
@@ -835,6 +891,7 @@ namespace TurnLimbo.Presentation
             LegacyCurrentSlot slot = session?.CurrentSlot;
             bool counterPending = slot?.PendingPlayerCounter != null;
             bool pressureBacked = counterPending && slot.PressureSucceeded;
+            int previousStepStreak = session?.StepSuccessStreak ?? 0;
             if (!CanStep || guide != null && !guide.AllowsStep(action) || !session.TryStep(action, timingWindow, out success)) return false;
             if (counterPending && slot.PendingPlayerCounter == null && slot.PlayerSkill == null)
             {
@@ -846,7 +903,7 @@ namespace TurnLimbo.Presentation
                 if (pressureBacked) stepHud.ClearFeedback(LegacyStepAction.Pressure);
             }
             arena.PerformStep(action, success, session.StepSuccessStreak);
-            stepHud.ShowFeedback(action, success, session.StepSuccessStreak);
+            stepHud.ShowFeedback(action, success, session.StepSuccessStreak, previousStepStreak);
             stepAudio.Play(action, success, presentationSettings.StepSoundVolume);
             RefreshHud(0f);
             if (guide != null)
@@ -902,9 +959,9 @@ namespace TurnLimbo.Presentation
         private bool IsLaneOpen(int lane) => session != null && session.Features.HasLane(lane);
 
         /// <summary>A lane's hold this frame, from its key and from the pointer on its gear's window (<see
-        /// cref="LegacyLaneHold"/>, real time): a tap queues on release; held to <see
-        /// cref="DuelPresentationSettings.ExplanationHoldSeconds"/> it opens the front skill's explanation, the bar filling
-        /// from the tap's limit, and that release only closes it. A press on another lane closes an open explanation.</summary>
+        /// cref="LegacyLaneHold"/>, real time): a tap queues on release; releasing while the bar fills safely cancels with
+        /// a brief cue; held to <see cref="DuelPresentationSettings.ExplanationHoldSeconds"/> it opens the front skill's
+        /// explanation, and that release only closes it. A press on another lane closes an open explanation.</summary>
         private void ReadLaneHold(int lane, bool keyHeld, bool keyPressed, bool keyReleased, float realDelta)
         {
             if (!IsLaneOpen(lane)) return;
@@ -916,7 +973,11 @@ namespace TurnLimbo.Presentation
             bool vanished = !held && !letGo && laneHeld[lane];
             // A new press is a new hold, a tap until it is held long enough, whatever ended the one before (ClearHeldKeys
             // closes a key still down from then).
-            if (pressed) holdConsumed[lane] = false;
+            if (pressed)
+            {
+                holdConsumed[lane] = false;
+                hud.ClearHoldCancel(lane);
+            }
             if (releasedAway || vanished) holdConsumed[lane] = true;
             float tap = presentationSettings.LaneTapSeconds, explain = presentationSettings.ExplanationHoldSeconds;
             if (pressed && explainedSkill != null)
@@ -942,7 +1003,10 @@ namespace TurnLimbo.Presentation
             }
             else if (letGo || vanished)
             {
-                if (LegacyLaneHold.ReleaseQueues(holdTimes[lane], holdConsumed[lane], tap)) QueueLane(lane);
+                bool queues = LegacyLaneHold.ReleaseQueues(holdTimes[lane], holdConsumed[lane], tap);
+                bool safelyCancelled = letGo && !held && !releasedAway && !holdConsumed[lane] && !queues &&
+                    holdTimes[lane] < LegacyLaneHold.ExplainSeconds(tap, explain);
+                if (queues) QueueLane(lane);
                 if (explainedLane == lane)
                 {
                     explainedSkill = null;
@@ -951,6 +1015,7 @@ namespace TurnLimbo.Presentation
                 holdTimes[lane] = 0f;
                 holdConsumed[lane] = false;
                 hud.SetHoldProgress(lane, 0f);
+                if (safelyCancelled) hud.ShowHoldCancel(lane);
             }
         }
 
@@ -958,6 +1023,7 @@ namespace TurnLimbo.Presentation
         {
             if (!CanChoose || IsInspecting || lane < 0 || lane > 2 ||
                 guide != null && !guide.AllowsQueue(lane) || !session.TryQueueLane(lane)) return false;
+            hud.ClearHoldCancel();
             guide?.NotifyQueued(lane);
             // The lane's gear turns a slot: the queued skill to the upper right, the next one up into the window.
             hud.PlayLaneTurn(lane);
@@ -976,6 +1042,7 @@ namespace TurnLimbo.Presentation
         {
             if (!CanChoose || IsInspecting || guide != null && !guide.AllowsCycle || !CanAffordLaneCycle ||
                 !session.TryCycleLanes()) return false;
+            hud.ClearHoldCancel();
             float cost = LaneCycleCost;
             if (cost > 0f)
             {
@@ -1003,6 +1070,7 @@ namespace TurnLimbo.Presentation
         {
             // The duel refuses a closed 숨고르기; a coached mission also waits for its lesson beat.
             if (!CanChoose || IsInspecting || guide != null && !guide.AllowsBreath || !session.TryQueueBreath()) return false;
+            hud.ClearHoldCancel();
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             explainedSkill = null;
@@ -1132,12 +1200,55 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
-        /// <summary>Plays a cutscene from the lobby and comes back to it (tests and later story triggers).</summary>
-        public bool StartCutscene(CutsceneScript script)
+        /// <summary>Plays a cutscene from the lobby and comes back to it. Later story scenes default to the school;
+        /// callers can explicitly place an outdoor scene in the forest.</summary>
+        public bool StartCutscene(CutsceneScript script) => StartCutscene(script, ArenaBackdropKind.SchoolCorridor);
+
+        public bool StartCutscene(CutsceneScript script, ArenaBackdropKind backdrop)
         {
             if (script == null) throw new System.ArgumentNullException(nameof(script));
             if (!IsInLobby) return false;
-            OpenCutscene(script, ShowLobby);
+            OpenCutscene(script, ShowLobby, bareBackdrop: backdrop);
+            return true;
+        }
+
+        /// <summary>Replays an already completed opening-arc scene from the lobby without advancing the story.</summary>
+        public bool ReplayStoryCutscene(string resourcePath, int missionNumber = 0)
+        {
+            if (!IsInLobby) return false;
+
+            CutsceneScript script;
+            PrologueMission shown = null;
+            if (missionNumber == 0)
+            {
+                if (resourcePath != OpeningCutscene) return false;
+                TextAsset source = Resources.Load<TextAsset>(OpeningCutscene);
+                if (source == null) return false;
+                try
+                {
+                    script = CutsceneScriptParser.Parse(OpeningCutscene, source.text);
+                }
+                catch (CutsceneParseException exception)
+                {
+                    Debug.LogWarning(exception.Message);
+                    return false;
+                }
+            }
+            else
+            {
+                if (missionNumber < 1 || missionNumber > PrologueMissions.Count || !prologue.IsCleared(missionNumber))
+                    return false;
+                shown = PrologueMissions.Get(missionNumber);
+                if (resourcePath != shown.IntroCutscene && resourcePath != shown.OutroCutscene &&
+                    resourcePath != shown.Empowerment?.Scene) return false;
+                script = LoadMissionCutscene(shown, resourcePath);
+                if (script == null) return false;
+            }
+
+            lobbyHud.ShowTab(LobbyTab.Home);
+            bool enemyAura = shown?.Empowerment?.KeepsAura == true && resourcePath == shown.OutroCutscene;
+            OpenCutscene(script, ShowLobby, shown, enemyAura,
+                bareBackdrop: missionNumber == 0 ? ArenaBackdropKind.Forest : ArenaBackdropKind.SchoolCorridor);
             return true;
         }
 
@@ -1153,7 +1264,8 @@ namespace TurnLimbo.Presentation
             }
             try
             {
-                OpenCutscene(CutsceneScriptParser.Parse(resourcePath, source.text), continuation);
+                OpenCutscene(CutsceneScriptParser.Parse(resourcePath, source.text), continuation,
+                    bareBackdrop: ArenaBackdropKind.Forest);
                 return true;
             }
             catch (CutsceneParseException exception)
@@ -1168,13 +1280,19 @@ namespace TurnLimbo.Presentation
         /// the outro's end, not over a reset arena).</param>
         /// <param name="fromGrey">Real seconds over which the scene regains its colour from black and white (the 서막's final
         /// fall); 0 opens in colour.</param>
+        /// <param name="bareBackdrop">Scenery for an unstaged scene, such as the opening or a lobby story scene.</param>
         private void OpenCutscene(CutsceneScript script, System.Action continuation, PrologueMission battlefield = null,
-            bool enemyAura = false, float fromGrey = 0f)
+            bool enemyAura = false, float fromGrey = 0f, ArenaBackdropKind bareBackdrop = ArenaBackdropKind.SchoolCorridor)
         {
-            // From a bare forest arena: no title, briefing, lobby, result, coach, dialogue or duel HUD.
+            // From a bare arena: no title, briefing, lobby, result, coach, dialogue or duel HUD.
             ClearBattleScreens();
             lobbyHud.Hide();
             if (battlefield != null) StageBattlefield(battlefield, enemyAura);
+            else
+            {
+                arena.SetBackdrop(bareBackdrop);
+                arena.Reset();
+            }
             BeginCutscene(script, continuation, false, battlefield != null, fromGrey);
         }
 
@@ -1195,6 +1313,8 @@ namespace TurnLimbo.Presentation
         /// <paramref name="enemyAura"/> the enemy still wears the 수훈 aura the battle ended with.</summary>
         private void StageBattlefield(PrologueMission shown, bool enemyAura)
         {
+            arena.SetBackdrop(shown.Number <= PrologueMissions.Count
+                ? ArenaBackdropKind.Forest : ArenaBackdropKind.SchoolCorridor);
             arena.SetEnemyAppearance(shown.EnemyAppearance);
             arena.Reset();
             if (enemyAura) arena.EnemyPowerAura.SetAura(true);
@@ -1239,7 +1359,7 @@ namespace TurnLimbo.Presentation
 
         /// <summary>A mission's mid-battle event (the 서막's 수훈), on the frame the battle paused on: the duel HUD, coach
         /// and step cues leave, and the scene plays on the arena as it stands (or its dialogue over it). Its end, or
-        /// Escape, applies the empowerment and the battle carries on from that frame. Without either file the
+        /// Escape, applies the empowerment and opens a new planning turn. Without either file the
         /// empowerment applies at once.</summary>
         private void OpenMissionEvent()
         {
@@ -1259,22 +1379,31 @@ namespace TurnLimbo.Presentation
             else if (!PlayMissionDialogue(shown.EventDialogue, ResumeMissionBattle)) ResumeMissionBattle();
         }
 
-        /// <summary>The event scene is over (or skipped): the enemy is empowered and the paused battle resumes exactly
-        /// where it stopped, its remaining hits and slots included.</summary>
+        /// <summary>The event scene is over (or skipped): the hit that triggered it remains, while the rest of that
+        /// committed turn is cancelled. Begin a fresh planning turn against the empowered enemy.</summary>
         private void ResumeMissionBattle()
         {
             battlePausedForEvent = false;
             empowermentCues.SetPaused(false);
+            LegacyCurrentSlot interruptedSlot = session.CurrentSlot;
+            if (session.InterruptResolvingTurn() != null) RecordResolvedSkillSlot(interruptedSlot);
+            // The event ends at the duel's staging places. Clear the previous strike's push, pose and camera
+            // before exposing the battle again; its health, resistance, ACT and skill progression live in session.
+            arena.Reset();
+            stepHud.Reset();
+            resistanceFeedback.Reset();
+            breakImpactCue.Reset();
+            skillActivationCue.Reset();
             ApplyEmpowerment();
-            barks.Empowered();
             hud.Root.SetActive(true);
             ClearHeldKeys();
+            StartPlanning();
+            barks.Empowered();
             RefreshHud(0f);
-            RefreshGuide();
         }
 
-        /// <summary>From the next planning turn the enemy follows the empowered script; the turn in progress keeps its
-        /// queue. The 수훈 aura stays on the enemy until the battle ends (lit here if the scene did not light it), and the
+        /// <summary>The new planning turn follows the empowered enemy script. The 수훈 aura stays on the enemy until
+        /// the battle ends (lit here if the scene did not light it), and the
         /// 수훈 phase's presentation begins (<see cref="DuelEmpowermentCues"/>).</summary>
         private void ApplyEmpowerment()
         {
@@ -1308,7 +1437,8 @@ namespace TurnLimbo.Presentation
         private void FinishCutscene()
         {
             System.Action next = cutsceneContinuation;
-            // A scene in the middle of a battle hands the arena back as the battle left it, ready to resume. A mission's
+            lastCutsceneCompletedNaturally = cutscene.IsComplete;
+            // A scene in the middle of a battle hands the arena back before the interrupted turn is closed. A mission's
             // battlefield scene keeps its last picture: its result shows over it, and the battle, briefing or lobby that
             // follows restages the arena anyway.
             EndCutscene(!cutscene.ResumesBattle && !cutsceneKeepsStage);
@@ -1409,7 +1539,9 @@ namespace TurnLimbo.Presentation
             if (!IsInBriefing || prologue.CurrentMission == null) return false;
             PrologueMission briefed = prologue.CurrentMission;
             int number = briefed.Number;
-            if (!PlayMissionScene(briefed, briefed.IntroCutscene, briefed.IntroDialogue, () => BeginMissionBattle(number)))
+            lastCutsceneCompletedNaturally = false;
+            if (!PlayMissionScene(briefed, briefed.IntroCutscene, briefed.IntroDialogue,
+                    () => BeginMissionBattle(number, number == 2 && lastCutsceneCompletedNaturally)))
                 BeginMissionBattle(number);
             return true;
         }
@@ -1680,20 +1812,89 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
-        /// <summary>Leaves the battle: a mission goes back to its briefing, a stage to the lobby. The player's Escape and the
+        /// <summary>Leaves the battle: a mission goes back to its briefing, a stage to the lobby. The pause menu's 포기 and
         /// coach's 임무 포기 come through <see cref="AbandonBattle"/>, which never leaves a decided battle.</summary>
         public void ReturnToLobby()
         {
             if (IsMission)
             {
                 ShowBriefing();
+                SaveAbandonedSkillExperience();
                 return;
             }
             if (campaign.Phase == CampaignPhase.Battle) campaign.TryAbandonBattle();
             ShowLobby();
+            SaveAbandonedSkillExperience();
         }
 
-        /// <summary>Escape in a battle, or the coach's 임무 포기: a decided battle is never abandoned. During its finishing
+        private void SaveAbandonedSkillExperience()
+        {
+            if (!skillExperienceDirty) return;
+            AutoSave();
+            skillExperienceDirty = false;
+        }
+
+        /// <summary>Holds the current undecided battle, including its real-time presentation and planning clock.</summary>
+        public bool PauseBattle()
+        {
+            if (IsPaused || session == null || session.IsFinished || viewPhase == ViewPhase.Outcome ||
+                IsPlayingScene || IsShowingResult || startCard.IsShowing || finale.IsRunning) return false;
+            ClearHeldKeys();
+            ConsumeHeldLaneKeys();
+            pauseHud.Show();
+            return true;
+        }
+
+        public bool ResumeBattle()
+        {
+            if (!IsPaused) return false;
+            pauseHud.Hide();
+            ClearHeldKeys();
+            ConsumeHeldLaneKeys();
+            return true;
+        }
+
+        // Keys pressed before or during the menu cannot queue a skill when released after continuing.
+        private void ConsumeHeldLaneKeys()
+        {
+            Keyboard keyboard = Keyboard.current;
+            if (keyboard == null) return;
+            if (keyboard.qKey.isPressed) holdConsumed[0] = true;
+            if (keyboard.wKey.isPressed) holdConsumed[1] = true;
+            if (keyboard.eKey.isPressed) holdConsumed[2] = true;
+        }
+
+        /// <summary>Starts the same mission, stage or dummy training again without resetting campaign progression.</summary>
+        public bool RetryPausedBattle()
+        {
+            if (!IsPaused) return false;
+            int missionNumber = mission?.Number ?? 0;
+            int stageNumber = campaign.StageNumber;
+            bool training = IsTrainingBattle;
+            pauseHud.Hide();
+            startCardRetry = true;
+            try
+            {
+                ReturnToLobby();
+                if (missionNumber > 0)
+                {
+                    BeginMissionBattle(missionNumber);
+                    return true;
+                }
+                return training ? StartTraining() : StartCampaignStage(stageNumber);
+            }
+            finally { startCardRetry = false; }
+        }
+
+        public bool AbandonPausedBattle()
+        {
+            if (!IsPaused) return false;
+            pauseHud.Hide();
+            AbandonBattle();
+            return true;
+        }
+
+        /// <summary>Pause menu or coach's 임무 포기: a decided battle is never abandoned. During its finishing
         /// blow the result or the outro comes at once (<see cref="SkipFinale"/>); with every finishing-blow length at 0, a
         /// battle already over whose last turn is still ending finishes now. Otherwise the battle is left
         /// (<see cref="ReturnToLobby"/>).</summary>
@@ -1765,6 +1966,7 @@ namespace TurnLimbo.Presentation
             int unlockedBefore = campaign.HighestUnlockedStage;
             if (!campaign.TryCompleteBattle(session.Outcome)) return;
             AutoSave();
+            skillExperienceDirty = false;
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
             // A closed curriculum counted nothing; any progress an older save holds stays out of the result too.
             bool curriculumOpen = campaign.IsCurriculumOpen;
@@ -1792,7 +1994,8 @@ namespace TurnLimbo.Presentation
         {
             int targetHealth = campaign.TrainingDummyHealth;
             if (!campaign.TryCompleteBattle(session.Outcome)) return;
-            if (session.Outcome == DuelMatchOutcome.PlayerVictory) AutoSave();
+            if (session.Outcome == DuelMatchOutcome.PlayerVictory || skillExperienceDirty) AutoSave();
+            skillExperienceDirty = false;
             var result = new BattleResult(session.Outcome, false, campaign.StageNumber, "허수아비 수련", 0, campaign.Currency,
                 Mathf.Max(1, session.RoundNumber), session.Player.Health, session.Enemy.Health,
                 false, 0, false, curriculumOpen: false, isTraining: true);
@@ -1812,11 +2015,9 @@ namespace TurnLimbo.Presentation
             float fromGrey = forcedLoss && finale.EndsInGrey ? presentationSettings.FinalFallColourReturnSeconds : 0f;
             guide?.Finish();
             bool firstWin = prologue.TryComplete(mission.Number, session.Outcome, missionEmpowered);
-            if (firstWin)
-            {
-                SyncStoryProgression();
-                AutoSave();
-            }
+            if (firstWin) SyncStoryProgression();
+            if (firstWin || skillExperienceDirty) AutoSave();
+            skillExperienceDirty = false;
             if (forcedLoss)
             {
                 PrologueMission lost = mission;
@@ -1848,6 +2049,7 @@ namespace TurnLimbo.Presentation
 
         private void EndDuelPresentation()
         {
+            pauseHud.Hide();
             ClearMissionEvent();
             ClearBattleCinematics();
             effectsSource.Stop();
@@ -1871,14 +2073,21 @@ namespace TurnLimbo.Presentation
             resultHud.Show(result, result.IsMission && !IsNextMissionAvailable, unlockNotice);
         }
 
-        private void BeginMissionBattle(int number)
+        private void BeginMissionBattle(int number, bool carryIntroPositions = false)
         {
+            // Mission 2 ends with Elisa and the knight at sword contact. Keep that spacing as the duel opens instead of
+            // visibly sending Elisa back to her staging mark. A skipped or absent intro starts at the usual marks.
+            float playerOpeningX = arena.PlayerRenderer.transform.localPosition.x;
+            float enemyOpeningX = arena.EnemyRenderer.transform.localPosition.x;
+            carryIntroPositions = carryIntroPositions && enemyOpeningX - playerOpeningX >= LegacyArenaView.ContactDistance;
             PrologueMission next = prologue.Missions[number - 1];
             CloseDialogue();
             mission = next;
             guide = next.CreateGuide();
-            session = next.CreateDuel(System.Environment.TickCount);
-            ResetBattlePresentation();
+            session = next.CreateDuel(System.Environment.TickCount,
+                skill => campaign.GetOwnedSkill(skill.Id)?.Skill);
+            ResetBattlePresentation(carryIntroPositions ? playerOpeningX : (float?)null,
+                carryIntroPositions ? enemyOpeningX : (float?)null);
         }
 
         /// <summary>The next mission's briefing; the lobby instead when no mission is playable right now.</summary>
@@ -1920,6 +2129,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Leaves every duel, result, coach and dialogue screen, ready for the lobby or a briefing.</summary>
         private void ClearBattleScreens()
         {
+            pauseHud.Hide();
             StopCutscene();
             showingTitle = false;
             titleHud?.Hide();
@@ -1938,7 +2148,9 @@ namespace TurnLimbo.Presentation
             stepAudio.Stop();
             stepHud.Reset();
             resistanceFeedback.Reset();
+            breakImpactCue.Reset();
             skillActivationCue.Reset();
+            skillLevelUpCue.Reset();
             hud.ClearSkillFeedback();
             arena.SetEnemyAppearance(EnemyAppearance.Student);
             arena.Reset();
@@ -1956,8 +2168,11 @@ namespace TurnLimbo.Presentation
             ResetBattlePresentation();
         }
 
-        private void ResetBattlePresentation()
+        private void ResetBattlePresentation(float? playerOpeningX = null, float? enemyOpeningX = null)
         {
+            pauseHud.Hide();
+            skillExperienceDirty = false;
+            skillLevelUpCue.Reset();
             StopCutscene();
             CloseDialogue();
             // A new attempt starts unempowered; the arena reset below takes any 수훈 aura away.
@@ -1978,6 +2193,7 @@ namespace TurnLimbo.Presentation
             session.Reset();
             stepHud.Reset();
             resistanceFeedback.Reset();
+            breakImpactCue.Reset();
             skillActivationCue.Reset();
             hud.ClearSkillFeedback();
             lobbyHud.Hide();
@@ -1991,8 +2207,12 @@ namespace TurnLimbo.Presentation
             inspectingEnemy = 0;
             explainedSkill = null;
             arena.SetEnemyAppearance(IsTrainingBattle ? EnemyAppearance.TrainingDummy
-                : IsMission ? mission.EnemyAppearance : EnemyAppearance.Student);
+                : IsMission ? mission.EnemyAppearance : CampaignEnemyVariant.ForStage(campaign.StageNumber));
+            arena.SetBackdrop(IsMission && mission.Number <= PrologueMissions.Count
+                ? ArenaBackdropKind.Forest : ArenaBackdropKind.SchoolCorridor);
             arena.Reset();
+            if (playerOpeningX.HasValue && enemyOpeningX.HasValue)
+                arena.SetOpeningPositions(playerOpeningX.Value, enemyOpeningX.Value);
             hud.Reset();
             hud.SetMissionMode(IsMission, IsMission && mission.PlanningTimer, IsMission && mission.BreathEnabled);
             hud.SetTrainingMode(IsTrainingBattle);
@@ -2061,12 +2281,11 @@ namespace TurnLimbo.Presentation
         /// <summary>The opponent's silhouette on the start card: a mission's briefing silhouette, else the dummy's or the
         /// knight's, as the arena draws the enemy.</summary>
         private string StartCardOpponentSilhouette => IsMission ? mission.Enemies[0].SilhouetteResource
-            : IsTrainingBattle ? PrologueMissions.DummySilhouette : PrologueMissions.EnemySilhouette;
+            : IsTrainingBattle ? PrologueMissions.DummySilhouette : CampaignEnemyVariant.SilhouetteResource(campaign.StageNumber);
 
-        /// <summary>Whether the forest is the scene now (its ambience bed plays): a battle or its result, any cutscene (they
-        /// all play on the forest arena), or a mission's dialogue over its battlefield. Not the title, lobby or briefing.</summary>
-        private bool ForestIsTheScene => IsPlayingCutscene || viewPhase != ViewPhase.Outcome || IsShowingResult ||
-            IsShowingDialogue && IsMission;
+        /// <summary>Whether a visible battle, result, cutscene or battlefield dialogue takes place in the forest.</summary>
+        private bool ForestIsTheScene => arena.BackdropKind == ArenaBackdropKind.Forest &&
+            (IsPlayingCutscene || viewPhase != ViewPhase.Outcome || IsShowingResult || IsShowingDialogue && IsMission);
 
         /// <summary>How much of the picture shows: a cutscene's black fade hides the forest, and its sound with it.</summary>
         private float ForestVisibility => IsPlayingCutscene ? 1f - cutsceneHud.FadeAmount : 1f;
@@ -2139,7 +2358,7 @@ namespace TurnLimbo.Presentation
             int step = shown.StepIndex;
             recallAlbum.RequestCapture(key, () => guide == shown && shown.StepIndex == step && !shown.IsComplete &&
                 coachHud.IsVisible && !IsPlayingScene && !IsShowingResult && !battlePausedForEvent && !finale.IsRunning &&
-                !startCard.IsShowing,
+                !startCard.IsShowing && !IsPaused,
                 () => !barks.IsShowing(BarkSpeaker.Player) && !barks.IsShowing(BarkSpeaker.Enemy));
         }
 
@@ -2158,6 +2377,7 @@ namespace TurnLimbo.Presentation
             }
             // Presses on the windows from before (or under Tab) are not taken for taps later.
             hud?.ClearLanePointers();
+            hud?.ClearHoldCancel();
         }
 
         private void RefreshHud(float delta) => RefreshHudClock(delta, delta);
@@ -2175,8 +2395,11 @@ namespace TurnLimbo.Presentation
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.Refresh(CanStep, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,
                 StepWindowFraction, session.UsedStepThisTurn, session.StepAttemptsThisTurn, session.StepMissedThisTurn,
-                StepFeatures);
+                StepFeatures, session.StepSuccessStreak);
             resistanceFeedback.Tick(realDelta, arena.ArenaCamera,
+                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
+            // Reproject after the arena's pose and camera update without advancing the cue a second time.
+            breakImpactCue.Tick(0f, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
             skillActivationCue.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
@@ -2187,14 +2410,22 @@ namespace TurnLimbo.Presentation
                 hud.SetInspectedSlot(Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1));
                 hud.ShowExplanation(session.EnemyQueue[Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1)], true);
             }
-            else if (CanChoose && explainedSkill != null) hud.ShowExplanation(explainedSkill, false);
+            else if (CanChoose && explainedSkill != null)
+            {
+                CampaignOwnedSkill owned = campaign.GetOwnedSkill(explainedSkill.Id);
+                hud.ShowExplanation(explainedSkill, false,
+                    ReferenceEquals(owned?.Skill, explainedSkill) ? owned : null);
+            }
             else hud.HideExplanation();
         }
 
         private void OnDisable()
         {
+            pauseHud?.Hide();
             stepAudio?.Stop();
+            breakImpactCue?.Reset();
             skillActivationCue?.Reset();
+            skillLevelUpCue?.Reset();
             forestAmbience?.Stop();
         }
 
@@ -2208,6 +2439,7 @@ namespace TurnLimbo.Presentation
             recallAlbum?.Dispose();
             dialogueHud?.Dispose();
             cutsceneHud?.Dispose();
+            pauseHud?.Dispose();
             resultHud?.Dispose();
             coachHud?.Dispose();
             briefingHud?.Dispose();
@@ -2216,7 +2448,9 @@ namespace TurnLimbo.Presentation
             stepHud?.Dispose();
             stepAudio?.Dispose();
             resistanceFeedback?.Dispose();
+            breakImpactCue?.Dispose();
             skillActivationCue?.Dispose();
+            skillLevelUpCue?.Dispose();
             startCard?.Dispose();
             finale?.Dispose();
             empowermentCues?.Dispose();

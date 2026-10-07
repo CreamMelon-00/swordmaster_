@@ -334,6 +334,140 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator ConsecutiveSuccesses_KeepAnAdjacentCount_AndEscalateTheResultBurst()
+        {
+            yield return null;
+            using (var fixture = new RingFixture())
+            {
+                LegacyCurrentSlot slot = CreateDuel().CurrentSlot;
+                fixture.Refresh(slot, .9f, true);
+                Text count = FindStepGraphic<Text>(fixture.Hud.Root, "Step Combo Count");
+                DuelStepResultBurst burst = FindStepGraphic<DuelStepResultBurst>(fixture.Hud.Root, "Step Result Burst");
+                Assert.That(count, Is.Not.Null);
+                Assert.That(burst, Is.Not.Null);
+                Assert.That(count.raycastTarget, Is.False);
+                Assert.That(burst.raycastTarget, Is.False);
+
+                fixture.Hud.ShowFeedback(LegacyStepAction.Dodge, true, 1);
+                fixture.Refresh(slot, .9f, true);
+                int firstTier = burst.StreakTier;
+                int firstVisualWeight = MeasureBurstAlpha(burst, out float innerRadius);
+                Assert.That(fixture.Hud.SuccessStreak, Is.EqualTo(1));
+                Assert.That(count.gameObject.activeInHierarchy, Is.True);
+                Assert.That(count.text, Does.Contain("1"));
+                Assert.That(burst.gameObject.activeInHierarchy, Is.True);
+                Assert.That(burst.Success, Is.True);
+                Assert.That(innerRadius, Is.GreaterThan(20f), "The impulse must leave the actor's body clear.");
+
+                fixture.Hud.ShowFeedback(LegacyStepAction.Pressure, true, 2, 1);
+                fixture.Refresh(slot, .9f, true);
+                int secondTier = burst.StreakTier;
+                int secondVisualWeight = MeasureBurstAlpha(burst, out _);
+                Assert.That(fixture.Hud.SuccessStreak, Is.EqualTo(2));
+                Assert.That(count.text, Does.Contain("2"));
+                Assert.That(secondTier, Is.GreaterThan(firstTier));
+                Assert.That(secondVisualWeight, Is.GreaterThan(firstVisualWeight));
+
+                fixture.Hud.ShowFeedback(LegacyStepAction.Dodge, true, 3, 2);
+                fixture.Refresh(slot, .9f, true);
+                Assert.That(fixture.Hud.SuccessStreak, Is.EqualTo(3));
+                Assert.That(count.text, Does.Contain("3"));
+                Assert.That(burst.StreakTier, Is.GreaterThan(secondTier));
+                Assert.That(MeasureBurstAlpha(burst, out _), Is.GreaterThan(secondVisualWeight));
+
+                fixture.Hud.Tick(.5f);
+                fixture.Refresh(slot, .9f, true);
+                Assert.That(count.gameObject.activeInHierarchy, Is.True,
+                    "The combo should remain readable after the short result burst has gone.");
+                Assert.That(count.text, Does.Contain("3"));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator FailedStep_ClearsTheCount_AndShowsASeparateDangerEdge()
+        {
+            yield return null;
+            using (var fixture = new RingFixture())
+            {
+                LegacyCurrentSlot slot = CreateDuel().CurrentSlot;
+                fixture.Refresh(slot, .9f, true);
+                fixture.Hud.ShowFeedback(LegacyStepAction.Dodge, true, 2, 1);
+                fixture.Refresh(slot, .9f, true);
+                Assert.That(fixture.Hud.SuccessStreak, Is.EqualTo(2));
+
+                fixture.Hud.ShowFeedback(LegacyStepAction.Pressure, false, 0, 2);
+                fixture.Refresh(slot, .9f, true);
+                Text count = FindStepGraphic<Text>(fixture.Hud.Root, "Step Combo Count");
+                DuelStepResultBurst burst = FindStepGraphic<DuelStepResultBurst>(fixture.Hud.Root, "Step Result Burst");
+                DuelStepFailureEdge danger = FindStepGraphic<DuelStepFailureEdge>(fixture.Hud.Root, "Step Failure Edge");
+                Assert.That(count, Is.Not.Null);
+                Assert.That(burst, Is.Not.Null);
+                Assert.That(danger, Is.Not.Null);
+                Assert.That(fixture.Hud.SuccessStreak, Is.Zero);
+                if (count.gameObject.activeInHierarchy)
+                    Assert.That(count.text, Does.Not.Contain("2"), "A miss must not retain the old combo count.");
+                Assert.That(burst.gameObject.activeInHierarchy, Is.True);
+                Assert.That(burst.Success, Is.False);
+                Assert.That(danger.gameObject.activeInHierarchy, Is.True);
+                Assert.That(danger.raycastTarget, Is.False);
+                Assert.That(danger.Progress, Is.InRange(0f, 1f));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator StepResultEffects_AdvanceOnExplicitRealTime_AndExpireWithoutBlockingInput()
+        {
+            yield return null;
+            float originalTimeScale = Time.timeScale;
+            try
+            {
+                Time.timeScale = 0f;
+                using (var fixture = new RingFixture())
+                {
+                    LegacyCurrentSlot slot = CreateDuel().CurrentSlot;
+                    fixture.Refresh(slot, .9f, true);
+                    DuelStepResultBurst burst = FindStepGraphic<DuelStepResultBurst>(fixture.Hud.Root, "Step Result Burst");
+                    DuelStepFailureEdge danger = FindStepGraphic<DuelStepFailureEdge>(fixture.Hud.Root, "Step Failure Edge");
+                    Assert.That(burst, Is.Not.Null);
+                    Assert.That(danger, Is.Not.Null);
+                    Assert.That(burst.raycastTarget, Is.False);
+                    Assert.That(danger.raycastTarget, Is.False);
+
+                    fixture.Hud.ShowFeedback(LegacyStepAction.Dodge, true, 1);
+                    fixture.Refresh(slot, .9f, true);
+                    float start = burst.Progress;
+                    fixture.Hud.Tick(.12f);
+                    fixture.Refresh(slot, .9f, true);
+                    Assert.That(burst.Progress, Is.GreaterThan(start));
+                    float advanced = burst.Progress;
+                    fixture.Hud.Tick(0f);
+                    fixture.Hud.Tick(-1f);
+                    fixture.Hud.Tick(float.NaN);
+                    fixture.Refresh(slot, .9f, true);
+                    Assert.That(burst.Progress, Is.EqualTo(advanced).Within(.001f));
+                    fixture.Hud.Tick(2f);
+                    fixture.Refresh(slot, .9f, true);
+                    Assert.That(burst.gameObject.activeInHierarchy, Is.False);
+
+                    fixture.Hud.ShowFeedback(LegacyStepAction.Pressure, false, 0, 1);
+                    fixture.Refresh(slot, .9f, true);
+                    Assert.That(danger.gameObject.activeInHierarchy, Is.True);
+                    float dangerStart = danger.Progress;
+                    fixture.Hud.Tick(.12f);
+                    fixture.Refresh(slot, .9f, true);
+                    Assert.That(danger.Progress, Is.GreaterThan(dangerStart));
+                    fixture.Hud.Tick(2f);
+                    fixture.Refresh(slot, .9f, true);
+                    Assert.That(danger.gameObject.activeInHierarchy, Is.False);
+                    fixture.Hud.Reset();
+                    Assert.That(fixture.Hud.SuccessStreak, Is.Zero);
+                    Assert.That(fixture.Hud.IsVisible, Is.False);
+                }
+            }
+            finally { Time.timeScale = originalTimeScale; }
+        }
+
+        [UnityTest]
         public IEnumerator MissedInput_KeepsRedStatus_WithoutAnySuccessHaloOrPulse()
         {
             yield return null;
@@ -415,6 +549,34 @@ namespace TurnLimbo.Presentation.Tests
                 }
             }
             return result;
+        }
+
+        private static T FindStepGraphic<T>(GameObject root, string name) where T : Component
+        {
+            foreach (Transform child in root.GetComponentsInChildren<Transform>(true))
+                if (child.name == name) return child.GetComponent<T>();
+            return null;
+        }
+
+        private static int MeasureBurstAlpha(DuelStepResultBurst burst, out float minimumRadius)
+        {
+            MethodInfo populate = typeof(DuelStepResultBurst).GetMethod("OnPopulateMesh",
+                BindingFlags.Instance | BindingFlags.NonPublic, null, new[] { typeof(VertexHelper) }, null);
+            minimumRadius = float.PositiveInfinity;
+            int alpha = 0;
+            using (var vertices = new VertexHelper())
+            {
+                populate.Invoke(burst, new object[] { vertices });
+                for (int index = 0; index < vertices.currentVertCount; index++)
+                {
+                    UIVertex vertex = default;
+                    vertices.PopulateUIVertex(ref vertex, index);
+                    minimumRadius = Mathf.Min(minimumRadius,
+                        new Vector2(vertex.position.x, vertex.position.y).magnitude);
+                    alpha += vertex.color.a;
+                }
+            }
+            return alpha;
         }
 
         private static LegacyQueuedDuel CreateDuel(int hits = 1, bool playerGuard = false,

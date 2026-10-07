@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Object = UnityEngine.Object;
@@ -12,6 +13,76 @@ namespace TurnLimbo.Presentation.Tests
 {
     public sealed class EnemyStudentAnimationPlayModeTests
     {
+        [Test]
+        public void CampaignCadetsHaveCompleteClipsAndStableStageIdentity()
+        {
+            for (int stage = 1; stage <= 8; stage++)
+            {
+                bool odd = (stage & 1) == 1;
+                Assert.That(CampaignEnemyVariant.ForStage(stage),
+                    Is.EqualTo(odd ? EnemyAppearance.CadetA : EnemyAppearance.CadetB), "Stage " + stage);
+                string root = odd ? EnemyStudentAnimationSet.CadetAResourceRoot : EnemyStudentAnimationSet.CadetBResourceRoot;
+                Assert.That(CampaignEnemyVariant.SilhouetteResource(stage), Is.EqualTo(root + "idle/frame-01"));
+            }
+            Assert.Throws<ArgumentOutOfRangeException>(() => CampaignEnemyVariant.ForStage(0));
+
+            foreach (var variant in new[]
+            {
+                (EnemyStudentAnimationSet.CadetAResourceRoot, "cadet-a"),
+                (EnemyStudentAnimationSet.CadetBResourceRoot, "cadet-b")
+            })
+            {
+                using (var set = new EnemyStudentAnimationSet(variant.Item1, variant.Item2))
+                {
+                    Assert.That(set.HasRequiredAssets, Is.True, string.Join(", ", set.MissingResources));
+                    Assert.That(set.LoadedSpriteCount, Is.EqualTo(EnemyStudentAnimationSet.RequiredSpriteCount));
+                    Assert.That(set.GetIdle(0f).name, Is.EqualTo(variant.Item2 + "-idle-frame-01"));
+                    Assert.That(set.GetMove().name, Is.EqualTo(variant.Item2 + "-move-frame-01"));
+                    Assert.That(set.GetGuard(1).name, Is.EqualTo(variant.Item2 + "-poses-block-2"));
+                    Assert.That(set.GetHurt(1).name, Is.EqualTo(variant.Item2 + "-poses-hurt-2"));
+                    foreach (LegacySkillProperty property in new[]
+                    {
+                        LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit
+                    })
+                        for (int attackVariant = 0; attackVariant < EnemyStudentAnimationSet.AttackVariationCount; attackVariant++)
+                        {
+                            Sprite strike = set.GetAttack(property, .5f, attackVariant);
+                            Assert.That(strike, Is.Not.Null);
+                            Assert.That(strike.name, Does.StartWith(variant.Item2 + "-").And.EndWith("frame-05"));
+                            Assert.That(strike.rect.size, Is.EqualTo(set.GetIdle(0f).rect.size));
+                            Assert.That(strike.pivot, Is.EqualTo(set.GetIdle(0f).pivot));
+                        }
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ArenaSwitchesCampaignCadetsWithoutChangingIia()
+        {
+            var host = new GameObject("Enemy Variant Test");
+            using (var art = new LegacyDuelArt())
+            using (var arena = LegacyArenaView.Create(host.transform, art, null))
+            {
+                foreach (EnemyAppearance appearance in new[] { EnemyAppearance.CadetA, EnemyAppearance.CadetB })
+                {
+                    arena.SetEnemyAppearance(appearance);
+                    arena.Reset();
+                    Assert.That(arena.EnemyAppearance, Is.EqualTo(appearance));
+                    string prefix = appearance == EnemyAppearance.CadetA ? "cadet-a-" : "cadet-b-";
+                    Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith(prefix + "idle-frame-"));
+                    arena.BeginSlot(null, new LegacySkill(903, "Cadet capture", 1, 1, 1,
+                        LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, string.Empty));
+                    Hold(arena, LegacyArenaView.OriginalImpactTime);
+                    Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo(prefix + "slash-frame-05"));
+                }
+                arena.SetEnemyAppearance(EnemyAppearance.Student);
+                arena.Reset();
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
+            }
+            Object.Destroy(host);
+            yield return null;
+        }
+
         [Test]
         public void CompleteAssetsHaveSharedDimensionsPivotAndImpactPhase()
         {

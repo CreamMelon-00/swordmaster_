@@ -705,6 +705,78 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void InterruptResolvingTurn_SettlesOnlyLandedHits_AndStartsTheReplacementScriptNextTurn()
+        {
+            LegacySkill flurry = Attack(900, 30, 3);
+            LegacySkill empowered = Attack(901, 2);
+            var duel = new LegacyQueuedDuel(100, 0, 40, 0, new[] { flurry },
+                new[] { LegacyCommonActions.Breathe }, new[] { 1 }, enemyHealthFloor: 1,
+                enemyHealthThresholdPercent: 50);
+            for (int i = 0; i < 3; i++) Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            Assert.That(duel.ResolveNextHit().EnemyReachedHealthThreshold, Is.False);
+            Assert.That(duel.ResolveNextHit().EnemyReachedHealthThreshold, Is.True);
+            Assert.That(slot.HitsResolved, Is.EqualTo(2));
+            Assert.That(slot.HitCount, Is.EqualTo(3));
+            duel.ReplaceEnemyScript(new EnemyScript(new[] { new[] { empowered } }));
+
+            LegacySlotResult settled = duel.InterruptResolvingTurn();
+
+            Assert.That(settled.PlayerSkill, Is.SameAs(flurry));
+            Assert.That(settled.EnemyHealthDamage, Is.EqualTo(20));
+            Assert.That(slot.HitCount, Is.EqualTo(2), "The third strike never occurs.");
+            Assert.That(duel.Enemy.Health, Is.EqualTo(20));
+            Assert.That(duel.CurrentSlot, Is.Null);
+            Assert.That(duel.IsTurnResolved, Is.True, "Remaining committed slots are discarded.");
+            Assert.That(duel.IsFinished, Is.False);
+            Assert.Throws<InvalidOperationException>(() => duel.ResolveNextSlot());
+
+            duel.BeginNextTurn();
+            Assert.That(duel.RoundNumber, Is.EqualTo(2));
+            Assert.That(duel.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
+            Assert.That(duel.Enemy.Health, Is.EqualTo(20));
+            Assert.That(duel.PlayerQueue, Is.Empty);
+            CollectionAssert.AreEqual(new[] { empowered.Id }, Ids(duel.EnemyQueue));
+        }
+
+        [Test]
+        public void InterruptResolvingTurn_AfterSettledSlot_DoesNotSettleItTwice()
+        {
+            var duel = new LegacyQueuedDuel(100, 0, 40, 0, new[] { Attack(900, 30) },
+                new[] { LegacyCommonActions.Breathe }, new[] { 1 }, enemyHealthFloor: 1,
+                enemyHealthThresholdPercent: 50);
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            LegacySlotResult first = duel.ResolveNextSlot();
+            Assert.That(first.EnemyHealthDamage, Is.EqualTo(30));
+            Assert.That(duel.LastResolvedSlot, Is.Zero);
+
+            Assert.That(duel.InterruptResolvingTurn(), Is.Null);
+            Assert.That(duel.Enemy.Health, Is.EqualTo(10));
+            Assert.That(duel.IsTurnResolved, Is.True);
+            duel.BeginNextTurn();
+            Assert.That(duel.Enemy.Health, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void InterruptResolvingTurn_RefusesUnresolvedOrDecisiveHits()
+        {
+            var duel = new LegacyQueuedDuel(100, 0, 20, 0, new[] { Attack(900, 30) },
+                new[] { LegacyCommonActions.Breathe }, new[] { 1 });
+            Assert.Throws<InvalidOperationException>(() => duel.InterruptResolvingTurn());
+            duel.TryQueueLane(0);
+            duel.Commit();
+            duel.BeginNextSlot();
+            Assert.Throws<InvalidOperationException>(() => duel.InterruptResolvingTurn());
+            Assert.That(duel.ResolveNextHit().Outcome, Is.EqualTo(DuelMatchOutcome.PlayerVictory));
+            Assert.Throws<InvalidOperationException>(() => duel.InterruptResolvingTurn());
+            Assert.That(duel.Enemy.Health, Is.Zero);
+            Assert.That(duel.CurrentSlot.HitsResolved, Is.EqualTo(1));
+        }
+
+        [Test]
         public void ReplaceEnemyScript_StartsAtTheNextPlanningTurn_AndResetBringsBackTheOriginalEnemy()
         {
             LegacySkill a = Attack(900, 1), b = Attack(901, 1), c = Attack(902, 1);

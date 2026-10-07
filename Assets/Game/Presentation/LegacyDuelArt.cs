@@ -8,7 +8,7 @@ namespace TurnLimbo.Presentation
     /// <summary>Loads inherited duel art and the redesigned skill-button icons.</summary>
     public sealed class LegacyDuelArt : IDisposable
     {
-        public const int SkillIconCount = 17;
+        public const int SkillIconCount = 20;
         private const int AtlasSkillIconCount = 15;
         private const string ResourceRoot = "LegacyDuel/";
         private const string SkillIconAtlas = "SkillRoles/skill-role-atlas";

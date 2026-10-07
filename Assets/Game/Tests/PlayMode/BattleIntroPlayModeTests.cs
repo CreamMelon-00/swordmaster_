@@ -45,6 +45,10 @@ namespace TurnLimbo.Presentation.Tests
                     "A stage's enemy has no name yet: its silhouette stands alone, with no place name in its stead.");
                 Assert.That(card.PlayerFigure.sprite, Is.Not.Null, "엘리사's idle frame…");
                 Assert.That(card.OpponentFigure.sprite, Is.Not.Null, "…and the knight's, both as silhouettes.");
+                Assert.That(controller.ArenaView.EnemyAppearance, Is.EqualTo(EnemyAppearance.CadetA));
+                Assert.That(card.OpponentFigure.sprite,
+                    Is.SameAs(Resources.Load<Sprite>(CampaignEnemyVariant.SilhouetteResource(1))),
+                    "The start card uses the same opponent as the first campaign battle.");
                 Assert.That(card.PlayerFigure.color, Is.EqualTo(MissionBriefingHud.SilhouetteColor));
                 foreach (Text text in card.Root.GetComponentsInChildren<Text>(true))
                 {
@@ -260,7 +264,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator TheForestBed_PlaysUnderBattlesAndScenes_GivesWayToTheirLoops_AndLeavesWithTheForest()
+        public IEnumerator TheForestBed_StaysOutOfCorridorBattlesAndScenes_AndPlaysUnderForestScenes()
         {
             yield return null;
             using (var scope = new IntroScope(startCards: false))
@@ -277,26 +281,29 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(forest.IsPlaying, Is.False, "No forest in the lobby.");
 
                 scope.StartStage(OneBlowDuel(1000));
-                scope.Advance(Frame);
-                Assert.That(forest.IsPlaying, Is.True, "A battle brings the forest in…");
-                Assert.That(forest.Volume, Is.GreaterThan(0f).And.LessThan(volume), "…fading in…");
                 scope.AdvanceFor(fade);
-                Assert.That(forest.Volume, Is.EqualTo(volume).Within(1e-4f), "…to its volume.");
+                Assert.That(controller.ArenaView.BackdropKind, Is.EqualTo(ArenaBackdropKind.SchoolCorridor));
+                Assert.That(forest.IsPlaying, Is.False, "The indoor battle does not sound like a forest.");
 
                 controller.ReturnToLobby();
-                scope.Advance(Frame);
-                Assert.That(forest.TargetVolume, Is.Zero, "The lobby lets it go…");
-                Assert.That(forest.Volume, Is.GreaterThan(0f), "…fading…");
-                scope.AdvanceFor(fade);
-                Assert.That(forest.IsPlaying, Is.False, "…and stopping.");
 
-                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("forest-test", "@ambience aura-loop 0\n첫째")), Is.True);
+                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("school-test", "@ambience aura-loop 0\n첫째")), Is.True);
                 scope.Advance(Frame);
-                Assert.That(forest.TargetVolume, Is.EqualTo(volume * (1f - tuning.ForestAmbienceSceneDuck)).Within(1e-4f),
-                    "A scene's own loop takes precedence: the bed ducks under it.");
+                Assert.That(controller.ArenaView.BackdropKind, Is.EqualTo(ArenaBackdropKind.SchoolCorridor),
+                    "Standalone scenes launched after the opening arc take place indoors.");
+                Assert.That(forest.TargetVolume, Is.Zero, "A cutscene's own loop does not bring forest ambience indoors.");
                 Assert.That(controller.SkipCutscene(), Is.True);
 
-                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("forest-test", "@fade out 0\n첫째")), Is.True);
+                Assert.That(controller.StartCutscene(
+                    CutsceneScriptParser.Parse("forest-test", "@ambience aura-loop 0\n첫째"), ArenaBackdropKind.Forest), Is.True);
+                scope.Advance(Frame);
+                Assert.That(controller.ArenaView.BackdropKind, Is.EqualTo(ArenaBackdropKind.Forest));
+                Assert.That(forest.TargetVolume, Is.EqualTo(volume * (1f - tuning.ForestAmbienceSceneDuck)).Within(1e-4f),
+                    "An outdoor scene plays over the forest and ducks its bed under the scene loop.");
+                Assert.That(controller.SkipCutscene(), Is.True);
+
+                Assert.That(controller.StartCutscene(
+                    CutsceneScriptParser.Parse("forest-test", "@fade out 0\n첫째"), ArenaBackdropKind.Forest), Is.True);
                 scope.Advance(Frame);
                 Assert.That(forest.TargetVolume, Is.Zero, "A black screen hides the forest's sound with it.");
                 Assert.That(controller.SkipCutscene(), Is.True);

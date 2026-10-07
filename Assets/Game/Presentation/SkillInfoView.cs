@@ -1,4 +1,5 @@
 using System;
+using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,14 +12,17 @@ namespace TurnLimbo.Presentation
         public const float AttachmentOverhang = 34f;
         private const float BodyLeftInset = 24f;
         private const float FixedBodyHeight = 160f;
-        private readonly RectTransform root, stats, keywords, costSeal, powerPlate;
+        private readonly RectTransform root, stats, keywords, costSeal, powerPlate, experienceRoot, experienceFill;
         private readonly Text act, powerLabel, hits, hitsLabel, typeLabel, firstKeyword, secondKeyword;
+        private readonly Text experienceLabel, experienceValue;
         private readonly SkillInfoGlyph firstSymbol, secondSymbol, powerSymbol;
         private readonly Image firstBadge, secondBadge;
         private readonly SkillInfoAttachment typeAttachment;
         // How much larger than its standard size the card is drawn (the battle's held explanation), fittings and type alike.
         private readonly float scale;
         private LegacySkill shown;
+        private CampaignOwnedSkill shownOwned;
+        private int shownLevel, shownExperience;
         private bool shownEnemy;
         private string shownAdditionalDescription;
 
@@ -82,17 +86,45 @@ namespace TurnLimbo.Presentation
             EffectText.resizeTextMinSize = F(12);
             EffectText.lineSpacing = 1.1f;
 
+            // Progress belongs to the player's owned skill, not to the immutable skill definition or an enemy card.
+            float experienceWidth = width - S(64f);
+            experienceRoot = Rect("Skill Experience", root, Vector2.zero, new Vector2(experienceWidth, S(24f)));
+            experienceLabel = Label("Skill Experience Level", experienceRoot, font,
+                new Vector2(-experienceWidth / 4f, S(6f)), new Vector2(experienceWidth / 2f, S(14f)), F(12));
+            experienceLabel.alignment = TextAnchor.MiddleLeft;
+            experienceValue = Label("Skill Experience Value", experienceRoot, font,
+                new Vector2(experienceWidth / 4f, S(6f)), new Vector2(experienceWidth / 2f, S(14f)), F(12));
+            experienceValue.alignment = TextAnchor.MiddleRight;
+            var track = Rect("Skill Experience Track", experienceRoot, new Vector2(0f, S(-6f)),
+                new Vector2(experienceWidth, S(5f)));
+            var trackImage = track.gameObject.AddComponent<Image>();
+            trackImage.color = DuelVisualTheme.Border;
+            trackImage.raycastTarget = false;
+            experienceFill = Rect("Skill Experience Fill", track, Vector2.zero, Vector2.zero);
+            experienceFill.anchorMin = new Vector2(0f, 0f);
+            experienceFill.anchorMax = new Vector2(0f, 1f);
+            experienceFill.pivot = new Vector2(0f, .5f);
+            var fillImage = experienceFill.gameObject.AddComponent<Image>();
+            fillImage.color = DuelVisualTheme.Ink;
+            fillImage.raycastTarget = false;
+
             // Older consumers retain this reference; shared combat rules no longer belong in a skill card.
             DamageText = Label(prefix + " Damage Hint", root, font, Vector2.zero, Vector2.zero, F(14));
             DamageText.gameObject.SetActive(false);
             Clear();
         }
 
-        public void SetSkill(LegacySkill skill, bool enemy = false, string additionalDescription = null)
+        public void SetSkill(LegacySkill skill, bool enemy = false, string additionalDescription = null,
+            CampaignOwnedSkill owned = null)
         {
             if (skill == null) { Clear(); return; }
-            if (ReferenceEquals(shown, skill) && shownEnemy == enemy && shownAdditionalDescription == additionalDescription) return;
+            if (enemy || owned?.SkillId != skill.Id) owned = null;
+            if (owned != null) skill = owned.Skill;
+            int level = owned?.Level ?? 0, experience = owned?.Experience ?? 0;
+            if (ReferenceEquals(shown, skill) && shownEnemy == enemy && shownAdditionalDescription == additionalDescription &&
+                ReferenceEquals(shownOwned, owned) && shownLevel == level && shownExperience == experience) return;
             shown = skill; shownEnemy = enemy; shownAdditionalDescription = additionalDescription;
+            shownOwned = owned; shownLevel = level; shownExperience = experience;
             stats.gameObject.SetActive(true);
             keywords.gameObject.SetActive(true);
             bool defence = skill.Kind == LegacySkillKind.Defence;
@@ -114,6 +146,15 @@ namespace TurnLimbo.Presentation
             EffectText.text = string.IsNullOrEmpty(additionalDescription) ? content.Description
                 : string.IsNullOrEmpty(content.Description) ? additionalDescription
                 : content.Description + "\n" + additionalDescription;
+            experienceRoot.gameObject.SetActive(owned != null);
+            if (owned != null)
+            {
+                experienceLabel.text = "숙련 " + owned.Level + "/" + CampaignOwnedSkill.MaxLevel;
+                experienceValue.text = owned.IsMaxLevel ? "MAX" : owned.ExperienceThisLevel + "/" + owned.ExperienceRequired;
+                float progress = owned.IsMaxLevel ? 1f : owned.ExperienceRequired > 0
+                    ? Mathf.Clamp01((float)owned.ExperienceThisLevel / owned.ExperienceRequired) : 0f;
+                experienceFill.sizeDelta = new Vector2(experienceRoot.rect.width * progress, 0f);
+            }
             DamageText.text = string.Empty;
             RefreshLayout();
         }
@@ -121,9 +162,14 @@ namespace TurnLimbo.Presentation
         public void Clear()
         {
             shown = null;
+            shownOwned = null;
+            shownLevel = shownExperience = 0;
             shownAdditionalDescription = null;
             stats.gameObject.SetActive(false);
             keywords.gameObject.SetActive(false);
+            experienceRoot.gameObject.SetActive(false);
+            experienceLabel.text = experienceValue.text = string.Empty;
+            experienceFill.sizeDelta = Vector2.zero;
             act.text = PowerText.text = hits.text = AttackTypeText.text = typeLabel.text = firstKeyword.text = secondKeyword.text = EffectText.text = DamageText.text = string.Empty;
             RefreshLayout();
         }
@@ -151,12 +197,13 @@ namespace TurnLimbo.Presentation
             ArrangeKeyword(firstBadge, firstSymbol, firstKeyword, hasSecond ? -(badgeWidth + S(8f)) / 2f : 0f, badgeWidth);
             ArrangeKeyword(secondBadge, secondSymbol, secondKeyword, (badgeWidth + S(8f)) / 2f, badgeWidth);
             float keywordHeight = hasKeywords ? S(36f) : 0f;
-            float textHeight = bodyHeight - S(16f) - keywordHeight;
+            float textHeight = bodyHeight - S(16f) - keywordHeight - (experienceRoot.gameObject.activeSelf ? S(24f) : 0f);
             keywords.sizeDelta = new Vector2(bodyWidth, S(28f));
             keywords.anchoredPosition = new Vector2(bodyInset / 2f, bodyHeight / 2f - S(22f));
             EffectText.rectTransform.sizeDelta = new Vector2(bodyWidth, textHeight);
             EffectText.rectTransform.anchoredPosition = new Vector2(bodyInset / 2f,
                 bodyHeight / 2f - S(8f) - keywordHeight - textHeight / 2f);
+            experienceRoot.anchoredPosition = new Vector2(S(24f), -bodyHeight / 2f + S(14f));
             costSeal.anchoredPosition = new Vector2(costSeal.anchoredPosition.x, bodyHeight / 2f + S(38f));
             typeAttachment.rectTransform.anchoredPosition = new Vector2(typeAttachment.rectTransform.anchoredPosition.x, bodyHeight / 2f + S(38f));
             powerPlate.anchoredPosition = new Vector2(powerPlate.anchoredPosition.x, -bodyHeight / 2f + S(32f));

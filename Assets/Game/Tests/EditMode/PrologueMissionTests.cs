@@ -167,6 +167,27 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void FreeCombatHints_ListOnlyAvailableActionsAndHowToReopenSkillDetails()
+        {
+            foreach (PrologueMission mission in StoryMissions.All)
+            {
+                string hint = mission.CreateGuide().Beats.Last().InputHint;
+                string lanes = mission.Features.Has(CombatFeature.LaneW) ? "Q/W/E"
+                    : mission.Features.Has(CombatFeature.LaneE) ? "Q/E" : "Q";
+                Assert.That(hint.Split('\n').Length, Is.EqualTo(2), mission.Title);
+                Assert.That(hint, Does.Contain(lanes + " 예약"), mission.Title);
+                Assert.That(hint, Does.Contain(lanes + " 길게"), mission.Title);
+                Assert.That(hint, Does.Contain("설명").And.Contain("Space 확정")
+                    .And.Contain("Tab 적 확인").And.Contain("Esc 일시정지"), mission.Title);
+                Assert.That(hint.Contains("Shift 넘기기"), Is.EqualTo(mission.Features.Has(CombatFeature.Cycle)), mission.Title);
+                Assert.That(hint.Contains("S 숨고르기"), Is.EqualTo(mission.Features.Has(CombatFeature.Breath)), mission.Title);
+                Assert.That(hint.Contains("A 회피"), Is.EqualTo(mission.Features.Has(CombatFeature.Dodge)), mission.Title);
+                Assert.That(hint.Contains("D 압박"), Is.EqualTo(mission.Features.Has(CombatFeature.Pressure)), mission.Title);
+                Assert.That(hint, Does.Not.Contain("임무 포기").And.Not.Contain("Escape"), mission.Title);
+            }
+        }
+
+        [Test]
         public void CoachCopy_TalksOfLanesTurningTogetherOnlyOnceTwoAreOpen()
         {
             // A one-lane coach never hints at lanes the player does not have yet.

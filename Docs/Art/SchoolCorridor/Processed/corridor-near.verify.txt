@@ -1,0 +1,1 @@
+VERIFIED: corridor-near | input 2172x724 | source 543x181 | output 2172x724 | scale 4x nearest | palette 64 colors | visible 39142 | transparent 59141 | first visible row 38 | last visible row 167 | continuous opaque base starts 181 | checked 1572528 | alpha 0/255 | source alpha sum 0..4048

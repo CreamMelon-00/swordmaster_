@@ -146,6 +146,14 @@ namespace TurnLimbo.Core.Tests
                 step.Pose == CutscenePose.Block);
             Assert.That(slash, Is.GreaterThan(missionTwo.FindLastIndex(lastLine - 1, step => step.Kind == CutsceneStepKind.Line)));
             Assert.That(block, Is.GreaterThan(slash).And.LessThan(lastLine), "The knight blocks the stroke as he cries out.");
+            CutsceneStep[] afterCry = missionTwo.Skip(lastLine + 1).ToArray();
+            Assert.That(afterCry.Any(step => IsActor(step, CutsceneActor.Elisa, CutsceneActorAction.Move)), Is.False,
+                "The manuscript does not send Elisa back to her starting mark after the clash.");
+            Assert.That(afterCry.Where(step => step.Kind == CutsceneStepKind.Wait).Sum(step => step.Seconds),
+                Is.GreaterThanOrEqualTo(CutsceneStep.AttackSeconds - CutsceneStep.AttackImpactSeconds),
+                "Even an immediate advance lets the blade finish before the handoff.");
+            Assert.That(afterCry.Last().Kind, Is.EqualTo(CutsceneStepKind.Wait),
+                "The battle start card takes over the close-range clash without a black flash.");
 
             // {튜토리얼 화면 연상}: one recall, after 엘리사's '(머릿속에서 들리는 이 소리는…)' and before the knight speaks.
             List<CutsceneStep> missionThree = Read(Project(CutsceneFolder + "/mission-03-intro.txt")).Steps.ToList();

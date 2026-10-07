@@ -108,6 +108,12 @@ namespace TurnLimbo.Presentation.Tests
                 hud.ShowTab(LobbyTab.Stages);
                 Assert.That(FindImage(hud, "Bedroom Background").sprite, Is.SameAs(selectedRoom),
                     "Changing lobby pages keeps the chosen time of day.");
+                Assert.That(FindImage(hud, "Selected Stage Landscape").sprite,
+                    Is.SameAs(Resources.Load<Sprite>("SchoolCorridor/corridor-composite")),
+                    "Post-prologue stages preview the corridor used in their battles.");
+                Assert.That(FindImage(hud, "Selected Stage Landscape").preserveAspect, Is.True);
+                Assert.That(FindImage(hud, "Selected Stage Enemy Silhouette").sprite,
+                    Is.SameAs(Resources.Load<Sprite>(CampaignEnemyVariant.SilhouetteResource(1))));
             }
             Object.Destroy(parent);
             yield return null;
@@ -210,6 +216,8 @@ namespace TurnLimbo.Presentation.Tests
 
                 FindButton(hud, "Stage Card 2").onClick.Invoke();
                 Assert.That(hud.SelectedStageNumber, Is.EqualTo(2));
+                Assert.That(FindImage(hud, "Selected Stage Enemy Silhouette").sprite,
+                    Is.SameAs(Resources.Load<Sprite>(CampaignEnemyVariant.SilhouetteResource(2))));
                 Assert.That(FindText(hud, "Selected Stage Skill Reward").text, Does.Contain("몰아치기"));
                 Assert.That(requestedStage, Is.EqualTo(-1), "Selecting a card must not start combat.");
                 Assert.That(FindText(hud, "Selected Stage Stats").text,

@@ -37,11 +37,13 @@ namespace TurnLimbo.Presentation.Tests
                 shadow.sortingOrder = -2;
                 var aura = new DuelBreakAura(actor, null, shadow, material, 0);
                 Assert.That(aura.HasRequiredAssets, Is.True);
-                Assert.That(aura.OutlineRendererCount, Is.EqualTo(4));
+                Assert.That(aura.OutlineRendererCount, Is.EqualTo(8));
                 List<SpriteRenderer> outline = Outline(actor);
                 MeshRenderer ring = shadow.GetComponentInChildren<MeshRenderer>(true);
-                Assert.That(outline.Count, Is.EqualTo(4));
+                Assert.That(outline.Count, Is.EqualTo(8));
                 Assert.That(ring, Is.Not.Null);
+                Assert.That(ring.GetComponent<MeshFilter>().sharedMesh.vertexCount,
+                    Is.EqualTo(DuelBreakAura.RingSegments * 2), "Every ring segment joins the next without gaps.");
                 Assert.That(outline.TrueForAll(copy => !copy.enabled), Is.True);
                 Assert.That(ring.enabled, Is.False);
 
@@ -51,6 +53,7 @@ namespace TurnLimbo.Presentation.Tests
                 aura.Tick(DuelBreakAura.FadeDuration * .5f);
                 Assert.That(aura.Intensity, Is.EqualTo(.5f).Within(.01f));
                 Assert.That(aura.IsVisible, Is.True);
+                var directions = new HashSet<Vector2Int>();
                 foreach (SpriteRenderer copy in outline)
                 {
                     Assert.That(copy.enabled, Is.True);
@@ -61,8 +64,13 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(drawn.r, Is.GreaterThan(drawn.g + .3f), "The outline reads red.");
                     Assert.That(drawn.a, Is.InRange(.01f, 1f));
                     Assert.That(copy.color, Is.EqualTo(Color.white), "The tint travels in the property block, not the sprite colour.");
-                    Assert.That(copy.transform.localPosition.magnitude, Is.EqualTo(new Vector2(DuelBreakAura.OutlineThickness, 0f).magnitude).Within(.02f));
+                    Vector3 offset = copy.transform.localPosition;
+                    Assert.That(Mathf.Max(Mathf.Abs(offset.x), Mathf.Abs(offset.y)),
+                        Is.EqualTo(DuelBreakAura.OutlineThickness).Within(.0001f));
+                    directions.Add(new Vector2Int(Mathf.RoundToInt(offset.x / DuelBreakAura.OutlineThickness),
+                        Mathf.RoundToInt(offset.y / DuelBreakAura.OutlineThickness)));
                 }
+                Assert.That(directions.Count, Is.EqualTo(8), "The one-pixel outline fills cardinal and diagonal corners.");
                 Assert.That(ring.enabled, Is.True);
                 Assert.That(ring.sortingOrder, Is.EqualTo(DuelBreakAura.SortingOrder));
 
@@ -237,6 +245,85 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator ActualController_BreakImpactPlaysOncePerNewBreakOnEitherSideAndExpiresOnRealTime()
+        {
+            yield return null;
+            DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            Assert.That(controller, Is.Not.Null);
+            bool originalEnabled = controller.enabled;
+            LegacyQueuedDuel originalSession = controller.Session;
+            controller.enabled = false;
+            FieldInfo sessionField = typeof(DuelPrototypeController).GetField("session", PrivateInstance);
+            FieldInfo hitStopField = typeof(DuelPrototypeController).GetField("hitStopRemaining", PrivateInstance);
+            MethodInfo reset = typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance);
+            MethodInfo begin = typeof(DuelPrototypeController).GetMethod("BeginSlotAnimation", PrivateInstance);
+            MethodInfo advance = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
+            try
+            {
+                // A skill effect can break resistance before an impact. It still needs a one-shot cue.
+                var direct = new LegacyQueuedDuel(100, 50, 100, 15,
+                    new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
+                sessionField.SetValue(controller, direct);
+                reset.Invoke(controller, null);
+                Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.False);
+                Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
+                direct.TryQueueLane(0); direct.Commit();
+                begin.Invoke(controller, null);
+                advance.Invoke(controller, new object[] { 0f, null });
+                Assert.That(direct.Enemy.IsResistanceBroken, Is.True);
+                Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.True);
+                Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.False);
+                DuelSkillActivationBurst enemyBurst = BreakImpact(controller, "Enemy Break Impact")
+                    .GetComponent<DuelSkillActivationBurst>();
+                Assert.That(enemyBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Break));
+                Assert.That(enemyBurst.raycastTarget, Is.False);
+
+                // The one-shot keeps its own real-time clock even while combat time is stopped.
+                hitStopField.SetValue(controller, 2f);
+                advance.Invoke(controller, new object[] { .7f, null });
+                Assert.That((float)hitStopField.GetValue(controller), Is.GreaterThan(1f));
+                Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
+                hitStopField.SetValue(controller, 0f);
+                for (int i = 0; i < 400 && direct.CurrentSlot.HitsResolved == 0; i++)
+                    advance.Invoke(controller, new object[] { .02f, null });
+                Assert.That(direct.CurrentSlot.HitsResolved, Is.GreaterThan(0));
+                Assert.That(direct.Enemy.IsResistanceBroken, Is.True);
+                Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False,
+                    "A later hit against an already-broken enemy must not restart the impact cue.");
+
+                // A normal clash can instead break the player. The two sides use separate cues.
+                var clash = new LegacyQueuedDuel(100, 10, 100, 50,
+                    new[] { Attack(900, 1) }, new[] { Attack(901, 30) }, new[] { 1 });
+                sessionField.SetValue(controller, clash);
+                reset.Invoke(controller, null);
+                Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
+                clash.TryQueueLane(0); clash.Commit();
+                begin.Invoke(controller, null);
+                for (int i = 0; i < 400 && !clash.Player.IsResistanceBroken; i++)
+                    advance.Invoke(controller, new object[] { .02f, null });
+                Assert.That(clash.Player.IsResistanceBroken, Is.True);
+                Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.True);
+                Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
+                DuelSkillActivationBurst playerBurst = BreakImpact(controller, "Player Break Impact")
+                    .GetComponent<DuelSkillActivationBurst>();
+                Assert.That(playerBurst.color.g, Is.LessThan(enemyBurst.color.g),
+                    "The player's danger flash is redder than the enemy-break reward flash.");
+
+                reset.Invoke(controller, null);
+                Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.False,
+                    "A new battle clears a break impact still in progress.");
+                Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
+            }
+            finally
+            {
+                sessionField.SetValue(controller, originalSession);
+                controller.RestartMatch();
+                controller.enabled = originalEnabled;
+            }
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator ActualController_ClosesUpOnBreaksFinishingBlowsAndQuarterHealthHitsOnly()
         {
             yield return null;
@@ -400,6 +487,14 @@ namespace TurnLimbo.Presentation.Tests
 
         private static string[] ActiveTexts(GameObject root, string name) =>
             Named(root, name, true).ConvertAll(text => text.text).ToArray();
+
+        private static GameObject BreakImpact(DuelPrototypeController controller, string name)
+        {
+            foreach (Transform child in controller.Hud.Root.GetComponentsInChildren<Transform>(true))
+                if (child.name == name) return child.gameObject;
+            Assert.Fail("Missing break impact " + name);
+            return null;
+        }
 
         private static Text Number(LegacyCombatHud hud, string amount)
         {

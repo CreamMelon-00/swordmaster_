@@ -236,6 +236,7 @@ namespace TurnLimbo.Presentation
         private void RefreshCard(NodeCard card, CurriculumProgress curriculum)
         {
             CurriculumNodeState state = curriculum.GetState(card.Node.Id);
+            card.Title.text = DisplayTitle(card.Node, state);
             bool selected = State.SelectedNodeId == card.Node.Id;
             card.Background.color = state == CurriculumNodeState.Active ? DuelVisualTheme.Selected
                 : state == CurriculumNodeState.Completed ? DuelVisualTheme.RaisedSurface
@@ -267,13 +268,17 @@ namespace TurnLimbo.Presentation
             CurriculumNode node = curriculum.Tree.Find(State.SelectedNodeId);
             CurriculumNodeState state = curriculum.GetState(node.Id);
             LegacySkill skill = GrantedSkill(node);
+            CampaignOwnedSkill owned = state == CurriculumNodeState.Completed && skill != null
+                ? run.GetOwnedSkill(skill.Id) : null;
+            LegacySkill shownSkill = owned?.Skill ?? skill;
             string rewardText = StatRewardText(node.StatReward);
             if (skill != null)
             {
-                detailStyle.SetLane(skill.LaneIndex);
+                detailStyle.SetLane(shownSkill.LaneIndex);
                 detailIcon.enabled = true;
-                detailIcon.sprite = art.GetSkillIcon(skill.IconId);
-                detailInfo.SetSkill(skill, false, rewardText.Length > 0 ? "능력치 보상: " + rewardText : null);
+                detailIcon.sprite = art.GetSkillIcon(shownSkill.IconId);
+                detailInfo.SetSkill(shownSkill, false, rewardText.Length > 0 ? "능력치 보상: " + rewardText : null,
+                    owned);
             }
             else
             {
@@ -282,7 +287,7 @@ namespace TurnLimbo.Presentation
                 detailIcon.sprite = null;
                 detailInfo.SetEmptyMessage(rewardText);
             }
-            detailName.text = node.Title;
+            detailName.text = DisplayTitle(node, state);
             purpose.text = $"{BranchName(node.Branch)} 과정  ·  전투 {node.Battles}회";
             requirement.text = RequirementText(node, curriculum.Tree);
             // Lanes open through story missions; a skill of a closed lane is owned but waits to fight.
@@ -377,6 +382,14 @@ namespace TurnLimbo.Presentation
         // Any sheet row, as CampaignRun grants it, so a node whose technique became a starting one still shows it.
         private static LegacySkill GrantedSkill(CurriculumNode node)
             => node.SkillIds.Count == 0 ? null : LegacySkillDefinitions.Find(node.SkillIds[0])?.Skill;
+
+        private string DisplayTitle(CurriculumNode node, CurriculumNodeState state)
+        {
+            LegacySkill skill = GrantedSkill(node);
+            if (state != CurriculumNodeState.Completed || skill == null || node.Title != skill.Name)
+                return node.Title;
+            return run.GetOwnedSkill(skill.Id)?.Skill.Name ?? node.Title;
+        }
 
         private void PerformSelect()
         {

@@ -9,6 +9,17 @@ namespace TurnLimbo.Core.Tests
     public sealed class CampaignRunTests
     {
         [Test]
+        public void StageNames_FollowTheSchoolCorridorAfterTheOpeningArc()
+        {
+            var run = new CampaignRun();
+            string[] names = { "복도 입구", "첫 번째 창가", "햇살 드는 복도", "석조 기둥 사이",
+                "가스등 아래", "긴 창가", "복도 안쪽", "복도 끝 결투" };
+            Assert.That(run.StageCount, Is.EqualTo(names.Length));
+            for (int number = 1; number <= names.Length; number++)
+                Assert.That(run.GetStage(number).Name, Is.EqualTo(names[number - 1]));
+        }
+
+        [Test]
         public void FreshRun_PreservesInitialBattleAndNineSkillLanes()
         {
             var run = NewBattleRun();
@@ -28,6 +39,75 @@ namespace TurnLimbo.Core.Tests
             CollectionAssert.AreEqual(new[] { 3, 4, 8 }, SkillIds(duel.GetLane(1)));
             CollectionAssert.AreEqual(new[] { 5, 6, 9 }, SkillIds(duel.GetLane(2)));
             CollectionAssert.AreEqual(new[] { 1, 2 }, SkillIds(duel.EnemyQueue));
+        }
+
+        [TestCase(1, 10)]
+        [TestCase(3, 5)]
+        [TestCase(4, 3)]
+        public void OwnedSkill_ClashesRaiseLevelAndPowerUntilLevelThree(int skillId, int clashesPerLevel)
+        {
+            var run = new CampaignRun();
+            CampaignOwnedSkill owned = run.GetOwnedSkill(skillId);
+            LegacySkill sheet = LegacySkillDefinitions.Skill(skillId);
+            LegacySkill enemy = LegacySkillDefinitions.Skill(5);
+            Assert.That(owned.Skill, Is.Not.SameAs(sheet));
+            Assert.That(owned.Level, Is.Zero);
+            Assert.That(owned.Experience, Is.Zero);
+            Assert.That(owned.ExperienceRequired, Is.EqualTo(clashesPerLevel));
+            Assert.That(owned.ExperienceThisLevel, Is.Zero);
+
+            for (int count = 1; count <= clashesPerLevel * CampaignOwnedSkill.MaxLevel; count++)
+            {
+                Assert.That(run.TryGainClashExperience(owned.Skill, enemy), Is.True);
+                int expectedLevel = count / clashesPerLevel;
+                Assert.That(owned.Level, Is.EqualTo(expectedLevel));
+                Assert.That(owned.Experience, Is.EqualTo(count));
+                Assert.That(owned.Skill.Name, Is.EqualTo(sheet.Name + new string('+', expectedLevel)));
+                Assert.That(owned.Skill.MinPower, Is.EqualTo(sheet.MinPower + expectedLevel * 2));
+                Assert.That(owned.Skill.MaxPower, Is.EqualTo(sheet.MaxPower + expectedLevel * 2));
+                Assert.That(sheet.Name, Does.Not.Contain("+"), "Shared sheet skill must remain unmodified.");
+            }
+            Assert.That(owned.IsMaxLevel, Is.True);
+            Assert.That(owned.ExperienceThisLevel, Is.EqualTo(clashesPerLevel), "A max-level bar stays full.");
+            Assert.That(run.TryGainClashExperience(owned.Skill, enemy), Is.False);
+            Assert.That(owned.Experience, Is.EqualTo(clashesPerLevel * CampaignOwnedSkill.MaxLevel));
+        }
+
+        [Test]
+        public void SkillExperience_RequiresTwoRealSkillsAndTheOwnedPlayerInstance()
+        {
+            var run = new CampaignRun();
+            CampaignOwnedSkill owned = run.GetOwnedSkill(1);
+            LegacySkill enemy = LegacySkillDefinitions.Skill(3);
+            Assert.That(run.GetOwnedSkill(9999), Is.Null);
+            Assert.That(run.TryGainClashExperience(null, enemy), Is.False);
+            Assert.That(run.TryGainClashExperience(owned.Skill, null), Is.False);
+            Assert.That(run.TryGainClashExperience(owned.Skill, LegacyCommonActions.Breathe), Is.False);
+            Assert.That(run.TryGainClashExperience(LegacyCommonActions.Breathe, enemy), Is.False);
+            Assert.That(run.TryGainClashExperience(LegacySkillDefinitions.Skill(1), enemy), Is.False,
+                "A matching ID is not enough to train a non-owned instance.");
+            Assert.That(run.TryGainClashExperience(owned.Skill, enemy), Is.True);
+            Assert.That(owned.Experience, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ActFiveSkill_UsesOneClashPerLevel()
+        {
+            var run = new CampaignRun();
+            Assert.That(run.TrySelectCurriculumNode("one-stroke"), Is.True);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            CampaignOwnedSkill owned = run.GetOwnedSkill(16);
+            Assert.That(owned, Is.Not.Null);
+            Assert.That(owned.ExperienceRequired, Is.EqualTo(1));
+            for (int level = 1; level <= CampaignOwnedSkill.MaxLevel; level++)
+            {
+                Assert.That(run.TryGainClashExperience(owned.Skill, LegacySkillDefinitions.Skill(1)), Is.True);
+                Assert.That(owned.Level, Is.EqualTo(level));
+            }
+            Assert.That(run.TryGainClashExperience(owned.Skill, LegacySkillDefinitions.Skill(1)), Is.False);
         }
 
         [Test]
@@ -99,7 +179,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(11), "The first clear also grants 탐색.");
             CampaignOwnedSkill owned = Owned(run, granted.Id);
-            Assert.That(owned.Skill, Is.SameAs(granted));
+            Assert.That(owned.Skill, Is.Not.SameAs(granted), "Player upgrades must not mutate the shared skill sheet.");
             Assert.That(owned.Skill.IconId, Is.EqualTo(10));
             Assert.That(owned.Skill.AnimationName, Is.EqualTo("Slash"));
             Assert.That(owned.Skill.MinPower, Is.EqualTo(6));

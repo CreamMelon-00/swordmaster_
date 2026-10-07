@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
@@ -31,12 +32,12 @@ namespace TurnLimbo.Presentation
         private readonly Text untimedHint;
         // 넘기기 pays with planning time: the button shows the price and a '-1초' rises off the timer when it is spent.
         private const float TimeSpentDuration = .7f;
-        private static readonly Vector2 TimeSpentHome = new Vector2(294f, -5f);
+        private static readonly Vector2 TimeSpentHome = new Vector2(340f, -10f);
         private readonly Text cycleCost, cycleEffect, timeSpent;
         private float laneCycleCost;
         private bool laneCycleAffordable = true;
         private float timeSpentRemaining;
-        private readonly Text turnText, actText, stageText;
+        private readonly Text turnText, timeText, actText, stageText;
         private readonly Button[] laneButtons = new Button[3];
         private readonly CanvasGroup[] guideLaneGroups = new CanvasGroup[3];
         private readonly bool[] laneAffordable = new bool[3];
@@ -51,6 +52,10 @@ namespace TurnLimbo.Presentation
         private MissionGuide guide;
         private bool lastPlanning;
         private readonly Image[] holdImages = new Image[3];
+        private const float HoldCancelSeconds = .45f;
+        private readonly RectTransform[] holdCancelPlates = new RectTransform[3];
+        private readonly CanvasGroup[] holdCancelGroups = new CanvasGroup[3];
+        private readonly float[] holdCancelRemaining = new float[3];
         private readonly Text[] costs = new Text[3];
         private readonly Text[] skillNames = new Text[3];
         private readonly SkillCardFeedbackGraphic[] laneFeedback = new SkillCardFeedbackGraphic[3];
@@ -122,7 +127,7 @@ namespace TurnLimbo.Presentation
         private float viewAngle, angleFrom, angleTarget, angleElapsed = .15f;
         private float logFrom = 1080, logTarget = 1080, logElapsed = .5f;
         private bool canOpenLog;
-        private int inspectedSlot = -1, shownTurn = -1, shownAct = -1, shownMaxAct = -1;
+        private int inspectedSlot = -1, shownTurn = -1, shownSeconds = -1, shownAct = -1, shownMaxAct = -1;
         private bool slotAnimation;
         private bool assetsAvailable = true;
         // A compact command desk leaves the arena visible on both sides. Its two end buttons sit on
@@ -305,17 +310,19 @@ namespace TurnLimbo.Presentation
             // First laid out for all three lanes; a duel with fewer packs its own.
             LayoutGears(AllLanes, true);
 
-            timerPanel = Panel("TimerBG", root, new Vector2(0, -36), new Vector2(480, 48)).rectTransform;
-            Pin(timerPanel, new Vector2(.5f, 1));
-            turnText = Text("TurnCount", timerPanel, new Vector2(-184, 3), new Vector2(96, 24), 18, TextAnchor.MiddleCenter);
-            turnText.color = MutedText;
-            timerTrack = Image("Timer Track", timerPanel, white, new Vector2(48, -5), new Vector2(336, 5), Track);
-            timerFill = Image("Timer", timerPanel, white, new Vector2(48, -5), new Vector2(336, 5), Accent);
+            // Keep the planning clock on the command desk: the coach and held skill card occupy the space above it.
+            // A thin bar rides its inner top edge, while ACT and seconds share the row directly underneath.
+            timerPanel = Rect("TimerBG", controls, new Vector2(0f, 84f), new Vector2(540f, 32f), Vector2.one * .5f);
+            timerTrack = Image("Timer Track", timerPanel, white, new Vector2(0f, 12f), new Vector2(520f, 6f), Track);
+            timerFill = Image("Timer", timerPanel, white, new Vector2(0f, 12f), new Vector2(520f, 6f), Accent);
             Filled(timerFill, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
-            untimedHint = Text("Untimed Hint", timerPanel, new Vector2(48, 3), new Vector2(336, 26), 18, TextAnchor.MiddleCenter);
+            timeText = Text("Time Remaining", timerPanel, new Vector2(190f, -5f), new Vector2(88f, 24f), 22,
+                TextAnchor.MiddleCenter);
+            untimedHint = Text("Untimed Hint", timerPanel, new Vector2(190f, -5f), new Vector2(200f, 24f), 16,
+                TextAnchor.MiddleRight);
             untimedHint.text = "임무 · 시간 제한 없음";
             untimedHint.color = Accent;
-            // Just outside the timer panel's right edge, level with the bar, so it never covers the bar or the frame.
+            // The time cost appears beside the seconds, within the dock even at the top of its rise.
             timeSpent = Text("Time Spent", timerPanel, TimeSpentHome, new Vector2(90, 26), 20, TextAnchor.MiddleLeft);
             timeSpent.color = DuelVisualTheme.Danger;
             timeSpent.gameObject.SetActive(false);
@@ -324,6 +331,22 @@ namespace TurnLimbo.Presentation
             Pin(stagePanel, new Vector2(0, 1));
             stageText = Text("Stage Label", stagePanel, Vector2.zero, new Vector2(372, 32), 18, TextAnchor.MiddleLeft);
             stageText.color = MutedText;
+
+            // The former top-centre clock position now holds the round throughout planning and resolution.
+            // Flags frame the number without turning the emblem into another control.
+            Vector2 flagSize = new Vector2(DuelCrossedFlags.PreferredWidth, DuelCrossedFlags.PreferredHeight);
+            var turnHeader = Rect("Turn Header", root, new Vector2(0f, -36f), flagSize, new Vector2(.5f, 1f));
+            var crossedFlags = Rect("Crossed Flags", turnHeader, Vector2.zero, flagSize,
+                Vector2.one * .5f).gameObject.AddComponent<DuelCrossedFlags>();
+            crossedFlags.raycastTarget = false;
+            var turnBadge = Panel("Turn Badge", turnHeader, new Vector2(0f, 4f), new Vector2(76f, 56f), Surface, Border);
+            var turnLabel = Text("Turn Label", turnBadge.transform, new Vector2(0f, -18f), new Vector2(64f, 16f), 12,
+                TextAnchor.MiddleCenter);
+            turnLabel.text = "턴";
+            turnLabel.color = Accent;
+            turnText = Text("TurnCount", turnBadge.transform, new Vector2(0f, 4f), new Vector2(64f, 32f), 27,
+                TextAnchor.MiddleCenter);
+            turnText.color = Foreground;
 
             playerStatus = BuildStatus(false);
             enemyStatus = BuildStatus(true);
@@ -446,6 +469,7 @@ namespace TurnLimbo.Presentation
             bool showTimer = !trainingMode && (!missionMode || missionTimed);
             timerTrack.gameObject.SetActive(showTimer);
             timerFill.gameObject.SetActive(showTimer);
+            timeText.gameObject.SetActive(showTimer);
             untimedHint.text = trainingMode ? "수련 · 시간 제한 없음" : "임무 · 시간 제한 없음";
             untimedHint.gameObject.SetActive(!showTimer);
         }
@@ -506,7 +530,7 @@ namespace TurnLimbo.Presentation
             if (timeSpent.gameObject.activeSelf != visible) timeSpent.gameObject.SetActive(visible);
             if (!visible) return;
             float t = 1f - timeSpentRemaining / TimeSpentDuration;
-            timeSpent.rectTransform.anchoredPosition = TimeSpentHome + new Vector2(0f, 18f * t);
+            timeSpent.rectTransform.anchoredPosition = TimeSpentHome + new Vector2(0f, 12f * t);
             Color color = timeSpent.color;
             color.a = 1f - t * t;
             timeSpent.color = color;
@@ -607,9 +631,7 @@ namespace TurnLimbo.Presentation
             delta = Mathf.Max(0, delta);
             float actualDelta = realDelta < 0 ? delta : Mathf.Max(0, realDelta);
             transition = Mathf.MoveTowards(transition, targetTransition, delta * 2);
-            float ease = 1 - Mathf.Pow(1 - transition, 3);
             inputPanel.sizeDelta = new Vector2(DockWidth, DockHeight * (1 - OutQuad(transition)));
-            timerPanel.anchoredPosition = new Vector2(0, Mathf.Lerp(-36, 64, ease));
             cinematicElapsed = Mathf.Min(.3f, cinematicElapsed + actualDelta);
             cinematic = Mathf.Lerp(cinematicFrom, cinematicTarget, OutQuad(cinematicElapsed / .3f));
             topBar.anchoredPosition = new Vector2(0, 64 * (1 - cinematic));
@@ -627,7 +649,15 @@ namespace TurnLimbo.Presentation
             inputs.interactable = inputs.blocksRaycasts = planning;
             float ratio = Mathf.Clamp01(timeRemaining / Mathf.Max(0.01f, planningDuration));
             timerFill.fillAmount = ratio;
-            timerFill.color = Color.Lerp(DuelVisualTheme.Danger, Accent, ratio);
+            bool timeLow = ratio <= .3f;
+            timerFill.color = timeLow ? DuelVisualTheme.Danger : Accent;
+            timeText.color = timeLow ? DuelVisualTheme.Danger : Foreground;
+            int seconds = Mathf.CeilToInt(Mathf.Max(0f, timeRemaining));
+            if (shownSeconds != seconds)
+            {
+                shownSeconds = seconds;
+                timeText.text = $"{seconds}s";
+            }
             actFill.fillAmount = Mathf.Clamp01(session.Act / (float)session.PlayerMaximumAct);
             if (shownAct != session.Act || shownMaxAct != session.PlayerMaximumAct)
             {
@@ -638,7 +668,7 @@ namespace TurnLimbo.Presentation
             if (shownTurn != session.RoundNumber)
             {
                 shownTurn = session.RoundNumber;
-                turnText.text = $"턴 {shownTurn}";
+                turnText.text = shownTurn.ToString();
             }
             LayoutGears(session.Features);
             for (int lane = 0; lane < 3; lane++)
@@ -650,7 +680,7 @@ namespace TurnLimbo.Presentation
                 laneAffordable[lane] = present && session.Act >= sequence[0].Cost;
                 if (!present) continue;
                 var current = sequence[0];
-                if (shownSkills[lane] != current.Id)
+                if (shownSkills[lane] != current.Id || skillNames[lane].text != current.Name)
                 {
                     shownSkills[lane] = current.Id;
                     costs[lane].text = $"{current.Cost} ACT";
@@ -661,6 +691,7 @@ namespace TurnLimbo.Presentation
             UpdateIdlerPresence();
             AdvanceLaneTurns(actualDelta);
             AdvanceTimeSpent(actualDelta);
+            AdvanceHoldCancel(actualDelta);
             UpdateBreathCount();
             ApplyInputAvailability();
             if (slotAnimation) slotElapsed += delta;
@@ -695,6 +726,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            ClearHoldCancel();
             targetTransition = transition = 0;
             cinematic = cinematicFrom = cinematicTarget = 0;
             cinematicElapsed = .3f;
@@ -708,6 +740,7 @@ namespace TurnLimbo.Presentation
 
         public void EndTurn()
         {
+            ClearHoldCancel();
             targetTransition = 1;
             inputs.alpha = 0;
             inputs.interactable = inputs.blocksRaycasts = false;
@@ -771,13 +804,44 @@ namespace TurnLimbo.Presentation
             else for (int i = 0; i < holdImages.Length; i++) holdImages[i].fillAmount = 0;
         }
 
+        /// <summary>A released explanation attempt between a tap and the full hold was safely cancelled.</summary>
+        public void ShowHoldCancel(int lane)
+        {
+            if (disposed || lane < 0 || lane >= holdCancelGroups.Length || holdCancelGroups[lane] == null) return;
+            holdCancelRemaining[lane] = HoldCancelSeconds;
+            holdCancelGroups[lane].alpha = 1f;
+            holdCancelGroups[lane].gameObject.SetActive(true);
+        }
+
+        public void ClearHoldCancel(int lane = -1)
+        {
+            if (lane >= holdCancelGroups.Length) return;
+            int first = lane < 0 ? 0 : lane, last = lane < 0 ? holdCancelGroups.Length : lane + 1;
+            for (int i = first; i < last; i++)
+            {
+                holdCancelRemaining[i] = 0f;
+                if (holdCancelGroups[i] != null) holdCancelGroups[i].gameObject.SetActive(false);
+            }
+        }
+
+        private void AdvanceHoldCancel(float realDelta)
+        {
+            for (int lane = 0; lane < holdCancelGroups.Length; lane++)
+            {
+                if (!(holdCancelRemaining[lane] > 0f)) continue;
+                holdCancelRemaining[lane] = Mathf.Max(0f, holdCancelRemaining[lane] - realDelta);
+                if (holdCancelRemaining[lane] <= 0f) ClearHoldCancel(lane);
+                else holdCancelGroups[lane].alpha = Mathf.Clamp01(holdCancelRemaining[lane] / .16f);
+            }
+        }
+
         /// <summary>A card the controller keeps up over the dock, by its top on the screen (pixels from the bottom; 0 for
         /// none): the coach's (<see cref="MissionCoachHud.TopEdge"/>). A held skill's explanation then opens above it rather
         /// than under it, so the card never covers its effect text. Read on each <see cref="ShowExplanation"/>.</summary>
         public void SetExplanationFloor(float screenTop)
             => explanationFloor = screenTop > 0f && !float.IsInfinity(screenTop) ? screenTop : 0f;
 
-        public void ShowExplanation(LegacySkill skill, bool enemy)
+        public void ShowExplanation(LegacySkill skill, bool enemy, CampaignOwnedSkill owned = null)
         {
             if (disposed || skill == null) return;
             var panel = enemy ? enemyExplanation : playerExplanation;
@@ -812,9 +876,14 @@ namespace TurnLimbo.Presentation
                 playerName.text = skill.Name;
                 playerStyle.SetLane(skill.LaneIndex);
                 playerExplanationIcon.sprite = iconFor(skill.IconId);
-                playerInfo.SetSkill(skill);
+                playerInfo.SetSkill(skill, owned: owned);
                 LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
                     PlayerExplanationScale);
+            }
+            else if (!enemy)
+            {
+                if (playerName.text != skill.Name) playerName.text = skill.Name;
+                playerInfo.SetSkill(skill, owned: owned);
             }
             // Clamp after content sizing, including repeated holds at a moving screen edge.
             Vector2 desired = root.rect.size / 2 + new Vector2(-480, 160);
@@ -1077,7 +1146,7 @@ namespace TurnLimbo.Presentation
             SetMissionMode(false);
             SetEnemyName(null);
             SetGuideFocus(-1, false, false, false);
-            shownTurn = shownAct = shownMaxAct = -1;
+            shownTurn = shownSeconds = shownAct = shownMaxAct = -1;
             displayedSession = null;
             // The next duel may open other lanes, so a skill explained again is shown afresh (its badge may change).
             explainedPlayer = explainedEnemy = null;

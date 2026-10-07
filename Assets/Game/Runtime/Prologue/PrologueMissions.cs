@@ -20,7 +20,8 @@ namespace TurnLimbo.Runtime.Prologue
         private const string QueueOnce = "Q 짧게 누르기 / 카드 클릭";
         private const string CommitKeys = "Space / Enter / 확정 버튼";
         private const string Watch = "전투를 지켜보세요";
-        private const string FreeKeys = "Q 예약 · Shift 넘기기 · Space 확정 · Tab 상대 확인 · Escape 임무 포기";
+        private const string FirstFreeKeys = "Q 예약 · Space 확정 · Tab 적 확인\nQ 길게 눌러 기술 설명 · Esc 일시정지";
+        private const string FreeKeys = "Q 예약 · Shift 넘기기 · Space 확정 · Tab 적 확인\nQ 길게 눌러 기술 설명 · Esc 일시정지";
         /// <summary>The 서막's lane plus 넘기기, which mission 1's win opens.</summary>
         private const CombatFeature QWithCycle = CombatFeature.LaneQ | CombatFeature.Cycle;
 
@@ -70,7 +71,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "지켜보세요",
                         "예약한 순서대로 공격합니다. 상대가 막지 않은 공격은 모두 체력 피해가 됩니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "끝까지 베어 내세요",
-                        "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", "Q 예약 · Space 확정 · Escape 임무 포기"),
+                        "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", FirstFreeKeys),
                 }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다.", encounter: EncounterKind.Duel),
             // 2. The enemy attacks: clashes trade resistance, the break doubles HP damage, ACT recovers each turn.
             new PrologueMission(2, "인사는 칼로", Forest,

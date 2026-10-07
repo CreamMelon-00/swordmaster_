@@ -220,6 +220,57 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator OwnedSkill_ShowsCompactProgressOnlyOnThePlayersCard()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var run = new CampaignRun();
+                CampaignOwnedSkill owned = run.OwnedSkills[0];
+                float height = fixture.View.Height;
+                fixture.View.SetSkill(owned.Skill, owned: owned);
+                Canvas.ForceUpdateCanvases();
+                var progress = Named(fixture.View.Root, "Skill Experience").GetComponent<RectTransform>();
+                var fill = Named(fixture.View.Root, "Skill Experience Fill").GetComponent<RectTransform>();
+                Assert.That(progress.gameObject.activeInHierarchy, Is.True);
+                Assert.That(Label(fixture.View.Root, "Skill Experience Level").text,
+                    Is.EqualTo("숙련 " + owned.Level + "/" + CampaignOwnedSkill.MaxLevel));
+                Assert.That(Label(fixture.View.Root, "Skill Experience Value").text,
+                    Is.EqualTo(owned.ExperienceThisLevel + "/" + owned.ExperienceRequired));
+                Assert.That(fill.rect.width, Is.Zero.Within(.1f));
+                Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
+                RectTransform effect = fixture.View.EffectText.rectTransform;
+                Assert.That(effect.anchoredPosition.y + effect.rect.yMin,
+                    Is.GreaterThan(progress.anchoredPosition.y + progress.rect.yMax),
+                    "The fixed card reserves a separate line for experience below its effect text.");
+                Assert.That(fixture.View.EffectText.preferredHeight, Is.LessThanOrEqualTo(effect.rect.height + 1f));
+
+                for (int use = 0; use < 5; use++) owned.GainClashExperience();
+                fixture.View.SetSkill(owned.Skill, owned: owned);
+                Assert.That(Label(fixture.View.Root, "Skill Experience Value").text, Is.EqualTo("5/10"),
+                    "The card must refresh even when the skill object itself has not changed.");
+                Assert.That(fill.rect.width, Is.EqualTo(progress.rect.width / 2f).Within(.1f));
+                for (int use = 5; use < 30; use++) owned.GainClashExperience();
+                fixture.View.SetSkill(owned.Skill, owned: owned);
+                Assert.That(Label(fixture.View.Root, "Skill Experience Level").text, Is.EqualTo("숙련 3/3"));
+                Assert.That(Label(fixture.View.Root, "Skill Experience Value").text, Is.EqualTo("MAX"));
+                Assert.That(fill.rect.width, Is.EqualTo(progress.rect.width).Within(.1f));
+                Assert.That(fixture.View.PowerText.text, Is.EqualTo("10–11"));
+                Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
+
+                fixture.View.SetSkill(owned.Skill, true, owned: owned);
+                Assert.That(progress.gameObject.activeSelf, Is.False, "An enemy has no player skill experience.");
+                fixture.View.SetSkill(owned.Skill);
+                Assert.That(progress.gameObject.activeSelf, Is.False, "An unowned preview has no experience.");
+                fixture.View.SetSkill(owned.Skill, owned: owned);
+                fixture.View.Clear();
+                Assert.That(progress.gameObject.activeSelf, Is.False);
+                Assert.That(Label(fixture.View.Root, "Skill Experience Value").text, Is.Empty);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator AdditionalCurriculumReward_UsesTheSameCardAndClearsWhenSelectionChanges()
         {
             yield return null;

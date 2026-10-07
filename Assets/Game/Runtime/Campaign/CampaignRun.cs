@@ -17,14 +17,14 @@ namespace TurnLimbo.Runtime.Campaign
         private static readonly int[] BasicRhythmSkillIds = { 1, 2, 3, 4, 5, 6 };
         private static readonly CampaignStage[] stages =
         {
-            new CampaignStage(1, "숲길 입구"),
-            new CampaignStage(2, "이끼 낀 오솔길"),
-            new CampaignStage(3, "안개 숲"),
-            new CampaignStage(4, "고목의 갈림길"),
-            new CampaignStage(5, "깊은 녹음"),
-            new CampaignStage(6, "숲의 경계"),
-            new CampaignStage(7, "마지막 고갯길"),
-            new CampaignStage(8, "숲의 끝 결투"),
+            new CampaignStage(1, "복도 입구"),
+            new CampaignStage(2, "첫 번째 창가"),
+            new CampaignStage(3, "햇살 드는 복도"),
+            new CampaignStage(4, "석조 기둥 사이"),
+            new CampaignStage(5, "가스등 아래"),
+            new CampaignStage(6, "긴 창가"),
+            new CampaignStage(7, "복도 안쪽"),
+            new CampaignStage(8, "복도 끝 결투"),
         };
         internal static IReadOnlyList<CampaignStage> StageDefinitions => stages;
 
@@ -85,6 +85,16 @@ namespace TurnLimbo.Runtime.Campaign
         public CampaignStage CurrentStage => stages[StageNumber - 1];
         /// <summary>Starting skills first, then stage and curriculum skills in the order they were granted.</summary>
         public IReadOnlyList<CampaignOwnedSkill> OwnedSkills { get; }
+        public CampaignOwnedSkill GetOwnedSkill(int skillId) => FindOwnedSkill(skillId);
+
+        /// <summary>A real slot clash trains its equipped player skill once, regardless of the number of hits.
+        /// Matching the owned instance also excludes sheet and enemy skills that happen to have the same ID.</summary>
+        public bool TryGainClashExperience(LegacySkill playerSkill, LegacySkill enemySkill)
+        {
+            if (playerSkill == null || enemySkill == null || playerSkill.IsWait || enemySkill.IsWait) return false;
+            CampaignOwnedSkill owned = FindOwnedSkill(playerSkill.Id);
+            return owned != null && ReferenceEquals(owned.Skill, playerSkill) && owned.GainClashExperience();
+        }
         public CurriculumProgress Curriculum => curriculum;
         /// <summary>Permanent combat bonuses from completed curriculum nodes. Derived from completion order so
         /// restoring an older save and resetting the curriculum cannot leave a separate bonus value behind.</summary>
@@ -486,8 +496,13 @@ namespace TurnLimbo.Runtime.Campaign
                 loadout[lane] = new List<int>();
                 foreach (CampaignOwnedSkill skill in equippedLanes[lane]) loadout[lane].Add(skill.SkillId);
             }
+            var skillExperience = new List<KeyValuePair<int, int>>();
+            foreach (CampaignOwnedSkill owned in ownedSkills)
+                if (owned.Experience > 0)
+                    skillExperience.Add(new KeyValuePair<int, int>(owned.SkillId, owned.Experience));
+            skillExperience.Sort((left, right) => left.Key.CompareTo(right.Key));
             return new CampaignSave(Currency, cleared, curriculum.Completed, curriculum.Active?.Id, curriculum.ActiveBattles,
-                loadout, TrainingVictoryCount);
+                loadout, TrainingVictoryCount, skillExperience);
         }
 
         /// <summary>Replaces this run with a saved state, back in the lobby with the saved loadout as the draft.
@@ -507,6 +522,8 @@ namespace TurnLimbo.Runtime.Campaign
             foreach (string id in save.CurriculumCompleted) GrantSkills(curriculum.Tree.Find(id));
             foreach (int number in save.ClearedStages)
                 if (stages[number - 1].FirstClearSkillId != 0) GrantSkill(stages[number - 1].FirstClearSkillId);
+            foreach (KeyValuePair<int, int> entry in save.SkillExperience)
+                FindOwnedSkill(entry.Key).RestoreExperience(entry.Value);
             for (int lane = 0; lane < equippedLanes.Length; lane++)
             {
                 equippedLanes[lane].Clear();
@@ -565,6 +582,17 @@ namespace TurnLimbo.Runtime.Campaign
                 LegacySkill skill = FindSheetSkill(skillId);
                 if (skill == null) return $"스테이지 {number} 첫 클리어 보상 기술 {skillId}이(가) 없습니다.";
                 owned[skillId] = skill;
+            }
+
+            var experienced = new HashSet<int>();
+            foreach (KeyValuePair<int, int> entry in save.SkillExperience)
+            {
+                if (!owned.TryGetValue(entry.Key, out LegacySkill skill))
+                    return $"경험치를 기록한 기술 {entry.Key}을(를) 보유하지 않습니다.";
+                if (!experienced.Add(entry.Key)) return $"기술 {entry.Key}의 경험치가 중복되었습니다.";
+                int maximum = CampaignOwnedSkill.ExperienceRequiredForCost(skill.Cost) * CampaignOwnedSkill.MaxLevel;
+                if (entry.Value < 0 || entry.Value > maximum)
+                    return $"기술 {entry.Key}의 경험치 {entry.Value}은(는) 0~{maximum} 범위 밖입니다.";
             }
 
             if (save.Loadout.Count != equippedLanes.Length) return $"편성 열이 {save.Loadout.Count}개입니다.";
@@ -722,15 +750,45 @@ namespace TurnLimbo.Runtime.Campaign
         public CampaignEnemyRhythm EnemyRhythm => CampaignEnemyRhythms.ForStage(Number);
     }
 
-    /// <summary>A skill the player owns. Upgrades are paused; a future system will grow skills with use.</summary>
+    /// <summary>A player-owned skill and its cumulative clashes. This instance is separate from the immutable sheet
+    /// definition so upgrades during combat never strengthen enemies that use the same skill ID.</summary>
     public sealed class CampaignOwnedSkill
     {
+        public const int MaxLevel = 3;
+
         internal CampaignOwnedSkill(LegacySkill skill)
         {
-            Skill = skill ?? throw new ArgumentNullException(nameof(skill));
+            if (skill == null) throw new ArgumentNullException(nameof(skill));
+            Skill = new LegacySkill(skill.Id, skill.Name, skill.Cost, skill.MinPower, skill.MaxPower,
+                skill.Kind, skill.Property, skill.AttackCount, skill.LaneIndex, skill.Description,
+                skill.AnimationName, skill.IconId);
         }
 
         public LegacySkill Skill { get; }
         public int SkillId => Skill.Id;
+        public int Experience { get; private set; }
+        public int Level => Math.Min(MaxLevel, Experience / ExperienceRequired);
+        public int ExperienceRequired => ExperienceRequiredForCost(Skill.Cost);
+        public int ExperienceThisLevel => IsMaxLevel ? ExperienceRequired : Experience % ExperienceRequired;
+        public bool IsMaxLevel => Level >= MaxLevel;
+
+        // Temporary progression pace by ACT cost.
+        internal static int ExperienceRequiredForCost(int cost)
+            => cost <= 1 ? 10 : cost == 2 ? 5 : cost == 3 ? 3 : cost == 4 ? 2 : 1;
+
+        public bool GainClashExperience()
+        {
+            if (IsMaxLevel) return false;
+            int before = Level;
+            Experience++;
+            if (Level != before) Skill.SetUpgradeLevel(Level);
+            return true;
+        }
+
+        internal void RestoreExperience(int experience)
+        {
+            Experience = experience;
+            Skill.SetUpgradeLevel(Level);
+        }
     }
 }

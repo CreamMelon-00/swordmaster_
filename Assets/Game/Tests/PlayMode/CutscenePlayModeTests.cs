@@ -380,6 +380,27 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [Test]
+        public void AResetBattle_CanStartAtTheClashWithoutInventingARetreat()
+        {
+            using (var scope = new CutsceneScope())
+            {
+                LegacyArenaView arena = scope.Controller.ArenaView;
+                arena.Reset();
+                Assert.Throws<ArgumentOutOfRangeException>(() => arena.SetOpeningPositions(2f, 5f),
+                    "The actors cannot start inside sword contact distance.");
+                Assert.Throws<ArgumentOutOfRangeException>(() => arena.SetOpeningPositions(float.NaN, 5f));
+                arena.SetOpeningPositions(1f, 5f);
+                Assert.That(arena.PlayerRenderer.transform.localPosition.x, Is.EqualTo(1f));
+                Assert.That(arena.EnemyRenderer.transform.localPosition.x, Is.EqualTo(5f));
+                Assert.That(arena.IsInRange, Is.True, "The next duel starts from the clash instead of showing a retreat.");
+                Assert.That(arena.PlayerKnockbackTarget, Is.EqualTo(arena.PlayerRenderer.transform.localPosition));
+                Assert.That(arena.EnemyKnockbackTarget, Is.EqualTo(arena.EnemyRenderer.transform.localPosition));
+                Assert.Throws<InvalidOperationException>(() => arena.SetOpeningPositions(-5f, 5f),
+                    "Opening placement is one handoff, not an in-battle teleport.");
+            }
+        }
+
         [UnityTest]
         public IEnumerator KeysOfTheOpeningFrameAreIgnored_AndTheLastEnterStaysInTheCutscene()
         {
@@ -497,7 +518,7 @@ namespace TurnLimbo.Presentation.Tests
                     elisaRight = Mathf.Max(elisaRight, offset);
                     dummyMost = Mathf.Max(dummyMost, Mathf.Abs(dummy.localPosition.x - 3f));
                     seniorMost = Mathf.Max(seniorMost, Mathf.Abs(senior.localPosition.x + 8f));
-                    Assert.That(elisa.localPosition.y, Is.EqualTo(-.5f).Within(1e-5f), "Only sideways.");
+                    Assert.That(elisa.localPosition.y, Is.EqualTo(arena.ActorGroundY).Within(1e-5f), "Only sideways.");
                 }
                 Assert.That(elisaLeft, Is.LessThan(-.03f), "She shivers to one side…");
                 Assert.That(elisaRight, Is.GreaterThan(.03f), "…and to the other…");

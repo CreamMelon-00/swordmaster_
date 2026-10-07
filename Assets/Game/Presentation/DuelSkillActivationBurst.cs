@@ -3,12 +3,14 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    public enum DuelSkillBurstStyle { Shield, Strike, Recovery, Danger }
+    public enum DuelSkillBurstStyle { Shield, Strike, Recovery, Danger, LevelUp, Break }
 
-    /// <summary>Short, hollow actor-side flash for a matched skill condition.</summary>
+    /// <summary>Short, hollow actor-side flash for skill feedback.</summary>
     [RequireComponent(typeof(CanvasRenderer))]
     public sealed class DuelSkillActivationBurst : MaskableGraphic
     {
+        private static readonly float[] BreakArcStarts = { 12f, 104f, 194f, 283f };
+        private static readonly float[] BreakArcEnds = { 73f, 164f, 254f, 344f };
         private float progress = 1f;
         private DuelSkillBurstStyle style;
 
@@ -39,7 +41,7 @@ namespace TurnLimbo.Presentation
 
             float ease = 1f - (1f - progress) * (1f - progress) * (1f - progress);
             float fade = (1f - progress) * (1f - progress);
-            float radius = 30f + 55f * ease;
+            float radius = style == DuelSkillBurstStyle.Break ? 57f + 68f * ease : 30f + 55f * ease;
             Color halo = color;
             halo.a *= .32f * fade;
             Color stroke = color;
@@ -47,7 +49,36 @@ namespace TurnLimbo.Presentation
             Color glint = Color.Lerp(color, Color.white, .65f);
             glint.a = .95f * fade;
 
-            if (style == DuelSkillBurstStyle.Danger)
+            if (style == DuelSkillBurstStyle.Break)
+            {
+                // Four separated arcs and flying splinters read as a resistance shell cracking, without filling
+                // the actor's silhouette. The real-time pulse starts bright even while the combat clock is stopped.
+                for (int index = 0; index < BreakArcStarts.Length; index++)
+                {
+                    AddArc(vertices, radius, 17f, BreakArcStarts[index], BreakArcEnds[index], 9, halo);
+                    AddArc(vertices, radius, 3.8f, BreakArcStarts[index], BreakArcEnds[index], 9, stroke);
+                }
+                for (int index = 0; index < 8; index++)
+                {
+                    float angle = 21f + index * 45f;
+                    AddRay(vertices, angle, radius + 9f, radius + 29f + (index % 2 == 0 ? 8f : 0f),
+                        6f, .9f, index % 2 == 0 ? glint : stroke);
+                }
+            }
+            else if (style == DuelSkillBurstStyle.LevelUp)
+            {
+                // A short expanding crown stays hollow: the actor remains visible through its centre.
+                AddArc(vertices, radius + 5f, 12f, 0f, 360f, 36, halo);
+                AddArc(vertices, radius + 5f, 3f, 0f, 360f, 36, stroke);
+                AddArc(vertices, radius - 8f, 1.5f, 35f, 145f, 12, glint);
+                AddArc(vertices, radius - 8f, 1.5f, 215f, 325f, 12, glint);
+                for (int index = 0; index < 8; index++)
+                {
+                    float angle = 22.5f + index * 45f;
+                    AddRay(vertices, angle, radius + 11f, radius + 30f, 4.5f, .8f, stroke);
+                }
+            }
+            else if (style == DuelSkillBurstStyle.Danger)
             {
                 // Two broken, pointed arcs pull the eye toward the enemy without covering the sprite.
                 AddArc(vertices, radius, 12f, -77f, -18f, 9, halo);

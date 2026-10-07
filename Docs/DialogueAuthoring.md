@@ -88,7 +88,7 @@ controller.StartDialogue("Dialogue/chapter-01-intro");
 
 독백인지는 `DialogueLine.IsMonologue`(규칙은 `DialogueLine.IsMonologueText`)가 판단하고, `DialogueHud`가 본문 색(`DialogueHud.MonologueColor`)을 바꾼다.
 
-확장자 `.txt`는 로드 경로에 쓰지 않는다. 현재 로비 홈 화면의 `스토리` 버튼은 `Assets/Game/Resources/Dialogue/dialogue.txt`, 즉 `Dialogue/dialogue`를 연다. 씬이 시작되자마자 자동으로 재생하지는 않는다.
+확장자 `.txt`는 로드 경로에 쓰지 않는다. 로비 홈의 `스토리 다시보기`는 작성된 서막 컷신 목록을 열며, `Dialogue/dialogue` 임시 대사는 사용하지 않는다.
 
 스토리 임무는 시작 장면과 종료 장면(승리 뒤, 4 임무는 수훈 뒤의 패배 뒤)을 자동으로 재생한다. 먼저 전장 컷신 `Cutscene/mission-NN-intro`·`-outro`(`Cutscene.md`)를 찾고, 없으면 대사 `Dialogue/mission-NN-intro`·`-outro`를 재생한다(NN은 서막 `01`~`04`, 수련 `05`~`09`). 서막 네 임무의 장면은 원고로 쓴 컷신이고, 수련 임무는 아직 `테스트` 한 줄짜리 대사다. 4 임무 전투 중의 수훈 장면도 같다(`Cutscene/mission-04-event`, 없으면 `Dialogue/mission-04-event`). 장면은 끝까지 넘기거나 Escape로 건너뛰면 다음 단계로 넘어간다. 시작 장면은 전투, 종료 장면은 결과 창, 4 임무의 종료 장면은 로비(서막을 마침), 수훈 장면은 수훈이 적용된 채 이어지는 전투다. 상세는 `PrologueMissions.md`와 `StoryUnlocks.md`를 따른다.
 첫 버전의 시작 API는 안전한 상태 전환을 위해 로비에서만 대화를 열도록 제한되어 있다.

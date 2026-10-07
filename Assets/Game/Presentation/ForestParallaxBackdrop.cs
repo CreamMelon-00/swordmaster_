@@ -14,6 +14,7 @@ namespace TurnLimbo.Presentation
         private Color tint = Color.white;
 
         public IReadOnlyList<Layer> Layers => layers;
+        public bool IsVisible => root.gameObject.activeSelf;
         public bool HasRequiredAssets => layers[0].Sprite != null && layers[1].Sprite != null &&
             layers[2].Sprite != null && layers[3].Sprite != null;
 
@@ -44,6 +45,8 @@ namespace TurnLimbo.Presentation
             tint = Color.white;
             Tick(camera, false, 0f);
         }
+
+        public void SetVisible(bool visible) => root.gameObject.SetActive(visible);
 
         public void Tick(Camera camera, bool inspecting, float scaledDelta, float focusDarkening = 0f)
         {

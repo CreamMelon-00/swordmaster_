@@ -8,7 +8,7 @@ namespace TurnLimbo.Runtime.Save
     /// persistent state. A battle in progress is never saved; loading resumes at a briefing or the lobby.</summary>
     public sealed class GameSave
     {
-        /// <summary>2: the curriculum replaced owned skills and upgrade levels.</summary>
+        /// <summary>Version 2 saves include curriculum progress; optional skill experience keeps older v2 files readable.</summary>
         public const int CurrentVersion = 2;
 
         public GameSave(int prologueCleared, CampaignSave campaign)

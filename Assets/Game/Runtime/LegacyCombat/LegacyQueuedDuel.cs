@@ -543,6 +543,29 @@ namespace TurnLimbo.Runtime.LegacyCombat
             StartPlanningTurn();
         }
 
+        /// <summary>Ends a resolving turn at the last hit that actually landed. Used when a mission event
+        /// interrupts combat: the current slot is settled from its applied hits, but later hits and slots
+        /// are discarded. The caller may then use <see cref="BeginNextTurn"/> after the event. Returns the
+        /// settled slot, or null when the previous slot was already settled.</summary>
+        public LegacySlotResult InterruptResolvingTurn()
+        {
+            if (Phase != LegacyDuelPhase.Resolving || DetermineOutcome() != DuelMatchOutcome.InProgress ||
+                RoundNumber >= roundLimit || (CurrentSlot == null && nextSlot == 0) ||
+                (CurrentSlot != null && CurrentSlot.HitsResolved == 0))
+                throw new InvalidOperationException("A live turn with at least one resolved hit is required to interrupt it.");
+
+            LegacySlotResult settled = null;
+            if (CurrentSlot != null)
+            {
+                // Preserve the impact that triggered the event. Completing the slot must not resolve any
+                // remaining strikes or reapply its start effects.
+                CurrentSlot.HitCount = CurrentSlot.HitsResolved;
+                settled = CompleteCurrentSlot();
+            }
+            nextSlot = slotCount;
+            return settled;
+        }
+
         public void Reset()
         {
             random = new Random(randomSeed);

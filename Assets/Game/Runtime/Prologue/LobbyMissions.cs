@@ -10,7 +10,7 @@ namespace TurnLimbo.Runtime.Prologue
     public static class LobbyMissions
     {
         public const string Chapter = "가르침";
-        private const string Forest = "ForestArena/forest-far";
+        private const string Corridor = "SchoolCorridor/corridor-composite";
         private const string Continue = "계속 버튼 · Enter";
         private const string CommitKeys = "Space / Enter / 확정 버튼";
         private const string Watch = "전투를 지켜보세요";
@@ -34,7 +34,7 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly PrologueMission[] missions =
         {
             // 5. E열 (기교): matching the opponent's action can directly reduce resistance. Opens after stage 1.
-            new PrologueMission(5, "기교 검술", Forest,
+            new PrologueMission(5, "기교 검술", Corridor,
                 new[] { "상대 공격에 {기술:5:를} 맞춰 저항을 낮춘다", "떠돌이 기사를 쓰러뜨린다", "완료하면 E열이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 50, 15, new MissionSkill[] { PracticeSlash, PracticeGuard, PracticeDownwardSlash }, new[] { 3, 2 },
@@ -49,11 +49,12 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기교를 지켜보세요",
                         "상대 공격에 {기술:5:를} 맞추면 저항이 직접 5 줄어듭니다. 기술마다 조건이 다르니 Q나 E를 길게 눌러 설명을 확인하세요.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "두 열로 승리하세요",
-                        "이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다. Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요.", "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 상대 확인 · Escape 임무 포기"),
+                        "이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다. Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요.",
+                        "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 적 확인\nQ/E 길게 눌러 기술 설명 · Esc 일시정지"),
                 },
                 AfterLaneE, CombatFeature.LaneE, 1, Chapter, "E열 기교 검술이 열렸습니다. 스테이지에서도 E열을 씁니다."),
             // 6. 숨고르기: skip a slot without ACT so a skill lands where its condition is met. Opens after stage 2.
-            new PrologueMission(6, "숨 고르기", Forest,
+            new PrologueMission(6, "숨 고르기", Corridor,
                 new[] { "숨을 골라 상대의 방어를 흘려보낸다", "떠돌이 기사를 쓰러뜨린다", "완료하면 숨고르기가 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 55, 16, new MissionSkill[] { PracticeGuard, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 3 },
@@ -72,11 +73,11 @@ namespace TurnLimbo.Runtime.Prologue
                         "첫 칸의 방어를 넘기고 둘째 칸 공격에 {기술:5:를} 맞춰 저항을 직접 낮췄습니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "칸을 골라 싸우세요",
                         "숨고르기로 기술이 들어갈 칸을 맞추며 떠돌이 기사를 쓰러뜨리세요.",
-                        "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · Escape 임무 포기"),
+                        "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · Q/E 길게 설명 · Esc 일시정지"),
                 },
                 AfterBreath, CombatFeature.Breath, 2, Chapter, "숨고르기(S)가 열렸습니다."),
             // 7. 회피 (A): even during resolution a timely input matters. Opens after stage 3.
-            new PrologueMission(7, "피하는 법", Forest,
+            new PrologueMission(7, "피하는 법", Corridor,
                 new[] { "상대의 공격을 피한다", "떠돌이 기사를 쓰러뜨린다", "완료하면 회피가 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 55, 16, new MissionSkill[] { PracticeDownwardSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 3, 2 },
@@ -90,12 +91,12 @@ namespace TurnLimbo.Runtime.Prologue
                         "흰 원이 줄어들 때 A를 누르세요.", "A 회피"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "피하며 싸우세요",
                         "예약한 기술로 공격하고, 막을 수 없는 공격은 A로 피하세요.",
-                        "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · Escape"),
+                        "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · A 회피 · Q/E 길게 설명 · Esc 일시정지"),
                 },
                 AfterDodge, CombatFeature.Dodge, 3, Chapter, "회피(A)가 열렸습니다."),
             // 8. W열 (강공): costly, powerful skills. Opens after stage 4. With W every lane is open, so its win also opens
             // the curriculum (CampaignRun.IsCurriculumOpen).
-            new PrologueMission(8, "강공 검술", Forest,
+            new PrologueMission(8, "강공 검술", Corridor,
                 new[] { "강공 검술로 큰 피해를 준다", "떠돌이 기사를 쓰러뜨린다", "완료하면 W열과 커리큘럼이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 70, 18, new MissionSkill[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard, PracticeSlash }, new[] { 3, 3, 2 },
@@ -111,11 +112,11 @@ namespace TurnLimbo.Runtime.Prologue
                         "강공은 한 칸의 위력이 큽니다. ACT를 모으고 상대 큐에서 넣을 자리를 고르세요.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "세 열로 승리하세요",
                         "세 열을 모두 써서 떠돌이 기사를 쓰러뜨리세요.",
-                        "Q/W/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · Escape"),
+                        "Q/W/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · A 회피 · Q/W/E 길게 설명 · Esc 일시정지"),
                 },
                 AfterLaneW, CombatFeature.LaneW, 4, Chapter, "W열 강공 검술이 열렸습니다. 커리큘럼도 열렸습니다."),
             // 9. 압박 (D): press a strike at the chosen moment for extra damage. Opens after stage 5.
-            new PrologueMission(9, "몰아붙이기", Forest,
+            new PrologueMission(9, "몰아붙이기", Corridor,
                 new[] { "내 공격을 밀어붙여 큰 피해를 넣는다", "떠돌이 기사를 쓰러뜨린다", "완료하면 압박이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 80, 18, new MissionSkill[] { PracticeGuard, PracticeSlash, PracticeDownwardSlash, PracticeGuard }, new[] { 3, 3, 2 },
@@ -131,7 +132,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "흰 원이 줄어들 때 D를 누르세요.", "D 압박"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "배운 것을 모두 쓰세요",
                         "예약·숨고르기·회피·압박을 모두 써서 떠돌이 기사를 쓰러뜨리세요.",
-                        "Q/W/E · Shift 넘기기 · S 숨고르기 · Space 확정 · A 회피 · D 압박"),
+                        "Q/W/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · A 회피 · D 압박 · Q/W/E 길게 설명 · Esc 일시정지"),
                 },
                 CombatFeature.All, CombatFeature.Pressure, 5, Chapter, "압박(D)이 열렸습니다. 이제 모든 기본 기능을 씁니다."),
         };

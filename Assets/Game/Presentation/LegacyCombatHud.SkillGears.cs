@@ -252,6 +252,16 @@ namespace TurnLimbo.Presentation
                 holdImages[lane] = Image("KeyHoldImage", window.transform, white, Vector2.zero, new Vector2(56f, 3f), Accent);
                 Filled(holdImages[lane], UnityEngine.UI.Image.FillMethod.Horizontal, 0);
                 holdImages[lane].fillAmount = 0;
+                // A brief replacement for the cost plate tells the player that releasing during the hold bar's
+                // in-between interval deliberately chose neither the skill nor its explanation.
+                var cancel = Panel("Hold Cancel", window.transform, Vector2.zero, new Vector2(68f, 20f), RaisedSurface, Border);
+                holdCancelPlates[lane] = cancel.rectTransform;
+                var cancelLabel = Text("Hold Cancel Label", cancel.transform, Vector2.zero, new Vector2(62f, 18f), 12,
+                    TextAnchor.MiddleCenter);
+                cancelLabel.text = "입력 취소";
+                cancelLabel.color = MutedText;
+                holdCancelGroups[lane] = cancel.gameObject.AddComponent<CanvasGroup>();
+                cancel.gameObject.SetActive(false);
                 var button = AddButton(window);
                 button.transition = Selectable.Transition.None;
                 int selectedLane = lane;
@@ -364,6 +374,7 @@ namespace TurnLimbo.Presentation
                 costs[lane].rectTransform.anchoredPosition = new Vector2(0f, CostAboveHub - slotRadius);
                 gear.HoldTrack.anchoredPosition = holdImages[lane].rectTransform.anchoredPosition =
                     new Vector2(0f, HoldAboveHub - slotRadius);
+                holdCancelPlates[lane].anchoredPosition = gear.CostPlate.anchoredPosition;
                 gear.Dirty = true;
                 previous = lane;
                 packed++;

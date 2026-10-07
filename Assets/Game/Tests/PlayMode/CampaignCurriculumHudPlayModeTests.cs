@@ -309,6 +309,32 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator CompletedSkillNode_ShowsOwnedLevelAndExperience_WhileFutureRewardsStayAtBasePower()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                fixture.Complete("horizontal-cut");
+                CampaignOwnedSkill owned = fixture.Run.GetOwnedSkill(14);
+                for (int clash = 0; clash < owned.ExperienceRequired; clash++)
+                    Assert.That(fixture.Run.TryGainClashExperience(owned.Skill, LegacySkillDefinitions.Skill(1)), Is.True);
+                fixture.Hud.Refresh();
+                fixture.Hud.SelectNode("horizontal-cut");
+
+                Assert.That(Label(fixture.Root, "Curriculum Detail Name").text, Is.EqualTo("가로베기+"));
+                Assert.That(Label(fixture.Root, "Curriculum Detail Values").text, Is.EqualTo("8–14"));
+                Assert.That(Label(fixture.Root, "Skill Experience Level").text, Is.EqualTo("숙련 1/3"));
+                Assert.That(Named(fixture.Root, "Skill Experience").gameObject.activeInHierarchy, Is.True);
+                Assert.That(Label(Named(fixture.Root, "Curriculum Node horizontal-cut").gameObject, "Node Title").text,
+                    Is.EqualTo("가로베기+"));
+
+                fixture.Hud.SelectNode("diagonal-cut");
+                Assert.That(Label(fixture.Root, "Curriculum Detail Name").text, Is.EqualTo("사선베기"));
+                Assert.That(Named(fixture.Root, "Skill Experience").gameObject.activeSelf, Is.False);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator PrimaryAction_FollowsTheSelectedNodesStateAndStartsItOnlyThroughOneExplicitClick()
         {
             yield return null;

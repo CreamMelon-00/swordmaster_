@@ -15,11 +15,13 @@ namespace TurnLimbo.Runtime.Save
     /// curriculum-done horizontal-cut diagonal-cut
     /// curriculum-active advance 0
     /// lane 0 14 2 7
+    /// skill-xp 14 3
     /// </code>
     /// <c>curriculum-done</c> lists completed node ids in order; <c>curriculum-active</c> is the node in progress and its
     /// counted battles, or nothing after the key when no node is in progress; <c>lane</c> (index, three ids) appears
-    /// once per lane. Optional <c>training-wins N</c> records successful dummy fights; absent means zero, keeping
-    /// earlier version 2 saves readable. Owned skills are not stored: they follow from the completed nodes.
+    /// once per lane. Optional <c>training-wins N</c> records successful dummy fights; optional repeated
+    /// <c>skill-xp ID XP</c> lines record nonzero cumulative clashes. Their absence means zero, keeping earlier
+    /// version 2 saves readable. Owned skills are not stored: they follow from the completed nodes.
     /// Parsing is strict: unknown keys, missing or repeated keys and other versions are rejected. Game rules are
     /// checked later by <see cref="GameSave.TryApply"/>.</summary>
     public static class GameSaveCodec
@@ -54,6 +56,9 @@ namespace TurnLimbo.Runtime.Save
                 foreach (int id in campaign.Loadout[lane]) text.Append(' ').Append(id);
                 text.Append('\n');
             }
+            foreach (KeyValuePair<int, int> entry in campaign.SkillExperience)
+                if (entry.Value != 0)
+                    text.Append("skill-xp ").Append(entry.Key).Append(' ').Append(entry.Value).Append('\n');
             return text.ToString();
         }
 
@@ -75,6 +80,7 @@ namespace TurnLimbo.Runtime.Save
             string curriculumActive = null;
             int curriculumBattles = 0;
             var lanes = new List<int>[LaneCount];
+            var skillExperience = new List<KeyValuePair<int, int>>();
             bool headerRead = false;
             for (int index = 0; index < lines.Length; index++)
             {
@@ -138,6 +144,10 @@ namespace TurnLimbo.Runtime.Save
                         if (lanes[values[0]] != null) return Fail(out error, lineNumber, $"lane {values[0]}이(가) 두 번 있습니다.");
                         lanes[values[0]] = new List<int>(values).GetRange(1, values.Length - 1);
                         break;
+                    case "skill-xp":
+                        if (values.Length != 2) return Fail(out error, lineNumber, "skill-xp에는 기술 ID와 경험치가 필요합니다.");
+                        skillExperience.Add(new KeyValuePair<int, int>(values[0], values[1]));
+                        break;
                     default:
                         return Fail(out error, lineNumber, $"알 수 없는 항목 '{parts[0]}'입니다.");
                 }
@@ -153,7 +163,7 @@ namespace TurnLimbo.Runtime.Save
 
             save = new GameSave(prologue.Value,
                 new CampaignSave(currency.Value, cleared, curriculumDone, curriculumActive, curriculumBattles, lanes,
-                    trainingWins ?? 0));
+                    trainingWins ?? 0, skillExperience));
             error = null;
             return true;
         }

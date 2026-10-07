@@ -27,6 +27,33 @@ namespace TurnLimbo.Presentation.Tests
         private static PrologueMission MissionFour => PrologueMissions.Get(4);
         private static int Laudare => MissionFour.Empowerment.EnemyScript.AllSkills[0].Id;
 
+        [TestCase(false, 1f)]
+        [TestCase(true, -5f)]
+        public void MissionTwoIntro_HandoffKeepsTheClashOnlyWhenCompleted(bool skip, float expectedPlayerX)
+        {
+            using (var scope = new SceneScope())
+            {
+                StartMissionTwoIntro(scope);
+                DuelPrototypeController controller = scope.Controller;
+                if (skip) Assert.That(controller.SkipScene(), Is.True);
+                else
+                {
+                    int frames = 0;
+                    while (controller.IsPlayingCutscene && frames++ < 800)
+                    {
+                        if (controller.Cutscene.Playback.CurrentLine != null) controller.AdvanceCutscene();
+                        else scope.Advance(.05f);
+                    }
+                }
+                Assert.That(controller.IsPlayingCutscene, Is.False, "The intro reaches its battle.");
+                Assert.That(controller.IsMission && controller.ActiveMission.Number == 2, Is.True);
+                Assert.That(controller.ArenaView.PlayerRenderer.transform.localPosition.x, Is.EqualTo(expectedPlayerX).Within(1e-3f));
+                Assert.That(controller.ArenaView.EnemyRenderer.transform.localPosition.x, Is.EqualTo(5f).Within(1e-3f));
+                Assert.That(controller.ArenaView.IsInRange, Is.EqualTo(!skip),
+                    "A completed clash stays in reach, while a skipped scene starts from the default marks.");
+            }
+        }
+
         [Test]
         public void MissionIntroAndOutro_PlayOnTheMissionsBattlefield_AndLeadOnAsTheirDialoguesDid()
         {
@@ -125,7 +152,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator MissionFourEvent_PausesOnItsHit_PlaysOnTheArenaAsItStands_ResumesEmpowered_AndTheLossEndsTheArc()
+        public IEnumerator MissionFourEvent_PausesOnItsHit_PlaysOnTheArenaAsItStands_StartsAnEmpoweredTurn_AndTheLossEndsTheArc()
         {
             yield return null;
             using (var scope = new SceneScope())
@@ -138,7 +165,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Scenes[MissionFour.OutroCutscene] = "헉… 헉…\n@aura knight off 0\n(갑자기 강해졌어…)";
                 scope.StartMissionFour();
                 scope.InstallDuel(EventDuel(Flurry()));
-                Assert.That(controller.QueueLane(0), Is.True);
+                for (int queued = 0; queued < 3; queued++) Assert.That(controller.QueueLane(0), Is.True);
                 controller.CommitTurn();
                 scope.AdvanceUntil(() => scope.Field<bool>("missionEventPending"), "The flurry brings 이아 to half health.");
                 Assert.That(arena.ActiveAuraAfterimageCount, Is.Zero, "Before her 수훈 she leaves no afterimage.");
@@ -146,18 +173,16 @@ namespace TurnLimbo.Presentation.Tests
                 LegacyCurrentSlot slot = controller.Session.CurrentSlot;
                 Assert.That(slot, Is.Not.Null);
                 Assert.That(slot.HitsResolved, Is.EqualTo(2), "The event waits on the hit that crossed half…");
-                Assert.That(slot.HitCount, Is.EqualTo(3), "…with the flurry's last hit still to come.");
+                Assert.That(slot.HitCount, Is.EqualTo(3), "…with the flurry's last hit still pending.");
                 Assert.That(controller.EnemyHealth, Is.EqualTo(20));
                 Assert.That(controller.IsBattlePausedForEvent || controller.IsPlayingCutscene, Is.False, "That hit's stop plays first.");
 
-                // The frame the battle pauses on: what the scene has to give back.
+                // The frame the battle pauses on: the event starts from this picture.
                 scope.SetField("hitStopRemaining", 0f);
                 Transform player = arena.PlayerRenderer.transform, enemy = arena.EnemyRenderer.transform;
                 Transform camera = arena.ArenaCamera.transform;
                 Vector3 playerAt = player.localPosition, enemyAt = enemy.localPosition, cameraAt = camera.localPosition;
-                Quaternion cameraRoll = camera.localRotation;
                 float cameraSize = arena.ArenaCamera.orthographicSize;
-                Sprite playerSprite = arena.PlayerRenderer.sprite, enemySprite = arena.EnemyRenderer.sprite;
                 float slotTime = controller.ActiveSlotElapsedTime;
                 scope.Advance(0f);
                 Assert.That(controller.IsBattlePausedForEvent && controller.IsPlayingCutscene, Is.True);
@@ -193,30 +218,27 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsMission, Is.True, "…without leaving the mission…");
                 Assert.That(controller.IsMissionEmpowered, Is.True, "…and still empowers 이아.");
                 Assert.That(arena.IsSuspendedForCutscene, Is.False);
-                Assert.That(enemy.localPosition, Is.EqualTo(enemyAt), "The battle gets its picture back.");
-                Assert.That(player.localPosition, Is.EqualTo(playerAt));
-                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemySprite));
-                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerSprite));
-                Assert.That(camera.localPosition, Is.EqualTo(cameraAt));
-                Assert.That(Quaternion.Angle(camera.localRotation, cameraRoll), Is.LessThan(1e-3f));
-                Assert.That(arena.ArenaCamera.orthographicSize, Is.EqualTo(cameraSize));
                 Assert.That(arena.FlashbackAmount, Is.Zero);
                 Assert.That(controller.Hud.Root.activeSelf, Is.True);
                 Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.True, "The 수훈 aura stays on for the rest of the battle.");
                 Assert.That(arena.ActiveAuraAfterimageCount, Is.Zero,
-                    "The scene's afterimages stay with the scene: her trail starts afresh from her place in the battle.");
-                Assert.That(controller.Session.CurrentSlot.HitsResolved, Is.EqualTo(2));
-                Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(slotTime), "The slot resumes on the frame it paused on.");
+                    "The scene's afterimages stay with the scene: her trail starts afresh in the new turn.");
+                Assert.That(slot.HitsResolved, Is.EqualTo(2), "The strike that caused the event stays applied.");
+                Assert.That(slot.HitCount, Is.EqualTo(2), "The flurry's third strike is cancelled.");
+                Assert.That(controller.Session.CurrentSlot, Is.Null);
+                Assert.That(controller.Session.RoundNumber, Is.EqualTo(2), "The interrupted turn is over when the scene ends.");
+                Assert.That(controller.CanChoose, Is.True, "The next planning turn starts immediately.");
+                Assert.That(controller.EnemyHealth, Is.EqualTo(20), "No old strike lands after the scene.");
+                Assert.That(controller.Session.PlayerQueue, Is.Empty, "The other committed slots are cancelled too.");
+                Assert.That(controller.Session.EnemyQueue.Select(skill => skill.Id),
+                    Is.EqualTo(MissionFour.Empowerment.EnemyScript.Turn(1).Select(skill => skill.Id)).And.EqualTo(new[] { Laudare, 501, 502 }),
+                    "The empowered script is shown on the new planning turn.");
                 yield return null;
                 scope.Advance(0f, keyboard);
                 Assert.That(controller.IsMission, Is.True, "The skip key never abandons the battle.");
-
-                scope.AdvanceUntil(() => controller.CanChoose, "The turn plays out to the next planning.");
-                Assert.That(controller.EnemyHealth, Is.EqualTo(10), "The flurry's last hit landed after the scene.");
-                Assert.That(controller.Session.EnemyQueue, Is.Not.Empty);
-                Assert.That(controller.Session.EnemyQueue.Select(skill => skill.Id),
-                    Is.EqualTo(MissionFour.Empowerment.EnemyScript.Turn(1).Select(skill => skill.Id)).And.EqualTo(new[] { Laudare, 501, 502 }),
-                    "From the next turn she plays the motto: 라우다레, 베네디체레, 프레디카레.");
+                scope.Advance(.2f);
+                Assert.That(controller.Session.RoundNumber, Is.EqualTo(2));
+                Assert.That(controller.EnemyHealth, Is.EqualTo(20), "Old queued attacks do not resume after a frame.");
                 Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.True);
                 for (int frame = 0; frame < 8; frame++) scope.Advance(.025f);
                 if (ghosts)
@@ -249,6 +271,37 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [Test]
+        public void MissionFourEvent_CompletingTheScene_StartsTheNextTurnWithoutOldHits()
+        {
+            using (var scope = new SceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                scope.Scenes[MissionFour.Empowerment.Scene] = "@aura knight on 0\n도미니코 기사단, 수훈!";
+                scope.StartMissionFour();
+                scope.InstallDuel(EventDuel(Flurry()));
+                for (int queued = 0; queued < 3; queued++) Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                scope.AdvanceUntil(() => scope.Field<bool>("missionEventPending"), "The second strike brings 이아 to half health.");
+                LegacyCurrentSlot interrupted = controller.Session.CurrentSlot;
+                scope.SetField("hitStopRemaining", 0f);
+                scope.Advance(0f);
+                Assert.That(controller.IsPlayingCutscene, Is.True);
+                Assert.That(controller.AdvanceCutscene(), Is.True);
+
+                Assert.That(controller.IsPlayingCutscene || controller.IsBattlePausedForEvent, Is.False);
+                Assert.That(controller.CanChoose, Is.True);
+                Assert.That(controller.Session.RoundNumber, Is.EqualTo(2));
+                Assert.That(controller.Session.CurrentSlot, Is.Null);
+                Assert.That(interrupted.HitsResolved, Is.EqualTo(2));
+                Assert.That(interrupted.HitCount, Is.EqualTo(2));
+                Assert.That(controller.EnemyHealth, Is.EqualTo(20));
+                Assert.That(controller.Session.PlayerQueue, Is.Empty);
+                Assert.That(controller.Session.EnemyQueue.Select(skill => skill.Id), Is.EqualTo(new[] { Laudare, 501, 502 }));
+                Assert.That(controller.IsMissionEmpowered && controller.ArenaView.EnemyPowerAura.IsAuraOn, Is.True);
+            }
+        }
+
+        [Test]
         public void ADefeatBeforeTheEvent_IsAnOrdinaryFailure_AndEveryAttemptStartsUnempowered()
         {
             using (var scope = new SceneScope())
@@ -275,6 +328,9 @@ namespace TurnLimbo.Presentation.Tests
                 scope.AdvanceUntil(() => controller.IsMissionEmpowered || controller.IsBattlePausedForEvent, "The strike reaches half.");
                 Assert.That(controller.IsBattlePausedForEvent || controller.IsPlayingScene, Is.False);
                 Assert.That(controller.IsMissionEmpowered, Is.True);
+                Assert.That(controller.CanChoose && controller.Session.RoundNumber == 2, Is.True,
+                    "The fallback without a scene starts the next planning turn too.");
+                Assert.That(controller.Session.CurrentSlot, Is.Null);
                 Assert.That(controller.ArenaView.EnemyPowerAura.IsAuraOn, Is.True, "The aura comes on without a scene too.");
                 Assert.That(scope.Asked, Does.Contain(MissionFour.Empowerment.Scene));
 
@@ -580,6 +636,18 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.SkipScene(), Is.True);
                 Assert.That(controller.IsInLobby, Is.True);
             }
+        }
+
+        private static void StartMissionTwoIntro(SceneScope scope)
+        {
+            PrologueMission second = PrologueMissions.Get(2);
+            TextAsset source = Resources.Load<TextAsset>(second.IntroCutscene);
+            Assert.That(source, Is.Not.Null);
+            scope.Scenes[second.IntroCutscene] = source.text;
+            scope.Controller.StartNewGame();
+            Assert.That(scope.Controller.Prologue.TryComplete(1, DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(scope.Controller.StartMission(), Is.True);
+            Assert.That(scope.Controller.IsPlayingCutscene, Is.True);
         }
 
         private static void AssertFreshAttempt(DuelPrototypeController controller)

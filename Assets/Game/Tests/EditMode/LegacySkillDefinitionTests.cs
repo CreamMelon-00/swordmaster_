@@ -109,7 +109,7 @@ namespace TurnLimbo.Core.Tests
                 Is.EqualTo(("라우다레", 0, 30, 35, 5, 0)));
             Assert.That(laudare.Kind, Is.EqualTo(LegacySkillKind.Attack));
             Assert.That(laudare.Property, Is.EqualTo(LegacySkillProperty.Slash));
-            Assert.That(laudare.IconId, Is.EqualTo(2), "A slash icon no other row uses.");
+            Assert.That(laudare.IconId, Is.EqualTo(18), "Its own empowered slash icon.");
             LegacySkillDefinition definition = LegacySkillDefinitions.Find(laudare);
             Assert.That(definition.Effect.BreaksOpponent, Is.True);
             Assert.That(definition.Effect.HasOpponentCondition, Is.False, "It breaks whatever it meets.");
@@ -137,7 +137,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That((benedicere.Name, benedicere.Cost, benedicere.MinPower, benedicere.MaxPower, benedicere.AttackCount, benedicere.LaneIndex),
                 Is.EqualTo(("베네디체레", 0, 5, 10, 1, 0)));
             Assert.That((benedicere.Kind, benedicere.Property), Is.EqualTo((LegacySkillKind.Defence, LegacySkillProperty.Defence)));
-            Assert.That(benedicere.IconId, Is.EqualTo(13), "르프리즈's recovering guard.");
+            Assert.That(benedicere.IconId, Is.EqualTo(19), "Its own empowered helmet icon.");
             LegacySkillDefinition guard = LegacySkillDefinitions.Find(benedicere);
             Assert.That((guard.Effect.ResistanceRecoveryPercent, guard.Effect.OpponentState), Is.EqualTo((25, LegacyOpponentState.Broken)));
             Assert.That(guard.Effect.HasOpponentCondition || guard.HighPower, Is.False);
@@ -148,7 +148,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That((praedicare.Name, praedicare.Cost, praedicare.MinPower, praedicare.MaxPower, praedicare.AttackCount, praedicare.LaneIndex),
                 Is.EqualTo(("프레디카레", 0, 24, 32, 1, 0)));
             Assert.That((praedicare.Kind, praedicare.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Slash)));
-            Assert.That(praedicare.IconId, Is.EqualTo(12), "알티바호's single downward strike.");
+            Assert.That(praedicare.IconId, Is.EqualTo(20), "Its own empowered finisher icon.");
             LegacySkillDefinition finisher = LegacySkillDefinitions.Find(praedicare);
             Assert.That((finisher.Effect.OpponentState, finisher.Effect.OpponentHealthPercent, finisher.Effect.ConditionalDamagePercent),
                 Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 200)));
@@ -217,7 +217,7 @@ namespace TurnLimbo.Core.Tests
         public void ShippedSheet_UsesOnlyImportedIcons()
         {
             // Presentation's LegacyDuelArt.SkillIconCount; the runtime does not know the art source.
-            const int skillIconCount = 17;
+            const int skillIconCount = 20;
             foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 Assert.That(definition.Skill.IconId, Is.InRange(1, skillIconCount), "icon of " + definition.Skill.Id);
         }

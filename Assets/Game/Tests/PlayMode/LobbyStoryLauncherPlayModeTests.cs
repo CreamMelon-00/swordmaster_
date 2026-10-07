@@ -1,6 +1,7 @@
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
-using TurnLimbo.Runtime.Dialogue;
+using TurnLimbo.Runtime.Cutscene;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
@@ -20,8 +21,7 @@ namespace TurnLimbo.Presentation.Tests
             LobbyStoryLauncher launcher = Object.FindAnyObjectByType<LobbyStoryLauncher>();
             Assert.That(controller, Is.Not.Null);
             Assert.That(launcher, Is.Not.Null);
-            Assert.That(Object.FindObjectsByType<LobbyStoryLauncher>(FindObjectsInactive.Include,
-                FindObjectsSortMode.None).Length, Is.EqualTo(1));
+            Assert.That(Object.FindObjectsByType<LobbyStoryLauncher>(FindObjectsInactive.Include).Length, Is.EqualTo(1));
 
             try
             {
@@ -34,6 +34,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(launcher.IsVisible, Is.True);
                 Assert.That(launcher.StoryButton, Is.Not.Null);
                 Assert.That(launcher.StoryButton.interactable, Is.EqualTo(launcher.IsStoryReady));
+                Assert.That(launcher.StoryButton.GetComponentInChildren<Text>().text, Does.Contain("다시보기"));
                 Assert.That(launcher.StoryButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
                 Assert.That(launcher.Root.transform.parent, Is.SameAs(controller.LobbyHud.Root.transform));
 
@@ -114,11 +115,18 @@ namespace TurnLimbo.Presentation.Tests
                         if (curriculumOpen)
                             Assert.That(entryBounds.Overlaps(ScreenBounds(FindRect(controller.LobbyHud.Root, "Lobby Status Slip"))),
                                 Is.False, $"Story entry overlaps the status slip at {resolution.x}x{resolution.y}.");
+
+                        launcher.StoryButton.onClick.Invoke();
+                        yield return null;
+                        Assert.That(launcher.IsReplayListOpen, Is.True);
+                        AssertInsideViewport(FindRect(controller.LobbyHud.Root, "Story Replay Ledger"), resolution);
+                        launcher.CloseReplayList();
                     }
                 }
             }
             finally
             {
+                launcher.CloseReplayList();
                 Screen.SetResolution(originalWidth, originalHeight, originalFullScreen);
                 controller.Campaign.SetProgression(originalFeatures, originalStageLimit);
                 controller.LobbyHud.SetNextMission(originalMission, originalMissionAvailable);
@@ -128,7 +136,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator StoryButton_StartsActualDialogueAndRestoresHomeAfterCompletion()
+        public IEnumerator ReplayList_OffersOnlyCompletedProductionScenes()
         {
             yield return null;
             DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
@@ -136,64 +144,165 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(controller, Is.Not.Null);
             Assert.That(launcher, Is.Not.Null);
 
+            int originalCleared = controller.Prologue.ClearedCount;
+            try
+            {
+                controller.StopCutscene();
+                controller.CloseDialogue();
+                controller.ReturnToLobby();
+                controller.LobbyHud.ShowTab(LobbyTab.Home);
+                Assert.That(controller.Prologue.TryRestore(2), Is.True);
+                launcher.RefreshAvailability();
+                yield return null;
+
+                Assert.That(launcher.AvailableScenes.Select(scene => scene.ResourcePath), Is.EqualTo(new[]
+                {
+                    "Cutscene/opening",
+                    "Cutscene/mission-01-intro", "Cutscene/mission-01-outro",
+                    "Cutscene/mission-02-intro", "Cutscene/mission-02-outro",
+                }));
+                launcher.StoryButton.onClick.Invoke();
+                yield return null;
+                Assert.That(launcher.IsReplayListOpen, Is.True);
+                Assert.That(controller.IsPlayingCutscene, Is.False, "Opening the list must not start a scene.");
+                Assert.That(controller.IsShowingDialogue, Is.False);
+                Assert.That(launcher.ReplayScene("Cutscene/mission-04-event"), Is.False,
+                    "Unseen missions must not be playable from the replay list.");
+                Assert.That(controller.ReplayStoryCutscene("Cutscene/mission-04-event", 4), Is.False,
+                    "The playback API must also reject unseen missions.");
+                Assert.That(launcher.ReplayScene("Dialogue/dialogue"), Is.False,
+                    "The temporary test dialogue is not a story replay.");
+
+                Button closeButton = controller.LobbyHud.Root.GetComponentsInChildren<Button>()
+                    .FirstOrDefault(button => button.name == "Story Replay Close");
+                Assert.That(closeButton, Is.Not.Null);
+                closeButton.onClick.Invoke();
+                Assert.That(launcher.IsReplayListOpen, Is.False);
+
+                Assert.That(controller.Prologue.TryRestore(4), Is.True);
+                launcher.RefreshAvailability();
+                Assert.That(launcher.AvailableScenes.Select(scene => scene.ResourcePath), Is.EqualTo(new[]
+                {
+                    "Cutscene/opening",
+                    "Cutscene/mission-01-intro", "Cutscene/mission-01-outro",
+                    "Cutscene/mission-02-intro", "Cutscene/mission-02-outro",
+                    "Cutscene/mission-03-intro", "Cutscene/mission-03-outro",
+                    "Cutscene/mission-04-intro", "Cutscene/mission-04-event", "Cutscene/mission-04-outro",
+                }));
+                foreach (var scene in launcher.AvailableScenes)
+                {
+                    Assert.That(scene.Title, Is.Not.Empty);
+                    int missionNumber = scene.ResourcePath == "Cutscene/opening" ? 0 :
+                        int.Parse(scene.ResourcePath.Substring("Cutscene/mission-".Length, 2));
+                    Assert.That(scene.MissionNumber, Is.EqualTo(missionNumber), scene.ResourcePath);
+                }
+            }
+            finally
+            {
+                launcher.CloseReplayList();
+                controller.StopCutscene();
+                controller.CloseDialogue();
+                controller.Prologue.TryRestore(originalCleared);
+                controller.ReturnToLobby();
+                controller.LobbyHud.ShowTab(LobbyTab.Stages);
+                controller.LobbyHud.ShowTab(LobbyTab.Home);
+                launcher.RefreshAvailability();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator StoryButton_ReplaysOpeningAndCompletedMissionAndRestoresHome()
+        {
+            yield return null;
+            DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            LobbyStoryLauncher launcher = Object.FindAnyObjectByType<LobbyStoryLauncher>();
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(launcher, Is.Not.Null);
+
+            int originalCleared = controller.Prologue.ClearedCount;
             int stage = controller.Campaign.StageNumber;
+            int stagesCleared = controller.Campaign.ClearedStageCount;
             int currency = controller.Campaign.Currency;
             int curriculumDone = controller.Campaign.Curriculum.CompletedCount;
             string curriculumActive = controller.Campaign.Curriculum.Active?.Id;
             try
             {
+                controller.StopCutscene();
                 controller.CloseDialogue();
                 controller.ReturnToLobby();
                 controller.LobbyHud.ShowTab(LobbyTab.Home);
+                Assert.That(controller.Prologue.TryRestore(4), Is.True);
                 launcher.RefreshAvailability();
                 yield return null;
-                if (!launcher.IsStoryReady)
-                    Assert.Ignore("Production story is not ready: " + launcher.AvailabilityMessage);
 
-                launcher.StoryButton.onClick.Invoke();
-                yield return null;
+                foreach (string resourcePath in new[] { "Cutscene/opening", "Cutscene/mission-04-outro" })
+                {
+                    launcher.StoryButton.onClick.Invoke();
+                    yield return null;
+                    Assert.That(launcher.IsReplayListOpen, Is.True);
+                    Assert.That(controller.IsPlayingCutscene, Is.False);
 
-                Assert.That(controller.IsShowingDialogue, Is.True);
-                Assert.That(controller.CurrentDialogueLine, Is.Not.Null);
-                Assert.That(controller.DialogueHud.IsVisible, Is.True);
-                Assert.That(launcher.IsVisible, Is.False);
+                    Button replayButton = controller.LobbyHud.Root.GetComponentsInChildren<Button>()
+                        .FirstOrDefault(button => button.name == "Story Replay " + resourcePath);
+                    Assert.That(replayButton, Is.Not.Null, resourcePath);
+                    replayButton.onClick.Invoke();
+                    Assert.That(controller.IsPlayingCutscene, Is.True, resourcePath);
+                    if (resourcePath == "Cutscene/mission-04-outro")
+                        Assert.That(controller.ArenaView.EnemyPowerAura.IsAuraOn, Is.True,
+                            "The replayed outro begins with the aura earned in the battle.");
+                    Assert.That(launcher.IsReplayListOpen, Is.False);
+                    Assert.That(launcher.IsVisible, Is.False);
 
-                controller.CloseDialogue();
-                yield return null;
-
-                Assert.That(controller.IsShowingDialogue, Is.False);
-                Assert.That(controller.IsInLobby, Is.True);
-                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home));
-                Assert.That(launcher.IsVisible, Is.True);
-                Assert.That(launcher.StoryButton.interactable, Is.True);
-                Assert.That(controller.Campaign.StageNumber, Is.EqualTo(stage));
-                Assert.That(controller.Campaign.Currency, Is.EqualTo(currency));
-                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(curriculumDone));
-                Assert.That(controller.Campaign.Curriculum.Active?.Id, Is.EqualTo(curriculumActive));
+                    Assert.That(controller.SkipCutscene(), Is.True);
+                    yield return null;
+                    Assert.That(controller.IsPlayingCutscene, Is.False);
+                    Assert.That(controller.IsInLobby, Is.True);
+                    Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home));
+                    Assert.That(launcher.IsVisible, Is.True);
+                    Assert.That(launcher.StoryButton.interactable, Is.True);
+                    Assert.That(controller.Prologue.ClearedCount, Is.EqualTo(4));
+                    Assert.That(controller.Campaign.StageNumber, Is.EqualTo(stage));
+                    Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(stagesCleared));
+                    Assert.That(controller.Campaign.Currency, Is.EqualTo(currency));
+                    Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(curriculumDone));
+                    Assert.That(controller.Campaign.Curriculum.Active?.Id, Is.EqualTo(curriculumActive));
+                }
             }
             finally
             {
+                launcher.CloseReplayList();
+                controller.StopCutscene();
                 controller.CloseDialogue();
+                controller.Prologue.TryRestore(originalCleared);
                 controller.ReturnToLobby();
                 controller.LobbyHud.ShowTab(LobbyTab.Home);
+                launcher.RefreshAvailability();
             }
         }
 
         [UnityTest]
-        public IEnumerator ProductionStoryResource_IsPresentAndValid()
+        public IEnumerator ProductionReplayCutscenes_ArePresentAndValid()
         {
             yield return null;
-            TextAsset source = Resources.Load<TextAsset>(LobbyStoryLauncher.DialogueResourcePath);
-            Assert.That(source, Is.Not.Null,
-                $"Missing Resources/{LobbyStoryLauncher.DialogueResourcePath}.txt");
-            Assert.That(string.IsNullOrWhiteSpace(source.text), Is.False,
-                "The production story entry document is empty.");
-
-            DialogueScript script = null;
-            Assert.DoesNotThrow(() => script = DialogueScriptParser.Parse(
-                LobbyStoryLauncher.DialogueResourcePath, source.text));
-            Assert.That(script, Is.Not.Null);
-            Assert.That(script.Lines, Is.Not.Empty);
+            foreach (string resourcePath in new[]
+            {
+                "Cutscene/opening",
+                "Cutscene/mission-01-intro", "Cutscene/mission-01-outro",
+                "Cutscene/mission-02-intro", "Cutscene/mission-02-outro",
+                "Cutscene/mission-03-intro", "Cutscene/mission-03-outro",
+                "Cutscene/mission-04-intro", "Cutscene/mission-04-event", "Cutscene/mission-04-outro",
+            })
+            {
+                TextAsset source = Resources.Load<TextAsset>(resourcePath);
+                Assert.That(source, Is.Not.Null, $"Missing Resources/{resourcePath}.txt");
+                Assert.That(string.IsNullOrWhiteSpace(source.text), Is.False, resourcePath);
+                int missionNumber = resourcePath == "Cutscene/opening" ? 0 :
+                    int.Parse(resourcePath.Substring("Cutscene/mission-".Length, 2));
+                CutsceneScript script = null;
+                Assert.DoesNotThrow(() => script = CutsceneScriptParser.Parse(resourcePath, source.text,
+                    missionNumber == 0 ? null : StoryMissions.Get(missionNumber).SceneCast), resourcePath);
+                Assert.That(script.Steps, Is.Not.Empty, resourcePath);
+            }
         }
 
         private static RectTransform FindRect(GameObject root, string name)

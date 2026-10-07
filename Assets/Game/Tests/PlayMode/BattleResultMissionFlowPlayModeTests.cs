@@ -120,6 +120,152 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator MultiHitSkillClash_GivesOneExperience_AndAnUnansweredSkillGivesNone()
+        {
+            yield return null;
+            using (var scope = new FlowScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                CampaignOwnedSkill owned = controller.Campaign.GetOwnedSkill(2);
+                scope.StartSelectedStage();
+                scope.InstallOwnedSkillDuel(owned.Skill, true);
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                scope.AdvanceUntilSettled();
+
+                Assert.That(owned.Experience, Is.EqualTo(1),
+                    "A resolved multi-hit slot with an opposing skill trains once.");
+
+                controller.ReturnToLobby();
+                scope.StartSelectedStage();
+                scope.InstallOwnedSkillDuel(owned.Skill, false);
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                scope.AdvanceUntilSettled();
+
+                Assert.That(owned.Experience, Is.EqualTo(1),
+                    "An empty opposing slot is not a skill clash.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator SkillLevelUp_DuringAClashShowsTheUpgradedNameAndBurst_ThenResets()
+        {
+            yield return null;
+            using (var scope = new FlowScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                CampaignOwnedSkill owned = controller.Campaign.GetOwnedSkill(2);
+                Assert.That(owned.ExperienceRequired, Is.EqualTo(10));
+                for (int clash = 0; clash < 9; clash++) owned.GainClashExperience();
+                Assert.That(owned.Level, Is.Zero);
+                string originalName = owned.Skill.Name;
+                int originalPower = owned.Skill.MinPower;
+                Transform announcement = Named(controller.gameObject, "Skill Level Up Announcement");
+                Transform burst = Named(controller.gameObject, "Skill Level Up Burst");
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.False);
+
+                scope.StartSelectedStage();
+                scope.InstallOwnedSkillDuel(owned.Skill, true);
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                int frames = 0;
+                while (owned.Level == 0 && frames++ < 2000) scope.Advance(.025f);
+                Assert.That(owned.Level, Is.EqualTo(1), "One multi-hit clash reaches the level threshold.");
+                Assert.That(owned.Experience, Is.EqualTo(10), "The two hits train the skill only once.");
+                Assert.That(owned.Skill.Name, Is.EqualTo(originalName + "+"));
+                Assert.That(owned.Skill.MinPower, Is.EqualTo(originalPower + 2));
+                scope.Advance(.025f); // The independent visual cue has one real-time frame to draw its burst.
+                Assert.That(controller.IsResolving, Is.True, "The level-up is announced during the battle.");
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.True);
+                Assert.That(burst.gameObject.activeInHierarchy, Is.True);
+                string cueText = Label(controller.gameObject, "Skill Level Up Title").text + " " +
+                    Label(controller.gameObject, "Skill Level Up Detail").text;
+                Assert.That(cueText, Does.Contain(owned.Skill.Name));
+
+                scope.AdvanceUntilSettled();
+                controller.ReturnToLobby();
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.False,
+                    "Returning to the lobby clears an unfinished level-up animation.");
+                scope.StartSelectedStage();
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.False,
+                    "A new fight does not inherit the previous fight's cue.");
+                Assert.That(burst.gameObject.activeInHierarchy, Is.False);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator SkillLevelUpCue_DoesNotPlayForPartialExperienceOrAnEmptyOpposingSlot()
+        {
+            yield return null;
+            using (var scope = new FlowScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                CampaignOwnedSkill owned = controller.Campaign.GetOwnedSkill(2);
+                Transform announcement = Named(controller.gameObject, "Skill Level Up Announcement");
+                Transform burst = Named(controller.gameObject, "Skill Level Up Burst");
+
+                scope.StartSelectedStage();
+                scope.InstallOwnedSkillDuel(owned.Skill, true);
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                int frames = 0;
+                while (owned.Experience == 0 && frames++ < 2000) scope.Advance(.025f);
+                Assert.That(owned.Experience, Is.EqualTo(1));
+                Assert.That(owned.Level, Is.Zero);
+                scope.Advance(.025f);
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.False,
+                    "An ordinary +1 experience gain is not a level-up.");
+                Assert.That(burst.gameObject.activeInHierarchy, Is.False);
+
+                scope.AdvanceUntilSettled();
+                controller.ReturnToLobby();
+                scope.StartSelectedStage();
+                scope.InstallOwnedSkillDuel(owned.Skill, false);
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                frames = 0;
+                while (controller.Session.LastResolvedSlot < 0 && frames++ < 2000) scope.Advance(.025f);
+                Assert.That(controller.Session.LastResolvedSlot, Is.Zero);
+                Assert.That(owned.Experience, Is.EqualTo(1), "No opposing skill means no experience.");
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.False);
+                Assert.That(burst.gameObject.activeInHierarchy, Is.False);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator SkillLevelUpCue_OnAFinishingBlowRemainsVisibleAtTheResult()
+        {
+            yield return null;
+            using (var scope = new FlowScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                CampaignOwnedSkill owned = controller.Campaign.GetOwnedSkill(2);
+                for (int clash = 0; clash < 9; clash++) owned.GainClashExperience();
+                Transform announcement = Named(controller.gameObject, "Skill Level Up Announcement");
+
+                scope.StartSelectedStage();
+                scope.InstallOwnedSkillDuel(owned.Skill, true, enemyHealth: 1, enemyResistance: 0);
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                int frames = 0;
+                while (owned.Level == 0 && frames++ < 2000) scope.Advance(.025f);
+                Assert.That(owned.Level, Is.EqualTo(1));
+                Assert.That(controller.Finale.IsRunning, Is.True);
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.True,
+                    "The finishing strike still reports the skill's level-up.");
+
+                scope.AdvanceUntilSettled();
+                Assert.That(controller.IsShowingResult, Is.True);
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.True,
+                    "The independent cue survives the combat HUD's hand-off to the result.");
+                scope.Advance(5f);
+                Assert.That(announcement.gameObject.activeInHierarchy, Is.False,
+                    "The cue still expires on real time while the result is open.");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator NewGame_BriefsFirstMission_ThenIntroGuidedQOnlyDuelOutroAndResult()
         {
             yield return null;
@@ -232,6 +378,9 @@ namespace TurnLimbo.Presentation.Tests
                 Press(keyboard.escapeKey);
                 yield return null;
                 yield return null;
+                Assert.That(controller.IsPaused, Is.True);
+                Assert.That(controller.IsMission, Is.True);
+                Assert.That(controller.AbandonPausedBattle(), Is.True);
                 Assert.That(controller.IsInBriefing, Is.True, "Escape leaves a mission for the briefing, not the lobby.");
                 Assert.That(controller.IsMission, Is.False);
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(2));
@@ -429,6 +578,16 @@ namespace TurnLimbo.Presentation.Tests
                     LegacyInitialSkills.All, new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 4));
                 Controller.CommitTurn();
                 AdvanceUntilResult();
+            }
+
+            public void InstallOwnedSkillDuel(LegacySkill playerSkill, bool enemyUsesSkill,
+                int enemyHealth = 1000, int enemyResistance = 1000)
+            {
+                var enemySkill = new LegacySkill(900, "Practice Attack", 1, 0, 0,
+                    LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "", iconId: 1);
+                InstallDuel(new LegacyQueuedDuel(100, 50, enemyHealth, enemyResistance,
+                    new[] { playerSkill }, enemyUsesSkill ? new[] { enemySkill } : Array.Empty<LegacySkill>(),
+                    new[] { enemyUsesSkill ? 1 : 0 }, 17));
             }
 
             /// <summary>Advances until planning, a result, or a scene that holds the flow.</summary>

@@ -177,7 +177,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
             CampaignOwnedSkill granted = Owned(run, 14);
-            Assert.That(granted.Skill, Is.SameAs(FindSkill(14)));
+            Assert.That(granted.Skill, Is.Not.SameAs(FindSkill(14)));
+            Assert.That(granted.Skill.Id, Is.EqualTo(14));
             Assert.That(granted.Skill.IconId, Is.EqualTo(10));
             Assert.That(granted.Skill.Name, Is.EqualTo("가로베기"));
             Assert.That(LegacySkillRoles.Get(granted.Skill), Is.EqualTo(LegacySkillRole.ResistanceOnClash));

@@ -9,9 +9,13 @@ using Object = UnityEngine.Object;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Inherited actors/effects with travelling forest-duel staging. The session owns combat rules.</summary>
+    public enum ArenaBackdropKind { Forest, SchoolCorridor }
+
+    /// <summary>Inherited actors/effects with travelling forest or school-corridor staging. The session owns combat rules.</summary>
     public sealed class LegacyArenaView : IDisposable
     {
+        private const float ForestActorY = -.5f;
+        private const float CorridorActorDepth = .95f;
         /// <summary>How an incoming hit met the target's own action in the rules.</summary>
         public enum HitExchange
         {
@@ -54,6 +58,8 @@ namespace TurnLimbo.Presentation
         private readonly Actor enemy;
         private readonly MobStudentAnimationSet mobAnimations;
         private readonly EnemyStudentAnimationSet enemyAnimations;
+        private EnemyStudentAnimationSet cadetAAnimations;
+        private EnemyStudentAnimationSet cadetBAnimations;
         private readonly TrainingDummyAnimationSet dummyAnimations;
         private EnemyAppearance enemyAppearance = EnemyAppearance.Student;
         // 전투 planning bullet time. The controller asks for it every planning frame (SetPlanningState) and Tick
@@ -161,9 +167,21 @@ namespace TurnLimbo.Presentation
         private Vector3 combatCameraPivot;
         private float idleTime;
         private bool disposed;
+        private bool openingPlacementAvailable;
 
         public Camera ArenaCamera { get; }
         public ForestParallaxBackdrop ForestBackdrop { get; }
+        public SchoolCorridorBackdrop CorridorBackdrop { get; }
+        public ArenaBackdropKind BackdropKind { get; private set; }
+        public float ActorGroundY => ForestActorY - (BackdropKind == ArenaBackdropKind.SchoolCorridor ? CorridorActorDepth : 0f);
+        private float ActorCameraCompensation => BackdropKind == ArenaBackdropKind.SchoolCorridor ? CorridorActorDepth : 0f;
+        private float CameraCompensation(float size, float closeFocus)
+        {
+            float wideShot = Mathf.Clamp01((size - 3.5f) / 1.5f);
+            float narrowCompensation = Mathf.Min(ActorCameraCompensation, .7f);
+            float compensation = Mathf.Lerp(narrowCompensation, ActorCameraCompensation, wideShot);
+            return compensation * Mathf.Clamp01((size - 2.8f) / .7f) * (1f - Mathf.Clamp01(closeFocus));
+        }
         public VolumeProfile ArenaProfile => volumeProfile;
         public DuelImpactGlow ImpactGlow => impactGlow;
         public DuelBreakAura PlayerBreakAura => playerBreakAura;
@@ -210,6 +228,8 @@ namespace TurnLimbo.Presentation
         /// <summary>Whether the dummy's hurt reaction is playing (it runs on past slot and turn boundaries).</summary>
         public bool IsEnemyHurtPlaying => EnemyIsDummy && enemy.HurtPlaying;
         private bool EnemyIsDummy => enemyAppearance == EnemyAppearance.TrainingDummy;
+        private EnemyStudentAnimationSet ActiveEnemyAnimations => enemyAppearance == EnemyAppearance.CadetA
+            ? cadetAAnimations : enemyAppearance == EnemyAppearance.CadetB ? cadetBAnimations : enemyAnimations;
         public SpriteRenderer EnemyRenderer => enemy.Renderer;
         /// <summary>How far the 전투 planning look has eased in: 0 outside bullet time, up to 1 while planning.</summary>
         public float BulletTimeAmount => bulletTimeAmount;
@@ -231,9 +251,12 @@ namespace TurnLimbo.Presentation
         public bool IsReturning => returning;
         public bool ReturnComplete => !returning;
         public bool IsFatalFocus => fatalTime > 0f;
-        public bool HasRequiredAssets => art.HasRequiredAssets && ForestBackdrop.HasRequiredAssets && spriteMaterial != null &&
+        public bool HasRequiredAssets => art.HasRequiredAssets && ForestBackdrop.HasRequiredAssets &&
+            CorridorBackdrop.HasRequiredAssets && spriteMaterial != null &&
             effectPrefab != null && impactGlow.HasRequiredAssets && mobAnimations.HasRequiredAssets && enemyAnimations.HasRequiredAssets &&
-            dummyAnimations.HasRequiredAssets;
+            dummyAnimations.HasRequiredAssets &&
+            (cadetAAnimations == null || cadetAAnimations.HasRequiredAssets) &&
+            (cadetBAnimations == null || cadetBAnimations.HasRequiredAssets);
         public int ActiveParticleCount
         {
             get
@@ -324,6 +347,8 @@ namespace TurnLimbo.Presentation
             }
 
             ForestBackdrop = new ForestParallaxBackdrop(arenaRoot.transform, spriteMaterial, ArenaLayer, this.settings);
+            CorridorBackdrop = new SchoolCorridorBackdrop(arenaRoot.transform, spriteMaterial, ArenaLayer);
+            SetBackdrop(ArenaBackdropKind.Forest);
             impactGlow = new DuelImpactGlow(arenaRoot.transform, ArenaLayer, this.settings);
 
             mobAnimations = new MobStudentAnimationSet();
@@ -362,6 +387,24 @@ namespace TurnLimbo.Presentation
             Reset();
         }
 
+        /// <summary>Selects the arena scenery before a new battle or staged mission scene.</summary>
+        public void SetBackdrop(ArenaBackdropKind kind)
+        {
+            if (kind != ArenaBackdropKind.Forest && kind != ArenaBackdropKind.SchoolCorridor)
+                throw new ArgumentOutOfRangeException(nameof(kind));
+            BackdropKind = kind;
+            ForestBackdrop.SetVisible(kind == ArenaBackdropKind.Forest);
+            CorridorBackdrop.SetVisible(kind == ArenaBackdropKind.SchoolCorridor);
+        }
+
+        /// <summary>Cutscenes and combat camera updates advance only the scenery currently shown.</summary>
+        public void TickBackdrop(Camera camera, bool inspecting, float scaledDelta, float focusDarkening = 0f)
+        {
+            if (BackdropKind == ArenaBackdropKind.Forest)
+                ForestBackdrop.Tick(camera, inspecting, scaledDelta, focusDarkening);
+            else CorridorBackdrop.Tick(camera, inspecting, scaledDelta, focusDarkening);
+        }
+
         public void Reset()
         {
             approaching = returning = resolving = inspecting = false;
@@ -391,8 +434,8 @@ namespace TurnLimbo.Presentation
             impactGlow.Hidden = stepAfterimages.Hidden = false;
             playerBreakAura.Hidden = enemyBreakAura.Hidden = false;
             ApplyGrade();
-            ResetActor(player, new Vector3(-5f, -0.5f, 0f));
-            ResetActor(enemy, new Vector3(5f, -0.5f, 0f));
+            ResetActor(player, new Vector3(-5f, ActorGroundY, 0f));
+            ResetActor(enemy, new Vector3(5f, ActorGroundY, 0f));
             player.LowerAnimationTime = 0f;
             player.LowerTravelActive = player.HasLowerTravelProgress = false;
             player.LastVisualPosition = player.Renderer.transform.localPosition;
@@ -403,7 +446,8 @@ namespace TurnLimbo.Presentation
             ArenaCamera.transform.localPosition = new Vector3(0f, -1.5f, -10f);
             ArenaCamera.transform.localRotation = Quaternion.identity;
             ArenaCamera.orthographicSize = 6f;
-            ForestBackdrop.Reset(ArenaCamera);
+            if (BackdropKind == ArenaBackdropKind.Forest) ForestBackdrop.Reset(ArenaCamera);
+            else CorridorBackdrop.Reset(ArenaCamera);
             impactGlow.Reset();
             playerBreakAura.Reset();
             enemyBreakAura.Reset();
@@ -417,10 +461,37 @@ namespace TurnLimbo.Presentation
                 effect.Instance.SetActive(false);
                 effect.Active = false;
             }
+            openingPlacementAvailable = true;
+        }
+
+        /// <summary>Starts a freshly reset duel where the preceding cutscene left the fighters. Call immediately after
+        /// <see cref="Reset"/>, before the first battle tick. The player stays to the left with at least the swords'
+        /// contact distance between them; movement and knockback origins follow the new places.</summary>
+        public void SetOpeningPositions(float playerX, float enemyX)
+        {
+            if (disposed) throw new ObjectDisposedException(nameof(LegacyArenaView));
+            if (!openingPlacementAvailable || resolving || approaching || returning || stepping || HasPendingPush || suspension != null)
+                throw new InvalidOperationException("Opening positions can only be set immediately after resetting the arena.");
+            if (float.IsNaN(playerX) || float.IsInfinity(playerX)) throw new ArgumentOutOfRangeException(nameof(playerX));
+            if (float.IsNaN(enemyX) || float.IsInfinity(enemyX) || float.IsInfinity(enemyX - playerX) ||
+                enemyX - playerX < ContactDistance)
+                throw new ArgumentOutOfRangeException(nameof(enemyX), "The enemy must stand at least one contact distance to the right.");
+
+            ResetActor(player, new Vector3(playerX, ActorGroundY, 0f));
+            ResetActor(enemy, new Vector3(enemyX, ActorGroundY, 0f));
+            player.LastVisualPosition = player.Renderer.transform.localPosition;
+            player.LowerAnimationTime = 0f;
+            player.LowerTravelActive = player.HasLowerTravelProgress = false;
+            SampleActor(player);
+            SampleActor(enemy);
+            if (player.LowerRenderer != null) player.LowerRenderer.sprite = mobAnimations.GetLower(0f, false);
+            combatCameraPivot = DuelCenter;
+            openingPlacementAvailable = false;
         }
 
         public void BeginTurn()
         {
+            openingPlacementAvailable = false;
             resolving = false;
             approaching = returning = false;
             fatalTime = 0f;
@@ -470,6 +541,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginApproach()
         {
+            openingPlacementAvailable = false;
             // The commit takes the camera to the combat framing; the next planning turn starts without the push.
             timePressureTarget = timePressureAmount = 0f;
             combatCameraPivot = DuelCenter;
@@ -693,7 +765,7 @@ namespace TurnLimbo.Presentation
             RefreshStepBackdrop();
         }
 
-        /// <summary>Chooses how the enemy is drawn. The dummy falls back to the student when its art is missing.</summary>
+        /// <summary>Chooses how the enemy is drawn. Missing optional appearances fall back to Iia.</summary>
         public void SetEnemyAppearance(EnemyAppearance appearance)
         {
             if (appearance == EnemyAppearance.TrainingDummy && !dummyAnimations.HasRequiredAssets)
@@ -701,11 +773,29 @@ namespace TurnLimbo.Presentation
                 Debug.LogWarning("Training dummy art is missing; the student stands in.");
                 appearance = EnemyAppearance.Student;
             }
+            if (appearance == EnemyAppearance.CadetA || appearance == EnemyAppearance.CadetB)
+            {
+                EnemyStudentAnimationSet selected = GetOrLoadCadetAnimations(appearance);
+                if (!selected.HasRequiredAssets)
+                {
+                    Debug.LogWarning("Cadet animation resources are incomplete: " + string.Join(", ", selected.MissingResources));
+                    appearance = EnemyAppearance.Student;
+                }
+            }
             enemyAppearance = appearance;
             ResetMovementPose(enemy);
             enemy.HurtPlaying = false;
             enemy.HurtElapsed = enemy.IdleClock = 0f;
             SampleActor(enemy);
+        }
+
+        private EnemyStudentAnimationSet GetOrLoadCadetAnimations(EnemyAppearance appearance)
+        {
+            if (appearance == EnemyAppearance.CadetA)
+                return cadetAAnimations ?? (cadetAAnimations = new EnemyStudentAnimationSet(
+                    EnemyStudentAnimationSet.CadetAResourceRoot, "cadet-a"));
+            return cadetBAnimations ?? (cadetBAnimations = new EnemyStudentAnimationSet(
+                EnemyStudentAnimationSet.CadetBResourceRoot, "cadet-b"));
         }
 
         /// <param name="fatal">A heavy hit: it lands on the body, shakes twice as hard and glows gold.</param>
@@ -742,7 +832,7 @@ namespace TurnLimbo.Presentation
                 enemy.HurtPlaying = true;
                 SampleActor(enemy);
             }
-            else if (target == enemy && enemyAnimations.HasRequiredAssets && !keepsStrike && (guarded || damage > 0f || fatal))
+            else if (target == enemy && ActiveEnemyAnimations.HasRequiredAssets && !keepsStrike && (guarded || damage > 0f || fatal))
             {
                 // HP damage/broken guard recoils; successful guards and blade blocks use the guard.
                 enemy.ReactionIsBlock = blocks;
@@ -862,6 +952,7 @@ namespace TurnLimbo.Presentation
         public void Tick(float scaledDelta, float realDelta)
         {
             if (disposed) return;
+            openingPlacementAvailable = false;
             scaledDelta = Mathf.Max(0f, scaledDelta);
             realDelta = realDelta > 0f && !float.IsInfinity(realDelta) ? realDelta : 0f;
             stepFocusTime = Mathf.Max(0f, stepFocusTime - realDelta);
@@ -1032,7 +1123,7 @@ namespace TurnLimbo.Presentation
             if (ForestBackdrop != null)
             {
                 ArenaCamera.backgroundColor = NormalSkyColor;
-                ForestBackdrop.Tick(ArenaCamera, inspecting, 0f);
+                TickBackdrop(ArenaCamera, inspecting, 0f);
             }
             if (hadFocus && !IsFatalFocus)
             {
@@ -1043,6 +1134,7 @@ namespace TurnLimbo.Presentation
                 Vector3 pivot = resolving ? DuelCenter : inspecting
                     ? enemy.Renderer.transform.localPosition + new Vector3(0f, 0.5f, 0f)
                     : DuelCenter + new Vector3(0f, -1f, 0f);
+                pivot.y += CameraCompensation(ArenaCamera.orthographicSize, inspecting ? 1f : 0f);
                 pivot.z = -10f;
                 ArenaCamera.transform.localPosition = pivot;
                 ArenaCamera.transform.localRotation = Quaternion.Euler(0f, 0f, CameraRotate ? cameraRotation : 0f);
@@ -1057,7 +1149,7 @@ namespace TurnLimbo.Presentation
             float darkness = settings.StepBackdropDarkening * StepFocusAmount;
             ArenaCamera.backgroundColor = new Color(NormalSkyColor.r * (1f - darkness),
                 NormalSkyColor.g * (1f - darkness), NormalSkyColor.b * (1f - darkness), 1f);
-            ForestBackdrop.Tick(ArenaCamera, inspecting, scaledDelta, darkness);
+            TickBackdrop(ArenaCamera, inspecting, scaledDelta, darkness);
         }
 
         private void RefreshExposure()
@@ -1312,22 +1404,23 @@ namespace TurnLimbo.Presentation
                     : dummyAnimations.GetIdle(actor.IdleClock);
                 return;
             }
-            if (actor == enemy && enemyAnimations.HasRequiredAssets)
+            EnemyStudentAnimationSet animationSet = ActiveEnemyAnimations;
+            if (actor == enemy && animationSet.HasRequiredAssets)
             {
                 if (actor.ReactionTime > 0f)
                 {
-                    actor.Renderer.sprite = actor.ReactionIsBlock ? enemyAnimations.GetGuard(actor.ReactionVariant)
-                        : enemyAnimations.GetHurt(actor.ReactionVariant);
+                    actor.Renderer.sprite = actor.ReactionIsBlock ? animationSet.GetGuard(actor.ReactionVariant)
+                        : animationSet.GetHurt(actor.ReactionVariant);
                     return;
                 }
                 bool guard = actor.Skill?.Kind == LegacySkillKind.Defence || IsHoldingExchange(actor);
                 float cycle = OriginalClipDuration / slotAnimationSpeed + slotAttackInterval;
                 int hitIndex = Mathf.FloorToInt(actor.AnimationTime / cycle);
                 Sprite attack = !guard && active && actor.Skill.Kind == LegacySkillKind.Attack
-                    ? enemyAnimations.GetAttack(actor.Skill.Property, clipTime / OriginalClipDuration, AttackVariant(actor, hitIndex)) : null;
-                actor.Renderer.sprite = guard ? enemyAnimations.GetGuard(actor.GuardVariant)
+                    ? animationSet.GetAttack(actor.Skill.Property, clipTime / OriginalClipDuration, AttackVariant(actor, hitIndex)) : null;
+                actor.Renderer.sprite = guard ? animationSet.GetGuard(actor.GuardVariant)
                     : attack != null ? attack : actor.Moving
-                        ? enemyAnimations.GetMove() : enemyAnimations.GetIdle(idleTime);
+                        ? animationSet.GetMove() : animationSet.GetIdle(idleTime);
                 return;
             }
             // Legacy clips: after its own frames, a defense or a finished attack still facing
@@ -1469,6 +1562,8 @@ namespace TurnLimbo.Presentation
                 // even when the actual step lasts only a few rendered frames.
                 blend = 1f - Mathf.Pow(0.72f, Mathf.Max(0f, realDelta) * 60f);
             }
+            // Keep the wide corridor shot fixed while close-ups can still follow the whole figure.
+            pivot.y += CameraCompensation(size, inspecting || IsFatalFocus ? 1f : Mathf.Max(focus, cutIn));
             pivot.z = -10f;
             if (cameraJoltTime > 0f) pivot += cameraJolt * (cameraJoltTime / 0.1f);
             ArenaCamera.orthographicSize = Mathf.Lerp(ArenaCamera.orthographicSize, size, blend);
@@ -1607,6 +1702,8 @@ namespace TurnLimbo.Presentation
             stepAfterimages.Dispose();
             mobAnimations.Dispose();
             enemyAnimations.Dispose();
+            cadetAAnimations?.Dispose();
+            cadetBAnimations?.Dispose();
             dummyAnimations.Dispose();
             impactGlow.Dispose();
             playerBreakAura.Dispose();

@@ -37,7 +37,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(12, "advance")]
         [TestCase(19, "breathing fighting-spirit")]
         [TestCase(42, "horizontal-cut diagonal-cut quick-draw")]
-        public void CurriculumGrantAndEquip_PreserveImportedSkillIdentityAndLane(int id, string path)
+        public void CurriculumGrantAndEquip_UseOwnedCopyWithImportedStatsAndLane(int id, string path)
         {
             var run = new CampaignRun();
             LegacySkill basis = FindImported(id);
@@ -53,11 +53,22 @@ namespace TurnLimbo.Core.Tests
             }
             Assert.That(run.TrySelectCurriculumNode(nodes[nodes.Length - 1]), Is.False, "A node is completed only once.");
             int copies = 0;
+            CampaignOwnedSkill granted = null;
             foreach (CampaignOwnedSkill owned in run.OwnedSkills)
                 if (owned.SkillId == id)
                 {
                     copies++;
-                    Assert.That(owned.Skill, Is.SameAs(basis));
+                    granted = owned;
+                    Assert.That(owned.Skill, Is.Not.SameAs(basis));
+                    Assert.That(owned.Skill.Id, Is.EqualTo(basis.Id));
+                    Assert.That(owned.Skill.Name, Is.EqualTo(basis.Name));
+                    Assert.That(owned.Skill.Cost, Is.EqualTo(basis.Cost));
+                    Assert.That(owned.Skill.MinPower, Is.EqualTo(basis.MinPower));
+                    Assert.That(owned.Skill.MaxPower, Is.EqualTo(basis.MaxPower));
+                    Assert.That(owned.Skill.Kind, Is.EqualTo(basis.Kind));
+                    Assert.That(owned.Skill.Property, Is.EqualTo(basis.Property));
+                    Assert.That(owned.Skill.AttackCount, Is.EqualTo(basis.AttackCount));
+                    Assert.That(owned.Skill.LaneIndex, Is.EqualTo(basis.LaneIndex));
                 }
             Assert.That(copies, Is.EqualTo(1));
 
@@ -65,9 +76,21 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryPlaceLoadoutSkill(id, (basis.LaneIndex + 1) % 3, 0), Is.False);
             Assert.That(run.TryPlaceLoadoutSkill(id, basis.LaneIndex, 0), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
-            Assert.That(run.CreateDuel().GetLane(basis.LaneIndex)[0], Is.SameAs(basis));
+            Assert.That(run.CreateDuel().GetLane(basis.LaneIndex)[0], Is.SameAs(granted.Skill));
             Assert.That(run.TryStartStage(2), Is.True);
-            Assert.That(run.CreateDuel().GetLane(basis.LaneIndex)[0], Is.SameAs(basis), "The stage battle fights with it.");
+            Assert.That(run.CreateDuel().GetLane(basis.LaneIndex)[0], Is.SameAs(granted.Skill),
+                "The stage battle fights with the owned copy.");
+
+            string originalName = basis.Name;
+            int originalMinPower = basis.MinPower, originalMaxPower = basis.MaxPower;
+            for (int use = 0; use < granted.ExperienceRequired; use++)
+                Assert.That(run.TryGainClashExperience(granted.Skill, LegacySkillDefinitions.Skill(1)), Is.True);
+            Assert.That(granted.Skill.Name, Is.EqualTo(originalName + "+"));
+            Assert.That(granted.Skill.MinPower, Is.EqualTo(originalMinPower + 2));
+            Assert.That(granted.Skill.MaxPower, Is.EqualTo(originalMaxPower + 2));
+            Assert.That(basis.Name, Is.EqualTo(originalName), "An owned upgrade must not rename the sheet row.");
+            Assert.That(basis.MinPower, Is.EqualTo(originalMinPower));
+            Assert.That(basis.MaxPower, Is.EqualTo(originalMaxPower));
         }
 
         [Test]

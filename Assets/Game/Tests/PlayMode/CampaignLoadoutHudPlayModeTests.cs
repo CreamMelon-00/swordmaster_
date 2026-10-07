@@ -91,12 +91,35 @@ namespace TurnLimbo.Presentation.Tests
                     Does.Contain("다음 턴").And.Contain("ACT 회복 +1"));
                 Assert.That(Label(fixture.Hud.Root, "ACT Value").text, Is.EqualTo("1"));
                 Assert.That(Label(fixture.Hud.Root, "Loadout Detail Values").text, Is.EqualTo("4–5"));
+                Assert.That(Named(fixture.Hud.Root, "Skill Experience").gameObject.activeInHierarchy, Is.True);
+                Assert.That(Label(fixture.Hud.Root, "Skill Experience Level").text, Is.EqualTo("숙련 0/3"));
+                Assert.That(Label(fixture.Hud.Root, "Skill Experience Value").text, Is.EqualTo("0/10"));
                 Assert.That(fixture.PlaceCalls, Is.Zero, "The first slot click only selects its details.");
                 foreach (Graphic graphic in fixture.Hud.Root.GetComponentsInChildren<Graphic>(true))
                     if (graphic.GetComponent<Button>() == null && graphic.name != "Loadout Collection Viewport")
                         Assert.That(graphic.raycastTarget, Is.False, "Decorations must not intercept card drags.");
                 foreach (Button button in fixture.Hud.Root.GetComponentsInChildren<Button>(true))
                     Assert.That(button.navigation.mode, Is.EqualTo(Navigation.Mode.None));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator EarnedLevel_UpdatesSelectedDetailAndSlotWithoutChangingLoadout()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                ClickSelectionOnly(fixture, "Loadout Slot Q 1");
+                CampaignOwnedSkill owned = fixture.Run.OwnedSkills[0];
+                for (int use = 0; use < 10; use++) owned.GainClashExperience();
+                fixture.Hud.Refresh();
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("베기+"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Values").text, Is.EqualTo("6–7"));
+                Assert.That(Label(fixture.Hud.Root, "Skill Experience Level").text, Is.EqualTo("숙련 1/3"));
+                Assert.That(Label(fixture.Hud.Root, "Skill Experience Value").text, Is.EqualTo("0/10"));
+                Assert.That(TextUnder(Button(fixture.Hud.Root, "Loadout Slot Q 1").transform, "Slot Name").text,
+                    Is.EqualTo("베기+"));
+                Assert.That(fixture.Run.HasLoadoutChanges, Is.False);
             }
         }
 

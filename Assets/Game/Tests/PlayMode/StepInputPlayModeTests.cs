@@ -242,6 +242,48 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator FailedStepAsLastSlotEnds_KeepsItsResultThroughAfterTurnUntilRealTimeExpires()
+        {
+            yield return null;
+            using (var scope = new StepScope())
+            {
+                scope.Settings("{\"skillInterval\":0,\"hitStopDuration\":0}");
+                Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+                DuelPrototypeController controller = scope.Controller;
+                scope.BeginWindup();
+                LegacyCurrentSlot slot = controller.Session.CurrentSlot;
+                scope.Until(() => slot.HitsResolved == 1);
+                Assert.That(controller.CanStep, Is.True,
+                    "The first impact has landed, but the last slot can still accept a missed step.");
+                Assert.That(controller.IsStepTimingWindow, Is.False);
+
+                Transform stepRoot = controller.StepHud.Root.transform;
+                DuelStepResultBurst burst = stepRoot.Find("Step Result Burst").GetComponent<DuelStepResultBurst>();
+                DuelStepFailureEdge danger = stepRoot.Find("Step Failure Edge").GetComponent<DuelStepFailureEdge>();
+                Press(keyboard.dKey);
+                yield return null;
+                scope.Advance(1f, keyboard);
+                Release(keyboard.dKey);
+
+                Assert.That(controller.Session.LastResolvedSlot, Is.EqualTo(0));
+                Assert.That(controller.CanStep, Is.False, "The last slot handed over to AfterTurn in this frame.");
+                Assert.That(controller.StepHud.Root.activeInHierarchy, Is.True,
+                    "Ending the timing phase must not erase the newly judged failure.");
+                Assert.That(controller.StepHud.DodgeRing.gameObject.activeInHierarchy, Is.False);
+                Assert.That(controller.StepHud.PressureRing.gameObject.activeInHierarchy, Is.False);
+                Assert.That(burst.gameObject.activeInHierarchy, Is.True);
+                Assert.That(burst.Success, Is.False);
+                Assert.That(danger.gameObject.activeInHierarchy, Is.True);
+                Assert.That(danger.Progress, Is.LessThan(1f));
+
+                scope.Advance(2f);
+                Assert.That(burst.gameObject.activeInHierarchy, Is.False);
+                Assert.That(danger.gameObject.activeInHierarchy, Is.False);
+                Assert.That(controller.StepHud.Root.activeInHierarchy, Is.False);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator StepSuccess_RequiresEnemyAttackForDodge_AndOwnSkillForPressure()
         {
             yield return null;

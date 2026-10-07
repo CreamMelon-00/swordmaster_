@@ -6,23 +6,26 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>A mission's non-modal coach: it shows the current guide beat. Only its actual buttons intercept battle input.</summary>
+    /// <summary>A mission's non-modal coach: guided beats use the full card; free play keeps a small goal at the edge
+    /// of the arena and lets the player reopen the lesson and its controls. Only buttons intercept battle input.</summary>
     public sealed class MissionCoachHud : IDisposable
     {
-        private readonly RectTransform root, frame;
+        private readonly RectTransform root, frame, compactFrame;
         private readonly Text counter, title, description, inputHint, continueCaption;
-        private readonly Button continueButton, skipButton, inspectButton;
+        private readonly Text compactMission, compactTitle, compactDescription;
+        private readonly Button continueButton, skipButton, inspectButton, expandButton, foldButton;
         private int shownStep = -1, shownCount = -1;
         private string shownMission;
+        private MissionGuide shownGuide;
+        private bool shownFree, expandedFree;
         private bool disposed;
 
         public GameObject Root => root.gameObject;
         public bool IsVisible => !disposed && root.gameObject.activeSelf;
 
-        /// <summary>The top of the card on the screen, in pixels from the bottom (0 while it is hidden): a panel the duel's
-        /// HUD opens over the dock (a held skill's explanation, <see cref="LegacyCombatHud.SetExplanationFloor"/>) starts
-        /// above it, so the card never covers it.</summary>
-        public float TopEdge => IsVisible
+        /// <summary>The top of the expanded card on the screen, in pixels from the bottom. The small free-play goal
+        /// sits beside the dock, so it does not raise a held skill's explanation.</summary>
+        public float TopEdge => IsVisible && frame.gameObject.activeSelf
             ? RectTransformUtility.WorldToScreenPoint(null, frame.TransformPoint(new Vector3(0f, frame.rect.yMax, 0f))).y : 0f;
 
         public MissionCoachHud(Transform parent, LegacyDuelArt art, Action advance, Action skip, Action inspectEnemy = null)
@@ -53,6 +56,40 @@ namespace TurnLimbo.Presentation
             continueCaption = card.ContinueCaption;
             inspectButton = ActionButton(card.Inspect, inspectEnemy, true);
             skipButton = ActionButton(card.Abandon, skip);
+
+            // The full lesson is still available in free play, but it no longer owns the centre of the battlefield.
+            var foldFace = Face("Coach Fold", frame, new Vector2(-344f, -80f), new Vector2(136f, 32f),
+                "안내 접기", art.UIFont, false);
+            foldButton = ActionButton(foldFace, () => SetFreeExpanded(false));
+            foldButton.gameObject.SetActive(false);
+
+            compactFrame = MissionCoachCard.Rect("Coach Compact Border", root, Vector2.zero, new Vector2(436f, 94f));
+            compactFrame.anchorMin = compactFrame.anchorMax = compactFrame.pivot = Vector2.zero;
+            compactFrame.anchoredPosition = new Vector2(16f, 228f);
+            var compactBorder = compactFrame.gameObject.AddComponent<Image>();
+            compactBorder.color = DuelVisualTheme.Accent;
+            compactBorder.raycastTarget = false;
+            var compactCard = MissionCoachCard.Rect("Coach Compact Card", compactFrame, Vector2.zero,
+                new Vector2(432f, 90f)).gameObject.AddComponent<Image>();
+            compactCard.color = DuelVisualTheme.Surface;
+            compactCard.raycastTarget = false;
+            DuelVisualTheme.DressPanel(compactCard);
+            compactMission = Label("Coach Compact Mission", compactCard.transform, new Vector2(-62f, 32f),
+                new Vector2(290f, 17f), 13, DuelVisualTheme.Accent, art.UIFont);
+            compactTitle = Label("Coach Compact Goal", compactCard.transform, new Vector2(-62f, 10f),
+                new Vector2(290f, 27f), 19, DuelVisualTheme.Foreground, art.UIFont);
+            compactTitle.resizeTextForBestFit = true;
+            compactTitle.resizeTextMinSize = 16;
+            compactTitle.resizeTextMaxSize = 19;
+            compactDescription = Label("Coach Compact Detail", compactCard.transform, new Vector2(-62f, -23f),
+                new Vector2(290f, 37f), 13, DuelVisualTheme.Muted, art.UIFont);
+            compactDescription.resizeTextForBestFit = true;
+            compactDescription.resizeTextMinSize = 11;
+            compactDescription.resizeTextMaxSize = 13;
+            var expandFace = Face("Coach Expand", compactCard.transform, new Vector2(160f, -3f),
+                new Vector2(102f, 34f), "안내 보기", art.UIFont, true);
+            expandButton = ActionButton(expandFace, () => SetFreeExpanded(true), true);
+            compactFrame.gameObject.SetActive(false);
             Hide();
         }
 
@@ -62,6 +99,10 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             if (guide == null) throw new ArgumentNullException(nameof(guide));
             root.gameObject.SetActive(true);
+            // A new attempt or the first free beat starts folded. Repeated refreshes retain the player's open/close choice.
+            if (!ReferenceEquals(shownGuide, guide) || guide.IsFree && !shownFree) expandedFree = false;
+            shownGuide = guide;
+            shownFree = guide.IsFree;
             // Controller may refresh this view frequently. Keep both objects and strings stable until the step changes.
             if (shownStep != guide.StepNumber || shownCount != guide.StepCount || shownMission != missionLabel)
             {
@@ -77,6 +118,24 @@ namespace TurnLimbo.Presentation
             string caption = guide.IsOpening ? "시작" : "계속";
             if (continueCaption.text != caption) continueCaption.text = caption;
             inspectButton.gameObject.SetActive(guide.AllowsInspect);
+            foldButton.gameObject.SetActive(guide.IsFree);
+            if (guide.IsFree)
+            {
+                string mission = missionLabel + "  ·  자유 전투";
+                if (compactMission.text != mission) compactMission.text = mission;
+                if (compactTitle.text != guide.Title) compactTitle.text = guide.Title;
+                if (compactDescription.text != guide.Description) compactDescription.text = guide.Description;
+            }
+            frame.gameObject.SetActive(!guide.IsFree || expandedFree);
+            compactFrame.gameObject.SetActive(guide.IsFree && !expandedFree);
+        }
+
+        private void SetFreeExpanded(bool expanded)
+        {
+            if (disposed || shownGuide == null || !shownGuide.IsFree) return;
+            expandedFree = expanded;
+            frame.gameObject.SetActive(expanded);
+            compactFrame.gameObject.SetActive(!expanded);
         }
 
         public void Hide()
@@ -91,6 +150,8 @@ namespace TurnLimbo.Presentation
             continueButton.onClick.RemoveAllListeners();
             skipButton.onClick.RemoveAllListeners();
             inspectButton.onClick.RemoveAllListeners();
+            expandButton.onClick.RemoveAllListeners();
+            foldButton.onClick.RemoveAllListeners();
             root.gameObject.SetActive(false);
             if (Application.isPlaying) UnityEngine.Object.Destroy(root.gameObject);
             else UnityEngine.Object.DestroyImmediate(root.gameObject);
@@ -111,6 +172,33 @@ namespace TurnLimbo.Presentation
                 action?.Invoke();
             });
             return button;
+        }
+
+        private static Image Face(string name, Transform parent, Vector2 position, Vector2 size, string caption,
+            Font font, bool primary)
+        {
+            var image = MissionCoachCard.Rect(name, parent, position, size).gameObject.AddComponent<Image>();
+            image.color = primary ? DuelVisualTheme.Accent : DuelVisualTheme.RaisedSurface;
+            var text = Label("Button Label", image.transform, Vector2.zero, size - new Vector2(8f, 2f), 15,
+                primary ? DuelVisualTheme.Ink : DuelVisualTheme.Foreground, font);
+            text.text = caption;
+            text.alignment = TextAnchor.MiddleCenter;
+            return image;
+        }
+
+        private static Text Label(string name, Transform parent, Vector2 position, Vector2 size, int fontSize,
+            Color color, Font font)
+        {
+            var text = MissionCoachCard.Rect(name, parent, position, size).gameObject.AddComponent<Text>();
+            text.font = font;
+            text.fontSize = fontSize;
+            text.color = color;
+            text.alignment = TextAnchor.MiddleLeft;
+            text.horizontalOverflow = HorizontalWrapMode.Wrap;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.raycastTarget = false;
+            text.supportRichText = false;
+            return text;
         }
     }
 
@@ -147,11 +235,14 @@ namespace TurnLimbo.Presentation
             Description.resizeTextForBestFit = true;
             Description.resizeTextMinSize = 16;
             Description.resizeTextMaxSize = 17;
-            InputHint = Label("Coach Input Hint", card.transform, new Vector2(0f, -41f), new Vector2(848f, 22f), 16, Accent);
-            Continue = Face("Coach Continue", card.transform, "다음", new Vector2(-344f, -76f), new Vector2(136f, 32f), true);
+            InputHint = Label("Coach Input Hint", card.transform, new Vector2(0f, -46f), new Vector2(848f, 34f), 16, Accent);
+            InputHint.resizeTextForBestFit = true;
+            InputHint.resizeTextMinSize = 14;
+            InputHint.resizeTextMaxSize = 16;
+            Continue = Face("Coach Continue", card.transform, "다음", new Vector2(-344f, -80f), new Vector2(136f, 32f), true);
             ContinueCaption = Continue.GetComponentInChildren<Text>();
-            Inspect = Face("Coach Inspect Enemy", card.transform, "적 큐 확인 [Tab]", new Vector2(-276f, -76f), new Vector2(272f, 32f), true);
-            Abandon = Face("Coach Abandon", card.transform, "임무 포기", new Vector2(344f, -76f), new Vector2(136f, 32f), false);
+            Inspect = Face("Coach Inspect Enemy", card.transform, "적 큐 확인 [Tab]", new Vector2(-276f, -80f), new Vector2(272f, 32f), true);
+            Abandon = Face("Coach Abandon", card.transform, "임무 포기", new Vector2(344f, -80f), new Vector2(136f, 32f), false);
         }
 
         /// <summary>The brass border holding everything: anchor, place or scale the card through it.</summary>

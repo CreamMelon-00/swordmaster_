@@ -334,7 +334,12 @@ namespace TurnLimbo.Core.Tests
 
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(11), "The curriculum skill and first-clear skill are separate rewards.");
             CampaignOwnedSkill granted = run.OwnedSkills.Single(owned => owned.SkillId == 17);
-            Assert.That(granted.Skill, Is.SameAs(CampaignSkillCatalog.AcquisitionSkills.First(skill => skill.Id == 17)));
+            LegacySkill basis = CampaignSkillCatalog.AcquisitionSkills.First(skill => skill.Id == 17);
+            Assert.That(granted.Skill, Is.Not.SameAs(basis));
+            Assert.That(granted.Skill.Id, Is.EqualTo(basis.Id));
+            Assert.That(granted.Skill.Name, Is.EqualTo(basis.Name));
+            Assert.That(granted.Skill.MinPower, Is.EqualTo(basis.MinPower));
+            Assert.That(granted.Skill.MaxPower, Is.EqualTo(basis.MaxPower));
             Assert.That(run.IsSkillEquipped(17), Is.False);
             Assert.That(run.IsSkillInLoadout(17), Is.False);
             Assert.That(run.HasLoadoutChanges, Is.False);

@@ -6,16 +6,16 @@ using Object = UnityEngine.Object;
 namespace TurnLimbo.Presentation
 {
     /// <summary>Stays on a fighter while its resistance is broken and incoming HP damage is doubled:
-    /// a pulsing red pixel outline behind the body and a cracked ring on its ground shadow.
+    /// a pulsing red pixel outline behind the body and a thin ring on its ground shadow.
     /// It owns separate renderers, so the actor's colour, hit flash and sorting are untouched.
     /// The look is placeholder art drawn in code; replace it here.</summary>
     public sealed class DuelBreakAura : IDisposable
     {
-        /// <summary>Two pixels of the 40 PPU fighter art.</summary>
-        public const float OutlineThickness = 0.05f;
+        /// <summary>One pixel of the 40 PPU fighter art.</summary>
+        public const float OutlineThickness = 1f / MobStudentAnimationSet.PixelsPerUnit;
         public const float FadeDuration = 0.15f;
         public const float PulsePeriod = 0.9f;
-        public const int RingSegments = 28;
+        public const int RingSegments = 64;
         // Behind the lower body (-1) and upper body (0); tied with the ground shadow (-2)
         // but nearer the camera, so the outline and ring draw over the shadow.
         public const int SortingOrder = -2;
@@ -27,6 +27,10 @@ namespace TurnLimbo.Presentation
         {
             new Vector3(OutlineThickness, 0f, OutlineDepth), new Vector3(-OutlineThickness, 0f, OutlineDepth),
             new Vector3(0f, OutlineThickness, OutlineDepth), new Vector3(0f, -OutlineThickness, OutlineDepth),
+            new Vector3(OutlineThickness, OutlineThickness, OutlineDepth),
+            new Vector3(OutlineThickness, -OutlineThickness, OutlineDepth),
+            new Vector3(-OutlineThickness, OutlineThickness, OutlineDepth),
+            new Vector3(-OutlineThickness, -OutlineThickness, OutlineDepth),
         };
 
         private readonly SpriteRenderer upperSource, lowerSource;
@@ -59,7 +63,7 @@ namespace TurnLimbo.Presentation
         public int OutlineRendererCount => (upperOutline?.Length ?? 0) + (lowerOutline?.Length ?? 0);
 
         /// <param name="lower">The separate lower-body renderer of a layered actor, or null.</param>
-        /// <param name="ground">The ground shadow the cracked ring lies on.</param>
+        /// <param name="ground">The ground shadow the ring lies on.</param>
         /// <param name="material">Shared material using the TurnLimbo/Duel Break Silhouette shader.</param>
         public DuelBreakAura(SpriteRenderer upper, SpriteRenderer lower, SpriteRenderer ground, Material material, int layer)
         {
@@ -75,7 +79,7 @@ namespace TurnLimbo.Presentation
                 ringObject.transform.SetParent(ground.transform, false);
                 ringObject.transform.localPosition = new Vector3(0f, 0f, RingDepth);
                 float radius = ground.sprite != null ? Mathf.Max(ground.sprite.bounds.extents.x, ground.sprite.bounds.extents.y) : 0.5f;
-                ringMesh = CreateCrackedRing(radius > 0f ? radius : 0.5f);
+                ringMesh = CreateRing(radius > 0f ? radius : 0.5f);
                 ringObject.AddComponent<MeshFilter>().sharedMesh = ringMesh;
                 ring = ringObject.AddComponent<MeshRenderer>();
                 ring.sharedMaterial = material;
@@ -184,26 +188,22 @@ namespace TurnLimbo.Presentation
             return copies;
         }
 
-        /// <summary>A jagged ring with a few gaps, in the shadow's own (squashed) space.</summary>
-        private static Mesh CreateCrackedRing(float radius)
+        /// <summary>A continuous narrow ring in the shadow's own (squashed) space.</summary>
+        private static Mesh CreateRing(float radius)
         {
-            var vertices = new System.Collections.Generic.List<Vector3>(RingSegments * 4);
+            var vertices = new System.Collections.Generic.List<Vector3>(RingSegments * 2);
             var triangles = new System.Collections.Generic.List<int>(RingSegments * 6);
             for (int i = 0; i < RingSegments; i++)
             {
-                // Fixed gaps read as cracks; a stable jitter keeps the edge uneven.
-                if (i % 7 == 3 || i % 9 == 6) continue;
-                float start = (i + 0.08f) / RingSegments * 2f * Mathf.PI;
-                float end = (i + 0.92f) / RingSegments * 2f * Mathf.PI;
-                float outer = radius * (1.02f + 0.07f * Mathf.Sin(i * 2.7f));
-                float inner = radius * (0.84f + 0.05f * Mathf.Sin(i * 1.9f + 1f));
-                int first = vertices.Count;
-                vertices.Add(new Vector3(Mathf.Cos(start) * inner, Mathf.Sin(start) * inner, 0f));
-                vertices.Add(new Vector3(Mathf.Cos(start) * outer, Mathf.Sin(start) * outer, 0f));
-                vertices.Add(new Vector3(Mathf.Cos(end) * inner, Mathf.Sin(end) * inner, 0f));
-                vertices.Add(new Vector3(Mathf.Cos(end) * outer, Mathf.Sin(end) * outer, 0f));
-                triangles.Add(first); triangles.Add(first + 1); triangles.Add(first + 2);
-                triangles.Add(first + 2); triangles.Add(first + 1); triangles.Add(first + 3);
+                float angle = i * 2f * Mathf.PI / RingSegments;
+                float x = Mathf.Cos(angle) * radius;
+                float y = Mathf.Sin(angle) * radius;
+                vertices.Add(new Vector3(x * 0.975f, y * 0.975f, 0f));
+                vertices.Add(new Vector3(x * 1.025f, y * 1.025f, 0f));
+                int first = i * 2;
+                int next = ((i + 1) % RingSegments) * 2;
+                triangles.Add(first); triangles.Add(first + 1); triangles.Add(next);
+                triangles.Add(next); triangles.Add(first + 1); triangles.Add(next + 1);
             }
             var mesh = new Mesh { name = "Duel Break Ring" };
             mesh.SetVertices(vertices);

@@ -9,10 +9,14 @@ namespace TurnLimbo.Runtime.Prologue
     /// <summary>How the arena draws a mission's enemy. Presentation maps each value to an art set.</summary>
     public enum EnemyAppearance
     {
-        /// <summary>The student swordsman used by stages and most missions.</summary>
+        /// <summary>Iia, the student swordswoman in the prologue missions and cutscenes.</summary>
         Student,
         /// <summary>A straw training dummy on a fixed stand: idle and hurt only, and it never moves.</summary>
         TrainingDummy,
+        /// <summary>The black-haired school cadet used in odd-numbered campaign stages.</summary>
+        CadetA,
+        /// <summary>The trouser-uniform school cadet used in even-numbered campaign stages.</summary>
+        CadetB,
     }
 
     /// <summary>An enemy shown on a mission briefing.</summary>
@@ -262,11 +266,22 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly CutsceneActor[] DummyCast = { CutsceneActor.Elisa, CutsceneActor.Dummy };
         private static readonly CutsceneActor[] KnightCast = { CutsceneActor.Elisa, CutsceneActor.Knight };
 
-        /// <summary>The duel for one attempt, with the enemy's health floor and the empowerment's threshold.</summary>
-        public LegacyQueuedDuel CreateDuel(int seed = 1)
-            => new LegacyQueuedDuel(PlayerHealth, PlayerResistance, EnemyHealth, EnemyResistance,
-                PlayerSkills, EnemySkills, enemyActionCounts, seed, features: Features,
+        /// <summary>The duel for one attempt, with the enemy's health floor and the empowerment's threshold.
+        /// A player's owned technique can replace its sheet definition so story retries use earned levels too.</summary>
+        public LegacyQueuedDuel CreateDuel(int seed = 1, Func<LegacySkill, LegacySkill> playerSkillResolver = null)
+        {
+            IReadOnlyList<LegacySkill> playerSkills = PlayerSkills;
+            if (playerSkillResolver != null)
+            {
+                var resolved = new LegacySkill[playerSkills.Count];
+                for (int index = 0; index < resolved.Length; index++)
+                    resolved[index] = playerSkillResolver(playerSkills[index]) ?? playerSkills[index];
+                playerSkills = resolved;
+            }
+            return new LegacyQueuedDuel(PlayerHealth, PlayerResistance, EnemyHealth, EnemyResistance,
+                playerSkills, EnemySkills, enemyActionCounts, seed, features: Features,
                 enemyHealthFloor: EnemyHealthFloor, enemyHealthThresholdPercent: Empowerment?.ThresholdPercent ?? 0);
+        }
 
         /// <summary>Whether a finished battle completes the mission: a victory always does. After a forced-loss
         /// empowerment has been applied (<paramref name="empowered"/>), so does the player's defeat; a defeat before it

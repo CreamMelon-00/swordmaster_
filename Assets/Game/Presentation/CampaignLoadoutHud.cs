@@ -312,7 +312,7 @@ namespace TurnLimbo.Presentation
             detailStyle.SetLane(skill.LaneIndex, true);
             detailName.text = skill.Name;
             detailRole.text = CampaignSkillText.Purpose(skill);
-            detailInfo.SetSkill(skill);
+            detailInfo.SetSkill(skill, owned: owned);
             LayoutDetail();
         }
 

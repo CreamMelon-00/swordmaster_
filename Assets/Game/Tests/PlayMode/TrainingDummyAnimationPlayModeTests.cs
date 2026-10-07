@@ -273,7 +273,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator FirstMissionBriefsAndFieldsTheDummyWhileLaterMissionsAndStagesFieldTheStudent()
+        public IEnumerator FirstMissionBriefsAndFieldsTheDummyWhileLaterMissionsKeepIiaAndStagesUseCadets()
         {
             yield return null;
             using (var scope = new ControllerScope())
@@ -336,8 +336,8 @@ namespace TurnLimbo.Presentation.Tests
 
                 controller.RestartMatch();
                 Assert.That(controller.IsMission, Is.False);
-                Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.Student), "A stage battle fields the student.");
-                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
+                Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.CadetA), "The first campaign stage fields cadet A.");
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("cadet-a-idle-frame-"));
 
                 controller.StartNewGame();
                 Assert.That(controller.StartMission(), Is.True);

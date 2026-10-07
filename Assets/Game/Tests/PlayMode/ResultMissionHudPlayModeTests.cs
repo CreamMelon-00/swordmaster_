@@ -274,6 +274,7 @@ namespace TurnLimbo.Presentation.Tests
                 hud.Show(guide, "임무 02");
                 int nodeCount = hud.Root.GetComponentsInChildren<Transform>(true).Length;
                 var coachFrame = Named(hud.Root, "Coach Border").GetComponent<RectTransform>();
+                var compactFrame = Named(hud.Root, "Coach Compact Border").GetComponent<RectTransform>();
                 Assert.That(coachFrame.anchorMin, Is.EqualTo(new Vector2(.5f, 0f)));
                 Assert.That(coachFrame.anchorMax, Is.EqualTo(new Vector2(.5f, 0f)));
                 Assert.That(coachFrame.anchoredPosition.y - coachFrame.sizeDelta.y * .5f, Is.GreaterThan(200f),
@@ -283,6 +284,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(hud.Root, "Coach Step").text, Is.EqualTo("임무 02  ·  안내 01 / 09"));
                 Assert.That(Button(hud.Root, "Coach Continue").gameObject.activeSelf, Is.True);
                 Assert.That(Button(hud.Root, "Coach Inspect Enemy").gameObject.activeSelf, Is.False);
+                Assert.That(compactFrame.gameObject.activeSelf, Is.False);
+                Assert.That(hud.TopEdge, Is.GreaterThan(0f));
                 Assert.That(Caption(hud.Root, "Coach Continue"), Is.EqualTo("시작"));
                 Assert.That(Caption(hud.Root, "Coach Abandon"), Is.EqualTo("임무 포기"));
                 Button(hud.Root, "Coach Continue").onClick.Invoke();
@@ -310,7 +313,25 @@ namespace TurnLimbo.Presentation.Tests
                 guide.NotifyCycled();
                 hud.Show(guide, "임무 02");
                 Assert.That(guide.IsFree, Is.True);
+                Assert.That(coachFrame.gameObject.activeSelf, Is.False, "The completed lesson folds away for free combat.");
+                Assert.That(compactFrame.gameObject.activeSelf, Is.True);
+                Assert.That(compactFrame.sizeDelta.x, Is.LessThan(coachFrame.sizeDelta.x));
+                Assert.That(compactFrame.anchoredPosition.x + compactFrame.sizeDelta.x, Is.LessThan(470f),
+                    "The small goal leaves the leftmost Q explanation clear when three lanes are open.");
+                Assert.That(Label(hud.Root, "Coach Compact Goal").text, Is.EqualTo(guide.Title));
+                Assert.That(Label(hud.Root, "Coach Compact Detail").text, Is.EqualTo(guide.Description));
+                Assert.That(hud.TopEdge, Is.Zero, "The small goal must not push held skill explanations upward.");
+                Button(hud.Root, "Coach Expand").onClick.Invoke();
+                Assert.That(coachFrame.gameObject.activeSelf, Is.True);
+                Assert.That(compactFrame.gameObject.activeSelf, Is.False);
+                Assert.That(hud.TopEdge, Is.GreaterThan(0f));
+                Assert.That(Label(hud.Root, "Coach Input Hint").text, Is.EqualTo(guide.InputHint),
+                    "The expanded card repeats the unlocked controls on request.");
+                Assert.That(Size(hud.Root, "Coach Input Hint").y, Is.GreaterThanOrEqualTo(32f),
+                    "The free-play control help has room for two lines.");
+                Assert.That(Label(hud.Root, "Coach Input Hint").resizeTextForBestFit, Is.True);
                 for (int i = 0; i < 20; i++) hud.Show(guide, "임무 02");
+                Assert.That(coachFrame.gameObject.activeSelf, Is.True, "Refreshing must preserve the player's choice.");
                 Assert.That(Label(hud.Root, "Coach Description").text, Is.EqualTo(guide.Description));
                 Assert.That(Label(hud.Root, "Coach Step").text, Is.EqualTo("임무 02  ·  안내 09 / 09"));
                 Assert.That(hud.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodeCount));
@@ -322,8 +343,22 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(advances, Is.EqualTo(2));
                 Assert.That(inspections, Is.EqualTo(1));
                 Assert.That(skips, Is.EqualTo(1));
+                Button(hud.Root, "Coach Fold").onClick.Invoke();
+                Assert.That(compactFrame.gameObject.activeSelf, Is.True);
+                Assert.That(hud.TopEdge, Is.Zero);
                 hud.Hide();
                 Assert.That(hud.IsVisible, Is.False);
+                Assert.That(hud.TopEdge, Is.Zero);
+                hud.Show(guide, "임무 02");
+                Assert.That(compactFrame.gameObject.activeSelf, Is.True,
+                    "Briefly hiding the coach for a scene keeps the free-play layout.");
+                var nextGuide = new MissionGuide(new[]
+                {
+                    new MissionGuideBeat(MissionGuideStepKind.Free, "다른 목표", "새 전투의 목표입니다.", "Q · Space"),
+                });
+                hud.Show(nextGuide, "임무 03");
+                Assert.That(compactFrame.gameObject.activeSelf, Is.True, "A new mission starts with its goal folded.");
+                Assert.That(Label(hud.Root, "Coach Compact Goal").text, Is.EqualTo("다른 목표"));
             }
             finally { hud?.Dispose(); Object.Destroy(parent); }
         }
@@ -396,6 +431,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(hud.Root, "Untimed Hint").text, Does.Contain("시간 제한 없음"));
                 Assert.That(Named(hud.Root, "Timer").gameObject.activeSelf, Is.False);
                 Assert.That(Named(hud.Root, "Timer Track").gameObject.activeSelf, Is.False);
+                Assert.That(Label(hud.Root, "Time Remaining").gameObject.activeSelf, Is.False);
                 Assert.That(Named(hud.Root, "Current Q").GetComponent<Outline>().enabled, Is.True);
                 Assert.That(Named(hud.Root, "Current W").GetComponent<Outline>().enabled, Is.False);
                 Assert.That(Named(hud.Root, "AButton").GetComponent<Outline>().enabled, Is.True);
@@ -407,9 +443,14 @@ namespace TurnLimbo.Presentation.Tests
 
                 hud.SetMissionMode(true, true);
                 Assert.That(Named(hud.Root, "Timer").gameObject.activeSelf, Is.True, "A timed mission shows the clock.");
+                Assert.That(Label(hud.Root, "Time Remaining").gameObject.activeSelf, Is.True);
                 Assert.That(Label(hud.Root, "Untimed Hint").gameObject.activeSelf, Is.False);
 
                 hud.Refresh(PrologueMissions.Get(1).CreateDuel(1), 10f, false, -1, null, null, null);
+                Assert.That(Label(hud.Root, "Time Remaining").text, Is.EqualTo("10s"));
+                hud.Refresh(PrologueMissions.Get(1).CreateDuel(1), 2.5f, false, -1, null, null, null);
+                Assert.That(Label(hud.Root, "Time Remaining").text, Is.EqualTo("3s"));
+                Assert.That(Label(hud.Root, "Time Remaining").color, Is.EqualTo(DuelVisualTheme.Danger));
                 foreach (string name in new[] { "Current W", "Current E", "Next W", "Next E" })
                     Assert.That(Named(hud.Root, name).gameObject.activeSelf, Is.False, name + " belongs to a closed lane.");
                 Assert.That(Named(hud.Root, "Current Q").gameObject.activeSelf, Is.True);

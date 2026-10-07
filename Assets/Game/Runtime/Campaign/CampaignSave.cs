@@ -4,14 +4,14 @@ using System.Collections.Generic;
 namespace TurnLimbo.Runtime.Campaign
 {
     /// <summary>The persistent part of a <see cref="CampaignRun"/>: currency, cleared stages, curriculum progress,
-    /// training wins and the saved loadout. Owned skills follow from the completed curriculum nodes. Battle state, the unsaved loadout
+    /// training wins, skill experience and the saved loadout. Owned skills follow from the completed curriculum nodes. Battle state, the unsaved loadout
     /// draft and lobby selections are not kept. The data is not validated here; <see cref="CampaignRun.TryRestore"/>
     /// checks it against the game's rules.</summary>
     public sealed class CampaignSave
     {
         public CampaignSave(int currency, IEnumerable<int> clearedStages, IEnumerable<string> curriculumCompleted,
             string curriculumActive, int curriculumBattles, IEnumerable<IEnumerable<int>> loadout,
-            int trainingVictoryCount = 0)
+            int trainingVictoryCount = 0, IEnumerable<KeyValuePair<int, int>> skillExperience = null)
         {
             if (clearedStages == null) throw new ArgumentNullException(nameof(clearedStages));
             if (curriculumCompleted == null) throw new ArgumentNullException(nameof(curriculumCompleted));
@@ -22,6 +22,8 @@ namespace TurnLimbo.Runtime.Campaign
             CurriculumCompleted = new List<string>(curriculumCompleted).AsReadOnly();
             CurriculumActive = curriculumActive;
             CurriculumBattles = curriculumBattles;
+            SkillExperience = new List<KeyValuePair<int, int>>(skillExperience ??
+                Array.Empty<KeyValuePair<int, int>>()).AsReadOnly();
             var lanes = new List<IReadOnlyList<int>>();
             foreach (IEnumerable<int> lane in loadout)
                 lanes.Add(new List<int>(lane ?? throw new ArgumentException("A loadout lane is missing.", nameof(loadout))).AsReadOnly());
@@ -39,6 +41,8 @@ namespace TurnLimbo.Runtime.Campaign
         public string CurriculumActive { get; }
         /// <summary>Finished battles counted toward <see cref="CurriculumActive"/>.</summary>
         public int CurriculumBattles { get; }
+        /// <summary>Nonzero cumulative clashes per owned skill ID. An absent entry has zero experience.</summary>
+        public IReadOnlyList<KeyValuePair<int, int>> SkillExperience { get; }
         /// <summary>The saved Q/W/E lanes as skill ids.</summary>
         public IReadOnlyList<IReadOnlyList<int>> Loadout { get; }
     }

@@ -5,6 +5,7 @@ using System.Text;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
+using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 using TurnLimbo.Runtime.Save;
 
@@ -89,6 +90,35 @@ namespace TurnLimbo.Core.Tests
                 "A pre-redesign ID now reads its current definition without changing the saved lane.");
             Assert.That(GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign)), Is.EqualTo(olderSave));
             Assert.That(campaign.TrainingVictoryCount, Is.Zero, "The optional field is absent in older saves.");
+            Assert.That(campaign.OwnedSkills.All(entry => entry.Experience == 0), Is.True,
+                "The optional experience records are absent in older saves.");
+        }
+
+        [Test]
+        public void SkillExperience_RoundTripsWithoutChangingOlderVersionTwoSaves()
+        {
+            var source = new CampaignRun();
+            CampaignOwnedSkill one = source.GetOwnedSkill(1);
+            CampaignOwnedSkill two = source.GetOwnedSkill(3);
+            LegacySkill enemy = LegacySkillDefinitions.Skill(5);
+            for (int i = 0; i < 12; i++) Assert.That(source.TryGainClashExperience(one.Skill, enemy), Is.True);
+            for (int i = 0; i < 5; i++) Assert.That(source.TryGainClashExperience(two.Skill, enemy), Is.True);
+
+            string text = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), source));
+            StringAssert.Contains("\nskill-xp 1 12\n", text);
+            StringAssert.Contains("\nskill-xp 3 5\n", text);
+            StringAssert.DoesNotContain("\nskill-xp 2 ", text);
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            var restored = new CampaignRun();
+            Assert.That(restored.TryRestore(parsed.Campaign, out error), Is.True, error);
+            Assert.That(restored.GetOwnedSkill(1).Experience, Is.EqualTo(12));
+            Assert.That(restored.GetOwnedSkill(1).Level, Is.EqualTo(1));
+            Assert.That(restored.GetOwnedSkill(1).Skill.MinPower,
+                Is.EqualTo(LegacySkillDefinitions.Skill(1).MinPower + 2));
+            Assert.That(restored.GetOwnedSkill(3).Experience, Is.EqualTo(5));
+            Assert.That(restored.GetOwnedSkill(3).Level, Is.EqualTo(1));
+            Assert.That(restored.GetOwnedSkill(2).Experience, Is.Zero);
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), restored)), Is.EqualTo(text));
         }
 
         [Test]
@@ -159,6 +189,14 @@ namespace TurnLimbo.Core.Tests
                 ["wrong lane"] = Save(2, With(valid, loadout: new[] { lanes[1], lanes[0], lanes[2] })),
                 ["duplicate in loadout"] = Save(2, With(valid, loadout: new[]
                     { new List<int> { lanes[0][0], lanes[0][0], lanes[0][2] }, lanes[1], lanes[2] })),
+                ["experience for unowned skill"] = Save(2, With(valid,
+                    skillXp: new[] { new KeyValuePair<int, int>(16, 1) })),
+                ["duplicate experience"] = Save(2, With(valid,
+                    skillXp: new[] { new KeyValuePair<int, int>(1, 1), new KeyValuePair<int, int>(1, 2) })),
+                ["negative experience"] = Save(2, With(valid,
+                    skillXp: new[] { new KeyValuePair<int, int>(1, -1) })),
+                ["experience past level three"] = Save(2, With(valid,
+                    skillXp: new[] { new KeyValuePair<int, int>(1, 31) })),
                 ["arc below zero"] = Save(-1, valid),
                 ["story past the end"] = Save(StoryMissions.Count + 1, valid),
             };
@@ -210,6 +248,9 @@ namespace TurnLimbo.Core.Tests
                 ["battles not a number"] = valid.Replace("curriculum-active\n", "curriculum-active advance many\n"),
                 ["repeated lane"] = valid + "lane 0 1 2 3\n",
                 ["lane out of range"] = valid + "lane 3 1 2 3\n",
+                ["skill experience missing count"] = valid + "skill-xp 1\n",
+                ["skill experience extra count"] = valid + "skill-xp 1 2 3\n",
+                ["skill experience not a number"] = valid + "skill-xp 1 many\n",
                 ["not a number"] = valid.Replace("currency 0", "currency many"),
                 ["prologue pair"] = valid.Replace("prologue 0", "prologue 0 1"),
             };
@@ -318,10 +359,11 @@ namespace TurnLimbo.Core.Tests
 
         private static CampaignSave With(CampaignSave basis, int? currency = null, IEnumerable<int> cleared = null,
             IEnumerable<string> done = null, string active = null, int? battles = null,
-            IEnumerable<IEnumerable<int>> loadout = null, int? trainingWins = null)
+            IEnumerable<IEnumerable<int>> loadout = null, int? trainingWins = null,
+            IEnumerable<KeyValuePair<int, int>> skillXp = null)
             => new CampaignSave(currency ?? basis.Currency, cleared ?? basis.ClearedStages, done ?? basis.CurriculumCompleted,
                 active ?? basis.CurriculumActive, battles ?? basis.CurriculumBattles, loadout ?? basis.Loadout,
-                trainingWins ?? basis.TrainingVictoryCount);
+                trainingWins ?? basis.TrainingVictoryCount, skillXp ?? basis.SkillExperience);
 
         private static IEnumerable<IEnumerable<int>> SwapFirst(List<List<int>> lanes, int lane, int id)
             => lanes.Select((ids, index) => index == lane ? new[] { id }.Concat(ids.Skip(1)).ToList() : ids);
@@ -340,8 +382,8 @@ namespace TurnLimbo.Core.Tests
             value.Append(";c").Append(string.Join(",", run.Curriculum.Completed))
                 .Append(";a").Append(run.Curriculum.Active?.Id ?? "-").Append(':').Append(run.Curriculum.ActiveBattles);
             // The save stores completed nodes and cleared stages, not the battle order that interleaved their grants.
-            foreach (int skillId in run.OwnedSkills.Select(owned => owned.SkillId).OrderBy(id => id))
-                value.Append(";o").Append(skillId);
+            foreach (CampaignOwnedSkill owned in run.OwnedSkills.OrderBy(entry => entry.SkillId))
+                value.Append(";o").Append(owned.SkillId).Append(':').Append(owned.Experience);
             for (int lane = 0; lane < 3; lane++)
             {
                 foreach (CampaignOwnedSkill owned in run.GetEquippedLane(lane)) value.Append(";e").Append(lane).Append(':').Append(owned.SkillId);

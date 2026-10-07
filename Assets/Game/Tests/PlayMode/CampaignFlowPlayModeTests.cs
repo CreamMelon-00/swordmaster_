@@ -58,6 +58,9 @@ namespace TurnLimbo.Presentation.Tests
                 Press(keyboard.escapeKey);
                 yield return null;
                 yield return null;
+                Assert.That(controller.IsPaused, Is.True);
+                Assert.That(controller.IsInLobby, Is.False);
+                Assert.That(controller.AbandonPausedBattle(), Is.True);
                 Assert.That(controller.IsInLobby, Is.True);
                 Assert.That(controller.Campaign.Currency, Is.Zero);
                 Assert.That(controller.Campaign.ClearedStageCount, Is.Zero);
@@ -100,6 +103,9 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
                 Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Battle));
+                Assert.That(controller.ArenaView.EnemyAppearance, Is.EqualTo(EnemyAppearance.CadetB),
+                    "The second stage fields the cadet shown in its lobby preview.");
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.StartWith("cadet-b-idle-frame-"));
                 Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("advance"));
                 Assert.That(controller.Campaign.Curriculum.ActiveBattles, Is.Zero);
                 Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));

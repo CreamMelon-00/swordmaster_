@@ -45,6 +45,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(0f, keyboard);
                 Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1), "A tap queues on release.");
                 Assert.That(duel.PlayerQueue[0].Id, Is.EqualTo(101));
+                Assert.That(scope.HoldCancel(0).activeSelf, Is.False, "A successful tap needs no cancel cue.");
 
                 Press(keyboard.qKey);
                 yield return null;
@@ -58,6 +59,14 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(0f, keyboard);
                 Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1), "Past a tap, a release queues nothing.");
                 Assert.That(scope.HoldFill(0), Is.Zero);
+                Assert.That(scope.HoldCancel(0).activeSelf, Is.True, "The safety interval gives a brief cancel cue.");
+                Assert.That(scope.Get("Input/Keys/Current Q/Hold Cancel/Hold Cancel Label").GetComponent<Text>().text,
+                    Is.EqualTo("입력 취소"));
+                scope.Advance(.37f, keyboard);
+                Assert.That(scope.HoldCancel(0).GetComponent<CanvasGroup>().alpha, Is.InRange(.1f, .9f),
+                    "The short cue fades before it disappears.");
+                scope.Advance(.09f, keyboard);
+                Assert.That(scope.HoldCancel(0).activeSelf, Is.False, "The cue clears on real time.");
 
                 Press(keyboard.qKey);
                 yield return null;
@@ -74,6 +83,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.Explanation.gameObject.activeSelf, Is.False, "Letting go closes it…");
                 Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1), "…and never queues.");
                 Assert.That(controller.IsReadingExplanation, Is.False);
+                Assert.That(scope.HoldCancel(0).activeSelf, Is.False, "Closing a fully opened explanation is not a cancellation.");
             }
         }
 
@@ -247,6 +257,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(0f, keyboard);
                 Assert.That(duel.PlayerQueue, Is.Empty, "Letting go of the hold Tab cut never queues…");
                 Assert.That(scope.HoldFill(0), Is.Zero);
+                Assert.That(scope.HoldCancel(0).activeSelf, Is.False, "An interrupted hold is not a safety cancellation.");
 
                 // The same, Q let go a moment (under a tap) after Tab.
                 Press(keyboard.qKey);
@@ -314,6 +325,18 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1), "…its release, a tap, does: once.");
                 Assert.That(controller.Hud.IsLaneTurning(0), Is.True, "The gear turns for it.");
 
+                // Releasing between a tap and an explanation deliberately cancels, with visible feedback.
+                Down(window);
+                scope.Advance(0f);
+                scope.Advance((scope.Settings.LaneTapSeconds + scope.Settings.ExplanationHoldSeconds) * .5f);
+                Up(window, true);
+                scope.Advance(0f);
+                Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1));
+                Assert.That(scope.HoldCancel(0).activeSelf, Is.True);
+                Assert.That(controller.CycleLanes(), Is.True);
+                Assert.That(scope.HoldCancel(0).activeSelf, Is.False,
+                    "Turning to a new skill clears a previous cancel cue immediately.");
+
                 // A hold: the explanation opens at 0.35 s and its release only closes it.
                 Down(window);
                 scope.Advance(0f);
@@ -333,6 +356,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(0f);
                 Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1), "Let go off the window: no queue.");
                 Assert.That(scope.HoldFill(0), Is.Zero);
+                Assert.That(scope.HoldCancel(0).activeSelf, Is.False, "Dragging away cancels without the safety interval cue.");
 
                 // A click with no press the window saw (an assistive input, a test) still queues at once.
                 yield return null;
@@ -419,6 +443,8 @@ namespace TurnLimbo.Presentation.Tests
             }
 
             public float HoldFill(int lane) => Get("Input/Keys/Current " + "QWE"[lane] + "/KeyHoldImage").GetComponent<Image>().fillAmount;
+
+            public GameObject HoldCancel(int lane) => Get("Input/Keys/Current " + "QWE"[lane] + "/Hold Cancel").gameObject;
 
             private static LegacySkill Skill(int id, string name, int lane)
                 => new LegacySkill(id, name, 1, 1, 1, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, lane,

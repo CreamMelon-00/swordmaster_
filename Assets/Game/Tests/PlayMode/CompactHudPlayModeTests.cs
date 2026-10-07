@@ -14,7 +14,7 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class CompactHudPlayModeTests : InputTestFixture
     {
         [UnityTest]
-        public IEnumerator ButtonSkillSprites_AllSeventeenLoadCenteredDistinctAndMatchArtLookup()
+        public IEnumerator ButtonSkillSprites_AllTwentyLoadCenteredDistinctAndMatchArtLookup()
         {
             yield return null;
             var art = new LegacyDuelArt();
@@ -42,7 +42,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(art.GetSkillIcon(skillId), Is.SameAs(source));
             }
             // -1 is the separate breathing action's generated icon.
-            foreach (int invalidId in new[] { 0, 18, int.MaxValue })
+            foreach (int invalidId in new[] { 0, 21, int.MaxValue })
                 Assert.That(art.GetSkillIcon(invalidId), Is.Null);
         }
 
@@ -122,6 +122,16 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(fill.rectTransform.anchorMin.x, Is.EqualTo(.5f));
             Assert.That(fill.rectTransform.anchorMax.x, Is.EqualTo(.5f));
             Assert.That(fill.rectTransform.anchoredPosition.x, Is.Zero);
+            RectTransform clock = Get<RectTransform>(root, "Input/Keys/TimerBG");
+            RectTransform clockTrack = Get<RectTransform>(clock, "Timer Track");
+            RectTransform seconds = Get<RectTransform>(clock, "Time Remaining");
+            RectTransform actValue = Get<RectTransform>(root, "Input/Keys/Act_Value");
+            AssertWithin(clockTrack, input);
+            AssertWithin(seconds, input);
+            Assert.That(ScreenRect(clockTrack).yMin, Is.GreaterThan(ScreenRect(actValue).yMax),
+                "The planning clock stays on the dock's top edge without crossing the ACT value.");
+            Assert.That(ScreenRect(seconds).Overlaps(ScreenRect(actValue)), Is.False,
+                "Remaining seconds and ACT must be readable in one glance.");
             AssertAct(root, 3);
         }
 

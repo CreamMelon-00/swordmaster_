@@ -110,7 +110,7 @@
    - ID나 값을 고정한 테스트
    - 코드가 새 ID를 쓰기 시작하면 `CampaignSheetCheck.CodeSkillIds`에도 넣습니다. `CampaignSheetCheckTests`가 이 목록이 실제 사용(임무 기술과 문구, 적 리듬, 반격기, 기본 결투)과 맞는지 검사합니다.
 4. **효과:** 기존 효과 칸으로 표현되고 위의 거부 조건에 걸리지 않으면 코드 수정은 필요 없습니다.
-5. **그림:** `그림`을 비우면 기술 ID를 그림 번호로 씁니다. 그림은 기존 아틀라스의 `role1`~`role15`와 개별 PNG `role16`·`role17`까지 있습니다(`LegacyDuelArt.SkillIconCount = 17`). 그래서 18번 이상의 새 ID는 `그림`으로 1~17 중 하나를 지정해야 합니다. 새 그림을 쓰려면 아틀라스 또는 개별 Sprite를 추가하고 `SkillIconCount`와 로딩 코드를 갱신해야 합니다.
+5. **그림:** `그림`을 비우면 기술 ID를 그림 번호로 씁니다. 그림은 기존 아틀라스의 `role1`~`role15`와 개별 PNG `role16`~`role20`까지 있습니다(`LegacyDuelArt.SkillIconCount = 20`). 그래서 21번 이상의 새 ID는 `그림`으로 1~20 중 하나를 지정해야 합니다. 새 그림을 쓰려면 아틀라스 또는 개별 Sprite를 추가하고 `SkillIconCount`와 로딩 코드를 갱신해야 합니다.
 6. **적 기술:** `구분`을 `적`으로 적으면 플레이어 목록에 들어가지 않습니다. 적이 쓰게 하려면 그 적의 대본(`EnemyScript`, 서막은 `PrologueMissions`)에 `MissionSkill.Table(id)`처럼 ID로 넣고, 그 ID를 `CampaignSheetCheck.CodeSkillIds`에 더합니다.
 
 ### 아직 표현할 수 없는 것

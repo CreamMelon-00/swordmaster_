@@ -143,8 +143,8 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(arena.PlayerRenderer.sprite.pixelsPerUnit, Is.EqualTo(MobStudentAnimationSet.PixelsPerUnit));
             Assert.That(arena.EnemyRenderer.sprite.pixelsPerUnit, Is.EqualTo(40f));
             Assert.That(arena.PlayerRenderer.transform.localScale, Is.EqualTo(Vector3.one));
-            Assert.That(arena.PlayerRenderer.transform.localPosition, Is.EqualTo(new Vector3(-5, -.5f, 0)));
-            Assert.That(arena.EnemyRenderer.transform.localPosition, Is.EqualTo(new Vector3(5, -.5f, 0)));
+            Assert.That(arena.PlayerRenderer.transform.localPosition, Is.EqualTo(new Vector3(-5, arena.ActorGroundY, 0)));
+            Assert.That(arena.EnemyRenderer.transform.localPosition, Is.EqualTo(new Vector3(5, arena.ActorGroundY, 0)));
             foreach (string actor in new[] { "Player", "Enemy0" })
                 foreach (string clipName in new[] { "Idle", "Slash", "Penetrate", "Hit", "Defense" })
                 {

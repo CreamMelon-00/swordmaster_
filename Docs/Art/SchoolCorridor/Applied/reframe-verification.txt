@@ -1,0 +1,1 @@
+VERIFIED: 3 layers, 2172x724 output, exact 4x grid, seam 132 to 108 low pixels (528 to 432 output pixels), alpha 0/255
