@@ -140,6 +140,37 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator ReadingAHeldExplanation_SlowsTheDriftWithThePlanningClock_LikeTab()
+        {
+            yield return null;
+            using (var scope = new BulletScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                LegacyArenaView arena = controller.ArenaView;
+                Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+                Press(keyboard.qKey);
+                yield return null;
+                scope.Advance(0f, keyboard);
+                yield return null;
+                // Opening takes 0.35 s of the ordinary pace: the figures edge in 0.35 each, the clock spends 0.35 s.
+                scope.Advance(controller.PresentationSettings.ExplanationHoldSeconds, keyboard);
+                Assert.That(controller.IsReadingExplanation, Is.True);
+                Assert.That(arena.Separation, Is.EqualTo(9.3f).Within(1e-3f));
+                float reading = controller.PresentationSettings.ExplanationTimeScale;
+                scope.Advance(1f, keyboard);
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(9.65f - reading).Within(1e-3f), "Reading slows the clock…");
+                Assert.That(arena.Separation, Is.EqualTo(9.3f - 2f * reading).Within(1e-3f), "…and the drift with it, as Tab does.");
+                Release(keyboard.qKey);
+                yield return null;
+                scope.Advance(0f, keyboard);
+                Assert.That(controller.IsReadingExplanation, Is.False);
+                Assert.That(controller.Session.PlayerQueue, Is.Empty, "Letting go of an explanation never queues.");
+                scope.Advance(1f, keyboard);
+                Assert.That(arena.Separation, Is.EqualTo(9.3f - 2f * reading - 2f).Within(1e-3f), "Closed, the drift runs on.");
+            }
+        }
+
         [Test]
         public void ArcMissions_AreDuels_WithTheOriginalStillPlanning()
         {

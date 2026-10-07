@@ -33,13 +33,13 @@
 ## 화면과 입력
 
 - 왼쪽·오른쪽 Shift 모두 된다. 누르고 있어도 한 번만 돈다.
-- 기술 카드 왼쪽, 숨고르기 버튼의 반대편(x -360)에 **넘기기** 버튼이 있다. 내용은 비용(`1초 소모`, 시계가 멈춰 있으면 `무료`), 효과(`모든 열 한 칸`, 열이 하나뿐인 전투에서는 `맨 앞 한 칸`), 키 `Shift`이고, 아래에 `맨 앞 기술을 쓰지 않고 / 뒤로 보냄`을 쓴다. 남은 시간이 모자라면(1.5초 미만) 누를 수 없다.
+- 기술 톱니들 왼쪽, 숨고르기 버튼의 반대편(x -360)에 **넘기기** 버튼이 있다. 내용은 비용(`1초 소모`, 시계가 멈춰 있으면 `무료`), 효과(`모든 열 한 칸`, 열이 하나뿐인 전투에서는 `맨 앞 한 칸`), 키 `Shift`이고, 아래에 `맨 앞 기술을 쓰지 않고 / 뒤로 보냄`을 쓴다. 남은 시간이 모자라면(1.5초 미만) 누를 수 없다.
 - 시간을 쓰면 위쪽 타이머 패널 바로 오른쪽에 붉은 `-1초`가 떠올랐다가 0.7초 만에 사라지고, 타이머 막대가 그만큼 줄어든다.
 - 전투(서막 밖)의 편성에서는 시간을 쓴 순간 불릿타임이 0.3초 풀린다. 색과 대기 동작이 돌아오고 두 사람이 성큼 다가간 뒤 다시 느려진다. 1초가 흘렀다는 것을 보여 주려는 것이다(`DuelAndBattle.md`).
 - 넘기기가 닫혀 있거나 코치가 아직 허용하지 않으면 버튼과 안내를 숨긴다. 확정 뒤와 적 확인 중에는 누를 수 없고, Tab을 떼는 프레임에 다시 누를 수 있다.
-- Q/W/E를 누르고 있는 동안 Shift를 누르면, 그 키를 놓아도 예약하지 않는다. 누른 기술이 이미 뒤로 갔기 때문이다. 1초 이상 눌러 보던 설명은 새 맨 앞 기술로 바뀐다. Shift와 같은 프레임에 누른 열 키는 새로 온 기술에 대한 입력으로 본다.
-- 소리는 예약과 같은 선택음이다.
-- 넘기면 돈 열마다 짧은 움직임이 나온다(실제 시간 0.14초, 2026-10-01). 오른쪽 위의 '다음' 칸에 있던 기술이 맨 앞 카드 자리로 내려앉고, '다음' 칸에는 새 기술이 옆에서 들어오며, 카드가 톱니처럼 살짝 튀었다가 제자리로 돌아온다. 기술이 하나뿐인 열과 닫힌 열은 움직이지 않는다. 세 열이 한꺼번에 도는 것이 보이게 하려는 것이다(`LegacyCombatHud.PlayLaneTurn`).
+- Q/W/E를 누르고 있는 동안 Shift를 누르면, 그 키를 놓아도 예약하지 않는다. 누른 기술이 이미 뒤로 갔기 때문이다. 길게 눌러(0.35초) 보던 설명은 새 맨 앞 기술로 바뀐다. 톱니 창을 누르고 있던 포인터도 같다. Shift와 같은 프레임에 누른 열 키는 새로 온 기술에 대한 입력으로 본다.
+- 소리는 예약과 같은 선택음에, 톱니들이 함께 도는 드르륵 소리(`Sfx/gear-ratchet`, 빠른 딸깍 여러 번과 부드러운 덜컥)가 더해진다. 예약은 그 열의 톱니가 한 칸 도는 짧은 딸깍(`Sfx/gear-tick`)이 더해진다.
+- **기술 톱니**(2026-10-07, 작가 결정·목업 승인. 전에는 0.14초의 카드 움직임). 조작대의 열마다 놋쇠 톱니 하나가 윗부분만 드러내고, 그 열의 기술이 테두리에 60°마다 순서대로 되풀이해 앉아 있다. 맨 위 창에 지금 기술, 왼쪽 위에 다음 기술, 오른쪽 위에 방금 쓰거나 넘긴 기술이 보인다. 기술을 예약하면 그 열의 톱니만 시계 방향으로 한 칸(60°, 0.3초) 돈다. 넘기기는 열린 모든 톱니를 함께 한 칸(0.4초) 돌리고, 열 사이의 작은 사이 톱니가 반대로 돌아 모든 톱니가 같은 방향으로 맞물려 돈다. 끝에서 멈춤쇠에 걸리듯 살짝 지나쳤다가 돌아온다. 기술이 하나뿐인 열의 톱니도 함께 돈다(그 기술이 다시 돌아온다). 맞물린 톱니가 하나만 서 있으면 어색하기 때문이다. 닫힌 열은 톱니가 없다. 보여 주는 기술은 늘 전투의 열 순서에서 읽고, 움직임은 그 변화만 보여 준다(`LegacyCombatHud.PlayLaneTurn`, `PresentationTuning.md`의 '기술 톱니').
 - 예전의 Shift 느리게 보기는 2026-09-30에 없앴다(`StepPrototype.md`). 전투가 진행되는 동안 Shift는 아무 일도 하지 않는다.
 
 ## Windows 고정 키 단축키
@@ -66,9 +66,9 @@ Windows는 기본 설정에서 Shift를 연달아 다섯 번 누르면 고정 �
 - Runtime `Prologue/MissionGuide`: `MissionGuideStepKind.Cycle`, `AllowsCycle`, `NotifyCycled`.
 - Runtime `Prologue/PrologueMissions`: 1 임무 `unlocks: Cycle`, 2~4 임무 `features: LaneQ | Cycle`. `LobbyMissions`의 임무 전투에도 `Cycle`이 들어 있다.
 - Presentation `DuelPrototypeController.CycleLanes()`와 `ReadPlanningInput`의 Shift. 비용은 `LaneCycleTimeCost`(1초), 지금 값은 `LaneCycleCost`(시계가 멈추면 0), 낼 수 있는지는 `CanAffordLaneCycle`이다. 시간을 쓰면 `LegacyCombatHud.ShowTimeSpent`와 `LegacyArenaView.BreakBulletTime`을 부른다.
-- Presentation `LegacyCombatHud`: 생성자의 마지막 인자 `cycleLanes`, `CycleButton`(비용 칸 `Time Cost`, 열린 열 수를 따르는 효과 줄 `Effect`)과 `Cycle Note`, `SetLaneCycleCost`, 타이머의 `Time Spent`.
+- Presentation `LegacyCombatHud`: 생성자의 마지막 인자 `cycleLanes`, `CycleButton`(비용 칸 `Time Cost`, 열린 열 수를 따르는 효과 줄 `Effect`)과 `Cycle Note`, `SetLaneCycleCost`, 타이머의 `Time Spent`. 톱니(`LegacyCombatHud.SkillGears.cs`): 넘기기는 `PlayLaneTurn(bool[])`(기술이 있는 열린 열 모두), 예약은 `PlayLaneTurn(int)`, 도는 중인지는 `IsLaneTurning`·`AreIdlersTurning`. 각도·되풀이·맞물림·돌기 곡선과 순서 변화 읽기는 Runtime `LegacySkillGear`.
 - Presentation `StickyKeysShortcut`: user32 `SystemParametersInfo`(`SPI_GET/SETSTICKYKEYS`, `fWinIni` 0)로 단축키 비트(`SKF_HOTKEYACTIVE`·`SKF_CONFIRMHOTKEY`)를 끄고 되돌린다. 비트 계산은 `WithoutShortcut`/`WithShortcut`이다. `UNITY_STANDALONE_WIN`·`UNITY_EDITOR_WIN`에서만 P/Invoke를 컴파일한다.
 - Presentation `StickyKeysShortcutGuard`: 첫 씬 전에 스스로 만들어지는(`DontDestroyOnLoad`) 컴포넌트다. 포커스·종료·비활성화 때 끄고 되돌리며, 포커스가 있는 동안 아직 끄지 못했으면 0.5초마다 다시 시도한다.
 - 테스트
-  - EditMode: `LaneCycleTests`, `StoryUnlockTests`.
-  - PlayMode: `LaneCyclePlayModeTests`(편성 시간 비용·남은 시간 조건·임무 2 무료 포함), `BattleBulletTimePlayModeTests`(넘기기의 풀림), `ResultMissionHudPlayModeTests`(2 임무 코치 9단계), `MissionUnlockFlowPlayModeTests`, `BattleResultMissionFlowPlayModeTests`, `StickyKeysShortcutPlayModeTests`(비트 계산과 가드 하나. 테스트가 직접 설정을 바꾸지는 않는다).
+  - EditMode: `LaneCycleTests`, `StoryUnlockTests`, `SkillGearTests`(톱니의 각도·보이는 자리·되풀이·배치·맞물림과 사이 톱니가 맞물리는 가장 넓은 간격·돌기 곡선·순서 변화).
+  - PlayMode: `LaneCyclePlayModeTests`(편성 시간 비용·남은 시간 조건·임무 2 무료, 모든 톱니와 사이 톱니가 함께 돌기 포함), `SkillGearDockPlayModeTests`(톱니의 자리·버튼과 ACT를 피함·불투명한 자리 원·넓은 간격을 좁힘·돌기·세션 따르기·코치·홀드 진행선의 홈·소리), `BattleBulletTimePlayModeTests`(넘기기의 풀림), `ResultMissionHudPlayModeTests`(2 임무 코치 9단계), `MissionUnlockFlowPlayModeTests`, `BattleResultMissionFlowPlayModeTests`, `StickyKeysShortcutPlayModeTests`(비트 계산과 가드 하나. 테스트가 직접 설정을 바꾸지는 않는다).

@@ -413,8 +413,10 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (string name in new[] { "Current W", "Current E", "Next W", "Next E" })
                     Assert.That(Named(hud.Root, name).gameObject.activeSelf, Is.False, name + " belongs to a closed lane.");
                 Assert.That(Named(hud.Root, "Current Q").gameObject.activeSelf, Is.True);
-                Assert.That(Position(hud.Root, "Current Q"), Is.EqualTo(new Vector2(0f, -4f)), "The lone open lane moves to the middle.");
-                Assert.That(Position(hud.Root, "Next Q"), Is.EqualTo(new Vector2(30f, 40f)));
+                Assert.That(Position(hud.Root, "Current Q"), Is.EqualTo(new Vector2(0f, hud.SkillWindowY)), "The lone open lane moves to the middle.");
+                Assert.That(Position(hud.Root, "Next Q").x, Is.LessThan(0f), "Its next skill sits at its gear's upper left.");
+                Assert.That(Position(hud.Root, "Used Q").x, Is.GreaterThan(0f), "…the used one at its upper right.");
+                Assert.That(Named(hud.Root, "Idler 1").gameObject.activeSelf, Is.False, "One gear needs no idler.");
                 Assert.That(CycleEffect(hud.Root), Is.EqualTo("맨 앞 한 칸"));
                 Assert.That(Position(hud.Root, "CycleButton"), Is.EqualTo(new Vector2(-360f, -4f)), "넘기기 does not move with the lanes.");
 
@@ -427,10 +429,15 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(hud.Root, "Untimed Hint").gameObject.activeSelf, Is.False);
                 foreach (string name in new[] { "Current W", "Current E", "Next W", "Next E" })
                     Assert.That(Named(hud.Root, name).gameObject.activeSelf, Is.True, name + " returns with its lane.");
-                Assert.That(Position(hud.Root, "Current Q"), Is.EqualTo(new Vector2(-156f, -4f)), "Three lanes spread out again.");
-                Assert.That(Position(hud.Root, "Current W"), Is.EqualTo(new Vector2(0f, -4f)));
-                Assert.That(Position(hud.Root, "Current E"), Is.EqualTo(new Vector2(156f, -4f)));
-                Assert.That(Position(hud.Root, "Next E"), Is.EqualTo(new Vector2(186f, 40f)));
+                float pitch = hud.LanePitch;
+                Assert.That(pitch, Is.EqualTo(LegacySkillGear.DefaultPitch), "Three default gears fit between 넘기기 and 숨고르기.");
+                Assert.That(Position(hud.Root, "Current Q"), Is.EqualTo(new Vector2(-pitch, hud.SkillWindowY)), "Three lanes spread out again.");
+                Assert.That(Position(hud.Root, "Current W"), Is.EqualTo(new Vector2(0f, hud.SkillWindowY)));
+                Assert.That(Position(hud.Root, "Current E"), Is.EqualTo(new Vector2(pitch, hud.SkillWindowY)));
+                Assert.That(Position(hud.Root, "Next E").x - Position(hud.Root, "Current E").x,
+                    Is.EqualTo(Position(hud.Root, "Next Q").x - Position(hud.Root, "Current Q").x).Within(.01f), "Each next slot follows its gear.");
+                Assert.That(Named(hud.Root, "Idler 1").gameObject.activeSelf && Named(hud.Root, "Idler 2").gameObject.activeSelf, Is.True,
+                    "An idler between each two open gears.");
                 Assert.That(CycleEffect(hud.Root), Is.EqualTo("모든 열 한 칸"));
                 Assert.That(Named(hud.Root, "Current Q").GetComponent<Outline>().enabled, Is.False);
                 Assert.That(Named(hud.Root, "AButton").GetComponent<Outline>().enabled, Is.False);

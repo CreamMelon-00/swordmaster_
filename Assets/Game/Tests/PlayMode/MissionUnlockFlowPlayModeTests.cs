@@ -92,7 +92,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Named(controller.Hud.Root, "Current Q").gameObject.activeSelf, Is.True);
                 Assert.That(Named(controller.Hud.Root, "Current W").gameObject.activeSelf, Is.False);
                 Assert.That(Named(controller.Hud.Root, "Current E").gameObject.activeSelf, Is.False);
-                AssertLaneAt(controller, 'Q', 0f, "The only open lane sits in the middle.");
+                AssertLaneAt(controller, 'Q', 0f, "The only open lane's gear sits in the middle.");
                 Assert.That(CycleEffect(controller), Is.EqualTo("맨 앞 한 칸"), "With one lane 넘기기 sends back only its front skill.");
                 Assert.That(Named(controller.Hud.Root, "CycleButton").GetComponent<RectTransform>().anchoredPosition.x, Is.EqualTo(-360f),
                     "넘기기 keeps its place whatever is open.");
@@ -262,8 +262,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(duel.GetLane(2).Count, Is.EqualTo(3), "Mission 5 teaches the E lane.");
                 Assert.That(Named(controller.Hud.Root, "Current W").gameObject.activeSelf, Is.False);
                 Assert.That(Named(controller.Hud.Root, "Current E").gameObject.activeSelf, Is.True);
-                AssertLaneAt(controller, 'Q', -78f, "Two open lanes sit side by side around the middle…");
-                AssertLaneAt(controller, 'E', 78f, "…with no gap where W will go.");
+                AssertLaneAt(controller, 'Q', -.5f, "Two open lanes' gears sit side by side around the middle…");
+                AssertLaneAt(controller, 'E', .5f, "…with no gap where W will go.");
                 Assert.That(CycleEffect(controller), Is.EqualTo("모든 열 한 칸"));
                 Assert.That(Label(controller.Hud.Root, "Stage Label").text, Is.EqualTo("임무 05 / 09  ·  기교 검술"));
                 Assert.That(Named(controller.Hud.Root, "BreathButton").gameObject.activeSelf, Is.False);
@@ -324,7 +324,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(duel.GetLane(2).Count, Is.EqualTo(3), "Stages now fight with the E lane.");
                 Assert.That(duel.GetLane(1), Is.Empty);
                 Assert.That(Named(controller.Hud.Root, "Current E").gameObject.activeSelf, Is.True);
-                AssertLaneAt(controller, 'E', 78f, "Stages pack the same two lanes.");
+                AssertLaneAt(controller, 'E', .5f, "Stages pack the same two lanes.");
                 Assert.That(controller.QueueLane(2), Is.True);
                 Assert.That(controller.QueueBreath(), Is.False);
             }
@@ -462,9 +462,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.OpenNextMission(), Is.True);
                 scope.StartBriefedMission();
                 Assert.That(controller.Session.Features.HasLane(1), Is.True, "Mission 8 teaches the W lane.");
-                AssertLaneAt(controller, 'Q', -156f, "Mission 8 is the first duel with all three lanes.");
+                AssertLaneAt(controller, 'Q', -1f, "Mission 8 is the first duel with all three lanes.");
                 AssertLaneAt(controller, 'W', 0f, "…W takes the middle…");
-                AssertLaneAt(controller, 'E', 156f, "…and E moves out to the right.");
+                AssertLaneAt(controller, 'E', 1f, "…and E moves out to the right.");
 
                 scope.SetGuide(null);
                 scope.WinToSettled();
@@ -535,9 +535,9 @@ namespace TurnLimbo.Presentation.Tests
                 LegacyQueuedDuel duel = controller.Session;
                 Assert.That(duel.Features, Is.EqualTo(CombatFeature.All));
                 for (int lane = 0; lane < 3; lane++) Assert.That(duel.GetLane(lane).Count, Is.EqualTo(3), "Lane " + lane);
-                AssertLaneAt(controller, 'Q', -156f, "With every lane open, Q is on the left…");
+                AssertLaneAt(controller, 'Q', -1f, "With every lane open, Q is on the left…");
                 AssertLaneAt(controller, 'W', 0f, "…W in the middle…");
-                AssertLaneAt(controller, 'E', 156f, "…and E on the right.");
+                AssertLaneAt(controller, 'E', 1f, "…and E on the right.");
                 Assert.That(CycleEffect(controller), Is.EqualTo("모든 열 한 칸"));
                 Assert.That(Named(controller.Hud.Root, "BreathButton").gameObject.activeSelf, Is.True);
                 Assert.That(controller.QueueBreath(), Is.True);
@@ -574,16 +574,23 @@ namespace TurnLimbo.Presentation.Tests
 
         private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
 
-        /// <summary>A lane's front card 'Current X' sits at (x, -4) in the battle dock and its 'Next X' at (x + 30, 40).</summary>
-        private static void AssertLaneAt(DuelPrototypeController controller, char lane, float x, string message)
+        /// <summary>A lane's gear sits <paramref name="pitches"/> lane pitches from the middle of the battle dock: its
+        /// current skill's window 'Current X' at the top of the gear, its 'Next X' at the gear's upper left and its 'Used X'
+        /// at the upper right, all at the same heights in every lane.</summary>
+        private static void AssertLaneAt(DuelPrototypeController controller, char lane, float pitches, string message)
         {
-            Vector2 current = Named(controller.Hud.Root, "Current " + lane).GetComponent<RectTransform>().anchoredPosition;
-            Vector2 next = Named(controller.Hud.Root, "Next " + lane).GetComponent<RectTransform>().anchoredPosition;
-            Assert.That(Named(controller.Hud.Root, "Current " + lane).gameObject.activeSelf, Is.True, lane + " is open.");
-            Assert.That(current.x, Is.EqualTo(x).Within(.01f), message);
-            Assert.That(current.y, Is.EqualTo(-4f).Within(.01f), lane + " front card height.");
-            Assert.That(next.x, Is.EqualTo(x + 30f).Within(.01f), lane + " next card follows its lane.");
-            Assert.That(next.y, Is.EqualTo(40f).Within(.01f), lane + " next card height.");
+            LegacyCombatHud hud = controller.Hud;
+            Vector2 current = Named(hud.Root, "Current " + lane).GetComponent<RectTransform>().anchoredPosition;
+            Vector2 next = Named(hud.Root, "Next " + lane).GetComponent<RectTransform>().anchoredPosition;
+            Vector2 used = Named(hud.Root, "Used " + lane).GetComponent<RectTransform>().anchoredPosition;
+            Assert.That(Named(hud.Root, "Current " + lane).gameObject.activeSelf, Is.True, lane + " is open.");
+            Assert.That(Named(hud.Root, "Gear " + lane).gameObject.activeSelf, Is.True, lane + " has its gear.");
+            Assert.That(current.x, Is.EqualTo(pitches * hud.LanePitch).Within(.01f), message);
+            Assert.That(current.y, Is.EqualTo(hud.SkillWindowY).Within(.01f), lane + " window at the top of its gear.");
+            Assert.That(next.x, Is.LessThan(current.x), lane + " next skill at the gear's upper left.");
+            Assert.That(next.y, Is.LessThan(current.y), lane + " next skill below the top.");
+            Assert.That(used.x, Is.GreaterThan(current.x), lane + " used skill at the gear's upper right.");
+            Assert.That(used.y, Is.LessThan(current.y), lane + " used skill below the top.");
         }
 
         /// <summary>What the 넘기기 button says it turns.</summary>

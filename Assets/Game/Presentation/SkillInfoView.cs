@@ -16,65 +16,74 @@ namespace TurnLimbo.Presentation
         private readonly SkillInfoGlyph firstSymbol, secondSymbol, powerSymbol;
         private readonly Image firstBadge, secondBadge;
         private readonly SkillInfoAttachment typeAttachment;
+        // How much larger than its standard size the card is drawn (the battle's held explanation), fittings and type alike.
+        private readonly float scale;
         private LegacySkill shown;
         private bool shownEnemy;
         private string shownAdditionalDescription;
 
         public GameObject Root => root.gameObject;
         public float Height => root.sizeDelta.y;
+        /// <summary>How far the edge fittings reach past the body on either side (<see cref="AttachmentOverhang"/> at the
+        /// standard size).</summary>
+        public float Overhang => AttachmentOverhang * scale;
         public Text PowerText { get; }
         public Text AttackTypeText { get; }
         public Text EffectText { get; }
         public Text DamageText { get; }
 
-        public SkillInfoView(Transform parent, Font font, Vector2 center, float width, string prefix)
+        /// <param name="scale">Draws the card larger than its standard size (its fittings, type and fixed body height;
+        /// <paramref name="width"/> is the body's width as drawn). 1 is the standard card.</param>
+        public SkillInfoView(Transform parent, Font font, Vector2 center, float width, string prefix, float scale = 1f)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
-            root = Rect("Skill Summary", parent, center, new Vector2(width, FixedBodyHeight));
-            stats = Rect("Skill Attachments", root, Vector2.zero, new Vector2(width + AttachmentOverhang * 2f, FixedBodyHeight));
-            float edge = width / 2f + 12f;
-            costSeal = Attachment("ACT Attachment", stats, new Vector2(-edge - 6, 74), Vector2.one * 58,
+            this.scale = scale > 0f && !float.IsInfinity(scale) ? scale : 1f;
+            float bodyHeight = S(FixedBodyHeight), bodyInset = S(BodyLeftInset);
+            root = Rect("Skill Summary", parent, center, new Vector2(width, bodyHeight));
+            stats = Rect("Skill Attachments", root, Vector2.zero, new Vector2(width + Overhang * 2f, bodyHeight));
+            float edge = width / 2f + S(12f);
+            costSeal = Attachment("ACT Attachment", stats, new Vector2(-edge - S(6f), S(74f)), Vector2.one * S(58f),
                 SkillInfoAttachmentShape.Seal, DuelVisualTheme.Surface);
-            var costSymbol = Glyph(costSeal, LegacySkillSymbol.Act, new Vector2(-14, 12), 12);
+            var costSymbol = Glyph(costSeal, LegacySkillSymbol.Act, new Vector2(S(-14f), S(12f)), S(12f));
             costSymbol.color = DuelVisualTheme.Foreground;
-            var costLabel = Label("ACT Label", costSeal, font, new Vector2(8, 12), new Vector2(30, 20), 14);
+            var costLabel = Label("ACT Label", costSeal, font, new Vector2(S(8f), S(12f)), new Vector2(S(30f), S(20f)), F(14));
             costLabel.text = "ACT"; costLabel.color = DuelVisualTheme.Foreground;
-            act = Label("ACT Value", costSeal, font, new Vector2(0, -9), new Vector2(46, 28), 24);
+            act = Label("ACT Value", costSeal, font, new Vector2(0, S(-9f)), new Vector2(S(46f), S(28f)), F(24));
             act.color = DuelVisualTheme.Foreground;
-            powerPlate = Attachment("Power Attachment", stats, new Vector2(-edge - 6, -4), new Vector2(70, 60),
+            powerPlate = Attachment("Power Attachment", stats, new Vector2(-edge - S(6f), S(-4f)), new Vector2(S(70f), S(60f)),
                 SkillInfoAttachmentShape.PowerPlate, DuelVisualTheme.Paper);
-            powerSymbol = Glyph(powerPlate, LegacySkillSymbol.Sword, new Vector2(-18, 14), 14);
-            powerLabel = Label("Power Label", powerPlate, font, new Vector2(10, 14), new Vector2(34, 18), 14);
-            PowerText = Label(prefix + " Detail Values", powerPlate, font, new Vector2(0, -9), new Vector2(60, 28), 21);
-            PowerText.resizeTextMinSize = 16;
-            var typeRibbon = Attachment("Type Attachment", stats, new Vector2(edge - 16, 74), new Vector2(104, 80),
+            powerSymbol = Glyph(powerPlate, LegacySkillSymbol.Sword, new Vector2(S(-18f), S(14f)), S(14f));
+            powerLabel = Label("Power Label", powerPlate, font, new Vector2(S(10f), S(14f)), new Vector2(S(34f), S(18f)), F(14));
+            PowerText = Label(prefix + " Detail Values", powerPlate, font, new Vector2(0, S(-9f)), new Vector2(S(60f), S(28f)), F(21));
+            PowerText.resizeTextMinSize = F(16);
+            var typeRibbon = Attachment("Type Attachment", stats, new Vector2(edge - S(16f), S(74f)), new Vector2(S(104f), S(80f)),
                 SkillInfoAttachmentShape.TypeRibbon, DuelVisualTheme.Paper);
             typeAttachment = typeRibbon.GetComponent<SkillInfoAttachment>();
-            typeLabel = Label("Type Label", typeRibbon, font, new Vector2(0, 24), new Vector2(88, 18), 14);
-            AttackTypeText = Label("Attack Type", typeRibbon, font, new Vector2(0, 3), new Vector2(88, 24), 19);
-            hitsLabel = Label("Hits Label", typeRibbon, font, new Vector2(-26, -18), new Vector2(34, 18), 14);
-            hits = Label("Hits Value", typeRibbon, font, new Vector2(20, -18), new Vector2(52, 18), 14);
+            typeLabel = Label("Type Label", typeRibbon, font, new Vector2(0, S(24f)), new Vector2(S(88f), S(18f)), F(14));
+            AttackTypeText = Label("Attack Type", typeRibbon, font, new Vector2(0, S(3f)), new Vector2(S(88f), S(24f)), F(19));
+            hitsLabel = Label("Hits Label", typeRibbon, font, new Vector2(S(-26f), S(-18f)), new Vector2(S(34f), S(18f)), F(14));
+            hits = Label("Hits Value", typeRibbon, font, new Vector2(S(20f), S(-18f)), new Vector2(S(52f), S(18f)), F(14));
 
-            keywords = Rect("Skill Keywords", root, Vector2.zero, new Vector2(width, 28));
-            float badgeWidth = (width - 8) / 2f;
-            var first = Tile("Keyword 1", keywords, -(badgeWidth + 8) / 2f, badgeWidth, 28);
+            keywords = Rect("Skill Keywords", root, Vector2.zero, new Vector2(width, S(28f)));
+            float badgeWidth = (width - S(8f)) / 2f;
+            var first = Tile("Keyword 1", keywords, -(badgeWidth + S(8f)) / 2f, badgeWidth, S(28f));
             firstBadge = first.GetComponent<Image>();
-            firstSymbol = Glyph(first, LegacySkillSymbol.Sword, new Vector2(-badgeWidth / 2f + 17, 0), 19);
-            firstKeyword = Label("Keyword 1 Text", first, font, new Vector2(13, 0), new Vector2(badgeWidth - 34, 26), 17);
-            firstKeyword.resizeTextMinSize = 11;
-            var second = Tile("Keyword 2", keywords, (badgeWidth + 8) / 2f, badgeWidth, 28);
+            firstSymbol = Glyph(first, LegacySkillSymbol.Sword, new Vector2(-badgeWidth / 2f + S(17f), 0), S(19f));
+            firstKeyword = Label("Keyword 1 Text", first, font, new Vector2(S(13f), 0), new Vector2(badgeWidth - S(34f), S(26f)), F(17));
+            firstKeyword.resizeTextMinSize = F(11);
+            var second = Tile("Keyword 2", keywords, (badgeWidth + S(8f)) / 2f, badgeWidth, S(28f));
             secondBadge = second.GetComponent<Image>();
-            secondSymbol = Glyph(second, LegacySkillSymbol.Hits, new Vector2(-badgeWidth / 2f + 17, 0), 19);
-            secondKeyword = Label("Keyword 2 Text", second, font, new Vector2(13, 0), new Vector2(badgeWidth - 34, 26), 17);
-            secondKeyword.resizeTextMinSize = 11;
-            EffectText = Label(prefix + " Detail Effect", root, font, new Vector2(BodyLeftInset / 2f, -12), new Vector2(width - BodyLeftInset, 108f), 18);
+            secondSymbol = Glyph(second, LegacySkillSymbol.Hits, new Vector2(-badgeWidth / 2f + S(17f), 0), S(19f));
+            secondKeyword = Label("Keyword 2 Text", second, font, new Vector2(S(13f), 0), new Vector2(badgeWidth - S(34f), S(26f)), F(17));
+            secondKeyword.resizeTextMinSize = F(11);
+            EffectText = Label(prefix + " Detail Effect", root, font, new Vector2(bodyInset / 2f, S(-12f)), new Vector2(width - bodyInset, S(108f)), F(18));
             EffectText.alignment = TextAnchor.UpperLeft;
             EffectText.resizeTextForBestFit = true;
-            EffectText.resizeTextMinSize = 12;
+            EffectText.resizeTextMinSize = F(12);
             EffectText.lineSpacing = 1.1f;
 
             // Older consumers retain this reference; shared combat rules no longer belong in a skill card.
-            DamageText = Label(prefix + " Damage Hint", root, font, Vector2.zero, Vector2.zero, 14);
+            DamageText = Label(prefix + " Damage Hint", root, font, Vector2.zero, Vector2.zero, F(14));
             DamageText.gameObject.SetActive(false);
             Clear();
         }
@@ -134,31 +143,36 @@ namespace TurnLimbo.Presentation
         private void RefreshLayout()
         {
             // Keep the card's edges and badges still while text changes; only the type size adapts.
-            float bodyWidth = root.sizeDelta.x - BodyLeftInset;
+            float bodyHeight = S(FixedBodyHeight), bodyInset = S(BodyLeftInset);
+            float bodyWidth = root.sizeDelta.x - bodyInset;
             bool hasKeywords = keywords.gameObject.activeSelf;
             bool hasSecond = hasKeywords && secondBadge.gameObject.activeSelf;
-            float badgeWidth = hasSecond ? (bodyWidth - 8f) / 2f : bodyWidth;
-            ArrangeKeyword(firstBadge, firstSymbol, firstKeyword, hasSecond ? -(badgeWidth + 8f) / 2f : 0f, badgeWidth);
-            ArrangeKeyword(secondBadge, secondSymbol, secondKeyword, (badgeWidth + 8f) / 2f, badgeWidth);
-            float keywordHeight = hasKeywords ? 36f : 0f;
-            float textHeight = FixedBodyHeight - 16f - keywordHeight;
-            keywords.sizeDelta = new Vector2(bodyWidth, 28f);
-            keywords.anchoredPosition = new Vector2(BodyLeftInset / 2f, FixedBodyHeight / 2f - 22f);
+            float badgeWidth = hasSecond ? (bodyWidth - S(8f)) / 2f : bodyWidth;
+            ArrangeKeyword(firstBadge, firstSymbol, firstKeyword, hasSecond ? -(badgeWidth + S(8f)) / 2f : 0f, badgeWidth);
+            ArrangeKeyword(secondBadge, secondSymbol, secondKeyword, (badgeWidth + S(8f)) / 2f, badgeWidth);
+            float keywordHeight = hasKeywords ? S(36f) : 0f;
+            float textHeight = bodyHeight - S(16f) - keywordHeight;
+            keywords.sizeDelta = new Vector2(bodyWidth, S(28f));
+            keywords.anchoredPosition = new Vector2(bodyInset / 2f, bodyHeight / 2f - S(22f));
             EffectText.rectTransform.sizeDelta = new Vector2(bodyWidth, textHeight);
-            EffectText.rectTransform.anchoredPosition = new Vector2(BodyLeftInset / 2f,
-                FixedBodyHeight / 2f - 8f - keywordHeight - textHeight / 2f);
-            costSeal.anchoredPosition = new Vector2(costSeal.anchoredPosition.x, FixedBodyHeight / 2f + 38f);
-            typeAttachment.rectTransform.anchoredPosition = new Vector2(typeAttachment.rectTransform.anchoredPosition.x, FixedBodyHeight / 2f + 38f);
-            powerPlate.anchoredPosition = new Vector2(powerPlate.anchoredPosition.x, -FixedBodyHeight / 2f + 32f);
+            EffectText.rectTransform.anchoredPosition = new Vector2(bodyInset / 2f,
+                bodyHeight / 2f - S(8f) - keywordHeight - textHeight / 2f);
+            costSeal.anchoredPosition = new Vector2(costSeal.anchoredPosition.x, bodyHeight / 2f + S(38f));
+            typeAttachment.rectTransform.anchoredPosition = new Vector2(typeAttachment.rectTransform.anchoredPosition.x, bodyHeight / 2f + S(38f));
+            powerPlate.anchoredPosition = new Vector2(powerPlate.anchoredPosition.x, -bodyHeight / 2f + S(32f));
         }
 
-        private static void ArrangeKeyword(Image badge, SkillInfoGlyph glyph, Text label, float x, float width)
+        private void ArrangeKeyword(Image badge, SkillInfoGlyph glyph, Text label, float x, float width)
         {
             badge.rectTransform.anchoredPosition = new Vector2(x, 0f);
-            badge.rectTransform.sizeDelta = new Vector2(width, 28f);
-            glyph.rectTransform.anchoredPosition = new Vector2(-width / 2f + 17f, 0f);
-            label.rectTransform.sizeDelta = new Vector2(width - 34f, 26f);
+            badge.rectTransform.sizeDelta = new Vector2(width, S(28f));
+            glyph.rectTransform.anchoredPosition = new Vector2(-width / 2f + S(17f), 0f);
+            label.rectTransform.sizeDelta = new Vector2(width - S(34f), S(26f));
         }
+
+        // A standard size, and a standard type size, at this card's scale.
+        private float S(float size) => size * scale;
+        private int F(int points) => Mathf.RoundToInt(points * scale);
 
         private void SetAttackType(LegacySkillProperty property, bool defence)
         {

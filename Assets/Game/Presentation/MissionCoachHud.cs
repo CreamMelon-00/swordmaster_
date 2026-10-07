@@ -9,7 +9,7 @@ namespace TurnLimbo.Presentation
     /// <summary>A mission's non-modal coach: it shows the current guide beat. Only its actual buttons intercept battle input.</summary>
     public sealed class MissionCoachHud : IDisposable
     {
-        private readonly RectTransform root;
+        private readonly RectTransform root, frame;
         private readonly Text counter, title, description, inputHint, continueCaption;
         private readonly Button continueButton, skipButton, inspectButton;
         private int shownStep = -1, shownCount = -1;
@@ -18,6 +18,12 @@ namespace TurnLimbo.Presentation
 
         public GameObject Root => root.gameObject;
         public bool IsVisible => !disposed && root.gameObject.activeSelf;
+
+        /// <summary>The top of the card on the screen, in pixels from the bottom (0 while it is hidden): a panel the duel's
+        /// HUD opens over the dock (a held skill's explanation, <see cref="LegacyCombatHud.SetExplanationFloor"/>) starts
+        /// above it, so the card never covers it.</summary>
+        public float TopEdge => IsVisible
+            ? RectTransformUtility.WorldToScreenPoint(null, frame.TransformPoint(new Vector3(0f, frame.rect.yMax, 0f))).y : 0f;
 
         public MissionCoachHud(Transform parent, LegacyDuelArt art, Action advance, Action skip, Action inspectEnemy = null)
         {
@@ -38,6 +44,7 @@ namespace TurnLimbo.Presentation
             var card = new MissionCoachCard(root, art.UIFont);
             card.Frame.anchorMin = card.Frame.anchorMax = new Vector2(.5f, 0f);
             card.Frame.anchoredPosition = new Vector2(0f, 320f);
+            frame = card.Frame;
             counter = card.Counter;
             title = card.Title;
             description = card.Description;

@@ -198,7 +198,9 @@ namespace TurnLimbo.Presentation
             return CreateTexture("Gear Shimmer Glint", GlintTexels, pixels);
         }
 
-        private static Texture2D CreateTexture(string name, int size, Color32[] pixels)
+        /// <summary>A clamped, bilinear texture of <paramref name="pixels"/>, made once and never saved; the skill dock's
+        /// gears (<see cref="LegacyCombatHud"/>) draw with these helpers too.</summary>
+        internal static Texture2D CreateTexture(string name, int size, Color32[] pixels)
         {
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
             {
@@ -212,7 +214,7 @@ namespace TurnLimbo.Presentation
             return texture;
         }
 
-        private static Sprite CreateSprite(Texture2D texture)
+        internal static Sprite CreateSprite(Texture2D texture)
         {
             Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), Vector2.one * .5f,
                 100f, 0, SpriteMeshType.FullRect);
@@ -221,7 +223,7 @@ namespace TurnLimbo.Presentation
             return sprite;
         }
 
-        private static void Release(Object value)
+        internal static void Release(Object value)
         {
             if (value == null) return;
             if (Application.isPlaying) Object.Destroy(value);

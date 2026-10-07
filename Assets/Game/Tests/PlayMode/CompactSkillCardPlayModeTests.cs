@@ -151,7 +151,9 @@ namespace TurnLimbo.Presentation.Tests
                     Canvas.ForceUpdateCanvases();
                     GameObject popup = Named(hud.Root, enemy ? "Enemy Skill Explain" : "Skill Explain").gameObject;
                     float shortHeight = popup.GetComponent<RectTransform>().rect.height;
-                    Assert.That(shortHeight, Is.LessThan(320f), "The fixed popup should remain compact.");
+                    // The held explanation is the enemy's card drawn larger, to read at a glance; both stay compact.
+                    float scale = enemy ? 1f : LegacyCombatHud.PlayerExplanationScale;
+                    Assert.That(shortHeight, Is.LessThan(320f * scale), "The fixed popup should remain compact.");
                     foreach (LegacySkill skill in AllSkills())
                     {
                         hud.ShowExplanation(skill, enemy);

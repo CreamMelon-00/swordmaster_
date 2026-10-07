@@ -26,7 +26,10 @@ namespace TurnLimbo.Presentation
         public const float TurnCleanupDelay = 0.12f;
         [SerializeField] private DuelPresentationSettings presentationSettings;
         private enum ViewPhase { Planning, Approaching, ClosingDistance, SkillWindup, PlayingSlot, BetweenSlots, AfterTurn, Settling, Outcome }
+        // Each lane's hold (its key, or the pointer on its gear's window): how long it has been held (real time), whether it
+        // is held now, and whether its release must not queue (LegacyLaneHold).
         private readonly float[] holdTimes = new float[3];
+        private readonly bool[] laneHeld = new bool[3];
         private readonly bool[] holdConsumed = new bool[3];
         private LegacyQueuedDuel session;
         private LegacyDuelArt art;
@@ -249,6 +252,14 @@ namespace TurnLimbo.Presentation
             lobbyHud != null && lobbyHud.HasRequiredAssets;
         private bool IsInspecting => CanChoose && !startCard.IsShowing && (guideInspectionRemaining > 0f ||
             Keyboard.current != null && Keyboard.current.tabKey.isPressed);
+        /// <summary>Whether the player is reading a held skill's explanation this planning frame (Tab's inspection takes
+        /// over from it). The planning clock runs at <see cref="DuelPresentationSettings.ExplanationTimeScale"/> meanwhile.</summary>
+        public bool IsReadingExplanation => CanChoose && !IsInspecting && explainedSkill != null &&
+            explainedSkill.Kind != LegacySkillKind.Wait;
+        /// <summary>The planning clock's pace now (<see cref="LegacyLaneHold.PlanningTimeScale"/>): Tab's 0.2, a held
+        /// explanation's, or 1. 전투's bullet-time drift runs on the same clock.</summary>
+        public float PlanningTimeScale => LegacyLaneHold.PlanningTimeScale(CanChoose, IsInspecting, IsReadingExplanation,
+            presentationSettings.ExplanationTimeScale);
         // A coached beat never runs out of time; a mission may also have no timer at all.
         private bool PlanningTimerRuns => !IsTrainingBattle &&
             (!IsMission || mission.PlanningTimer && (guide == null || guide.IsFree));
@@ -430,8 +441,11 @@ namespace TurnLimbo.Presentation
                 if (keyboard.aKey.wasPressedThisFrame) TryStep(LegacyStepAction.Dodge, timing, out _);
                 if (keyboard.dKey.wasPressedThisFrame) TryStep(LegacyStepAction.Pressure, timing, out _);
             }
-            // Slow motion belongs to decisive moments only (a break, a finishing blow or a heavy hit), and step successes.
-            float speed = IsInspecting ? 0.2f : IsResolving && arena.IsFatalFocus ? LegacyArenaView.DecisiveSlowMotionScale : 1f;
+            // Planning slows while Tab inspects the enemy's queue or the player reads a held skill's explanation, the clock and
+            // 전투's bullet-time drift alike. Otherwise slow motion belongs to decisive moments only (a break, a finishing
+            // blow or a heavy hit), and step successes.
+            float speed = CanChoose ? PlanningTimeScale
+                : IsResolving && arena.IsFatalFocus ? LegacyArenaView.DecisiveSlowMotionScale : 1f;
             // Keep local cinematic slow motion on the established combat clock;
             // the step gesture, camera and feedback lifetime still use real time.
             if (IsResolving) speed = Mathf.Min(speed, arena.StepPresentationSpeed);
@@ -482,7 +496,7 @@ namespace TurnLimbo.Presentation
                             gearShimmer.Reveal();
                         }
                     }
-                    if (keyboard != null) ReadPlanningInput(keyboard);
+                    ReadPlanningInput(keyboard, realDelta);
                     if (CanChoose && PlanningTimerRuns)
                     {
                         planningTime = Mathf.Max(0f, planningTime - delta);
@@ -850,26 +864,33 @@ namespace TurnLimbo.Presentation
             phaseTime = 0f;
         }
 
-        private void ReadPlanningInput(Keyboard keyboard)
+        private void ReadPlanningInput(Keyboard keyboard, float realDelta)
         {
-            if (guide != null && guide.AllowsInspect && keyboard.tabKey.isPressed)
+            if (keyboard != null && guide != null && guide.AllowsInspect && keyboard.tabKey.isPressed)
                 InspectGuideEnemy();
             if (IsInspecting)
             {
                 ClearHeldKeys();
+                if (keyboard == null) return;
                 if (keyboard.leftArrowKey.wasPressedThisFrame) inspectingEnemy = Mathf.Max(0, inspectingEnemy - 1);
                 if (keyboard.rightArrowKey.wasPressedThisFrame)
                     inspectingEnemy = Mathf.Min(session.EnemyQueue.Count - 1, inspectingEnemy + 1);
                 if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame) CommitTurn();
                 return;
             }
+            if (keyboard == null)
+            {
+                // Without a keyboard the lanes still answer the pointer held on their gears' windows.
+                for (int lane = 0; lane < holdTimes.Length; lane++) ReadLaneHold(lane, false, false, false, realDelta);
+                return;
+            }
             if (keyboard.lKey.wasPressedThisFrame) hud.ToggleLog();
             if (keyboard.sKey.wasPressedThisFrame) QueueBreath();
             // Before the lane keys, so a lane key pressed in the same frame is for the skill 넘기기 brought forward.
             if (keyboard.leftShiftKey.wasPressedThisFrame || keyboard.rightShiftKey.wasPressedThisFrame) CycleLanes();
-            ReadLaneKey(0, keyboard.qKey.isPressed, keyboard.qKey.wasPressedThisFrame, keyboard.qKey.wasReleasedThisFrame);
-            ReadLaneKey(1, keyboard.wKey.isPressed, keyboard.wKey.wasPressedThisFrame, keyboard.wKey.wasReleasedThisFrame);
-            ReadLaneKey(2, keyboard.eKey.isPressed, keyboard.eKey.wasPressedThisFrame, keyboard.eKey.wasReleasedThisFrame);
+            ReadLaneHold(0, keyboard.qKey.isPressed, keyboard.qKey.wasPressedThisFrame, keyboard.qKey.wasReleasedThisFrame, realDelta);
+            ReadLaneHold(1, keyboard.wKey.isPressed, keyboard.wKey.wasPressedThisFrame, keyboard.wKey.wasReleasedThisFrame, realDelta);
+            ReadLaneHold(2, keyboard.eKey.isPressed, keyboard.eKey.wasPressedThisFrame, keyboard.eKey.wasReleasedThisFrame, realDelta);
             if (keyboard.digit1Key.wasPressedThisFrame && IsLaneOpen(0)) QueueLane(0);
             if (keyboard.digit2Key.wasPressedThisFrame && IsLaneOpen(1)) QueueLane(1);
             if (keyboard.digit3Key.wasPressedThisFrame && IsLaneOpen(2)) QueueLane(2);
@@ -880,30 +901,48 @@ namespace TurnLimbo.Presentation
         /// explanation, no queue, and they do not close an explanation another lane holds open.</summary>
         private bool IsLaneOpen(int lane) => session != null && session.Features.HasLane(lane);
 
-        private void ReadLaneKey(int lane, bool held, bool pressed, bool released)
+        /// <summary>A lane's hold this frame, from its key and from the pointer on its gear's window (<see
+        /// cref="LegacyLaneHold"/>, real time): a tap queues on release; held to <see
+        /// cref="DuelPresentationSettings.ExplanationHoldSeconds"/> it opens the front skill's explanation, the bar filling
+        /// from the tap's limit, and that release only closes it. A press on another lane closes an open explanation.</summary>
+        private void ReadLaneHold(int lane, bool keyHeld, bool keyPressed, bool keyReleased, float realDelta)
         {
             if (!IsLaneOpen(lane)) return;
+            bool pointerHeld = hud.ReadLanePointer(lane, out bool pointerPressed, out bool pointerReleased, out bool releasedAway);
+            bool held = keyHeld || pointerHeld;
+            bool pressed = keyPressed || pointerPressed;
+            // Let go of both; or a hold that ended with no release seen (its window went away mid-press), which never queues.
+            bool letGo = keyReleased || pointerReleased;
+            bool vanished = !held && !letGo && laneHeld[lane];
+            // A new press is a new hold, a tap until it is held long enough, whatever ended the one before (ClearHeldKeys
+            // closes a key still down from then).
+            if (pressed) holdConsumed[lane] = false;
+            if (releasedAway || vanished) holdConsumed[lane] = true;
+            float tap = presentationSettings.LaneTapSeconds, explain = presentationSettings.ExplanationHoldSeconds;
             if (pressed && explainedSkill != null)
             {
                 explainedSkill = null;
                 explainedLane = -1;
             }
+            laneHeld[lane] = held;
             if (held)
             {
-                holdTimes[lane] += Time.unscaledDeltaTime;
-                hud.SetHoldProgress(lane, Mathf.Clamp01((holdTimes[lane] - 0.3f) / 0.5f));
+                // The frame a press is first seen counts nothing: it went down somewhere within it, and a hitch before the
+                // press (a battle being set up) is no time held.
+                if (!pressed) holdTimes[lane] += realDelta;
+                hud.SetHoldProgress(lane, LegacyLaneHold.Progress(holdTimes[lane], tap, explain));
                 // An open lane a fixture duel left empty has nothing to explain.
                 var laneSkills = session.GetLane(lane);
-                if (holdTimes[lane] >= 1f && laneSkills.Count > 0)
+                if (LegacyLaneHold.OpensExplanation(holdTimes[lane], tap, explain) && laneSkills.Count > 0)
                 {
                     explainedSkill = laneSkills[0];
                     explainedLane = lane;
                     holdConsumed[lane] = true;
                 }
             }
-            if (released)
+            else if (letGo || vanished)
             {
-                if (!holdConsumed[lane] && holdTimes[lane] <= 0.3f) QueueLane(lane);
+                if (LegacyLaneHold.ReleaseQueues(holdTimes[lane], holdConsumed[lane], tap)) QueueLane(lane);
                 if (explainedLane == lane)
                 {
                     explainedSkill = null;
@@ -920,6 +959,8 @@ namespace TurnLimbo.Presentation
             if (!CanChoose || IsInspecting || lane < 0 || lane > 2 ||
                 guide != null && !guide.AllowsQueue(lane) || !session.TryQueueLane(lane)) return false;
             guide?.NotifyQueued(lane);
+            // The lane's gear turns a slot: the queued skill to the upper right, the next one up into the window.
+            hud.PlayLaneTurn(lane);
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             explainedSkill = null;
@@ -943,14 +984,14 @@ namespace TurnLimbo.Presentation
                 // 전투: bullet time lets go for a moment, as if that second had just passed.
                 arena.BreakBulletTime();
             }
-            // Every lane with something to bring forward turned together; show it before the new fronts are drawn.
-            hud.PlayLaneTurn(new[] { session.GetLane(0).Count > 1, session.GetLane(1).Count > 1, session.GetLane(2).Count > 1 });
+            // Every open lane's gear turns together, meshed (a one-skill lane's skill comes round again), and ratchets.
+            hud.PlayLaneTurn(new[] { session.GetLane(0).Count > 0, session.GetLane(1).Count > 0, session.GetLane(2).Count > 0 });
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             // A lane key already down was pressed for the skill that just left, so its release must not queue the
             // one that came forward. A held explanation picks up the new front on the next frame.
             for (int lane = 0; lane < holdTimes.Length; lane++)
-                if (holdTimes[lane] > 0f) holdConsumed[lane] = true;
+                if (laneHeld[lane] || holdTimes[lane] > 0f) holdConsumed[lane] = true;
             explainedSkill = null;
             guide?.NotifyCycled();
             RefreshHud(0f);
@@ -2109,9 +2150,14 @@ namespace TurnLimbo.Presentation
             for (int i = 0; i < holdTimes.Length; i++)
             {
                 holdTimes[i] = 0f;
-                holdConsumed[i] = false;
+                // A key (or the pointer on a window) still down was pressed before: under Tab, for the explanation the
+                // guide's Enter closed, or for a turn now committed. Its hold is over, so letting go of it never queues;
+                // the next press starts a new one (ReadLaneHold). One let go meanwhile ends on the vanished path.
+                holdConsumed[i] = laneHeld[i];
                 hud?.SetHoldProgress(i, 0f);
             }
+            // Presses on the windows from before (or under Tab) are not taken for taps later.
+            hud?.ClearLanePointers();
         }
 
         private void RefreshHud(float delta) => RefreshHudClock(delta, delta);
@@ -2134,6 +2180,8 @@ namespace TurnLimbo.Presentation
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
             skillActivationCue.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
+            // A held skill's explanation opens above the coach's card while it is up over the dock, never under it.
+            hud.SetExplanationFloor(coachHud != null && coachHud.IsVisible ? coachHud.TopEdge : 0f);
             if (IsInspecting && session.EnemyQueue.Count > 0)
             {
                 hud.SetInspectedSlot(Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1));

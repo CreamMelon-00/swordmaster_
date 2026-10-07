@@ -67,22 +67,32 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// same units). Ten trapezoid teeth on a rim, an open ring inside it crossed by five spokes, a hub with an axle
         /// hole.</summary>
         public static float GearCoverage(float x, float y, float pixel)
+            => GearCoverage(x, y, pixel, Teeth, TipRadius, RootRadius, RimInnerRadius, HubRadius, AxleRadius, Spokes);
+
+        /// <summary>The same drawing with its proportions given, in units of the outer radius: <paramref name="teeth"/>
+        /// teeth reaching <paramref name="tipRadius"/> from roots at <paramref name="rootRadius"/>, the rim open inside
+        /// <paramref name="rimInnerRadius"/> (solid when that is at or inside the hub), <paramref name="spokes"/> spokes
+        /// to a hub of <paramref name="hubRadius"/> round an axle hole of <paramref name="axleRadius"/>. A tooth is centred
+        /// half a pitch past the x axis. The skill dock's gears draw with it (<see cref="LegacySkillGear"/>).</summary>
+        public static float GearCoverage(float x, float y, float pixel, int teeth, float tipRadius, float rootRadius,
+            float rimInnerRadius, float hubRadius, float axleRadius, int spokes)
         {
             pixel = pixel > 0f ? pixel : 1e-4f;
+            teeth = Math.Max(1, teeth);
             float radius = (float)Math.Sqrt(x * x + y * y);
             // The tooth's place within its pitch: 0 at a tooth's centre, .5 halfway to the next.
-            float pitch = (float)Math.Atan2(y, x) / TwoPi * Teeth;
+            float pitch = (float)Math.Atan2(y, x) / TwoPi * teeth;
             float across = Math.Abs(pitch - (float)Math.Floor(pitch) - .5f);
             float tooth = Clamp01((ToothRootHalf - across) / (ToothRootHalf - ToothTipHalf));
-            float outerEdge = RootRadius + (TipRadius - RootRadius) * tooth;
+            float outerEdge = rootRadius + (tipRadius - rootRadius) * tooth;
             float body = Edge(outerEdge - radius, pixel);
-            float rim = Edge(radius - RimInnerRadius, pixel);
-            float axle = Edge(radius - AxleRadius, pixel);
-            float hub = Edge(HubRadius - radius, pixel) * axle;
+            float rim = Edge(radius - rimInnerRadius, pixel);
+            float axle = Edge(radius - axleRadius, pixel);
+            float hub = Edge(hubRadius - radius, pixel) * axle;
             float spoke = 0f;
-            for (int index = 0; index < Spokes; index++)
+            for (int index = 0; index < spokes; index++)
             {
-                double angle = TwoPi * index / Spokes + Math.PI / 2.0;
+                double angle = TwoPi * index / spokes + Math.PI / 2.0;
                 float along = x * (float)Math.Cos(angle) + y * (float)Math.Sin(angle);
                 if (along <= 0f) continue;
                 float side = Math.Abs(-x * (float)Math.Sin(angle) + y * (float)Math.Cos(angle));

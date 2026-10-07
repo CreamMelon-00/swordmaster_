@@ -167,9 +167,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Named(controller.Hud.Root, "Current W").gameObject.activeSelf, Is.False, "Only the Q lane is open.");
                 Assert.That(Named(controller.Hud.Root, "Current E").gameObject.activeSelf, Is.False);
                 Assert.That(Named(controller.Hud.Root, "Current Q").GetComponent<RectTransform>().anchoredPosition,
-                    Is.EqualTo(new Vector2(0f, -4f)), "The lone Q lane sits in the middle of the dock.");
-                Assert.That(Named(controller.Hud.Root, "Next Q").GetComponent<RectTransform>().anchoredPosition,
-                    Is.EqualTo(new Vector2(30f, 40f)), "…with its next card beside it.");
+                    Is.EqualTo(new Vector2(0f, controller.Hud.SkillWindowY)), "The lone Q gear sits in the middle of the dock.");
+                Assert.That(Named(controller.Hud.Root, "Next Q").GetComponent<RectTransform>().anchoredPosition.x, Is.LessThan(0f),
+                    "…with its next skill at the gear's upper left.");
                 Assert.That(Label(Named(controller.Hud.Root, "CycleButton").gameObject, "Effect").text, Is.EqualTo("맨 앞 한 칸"));
                 Assert.That(Label(controller.Hud.Root, "Stage Label").text, Is.EqualTo("임무 01 / 04  ·  처음 쥔 검"));
 

@@ -122,6 +122,36 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0f, 1f), Tooltip("톱니와 빛의 진하기. 0이면 보이지 않습니다.")]
         private float gearShimmerStrength = .6f;
 
+        [Header("기술 톱니 — 실행 중 즉시 적용 (조작대의 Q/W/E 열)")]
+        [SerializeField, Range(82f, 92f), Tooltip("열마다 하나인 기술 톱니의 반지름(이빨 끝까지, 1920x1080 기준 HUD 단위). 톱니는 윗부분만 조작대 위로 보입니다. 기술 자리는 이빨 끝에서 16 안쪽에 있어, 지금 기술 창과 그 위 이름·키 줄도 함께 오르내립니다. 기술 그림·창·비용 판의 크기는 그대로라, 82보다 작으면 다음 자리와 창, 창과 비용 판이 겹칩니다.")]
+        private float skillGearRadius = LegacySkillGear.DefaultRadius;
+        [SerializeField, Range(160f, 200f), Tooltip("열린 열 톱니 사이의 간격(HUD 단위). 세 열이 넘기기·숨고르기 버튼에 닿을 만큼 넓거나, 사이 톱니가 두 톱니에 맞물린 채 조작대 가장자리 위로 다 보이는 간격(기본 크기에서 약 193)보다 넓으면 저절로 좁힙니다.")]
+        private float skillGearPitch = LegacySkillGear.DefaultPitch;
+        [SerializeField, Range(1, 8), Tooltip("기술 자리 한 칸(60°)마다의 이빨 수. 톱니 전체의 이빨은 그 6배입니다. 그래서 한 칸을 돌아도 이빨 자리가 같아, 멈추면 늘 사이 톱니와 맞물려 있습니다.")]
+        private int skillGearTeethPerSlot = LegacySkillGear.DefaultTeethPerSlot;
+        [SerializeField, Range(4f, 18f), Tooltip("이빨의 길이(HUD 단위). 기술 톱니와 사이 톱니가 같은 크기의 이빨을 씁니다.")]
+        private float skillGearToothDepth = LegacySkillGear.DefaultToothDepth;
+        [SerializeField, Range(0f, 40f), Tooltip("열린 두 열 사이의 작은 사이 톱니의 반지름(HUD 단위). 두 기술 톱니에 맞물리는 높이에 저절로 놓이고, 넘기기 때 반대 방향으로 돌아 모든 기술 톱니가 같은 방향으로 돌게 합니다. 0이면 그리지 않습니다.")]
+        private float skillGearIdlerRadius = LegacySkillGear.DefaultIdlerRadius;
+        [SerializeField, Range(0f, 1f), Tooltip("기술을 예약할 때(키·클릭·숫자 키) 그 열의 톱니가 한 칸(60°) 도는 시간(실제 초). 0이면 바로 넘어갑니다.")]
+        private float skillGearTurnSeconds = LegacySkillGear.DefaultTurnSeconds;
+        [SerializeField, Range(0f, 1.5f), Tooltip("넘기기(Shift)로 열린 모든 톱니가 함께 한 칸 도는 시간(실제 초). 끝에서 멈춤쇠에 걸리듯 살짝 튕깁니다. 0이면 바로 넘어갑니다.")]
+        private float skillGearShiftSeconds = LegacySkillGear.DefaultShiftSeconds;
+        [SerializeField, Range(0f, 12f), Tooltip("넘기기의 끝에서 톱니가 한 칸을 지나쳤다가 돌아오는 각도(도). 0이면 튕기지 않습니다.")]
+        private float skillGearRatchetBounce = LegacySkillGear.DefaultRatchetBounce;
+        [SerializeField, Range(0f, 1f), Tooltip("예약으로 톱니 하나가 돌 때의 짧은 딸깍 소리(Resources/Sfx/gear-tick) 음량. 예약의 선택음과 함께 납니다. 0이면 끕니다.")]
+        private float gearTickVolume = LegacySkillGear.DefaultTickVolume;
+        [SerializeField, Range(0f, 1f), Tooltip("넘기기로 톱니들이 함께 돌 때의 드르륵 소리(Resources/Sfx/gear-ratchet) 음량. 0이면 끕니다.")]
+        private float gearRatchetVolume = LegacySkillGear.DefaultRatchetVolume;
+
+        [Header("길게 눌러 기술 설명 — 실행 중 즉시 적용 (Q/W/E 키·톱니 창 누르기)")]
+        [SerializeField, Range(.05f, .5f), Tooltip("Q/W/E(또는 톱니 창)를 누른 지 이 시간(실제 초) 안에 떼면 짧게 누른 것으로 보고 그 열의 기술을 예약합니다. 더 오래 누르다 떼면 예약하지 않습니다.")]
+        private float laneTapSeconds = LegacyLaneHold.DefaultTapSeconds;
+        [SerializeField, Range(.1f, 1.5f), Tooltip("이 시간(실제 초)만큼 누르고 있으면 그 열의 지금 기술 설명이 열립니다. 홀드 진행선은 짧게 누르기 시간부터 이 시간까지 찹니다. 짧게 누르기 시간보다 짧게 두면 그 시간에 엽니다. 설명이 열린 뒤 떼면 예약하지 않고 닫습니다.")]
+        private float explanationHoldSeconds = LegacyLaneHold.DefaultExplainSeconds;
+        [SerializeField, Range(.05f, 1f), Tooltip("기술 설명을 읽는 동안 편성 시간이 흐르는 배율. 전투에서는 불릿타임에 다가가는 움직임도 같은 배율로 느려집니다(Tab 확인이 0.2배로 느리게 하듯). 편성 밖에서는 느려지지 않습니다. 1이면 느려지지 않습니다.")]
+        private float explanationTimeScale = LegacyLaneHold.DefaultExplanationTimeScale;
+
         [Header("숲 소리 — 실행 중 즉시 적용 (Resources/Sfx/forest-ambience-loop)")]
         [SerializeField, Range(0f, 1f), Tooltip("전투와 숲 장면(컷신) 내내 낮게 깔리는 숲 소리(바람·잎·먼 새)의 음량. 로비·타이틀·브리핑에서는 잦아들어 멈춥니다. 0이면 끕니다.")]
         private float forestAmbienceVolume = .4f;
@@ -263,6 +293,28 @@ namespace TurnLimbo.Presentation
         /// <summary>Real seconds of the gear shimmer over the enemy's revealed queue (0..1.5; 0 switches it off).</summary>
         public float GearShimmerSeconds => Safe(gearShimmerSeconds, 0f, 1.5f, .55f);
         public float GearShimmerStrength => Safe(gearShimmerStrength, 0f, 1f, .6f);
+        /// <summary>The skill dock's gears (<see cref="LegacySkillGear"/>): a lane gear's tip radius, the open lanes' pitch
+        /// and the tooth depth (HUD units), its teeth per slot, and the idlers' tip radius (0: none). The radius stays at 82 or
+        /// more: the slots, the window and the cost plate keep their sizes, and a smaller gear crowds them together. The HUD
+        /// narrows the pitch further when the idlers would not mesh above the dock's edge (<see cref="LegacySkillGear.MeshedPitch"/>).</summary>
+        public float SkillGearRadius => Safe(skillGearRadius, 82f, 92f, LegacySkillGear.DefaultRadius);
+        public float SkillGearPitch => Safe(skillGearPitch, 160f, 200f, LegacySkillGear.DefaultPitch);
+        public int SkillGearTeethPerSlot => Mathf.Clamp(skillGearTeethPerSlot, 1, 8);
+        public float SkillGearToothDepth => Safe(skillGearToothDepth, 4f, 18f, LegacySkillGear.DefaultToothDepth);
+        public float SkillGearIdlerRadius => Safe(skillGearIdlerRadius, 0f, 40f, LegacySkillGear.DefaultIdlerRadius);
+        /// <summary>Real seconds of a queue's one-slot turn and of 넘기기's (0: at once), and how far 넘기기 runs past the slot
+        /// before it springs back (degrees).</summary>
+        public float SkillGearTurnSeconds => Safe(skillGearTurnSeconds, 0f, 1f, LegacySkillGear.DefaultTurnSeconds);
+        public float SkillGearShiftSeconds => Safe(skillGearShiftSeconds, 0f, 1.5f, LegacySkillGear.DefaultShiftSeconds);
+        public float SkillGearRatchetBounce => Safe(skillGearRatchetBounce, 0f, 12f, LegacySkillGear.DefaultRatchetBounce);
+        /// <summary>The gears' sounds: a queue's tick and 넘기기's ratchet (0..1; 0 is silent).</summary>
+        public float GearTickVolume => Safe(gearTickVolume, 0f, 1f, LegacySkillGear.DefaultTickVolume);
+        public float GearRatchetVolume => Safe(gearRatchetVolume, 0f, 1f, LegacySkillGear.DefaultRatchetVolume);
+        /// <summary>Holding a lane (<see cref="LegacyLaneHold"/>): the longest press that still queues and when a hold opens the
+        /// skill's explanation (real seconds), and the planning clock's pace while the player reads it (0.05..1).</summary>
+        public float LaneTapSeconds => Safe(laneTapSeconds, .05f, .5f, LegacyLaneHold.DefaultTapSeconds);
+        public float ExplanationHoldSeconds => Safe(explanationHoldSeconds, .1f, 1.5f, LegacyLaneHold.DefaultExplainSeconds);
+        public float ExplanationTimeScale => Safe(explanationTimeScale, .05f, 1f, LegacyLaneHold.DefaultExplanationTimeScale);
         public float ForestAmbienceVolume => Safe(forestAmbienceVolume, 0f, 1f, .4f);
         public float ForestAmbienceFadeSeconds => Safe(forestAmbienceFadeSeconds, 0f, 5f, 1.2f);
         public float ForestAmbienceSceneDuck => Safe(forestAmbienceSceneDuck, 0f, 1f, .7f);
@@ -337,6 +389,14 @@ namespace TurnLimbo.Presentation
             barkLowHealthPercent = BarkLowHealthPercent; barkFontSize = BarkFontSize;
             startCardSeconds = StartCardSeconds; startCardRetrySeconds = StartCardRetrySeconds;
             gearShimmerSeconds = GearShimmerSeconds; gearShimmerStrength = GearShimmerStrength;
+            skillGearRadius = SkillGearRadius; skillGearPitch = SkillGearPitch;
+            skillGearTeethPerSlot = SkillGearTeethPerSlot; skillGearToothDepth = SkillGearToothDepth;
+            skillGearIdlerRadius = SkillGearIdlerRadius;
+            skillGearTurnSeconds = SkillGearTurnSeconds; skillGearShiftSeconds = SkillGearShiftSeconds;
+            skillGearRatchetBounce = SkillGearRatchetBounce;
+            gearTickVolume = GearTickVolume; gearRatchetVolume = GearRatchetVolume;
+            laneTapSeconds = LaneTapSeconds; explanationHoldSeconds = ExplanationHoldSeconds;
+            explanationTimeScale = ExplanationTimeScale;
             forestAmbienceVolume = ForestAmbienceVolume; forestAmbienceFadeSeconds = ForestAmbienceFadeSeconds;
             forestAmbienceSceneDuck = ForestAmbienceSceneDuck;
             timePressureShare = TimePressureShare; timePressureCameraPush = TimePressureCameraPush;

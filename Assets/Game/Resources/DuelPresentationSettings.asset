@@ -61,6 +61,19 @@ MonoBehaviour:
   startCardRetrySeconds: 0.8
   gearShimmerSeconds: 0.55
   gearShimmerStrength: 0.6
+  skillGearRadius: 84
+  skillGearPitch: 190
+  skillGearTeethPerSlot: 4
+  skillGearToothDepth: 10
+  skillGearIdlerRadius: 26
+  skillGearTurnSeconds: 0.3
+  skillGearShiftSeconds: 0.4
+  skillGearRatchetBounce: 6
+  gearTickVolume: 0.5
+  gearRatchetVolume: 0.6
+  laneTapSeconds: 0.2
+  explanationHoldSeconds: 0.35
+  explanationTimeScale: 0.3
   forestAmbienceVolume: 0.4
   forestAmbienceFadeSeconds: 1.2
   forestAmbienceSceneDuck: 0.7

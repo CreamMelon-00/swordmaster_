@@ -59,7 +59,7 @@
 원칙은 하나다. 잠긴 것은 이름도 자리도 보여 주지 않고, 열린 것만으로 화면을 짠다.
 
 - **전투**(스테이지와 임무)
-  - 닫힌 열의 기술은 전투에 들어가지 않는다. 그 열의 카드와 다음 칸은 그리지 않고, 열린 열만 Q·W·E 순서로 도크 가운데에 156 간격으로 모은다. 하나면 x 0, 둘이면 -78/+78, 셋이면 -156/0/+156이고, 다음 칸은 늘 그 열의 (x+30, 40)이다. 넘기기·숨고르기 버튼은 열이 몇 개든 ±360 제자리다(`CompactHudDesign.md`).
+  - 닫힌 열의 기술은 전투에 들어가지 않는다. 그 열의 톱니(창·다음·방금 쓴 자리)는 그리지 않고, 열린 열의 톱니만 Q·W·E 순서로 도크 가운데에 190 간격으로 모은다(2026-10-07, 그 전에는 카드 156 간격). 하나면 x 0, 둘이면 -95/+95, 셋이면 -190/0/+190이고, 다음 기술은 늘 그 톱니의 왼쪽 위, 방금 쓴 기술은 오른쪽 위에 있다. 열린 두 톱니 사이에만 작은 사이 톱니가 끼고, 열이 하나면 사이 톱니가 없다. 넘기기·숨고르기 버튼은 열이 몇 개든 ±360 제자리다(`CompactHudDesign.md`).
   - 닫힌 열의 키(Q/W/E와 1/2/3)는 아무 일도 하지 않는다. 길게 눌러도 홀드 막대가 차지 않고 설명이 열리지 않으며, 다른 열이 열어 둔 설명을 닫지도 않는다.
   - 넘기기 버튼의 효과 줄은 열이 하나면 `맨 앞 한 칸`, 둘 이상이면 `모든 열 한 칸`이다(`LaneCycle.md`).
   - 적 확인(Tab) 설명은 플레이어가 세 검술(Q·W·E열)을 모두 열기 전까지 어떤 적 기술에도 검술 이름 대신 `상대 기술` 표식을 단다(`LegacyCombatHud.EnemySkillCaption`). 이미 연 검술의 기술도 마찬가지라 표식이 섞이지 않고, 아직 없는 검술을 암시하지도 않는다. 표식이 이미 상대의 기술임을 말하므로 아래 안내는 `상대 기술 · ` 머리를 빼고 `Tab / 적 확인`만 쓴다. 세 열이 모두 열리면 전처럼 `정공 검술` 같은 이름이고 안내도 `상대 기술 · Tab / 적 확인`이다.
@@ -132,7 +132,7 @@
   - `MissionBriefingHud`: 챕터 표시와 `Mission Back` 버튼. 버튼은 뒤로 가기 콜백을 준 경우에만 만들고, 서막 뒤의 브리핑에서만 보인다.
   - `BattleResultHud.Show(result, missionExitsToLobby, storyNotice)`. `result.CurriculumOpen`이 거짓이면 `Result Curriculum Panel`을 숨기고 카드를 114만큼 줄인다.
   - `LegacyCombatHud.SetMissionMode(enabled, timed, breath)`: 숨고르기 버튼은 전투가 허용하고, 임무라면 그 임무가 열었고, 코치가 허용할 때만 보인다. 넘기기 버튼은 전투가 허용하고 코치가 허용할 때 보인다.
-  - `LegacyCombatHud`의 열 배치: `Refresh`가 `LayoutLanes(session.Features)`를 부르고, 열린 열 묶음이 지난번과 다를 때만 `LaneX`로 `Current X`/`Next X`를 옮기고 넘기기 `Effect`를 고친다. 닫힌 열의 오브젝트는 이름 그대로 남아 비활성이다. 적 설명의 표식은 `EnemySkillCaption`.
+  - `LegacyCombatHud`의 열 배치(`LegacyCombatHud.SkillGears.cs`): `Refresh`가 `LayoutGears(session.Features)`를 부르고, 열린 열 묶음(또는 톱니 튜닝)이 지난번과 다를 때만 `LegacySkillGear.LaneX`로 톱니와 `Current X`/`Next X`/`Used X`를 옮기고, 사이 톱니를 두 톱니 사이에 맞물리게 놓고, 넘기기 `Effect`를 고친다. 닫힌 열의 오브젝트는 이름 그대로 남아 비활성이다. 적 설명의 표식은 `EnemySkillCaption`.
   - `DuelStepHud.Refresh(..., features)`와 `KeyHintFor`.
   - `CampaignLoadoutHud`: 열린 열만 만들고 한 화면에 모으며, 보유 목록도 열린 열의 미편성 기술로만 채운다. `CampaignCurriculumHud`의 닫힌 열 안내(`  ·  W열은 임무로 열림`)는 남겨 두었지만, 세 열이 모두 열려야 커리큘럼이 생기므로 게임에서는 나오지 않는다. 열이 닫힌 진행으로 `CampaignCurriculumHud`를 직접 만들 때만 보인다.
 - 테스트: EditMode `StoryUnlockTests`(커리큘럼이 열리는 때와 닫힌 동안의 규칙), `BattleResultTests`. PlayMode `MissionUnlockFlowPlayModeTests`(Q만·Q+E·임무 8 뒤의 로비·편성·결과·타이틀 요약, 전투 열 위치), `CampaignLoadoutHudPlayModeTests`, `CampaignLobbyHudPlayModeTests`, `ResultMissionHudPlayModeTests`, `BattleResultMissionFlowPlayModeTests`.

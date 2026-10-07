@@ -11,7 +11,7 @@ using UnityEngine.UI;
 namespace TurnLimbo.Presentation
 {
     /// <summary>Compact duel HUD. Original interaction flow, background-independent presentation.</summary>
-    public sealed class LegacyCombatHud : IDisposable
+    public sealed partial class LegacyCombatHud : IDisposable
     {
         private readonly LegacyDuelArt art;
         private readonly DuelPresentationSettings presentationSettings;
@@ -50,34 +50,22 @@ namespace TurnLimbo.Presentation
         private int shownBreathsRemaining = -1;
         private MissionGuide guide;
         private bool lastPlanning;
-        private readonly Image[] currentIcons = new Image[3], nextIcons = new Image[3], holdImages = new Image[3];
+        private readonly Image[] holdImages = new Image[3];
         private readonly Text[] costs = new Text[3];
         private readonly Text[] skillNames = new Text[3];
         private readonly SkillCardFeedbackGraphic[] laneFeedback = new SkillCardFeedbackGraphic[3];
-        private readonly int[] shownSkills = { -1, -1, -1 }, shownNextSkills = { -1, -1, -1 };
+        private readonly int[] shownSkills = { -1, -1, -1 };
         private readonly Button commitButton;
         private readonly CanvasGroup guideCommitGroup;
         private readonly Outline[] guideLaneFocus = new Outline[3];
         private readonly Outline guideCommitFocus;
         private readonly RectTransform guideEnemyFocus, guideActFocus;
         private bool missionMode, missionModeInitialized, missionTimed, missionBreath, trainingMode, highlightEnemyQueue;
-        private readonly GameObject[] laneCards = new GameObject[3], nextPanels = new GameObject[3];
         private const CombatFeature AllLanes = CombatFeature.LaneQ | CombatFeature.LaneW | CombatFeature.LaneE;
-        // The open lanes are packed in Q, W, E order and centred at this pitch: one lane at 0, two at ±78, three at
-        // -156/0/156. 넘기기 and 숨고르기 keep their places at ±360 whatever is open. Closed lanes stay hidden where they were.
-        private const float LanePitch = 156f;
-        private static readonly Vector2 CurrentCardHome = new Vector2(0, -4), NextCardHome = new Vector2(30, 40);
-        // The open lanes the cards were last placed for; laid out again only when a duel opens a different set.
+        // The open lanes' gears are packed in Q, W, E order and centred (LayoutGears). 넘기기 and 숨고르기 keep their places
+        // at ±360 whatever is open. Closed lanes stay hidden where they were. Laid out again only when a duel opens a
+        // different set (or the gears' tuning changes).
         private CombatFeature laidOutLanes = AllLanes;
-        // 넘기기: each turned lane's next skill drops from the next card into the front card while a new next skill
-        // slides in, and the card ticks like a gear. Real time, so it plays the same under Tab or bullet time.
-        public const float LaneTurnDuration = .14f;
-        private static readonly Vector2 CurrentIconHome = new Vector2(0, 10), NextIconHome = new Vector2(0, 7);
-        // Where the next card's icon sits, seen from the front card (next card at x+30, y 40; front card at y -4).
-        private static readonly Vector2 LaneTurnFrom = new Vector2(30, 44);
-        private static readonly Vector2 NextTurnFrom = new Vector2(26, 0);
-        private const float NextIconAlpha = .55f;
-        private readonly float[] laneTurnElapsed = { LaneTurnDuration, LaneTurnDuration, LaneTurnDuration };
         private int stageNumber, stageCount;
         private string stageName;
         private readonly StatusView playerStatus, enemyStatus;
@@ -121,6 +109,8 @@ namespace TurnLimbo.Presentation
         private static readonly Color BreakCalloutOutline = new Color(.22f, .03f, .02f);
         private int playerDamageSequence, enemyDamageSequence;
         private LegacySkill explainedPlayer, explainedEnemy;
+        // The top of a card kept up over the dock (the coach's), in screen pixels from the bottom; 0 for none.
+        private float explanationFloor;
         private LegacySkill conditionPreview;
         private LegacySkill stateHintSkill;
         private string stateHint;
@@ -138,7 +128,18 @@ namespace TurnLimbo.Presentation
         // A compact command desk leaves the arena visible on both sides. Its two end buttons sit on
         // small tabs outside the desk, but remain in the same input group for the planning fade.
         private const float DockWidth = 980f, DockHeight = 200f, DockBottomInset = 14f;
-        private const float EndButtonX = 550f;
+        private const float EndButtonX = 550f, ToolDividerX = 288f;
+        /// <summary>The ACT track's height in the dock ('Input/Keys' space), along its top over the gears; the
+        /// <c>n / 10 ACT</c> value sits just above it.</summary>
+        public const float ActTrackY = 60f;
+        /// <summary>How much larger a held skill's explanation is drawn than the enemy's under Tab (its paper, type and
+        /// fittings), so it reads at a glance; it opens above the dock, centred on the held lane.</summary>
+        public const float PlayerExplanationScale = 1.25f;
+        /// <summary>The gap between the dock's top (or the coach's card over it) and a held skill's explanation (HUD units).</summary>
+        public const float ExplanationGap = 10f;
+        // The held explanation's drop shadow: it lifts the paper off the arena behind it.
+        private static readonly Color ExplanationShade = new Color(.04f, .03f, .02f, .7f);
+        private static readonly Vector2 ExplanationShadeOffset = new Vector2(5f, -7f);
         private static readonly Color Surface = DuelVisualTheme.Surface;
         private static readonly Color RaisedSurface = DuelVisualTheme.RaisedSurface;
         private static readonly Color Card = DuelVisualTheme.Card;
@@ -243,47 +244,15 @@ namespace TurnLimbo.Presentation
             Image("Right Desk Join", controls, white, new Vector2(503f, -4f), new Vector2(34f, 4f), Border);
             Color dividerInk = Accent;
             dividerInk.a = .45f;
-            Image("Left Tool Divider", controls, white, new Vector2(-266f, -4f), new Vector2(2f, 112f), dividerInk);
-            Image("Right Tool Divider", controls, white, new Vector2(266f, -4f), new Vector2(2f, 112f), dividerInk);
+            // Between the gears' room (±284) and 넘기기/숨고르기 (from ±292).
+            Image("Left Tool Divider", controls, white, new Vector2(-ToolDividerX, -4f), new Vector2(2f, 112f), dividerInk);
+            Image("Right Tool Divider", controls, white, new Vector2(ToolDividerX, -4f), new Vector2(2f, 112f), dividerInk);
             var logImage = Panel("LogButton", controls, new Vector2(-EndButtonX, -4f), new Vector2(96, 112));
             BuildActionIcon(logImage.transform, "combat-log", "기록", "L");
             var logButton = AddButton(logImage);
             logButton.onClick.AddListener(() => { ToggleLog(); ClearSelection(logButton.gameObject); });
-            for (int lane = 0; lane < 3; lane++)
-            {
-                var x = new Vector2(LaneX(lane, AllLanes), 0);
-                var next = Panel("Next " + "QWE"[lane], controls, NextCardHome + x, new Vector2(88, 104), RaisedSurface);
-                nextIcons[lane] = Image("Next Skill Image", next.transform, null, NextIconHome, new Vector2(56, 56));
-                nextIcons[lane].preserveAspect = true;
-                nextIcons[lane].color = new Color(1, 1, 1, NextIconAlpha);
-                var nextLabel = Text("Next Label", next.transform, new Vector2(0, 41), new Vector2(76, 18), 14, TextAnchor.MiddleLeft);
-                nextLabel.text = "다음"; nextLabel.color = MutedText;
-                var card = Panel("Current " + "QWE"[lane], controls, CurrentCardHome + x, new Vector2(112, 124), Card, Border);
-                currentIcons[lane] = Image("Skill Image", card.transform, null, CurrentIconHome, new Vector2(56, 56));
-                currentIcons[lane].preserveAspect = true;
-                var key = Text("Key", card.transform, new Vector2(-32, 47), new Vector2(36, 22), 20, TextAnchor.MiddleLeft);
-                key.text = "QWE"[lane].ToString(); key.color = Accent;
-                var styleName = Text("Style Name", card.transform, new Vector2(17, 47), new Vector2(62, 18), 14, TextAnchor.MiddleRight);
-                styleName.text = SkillLaneStyle.Name(lane); styleName.color = Foreground;
-                skillNames[lane] = Text("Skill Name", card.transform, new Vector2(0, -28), new Vector2(108, 20), 16, TextAnchor.MiddleCenter);
-                skillNames[lane].supportRichText = false;
-                skillNames[lane].resizeTextForBestFit = false;
-                costs[lane] = Text("SkillCost", card.transform, new Vector2(0, -47), new Vector2(92, 22), 18, TextAnchor.MiddleRight);
-                costs[lane].color = Foreground;
-                holdImages[lane] = Image("KeyHoldImage", card.transform, white, new Vector2(0, -59), new Vector2(104, 3), Accent);
-                Filled(holdImages[lane], UnityEngine.UI.Image.FillMethod.Horizontal, 0);
-                holdImages[lane].fillAmount = 0;
-                var button = AddButton(card);
-                button.transition = Selectable.Transition.None;
-                int selectedLane = lane;
-                button.onClick.AddListener(() => { queue?.Invoke(selectedLane); ClearSelection(button.gameObject); });
-                laneButtons[lane] = button;
-                guideLaneGroups[lane] = card.gameObject.AddComponent<CanvasGroup>();
-                guideLaneFocus[lane] = AddGuideOutline(card);
-                laneFeedback[lane] = SkillCardFeedbackGraphic.Create(card.transform, "Lane Condition Feedback", 3f);
-                laneCards[lane] = card.gameObject;
-                nextPanels[lane] = next.gameObject;
-            }
+            // The lanes' gears turn up out of the dock's bottom edge; the ACT track runs along its top.
+            BuildSkillGears(controls, white, queue);
             var breathe = Panel("BreathButton", controls, new Vector2(360, -4), new Vector2(136, 112), Card);
             var breathIcon = Image("Icon", breathe.transform, art.GetSkillIcon(LegacyCommonActions.Breathe.IconId),
                 new Vector2(-42, 17), Vector2.one * 36);
@@ -319,20 +288,22 @@ namespace TurnLimbo.Presentation
             cycleNote = cycleHint.rectTransform;
             cycleButton = AddButton(cycle);
             cycleButton.onClick.AddListener(CycleFromButton);
-            Image("Act_BG", controls, white, new Vector2(0, -90), new Vector2(520, 8), Track);
-            actFill = Image("Act_Gauge", controls, white, new Vector2(0, -90), new Vector2(520, 8), Accent);
+            Image("Act_BG", controls, white, new Vector2(0, ActTrackY), new Vector2(520, 8), Track);
+            actFill = Image("Act_Gauge", controls, white, new Vector2(0, ActTrackY), new Vector2(520, 8), Accent);
             Filled(actFill, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
             for (int unit = 1; unit < 10; unit++)
-                Image("ACT Divider " + unit, controls, white, new Vector2(-260 + unit * 52, -90), new Vector2(2, 8), Surface);
-            actText = Text("Act_Value", controls, new Vector2(0, -78), new Vector2(160, 22), 22, TextAnchor.MiddleCenter);
+                Image("ACT Divider " + unit, controls, white, new Vector2(-260 + unit * 52, ActTrackY), new Vector2(2, 8), Surface);
+            actText = Text("Act_Value", controls, new Vector2(0, ActTrackY + 20f), new Vector2(160, 22), 22, TextAnchor.MiddleCenter);
             actText.color = Foreground;
-            guideActFocus = GuideFocusFrame("Guide ACT Focus", controls, new Vector2(0f, -81f), new Vector2(540f, 39f));
+            guideActFocus = GuideFocusFrame("Guide ACT Focus", controls, new Vector2(0f, ActTrackY + 11f), new Vector2(540f, 40f));
             var start = Panel("AButton", controls, new Vector2(EndButtonX, -4f), new Vector2(96, 112), RaisedSurface, Accent);
             BuildActionIcon(start.transform, "confirm-turn", "확정", "Space");
             commitButton = AddButton(start, true);
             guideCommitGroup = start.gameObject.AddComponent<CanvasGroup>();
             guideCommitFocus = AddGuideOutline(start);
             commitButton.onClick.AddListener(() => { commit?.Invoke(); ClearSelection(commitButton.gameObject); });
+            // First laid out for all three lanes; a duel with fewer packs its own.
+            LayoutGears(AllLanes, true);
 
             timerPanel = Panel("TimerBG", root, new Vector2(0, -36), new Vector2(480, 48)).rectTransform;
             Pin(timerPanel, new Vector2(.5f, 1));
@@ -360,23 +331,31 @@ namespace TurnLimbo.Presentation
             enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
             guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
 
-            var playerExplanationImage = Panel("Skill Explain", root, Vector2.zero, new Vector2(460, 368), DuelVisualTheme.Paper);
+            // A held skill's explanation: the enemy's card drawn larger (PlayerExplanationScale), on a dark drop shadow.
+            const float explain = PlayerExplanationScale;
+            var playerExplanationImage = Panel("Skill Explain", root, Vector2.zero, new Vector2(460, 368) * explain, DuelVisualTheme.Paper);
             Dress(playerExplanationImage);
+            var shade = playerExplanationImage.gameObject.AddComponent<Shadow>();
+            shade.effectColor = ExplanationShade;
+            shade.effectDistance = ExplanationShadeOffset;
             playerExplanation = playerExplanationImage.rectTransform;
-            playerExplanationIcon = Image("Explanation Skill Icon", playerExplanation, null, new Vector2(-183, 128), Vector2.one * 68);
+            playerExplanationIcon = Image("Explanation Skill Icon", playerExplanation, null, new Vector2(-183, 128) * explain, Vector2.one * 68 * explain);
             playerExplanationIcon.preserveAspect = true;
-            playerName = Text("Name", playerExplanation, new Vector2(35, 148), new Vector2(326, 34), 26, TextAnchor.MiddleLeft);
+            playerName = Text("Name", playerExplanation, new Vector2(35, 148) * explain, new Vector2(326, 34) * explain,
+                ExplanationType(26), TextAnchor.MiddleLeft);
             playerName.color = DuelVisualTheme.Ink;
-            FitExplanationLabel(playerName, 16);
-            playerStyle = new SkillLaneBadge(playerExplanation, art.UIFont, "Power Cost Property", Vector2.zero);
+            FitExplanationLabel(playerName, ExplanationType(16));
+            playerStyle = new SkillLaneBadge(playerExplanation, art.UIFont, "Power Cost Property", Vector2.zero,
+                144f * explain, 24f * explain, ExplanationType(15));
             playerDetails = playerStyle.Label;
-            playerInfo = new SkillInfoView(playerExplanation, art.UIFont, new Vector2(0, -18), 416, "Player");
+            playerInfo = new SkillInfoView(playerExplanation, art.UIFont, new Vector2(0, -18) * explain, 416 * explain, "Player", explain);
             playerDescription = playerInfo.EffectText;
             playerDescription.name = "Effect";
             playerEffectFeedback = SkillCardFeedbackGraphic.Create(playerDescription.transform, "Current Effect Emphasis", 3f);
-            playerExplanationHint = Text("Explanation Hint", playerExplanation, new Vector2(0, -157), new Vector2(416, 20), 14, TextAnchor.MiddleRight);
+            playerExplanationHint = Text("Explanation Hint", playerExplanation, new Vector2(0, -157) * explain, new Vector2(416, 20) * explain,
+                ExplanationType(14), TextAnchor.MiddleRight);
             playerExplanationHint.text = "키를 놓으면 닫기"; playerExplanationHint.color = DuelVisualTheme.Ink;
-            FitExplanationLabel(playerExplanationHint, 11);
+            FitExplanationLabel(playerExplanationHint, ExplanationType(11));
             var enemyExplanationImage = Panel("Enemy Skill Explain", root, new Vector2(-480, 160), new Vector2(460, 368), DuelVisualTheme.Paper);
             Dress(enemyExplanationImage);
             enemyExplanation = enemyExplanationImage.rectTransform;
@@ -485,50 +464,6 @@ namespace TurnLimbo.Presentation
             (displayedSession == null || displayedSession.Features.Has(CombatFeature.Breath)) &&
             (guide == null || guide.AllowsBreath);
 
-        /// <summary>넘기기 just turned the lanes marked in <paramref name="turned"/>: they play the gear-like slide from
-        /// the next card into the front card. Call before the Refresh that shows the new front skills.</summary>
-        public void PlayLaneTurn(bool[] turned)
-        {
-            if (disposed || turned == null) return;
-            for (int lane = 0; lane < laneTurnElapsed.Length && lane < turned.Length; lane++)
-                if (turned[lane]) laneTurnElapsed[lane] = 0f;
-            AdvanceLaneTurns(0f);
-        }
-
-        /// <summary>Whether a lane's turn slide is still playing.</summary>
-        public bool IsLaneTurning(int lane) => lane >= 0 && lane < laneTurnElapsed.Length && laneTurnElapsed[lane] < LaneTurnDuration;
-
-        private void AdvanceLaneTurns(float realDelta)
-        {
-            for (int lane = 0; lane < laneTurnElapsed.Length; lane++)
-            {
-                laneTurnElapsed[lane] = Mathf.Min(LaneTurnDuration, laneTurnElapsed[lane] + Mathf.Max(0f, realDelta));
-                bool settled = laneTurnElapsed[lane] >= LaneTurnDuration;
-                float t = settled ? 1f : OutQuad(laneTurnElapsed[lane] / LaneTurnDuration);
-                RectTransform current = currentIcons[lane].rectTransform, nextIcon = nextIcons[lane].rectTransform;
-                Color next = nextIcons[lane].color;
-                if (settled)
-                {
-                    // Land exactly on the resting layout.
-                    current.anchoredPosition = CurrentIconHome;
-                    current.localScale = Vector3.one;
-                    nextIcon.anchoredPosition = NextIconHome;
-                    next.a = NextIconAlpha;
-                    laneCards[lane].transform.localScale = Vector3.one;
-                }
-                else
-                {
-                    current.anchoredPosition = Vector2.Lerp(CurrentIconHome + LaneTurnFrom, CurrentIconHome, t);
-                    current.localScale = Vector3.one * Mathf.Lerp(.8f, 1f, t);
-                    nextIcon.anchoredPosition = Vector2.Lerp(NextIconHome + NextTurnFrom, NextIconHome, t);
-                    next.a = NextIconAlpha * t;
-                    // A short tick: the card swells a little and settles as the new skill lands.
-                    laneCards[lane].transform.localScale = Vector3.one * (1f + .06f * Mathf.Sin(Mathf.PI * t));
-                }
-                nextIcons[lane].color = next;
-            }
-        }
-
         /// <summary>넘기기 is shown when the duel allows it and the coach, if any, has reached its lesson or free play.</summary>
         private bool CycleShown => displayedSession != null && displayedSession.Features.Has(CombatFeature.Cycle) &&
             (guide == null || guide.AllowsCycle);
@@ -563,32 +498,6 @@ namespace TurnLimbo.Presentation
 
         /// <summary>With a single lane there is only its front skill to send back; otherwise every open lane turns.</summary>
         private static string CycleEffectText(CombatFeature openLanes) => openLanes.LaneCount() == 1 ? "맨 앞 한 칸" : "모든 열 한 칸";
-
-        /// <summary>A lane's front-card x among <paramref name="openLanes"/>: its place in Q, W, E order, centred.</summary>
-        private static float LaneX(int lane, CombatFeature openLanes)
-        {
-            int index = 0;
-            for (int before = 0; before < lane; before++)
-                if (openLanes.HasLane(before)) index++;
-            return (index - (openLanes.LaneCount() - 1) * .5f) * LanePitch;
-        }
-
-        /// <summary>Places the open lanes' cards side by side and words 넘기기 for them. Runs only when the open set
-        /// changes, so the cards rest where they were put between duels with the same lanes.</summary>
-        private void LayoutLanes(CombatFeature features)
-        {
-            CombatFeature open = features & AllLanes;
-            if (open == laidOutLanes || open == CombatFeature.None) return;
-            laidOutLanes = open;
-            for (int lane = 0; lane < laneCards.Length; lane++)
-            {
-                if (!open.HasLane(lane)) continue;
-                var x = new Vector2(LaneX(lane, open), 0);
-                ((RectTransform)laneCards[lane].transform).anchoredPosition = CurrentCardHome + x;
-                ((RectTransform)nextPanels[lane].transform).anchoredPosition = NextCardHome + x;
-            }
-            cycleEffect.text = CycleEffectText(open);
-        }
 
         private void AdvanceTimeSpent(float realDelta)
         {
@@ -630,7 +539,7 @@ namespace TurnLimbo.Presentation
             {
                 bool allowLane = guide == null || guide.AllowsQueue(lane);
                 laneButtons[lane].interactable = lastPlanning && laneAffordable[lane] && allowLane;
-                guideLaneGroups[lane].alpha = allowLane ? 1f : .4f;
+                SetLaneFade(lane, allowLane ? 1f : .4f);
             }
         }
 
@@ -731,35 +640,25 @@ namespace TurnLimbo.Presentation
                 shownTurn = session.RoundNumber;
                 turnText.text = $"턴 {shownTurn}";
             }
-            LayoutLanes(session.Features);
+            LayoutGears(session.Features);
             for (int lane = 0; lane < 3; lane++)
             {
                 var sequence = session.GetLane(lane);
-                laneAffordable[lane] = sequence.Count > 0;
                 // A lane the duel does not have (e.g. W/E in the Q-only opening missions) is not drawn at all.
                 bool present = sequence.Count > 0;
-                if (laneCards[lane].activeSelf != present) laneCards[lane].SetActive(present);
-                if (nextPanels[lane].activeSelf != present) nextPanels[lane].SetActive(present);
+                SetGearPresent(lane, present);
+                laneAffordable[lane] = present && session.Act >= sequence[0].Cost;
                 if (!present) continue;
                 var current = sequence[0];
-                var next = sequence[sequence.Count > 1 ? 1 : 0];
                 if (shownSkills[lane] != current.Id)
                 {
                     shownSkills[lane] = current.Id;
-                    currentIcons[lane].sprite = HudIcon(current.IconId);
                     costs[lane].text = $"{current.Cost} ACT";
                     skillNames[lane].text = current.Name;
                 }
-                if (shownNextSkills[lane] != next.Id)
-                {
-                    shownNextSkills[lane] = next.Id;
-                    nextIcons[lane].sprite = HudIcon(next.IconId);
-                }
-                bool affordable = session.Act >= current.Cost;
-                laneAffordable[lane] = affordable;
-                currentIcons[lane].color = affordable ? Color.white
-                    : new Color(MutedText.r, MutedText.g, MutedText.b, .62f);
+                FollowLaneOrder(lane, sequence, laneAffordable[lane]);
             }
+            UpdateIdlerPresence();
             AdvanceLaneTurns(actualDelta);
             AdvanceTimeSpent(actualDelta);
             UpdateBreathCount();
@@ -872,6 +771,12 @@ namespace TurnLimbo.Presentation
             else for (int i = 0; i < holdImages.Length; i++) holdImages[i].fillAmount = 0;
         }
 
+        /// <summary>A card the controller keeps up over the dock, by its top on the screen (pixels from the bottom; 0 for
+        /// none): the coach's (<see cref="MissionCoachHud.TopEdge"/>). A held skill's explanation then opens above it rather
+        /// than under it, so the card never covers its effect text. Read on each <see cref="ShowExplanation"/>.</summary>
+        public void SetExplanationFloor(float screenTop)
+            => explanationFloor = screenTop > 0f && !float.IsInfinity(screenTop) ? screenTop : 0f;
+
         public void ShowExplanation(LegacySkill skill, bool enemy)
         {
             if (disposed || skill == null) return;
@@ -899,7 +804,7 @@ namespace TurnLimbo.Presentation
                 enemyExplanationHint.text = named ? EnemyHint : NeutralEnemyHint;
                 enemyExplanationIcon.sprite = iconFor(skill.IconId);
                 enemyInfo.SetSkill(skill, true);
-                LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint);
+                LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint, 1f);
             }
             else if (changed)
             {
@@ -908,21 +813,23 @@ namespace TurnLimbo.Presentation
                 playerStyle.SetLane(skill.LaneIndex);
                 playerExplanationIcon.sprite = iconFor(skill.IconId);
                 playerInfo.SetSkill(skill);
-                LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint);
+                LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
+                    PlayerExplanationScale);
             }
             // Clamp after content sizing, including repeated holds at a moving screen edge.
             Vector2 desired = root.rect.size / 2 + new Vector2(-480, 160);
             if (!enemy)
             {
+                // Above the dock, centred on the held lane's window (where its current skill rests, so the panel stays put
+                // while the gear turns the icon in): clear of the gears, and over the fighters' head HUDs. Above the
+                // coach's card too while one is up over the dock: it draws over this HUD and would hide the effect text.
                 int lane = Mathf.Clamp(skill.LaneIndex, 0, 2);
-                // The icon's resting place, so the panel stays put while a 넘기기 turn slides the icon in.
-                Transform card = laneCards[lane].transform;
-                Vector3 iconHome = card.parent.TransformPoint(card.localPosition + (Vector3)CurrentIconHome);
-                Vector2 selected = ScreenPosition(RectTransformUtility.WorldToScreenPoint(null, iconHome));
-                desired = selected + new Vector2(0, panel.sizeDelta.y / 2f + 96f);
+                Vector2 window = ScreenPosition(RectTransformUtility.WorldToScreenPoint(null, gears[lane].Window.position));
+                float floor = Mathf.Max(DockTop, ScreenPosition(new Vector3(0f, explanationFloor, 0f)).y);
+                desired = new Vector2(window.x, floor + ExplanationGap + panel.sizeDelta.y / 2f);
             }
             panel.anchoredPosition = ClampCenter(desired,
-                panel.sizeDelta + Vector2.right * (SkillInfoView.AttachmentOverhang * 2f)) - root.rect.size / 2;
+                panel.sizeDelta + Vector2.right * ((enemy ? enemyInfo : playerInfo).Overhang * 2f)) - root.rect.size / 2;
             conditionPreview = !enemy && lastPlanning ? skill : null;
             UpdateConditionPreview();
             UpdateEffectEmphasis();
@@ -989,18 +896,26 @@ namespace TurnLimbo.Presentation
                 ReferenceEquals(explainedEnemy, feedbackSlot.EnemySkill) && feedbackSlot.EnemyFeedback.EffectActivated);
         }
 
-        private static void LayoutExplanation(RectTransform panel, Image icon, Text name, SkillLaneBadge style, SkillInfoView info, Text hint)
+        /// <summary>Where a held skill's explanation's bottom may sit: the dock's top, in HUD units from the screen's bottom.</summary>
+        private float DockTop => ScreenPosition(RectTransformUtility.WorldToScreenPoint(null,
+            inputPanel.TransformPoint(new Vector3(0f, inputPanel.rect.yMax, 0f)))).y;
+
+        // A type size of the held explanation (PlayerExplanationScale times the enemy's).
+        private static int ExplanationType(int points) => Mathf.RoundToInt(points * PlayerExplanationScale);
+
+        private static void LayoutExplanation(RectTransform panel, Image icon, Text name, SkillLaneBadge style, SkillInfoView info, Text hint,
+            float scale)
         {
-            float height = 90f + info.Height + 36f;
+            float height = (90f + 36f) * scale + info.Height;
             panel.sizeDelta = new Vector2(panel.sizeDelta.x, height);
             float top = height / 2f;
-            icon.rectTransform.anchoredPosition = new Vector2(-146f, top - 50f);
-            icon.rectTransform.sizeDelta = Vector2.one * 64f;
-            name.rectTransform.anchoredPosition = new Vector2(20f, top - 36f);
-            name.rectTransform.sizeDelta = new Vector2(244f, 32f);
-            style.Root.anchoredPosition = new Vector2(-30f, top - 65f);
-            info.PlaceTop(top - 90f);
-            hint.rectTransform.anchoredPosition = new Vector2(0f, -top + 16f);
+            icon.rectTransform.anchoredPosition = new Vector2(-146f * scale, top - 50f * scale);
+            icon.rectTransform.sizeDelta = Vector2.one * 64f * scale;
+            name.rectTransform.anchoredPosition = new Vector2(20f * scale, top - 36f * scale);
+            name.rectTransform.sizeDelta = new Vector2(244f, 32f) * scale;
+            style.Root.anchoredPosition = new Vector2(-30f * scale, top - 65f * scale);
+            info.PlaceTop(top - 90f * scale);
+            hint.rectTransform.anchoredPosition = new Vector2(0f, -top + 16f * scale);
         }
 
         private static void FitExplanationLabel(Text label, int minSize)
@@ -1170,9 +1085,8 @@ namespace TurnLimbo.Presentation
             shownBreathsRemaining = -1;
             UpdateBreathCount();
             ApplyInputAvailability();
-            for (int i = 0; i < 3; i++) shownSkills[i] = shownNextSkills[i] = -1;
-            for (int i = 0; i < laneTurnElapsed.Length; i++) laneTurnElapsed[i] = LaneTurnDuration;
-            AdvanceLaneTurns(0f);
+            for (int i = 0; i < 3; i++) shownSkills[i] = -1;
+            ResetGears();
             timeSpentRemaining = 0f;
             AdvanceTimeSpent(0f);
             playerStatus.Reset(); enemyStatus.Reset();
@@ -1196,6 +1110,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             disposed = true;
             Destroy(root.gameObject);
+            ReleaseGearPictures();
             foreach (var icon in hudIcons.Values)
                 if (Application.isPlaying) UnityEngine.Object.Destroy(icon);
                 else UnityEngine.Object.DestroyImmediate(icon);
