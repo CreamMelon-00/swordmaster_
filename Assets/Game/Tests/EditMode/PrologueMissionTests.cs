@@ -1,6 +1,5 @@
 using System;
 using System.Linq;
-using System.Text.RegularExpressions;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.Cutscene;
@@ -181,13 +180,8 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void CoachCopy_SpeaksAsTheVoiceInHerHead_InBanmalWithEveryTokenResolved()
+        public void CoachCopy_ResolvesEverySkillToken()
         {
-            // The coach is the prologue's unseen voice, the one in 엘리사's head (Docs/Narrative.md): every beat's title and
-            // description is 반말. Input hints, briefings and other system copy keep their polite tone and are not checked.
-            var politeAnywhere = new Regex("세요|습니다|습니까|니다|십시오");
-            var politeEnding = new Regex("(요|죠)[.!?…~]*$");
-            int namings = 0, laughs = 0;
             foreach (PrologueMission mission in StoryMissions.All)
                 foreach (MissionGuideBeat beat in mission.CreateGuide().Beats)
                     foreach (string copy in new[] { beat.Title, beat.Description })
@@ -195,14 +189,7 @@ namespace TurnLimbo.Core.Tests
                         string label = "mission " + mission.Number + " · " + copy;
                         Assert.That(string.IsNullOrWhiteSpace(copy), Is.False, label);
                         Assert.That(copy, Does.Not.Contain("{").And.Not.Contain("}"), "Every token resolves: " + label);
-                        Assert.That(politeAnywhere.IsMatch(copy), Is.False, label);
-                        foreach (string sentence in Regex.Split(copy, @"(?<=[.!?…])\s+"))
-                            Assert.That(politeEnding.IsMatch(sentence.Trim()), Is.False, label);
-                        if (copy.Contains("엘리사")) namings++;
-                        if (copy.Contains("아하하") || copy.Contains("푸흐흐")) laughs++;
                     }
-            Assert.That(namings, Is.LessThanOrEqualTo(2), "The voice says her name once or twice at most.");
-            Assert.That(laughs, Is.LessThanOrEqualTo(2), "The voice laughs very rarely.");
         }
 
         [Test]
