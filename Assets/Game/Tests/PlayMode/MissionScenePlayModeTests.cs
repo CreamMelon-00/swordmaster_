@@ -293,7 +293,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(status, Is.Not.Null);
                 Assert.That(status.Find("Battle Name").GetComponent<Text>().text, Is.EqualTo("이아"));
                 Assert.That(controller.AdvanceGuide(), Is.True);
-                Assert.That(controller.Guide.Title, Is.EqualTo("이아"), "…and so does the coach.");
+                Assert.That(controller.Guide.Title, Does.Contain("이아").And.Not.Contain("떠돌이 기사"), "…and so does the coach.");
 
                 controller.RestartMatch();
                 Assert.That(controller.IsMission, Is.False);

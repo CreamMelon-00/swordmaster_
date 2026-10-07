@@ -29,6 +29,9 @@ namespace TurnLimbo.Runtime.Cutscene
         Charge,
         /// <summary>A lasting aura around an actor, fading in or out (<see cref="CutsceneStep.AuraOn"/>).</summary>
         Aura,
+        /// <summary>A remembered tutorial screen flashes up over the scene for the step's seconds and fades away
+        /// (<see cref="Prologue.TutorialRecall"/>).</summary>
+        Recall,
     }
 
     /// <summary>Who stands in the scene. Elisa is the player's figure; the knight and the dummy share the other one,
@@ -54,6 +57,9 @@ namespace TurnLimbo.Runtime.Cutscene
         Pose,
         /// <summary>Plays one sword stroke, then returns to idle.</summary>
         Attack,
+        /// <summary>Shivers on the spot for the step's seconds (a small, fast side-to-side jitter of
+        /// <see cref="CutsceneStep.Strength"/>), then stands exactly where it was.</summary>
+        Tremble,
     }
 
     public enum CutsceneFacing
@@ -97,6 +103,13 @@ namespace TurnLimbo.Runtime.Cutscene
         public const float DefaultShakeSeconds = .5f;
         /// <summary>The strongest shake: the camera's largest offset in world units at the duel framing (size 6).</summary>
         public const float MaximumShake = 1.5f;
+        /// <summary>How far a tremble takes the figure to either side when the script gives no strength: a slight shiver
+        /// (world units; a figure is about 3.5 tall).</summary>
+        public const float DefaultTrembleStrength = .06f;
+        /// <summary>The strongest tremble, in world units to either side.</summary>
+        public const float MaximumTremble = .5f;
+        /// <summary>How long a tutorial recall shows when the script gives no seconds.</summary>
+        public const float DefaultRecallSeconds = 1.5f;
         /// <summary>Where <c>@sound</c> and <c>@ambience</c> find their clips under Resources.</summary>
         public const string SoundFolder = "Sfx/";
 
@@ -131,7 +144,8 @@ namespace TurnLimbo.Runtime.Cutscene
         public CutscenePose Pose { get; private set; }
         public CutsceneAttack Attack { get; private set; }
         public bool FlashbackOn { get; private set; }
-        /// <summary>A shake's largest camera offset (world units at the duel framing).</summary>
+        /// <summary>A shake's largest camera offset (world units at the duel framing), or a tremble's largest sideways
+        /// offset of its figure (world units).</summary>
         public float Strength { get; private set; }
         /// <summary>A sound's volume, 0 to 1.</summary>
         public float Volume { get; private set; }
@@ -176,11 +190,26 @@ namespace TurnLimbo.Runtime.Cutscene
             CutsceneAttack attack = CutsceneAttack.Slash, float seconds = 0f, bool waits = true)
         {
             if (Math.Abs(x) > MaximumX || float.IsNaN(x)) throw new ArgumentOutOfRangeException(nameof(x));
+            if (action == CutsceneActorAction.Tremble)
+                throw new ArgumentException("A tremble has a strength; make it with ForTremble.", nameof(action));
             if (action == CutsceneActorAction.Attack) seconds = AttackSeconds;
             else if (action != CutsceneActorAction.Move) seconds = 0f;
             return new CutsceneStep(CutsceneStepKind.Actor, lineNumber, seconds, waits)
             {
                 Actor = actor, Action = action, X = x, Facing = facing, Pose = pose, Attack = attack,
+            };
+        }
+
+        /// <summary>The figure shivers in place for <paramref name="seconds"/>, at most <paramref name="strength"/> to
+        /// either side, and ends exactly where it stood.</summary>
+        public static CutsceneStep ForTremble(int lineNumber, CutsceneActor actor, float seconds,
+            float strength = DefaultTrembleStrength, bool waits = true)
+        {
+            if (seconds <= 0f) throw new ArgumentOutOfRangeException(nameof(seconds));
+            if (strength <= 0f || strength > MaximumTremble || float.IsNaN(strength)) throw new ArgumentOutOfRangeException(nameof(strength));
+            return new CutsceneStep(CutsceneStepKind.Actor, lineNumber, seconds, waits)
+            {
+                Actor = actor, Action = CutsceneActorAction.Tremble, Strength = strength,
             };
         }
 
@@ -224,6 +253,14 @@ namespace TurnLimbo.Runtime.Cutscene
 
         public static CutsceneStep ForAura(int lineNumber, CutsceneActor actor, bool on, float seconds, bool waits)
             => new CutsceneStep(CutsceneStepKind.Aura, lineNumber, seconds, waits) { Actor = actor, AuraOn = on };
+
+        /// <summary>A tutorial screen the player was shown flashes up for <paramref name="seconds"/> (a white flash in, a
+        /// fade out); which one is Presentation's choice.</summary>
+        public static CutsceneStep ForRecall(int lineNumber, float seconds = DefaultRecallSeconds, bool waits = true)
+        {
+            if (seconds <= 0f) throw new ArgumentOutOfRangeException(nameof(seconds));
+            return new CutsceneStep(CutsceneStepKind.Recall, lineNumber, seconds, waits);
+        }
     }
 
     /// <summary>A parsed cutscene: its steps in source order, and who already stands on stage when it starts.</summary>

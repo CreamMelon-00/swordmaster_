@@ -8,13 +8,14 @@ using Object = UnityEngine.Object;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Stages a cutscene on the forest arena while the duel is not ticking: it places and poses the figures
-    /// (the two fighters, and the senior knight who only exists in cutscenes), moves and shakes the camera, drains
-    /// the colour for flashbacks, runs the figures' power effects and the scene's sounds, and drives the
-    /// <see cref="CutsceneHud"/> layers and the dialogue box. The order of steps belongs to <see cref="CutscenePlayback"/>.
+    /// <summary>Stages a cutscene on the forest arena while the duel is not ticking: it places, poses and trembles the
+    /// figures (the two fighters, and the senior knight who only exists in cutscenes), moves and shakes the camera,
+    /// drains the colour for flashbacks, runs the figures' power effects and the scene's sounds, flashes up remembered
+    /// tutorial screens (<see cref="TutorialRecallAlbum"/>), and drives the <see cref="CutsceneHud"/> layers and the
+    /// dialogue box. The order of steps belongs to <see cref="CutscenePlayback"/>.
     /// <see cref="Dispose"/> gives the arena and the screens back as it found them (the controller then resets the
-    /// arena), stops every sound and charge, and removes the senior knight. Only the fighters' power auras stay as the
-    /// scene left them, so an aura lit in a battle's event scene carries on into the fight; arena reset clears them.
+    /// arena), stops every sound, charge and tremble, and removes the senior knight. Only the fighters' power auras stay
+    /// as the scene left them, so an aura lit in a battle's event scene carries on into the fight; arena reset clears them.
     /// A script may start on a bare stage (the opening) or with figures already standing (<see cref="CutsceneScript.OnStage"/>,
     /// a mission's scenes): those keep the arena's places, facing and camera framing until the script moves them. A scene
     /// that plays in the middle of a battle (<see cref="ResumesBattle"/>) suspends the arena for its length and leaves it
@@ -29,6 +30,14 @@ namespace TurnLimbo.Presentation
         private const float ShakeFrequency = 22f;
         // A battle's tilted close-up levels out this fast when a scene starts in its middle; the zoom stays.
         private const float LevelSeconds = .3f;
+        // A tremble shivers at about this rate (cycles per second), easing in and out over the first and last moments.
+        private const float TrembleFrequency = 14f;
+        private const float TrembleEaseSeconds = .08f;
+        // A recall: the white flash dies away over the first moment while the memory comes up under it; the last part
+        // fades it out. Short recalls shrink both to a share of their length.
+        private const float RecallFlashSeconds = .25f;
+        private const float RecallRiseSeconds = .06f;
+        private const float RecallFadeSeconds = .5f;
 
         private sealed class Figure
         {
@@ -46,12 +55,16 @@ namespace TurnLimbo.Presentation
             public bool Attacking;
             public CutsceneAttack Attack;
             public float AttackElapsed;
+            // A shiver around X, which it never changes.
+            public bool Trembling;
+            public float TrembleElapsed, TrembleSeconds, TrembleStrength;
         }
 
         private readonly LegacyArenaView arena;
         private readonly CutsceneHud hud;
         private readonly DialogueHud dialogueHud;
         private readonly DialoguePortraitCatalog portraits;
+        private readonly TutorialRecallAlbum recall;
         private readonly Figure elisa, other, senior;
         // The senior knight's own objects; created only for a script that uses him.
         private readonly GameObject seniorRoot;
@@ -60,6 +73,8 @@ namespace TurnLimbo.Presentation
         // A staged start's camera height and roll away from the cutscene framing, kept until the first @camera.
         private Tween cameraLift, cameraTilt;
         private float shakeStrength, shakeElapsed, shakeSeconds;
+        // The recall on screen, if any (seconds 0 = none).
+        private float recallElapsed, recallSeconds;
         private Sprite imageSprite;
         private bool imageLeaving;
         private bool otherIsDummy;
@@ -81,8 +96,10 @@ namespace TurnLimbo.Presentation
 
         /// <param name="resumesBattle">The scene plays in the middle of a battle (it must start on stage): the arena is
         /// suspended at <see cref="Start"/> and given back as the battle left it at <see cref="Dispose"/>.</param>
+        /// <param name="recall">What <c>@recall</c> brings back (the controller's album, which stays its owner); without
+        /// one a recall only warns.</param>
         public CutsceneDirector(CutsceneScript script, LegacyArenaView arena, CutsceneHud hud, DialogueHud dialogueHud,
-            DialoguePortraitCatalog portraits, bool resumesBattle = false)
+            DialoguePortraitCatalog portraits, bool resumesBattle = false, TutorialRecallAlbum recall = null)
         {
             if (resumesBattle && script != null && script.OnStage.Count == 0)
                 throw new ArgumentException("A scene in the middle of a battle starts with the fighters on stage.", nameof(script));
@@ -91,6 +108,7 @@ namespace TurnLimbo.Presentation
             this.hud = hud ?? throw new ArgumentNullException(nameof(hud));
             this.dialogueHud = dialogueHud ?? throw new ArgumentNullException(nameof(dialogueHud));
             this.portraits = portraits;
+            this.recall = recall;
             Playback = new CutscenePlayback(script, this);
             elisa = new Figure
             {
@@ -116,11 +134,20 @@ namespace TurnLimbo.Presentation
         public DuelPowerAura SeniorPowerAura => senior?.Aura;
         /// <summary>Whether a <c>@shake</c> is still moving the camera.</summary>
         public bool IsShaking => shakeElapsed < shakeSeconds;
+        /// <summary>Whether a <c>@recall</c> is still on screen.</summary>
+        public bool IsRecalling => recallSeconds > 0f;
 
         public bool IsVisible(CutsceneActor actor)
         {
             Figure figure = Slot(actor);
             return figure != null && figure.Visible && (figure != other || (actor == CutsceneActor.Dummy) == otherIsDummy);
+        }
+
+        /// <summary>Whether the actor is shivering (<c>@actor … tremble</c>) right now.</summary>
+        public bool IsTrembling(CutsceneActor actor)
+        {
+            Figure figure = Slot(actor);
+            return figure != null && figure.Trembling && IsVisible(actor);
         }
 
         /// <summary>Sets the stage and runs the cutscene up to its first hold. A bare stage has every figure off and the
@@ -131,6 +158,7 @@ namespace TurnLimbo.Presentation
             if (disposed || Playback.IsStarted) return;
             fade = bars = imageAmount = flashback = Tween.At(0f);
             shakeStrength = shakeElapsed = shakeSeconds = 0f;
+            recallElapsed = recallSeconds = 0f;
             if (senior != null) senior.Visible = false;
             if (Playback.Script.OnStage.Count > 0) StartOnStage();
             else
@@ -176,6 +204,11 @@ namespace TurnLimbo.Presentation
             {
                 imageLeaving = false;
                 imageSprite = null;
+            }
+            if (recallSeconds > 0f)
+            {
+                recallElapsed = Mathf.Min(recallSeconds, recallElapsed + delta);
+                if (recallElapsed >= recallSeconds) EndRecall();
             }
             Playback.Tick(delta);
             Apply(delta);
@@ -230,6 +263,9 @@ namespace TurnLimbo.Presentation
                 case CutsceneStepKind.Aura:
                     Slot(step.Actor)?.Aura?.SetAura(step.AuraOn, step.Seconds);
                     break;
+                case CutsceneStepKind.Recall:
+                    RunRecall(step);
+                    break;
             }
         }
 
@@ -248,6 +284,7 @@ namespace TurnLimbo.Presentation
             disposed = true;
             RestoreFigure(elisa);
             RestoreFigure(other);
+            recallSeconds = 0f;
             elisa.Aura?.StopCharge();
             other.Aura?.StopCharge();
             arena.SetFlashback(0f);
@@ -289,7 +326,7 @@ namespace TurnLimbo.Presentation
                 figure.FacesRight = figure.FacesRightByDefault != figure.Renderer.flipX;
                 figure.Pose = CutscenePose.Idle;
                 figure.PoseClock = 0f;
-                figure.Moving = figure.Attacking = false;
+                figure.Moving = figure.Attacking = figure.Trembling = false;
             }
             Transform camera = arena.ArenaCamera.transform;
             float size = arena.ArenaCamera.orthographicSize;
@@ -350,6 +387,55 @@ namespace TurnLimbo.Presentation
         private void WarnMissing(CutsceneStep step, string what)
             => Debug.LogWarning($"Cutscene '{Playback.Script.Id}', line {step.SourceLineNumber}: no {what} at Resources/{step.Resource}.");
 
+        /// <summary>A remembered tutorial screen: one the album captured, or else a coached beat redrawn as a card, both
+        /// chosen at random by the album. A new recall replaces the one up. With nothing to recall the step still holds
+        /// its time (like a missing image), with a warning.</summary>
+        private void RunRecall(CutsceneStep step)
+        {
+            Texture2D screen = null;
+            TutorialRecallBeat beat = null;
+            if (recall == null || !recall.TryPick(out screen, out beat))
+            {
+                EndRecall();
+                Debug.LogWarning($"Cutscene '{Playback.Script.Id}', line {step.SourceLineNumber}: no tutorial screen or coach beat to recall.");
+                return;
+            }
+            if (screen != null) hud.ShowRecall(screen);
+            else hud.ShowRecall(beat);
+            recallElapsed = 0f;
+            recallSeconds = step.Seconds;
+        }
+
+        private void EndRecall()
+        {
+            recallElapsed = recallSeconds = 0f;
+            hud.HideRecall();
+        }
+
+        // Up at once under a white flash that dies away; held; faded out over its last part.
+        private float RecallAmount
+        {
+            get
+            {
+                if (recallSeconds <= 0f) return 0f;
+                float rise = Mathf.Min(RecallRiseSeconds, recallSeconds * .1f);
+                float fadeOut = Mathf.Min(RecallFadeSeconds, recallSeconds * .4f);
+                float shown = rise <= 0f ? 1f : Mathf.Clamp01(recallElapsed / rise);
+                float left = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01((recallSeconds - recallElapsed) / fadeOut));
+                return Mathf.Min(shown, left);
+            }
+        }
+
+        private float RecallFlash
+        {
+            get
+            {
+                if (recallSeconds <= 0f) return 0f;
+                float flash = 1f - Mathf.Clamp01(recallElapsed / Mathf.Min(RecallFlashSeconds, recallSeconds * .3f));
+                return flash * flash;
+            }
+        }
+
         private void RunImage(CutsceneStep step)
         {
             if (step.Resource == null)
@@ -394,7 +480,7 @@ namespace TurnLimbo.Presentation
                         }
                         figure.Pose = CutscenePose.Idle;
                         figure.PoseClock = 0f;
-                        figure.Attacking = false;
+                        figure.Attacking = figure.Trembling = false;
                         figure.FacesRight = figure.FacesRightByDefault;
                     }
                     figure.Visible = true;
@@ -406,6 +492,7 @@ namespace TurnLimbo.Presentation
                     figure.Visible = false;
                     figure.Moving = false;
                     figure.Attacking = false;
+                    figure.Trembling = false;
                     // Leaving the stage takes the figure's power with it.
                     figure.Aura?.StopCharge();
                     figure.Aura?.SetAura(false);
@@ -430,6 +517,13 @@ namespace TurnLimbo.Presentation
                     figure.Attacking = true;
                     figure.Attack = step.Attack;
                     figure.AttackElapsed = 0f;
+                    break;
+                case CutsceneActorAction.Tremble:
+                    // A new tremble replaces the one in progress; the figure's place is untouched.
+                    figure.Trembling = true;
+                    figure.TrembleElapsed = 0f;
+                    figure.TrembleSeconds = step.Seconds;
+                    figure.TrembleStrength = step.Strength;
                     break;
             }
         }
@@ -456,6 +550,11 @@ namespace TurnLimbo.Presentation
                     figure.PoseClock = 0f;
                 }
             }
+            if (figure.Trembling)
+            {
+                figure.TrembleElapsed += delta;
+                if (figure.TrembleElapsed >= figure.TrembleSeconds) figure.Trembling = false;
+            }
             // The dummy's hit reaction plays once and settles back into its sway.
             if (figure == other && otherIsDummy && figure.Pose == CutscenePose.Hurt &&
                 figure.PoseClock >= TrainingDummyAnimationSet.HurtDuration)
@@ -472,6 +571,7 @@ namespace TurnLimbo.Presentation
             hud.SetFade(fade.Value);
             hud.SetBars(bars.Value);
             hud.SetImage(imageSprite, imageAmount.Value);
+            if (recallSeconds > 0f) hud.SetRecall(RecallAmount, RecallFlash);
             arena.SetFlashback(flashback.Value);
             ApplyFigure(elisa);
             ApplyFigure(other);
@@ -502,7 +602,7 @@ namespace TurnLimbo.Presentation
             SpriteRenderer renderer = figure.Renderer;
             if (renderer.gameObject.activeSelf != figure.Visible) renderer.gameObject.SetActive(figure.Visible);
             if (!figure.Visible) return;
-            renderer.transform.localPosition = new Vector3(figure.X, GroundY, 0f);
+            renderer.transform.localPosition = new Vector3(figure.X + TrembleOffset(figure), GroundY, 0f);
             renderer.transform.localScale = Vector3.one;
             renderer.color = Color.white;
             renderer.flipX = figure.FacesRight != figure.FacesRightByDefault;
@@ -558,10 +658,25 @@ namespace TurnLimbo.Presentation
             => attack == CutsceneAttack.Pierce ? LegacySkillProperty.Penetrate
                 : attack == CutsceneAttack.Blunt ? LegacySkillProperty.Hit : LegacySkillProperty.Slash;
 
+        /// <summary>A tremble's sideways offset now: two quick waves (at most 1 together) at the tremble's strength, eased
+        /// in and out so it neither starts nor stops with a jump. 0 when still.</summary>
+        private static float TrembleOffset(Figure figure)
+        {
+            if (!figure.Trembling) return 0f;
+            float time = figure.TrembleElapsed;
+            float ease = Mathf.Clamp01(Mathf.Min(time, figure.TrembleSeconds - time) / TrembleEaseSeconds);
+            float phase = time * TrembleFrequency * 2f * Mathf.PI;
+            float wave = Mathf.Sin(phase) * .65f + Mathf.Sin(phase * 1.7f + 1.1f) * .35f;
+            return figure.TrembleStrength * ease * wave;
+        }
+
         private static void RestoreFigure(Figure figure)
         {
             SpriteRenderer renderer = figure.Renderer;
             if (renderer == null) return;
+            // A scene cut short in a tremble leaves the figure exactly at its place.
+            if (figure.Trembling && figure.Visible) renderer.transform.localPosition = new Vector3(figure.X, GroundY, 0f);
+            figure.Trembling = false;
             renderer.flipX = false;
             renderer.color = Color.white;
             renderer.transform.localScale = Vector3.one;

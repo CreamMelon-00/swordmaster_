@@ -30,7 +30,7 @@ namespace TurnLimbo.Runtime.Cutscene
         private static readonly string[] StagingDirectives =
         {
             "@wait", "@fade", "@bars", "@camera", "@image", "@actor",
-            "@flashback", "@shake", "@sound", "@ambience", "@charge", "@aura",
+            "@flashback", "@shake", "@sound", "@ambience", "@charge", "@aura", "@recall",
         };
         // Lets the dialogue parser validate stage directives after the last line and files with no dialogue at all.
         private const string Sentinel = "\n@narrator\n__TURN_LIMBO_CUTSCENE_END__\n";
@@ -89,7 +89,7 @@ namespace TurnLimbo.Runtime.Cutscene
                     throw new CutsceneParseException(id, lineNumber,
                         $"알 수 없는 지시어 '{command}'입니다. 대사 지시어(@narrator, @left, @right, @show, @hide, @move)나 " +
                         "연출 지시어(@wait, @fade, @bars, @camera, @image, @actor, @flashback, @shake, @sound, @ambience, " +
-                        "@charge, @aura)를 소문자로 적으세요.");
+                        "@charge, @aura, @recall)를 소문자로 적으세요.");
                 masked.Append(lines[index]);
             }
             masked.Append(Sentinel);
@@ -238,6 +238,14 @@ namespace TurnLimbo.Runtime.Cutscene
                         : throw Error(id, line, "@aura <인물> 다음에는 on 또는 off를 적으세요.");
                     return CutsceneStep.ForAura(line, actor, on, OptionalSeconds(id, line, args, 2), waits);
                 }
+                case "@recall":
+                {
+                    Expect(id, line, args, 0, 1, "@recall [초]");
+                    float seconds = args.Length > 0 ? Seconds(id, line, args[0]) : CutsceneStep.DefaultRecallSeconds;
+                    if (seconds <= 0f)
+                        throw Error(id, line, $"떠올리는 시간은 0보다 길어야 합니다(안 쓰면 {CutsceneStep.DefaultRecallSeconds.ToString("0.0", CultureInfo.InvariantCulture)}초).");
+                    return CutsceneStep.ForRecall(line, seconds, waits);
+                }
                 default:
                     return ParseActor(id, line, args, waits, state);
             }
@@ -260,7 +268,7 @@ namespace TurnLimbo.Runtime.Cutscene
 
         private static CutsceneStep ParseActor(string id, int line, string[] args, bool waits, StageState actors)
         {
-            if (args.Length < 2) throw Error(id, line, "@actor <elisa|knight|dummy|senior> <at|hide|move|face|pose|attack> ... 형식으로 적으세요.");
+            if (args.Length < 2) throw Error(id, line, "@actor <elisa|knight|dummy|senior> <at|hide|move|face|pose|attack|tremble> ... 형식으로 적으세요.");
             CutsceneActor actor = Actor(id, line, args[0]);
             string action = args[1];
             if (action != "at" && !actors.IsVisible(actor))
@@ -316,8 +324,24 @@ namespace TurnLimbo.Runtime.Cutscene
                         : throw Error(id, line, "공격은 slash(베기), pierce(찌르기), blunt(내려치기) 중 하나입니다.");
                     return CutsceneStep.ForActor(line, actor, CutsceneActorAction.Attack, attack: attack, waits: waits);
                 }
+                case "tremble":
+                {
+                    // Every figure can shiver in place, the dummy and the senior knight included: it moves no art.
+                    Expect(id, line, args, 3, 4, "@actor <인물> tremble <초> [세기]");
+                    float seconds = Seconds(id, line, args[2]);
+                    if (seconds <= 0f) throw Error(id, line, "떠는 시간은 0보다 길어야 합니다.");
+                    float strength = CutsceneStep.DefaultTrembleStrength;
+                    if (args.Length == 4)
+                    {
+                        strength = Number(id, line, args[3], "떨림 세기");
+                        if (strength <= 0f || strength > CutsceneStep.MaximumTremble)
+                            throw Error(id, line, $"떨림 세기는 0보다 크고 {CutsceneStep.MaximumTremble.ToString("0.0", CultureInfo.InvariantCulture)} 이하입니다" +
+                                $"(안 쓰면 {CutsceneStep.DefaultTrembleStrength.ToString("0.00", CultureInfo.InvariantCulture)} 살짝, 0.15 크게).");
+                    }
+                    return CutsceneStep.ForTremble(line, actor, seconds, strength, waits);
+                }
                 default:
-                    throw Error(id, line, $"'{action}'은(는) 인물 명령이 아닙니다. at, hide, move, face, pose, attack 중 하나를 적으세요.");
+                    throw Error(id, line, $"'{action}'은(는) 인물 명령이 아닙니다. at, hide, move, face, pose, attack, tremble 중 하나를 적으세요.");
             }
         }
 

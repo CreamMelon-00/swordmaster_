@@ -43,11 +43,11 @@ namespace TurnLimbo.Core.Tests
             Assert.That(MissionFour.IntroCutscene, Is.EqualTo("Cutscene/mission-04-intro"));
             Assert.That(MissionFour.OutroCutscene, Is.EqualTo("Cutscene/mission-04-outro"));
             MissionGuideBeat free = MissionFour.CreateGuide().Beats.Last();
-            Assert.That(free.Title, Is.EqualTo("이아"), "The coach speaks during the battle, so it says 이아 too.");
+            Assert.That(free.Title, Does.Contain("이아").And.Not.Contain("떠돌이 기사"), "The coach speaks during the battle, so it says 이아 too.");
             Assert.That(free.Description, Does.Contain("이아와").And.Not.Contain("떠돌이 기사"));
             Assert.That(MissionFour.Objectives.Last(), Does.Contain("떠돌이 기사"), "The briefing's objectives keep the old name.");
             // The battle is lost by design: its copy neither promises a win nor gives the loss away.
-            foreach (string copy in MissionFour.Objectives.Concat(MissionFour.CreateGuide().Beats.Select(beat => beat.Description)))
+            foreach (string copy in MissionFour.Objectives.Concat(MissionFour.CreateGuide().Beats.SelectMany(beat => new[] { beat.Title, beat.Description })))
                 foreach (string word in new[] { "쓰러뜨", "꺾", "이기", "승리", "패배", "진다" })
                     Assert.That(copy, Does.Not.Contain(word), copy);
         }

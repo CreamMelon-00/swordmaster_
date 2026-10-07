@@ -1,20 +1,31 @@
 using System;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>The cutscene's screen layers over the arena: a full-screen image, letterbox bars, a black fade and the
-    /// skip hint. It sits above the duel and result screens and below the dialogue box (500), so lines can be read
-    /// on black. It never takes clicks.</summary>
+    /// <summary>The cutscene's screen layers over the arena: a full-screen image, a tutorial recall (<c>@recall</c>),
+    /// letterbox bars, a black fade and the skip hint. It sits above the duel and result screens and below the dialogue
+    /// box (500), so lines can be read on black. It never takes clicks.</summary>
     public sealed class CutsceneHud : IDisposable
     {
         public const int SortingOrder = 450;
         public const float BarHeight = 110f;
+        /// <summary>How much larger than in battle a recalled coach card is drawn.</summary>
+        public const float RecallCardScale = 1.45f;
+        // A memory is washed pale: this light veil lies over the recalled screen or card.
+        private static readonly Color RecallVeil = new Color(.93f, .91f, .86f, .2f);
         private readonly RectTransform root;
         private readonly Image image, fade;
         private readonly RectTransform topBar, bottomBar;
         private readonly AspectRatioFitter imageFitter;
+        private readonly RectTransform recall;
+        private readonly CanvasGroup recallGroup;
+        private readonly Image recallBackdrop, recallFlash;
+        private readonly RawImage recallScreen;
+        private readonly AspectRatioFitter recallScreenFitter;
+        private readonly MissionCoachCard recallCard;
         private bool disposed;
 
         public CutsceneHud(Transform parent, LegacyDuelArt art)
@@ -37,6 +48,31 @@ namespace TurnLimbo.Presentation
             image.preserveAspect = false;
             imageFitter = image.gameObject.AddComponent<AspectRatioFitter>();
             imageFitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+
+            // The recall: a captured screen filling the frame, or a coach card redrawn large and centred on the dimmed
+            // scene, under a pale veil; one group fades it all. Its white flash is apart, so it can blaze before the
+            // memory shows. The bars and the fade stay above it.
+            recall = Rect("Cutscene Recall", root);
+            Stretch(recall);
+            recallGroup = recall.gameObject.AddComponent<CanvasGroup>();
+            recallGroup.interactable = false;
+            recallGroup.blocksRaycasts = false;
+            recallBackdrop = Graphic<Image>("Recall Backdrop", recall);
+            Stretch(recallBackdrop.rectTransform);
+            recallBackdrop.color = new Color(0f, 0f, 0f, .72f);
+            var screenFrame = Rect("Recall Screen Frame", recall);
+            Stretch(screenFrame);
+            recallScreen = Graphic<RawImage>("Recall Screen", screenFrame);
+            recallScreenFitter = recallScreen.gameObject.AddComponent<AspectRatioFitter>();
+            recallScreenFitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            recallCard = new MissionCoachCard(recall, art.UIFont);
+            recallCard.Frame.anchoredPosition = new Vector2(0f, 40f);
+            recallCard.Frame.localScale = Vector3.one * RecallCardScale;
+            Image veil = Graphic<Image>("Recall Veil", recall);
+            Stretch(veil.rectTransform);
+            veil.color = RecallVeil;
+            recallFlash = Graphic<Image>("Recall Flash", root);
+            Stretch(recallFlash.rectTransform);
 
             topBar = Bar("Cutscene Bar Top", true);
             bottomBar = Bar("Cutscene Bar Bottom", false);
@@ -67,6 +103,18 @@ namespace TurnLimbo.Presentation
         public float BarsAmount { get; private set; }
         public Sprite ImageSprite => image.sprite;
         public float ImageAmount => image.sprite == null ? 0f : image.color.a;
+        /// <summary>Whether a tutorial recall is up (a captured screen or a redrawn coach card).</summary>
+        public bool IsRecalling => !disposed && recall.gameObject.activeSelf;
+        /// <summary>The captured screen being recalled, or null (none up, or a redrawn card instead).</summary>
+        public Texture RecallScreen => IsRecalling ? recallScreen.texture : null;
+        /// <summary>The coach beat redrawn as a card, or null (none up, or a captured screen instead).</summary>
+        public TutorialRecallBeat RecallBeat { get; private set; }
+        /// <summary>The card a beat is redrawn on, styled as the coach's.</summary>
+        public MissionCoachCard RecallCard => recallCard;
+        /// <summary>0 = the recall is gone, 1 = fully shown.</summary>
+        public float RecallAmount => IsRecalling ? recallGroup.alpha : 0f;
+        /// <summary>The recall's white flash: 1 = a white screen.</summary>
+        public float RecallFlash => recallFlash.enabled ? recallFlash.color.a : 0f;
 
         public void Show()
         {
@@ -74,6 +122,7 @@ namespace TurnLimbo.Presentation
             SetFade(0f);
             SetBars(0f);
             SetImage(null, 0f);
+            HideRecall();
             root.gameObject.SetActive(true);
         }
 
@@ -81,7 +130,58 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             SetImage(null, 0f);
+            HideRecall();
             root.gameObject.SetActive(false);
+        }
+
+        /// <summary>Recalls a captured screen: it fills the frame (its aspect kept, the overflow cut). The texture stays
+        /// its owner's (<see cref="TutorialRecallAlbum"/>). Shown at <see cref="SetRecall"/>'s amounts.</summary>
+        public void ShowRecall(Texture screen)
+        {
+            if (disposed) return;
+            if (screen == null) throw new ArgumentNullException(nameof(screen));
+            RecallBeat = null;
+            recallScreen.texture = screen;
+            if (screen.height > 0) recallScreenFitter.aspectRatio = screen.width / (float)screen.height;
+            recallScreen.enabled = true;
+            recallBackdrop.enabled = false;
+            recallCard.Frame.gameObject.SetActive(false);
+            OpenRecall();
+        }
+
+        /// <summary>Recalls a coach beat no screen was captured of: redrawn on the coach's card, larger and centred over
+        /// the dimmed scene. Shown at <see cref="SetRecall"/>'s amounts.</summary>
+        public void ShowRecall(TutorialRecallBeat beat)
+        {
+            if (disposed) return;
+            RecallBeat = beat ?? throw new ArgumentNullException(nameof(beat));
+            recallScreen.texture = null;
+            recallScreen.enabled = false;
+            recallBackdrop.enabled = true;
+            recallCard.Show(beat.Beat, beat.StepNumber, beat.StepCount, MissionCoachCard.MissionLabel(beat.MissionNumber));
+            recallCard.Frame.gameObject.SetActive(true);
+            OpenRecall();
+        }
+
+        /// <param name="amount">How much of the recall shows, 0 to 1.</param>
+        /// <param name="flash">The white flash over it, 0 to 1.</param>
+        public void SetRecall(float amount, float flash)
+        {
+            if (disposed) return;
+            recallGroup.alpha = Mathf.Clamp01(amount);
+            recallFlash.color = new Color(1f, 1f, 1f, Mathf.Clamp01(flash));
+            recallFlash.enabled = recallFlash.color.a > 0f;
+        }
+
+        /// <summary>Takes the recall away at once and lets go of its screen.</summary>
+        public void HideRecall()
+        {
+            if (disposed) return;
+            RecallBeat = null;
+            recallScreen.texture = null;
+            recallScreen.enabled = false;
+            SetRecall(0f, 0f);
+            recall.gameObject.SetActive(false);
         }
 
         public void SetFade(float amount)
@@ -117,8 +217,16 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             disposed = true;
             image.sprite = null;
+            recallScreen.texture = null;
+            RecallBeat = null;
             if (Application.isPlaying) UnityEngine.Object.Destroy(root.gameObject);
             else UnityEngine.Object.DestroyImmediate(root.gameObject);
+        }
+
+        private void OpenRecall()
+        {
+            recall.gameObject.SetActive(true);
+            SetRecall(0f, 1f);
         }
 
         private RectTransform Bar(string name, bool top)

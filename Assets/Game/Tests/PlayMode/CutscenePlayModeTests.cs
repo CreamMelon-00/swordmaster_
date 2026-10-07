@@ -1,10 +1,12 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.Cutscene;
 using TurnLimbo.Runtime.Prologue;
 using TurnLimbo.Runtime.Save;
@@ -461,6 +463,375 @@ namespace TurnLimbo.Presentation.Tests
             }
             finally { Object.Destroy(parent); }
         }
+
+        [UnityTest]
+        public IEnumerator Tremble_ShiversEveryFigureAroundItsPlace_WithinItsStrength_AndEndsExactlyThere()
+        {
+            yield return null;
+            using (var scope = new CutsceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                LegacyArenaView arena = controller.ArenaView;
+                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("Cutscene/test", string.Join("\n",
+                    "@actor elisa at -3 right",
+                    "@actor dummy at 3",
+                    "@actor senior at -8 right",
+                    "@actor elisa tremble 0.5 0.1 &",
+                    "@actor senior tremble 0.5 &",
+                    "@actor dummy tremble 0.5",
+                    "하나"))), Is.True);
+                CutsceneDirector director = controller.Cutscene;
+                Transform elisa = arena.PlayerRenderer.transform, dummy = arena.EnemyRenderer.transform;
+                Transform senior = director.SeniorRenderer.transform;
+                Assert.That(director.IsTrembling(CutsceneActor.Elisa) && director.IsTrembling(CutsceneActor.Dummy) &&
+                    director.IsTrembling(CutsceneActor.Senior), Is.True, "Every figure can tremble, the dummy and the senior knight too.");
+                Assert.That(director.IsTrembling(CutsceneActor.Knight), Is.False, "The knight is not on stage.");
+                Assert.That(elisa.localPosition.x, Is.EqualTo(-3f), "A tremble eases in from the figure's place.");
+
+                float elisaLeft = 0f, elisaRight = 0f, dummyMost = 0f, seniorMost = 0f;
+                for (int frame = 0; frame < 9; frame++)
+                {
+                    scope.Advance(.05f);
+                    float offset = elisa.localPosition.x + 3f;
+                    elisaLeft = Mathf.Min(elisaLeft, offset);
+                    elisaRight = Mathf.Max(elisaRight, offset);
+                    dummyMost = Mathf.Max(dummyMost, Mathf.Abs(dummy.localPosition.x - 3f));
+                    seniorMost = Mathf.Max(seniorMost, Mathf.Abs(senior.localPosition.x + 8f));
+                    Assert.That(elisa.localPosition.y, Is.EqualTo(-.5f).Within(1e-5f), "Only sideways.");
+                }
+                Assert.That(elisaLeft, Is.LessThan(-.03f), "She shivers to one side…");
+                Assert.That(elisaRight, Is.GreaterThan(.03f), "…and to the other…");
+                Assert.That(Mathf.Max(-elisaLeft, elisaRight), Is.LessThanOrEqualTo(.1f + 1e-4f), "…within the strength written.");
+                Assert.That(dummyMost, Is.InRange(.02f, CutsceneStep.DefaultTrembleStrength + 1e-4f), "Unwritten, a tremble is slight.");
+                Assert.That(seniorMost, Is.GreaterThan(.02f));
+                for (int frame = 0; frame < 20 && controller.DialogueHud.CurrentLine == null; frame++) scope.Advance(.05f);
+                Assert.That(controller.DialogueHud.CurrentLine?.Text, Is.EqualTo("하나"));
+                // A moment on the line, so float steps cannot leave a tremble a hair short of its end.
+                scope.Advance(.05f);
+                Assert.That(director.IsTrembling(CutsceneActor.Elisa) || director.IsTrembling(CutsceneActor.Dummy) ||
+                    director.IsTrembling(CutsceneActor.Senior), Is.False);
+                Assert.That(elisa.localPosition.x, Is.EqualTo(-3f), "Each stands exactly where it trembled.");
+                Assert.That(dummy.localPosition.x, Is.EqualTo(3f));
+                Assert.That(senior.localPosition.x, Is.EqualTo(-8f));
+                Assert.That(controller.SkipCutscene(), Is.True);
+
+                // Cut short in the middle of a tremble, a scene that keeps its last picture keeps her at her place.
+                var cut = new CutsceneDirector(CutsceneScriptParser.Parse("Cutscene/test",
+                    "@actor elisa at -2 right\n@actor elisa tremble 2 0.3 &\n하나"), arena, controller.CutsceneHud, controller.DialogueHud, null);
+                cut.Start();
+                cut.Tick(.13f);
+                Assert.That(Mathf.Abs(elisa.localPosition.x + 2f), Is.GreaterThan(1e-3f));
+                cut.Dispose();
+                Assert.That(elisa.localPosition.x, Is.EqualTo(-2f));
+                arena.Reset();
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RecallAlbum_KeepsASmallSetForTheSession_DestroysWhatItDrops_AndForgetsAtTheTitleAndANewGame()
+        {
+            yield return null;
+            using (var scope = new CutsceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                TutorialRecallAlbum album = controller.RecallAlbum;
+                Assert.That(album.Screens, Is.Empty, "A new game has nothing to recall yet.");
+                album.Random = new System.Random(3);
+                var offered = new List<Texture2D>();
+                foreach (TutorialRecallBeat beat in TutorialRecall.Beats)
+                {
+                    Texture2D screen = FakeScreen(beat.Key);
+                    offered.Add(screen);
+                    album.Offer(beat.Key, screen);
+                }
+                Assert.That(album.Screens.Count, Is.EqualTo(TutorialRecall.MaximumScreens), "A small set, however many lessons were shown.");
+                Assert.That(album.OfferedCount, Is.EqualTo(TutorialRecall.Beats.Count));
+                Assert.That(album.Screens, Is.Unique);
+                Assert.That(album.Screens.All(offered.Contains), Is.True);
+                Assert.That(album.Screens.Any(screen => screen.name.StartsWith("2:")), Is.True,
+                    "Later lessons get their chance too, not only the first ones.");
+                Texture2D again = FakeScreen("again");
+                Assert.That(album.Offer(TutorialRecall.Beats[0].Key, again), Is.False, "A beat seen again (a retry) keeps what it had.");
+                Assert.That(album.HasOffered(TutorialRecall.Beats[0].Key), Is.True);
+
+                album.Random = new System.Random(9);
+                Assert.That(album.TryPick(out Texture2D picked, out TutorialRecallBeat none), Is.True);
+                album.Random = new System.Random(9);
+                Assert.That(album.TryPick(out Texture2D pickedAgain, out _), Is.True);
+                Assert.That(picked, Is.SameAs(pickedAgain), "A seed fixes which one is recalled…");
+                Assert.That(album.Screens, Does.Contain(picked), "…among the kept screens…");
+                Assert.That(none, Is.Null, "…and with screens there is no card to redraw.");
+
+                yield return null;
+                Assert.That(again == null, Is.True, "A screen the album does not keep is destroyed…");
+                Assert.That(offered.Count(screen => screen == null), Is.EqualTo(offered.Count - TutorialRecall.MaximumScreens),
+                    "…as is every one it dropped or replaced.");
+
+                // The same seed keeps the same set.
+                using (var first = new TutorialRecallAlbum(null, new System.Random(21)))
+                using (var second = new TutorialRecallAlbum(null, new System.Random(21)))
+                {
+                    Assert.That(first.CapturesScreens, Is.False, "Without a host nothing is captured…");
+                    Assert.That(first.RequestCapture("1:1", () => true), Is.False);
+                    Assert.That(first.IsCapturing, Is.False);
+                    foreach (TutorialRecallBeat beat in TutorialRecall.Beats)
+                    {
+                        first.Offer(beat.Key, FakeScreen(beat.Key));
+                        second.Offer(beat.Key, FakeScreen(beat.Key));
+                    }
+                    Assert.That(first.Screens.Select(screen => screen.name), Is.EqualTo(second.Screens.Select(screen => screen.name)));
+                }
+
+                Texture2D[] kept = album.Screens.ToArray();
+                controller.ShowTitle();
+                Assert.That(album.Screens.Count + album.OfferedCount, Is.Zero, "The title forgets the session…");
+                yield return null;
+                Assert.That(kept.All(screen => screen == null), Is.True, "…and destroys its screens.");
+
+                controller.StartNewGame();
+                album.Offer("1:1", FakeScreen("1:1"));
+                Texture2D kept2 = album.Screens[0];
+                controller.StartNewGame();
+                Assert.That(album.Screens, Is.Empty, "A new game forgets them too.");
+                Assert.That(album.HasOffered("1:1"), Is.False, "Its lessons are captured afresh.");
+                yield return null;
+                Assert.That(kept2 == null, Is.True);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RecallAlbum_ABeatWhoseCaptureFails_WarnsOnce_AndIsNotTriedAgainThatSession()
+        {
+            yield return null;
+            var warnings = new List<string>();
+            Application.LogCallback capture = (message, stack, type) => { if (type == LogType.Warning) warnings.Add(message); };
+            Application.logMessageReceived += capture;
+            try
+            {
+                using (var scope = new CutsceneScope())
+                {
+                    DuelPrototypeController controller = scope.Controller;
+                    TutorialRecallAlbum album = controller.RecallAlbum;
+                    int grabs = 0;
+                    Assert.That(album.CaptureNow("1:1", () => { grabs++; throw new InvalidOperationException("no readback"); }), Is.False);
+                    Assert.That(album.CaptureNow("1:2", () => { grabs++; return null; }), Is.False, "Nothing back fails too.");
+                    Texture2D late = FakeScreen("late");
+                    Assert.That(album.CaptureNow("1:1", () => { grabs++; return late; }), Is.False, "A failed beat is not tried again…");
+                    Assert.That(grabs, Is.EqualTo(2));
+                    if (album.CapturesScreens)
+                    {
+                        Assert.That(album.RequestCapture("1:1", () => true), Is.False, "…nor asked for again after every refresh.");
+                        Assert.That(album.IsCapturing, Is.False);
+                    }
+                    Assert.That(album.HasTried("1:1") && album.HasTried("1:2"), Is.True);
+                    Assert.That(album.HasOffered("1:1") || album.HasOffered("1:2"), Is.False);
+                    Assert.That(album.OfferedCount, Is.Zero, "A failure takes no place among the offered.");
+                    Assert.That(album.Screens, Is.Empty);
+                    Assert.That(warnings.Count(message => message.Contains("coach beat 1:1 could not be captured (no readback)")), Is.EqualTo(1));
+                    Assert.That(warnings.Count(message => message.Contains("coach beat 1:2 could not be captured")), Is.EqualTo(1));
+
+                    // A beat that does come back is made into a memory; the shot itself is destroyed.
+                    Texture2D shot = FakeScreen("shot");
+                    Assert.That(album.CaptureNow("1:3", () => shot), Is.True);
+                    Assert.That(album.OfferedCount, Is.EqualTo(1));
+                    Assert.That(album.Screens.Single().name, Is.EqualTo("Tutorial Recall 1:3"));
+                    Assert.That(album.CaptureNow("1:3", () => FakeScreen("again")), Is.False, "Offered once, captured once.");
+                    yield return null;
+                    Assert.That(shot == null, Is.True);
+                    Assert.That(album.Screens.Single() != null, Is.True);
+
+                    controller.StartNewGame();
+                    Assert.That(album.HasTried("1:1") || album.HasTried("1:3"), Is.False, "A new game tries every beat afresh.");
+                    Object.DestroyImmediate(late);
+                }
+            }
+            finally { Application.logMessageReceived -= capture; }
+        }
+
+        [Test]
+        public void MakeMemory_ShrinksTheShotByAWholeFactor_IntoATextureTheAlbumOwns()
+        {
+            foreach (Vector2Int size in new[] { new Vector2Int(1920, 1080), new Vector2Int(800, 600), new Vector2Int(2560, 1440) })
+            {
+                var shot = new Texture2D(size.x, size.y, TextureFormat.RGBA32, false);
+                Texture2D memory = null;
+                try
+                {
+                    memory = TutorialRecallAlbum.MakeMemory(shot, "Tutorial Recall test");
+                    int factor = Mathf.CeilToInt(size.x / (float)TutorialRecallAlbum.MaximumWidth);
+                    Assert.That(memory.width, Is.EqualTo(size.x / factor).And.LessThanOrEqualTo(TutorialRecallAlbum.MaximumWidth));
+                    Assert.That(memory.height, Is.EqualTo(size.y / factor));
+                    Assert.That(memory.isReadable, Is.False, "Its pixels live on the GPU only.");
+                    Assert.That(memory.hideFlags, Is.EqualTo(HideFlags.HideAndDontSave));
+                    Assert.That(shot.isReadable, Is.True, "The shot is left as it was, for its owner to destroy.");
+                }
+                finally
+                {
+                    Object.DestroyImmediate(shot);
+                    if (memory != null) Object.DestroyImmediate(memory);
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Recall_FlashesACapturedScreenIn_HoldsIt_AndFadesItAway()
+        {
+            yield return null;
+            using (var scope = new CutsceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                CutsceneHud hud = controller.CutsceneHud;
+                Texture2D screen = FakeScreen("1:3");
+                Assert.That(controller.RecallAlbum.Offer("1:3", screen), Is.True);
+                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("Cutscene/test", "@recall\n(머릿속에서…)")), Is.True);
+                Assert.That(controller.Cutscene.IsRecalling && hud.IsRecalling, Is.True);
+                Assert.That(hud.RecallScreen, Is.SameAs(screen), "The one screen kept comes back…");
+                Assert.That(hud.RecallBeat, Is.Null, "…not a redrawn card.");
+                Assert.That(hud.RecallCard.Frame.gameObject.activeSelf, Is.False);
+                Assert.That(hud.RecallFlash, Is.EqualTo(1f), "It opens on a white flash…");
+                Assert.That(hud.RecallAmount, Is.Zero);
+                Assert.That(controller.DialogueHud.IsVisible, Is.False);
+
+                scope.Advance(.1f);
+                Assert.That(hud.RecallAmount, Is.EqualTo(1f), "…the memory comes up under it at once…");
+                Assert.That(hud.RecallFlash, Is.InRange(.01f, .99f), "…as the flash dies away…");
+                scope.Advance(.2f);
+                Assert.That(hud.RecallFlash, Is.Zero);
+                Assert.That(hud.RecallAmount, Is.EqualTo(1f), "…and holds…");
+                scope.Advance(.9f);
+                Assert.That(hud.RecallAmount, Is.InRange(.01f, .99f), "…until it fades away at the end.");
+                Assert.That(controller.DialogueHud.IsVisible, Is.False, "The scene holds for the whole recall.");
+                scope.Advance(.35f);
+                Assert.That(hud.IsRecalling || controller.Cutscene.IsRecalling, Is.False);
+                Assert.That(hud.RecallScreen, Is.Null, "The HUD lets go of the screen…");
+                Assert.That(controller.DialogueHud.CurrentLine?.Text, Is.EqualTo("(머릿속에서…)"));
+
+                Assert.That(controller.AdvanceCutscene(), Is.True);
+                Assert.That(controller.IsInLobby, Is.True);
+                yield return null;
+                Assert.That(screen != null, Is.True, "…which stays the album's, for the next recall.");
+                Assert.That(controller.RecallAlbum.Screens, Does.Contain(screen));
+            }
+        }
+
+        [Test]
+        public void Recall_WithoutACapturedScreen_RedrawsARandomCoachedBeat_LargeOnTheCoachsCard()
+        {
+            using (var scope = new CutsceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                CutsceneHud hud = controller.CutsceneHud;
+                Assert.That(controller.RecallAlbum.Screens, Is.Empty, "As after 이어하기: nothing was captured this session.");
+                controller.RecallAlbum.Random = new System.Random(42);
+                TutorialRecallBeat expected = TutorialRecall.Beats[TutorialRecall.Pick(new System.Random(42), TutorialRecall.Beats.Count)];
+                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("Cutscene/test", "@recall 2 &\n하나")), Is.True);
+                Assert.That(hud.IsRecalling, Is.True);
+                Assert.That(hud.RecallScreen, Is.Null);
+                Assert.That(hud.RecallBeat, Is.SameAs(expected), "The seeded album chooses the beat.");
+
+                MissionCoachCard card = hud.RecallCard;
+                Assert.That(card.Frame.gameObject.activeSelf, Is.True);
+                Assert.That(card.Title.text, Is.EqualTo(expected.Beat.Title));
+                Assert.That(card.Description.text, Is.EqualTo(expected.Beat.Description));
+                Assert.That(card.InputHint.text, Is.EqualTo(expected.Beat.InputHint));
+                Assert.That(card.Counter.text, Is.EqualTo(MissionCoachCard.CounterText(
+                    MissionCoachCard.MissionLabel(expected.MissionNumber), expected.StepNumber, expected.StepCount)));
+                Assert.That(card.Continue.gameObject.activeSelf, Is.EqualTo(expected.Beat.Kind == MissionGuideStepKind.Info),
+                    "The card has the buttons that beat had.");
+                Assert.That(card.Inspect.gameObject.activeSelf, Is.EqualTo(expected.Beat.Kind == MissionGuideStepKind.Inspect));
+                Assert.That(card.Frame.localScale.x, Is.EqualTo(CutsceneHud.RecallCardScale), "Larger than in battle…");
+                Assert.That(card.Frame.anchorMin, Is.EqualTo(new Vector2(.5f, .5f)), "…and centred.");
+                Assert.That(card.Frame.anchorMax, Is.EqualTo(new Vector2(.5f, .5f)));
+                Assert.That(controller.DialogueHud.CurrentLine?.Text, Is.EqualTo("하나"), "Written with &, the line comes up over it.");
+
+                // The coach's own card, for the look: the same frame, panel and labels.
+                Transform coachBorder = Named(controller.CoachHud.Root, "Coach Border");
+                Assert.That(card.Frame.sizeDelta, Is.EqualTo(((RectTransform)coachBorder).sizeDelta));
+                Assert.That(card.Frame.GetComponent<Image>().color, Is.EqualTo(coachBorder.GetComponent<Image>().color));
+                Assert.That(Named(card.Frame.gameObject, "Coach Card").GetComponent<Image>().color,
+                    Is.EqualTo(Named(controller.CoachHud.Root, "Coach Card").GetComponent<Image>().color));
+                Assert.That(card.Title.font, Is.SameAs(Label(controller.CoachHud.Root, "Coach Title").font));
+                Assert.That(card.Title.fontSize, Is.EqualTo(Label(controller.CoachHud.Root, "Coach Title").fontSize));
+
+                // A picture, not a coach: nothing on the cutscene's screen takes clicks.
+                Assert.That(hud.Root.GetComponentsInChildren<Button>(true), Is.Empty);
+                Assert.That(hud.Root.GetComponentsInChildren<GraphicRaycaster>(true), Is.Empty);
+                foreach (Graphic graphic in hud.Root.GetComponentsInChildren<Graphic>(true))
+                    Assert.That(graphic.raycastTarget, Is.False, graphic.name);
+
+                controller.RecallAlbum.Random = new System.Random(42);
+                Assert.That(controller.RecallAlbum.TryPick(out Texture2D noScreen, out TutorialRecallBeat again), Is.True);
+                Assert.That(noScreen == null && again == expected, Is.True, "The same seed, the same beat.");
+                Assert.That(controller.SkipCutscene(), Is.True);
+                Assert.That(hud.IsRecalling || hud.IsVisible, Is.False, "Skipping takes the recall away with the scene.");
+            }
+        }
+
+        [Test]
+        public void Recall_WithNothingToRecall_IsAWarning_AndTheSceneHoldsItsTime()
+        {
+            var warnings = new List<string>();
+            Application.LogCallback capture = (message, stack, type) => { if (type == LogType.Warning) warnings.Add(message); };
+            Application.logMessageReceived += capture;
+            try
+            {
+                using (var scope = new CutsceneScope())
+                {
+                    DuelPrototypeController controller = scope.Controller;
+                    LegacyArenaView arena = controller.ArenaView;
+                    // No album at all: nothing captured and no beat to redraw.
+                    var director = new CutsceneDirector(CutsceneScriptParser.Parse("Cutscene/test", "@recall 0.5\n하나"),
+                        arena, controller.CutsceneHud, controller.DialogueHud, null);
+                    director.Start();
+                    Assert.That(director.IsRecalling || controller.CutsceneHud.IsRecalling, Is.False);
+                    Assert.That(director.Playback.HoldRemaining, Is.EqualTo(.5f));
+                    director.Tick(.5f);
+                    Assert.That(controller.DialogueHud.CurrentLine?.Text, Is.EqualTo("하나"));
+                    director.Dispose();
+                    arena.Reset();
+                }
+            }
+            finally { Application.logMessageReceived -= capture; }
+            Assert.That(warnings.Any(message => Regex.IsMatch(message, "line 1: no tutorial screen or coach beat to recall")), Is.True);
+        }
+
+        [Test]
+        public void TheFirstMissionsCoachedBeats_AreAskedFor_AndMissionThreesNever()
+        {
+            using (var scope = new CutsceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                TutorialRecallAlbum album = controller.RecallAlbum;
+                controller.StartNewGame();
+                for (int number = 1; number <= TutorialRecall.LastMission; number++)
+                    Assert.That(controller.Prologue.TryComplete(number, DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(controller.StartMission(), Is.True);
+                if (controller.IsPlayingScene) Assert.That(controller.SkipScene(), Is.True);
+                Assert.That(controller.ActiveMission.Number, Is.EqualTo(TutorialRecall.LastMission + 1));
+                Assert.That(controller.CoachHud.IsVisible, Is.True);
+                Assert.That(album.IsCapturing, Is.False, "Mission 3 is where the lessons are recalled, not taught.");
+
+                controller.StartNewGame();
+                Assert.That(controller.StartMission(), Is.True);
+                if (controller.IsPlayingScene) Assert.That(controller.SkipScene(), Is.True);
+                Assert.That(controller.ActiveMission.Number, Is.EqualTo(1));
+                Assert.That(controller.CoachHud.IsVisible, Is.True);
+                if (!album.CapturesScreens)
+                {
+                    // Batch mode or no graphics device: nothing waits, and a recall will redraw a card instead.
+                    Assert.That(album.IsCapturing, Is.False);
+                    return;
+                }
+                Assert.That(album.PendingKey, Is.EqualTo(TutorialRecall.Key(1, 1)), "The first beat's screen waits for its card to settle.");
+                Assert.That(controller.AdvanceGuide(), Is.True);
+                Assert.That(album.PendingKey, Is.EqualTo(TutorialRecall.Key(1, 2)), "The next beat takes its place.");
+                controller.StartNewGame();
+                Assert.That(album.IsCapturing, Is.False, "A new game stops the capture waiting.");
+            }
+        }
+
+        private static Texture2D FakeScreen(string name)
+            => new Texture2D(8, 4, TextureFormat.RGB24, false) { name = name, hideFlags = HideFlags.HideAndDontSave };
 
         private static Transform Named(GameObject root, string name)
         {

@@ -106,7 +106,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Fails("@wait 1\n" + new string('가', DialogueLine.MaxTextLength + 1)).LineNumber, Is.EqualTo(2));
             CutsceneParseException unknown = Fails("@wait 1\n@zoom 3\n");
             Assert.That(unknown.LineNumber, Is.EqualTo(2));
-            Assert.That(unknown.Message, Does.Contain("@zoom").And.Contain("@actor").And.Contain("@flashback").And.Contain("@aura"));
+            Assert.That(unknown.Message, Does.Contain("@zoom").And.Contain("@actor").And.Contain("@flashback").And.Contain("@aura")
+                .And.Contain("@recall"));
             Assert.That(Fails("@Fade out 1").LineNumber, Is.EqualTo(1), "Directives are lower case.");
             CutsceneParseException empty = Fails("# 메모만\n\n");
             Assert.That(empty.LineNumber, Is.Zero);
@@ -181,6 +182,24 @@ namespace TurnLimbo.Core.Tests
         [TestCase("@actor knight at 3\n@aura knight glow", 2)]
         [TestCase("@actor knight at 3\n@aura knight on 1 2", 2)]
         [TestCase("@actor knight at 3\n@actor knight hide\n@aura knight off", 3)]
+        [TestCase("@actor elisa tremble 1", 1)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble 0", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble -1", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble 31", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble soon", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble 1 0", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble 1 -0.1", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble 1 0.6", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble 1 big", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa tremble 1 0.1 2", 2)]
+        [TestCase("@actor elisa at 0\n@actor elisa hide\n@actor elisa tremble 1", 3)]
+        [TestCase("@recall 0", 1)]
+        [TestCase("@recall -1", 1)]
+        [TestCase("@recall 31", 1)]
+        [TestCase("@recall soon", 1)]
+        [TestCase("@recall 1 2", 1)]
+        [TestCase("@Recall", 1)]
         public void Parse_RejectsBadStagingAtItsLine(string source, int line)
         {
             Assert.That(Fails(source).LineNumber, Is.EqualTo(line));
@@ -248,6 +267,60 @@ namespace TurnLimbo.Core.Tests
             Assert.That(steps[15].Seconds == 2.5f && !steps[15].Waits, Is.True);
             Assert.That(steps[16].ChargeHolds, Is.True);
             Assert.That(steps[16].HoldSeconds, Is.EqualTo(1f), "A held charge holds the cutscene only until it is full.");
+        }
+
+        [Test]
+        public void Parse_ReadsTremble_ForEveryFigure_WithASlightDefaultStrength()
+        {
+            CutsceneScript script = Parse(string.Join("\n",
+                "@actor elisa at -5 right",
+                "@actor elisa tremble 0.6",
+                "@actor elisa tremble 1.2 0.15 &",
+                "@actor dummy at 3",
+                "@actor dummy tremble 0.4",
+                "@actor dummy hide",
+                "@actor knight at 4 left",
+                "@actor knight tremble .5 .5",
+                "@actor senior at -8",
+                "@actor senior tremble 1 &"));
+            CutsceneStep[] steps = script.Steps.ToArray();
+            Assert.That(steps.Length, Is.EqualTo(10));
+
+            CutsceneStep slight = steps[1];
+            Assert.That(slight.Kind == CutsceneStepKind.Actor && slight.Action == CutsceneActorAction.Tremble, Is.True);
+            Assert.That(slight.Actor, Is.EqualTo(CutsceneActor.Elisa));
+            Assert.That(slight.Seconds, Is.EqualTo(.6f));
+            Assert.That(slight.HoldSeconds, Is.EqualTo(.6f), "A tremble holds for its time…");
+            Assert.That(slight.Strength, Is.EqualTo(CutsceneStep.DefaultTrembleStrength), "…and is slight unless told otherwise.");
+            Assert.That(CutsceneStep.DefaultTrembleStrength, Is.LessThan(.1f));
+            Assert.That(slight.X == 0f && slight.Facing == CutsceneFacing.Unchanged, Is.True, "It moves no place and no facing.");
+
+            Assert.That(steps[2].Strength == .15f && steps[2].Seconds == 1.2f, Is.True);
+            Assert.That(steps[2].Waits, Is.False, "& lets the scene go on while she shivers.");
+            Assert.That(steps[2].HoldSeconds, Is.Zero);
+            Assert.That(steps[4].Actor == CutsceneActor.Dummy && steps[4].Action == CutsceneActorAction.Tremble, Is.True,
+                "The dummy, which cannot move, can still shake.");
+            Assert.That(steps[7].Actor == CutsceneActor.Knight && steps[7].Strength == CutsceneStep.MaximumTremble, Is.True);
+            Assert.That(steps[9].Actor == CutsceneActor.Senior && !steps[9].Waits, Is.True);
+
+            Assert.That(Fails("@actor elisa at 0\n@actor elisa tremble 1 0.9").Message, Does.Contain("떨림 세기"));
+            Assert.That(Fails("@actor elisa at 0\n@actor elisa tremble 0").Message, Does.Contain("떠는 시간"));
+            Assert.That(Fails("@actor elisa at 0\n@actor elisa sway 1").Message, Does.Contain("tremble"));
+        }
+
+        [Test]
+        public void Parse_ReadsRecall_WithItsDefaultTime()
+        {
+            CutsceneScript script = Parse("@recall\n@recall 2.5\n@recall 0.8 &\n하나");
+            CutsceneStep[] steps = script.Steps.ToArray();
+            Assert.That(steps.Length, Is.EqualTo(4));
+            Assert.That(steps[0].Kind, Is.EqualTo(CutsceneStepKind.Recall));
+            Assert.That(steps[0].Seconds, Is.EqualTo(CutsceneStep.DefaultRecallSeconds));
+            Assert.That(steps[0].HoldSeconds, Is.EqualTo(1.5f), "A recall holds about a second and a half unless told otherwise.");
+            Assert.That(steps[1].Kind == CutsceneStepKind.Recall && steps[1].HoldSeconds == 2.5f, Is.True);
+            Assert.That(steps[2].Seconds == .8f && !steps[2].Waits && steps[2].HoldSeconds == 0f, Is.True);
+            Assert.That(steps[0].Resource, Is.Null, "Which screen comes back is the game's choice, not the script's.");
+            Assert.That(Fails("@recall 0").Message, Does.Contain("떠올리는 시간"));
         }
 
         [Test]
@@ -340,6 +413,15 @@ namespace TurnLimbo.Core.Tests
             Assert.Throws<System.ArgumentOutOfRangeException>(() => CutsceneStep.ForCharge(1, CutsceneActor.Knight, 0f, true));
             Assert.That(CutsceneStep.ForChargeStop(1, CutsceneActor.Knight).HoldSeconds, Is.Zero);
             Assert.That(CutsceneStep.ForAmbience(1, null, 2f, true).Resource, Is.Null);
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => CutsceneStep.ForTremble(1, CutsceneActor.Elisa, 0f));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => CutsceneStep.ForTremble(1, CutsceneActor.Elisa, 1f, 0f));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() =>
+                CutsceneStep.ForTremble(1, CutsceneActor.Elisa, 1f, CutsceneStep.MaximumTremble + .1f));
+            Assert.Throws<System.ArgumentException>(() =>
+                CutsceneStep.ForActor(1, CutsceneActor.Elisa, CutsceneActorAction.Tremble, seconds: 1f), "A tremble needs its strength.");
+            Assert.That(CutsceneStep.ForTremble(1, CutsceneActor.Dummy, .5f).Strength, Is.EqualTo(CutsceneStep.DefaultTrembleStrength));
+            Assert.Throws<System.ArgumentOutOfRangeException>(() => CutsceneStep.ForRecall(1, 0f));
+            Assert.That(CutsceneStep.ForRecall(1).HoldSeconds, Is.EqualTo(CutsceneStep.DefaultRecallSeconds));
         }
     }
 }

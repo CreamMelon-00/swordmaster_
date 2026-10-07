@@ -62,6 +62,8 @@ namespace TurnLimbo.Presentation
         private CutsceneDirector cutscene;
         private System.Action cutsceneContinuation;
         private int cutsceneOpenedFrame = -1;
+        // The first missions' coached screens, captured for the 서막's tutorial recall (@recall); kept for the session.
+        private TutorialRecallAlbum recallAlbum;
         // A mission's battlefield scene leaves its last picture when it ends, for the result to show over (whatever
         // follows restages the arena). Other scenes hand the arena back at its duel framing.
         private bool cutsceneKeepsStage;
@@ -137,6 +139,9 @@ namespace TurnLimbo.Presentation
         /// the enemy follows its new script, and a forced-loss defeat now completes the mission.</summary>
         public bool IsMissionEmpowered => missionEmpowered;
         public CutsceneHud CutsceneHud => cutsceneHud;
+        /// <summary>What a cutscene's <c>@recall</c> brings back: the screens captured while the coached beats of the
+        /// 서막's first missions were up this session (cleared at the title and on a new game).</summary>
+        public TutorialRecallAlbum RecallAlbum => recallAlbum;
         public DialogueHud DialogueHud => dialogueHud;
         public DialogueLine CurrentDialogueLine => dialogueSession?.Current;
         public BattleResult Result => battleResult;
@@ -257,6 +262,7 @@ namespace TurnLimbo.Presentation
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
             coachHud = new MissionCoachHud(transform, art, () => AdvanceGuide(),
                 ReturnToLobby, () => InspectGuideEnemy());
+            recallAlbum = new TutorialRecallAlbum(this);
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
             titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite);
             saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
@@ -884,6 +890,8 @@ namespace TurnLimbo.Presentation
             SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
+            // A new story remembers only the lessons it teaches again.
+            recallAlbum.Clear();
             lobbyHud.ResetView();
             ShowBriefing();
             AutoSave();
@@ -893,6 +901,7 @@ namespace TurnLimbo.Presentation
         public void ShowTitle()
         {
             ClearBattleScreens();
+            recallAlbum.Clear();
             lobbyHud.Hide();
             AutoSaveEnabled = false;
             StoryProgressionEnabled = false;
@@ -993,7 +1002,8 @@ namespace TurnLimbo.Presentation
             cutsceneContinuation = continuation;
             cutsceneKeepsStage = keepsStage;
             cutsceneOpenedFrame = Time.frameCount;
-            cutscene = new CutsceneDirector(script, arena, cutsceneHud, dialogueHud, defaultDialoguePortraitCatalog, resumesBattle);
+            cutscene = new CutsceneDirector(script, arena, cutsceneHud, dialogueHud, defaultDialoguePortraitCatalog, resumesBattle,
+                recallAlbum);
             cutscene.Start();
             if (cutscene.IsComplete) FinishCutscene();
         }
@@ -1755,9 +1765,24 @@ namespace TurnLimbo.Presentation
                 hud.SetGuideFocus(-1, false, false, false);
                 return;
             }
-            coachHud.Show(guide, $"임무 {mission.Number:00}");
+            coachHud.Show(guide, MissionCoachCard.MissionLabel(mission.Number));
             hud.SetGuide(guide);
             hud.SetGuideFocus(guide.ExpectedLane, guide.FocusesCommit, guide.FocusesEnemyQueue, guide.FocusesAct);
+            RememberCoachBeat();
+        }
+
+        /// <summary>The first missions' coached beats are the voice 엘리사 later hears in her head (mission 3's
+        /// <c>@recall</c>): each beat's screen is captured once a session, after its card has settled, if that beat is
+        /// still the one up then (the album checks); a beat whose capture failed is not tried again.</summary>
+        private void RememberCoachBeat()
+        {
+            if (!TutorialRecall.Remembers(mission) || !recallAlbum.CapturesScreens) return;
+            string key = TutorialRecall.Key(mission.Number, guide.StepNumber);
+            if (recallAlbum.HasTried(key) || recallAlbum.PendingKey == key) return;
+            MissionGuide shown = guide;
+            int step = shown.StepIndex;
+            recallAlbum.RequestCapture(key, () => guide == shown && shown.StepIndex == step && !shown.IsComplete &&
+                coachHud.IsVisible && !IsPlayingScene && !IsShowingResult && !battlePausedForEvent);
         }
 
         private void ClearHeldKeys()
@@ -1811,6 +1836,7 @@ namespace TurnLimbo.Presentation
             cutscene?.Dispose();
             cutscene = null;
             cutsceneContinuation = null;
+            recallAlbum?.Dispose();
             dialogueHud?.Dispose();
             cutsceneHud?.Dispose();
             resultHud?.Dispose();

@@ -120,6 +120,34 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void TrembleAndRecall_HoldForTheirTime_UnlessWrittenWithAmpersand()
+        {
+            CutscenePlayback playback = Play(string.Join("\n",
+                "@actor elisa at -5",                  // 1
+                "@actor elisa tremble 0.6 &",          // 2
+                "윽…",                                  // 3
+                "@actor elisa tremble 0.8",            // 4
+                "@recall",                             // 5
+                "@recall 2 &",                         // 6
+                "(머릿속에서…)"), out var stage);       // 7
+            Assert.That(stage.Log, Is.EqualTo(new[] { "run 1", "run 2", "show 윽… 1/2" }),
+                "A tremble written with & shivers while the line is up.");
+            Assert.That(playback.Advance(), Is.True);
+            Assert.That(stage.Log.GetRange(3, 2), Is.EqualTo(new[] { "hide", "run 4" }), "A waiting tremble is watched without the box.");
+            Assert.That(playback.HoldRemaining, Is.EqualTo(.8f));
+            playback.Tick(.8f);
+            Assert.That(stage.Log[5], Is.EqualTo("run 5"));
+            Assert.That(playback.HoldRemaining, Is.EqualTo(CutsceneStep.DefaultRecallSeconds), "A recall holds its default time.");
+            playback.Tick(1f);
+            Assert.That(stage.Log.Count, Is.EqualTo(6));
+            playback.Tick(.5f);
+            Assert.That(stage.Log.GetRange(6, 2), Is.EqualTo(new[] { "run 6", "show (머릿속에서…) 2/2" }),
+                "A recall written with & stays up behind the next line.");
+            Assert.That(playback.Advance(), Is.True);
+            Assert.That(playback.IsComplete, Is.True);
+        }
+
+        [Test]
         public void AnInstantOnlyCutscene_CompletesOnStart()
         {
             CutscenePlayback playback = Play("@actor elisa at 0\n@fade out 0", out var stage);

@@ -90,10 +90,10 @@ namespace TurnLimbo.Core.Tests
             CurriculumNode quickDraw = CampaignCurriculum.Default.Find("quick-draw");
             PrologueMission mission = StoryMissions.Get(3);
             IReadOnlyList<MissionGuideBeat> beats = mission.CreateGuide().Beats;
-            Assert.That(beats[1].Title, Is.EqualTo("베기를 예약하세요"));
-            Assert.That(beats[2].Description, Is.EqualTo("베기가 열의 뒤로 돌아가고 막기가 올라왔습니다. 두 번째 순번의 내려치기를 막기로 받아내세요."));
+            Assert.That(beats[1].Title, Is.EqualTo("베기를 예약해"));
+            Assert.That(beats[2].Description, Is.EqualTo("베기가 열의 뒤로 돌아가고 막기가 올라왔지? 두 번째 순번의 내려치기를 막기로 받아내."));
             Assert.That(beats[2].Description, Is.SameAs(beats[2].Description), "The coach reads the same string every frame.");
-            Assert.That(beats[5].Title, Is.EqualTo("막기의 보상"));
+            Assert.That(beats[5].Description, Is.EqualTo("타격 속성 공격을 막기로 받아내서 다음 턴 ACT를 2 더 얻었어. 상대의 큐를 보고 막을 자리를 골라."));
             Assert.That(mission.Objectives[0], Is.EqualTo("상대의 내려치기를 막기로 받아낸다"));
             Assert.That(quickDraw.Title, Is.EqualTo("쿠페"));
             Assert.That(oneStroke.Description, Is.EqualTo("위력이 크게 흔들리는 단 한 번의 일격입니다. 쿠페와 함께 고를 수 없습니다."));
@@ -109,22 +109,23 @@ namespace TurnLimbo.Core.Tests
             try
             {
                 LegacySkillDefinitions.Install(() => sheet);
-                Assert.That(beats[1].Title, Is.EqualTo("새 칼을 예약하세요"));
+                Assert.That(beats[1].Title, Is.EqualTo("새 칼을 예약해"));
                 Assert.That(beats[2].Description,
-                    Is.EqualTo("새 칼이 열의 뒤로 돌아가고 튕겨냄이 올라왔습니다. 두 번째 순번의 내려치기를 튕겨냄으로 받아내세요."));
-                Assert.That(beats[5].Title, Is.EqualTo("튕겨냄의 보상"));
+                    Is.EqualTo("새 칼이 열의 뒤로 돌아가고 튕겨냄이 올라왔지? 두 번째 순번의 내려치기를 튕겨냄으로 받아내."));
+                Assert.That(beats[5].Description,
+                    Is.EqualTo("타격 속성 공격을 튕겨냄으로 받아내서 다음 턴 ACT를 2 더 얻었어. 상대의 큐를 보고 막을 자리를 골라."));
                 Assert.That(mission.Objectives[0], Is.EqualTo("상대의 내려치기를 튕겨냄으로 받아낸다"));
                 Assert.That(StoryMissions.Get(1).CreateGuide().Beats[1].Description,
-                    Is.EqualTo("Q를 짧게 누르거나 카드를 클릭하면 새 칼이 ACT 1을 쓰고 첫 순서에 들어갑니다."));
+                    Is.EqualTo("Q를 짧게 누르거나 카드를 클릭해 봐. 새 칼이 ACT 1을 쓰고 첫 순서에 들어갈 거야."));
                 Assert.That(quickDraw.Title, Is.EqualTo("발검"));
                 Assert.That(oneStroke.Description, Is.EqualTo("위력이 크게 흔들리는 단 한 번의 일격입니다. 발검과 함께 고를 수 없습니다."));
-                Assert.That(beats[3].Title, Is.EqualTo("확정하세요"), "Copy without tokens is untouched.");
+                Assert.That(beats[3].Title, Is.EqualTo("확정해"), "Copy without tokens is untouched.");
             }
             finally
             {
                 LegacySkillDefinitions.Install(null);
             }
-            Assert.That(beats[1].Title, Is.EqualTo("베기를 예약하세요"));
+            Assert.That(beats[1].Title, Is.EqualTo("베기를 예약해"));
             Assert.That(quickDraw.Title, Is.EqualTo("쿠페"));
         }
 

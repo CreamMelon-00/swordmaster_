@@ -5,8 +5,10 @@ using TurnLimbo.Runtime.LegacyCombat;
 namespace TurnLimbo.Runtime.Prologue
 {
     /// <summary>The opening arc before the lobby opens (like StarCraft II's Mar Sara missions): one short,
-    /// linear mission per basic rule, ending in a forced loss to 이아 (mission 4). Titles, stats and coach copy are
-    /// placeholders; the scenes come from the author's manuscript (Docs/PrologueManuscript.md).
+    /// linear mission per basic rule, ending in a forced loss to 이아 (mission 4). Titles and stats are placeholders;
+    /// the scenes come from the author's manuscript (Docs/PrologueManuscript.md). The coach is the voice in 엘리사's
+    /// head, the prologue's unseen voice: its beat titles and descriptions speak in that voice's 반말, while input hints
+    /// and other system copy stay polite (Docs/Narrative.md, '코치의 말투').
     /// The missions played from the lobby afterwards are <see cref="LobbyMissions"/>; <see cref="StoryMissions"/>
     /// is the whole chain.</summary>
     public static class PrologueMissions
@@ -59,18 +61,18 @@ namespace TurnLimbo.Runtime.Prologue
                 24, 10, new MissionSkill[] { LegacyCommonActions.Breathe }, new[] { 1 },
                 new[] { Slash, DoubleSlash }, false, new[]
                 {
-                    new MissionGuideBeat(MissionGuideStepKind.Info, "처음 쥔 검",
-                        "기술은 바로 쓰지 않고 먼저 순서대로 예약합니다. 이번 상대는 반격하지 않으니 마음껏 베어 보세요.", Continue),
-                    new MissionGuideBeat(MissionGuideStepKind.Queue, "Q로 공격을 예약하세요",
-                        "Q를 짧게 누르거나 카드를 클릭하면 {기술:1:가} ACT 1을 쓰고 첫 순서에 들어갑니다.", QueueOnce, lane: 0),
-                    new MissionGuideBeat(MissionGuideStepKind.Queue, "한 번 더 예약하세요",
-                        "예약한 기술은 열의 맨 뒤로 돌아가고 다음 기술이 올라옵니다. Q로 {기술:2:를} 이어서 예약하세요.", QueueOnce, lane: 0),
-                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
-                        "예약한 순서를 확정하면 전투가 시작됩니다. 확정한 뒤에는 바꿀 수 없습니다.", CommitKeys),
-                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "지켜보세요",
-                        "예약한 순서대로 공격합니다. 상대가 막지 않은 공격은 모두 체력 피해가 됩니다.", Watch),
-                    new MissionGuideBeat(MissionGuideStepKind.Free, "끝까지 베어 내세요",
-                        "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", "Q 예약 · Space 확정 · Escape 임무 포기"),
+                    new MissionGuideBeat(MissionGuideStepKind.Info, "복잡할 것 없어",
+                        "기술은 바로 쓰는 게 아니야. 먼저 순서대로 예약하는 거야. 이번 상대는 반격하지 않으니까, 마음껏 베어 봐.", Continue),
+                    new MissionGuideBeat(MissionGuideStepKind.Queue, "Q로 공격을 예약해",
+                        "Q를 짧게 누르거나 카드를 클릭해 봐. {기술:1:가} ACT 1을 쓰고 첫 순서에 들어갈 거야.", QueueOnce, lane: 0),
+                    new MissionGuideBeat(MissionGuideStepKind.Queue, "한 번 더 예약해",
+                        "예약한 기술은 열의 맨 뒤로 돌아가고, 다음 기술이 올라와. Q로 {기술:2:를} 이어서 예약해.", QueueOnce, lane: 0),
+                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정해",
+                        "예약한 순서를 확정하면 전투가 시작돼. 확정한 뒤에는 바꿀 수 없어.", CommitKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "지켜봐",
+                        "예약한 순서대로 공격할 거야. 상대가 막지 않은 공격은 모두 체력 피해가 돼.", Watch),
+                    new MissionGuideBeat(MissionGuideStepKind.Free, "끝까지 베어 내",
+                        "예약하고, 확정하고. 그걸 반복해서 허수아비를 쓰러뜨리면 돼. 처음엔 그걸로 충분해.", "Q 예약 · Space 확정 · Escape 임무 포기"),
                 }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다.", encounter: EncounterKind.Duel),
             // 2. The enemy attacks: clashes trade resistance, the break doubles HP damage, ACT recovers each turn.
             new PrologueMission(2, "인사는 칼로", Forest,
@@ -79,27 +81,27 @@ namespace TurnLimbo.Runtime.Prologue
                 36, 12, new MissionSkill[] { PracticeSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 1 },
                 new[] { Slash, DoubleSlash }, false, new[]
                 {
-                    new MissionGuideBeat(MissionGuideStepKind.Info, "상대도 공격합니다",
-                        "이번 상대는 같은 순번에 공격을 예약합니다. 공격끼리 부딪치면 체력 대신 저항이 먼저 깎입니다.", Continue),
-                    new MissionGuideBeat(MissionGuideStepKind.Inspect, "상대의 기술을 살펴보세요",
-                        "상대 머리 위에도 이번 턴의 기술 큐가 보입니다. Tab을 누르고 있으면 상세 설명이 열립니다.",
+                    new MissionGuideBeat(MissionGuideStepKind.Info, "상대도 공격해 와",
+                        "이번 상대는 같은 순번에 공격을 예약해. 공격끼리 부딪치면 체력 대신 저항이 먼저 깎여.", Continue),
+                    new MissionGuideBeat(MissionGuideStepKind.Inspect, "상대의 기술을 살펴봐",
+                        "상대 머리 위에도 이번 턴의 기술 큐가 보이지? Tab을 누르고 있으면 상세 설명이 열려.",
                         "Tab 누르고 있기 · 좌우 방향키로 순번 확인"),
-                    new MissionGuideBeat(MissionGuideStepKind.Queue, "공격을 예약하세요",
-                        "Q로 {기술:1:를} 예약해 상대의 첫 공격과 같은 순번에 맞세우세요.", QueueOnce, lane: 0),
-                    new MissionGuideBeat(MissionGuideStepKind.Queue, "두 번째 순번도 맞세우세요",
-                        "Q를 한 번 더 눌러 {기술:2:를} 상대의 두 번째 공격에 맞세우세요.", QueueOnce, lane: 0),
-                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
-                        "두 공격 모두 상대와 맞붙습니다. 확정하세요.", CommitKeys),
-                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "공격끼리 맞붙습니다",
-                        "공격끼리 대결하면 저항이 줄어듭니다. 저항이 무너지면 받는 체력 피해가 2배가 되고, 캐릭터에 붉은 윤곽이 생깁니다.", Watch),
-                    new MissionGuideBeat(MissionGuideStepKind.Info, "ACT가 회복됐습니다",
-                        "턴이 바뀌면 ACT가 3 회복되고, {기술:1:를} 쓰면 1 더 회복합니다. 남은 ACT는 다음 턴으로 이어지며 최대 10까지 모입니다.",
+                    new MissionGuideBeat(MissionGuideStepKind.Queue, "공격을 예약해",
+                        "Q로 {기술:1:를} 예약해서 상대의 첫 공격과 같은 순번에 맞세워.", QueueOnce, lane: 0),
+                    new MissionGuideBeat(MissionGuideStepKind.Queue, "두 번째 순번도 맞세워",
+                        "Q를 한 번 더 눌러서 {기술:2:를} 상대의 두 번째 공격에 맞세워. 장단에 맞춰주는 거야.", QueueOnce, lane: 0),
+                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정해",
+                        "두 공격 모두 상대와 맞붙을 거야. 확정해.", CommitKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "공격끼리 맞붙어",
+                        "공격끼리 대결하면 저항이 줄어. 저항이 무너지면 받는 체력 피해가 2배가 되고, 캐릭터에 붉은 윤곽이 생겨.", Watch),
+                    new MissionGuideBeat(MissionGuideStepKind.Info, "ACT가 회복됐어",
+                        "턴이 바뀌면 ACT가 3 회복되고, {기술:1:를} 쓰면 1 더 회복돼. 남은 ACT는 다음 턴으로 이어지고, 최대 10까지 모여.",
                         Continue, focusAct: true),
-                    new MissionGuideBeat(MissionGuideStepKind.Cycle, "Shift로 넘기세요",
-                        "Shift를 누르면 열의 맨 앞 기술을 쓰지 않고 뒤로 보냅니다. ACT는 들지 않지만, 제한 시간이 흐를 때는 한 번에 1초를 씁니다. {기술:2:를} 앞으로 가져오세요.",
+                    new MissionGuideBeat(MissionGuideStepKind.Cycle, "Shift로 넘겨",
+                        "Shift를 누르면 열의 맨 앞 기술을 쓰지 않고 뒤로 보내. ACT는 들지 않지만 제한 시간이 흐를 때는 한 번에 1초가 들어. {기술:2:를} 앞으로 가져와 봐.",
                         "Shift / 넘기기 버튼"),
-                    new MissionGuideBeat(MissionGuideStepKind.Free, "무너진 틈을 노리세요",
-                        "필요한 기술을 넘겨 가며 저항이 무너진 상대에게 공격을 몰아 넣으세요.", FreeKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.Free, "무너진 틈을 노려",
+                        "필요한 기술을 넘겨 가며, 저항이 무너진 상대에게 공격을 몰아넣어.", FreeKeys),
                 }, features: QWithCycle, encounter: EncounterKind.Duel),
             // 3. The enemy also guards: defence reduces the same slot's damage; 막기 against a Hit-property attack refunds ACT.
             new PrologueMission(3, "받아내는 법", Forest,
@@ -108,21 +110,21 @@ namespace TurnLimbo.Runtime.Prologue
                 40, 15, new MissionSkill[] { PracticeSlash, PracticeDownwardSlash, PracticeGuard }, new[] { 3, 2 },
                 new[] { Slash, Guard, DoubleSlash }, false, new[]
                 {
-                    new MissionGuideBeat(MissionGuideStepKind.Info, "막고, 되갚으세요",
-                        "이번 상대는 공격하고, 내려치고, 막기도 합니다. 방어는 같은 순번의 공격 피해를 방어 수치만큼 줄입니다.", Continue),
-                    new MissionGuideBeat(MissionGuideStepKind.Queue, "{기술:1:를} 예약하세요",
-                        "첫 순번은 상대의 베기와 맞붙습니다.", QueueOnce, lane: 0),
-                    new MissionGuideBeat(MissionGuideStepKind.Queue, "돌아온 열에서 {기술:7:를} 고르세요",
-                        "{기술:1:가} 열의 뒤로 돌아가고 {기술:7:가} 올라왔습니다. 두 번째 순번의 내려치기를 {기술:7:로} 받아내세요.", QueueOnce, lane: 0),
-                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
-                        "세 번째 순번은 비워 둡니다. 확정해 맞붙으세요.", CommitKeys),
-                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "방어는 피해를 줄입니다",
-                        "{기술:7:가} 내려치기의 피해를 줄였습니다. 상대가 방어하는 순번에 공격하면 내 피해도 그만큼 줄어듭니다.", Watch),
-                    new MissionGuideBeat(MissionGuideStepKind.Info, "{기술:7}의 보상",
-                        "타격 속성 공격을 {기술:7:로} 받아내 다음 턴 ACT를 2 더 얻었습니다. 상대의 큐를 보고 막을 자리를 고르세요.",
+                    new MissionGuideBeat(MissionGuideStepKind.Info, "막고, 되갚아",
+                        "있지, 이번 상대는 공격하고, 내려치고, 막기도 해. 방어는 같은 순번의 공격 피해를 방어 수치만큼 줄여.", Continue),
+                    new MissionGuideBeat(MissionGuideStepKind.Queue, "{기술:1:를} 예약해",
+                        "첫 순번은 상대의 베기와 맞붙을 거야.", QueueOnce, lane: 0),
+                    new MissionGuideBeat(MissionGuideStepKind.Queue, "돌아온 열에서 {기술:7:를} 골라",
+                        "{기술:1:가} 열의 뒤로 돌아가고 {기술:7:가} 올라왔지? 두 번째 순번의 내려치기를 {기술:7:로} 받아내.", QueueOnce, lane: 0),
+                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정해",
+                        "세 번째 순번은 비워 둬. 확정해서 맞붙어 봐.", CommitKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "방어는 피해를 줄여",
+                        "{기술:7:가} 내려치기의 피해를 줄였어. 상대가 방어하는 순번에 공격하면, 네가 주는 피해도 그만큼 줄어.", Watch),
+                    new MissionGuideBeat(MissionGuideStepKind.Info, "잘 받아냈어",
+                        "타격 속성 공격을 {기술:7:로} 받아내서 다음 턴 ACT를 2 더 얻었어. 상대의 큐를 보고 막을 자리를 골라.",
                         Continue, focusAct: true),
-                    new MissionGuideBeat(MissionGuideStepKind.Free, "승리하세요",
-                        "공격과 방어를 섞어 상대를 쓰러뜨리세요.", FreeKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.Free, "이겨 봐",
+                        "공격과 방어를 섞어서 상대를 쓰러뜨려. 어렵지 않잖아?", FreeKeys),
                 }, features: QWithCycle, encounter: EncounterKind.Duel),
             // 4. No new rule, but the planning timer starts: the arc's first real duel, which the player cannot win. The
             // briefing still says 떠돌이 기사; she names herself 이아 in the intro, so the battle says 이아. She cannot
@@ -138,11 +140,11 @@ namespace TurnLimbo.Runtime.Prologue
                 55, 15, new[] { Slash, BreakMomentum, Guard, DoubleSlash }, new[] { 2, 2, 3 },
                 new[] { Slash, Guard, DoubleSlash }, true, new[]
                 {
-                    new MissionGuideBeat(MissionGuideStepKind.Info, "이제 제한 시간이 흐릅니다",
-                        "지금부터는 턴마다 10초 안에 예약을 마쳐야 합니다. 시간이 다 되면 예약한 만큼 자동으로 확정됩니다. 넘기기도 한 번에 1초를 씁니다.", Continue),
+                    new MissionGuideBeat(MissionGuideStepKind.Info, "이제 제한 시간이 흘러",
+                        "지금부터는 턴마다 10초 안에 예약을 마쳐야 해. 시간이 다 되면 예약한 만큼 자동으로 확정돼. 넘기기도 한 번에 1초가 들어.", Continue),
                     // The coach speaks during the battle, so it already says 이아.
-                    new MissionGuideBeat(MissionGuideStepKind.Free, "이아",
-                        "배운 것을 모두 써서 이아와 겨루세요.", FreeKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.Free, "이아라고 했지?",
+                        "배운 걸 전부 써서 이아와 끝까지 겨뤄. 봐주지 말고.", FreeKeys),
                 }, features: QWithCycle, encounter: EncounterKind.Duel, battleEnemyName: "이아", enemyHealthFloor: 1,
                 empowerment: new MissionEmpowerment(50, EmpowermentScene, new[] { new[] { Laudare, Benedicere, Praedicare } },
                     keepsAura: true, forcedLoss: true)),
