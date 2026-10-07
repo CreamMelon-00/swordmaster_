@@ -17,6 +17,8 @@ namespace TurnLimbo.Presentation
         private readonly DuelPresentationSettings presentationSettings;
         private readonly Canvas canvas;
         private readonly RectTransform root;
+        // The whole HUD's fade (SetFade): an overlay the arena's grade never reaches fades on its own.
+        private readonly CanvasGroup fade;
         private readonly GameObject ownedEventSystem;
         private readonly Dictionary<string, Sprite> sprites = new Dictionary<string, Sprite>();
         private readonly Dictionary<int, Sprite> hudIcons = new Dictionary<int, Sprite>();
@@ -80,6 +82,9 @@ namespace TurnLimbo.Presentation
         private string stageName;
         private readonly StatusView playerStatus, enemyStatus;
         private readonly QueueView playerQueue, enemyQueue;
+        // Each fighter's head HUD as last laid out, and its panel's centre over the head (TryGetHeadStack).
+        private Rect playerHeadStack, enemyHeadStack;
+        private float playerHeadX, enemyHeadX;
         private readonly RectTransform attackView, topBar, bottomBar;
         private RectTransform logPanel, logContent, logPlayerColumn, logEnemyColumn;
         private ScrollRect logScroll;
@@ -145,7 +150,19 @@ namespace TurnLimbo.Presentation
 
         public bool HasRequiredAssets => assetsAvailable && art.UIFont != null;
         public GameObject Root => root.gameObject;
+        /// <summary>How much of the whole HUD shows, 1 (as drawn) to 0 (<see cref="SetFade"/>).</summary>
+        public float Fade => disposed ? 1f : fade.alpha;
         public bool LogOpen { get; private set; }
+
+        /// <summary>Fades the whole HUD, its speech bubbles and step cues included: 1 shows it as drawn, 0 hides it (and it
+        /// takes no clicks). The 서막's final fall fades it with the arena's colour, which as an overlay it never gets;
+        /// whoever fades it brings it back to 1.</summary>
+        public void SetFade(float amount)
+        {
+            if (disposed) return;
+            fade.alpha = Mathf.Clamp01(amount);
+            fade.blocksRaycasts = fade.alpha > 0f;
+        }
         public int LogCount => logRows.Count;
 
         /// <summary>The displayed queue card, including its pulse and head attachment.</summary>
@@ -194,6 +211,7 @@ namespace TurnLimbo.Presentation
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
             scaler.matchWidthOrHeight = .5f;
             root.gameObject.AddComponent<GraphicRaycaster>();
+            fade = root.gameObject.AddComponent<CanvasGroup>();
             if (EventSystem.current == null)
             {
                 ownedEventSystem = new GameObject("Legacy HUD EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
@@ -764,8 +782,10 @@ namespace TurnLimbo.Presentation
             foreach (var feedback in laneFeedback) feedback.Tick(actualDelta);
             playerEffectFeedback.Tick(actualDelta);
             enemyEffectFeedback.Tick(actualDelta);
-            PositionFighterHud(playerStatus, playerQueue, player, camera, new Vector3(-.6f, 1.1f, 0));
-            PositionFighterHud(enemyStatus, enemyQueue, enemy, camera, new Vector3(-.4f, 1f, 0));
+            PositionFighterHud(playerStatus, playerQueue, player, camera, new Vector3(-.6f, 1.1f, 0),
+                ref playerHeadStack, ref playerHeadX);
+            PositionFighterHud(enemyStatus, enemyQueue, enemy, camera, new Vector3(-.4f, 1f, 0),
+                ref enemyHeadStack, ref enemyHeadX);
             // After the rows were fitted to the screen.
             UpdateGuideEnemyFocus();
             playerStatus.Refresh(session.Player, delta);
@@ -1239,7 +1259,10 @@ namespace TurnLimbo.Presentation
             }
         }
 
-        private void PositionFighterHud(StatusView status, QueueView queue, Transform actor, Camera camera, Vector3 headAnchor)
+        /// <param name="stack">Set to the head HUD laid out (<see cref="TryGetHeadStack"/>); kept when nothing could be.</param>
+        /// <param name="headX">Set to the panel's centre, over the fighter's head.</param>
+        private void PositionFighterHud(StatusView status, QueueView queue, Transform actor, Camera camera, Vector3 headAnchor,
+            ref Rect stack, ref float headX)
         {
             if (actor == null || camera == null) return;
             // Stable local attachment points match the inherited idle sprites.
@@ -1263,6 +1286,45 @@ namespace TurnLimbo.Presentation
             float room = queue.GrowsLeft ? position.x + statusSize.x / 2 + halfCanvas.x - ScreenMargin
                 : halfCanvas.x - ScreenMargin - (position.x - statusSize.x / 2);
             queue.Fit(room);
+            // What sits above it (the speech bubbles) keeps clear of the panel and of the row's room over it, held even
+            // while the row is empty so it does not jump as cards come and go.
+            float left = position.x - statusSize.x / 2, right = position.x + statusSize.x / 2;
+            if (queue.DisplaySize.x > 0)
+            {
+                left = Mathf.Min(left, position.x + queue.HorizontalSpan.x);
+                right = Mathf.Max(right, position.x + queue.HorizontalSpan.y);
+            }
+            stack = UnityEngine.Rect.MinMaxRect(left, position.y - statusSize.y / 2, right,
+                position.y + statusSize.y / 2 + QueueRowRoom);
+            headX = position.x;
+        }
+
+        /// <summary>The room a queue row takes over its status panel: the gap, a card, and what can rise past the card's
+        /// top (the active card's pulse, its counter tab, the coach's frame around the enemy's row).</summary>
+        private const float QueueRowRoom = 92f;
+
+        /// <summary>Where a fighter's head HUD was last laid out (<see cref="Refresh"/>): its status panel and the room of
+        /// its queue row above it, in the HUD root's local units (centre origin, y up), and the panel's centre, over the
+        /// fighter's head. False before the first layout. The speech bubbles (<see cref="DuelBarks"/>) keep clear of it.</summary>
+        public bool TryGetHeadStack(bool playerSide, out Rect stack, out float headX)
+        {
+            stack = playerSide ? playerHeadStack : enemyHeadStack;
+            headX = playerSide ? playerHeadX : enemyHeadX;
+            return !disposed && stack.width > 0f;
+        }
+
+        /// <summary>A queue card's size, HUD units at the 1920x1080 reference.</summary>
+        public const float QueueCardSize = 64f;
+
+        /// <summary>The enemy's queue row as last laid out (<see cref="Refresh"/>): <paramref name="row"/> is the cards'
+        /// parent, over the enemy's status panel and level with the cards, and <paramref name="span"/> the row's left and
+        /// right edges relative to it (slot 1, the next to come, at the left: the inner end). False while the row shows no
+        /// card. The gear shimmer over a revealed queue (<see cref="DuelGearShimmer"/>) plays beside it.</summary>
+        public bool TryGetEnemyQueueRow(out RectTransform row, out Vector2 span)
+        {
+            row = disposed ? null : enemyQueue.Root;
+            span = enemyQueue.HorizontalSpan;
+            return !disposed && enemyQueue.DisplaySize.x > 0f;
         }
 
         private StatusView BuildStatus(bool enemy)
@@ -1700,7 +1762,7 @@ namespace TurnLimbo.Presentation
         /// than the room to the screen edge tightens its spacing so the cards overlap a little.</summary>
         private sealed class QueueView
         {
-            private const float Pitch = 72f, CardSize = 64f, MinimumPitch = 12f;
+            private const float Pitch = 72f, CardSize = QueueCardSize, MinimumPitch = 12f;
             private readonly List<RectTransform> visibleItems = new List<RectTransform>();
             public bool GrowsLeft => player;
             public readonly RectTransform Root;

@@ -648,6 +648,43 @@ namespace TurnLimbo.Presentation.Tests
             finally { Application.logMessageReceived -= capture; }
         }
 
+        [UnityTest]
+        public IEnumerator RecallAlbum_WaitsWhileTheScreenIsNotReady_AsLongAsItsBeatStaysUp()
+        {
+            yield return null;
+            using (var scope = new CutsceneScope())
+            {
+                TutorialRecallAlbum album = scope.Controller.RecallAlbum;
+                bool ready = false, shown = true;
+                if (!album.CapturesScreens)
+                {
+                    // Batch mode or no graphics device: nothing waits, ready or not.
+                    Assert.That(album.RequestCapture("1:1", () => shown, () => ready), Is.False);
+                    Assert.That(album.IsCapturing, Is.False);
+                    yield break;
+                }
+                // A speech bubble is up when the card has settled: the capture waits for it…
+                Assert.That(album.RequestCapture("1:1", () => shown, () => ready), Is.True);
+                yield return new WaitForSecondsRealtime(TutorialRecallAlbum.CaptureDelay + .2f);
+                Assert.That(album.IsCapturing && album.PendingKey == "1:1", Is.True, "…however long it stays…");
+                Assert.That(album.HasTried("1:1"), Is.False);
+                ready = true;
+                for (int frame = 0; frame < 10 && album.IsCapturing; frame++) yield return null;
+                Assert.That(album.IsCapturing, Is.False);
+                Assert.That(album.HasTried("1:1"), Is.True, "…and captures the beat once it has gone.");
+
+                // A beat that leaves while its capture waits is not captured, nor counted as tried.
+                ready = false;
+                Assert.That(album.RequestCapture("1:2", () => shown, () => ready), Is.True);
+                yield return new WaitForSecondsRealtime(TutorialRecallAlbum.CaptureDelay + .1f);
+                Assert.That(album.PendingKey, Is.EqualTo("1:2"));
+                shown = false;
+                for (int frame = 0; frame < 10 && album.IsCapturing; frame++) yield return null;
+                Assert.That(album.IsCapturing || album.HasTried("1:2"), Is.False);
+                album.Clear();
+            }
+        }
+
         [Test]
         public void MakeMemory_ShrinksTheShotByAWholeFactor_IntoATextureTheAlbumOwns()
         {

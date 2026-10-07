@@ -16,6 +16,8 @@ namespace TurnLimbo.Presentation
     /// <see cref="Dispose"/> gives the arena and the screens back as it found them (the controller then resets the
     /// arena), stops every sound, charge and tremble, and removes the senior knight. Only the fighters' power auras stay
     /// as the scene left them, so an aura lit in a battle's event scene carries on into the fight; arena reset clears them.
+    /// The knight's aura brings her 수훈 afterimages (<see cref="DuelAuraAfterimages"/>): ticked with it on the scene's real
+    /// time, they trail her for as long as it is up.
     /// A script may start on a bare stage (the opening) or with figures already standing (<see cref="CutsceneScript.OnStage"/>,
     /// a mission's scenes): those keep the arena's places, facing and camera framing until the script moves them. A scene
     /// that plays in the middle of a battle (<see cref="ResumesBattle"/>) suspends the arena for its length and leaves it
@@ -136,6 +138,10 @@ namespace TurnLimbo.Presentation
         public bool IsShaking => shakeElapsed < shakeSeconds;
         /// <summary>Whether a <c>@recall</c> is still on screen.</summary>
         public bool IsRecalling => recallSeconds > 0f;
+        /// <summary>Set before <see cref="Start"/>: the scene opens black and white and its colour comes back over this many
+        /// seconds, as if after <c>@flashback on 0</c> and <c>@flashback off</c> (the 서막's final fall hands its outro over
+        /// in grey). 0, the default, opens in colour. A <c>@flashback</c> in the script takes over from wherever it is.</summary>
+        public float OpensFromGreySeconds { get; set; }
 
         public bool IsVisible(CutsceneActor actor)
         {
@@ -152,11 +158,13 @@ namespace TurnLimbo.Presentation
 
         /// <summary>Sets the stage and runs the cutscene up to its first hold. A bare stage has every figure off and the
         /// camera at the duel framing; a script that starts on stage keeps its figures where the arena has them (idle,
-        /// facing as they do) and the camera where it is. Either way: in colour, no image or bars.</summary>
+        /// facing as they do) and the camera where it is. Either way: in colour (or regaining it, see
+        /// <see cref="OpensFromGreySeconds"/>), no image or bars.</summary>
         public void Start()
         {
             if (disposed || Playback.IsStarted) return;
-            fade = bars = imageAmount = flashback = Tween.At(0f);
+            fade = bars = imageAmount = Tween.At(0f);
+            flashback = OpensFromGreySeconds > 0f ? Tween.At(1f).Toward(0f, OpensFromGreySeconds) : Tween.At(0f);
             shakeStrength = shakeElapsed = shakeSeconds = 0f;
             recallElapsed = recallSeconds = 0f;
             if (senior != null) senior.Visible = false;
@@ -493,7 +501,7 @@ namespace TurnLimbo.Presentation
                     figure.Moving = false;
                     figure.Attacking = false;
                     figure.Trembling = false;
-                    // Leaving the stage takes the figure's power with it.
+                    // Leaving the stage takes the figure's power with it (and at once any afterimages it leaves).
                     figure.Aura?.StopCharge();
                     figure.Aura?.SetAura(false);
                     break;
@@ -562,7 +570,8 @@ namespace TurnLimbo.Presentation
                 figure.Pose = CutscenePose.Idle;
                 figure.PoseClock = 0f;
             }
-            // Real time in a cutscene; the battle ticks the fighters' auras on its own clock.
+            // Real time in a cutscene (the knight's 수훈 afterimages with her aura); the battle ticks the fighters' auras on
+            // its own clock.
             figure.Aura?.Tick(delta);
         }
 

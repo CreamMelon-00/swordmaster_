@@ -139,6 +139,7 @@
 
 - 엘리사는 사람과 똑같이 생긴 **만들어진 존재**이고, 자기를 **만든 사람**을 찾는다. 이야기는 만든 사람이 떠나는 것을 상징하는 장면으로 끝난다. — 원고에서 엘리사가 움직이는 이유는 목소리의 부탁(모두 죽이고 세상을 구한다, 적어도 교황은 죽인다)이다.
 - 엘리사는 **남이 다음에 무엇을 할지 본다**(상대의 큐가 화면에 예고되는 것). **서임을 받아도 아무것도 얻지 못한다.** — 원고에 없다.
+- 이전 판은 '만들어진 존재'를 **톱니** 모티프로 그림에만 은은하게 넣고 글로는 말하지 않는다고 했다. — 지금 게임에서는 이 모티프가 연출 하나로만 은은하게 나온다. 편성마다 상대의 큐가 드러날 때 첫 카드 뒤에서 놋쇠빛 톱니가 한 칸 돌며 사라지고 빛이 카드들을 훑는다('엘리사의 눈', 2026-10-07, `PresentationTuning.md`). 글자는 없고 무엇을 뜻하는지도 말하지 않는다. 정본이 아닌 구상에서 온 것이므로, 작가가 원하지 않으면 연출 튜닝의 `Gear Shimmer Seconds`를 0으로 두어 끈다.
 - **모두가 기사인 나라**이고, 다툼은 결투로 가리며, 낯선 기사가 결투를 청하는 것은 **예의**에 가깝다. — 원고에서는 무단 결투 신청이 규칙 위반이다.
 - 큰 이야기: 숲 → 작은 사립학교 → 서임을 차례로 받음 → 가장 높은 자리를 스스로 거부 → 만든 사람이 떠나는 결말. — 원고의 서막은 숲에서 곧바로 학교(교무실)로 이어진다. 그 뒤는 미정이다.
 - 시스템의 대응: Q 정공·W 강공·E 기교 검술과 커리큘럼은 떠돌이 기사의 가르침, 로비의 방은 그의 거처, 8스테이지는 숲을 빠져나가는 길. — 위 「서막 뒤 — 미정」의 자리표시가 이 구상으로 만들어졌다.
@@ -149,6 +150,7 @@
 - 서막 장면: `Assets/Game/Resources/Cutscene/opening.txt`(프롤로그와 오프닝, 새 게임 직후), `mission-01~04-intro.txt`, `mission-01~03-outro.txt`, `mission-04-event.txt`(임무 4 전투 중), `mission-04-outro.txt`(임무 4 패배 뒤). 원고에서 옮긴 숲 전장 위의 컷신이다. 문법은 `Cutscene.md`, 원고 구간과 연출의 대응은 `PrologueManuscript.md`. 서막 1~4의 대사 파일(`Dialogue/mission-01~04-*`)은 없앴다. 장면 하나에 파일 하나다. EditMode `PrologueSceneFileTests`가 모든 장면 파일의 형식과 이름표, 원고가 시킨 연출 몇 가지(수훈 기운, 2판의 떨림·칼 휘두르기·튜토리얼 회상)를 확인한다.
 - 튜토리얼 회상(3 임무 시작): 규칙은 Runtime `Assets/Game/Runtime/Prologue/TutorialRecall.cs`, 1·2 임무의 코치 안내 화면을 찍어 두는 곳은 Presentation `TutorialRecallAlbum.cs`(`Cutscene.md`).
 - 가르침 임무 대사: `Assets/Game/Resources/Dialogue/mission-05~09-intro.txt`, `-outro.txt` (지금은 `테스트` 한 줄). 문법은 `DialogueAuthoring.md`.
+- 전투 대사(전투 중 머리 위 말풍선): `Assets/Game/Resources/Barks/mission-NN.txt`, `stage-NN.txt`. 서막 1~4 임무에는 상황 목록만 적힌 빈 틀이 있고 대사는 작가가 쓴다. 문법과 상황은 `Barks.md`.
 - 효과음: `Assets/Game/Resources/Sfx/` (생성한 자리표시, 같은 이름의 파일로 바꿀 수 있다).
 - 임무 제목·목표·적 이름·코치 문구(말투는 「코치의 말투」), 임무 4의 수훈 이벤트: `Assets/Game/Runtime/Prologue/PrologueMissions.cs`(1~4), `LobbyMissions.cs`(5~9).
 - 라우다레·베네디체레·프레디카레: 기술 시트 `Assets/Game/Resources/Skills/skills.csv`의 적 전용 행 500~502(`SkillSheet.md`). 쓰는 순서는 `PrologueMissions.cs`.

@@ -141,6 +141,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.QueueLane(0), Is.True);
                 controller.CommitTurn();
                 scope.AdvanceUntil(() => scope.Field<bool>("missionEventPending"), "The flurry brings 이아 to half health.");
+                Assert.That(arena.ActiveAuraAfterimageCount, Is.Zero, "Before her 수훈 she leaves no afterimage.");
+                bool ghosts = controller.PresentationSettings.EmpowermentAfterimageAlpha > 0f;
                 LegacyCurrentSlot slot = controller.Session.CurrentSlot;
                 Assert.That(slot, Is.Not.Null);
                 Assert.That(slot.HitsResolved, Is.EqualTo(2), "The event waits on the hit that crossed half…");
@@ -177,6 +179,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(slotTime));
                 Assert.That(controller.EnemyHealth, Is.EqualTo(20));
                 Assert.That(controller.IsMissionEmpowered, Is.False, "Not before the scene ends.");
+                for (int frame = 0; frame < 6; frame++) scope.Advance(.05f);
+                if (ghosts)
+                    Assert.That(arena.ActiveAuraAfterimageCount, Is.GreaterThan(0),
+                        "From the moment her aura comes on in the scene she leaves yellow afterimages, on its real time.");
+                Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(slotTime));
 
                 Press(keyboard.escapeKey);
                 yield return null;
@@ -196,6 +203,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.FlashbackAmount, Is.Zero);
                 Assert.That(controller.Hud.Root.activeSelf, Is.True);
                 Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.True, "The 수훈 aura stays on for the rest of the battle.");
+                Assert.That(arena.ActiveAuraAfterimageCount, Is.Zero,
+                    "The scene's afterimages stay with the scene: her trail starts afresh from her place in the battle.");
                 Assert.That(controller.Session.CurrentSlot.HitsResolved, Is.EqualTo(2));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(slotTime), "The slot resumes on the frame it paused on.");
                 yield return null;
@@ -209,6 +218,9 @@ namespace TurnLimbo.Presentation.Tests
                     Is.EqualTo(MissionFour.Empowerment.EnemyScript.Turn(1).Select(skill => skill.Id)).And.EqualTo(new[] { Laudare, 501, 502 }),
                     "From the next turn she plays the motto: 라우다레, 베네디체레, 프레디카레.");
                 Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.True);
+                for (int frame = 0; frame < 8; frame++) scope.Advance(.025f);
+                if (ghosts)
+                    Assert.That(arena.ActiveAuraAfterimageCount, Is.GreaterThan(0), "Through the rest of the battle she trails them.");
 
                 scope.LoseTheBattle();
                 Assert.That(controller.IsPlayingCutscene, Is.True, "The defeat after the 수훈 plays the outro…");
@@ -218,8 +230,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.PlayerRenderer.transform.localPosition.x, Is.EqualTo(-5f).Within(1e-4f), "…at the battle's starting places.");
                 Assert.That(arena.EnemyRenderer.transform.localPosition.x, Is.EqualTo(5f).Within(1e-4f));
                 Assert.That(controller.DialogueHud.CurrentLine.Text, Is.EqualTo("헉… 헉…"));
+                for (int frame = 0; frame < 6; frame++) scope.Advance(.05f);
+                if (ghosts) Assert.That(arena.ActiveAuraAfterimageCount, Is.GreaterThan(0), "Her afterimages go on in the outro…");
                 Assert.That(controller.AdvanceCutscene(), Is.True);
                 Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.False, "…until the outro's @aura knight off.");
+                Assert.That(arena.ActiveAuraAfterimageCount, Is.Zero, "Switched off at once, it takes them with it.");
                 Assert.That(controller.AdvanceCutscene(), Is.True);
                 Assert.That(controller.IsPlayingCutscene, Is.False);
                 Assert.That(controller.IsInLobby, Is.True, "Then the lobby, where the old win's 여정 계속 went…");
@@ -266,7 +281,8 @@ namespace TurnLimbo.Presentation.Tests
                 controller.ReturnToLobby();
                 Assert.That(controller.IsInBriefing, Is.True, "Abandoning goes back to the briefing…");
                 Assert.That(controller.IsMissionEmpowered, Is.False);
-                Assert.That(controller.ArenaView.EnemyPowerAura.IsAuraOn, Is.False, "…and takes the aura away.");
+                Assert.That(controller.ArenaView.EnemyPowerAura.IsAuraOn, Is.False, "…and takes the aura away…");
+                Assert.That(controller.ArenaView.ActiveAuraAfterimageCount, Is.Zero, "…and every afterimage.");
                 Assert.That(controller.StartMission(), Is.True);
                 if (controller.IsPlayingScene) Assert.That(controller.SkipScene(), Is.True);
                 AssertFreshAttempt(controller);
@@ -379,6 +395,193 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [Test]
+        public void TheSutunPhase_CutsInOnHerTechniques_WarmsTheGrade_ShakesOnHerBarrage_AndLeavesWithTheAttempt()
+        {
+            using (var scope = new SceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                LegacyArenaView arena = controller.ArenaView;
+                DuelEmpowermentCues cues = controller.EmpowermentCues;
+                DuelPresentationSettings settings = controller.PresentationSettings;
+                Assume.That(settings.EmpowermentCutInSeconds, Is.GreaterThan(.2f));
+                Assume.That(settings.LaudareShakeStrength, Is.GreaterThan(0f));
+                Assert.That(arena.ArenaProfile.TryGet(out ColorAdjustments grade), Is.True);
+                Assert.That(arena.ArenaProfile.TryGet(out Vignette vignette), Is.True);
+                float baseVignette = vignette.intensity.value;
+                scope.StartMissionFour();
+                Assert.That(cues.IsActive, Is.False, "Before her 수훈 the battle looks like any other.");
+                Assert.That(arena.EmpowermentAmount, Is.Zero);
+                // No event scene here: the empowerment comes on the hit's frame.
+                scope.InstallDuel(EventDuel(Strike()));
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                scope.AdvanceUntil(() => controller.IsMissionEmpowered, "The strike brings 이아 to half health.");
+                Assert.That(cues.IsActive, Is.True, "The 수훈 phase begins with the empowerment…");
+                Assert.That(arena.EmpowermentAmount, Is.LessThan(1f), "…easing in rather than switching on.");
+
+                scope.AdvanceUntil(() => controller.CanChoose, "The turn plays out to the next planning.");
+                for (int frame = 0; frame < 80; frame++) scope.Advance(.025f);
+                Assert.That(arena.EmpowermentAmount, Is.EqualTo(1f), "Then the warm grade is all there…");
+                Color filter = grade.colorFilter.value;
+                if (settings.EmpowermentWarmTint > 0f)
+                    Assert.That(filter.r > filter.g && filter.g > filter.b, Is.True, "…golden…");
+                Assert.That(vignette.intensity.value, Is.EqualTo(baseVignette + settings.EmpowermentVignette).Within(1e-4f),
+                    "…with darker edges…");
+                if (cues.LoopClip != null && settings.EmpowermentAuraLoopVolume > 0f)
+                {
+                    Assert.That(cues.IsLoopPlaying, Is.True, "…and her aura hums quietly under the fight.");
+                    Assert.That(cues.LoopVolume, Is.EqualTo(settings.EmpowermentAuraLoopVolume).Within(1e-4f));
+                }
+                Assert.That(controller.Session.EnemyQueue.Select(skill => skill.Id), Is.EqualTo(new[] { Laudare, 501, 502 }));
+
+                controller.CommitTurn();
+                scope.AdvanceUntil(() => cues.IsCuttingIn, "라우다레 opens the motto turn with a cut-in.");
+                LegacyCurrentSlot slot = controller.Session.CurrentSlot;
+                Assert.That(slot.EnemySkill.Id, Is.EqualTo(Laudare));
+                Assert.That(slot.HitsResolved, Is.Zero, "It comes before the first hit.");
+                Assert.That(cues.CutInRemaining, Is.EqualTo(settings.EmpowermentCutInSeconds).Within(1e-4f));
+                Assert.That(arena.EnemyPowerAura.IsCharging, Is.True, "Her aura gathers for its flare…");
+                float slotTime = controller.ActiveSlotElapsedTime;
+                float cameraSize = arena.ArenaCamera.orthographicSize;
+                scope.Advance(.1f);
+                scope.Advance(.1f);
+                Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(slotTime), "…while the battle holds…");
+                Assert.That(slot.HitsResolved, Is.Zero);
+                Assert.That(cues.CutInRemaining, Is.EqualTo(settings.EmpowermentCutInSeconds - .2f).Within(1e-4f), "…on real time…");
+                Assert.That(arena.CutInAmount, Is.GreaterThan(0f), "…and the camera eases toward her.");
+                Assert.That(arena.ArenaCamera.orthographicSize, Is.LessThan(cameraSize));
+                Assert.That(controller.CanStep, Is.False);
+                scope.AdvanceUntil(() => !cues.IsCuttingIn, "The cut-in runs its length.");
+                Assert.That(arena.CutInAmount, Is.Zero, "The camera is on its way back by the first hit.");
+
+                scope.AdvanceUntil(() => slot.HitsResolved >= 1, "라우다레's first hit lands.");
+                Assert.That(arena.CameraShakeAmplitude, Is.GreaterThan(0f), "Each of its hits shakes the camera…");
+                Assert.That(arena.CameraShakeAmplitude, Is.LessThanOrEqualTo(settings.LaudareShakeStrength + 1e-4f));
+                scope.AdvanceUntil(() => slot.HitsResolved >= 2 || controller.Session.IsFinished, "Its next hit lands.");
+                Assert.That(arena.CameraShakeAmplitude, Is.LessThanOrEqualTo(settings.LaudareShakeStrength + 1e-4f),
+                    "…a little, however many hits come.");
+
+                controller.ReturnToLobby();
+                Assert.That(controller.IsInBriefing, Is.True);
+                Assert.That(cues.IsActive || cues.IsCuttingIn, Is.False, "Leaving ends the 수훈 phase…");
+                Assert.That(arena.EmpowermentAmount + arena.CutInAmount + arena.CameraShakeAmplitude, Is.Zero,
+                    "…its grade, cut-in and shake…");
+                Assert.That(vignette.intensity.value, Is.EqualTo(baseVignette).Within(1e-4f));
+                Assert.That(grade.colorFilter.value, Is.EqualTo(Color.white));
+                Assert.That(controller.Finale.Letterbox.IsVisible, Is.False);
+                for (int frame = 0; frame < 30; frame++) scope.Advance(.025f);
+                Assert.That(cues.IsLoopPlaying, Is.False, "…and its hum fades out.");
+            }
+        }
+
+        [Test]
+        public void TheFinalFall_HoldsTheFinishingBlow_DrainsToGrey_AndTheOutroRegainsItsColour()
+        {
+            using (var scope = new SceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                LegacyArenaView arena = controller.ArenaView;
+                DuelFinale finale = controller.Finale;
+                DuelPresentationSettings settings = controller.PresentationSettings;
+                Assume.That(settings.FinishingFreezeSeconds, Is.GreaterThan(0f));
+                Assume.That(settings.FinalFallGreySeconds, Is.GreaterThan(.3f));
+                Assume.That(settings.FinalFallColourReturnSeconds, Is.GreaterThan(.2f));
+                scope.Scenes[MissionFour.OutroCutscene] = "헉… 헉…\n(갑자기 강해졌어…)";
+                scope.StartMissionFour();
+                scope.InstallDuel(EventDuel(Strike()));
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                scope.AdvanceUntil(() => controller.IsMissionEmpowered, "The strike brings 이아 to half health.");
+                scope.PlayUntil(() => finale.IsRunning, "The empowered 이아 ends the battle.");
+                Assert.That(controller.Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
+                Assert.That(finale.Timeline.Current, Is.EqualTo(LegacyFinishingBlow.Stage.SlowMotion),
+                    "Her last blow gets the finishing blow's slow motion…");
+                Assert.That(arena.IsFinishingFocus, Is.True);
+
+                scope.AdvanceUntil(() => finale.IsFrozen, "…then its freeze frame…");
+                Assert.That(arena.FlashbackAmount, Is.Zero, "…still in colour.");
+                Assert.That(controller.Hud.Root.activeSelf && controller.Hud.Fade == 1f, Is.True, "The duel HUD is still up.");
+                Assert.That(finale.Letterbox.Amount, Is.EqualTo(1f).Within(1e-3f));
+                Vector3 elisaAt = arena.PlayerRenderer.transform.localPosition;
+                bool ghosts = settings.EmpowermentAfterimageAlpha > 0f;
+                SpriteRenderer[] frozenGhosts = AuraGhosts(arena);
+                if (ghosts) Assert.That(frozenGhosts, Is.Not.Empty, "Her yellow afterimages trail her last blow…");
+                // As drawn: the silhouette's tint (the sprite colour stays white there) or the fallback's sprite colour.
+                float[] frozenAlphas = frozenGhosts.Select(view => DuelStepAfterimages.DrawnColor(view).a).ToArray();
+                if (ghosts) Assert.That(frozenAlphas, Has.All.GreaterThan(0f));
+                Vector3[] frozenPlaces = frozenGhosts.Select(view => view.transform.position).ToArray();
+                scope.AdvanceUntil(() => finale.Timeline.Current == LegacyFinishingBlow.Stage.Fall, "The freeze runs its length.");
+                Assert.That(controller.IsPlayingCutscene || controller.IsShowingResult, Is.False);
+                float grey = arena.FlashbackAmount, bars = finale.Letterbox.Amount;
+                for (int frame = 0; frame < 8; frame++) scope.Advance(.025f);
+                Assert.That(arena.FlashbackAmount, Is.GreaterThan(grey), "Then the colour drains as in a flashback…");
+                Assert.That(finale.Letterbox.Amount, Is.LessThan(bars), "…while the bars slide out…");
+                Assert.That(controller.Hud.Fade, Is.LessThan(1f).And.EqualTo(1f - finale.Timeline.FallAmount).Within(1e-4f),
+                    "…and the duel HUD, an overlay the grade never reaches, fades out with the colour…");
+                Assert.That(arena.PlayerRenderer.transform.localPosition, Is.EqualTo(elisaAt), "…over the still picture.");
+                Assert.That(AuraGhosts(arena), Is.EqualTo(frozenGhosts), "…her afterimages held in it as she is…");
+                Assert.That(frozenGhosts.Select(view => DuelStepAfterimages.DrawnColor(view).a), Is.EqualTo(frozenAlphas));
+                Assert.That(frozenGhosts.Select(view => view.transform.position), Is.EqualTo(frozenPlaces));
+
+                scope.AdvanceUntil(() => controller.IsPlayingCutscene, "Then the outro, with no defeat result.");
+                Assert.That(controller.IsShowingResult, Is.False);
+                Assert.That(controller.Cutscene.OpensFromGreySeconds, Is.EqualTo(settings.FinalFallColourReturnSeconds));
+                Assert.That(arena.FlashbackAmount, Is.EqualTo(1f), "The outro takes over in black and white…");
+                Assert.That(arena.ActiveAuraAfterimageCount, Is.Zero, "…leaving the battle's afterimages behind…");
+                Assert.That(finale.Letterbox.IsVisible || finale.IsRunning, Is.False, "…with no bars or freeze left…");
+                Assert.That(controller.Hud.Root.activeSelf, Is.False, "…no duel HUD…");
+                Assert.That(controller.Hud.Fade, Is.EqualTo(1f), "…(its fade undone for the next battle)…");
+                Assert.That(controller.EmpowermentCues.IsActive, Is.False);
+                Assert.That(arena.EmpowermentAmount, Is.Zero, "…nor the battle's warm grade…");
+                Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.True, "…while her aura stays until the outro ends it.");
+                float half = settings.FinalFallColourReturnSeconds * .5f;
+                scope.Advance(half);
+                Assert.That(arena.FlashbackAmount, Is.EqualTo(.5f).Within(.01f), "It regains its colour…");
+                if (ghosts) Assert.That(arena.ActiveAuraAfterimageCount, Is.GreaterThan(0), "…her aura's trail going on in it…");
+                scope.Advance(half + .05f);
+                Assert.That(arena.FlashbackAmount, Is.Zero, "…in its set time.");
+                Assert.That(controller.DialogueHud.CurrentLine.Text, Is.EqualTo("헉… 헉…"));
+                Assert.That(controller.SkipScene(), Is.True);
+                Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(arena.FlashbackAmount, Is.Zero);
+            }
+        }
+
+        [Test]
+        public void TheCoachsAbandon_NeverThrowsAwayADecidedBattle_ItSkipsTheFinishingBlowInstead()
+        {
+            using (var scope = new SceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                DuelFinale finale = controller.Finale;
+                Assume.That(controller.PresentationSettings.FinishingSlowMotionSeconds, Is.GreaterThan(0f));
+                Button abandon = controller.CoachHud.Root.GetComponentsInChildren<Button>(true)
+                    .Single(button => button.name == "Coach Abandon");
+                scope.Scenes[MissionFour.OutroCutscene] = "헉… 헉…";
+
+                // Before the battle is decided, 임무 포기 leaves it for the briefing.
+                scope.StartMissionFour();
+                abandon.onClick.Invoke();
+                Assert.That(controller.IsInBriefing, Is.True);
+
+                scope.StartMissionFour();
+                scope.InstallDuel(EventDuel(Strike()));
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                scope.AdvanceUntil(() => controller.IsMissionEmpowered, "The strike brings 이아 to half health.");
+                scope.PlayUntil(() => finale.IsRunning, "The empowered 이아 ends the battle.");
+                Assert.That(controller.Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
+                abandon.onClick.Invoke();
+                Assert.That(controller.IsInBriefing, Is.False, "In the finishing blow the decided battle is not thrown away…");
+                Assert.That(controller.IsPlayingCutscene, Is.True, "…its outro comes at once…");
+                Assert.That(controller.Prologue.ClearedCount, Is.EqualTo(PrologueMissions.Count), "…and the 서막 is complete.");
+                Assert.That(finale.IsRunning || finale.Letterbox.IsVisible, Is.False);
+                Assert.That(controller.SkipScene(), Is.True);
+                Assert.That(controller.IsInLobby, Is.True);
+            }
+        }
+
         private static void AssertFreshAttempt(DuelPrototypeController controller)
         {
             Assert.That(controller.IsMission && controller.ActiveMission.Number == PrologueMissions.Count, Is.True);
@@ -386,8 +589,13 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(controller.Session.EnemyHealthThresholdReached, Is.False);
             DuelPowerAura aura = controller.ArenaView.EnemyPowerAura;
             Assert.That(aura.IsAuraOn || aura.AuraAmount > 0f, Is.False);
+            Assert.That(controller.ArenaView.ActiveAuraAfterimageCount, Is.Zero, "No 수훈 afterimage is left behind.");
             Assert.That(controller.Session.EnemyQueue.Any(skill => skill.Id == Laudare), Is.False);
         }
+
+        /// <summary>이아's 수훈 afterimages on screen now.</summary>
+        private static SpriteRenderer[] AuraGhosts(LegacyArenaView arena)
+            => arena.EnemyAuraAfterimages.Root.GetComponentsInChildren<SpriteRenderer>().ToArray();
 
         private static string[] ActiveTexts(GameObject root, string name)
             => root.GetComponentsInChildren<Text>().Where(text => text.name == name).Select(text => text.text).ToArray();
@@ -472,6 +680,18 @@ namespace TurnLimbo.Presentation.Tests
                 if (Controller.IsPlayingScene) Assert.That(Controller.SkipScene(), Is.True);
                 Assert.That(Controller.IsMission && Controller.ActiveMission.Number == PrologueMissions.Count, Is.True);
                 SetGuide(null);
+            }
+
+            /// <summary>Commits empty turns until <paramref name="condition"/> holds.</summary>
+            public void PlayUntil(Func<bool> condition, string message)
+            {
+                int frames = 0;
+                while (!condition() && frames++ < 8000)
+                {
+                    if (Controller.CanChoose) Controller.CommitTurn();
+                    Advance(.025f);
+                }
+                Assert.That(condition(), Is.True, message);
             }
 
             /// <summary>Commits empty turns until the battle ends in the player's defeat and something else takes the screen.</summary>

@@ -101,6 +101,31 @@ namespace TurnLimbo.Runtime.Prologue
         /// <summary>From the event on the battle is a forced loss: the player's defeat completes the mission (with its
         /// outro instead of a result screen). The enemy cannot fall (<see cref="PrologueMission.EnemyHealthFloor"/>).</summary>
         public bool ForcedLoss { get; }
+
+        /// <summary>Whether <paramref name="skill"/> is one of the empowered enemy's own techniques (the 서막's 수훈 skills:
+        /// 라우다레, 베네디체레, 프레디카레): an enemy-only sheet row (구분 <c>적</c>) that her empowered turns use. Presentation
+        /// opens each with a cut-in. Matched by id against the sheet as it is now, like <see cref="EnemyScript"/>.</summary>
+        public bool IsSignatureSkill(LegacySkill skill)
+        {
+            if (skill == null) return false;
+            bool enemyOnly = false;
+            foreach (LegacySkill row in LegacySkillDefinitions.EnemySkills)
+                if (row.Id == skill.Id)
+                {
+                    enemyOnly = true;
+                    break;
+                }
+            if (!enemyOnly) return false;
+            foreach (MissionSkill[] turn in loop)
+                foreach (MissionSkill action in turn)
+                    if (action.Resolve().Id == skill.Id) return true;
+            return false;
+        }
+
+        /// <summary>Whether <paramref name="skill"/> is a signature attack of several hits (라우다레): presentation shakes the
+        /// camera a little on each of its hits.</summary>
+        public bool IsSignatureBarrage(LegacySkill skill)
+            => skill != null && skill.Kind == LegacySkillKind.Attack && skill.AttackCount > 1 && IsSignatureSkill(skill);
     }
 
     /// <summary>One story mission: its briefing, its duel, its coached lessons and what winning it opens.

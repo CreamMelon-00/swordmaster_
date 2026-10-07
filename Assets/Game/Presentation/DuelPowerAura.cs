@@ -10,7 +10,8 @@ namespace TurnLimbo.Presentation
     /// held charge swells for its time and then keeps gathering at full glow until it is cut off (or a new one starts).
     /// It owns its renderers under the figure, so it moves with the figure and is hidden with it, and leaves the
     /// figure's own colour, hit flash and sorting alone. Cutscenes drive it (@charge, @aura) and the battle can keep an
-    /// aura on a fighter (수훈). Placeholder look; replace it here.</summary>
+    /// aura on a fighter (수훈). An aura can also leave afterimages of its figure while it is up (<see cref="Afterimages"/>:
+    /// 이아's yellow 수훈 ghosts). Placeholder look; replace it here.</summary>
     public sealed class DuelPowerAura : IDisposable
     {
         /// <summary>The figure's feet in its own space (the arena's ground offset) and its rough size.</summary>
@@ -80,6 +81,11 @@ namespace TurnLimbo.Presentation
         }
         public int ActiveMoteCount => activeMotes;
         public Transform Root => root;
+        /// <summary>Ghosts of the figure this aura leaves behind while it is up (이아's 수훈 afterimages), or null for none.
+        /// The aura drives them but does not own them: each <see cref="Tick"/> ticks them on the same clock with the aura's
+        /// fade as their strength (so they fade in and out with it), and switching the aura off at once
+        /// (<see cref="SetAura"/> with no fade) or <see cref="Reset"/> takes every ghost away.</summary>
+        public DuelAuraAfterimages Afterimages { get; set; }
 
         /// <param name="figure">The figure's transform (its feet at <see cref="FeetY"/>); the effect lives under it.</param>
         /// <param name="material">The arena's sprite material, or null for the default.</param>
@@ -109,13 +115,15 @@ namespace TurnLimbo.Presentation
             Apply();
         }
 
-        /// <summary>Turns the aura on or off, fading over <paramref name="fadeSeconds"/> (0 = at once).</summary>
+        /// <summary>Turns the aura on or off, fading over <paramref name="fadeSeconds"/> (0 = at once). Switched off at once,
+        /// its <see cref="Afterimages"/> go with it; a fading aura lets them fade out with it.</summary>
         public void SetAura(bool on, float fadeSeconds = 0f)
         {
             if (disposed) return;
             auraTarget = on ? 1f : 0f;
             auraFadeSeconds = Mathf.Max(0f, fadeSeconds);
             if (auraFadeSeconds <= 0f) AuraAmount = auraTarget;
+            if (!on && auraFadeSeconds <= 0f) Afterimages?.Clear();
             Apply();
         }
 
@@ -144,7 +152,7 @@ namespace TurnLimbo.Presentation
             Apply();
         }
 
-        /// <summary>Everything off at once (a new duel, a retry).</summary>
+        /// <summary>Everything off at once (a new duel, a retry), its <see cref="Afterimages"/> included.</summary>
         public void Reset()
         {
             if (disposed) return;
@@ -152,11 +160,12 @@ namespace TurnLimbo.Presentation
             charging = releasing = chargeHolds = false;
             chargeElapsed = releaseElapsed = chargeSpawn = 0f;
             foreach (Mote mote in motes) Deactivate(mote);
+            Afterimages?.Clear();
             Apply();
         }
 
-        /// <summary>Advances the fades and motes by <paramref name="delta"/> seconds on the caller's clock (the battle's
-        /// combat clock, so hit stop holds it; a cutscene's real time).</summary>
+        /// <summary>Advances the fades and motes, and the <see cref="Afterimages"/>, by <paramref name="delta"/> seconds on
+        /// the caller's clock (the battle's combat clock, so hit stop holds it; a cutscene's real time).</summary>
         public void Tick(float delta)
         {
             if (disposed) return;
@@ -212,6 +221,8 @@ namespace TurnLimbo.Presentation
                 }
             }
             Apply();
+            // On the same clock and with the aura's fade: a ghost copies the figure's frame as it stands.
+            Afterimages?.Tick(delta, AuraAmount);
         }
 
         public void Dispose()

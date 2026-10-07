@@ -92,8 +92,34 @@ namespace TurnLimbo.Presentation
         private readonly DuelBreakAura enemyBreakAura;
         private readonly DuelPowerAura playerPowerAura;
         private readonly DuelPowerAura enemyPowerAura;
+        // 이아's yellow 수훈 afterimages, driven by her power aura (left while it is up, on its clock).
+        private readonly DuelAuraAfterimages enemyAuraAfterimages;
         // A cutscene's flashback: 1 turns the whole arena black and white over the battle grade.
         private float flashbackAmount;
+        // The 서막's 수훈 atmosphere (0..1): a warm golden filter and a deeper, amber vignette over the battle grade.
+        private static readonly Color EmpowermentWarmColor = new Color(1f, .86f, .6f, 1f);
+        private static readonly Color EmpowermentVignetteColor = new Color(.22f, .11f, .02f, 1f);
+        private const float BaseVignette = .4f;
+        private readonly Vignette vignette;
+        private float empowermentAmount;
+        // A 수훈 cut-in (0..1, set every battle frame by its cue): the camera eases toward the enemy, aiming a little up
+        // her body, and follows faster than usual to keep up with the short ease.
+        private const float CutInPull = .8f;
+        private const float CutInLift = .3f;
+        private const float CutInSharpness = 14f;
+        private float cutInAmount;
+        // Hit shakes (라우다레): a decaying strength drawn as noise on top of the camera; the offset is taken off again
+        // before the next frame's follow, so it never moves what the camera follows.
+        private const float HitShakeFrequency = 22f;
+        private readonly LegacyShake hitShake = new LegacyShake();
+        private float hitShakeClock;
+        private Vector3 hitShakeOffset;
+        private bool hitShakeApplied;
+        // The finishing blow's close-up holds for its slow motion, and the hit's grade fades on real time meanwhile.
+        private bool finishingFocus;
+        // The planning clock's pressure (0..1): asked for every planning frame (SetTimePressure) and consumed by Tick like
+        // bullet time, it eases in and out on real time and pushes the planning framing in a touch (LegacyTimePressure).
+        private float timePressureTarget, timePressureAmount;
         // The battle as a cutscene in its middle found it (SuspendForCutscene), or null.
         private Suspension suspension;
         private LegacyStepAction stepAction;
@@ -146,8 +172,23 @@ namespace TurnLimbo.Presentation
         /// until <see cref="Reset"/> clears it, and is ticked on the combat clock here (by the cutscene while one plays).</summary>
         public DuelPowerAura PlayerPowerAura => playerPowerAura;
         public DuelPowerAura EnemyPowerAura => enemyPowerAura;
+        /// <summary>The enemy's 수훈 afterimages: yellow ghosts of her frame left behind while her power aura is up, ticked
+        /// with it (<see cref="DuelPowerAura.Afterimages"/>). Its reset or instant switch-off, <see cref="Reset"/> and either
+        /// end of a cutscene in the middle of the battle take them all away.</summary>
+        public DuelAuraAfterimages EnemyAuraAfterimages => enemyAuraAfterimages;
+        public int ActiveAuraAfterimageCount => enemyAuraAfterimages.ActiveCount;
         /// <summary>How far a cutscene flashback has drained the colour: 0 normal, 1 black and white.</summary>
         public float FlashbackAmount => flashbackAmount;
+        /// <summary>The 서막's 수훈 atmosphere over the battle, 0 to 1 (<see cref="SetEmpowerment"/>).</summary>
+        public float EmpowermentAmount => empowermentAmount;
+        /// <summary>How far a 수훈 cut-in eases the camera toward the enemy, 0 to 1 (<see cref="SetCutIn"/>).</summary>
+        public float CutInAmount => cutInAmount;
+        /// <summary>The hit shake's strength now (<see cref="AddCameraShake"/>), 0 when still.</summary>
+        public float CameraShakeAmplitude => hitShake.Amplitude;
+        /// <summary>Whether the finishing blow's close-up is holding (<see cref="HoldFinishingFocus"/>).</summary>
+        public bool IsFinishingFocus => finishingFocus && IsFatalFocus;
+        /// <summary>How far the planning clock's pressure has pushed the camera in, 0 to 1 (<see cref="SetTimePressure"/>).</summary>
+        public float TimePressureAmount => timePressureAmount;
         /// <summary>Whether a cutscene is playing in the middle of the battle (<see cref="SuspendForCutscene"/>).</summary>
         public bool IsSuspendedForCutscene => suspension != null;
         public int ActiveStepAfterimageCount => stepAfterimages.ActiveCount;
@@ -264,10 +305,10 @@ namespace TurnLimbo.Presentation
             // Inherited sparks contain HDR values near 30 (over 100 in linear
             // space). Limit only the bloom input, not the original particle art.
             bloom.clamp.Override(4f);
-            var vignette = volumeProfile.Add<Vignette>();
+            vignette = volumeProfile.Add<Vignette>();
             vignette.color.Override(Color.black);
             vignette.center.Override(new Vector2(0.5f, 0.5f));
-            vignette.intensity.Override(0.4f);
+            vignette.intensity.Override(BaseVignette);
             vignette.smoothness.Override(0.2f);
             var volume = Child("Original Duel Volume", arenaRoot.transform).AddComponent<Volume>();
             volume.isGlobal = true;
@@ -313,6 +354,10 @@ namespace TurnLimbo.Presentation
             enemyBreakAura = new DuelBreakAura(enemy.Renderer, null, enemyShadow, breakMaterial, ArenaLayer);
             playerPowerAura = new DuelPowerAura(player.Renderer.transform, spriteMaterial, ArenaLayer, 11);
             enemyPowerAura = new DuelPowerAura(enemy.Renderer.transform, spriteMaterial, ArenaLayer, 23);
+            // Flat yellow silhouettes with the break outline's material; tinted copies of her frame without it.
+            enemyAuraAfterimages = new DuelAuraAfterimages(enemy.Renderer, arenaRoot.transform,
+                breakMaterial != null ? breakMaterial : spriteMaterial, ArenaLayer, this.settings);
+            enemyPowerAura.Afterimages = enemyAuraAfterimages;
             effectPrefab = Resources.Load<GameObject>("LegacyArena/VFX/DefaultParticle");
             Reset();
         }
@@ -336,6 +381,11 @@ namespace TurnLimbo.Presentation
             bulletTimeRequested = bulletTimeWasActive = bulletTimeParting = false;
             bulletTimeAmount = saturationPulse = bulletTimeRelease = flashbackAmount = 0f;
             bulletTimeReleasing = false;
+            empowermentAmount = cutInAmount = hitShakeClock = 0f;
+            timePressureTarget = timePressureAmount = 0f;
+            hitShake.Clear();
+            hitShakeOffset = Vector3.zero;
+            hitShakeApplied = finishingFocus = false;
             // A new duel never resumes a suspended one; what it hid comes back with nothing to show.
             suspension = null;
             impactGlow.Hidden = stepAfterimages.Hidden = false;
@@ -359,6 +409,7 @@ namespace TurnLimbo.Presentation
             enemyBreakAura.Reset();
             playerPowerAura.Reset();
             enemyPowerAura.Reset();
+            enemyAuraAfterimages.Clear();
             RefreshBloom();
             foreach (var effect in effects)
             {
@@ -373,6 +424,7 @@ namespace TurnLimbo.Presentation
             resolving = false;
             approaching = returning = false;
             fatalTime = 0f;
+            finishingFocus = false;
             cameraRotation = 0f;
             cameraJoltTime = 0f;
             cameraJolt = Vector3.zero;
@@ -407,8 +459,19 @@ namespace TurnLimbo.Presentation
             bulletTimeRequested = bulletTime;
         }
 
+        /// <summary>The planning clock's pressure this frame, 0 to 1 (<see cref="LegacyTimePressure.Target"/>): the planning
+        /// framing, Tab's included, pushes in by up to <see cref="DuelPresentationSettings.TimePressureCameraPush"/> of its
+        /// size, easing in and out on real time, on top of whatever bullet time or Tab does. Asked for frame by frame like
+        /// bullet time; the next Tick consumes it, so an arena ticked without it eases back.</summary>
+        public void SetTimePressure(float target)
+        {
+            timePressureTarget = float.IsNaN(target) ? 0f : Mathf.Clamp01(target);
+        }
+
         public void BeginApproach()
         {
+            // The commit takes the camera to the combat framing; the next planning turn starts without the push.
+            timePressureTarget = timePressureAmount = 0f;
             combatCameraPivot = DuelCenter;
             cameraJoltTime = 0f;
             cameraJolt = Vector3.zero;
@@ -749,6 +812,51 @@ namespace TurnLimbo.Presentation
             RefreshExposure();
         }
 
+        /// <summary>The finishing blow (after its decisive <see cref="PresentHit"/>): the close-up stays on the fallen fighter
+        /// for <paramref name="seconds"/> of real time instead of its usual 0.75 s, for the whole of the long slow motion,
+        /// and the hit's grade (aberration, exposure, saturation pulse) fades on real time meanwhile, so the slow clock does
+        /// not keep the flash on screen. When both fell (a draw) the close-up keeps its target. <see cref="BeginTurn"/> and
+        /// <see cref="Reset"/> end it.</summary>
+        public void HoldFinishingFocus(bool playerFell, bool enemyFell, float seconds)
+        {
+            if (disposed || !(seconds > 0f)) return;
+            finishingFocus = true;
+            if (playerFell != enemyFell) fatalTarget = (playerFell ? player : enemy).Renderer.transform;
+            else if (fatalTarget == null) fatalTarget = enemy.Renderer.transform;
+            if (fatalTime <= 0f)
+                cameraRotation = UnityEngine.Random.Range(5f, 10f) * (UnityEngine.Random.value > 0.5f ? 1f : -1f);
+            fatalTime = Mathf.Max(fatalTime, seconds);
+        }
+
+        /// <summary>The 서막's 수훈 atmosphere, 0 (none) to 1: a warm golden filter and a deeper amber vignette over the
+        /// battle's grade (a flashback still drains the colour). Its cue eases it in after the event scene and sets it every
+        /// battle frame; <see cref="Reset"/> clears it and a cutscene in the middle of the battle sets it aside.</summary>
+        public void SetEmpowerment(float amount)
+        {
+            if (disposed) return;
+            empowermentAmount = float.IsNaN(amount) ? 0f : Mathf.Clamp01(amount);
+            ApplyGrade();
+        }
+
+        /// <summary>How far a 수훈 cut-in eases the camera toward the enemy and zooms in on her, 0 to 1. Its cue sets it every
+        /// battle frame (the camera follows on real time); the decisive close-up keeps the camera while it runs.
+        /// <see cref="Reset"/> clears it.</summary>
+        public void SetCutIn(float amount)
+        {
+            if (disposed) return;
+            cutInAmount = float.IsNaN(amount) ? 0f : Mathf.Clamp01(amount);
+        }
+
+        /// <summary>A small camera shake (라우다레's hits): noise of <paramref name="strength"/> world units at the combat
+        /// framing, dying away over <paramref name="seconds"/> of real time. Shakes in quick succession never add up
+        /// (<see cref="LegacyShake"/>). It moves the picture only, never what the camera follows, and stops with
+        /// <see cref="Reset"/> or a cutscene in the middle of the battle.</summary>
+        public void AddCameraShake(float strength, float seconds)
+        {
+            if (disposed) return;
+            hitShake.Add(strength, seconds);
+        }
+
         public void Tick(float scaledDelta) => Tick(scaledDelta, Time.unscaledDeltaTime);
 
         public void Tick(float scaledDelta, float realDelta)
@@ -762,6 +870,10 @@ namespace TurnLimbo.Presentation
             // snapping back. Driven by scaled time, the drift and the held pose deepen with Tab like the planning clock.
             bool bulletTime = bulletTimeRequested && !resolving && !approaching && !returning;
             bulletTimeRequested = false;
+            // The planning clock's pressure eases on real time; a frame that did not ask for it eases it back.
+            float pressure = !resolving && !approaching && !returning ? timePressureTarget : 0f;
+            timePressureTarget = 0f;
+            timePressureAmount = LegacyTimePressure.Step(timePressureAmount, pressure, realDelta);
             // A planning phase that starts at close quarters (turns usually end at contact) first steps back to the
             // staging gap at normal speed, so there is room to edge in again. A staging gap at contact turns it off.
             float staging = settings.BattleStagingSeparation;
@@ -780,12 +892,14 @@ namespace TurnLimbo.Presentation
             idleTime += scaledDelta * settings.AnimationPlaybackSpeed * idleSpeed;
             fatalTime = Mathf.Max(0f, fatalTime - Mathf.Max(0f, realDelta));
             cameraJoltTime = Mathf.Max(0f, cameraJoltTime - realDelta);
-            aberration.intensity.value = Mathf.MoveTowards(aberration.intensity.value, 0f, scaledDelta * 0.75f);
-            fatalExposure = Mathf.MoveTowards(fatalExposure, 0f, scaledDelta * 0.75f);
+            // The finishing blow's long slow motion would keep the hit's flash on screen; its close-up fades it on real time.
+            float gradeDelta = finishingFocus ? realDelta : scaledDelta;
+            aberration.intensity.value = Mathf.MoveTowards(aberration.intensity.value, 0f, gradeDelta * 0.75f);
+            fatalExposure = Mathf.MoveTowards(fatalExposure, 0f, gradeDelta * 0.75f);
             impactFlashTime = Mathf.Max(0f, impactFlashTime - Mathf.Max(0f, realDelta));
             RefreshExposure();
             RefreshBloom();
-            saturationPulse = Mathf.MoveTowards(saturationPulse, 0f, scaledDelta * 60f);
+            saturationPulse = Mathf.MoveTowards(saturationPulse, 0f, gradeDelta * 60f);
             ApplyGrade();
             TickActor(player, scaledDelta);
             TickActor(enemy, scaledDelta);
@@ -932,6 +1046,9 @@ namespace TurnLimbo.Presentation
                 pivot.z = -10f;
                 ArenaCamera.transform.localPosition = pivot;
                 ArenaCamera.transform.localRotation = Quaternion.Euler(0f, 0f, CameraRotate ? cameraRotation : 0f);
+                // The framing above replaced the camera's place, a hit shake's offset with it.
+                hitShakeOffset = Vector3.zero;
+                hitShakeApplied = false;
             }
         }
 
@@ -1031,12 +1148,16 @@ namespace TurnLimbo.Presentation
         /// the enemy's look, and hides the passing effects of the hit it paused on (sparks, glow, step afterimages, break
         /// outlines), which would otherwise hang frozen over the scene. The hit's grade (the decisive close-up's
         /// chromatic aberration, exposure and saturation pulse, and the impact flash's exposure) is set aside too: it only
-        /// fades on the battle's clock, which stops for the scene, so the scene plays under the neutral grade. The
-        /// battle's own state (pushes, reactions, the slot's clock) is untouched; <see cref="ResumeAfterCutscene"/> puts
-        /// the picture back exactly.</summary>
+        /// fades on the battle's clock, which stops for the scene, so the scene plays under the neutral grade. 이아's 수훈
+        /// afterimages are cleared (her aura keeps leaving new ones in the scene, on its real time). The battle's own state
+        /// (pushes, reactions, the slot's clock) is untouched; <see cref="ResumeAfterCutscene"/> puts the picture back
+        /// exactly.</summary>
         internal void SuspendForCutscene()
         {
             if (disposed || suspension != null) return;
+            // A hit shake stops here (the scene moves the camera itself) and its offset is not part of the picture kept.
+            RemoveHitShakeOffset();
+            hitShake.Clear();
             var saved = new Suspension
             {
                 Player = FigurePicture.Of(player.Renderer), Enemy = FigurePicture.Of(enemy.Renderer),
@@ -1044,7 +1165,7 @@ namespace TurnLimbo.Presentation
                 CameraPosition = ArenaCamera.transform.localPosition, CameraRotation = ArenaCamera.transform.localRotation,
                 CameraSize = ArenaCamera.orthographicSize, Appearance = enemyAppearance, Flashback = flashbackAmount,
                 Aberration = aberration.intensity.value, FatalExposure = fatalExposure, ImpactFlash = impactFlashTime,
-                SaturationPulse = saturationPulse,
+                SaturationPulse = saturationPulse, Empowerment = empowermentAmount,
             };
             foreach (var effect in effects)
             {
@@ -1054,8 +1175,12 @@ namespace TurnLimbo.Presentation
             }
             impactGlow.Hidden = stepAfterimages.Hidden = true;
             playerBreakAura.Hidden = enemyBreakAura.Hidden = true;
+            // The 수훈 ghosts trace frames the scene is about to move: the scene starts its own trail (its aura ticks them).
+            enemyAuraAfterimages.Clear();
             aberration.intensity.value = 0f;
             fatalExposure = impactFlashTime = saturationPulse = 0f;
+            // The 수훈 atmosphere and a cut-in's pull wait for the battle too.
+            empowermentAmount = cutInAmount = 0f;
             RefreshExposure();
             ApplyGrade();
             suspension = saved;
@@ -1064,7 +1189,8 @@ namespace TurnLimbo.Presentation
         /// <summary>The cutscene in the middle of the battle is over: the fighters, camera, grade and the hit's effects are
         /// back as <see cref="SuspendForCutscene"/> found them, so the battle carries on from the frame it paused on (a
         /// decisive close-up's grade fades from there, with its camera). A fighter's power aura is not part of it: what
-        /// the scene lit stays lit.</summary>
+        /// the scene lit stays lit, and a lit 수훈 aura's afterimages start afresh from the battle's picture (the scene's
+        /// ghosts are cleared).</summary>
         internal void ResumeAfterCutscene()
         {
             if (disposed || suspension == null) return;
@@ -1081,6 +1207,7 @@ namespace TurnLimbo.Presentation
             fatalExposure = saved.FatalExposure;
             impactFlashTime = saved.ImpactFlash;
             saturationPulse = saved.SaturationPulse;
+            empowermentAmount = saved.Empowerment;
             RefreshExposure();
             // Re-applies the grade with the pulse that is back.
             SetFlashback(saved.Flashback);
@@ -1088,16 +1215,20 @@ namespace TurnLimbo.Presentation
                 if (effect.Active) effect.Instance.SetActive(true);
             impactGlow.Hidden = stepAfterimages.Hidden = false;
             playerBreakAura.Hidden = enemyBreakAura.Hidden = false;
+            // The scene's 수훈 ghosts were left where it staged her, not where the battle has her: her trail starts afresh.
+            enemyAuraAfterimages.Clear();
             // The backdrop follows the camera that is back, with the step focus's darkening as it was.
             RefreshStepBackdrop();
         }
 
-        /// <summary>The fatal pulse plus the 전투 planning grade (less colour, a cold filter), and a cutscene's flashback
-        /// over both (full desaturation, no tint).</summary>
+        /// <summary>The fatal pulse plus the 전투 planning grade (less colour, a cold filter) and the 수훈 atmosphere (a warm
+        /// golden filter, a deeper amber vignette), and a cutscene's flashback over all of them (full desaturation, no tint).</summary>
         private void ApplyGrade()
         {
             float saturation = saturationPulse - settings.BattleDesaturation * bulletTimeAmount;
             Color filter = Color.Lerp(Color.white, BulletTimeCoolColor, settings.BattleCoolTint * bulletTimeAmount);
+            if (empowermentAmount > 0f)
+                filter *= Color.Lerp(Color.white, EmpowermentWarmColor, settings.EmpowermentWarmTint * empowermentAmount);
             if (flashbackAmount > 0f)
             {
                 saturation = Mathf.Lerp(saturation, -100f, flashbackAmount);
@@ -1105,6 +1236,16 @@ namespace TurnLimbo.Presentation
             }
             colorAdjustments.saturation.value = saturation;
             colorAdjustments.colorFilter.value = filter;
+            vignette.intensity.value = BaseVignette + settings.EmpowermentVignette * empowermentAmount;
+            vignette.color.value = Color.Lerp(Color.black, EmpowermentVignetteColor, empowermentAmount);
+        }
+
+        // Takes the hit shake's last offset off the camera, leaving the place the camera follows.
+        private void RemoveHitShakeOffset()
+        {
+            if (hitShakeApplied) ArenaCamera.transform.localPosition -= hitShakeOffset;
+            hitShakeOffset = Vector3.zero;
+            hitShakeApplied = false;
         }
 
         private void MoveFightersCloser(float delta, float speed, bool bothMayApproach)
@@ -1279,11 +1420,16 @@ namespace TurnLimbo.Presentation
 
         private void TickCamera(float delta, float realDelta)
         {
+            // Last frame's hit shake comes off first: it moves the picture, never the place the camera follows.
+            RemoveHitShakeOffset();
             float size;
             Vector3 pivot;
             // A stable two-person shot follows sustained travel, not every small
             // recoil or sprite-frame change. Camera easing always uses real time.
             float sharpness = IsFatalFocus ? Mathf.Max(10f, settings.CameraFollowSharpness) : settings.CameraFollowSharpness;
+            // A 수훈 cut-in eases toward the enemy and back; the decisive close-up keeps the camera while it runs.
+            float cutIn = IsFatalFocus ? 0f : cutInAmount;
+            if (cutIn > 0f) sharpness = Mathf.Max(CutInSharpness, sharpness);
             var blend = 1f - Mathf.Exp(-sharpness * Mathf.Max(0f, realDelta));
             if (resolving || IsFatalFocus)
             {
@@ -1301,6 +1447,14 @@ namespace TurnLimbo.Presentation
                 size = inspecting ? 3.5f : 5f + planningTime / 10f;
                 pivot = inspecting ? enemy.Renderer.transform.localPosition + new Vector3(0f, 0.5f, 0f)
                     : DuelCenter + new Vector3(0f, -1f, 0f);
+                // The running clock's last share pushes the framing in a touch; Tab and bullet time keep their own.
+                size *= 1f - settings.TimePressureCameraPush * timePressureAmount;
+            }
+            if (cutIn > 0f)
+            {
+                Vector3 enemyFocus = enemy.Renderer.transform.localPosition + new Vector3(0f, CutInLift, 0f);
+                pivot = Vector3.Lerp(pivot, enemyFocus, cutIn * CutInPull);
+                size = Mathf.Lerp(size, settings.EmpowermentCutInCameraSize, cutIn);
             }
             float focus = IsFatalFocus ? 0f : StepFocusAmount;
             float direction = stepFocusAction == LegacyStepAction.Dodge ? -1f : 1f;
@@ -1324,6 +1478,18 @@ namespace TurnLimbo.Presentation
             if (!IsFatalFocus) rotation += direction * focus * 2.5f;
             ArenaCamera.transform.localRotation = Quaternion.Lerp(ArenaCamera.transform.localRotation,
                 Quaternion.Euler(0f, 0f, rotation), rotationBlend);
+            float elapsed = Mathf.Max(0f, realDelta);
+            hitShake.Advance(elapsed);
+            float amplitude = hitShake.Amplitude;
+            if (amplitude <= 0f) return;
+            hitShakeClock = (hitShakeClock + elapsed) % 1000f;
+            // Scaled with the zoom, so a strength looks the same on screen at any framing.
+            amplitude *= ArenaCamera.orthographicSize / settings.CombatCameraSize;
+            float time = hitShakeClock * HitShakeFrequency;
+            hitShakeOffset = new Vector3(Mathf.PerlinNoise(time, .37f) * 2f - 1f, Mathf.PerlinNoise(.71f, time) * 2f - 1f, 0f)
+                * amplitude;
+            ArenaCamera.transform.localPosition += hitShakeOffset;
+            hitShakeApplied = true;
         }
 
         private void EmitImpact(Vector3 position)
@@ -1447,6 +1613,7 @@ namespace TurnLimbo.Presentation
             enemyBreakAura.Dispose();
             playerPowerAura.Dispose();
             enemyPowerAura.Dispose();
+            enemyAuraAfterimages.Dispose();
             Object.Destroy(arenaRoot);
             if (spriteMaterial != null) Object.Destroy(spriteMaterial);
             if (breakMaterial != null) Object.Destroy(breakMaterial);
@@ -1515,6 +1682,8 @@ namespace TurnLimbo.Presentation
             public float CameraSize, Flashback;
             // The hit's grade: chromatic aberration, the close-up's exposure, the impact flash's time left, the saturation pulse.
             public float Aberration, FatalExposure, ImpactFlash, SaturationPulse;
+            // The 수훈 atmosphere.
+            public float Empowerment;
             public EnemyAppearance Appearance;
             public readonly List<ImpactEffect> HiddenEffects = new List<ImpactEffect>();
         }

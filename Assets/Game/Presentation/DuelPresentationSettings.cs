@@ -1,3 +1,4 @@
+using TurnLimbo.Runtime.Barks;
 using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 
@@ -54,6 +55,86 @@ namespace TurnLimbo.Presentation
         [Header("결정타 연출 — 다음 타격부터 적용")]
         [SerializeField, Range(0, 100), Tooltip("한 번의 타격이 대상 최대 체력의 이 비율(%) 이상을 체력 피해로 깎으면 저항 붕괴·마무리 일격처럼 0.15배 슬로·집중 카메라·색 번쩍임·화면 기울기·크리티컬 효과음을 씁니다. 양쪽 타격 모두 해당합니다. 저항 피해는 세지 않고, 연타는 한 타격씩 봅니다. 0이면 이 조건만 끕니다.")]
         private int decisiveHealthDamagePercent = LegacyDecisiveHit.DefaultHealthDamagePercent;
+
+        [Header("마무리 일격 — 다음 마무리 일격부터 적용 (모든 전투, 승패 무관)")]
+        [SerializeField, Range(0f, 4f), Tooltip("전투를 끝낸 타격 뒤 슬로모션 시간(실제 초). 쓰러진 쪽을 집중 카메라로 계속 비춥니다. 일반 결정타의 0.75초보다 길게 둡니다. 0이면 슬로 없이 정지 화면으로 갑니다.")]
+        private float finishingSlowMotionSeconds = 1.6f;
+        [SerializeField, Range(0.02f, 1f), Tooltip("마무리 일격 슬로모션의 전투 시계 속도. 일반 결정타는 0.15배입니다. 1이면 느려지지 않습니다.")]
+        private float finishingSlowMotionScale = 0.12f;
+        [SerializeField, Range(0f, 2f), Tooltip("레터박스(위아래 검은 띠)가 다 들어오는 시간(실제 초). 0이면 바로 들어옵니다. 결과 창이나 종료 장면이 나오기 전에 걷힙니다.")]
+        private float finishingBarSeconds = 0.4f;
+        [SerializeField, Range(0f, 2f), Tooltip("슬로모션 뒤 화면이 완전히 멈추는 정지 화면 시간(실제 초). 0이면 정지 화면 없이 넘어갑니다.")]
+        private float finishingFreezeSeconds = 0.5f;
+        [SerializeField, Range(0f, 3f), Tooltip("서막 4 임무 강제 패배: 정지 화면 뒤 흑백(회상과 같은 색)으로 바래는 시간(실제 초). 그동안 레터박스가 걷힙니다. 0이면 바래지 않고 바로 종료 장면으로 갑니다.")]
+        private float finalFallGreySeconds = 0.9f;
+        [SerializeField, Range(0f, 3f), Tooltip("서막 4 임무 강제 패배: 흑백으로 넘어간 종료 장면이 다시 색을 찾는 시간(실제 초). 0이면 종료 장면이 처음부터 컬러로 시작합니다.")]
+        private float finalFallColourReturnSeconds = 1.2f;
+
+        [Header("서막 4 임무 수훈 — 수훈 이벤트 뒤 전투가 끝날 때까지")]
+        [SerializeField, Range(0f, 1.5f), Tooltip("이아의 수훈 기술(시트 구분 '적')이 시작될 때 전투를 멈추고 카메라가 이아 쪽으로 다가갔다 돌아오는 시간(실제 초). 기운이 한 번 번쩍입니다. 기술 이름 자막은 없습니다. 0이면 끕니다.")]
+        private float empowermentCutInSeconds = 0.6f;
+        [SerializeField, Range(1.5f, 6f), Tooltip("수훈 컷인에서 카메라가 가장 가까이 갔을 때의 화면 크기. 일반 교전 화면 크기보다 작을수록 더 당깁니다.")]
+        private float empowermentCutInCameraSize = 2.8f;
+        [SerializeField, Range(0f, 1f), Tooltip("수훈 뒤 화면에 씌우는 따뜻한 금빛 색의 세기. 0이면 끕니다.")]
+        private float empowermentWarmTint = 0.4f;
+        [SerializeField, Range(0f, 0.6f), Tooltip("수훈 뒤 화면 가장자리를 더 어둡게 하는 양(기본 비네트 0.4에 더함). 0이면 끕니다.")]
+        private float empowermentVignette = 0.15f;
+        [SerializeField, Range(0f, 5f), Tooltip("수훈 장면이 끝난 뒤 금빛 색·비네트·기운 소리가 차오르는 시간(실제 초). 0이면 바로 켜집니다.")]
+        private float empowermentAtmosphereSeconds = 1.2f;
+        [SerializeField, Range(0f, 1f), Tooltip("수훈 뒤 전투 내내 낮게 깔리는 기운 소리(aura-loop)의 음량. 0이면 끕니다.")]
+        private float empowermentAuraLoopVolume = 0.25f;
+        [SerializeField, Range(0f, 0.5f), Tooltip("라우다레(수훈 연타 공격)가 한 번 칠 때마다 카메라가 흔들리는 세기(교전 화면 기준 월드 단위). 연타가 겹쳐도 더해지지 않습니다. 0이면 끕니다.")]
+        private float laudareShakeStrength = 0.12f;
+        [SerializeField, Range(0.05f, 1f), Tooltip("라우다레 한 타격의 흔들림이 잦아드는 시간(실제 초).")]
+        private float laudareShakeSeconds = 0.25f;
+        [SerializeField, ColorUsage(false), Tooltip("수훈한 이아가 남기는 잔상의 색. 수훈 기운이 켜져 있는 동안(수훈 장면에서 기운이 켜질 때부터 임무 4 종료 장면의 '@aura knight off'까지) 이아의 지금 모습을 이 색 한 가지로 칠한 실루엣이 이아 바로 뒤에 남았다가 사라집니다. 진하기는 아래 '잔상 불투명도'로 정합니다.")]
+        private Color empowermentAfterimageColor = DefaultEmpowermentAfterimageColor;
+        [SerializeField, Range(0f, 1f), Tooltip("잔상이 처음 남을 때의 불투명도. 사라지는 동안 0까지 옅어지고, 기운이 서서히 켜지고 꺼질 때는 잔상도 기운과 함께 짙어지고 옅어집니다. 0이면 잔상을 끕니다.")]
+        private float empowermentAfterimageAlpha = 0.45f;
+        [SerializeField, Range(0.02f, 0.5f), Tooltip("잔상이 하나씩 남는 간격(초). 전투에서는 전투 시계를 따라 히트 스톱·정지 화면에 멈추고 슬로모션에 느려지며, 장면(컷신)에서는 실제 시간입니다. 작을수록 촘촘합니다.")]
+        private float empowermentAfterimageInterval = 0.05f;
+        [SerializeField, Range(0.1f, 1.5f), Tooltip("잔상 하나가 다 사라지기까지의 시간(초, 위 간격과 같은 시계). 길수록 꼬리가 길어집니다.")]
+        private float empowermentAfterimageSeconds = 0.4f;
+        [SerializeField, Range(0f, 1.5f), Tooltip("잔상이 사라지는 동안 이아의 등 뒤쪽으로 밀려나는 거리(월드 단위). 가만히 서 있어도 잔상이 등 뒤로 번져 보이게 하며, 천천히 숨 쉬듯 조금씩 달라집니다. 0이면 남은 자리에서 사라집니다.")]
+        private float empowermentAfterimageDrift = 0.3f;
+        [SerializeField, Range(0f, 0.3f), Tooltip("잔상이 사라지는 동안 커지는 비율(0.06 = 6%). 발은 땅에 붙인 채 커져서, 가만히 서 있어도 몸 둘레에 노란 테가 번집니다. 숨 쉬듯 조금씩 달라집니다. 0이면 크기가 그대로입니다.")]
+        private float empowermentAfterimageSwell = 0.06f;
+
+        [Header("전투 대사 — 다음 대사부터 적용 (Resources/Barks, Docs/Barks.md)")]
+        [SerializeField, Range(0f, 6f), Tooltip("머리 위 말풍선 하나가 떠 있는 시간(실제 초). 불릿타임·슬로모션·히트 스톱에도 늘어나지 않고, 전투를 멈추지 않습니다. 0이면 전투 대사를 끕니다.")]
+        private float barkSeconds = BarkTracker.DefaultShowSeconds;
+        [SerializeField, Range(0f, 60f), Tooltip("enemy-hurt·player-hurt(한 타격에 큰 체력 피해) 대사가 한 번 나온 뒤 다시 나올 수 있기까지의 시간(실제 초). 큰 피해의 기준은 위 결정타 연출의 비율입니다. 0이면 큰 피해마다 나옵니다.")]
+        private float barkHurtCooldownSeconds = BarkTracker.DefaultHurtCooldownSeconds;
+        [SerializeField, Range(0, 99), Tooltip("enemy-low·player-low 대사가 나오는 체력 비율(%). 처음 이 비율 이하로 떨어진 타격에 한 번 나옵니다. 0이면 끕니다.")]
+        private int barkLowHealthPercent = BarkTracker.DefaultLowHealthPercent;
+        [SerializeField, Range(16, 40), Tooltip("말풍선 글자 크기(1920x1080 기준). 폭이 넘치는 대사는 두 줄로 접힙니다.")]
+        private int barkFontSize = DefaultBarkFontSize;
+
+        [Header("전투 시작 카드 — 다음 전투부터 적용 (모든 임무·스테이지·수련)")]
+        [SerializeField, Range(0f, 4f), Tooltip("전투가 시작될 때(시작 장면 뒤, 첫 편성 전) 레터박스 사이로 엘리사와 상대의 실루엣·이름, 그 사이의 교차한 검을 보여 주는 카드의 시간(실제 초). 클릭·Enter·Space·Escape로 넘깁니다. 글자는 두 이름뿐입니다. 0이면 끕니다.")]
+        private float startCardSeconds = 1.6f;
+        [SerializeField, Range(0f, 4f), Tooltip("결과 창의 '다시 도전'으로 같은 전투를 다시 시작할 때의 짧은 카드 시간(실제 초). 0이면 다시 도전에는 카드가 없습니다.")]
+        private float startCardRetrySeconds = .8f;
+
+        [Header("엘리사의 눈 — 편성마다 상대의 큐가 드러날 때")]
+        [SerializeField, Range(0f, 1.5f), Tooltip("상대의 기술 큐가 드러날 때 첫 카드 뒤에서 놋쇠 톱니가 조금 돌며 사라지고, 빛이 카드들을 훑고 지나가는 시간(실제 초). 글자는 없습니다. 0이면 끕니다.")]
+        private float gearShimmerSeconds = .55f;
+        [SerializeField, Range(0f, 1f), Tooltip("톱니와 빛의 진하기. 0이면 보이지 않습니다.")]
+        private float gearShimmerStrength = .6f;
+
+        [Header("숲 소리 — 실행 중 즉시 적용 (Resources/Sfx/forest-ambience-loop)")]
+        [SerializeField, Range(0f, 1f), Tooltip("전투와 숲 장면(컷신) 내내 낮게 깔리는 숲 소리(바람·잎·먼 새)의 음량. 로비·타이틀·브리핑에서는 잦아들어 멈춥니다. 0이면 끕니다.")]
+        private float forestAmbienceVolume = .4f;
+        [SerializeField, Range(0f, 5f), Tooltip("숲 소리가 들어오고 나가는 시간(실제 초, 음량 전체를 오르내리는 데 걸리는 시간). 0이면 바로 바뀝니다.")]
+        private float forestAmbienceFadeSeconds = 1.2f;
+        [SerializeField, Range(0f, 1f), Tooltip("장면의 @ambience나 수훈 기운 소리가 날 때 숲 소리가 물러나는 비율. 1이면 그동안 숲 소리를 다 내리고, 0이면 그대로 둡니다.")]
+        private float forestAmbienceSceneDuck = .7f;
+
+        [Header("시간 압박 카메라 — 실행 중 즉시 적용 (편성 제한 시간이 흐를 때만)")]
+        [SerializeField, Range(0f, 1f), Tooltip("편성 제한 시간이 이 비율보다 적게 남으면 카메라가 아주 조금 다가갑니다(남은 시간이 줄수록 더). 시간 제한 없는 임무, 코치가 시계를 멈춘 동안, 수련에는 없습니다. 0이면 끕니다.")]
+        private float timePressureShare = .3f;
+        [SerializeField, Range(0f, .15f), Tooltip("시간이 다 됐을 때 카메라가 더 다가가는 양(화면 크기에 대한 비율, 0.04 = 4%). 확정하거나 새 턴이 시작되면 돌아옵니다.")]
+        private float timePressureCameraPush = .04f;
 
         [Header("스텝 — 다음 스킬부터 적용")]
         [SerializeField, Range(0f, 1f), Tooltip("첫 타격 전 예고 시간(게임 시계 초). 연타의 동작·타격 간격은 유지합니다.")]
@@ -141,6 +222,54 @@ namespace TurnLimbo.Presentation
         public float CriticalDamageScale => Safe(criticalDamageScale, 1f, 1.8f, 1.3f);
         /// <summary>The share of the target's maximum health one hit must take as health to be decisive (0..100; 0 is off).</summary>
         public int DecisiveHealthDamagePercent => Mathf.Clamp(decisiveHealthDamagePercent, 0, 100);
+        public float FinishingSlowMotionSeconds => Safe(finishingSlowMotionSeconds, 0f, 4f, 1.6f);
+        public float FinishingSlowMotionScale => Safe(finishingSlowMotionScale, 0.02f, 1f, 0.12f);
+        public float FinishingBarSeconds => Safe(finishingBarSeconds, 0f, 2f, 0.4f);
+        public float FinishingFreezeSeconds => Safe(finishingFreezeSeconds, 0f, 2f, 0.5f);
+        public float FinalFallGreySeconds => Safe(finalFallGreySeconds, 0f, 3f, 0.9f);
+        public float FinalFallColourReturnSeconds => Safe(finalFallColourReturnSeconds, 0f, 3f, 1.2f);
+        public float EmpowermentCutInSeconds => Safe(empowermentCutInSeconds, 0f, 1.5f, 0.6f);
+        public float EmpowermentCutInCameraSize => Safe(empowermentCutInCameraSize, 1.5f, 6f, 2.8f);
+        public float EmpowermentWarmTint => Safe(empowermentWarmTint, 0f, 1f, 0.4f);
+        public float EmpowermentVignette => Safe(empowermentVignette, 0f, 0.6f, 0.15f);
+        public float EmpowermentAtmosphereSeconds => Safe(empowermentAtmosphereSeconds, 0f, 5f, 1.2f);
+        public float EmpowermentAuraLoopVolume => Safe(empowermentAuraLoopVolume, 0f, 1f, 0.25f);
+        public float LaudareShakeStrength => Safe(laudareShakeStrength, 0f, 0.5f, 0.12f);
+        public float LaudareShakeSeconds => Safe(laudareShakeSeconds, 0.05f, 1f, 0.25f);
+        /// <summary>The 수훈 afterimages' colour when nothing is tuned: a warm golden yellow that reads on the forest.</summary>
+        public static readonly Color DefaultEmpowermentAfterimageColor = new Color(1f, 0.88f, 0.3f, 1f);
+        /// <summary>The 수훈 afterimages' colour (opaque; how strongly they show is <see cref="EmpowermentAfterimageAlpha"/>).</summary>
+        public Color EmpowermentAfterimageColor => SafeColor(empowermentAfterimageColor, DefaultEmpowermentAfterimageColor);
+        /// <summary>A new 수훈 afterimage's opacity at the aura's full strength (0..1; 0 switches them off).</summary>
+        public float EmpowermentAfterimageAlpha => Safe(empowermentAfterimageAlpha, 0f, 1f, 0.45f);
+        /// <summary>Seconds between 수훈 afterimages, on the aura's clock (the battle's in battle, real time in a scene).</summary>
+        public float EmpowermentAfterimageInterval => Safe(empowermentAfterimageInterval, 0.02f, 0.5f, 0.05f);
+        /// <summary>Seconds one 수훈 afterimage takes to fade out, on the same clock.</summary>
+        public float EmpowermentAfterimageSeconds => Safe(empowermentAfterimageSeconds, 0.1f, 1.5f, 0.4f);
+        /// <summary>How far a 수훈 afterimage drifts back behind her over its life (world units), as the breath has it.</summary>
+        public float EmpowermentAfterimageDrift => Safe(empowermentAfterimageDrift, 0f, 1.5f, 0.3f);
+        /// <summary>How much a 수훈 afterimage grows about her feet over its life (0.06 = 6%), as the breath has it.</summary>
+        public float EmpowermentAfterimageSwell => Safe(empowermentAfterimageSwell, 0f, 0.3f, 0.06f);
+        /// <summary>The speech bubbles' text size when nothing is tuned.</summary>
+        public const int DefaultBarkFontSize = 24;
+        /// <summary>Real seconds a battle bark's bubble stays (0..6; 0 switches barks off).</summary>
+        public float BarkSeconds => Safe(barkSeconds, 0f, 6f, BarkTracker.DefaultShowSeconds);
+        public float BarkHurtCooldownSeconds => Safe(barkHurtCooldownSeconds, 0f, 60f, BarkTracker.DefaultHurtCooldownSeconds);
+        public int BarkLowHealthPercent => Mathf.Clamp(barkLowHealthPercent, 0, 99);
+        public int BarkFontSize => Mathf.Clamp(barkFontSize, 16, 40);
+        /// <summary>Real seconds of a battle's start card (0..4; 0 switches it off), and of a retry's shorter one.</summary>
+        public float StartCardSeconds => Safe(startCardSeconds, 0f, 4f, 1.6f);
+        public float StartCardRetrySeconds => Safe(startCardRetrySeconds, 0f, 4f, .8f);
+        /// <summary>Real seconds of the gear shimmer over the enemy's revealed queue (0..1.5; 0 switches it off).</summary>
+        public float GearShimmerSeconds => Safe(gearShimmerSeconds, 0f, 1.5f, .55f);
+        public float GearShimmerStrength => Safe(gearShimmerStrength, 0f, 1f, .6f);
+        public float ForestAmbienceVolume => Safe(forestAmbienceVolume, 0f, 1f, .4f);
+        public float ForestAmbienceFadeSeconds => Safe(forestAmbienceFadeSeconds, 0f, 5f, 1.2f);
+        public float ForestAmbienceSceneDuck => Safe(forestAmbienceSceneDuck, 0f, 1f, .7f);
+        /// <summary>The share of the planning time left below which the camera starts to push in (0..1; 0 is off).</summary>
+        public float TimePressureShare => Safe(timePressureShare, 0f, 1f, .3f);
+        /// <summary>How much the camera pushes in when the time is all but out, as a share of its size (0..0.15).</summary>
+        public float TimePressureCameraPush => Safe(timePressureCameraPush, 0f, .15f, .04f);
         public float StepAnticipationDuration => Safe(stepAnticipationDuration, 0f, 1f, 0.24f);
         public float StepTimingWindow => Safe(stepTimingWindow, 0.03f, 0.25f, 0.1f);
         public float StepWindowDecay => Safe(stepWindowDecay, 0.3f, 1f, LegacyStepTiming.DefaultDecay);
@@ -174,6 +303,12 @@ namespace TurnLimbo.Presentation
         private static float Safe(float value, float min, float max, float fallback) =>
             float.IsNaN(value) || float.IsInfinity(value) ? fallback : Mathf.Clamp(value, min, max);
 
+        // An opaque colour within 0..1 (no HDR); one that is not a number falls back whole.
+        private static Color SafeColor(Color value, Color fallback) =>
+            float.IsNaN(value.r) || float.IsNaN(value.g) || float.IsNaN(value.b) ||
+            float.IsInfinity(value.r) || float.IsInfinity(value.g) || float.IsInfinity(value.b)
+                ? fallback : new Color(Mathf.Clamp01(value.r), Mathf.Clamp01(value.g), Mathf.Clamp01(value.b), 1f);
+
         private void OnValidate()
         {
             farMistHeight = FarMistHeight; farMistY = FarMistY;
@@ -188,6 +323,23 @@ namespace TurnLimbo.Presentation
             movementDistanceMultiplier = MovementDistanceMultiplier; movementSpeedMultiplier = MovementSpeedMultiplier;
             damageTextFontSize = DamageTextFontSize; criticalDamageScale = CriticalDamageScale;
             decisiveHealthDamagePercent = DecisiveHealthDamagePercent;
+            finishingSlowMotionSeconds = FinishingSlowMotionSeconds; finishingSlowMotionScale = FinishingSlowMotionScale;
+            finishingBarSeconds = FinishingBarSeconds; finishingFreezeSeconds = FinishingFreezeSeconds;
+            finalFallGreySeconds = FinalFallGreySeconds; finalFallColourReturnSeconds = FinalFallColourReturnSeconds;
+            empowermentCutInSeconds = EmpowermentCutInSeconds; empowermentCutInCameraSize = EmpowermentCutInCameraSize;
+            empowermentWarmTint = EmpowermentWarmTint; empowermentVignette = EmpowermentVignette;
+            empowermentAtmosphereSeconds = EmpowermentAtmosphereSeconds; empowermentAuraLoopVolume = EmpowermentAuraLoopVolume;
+            laudareShakeStrength = LaudareShakeStrength; laudareShakeSeconds = LaudareShakeSeconds;
+            empowermentAfterimageColor = EmpowermentAfterimageColor; empowermentAfterimageAlpha = EmpowermentAfterimageAlpha;
+            empowermentAfterimageInterval = EmpowermentAfterimageInterval; empowermentAfterimageSeconds = EmpowermentAfterimageSeconds;
+            empowermentAfterimageDrift = EmpowermentAfterimageDrift; empowermentAfterimageSwell = EmpowermentAfterimageSwell;
+            barkSeconds = BarkSeconds; barkHurtCooldownSeconds = BarkHurtCooldownSeconds;
+            barkLowHealthPercent = BarkLowHealthPercent; barkFontSize = BarkFontSize;
+            startCardSeconds = StartCardSeconds; startCardRetrySeconds = StartCardRetrySeconds;
+            gearShimmerSeconds = GearShimmerSeconds; gearShimmerStrength = GearShimmerStrength;
+            forestAmbienceVolume = ForestAmbienceVolume; forestAmbienceFadeSeconds = ForestAmbienceFadeSeconds;
+            forestAmbienceSceneDuck = ForestAmbienceSceneDuck;
+            timePressureShare = TimePressureShare; timePressureCameraPush = TimePressureCameraPush;
             stepAnticipationDuration = StepAnticipationDuration; stepTimingWindow = StepTimingWindow;
             stepWindowDecay = StepWindowDecay; stepMinimumWindow = StepMinimumWindow;
             stepDodgeDistance = StepDodgeDistance; stepPressureDistance = StepPressureDistance;

@@ -10,8 +10,8 @@ namespace TurnLimbo.Presentation
 {
     /// <summary>What the cutscene's tutorial recall (<c>@recall</c>) can bring back (<see cref="TutorialRecall"/>). While a
     /// coached beat of the 서막's first missions is on screen, the controller asks for it (<see cref="RequestCapture"/>):
-    /// once the card has settled, the screen is captured at the end of a frame, shrunk to at most
-    /// <see cref="MaximumWidth"/> wide and partly drained of colour, and kept, one per beat, at most
+    /// once the card has settled and no speech bubble is up, the screen is captured at the end of a frame, shrunk to
+    /// at most <see cref="MaximumWidth"/> wide and partly drained of colour, and kept, one per beat, at most
     /// <see cref="TutorialRecall.MaximumScreens"/> for the session. A recall picks one of them at random
     /// (<see cref="TryPick"/>); with none, a random coached beat to redraw as a card. The album owns its screens: it
     /// destroys those it drops, and all of them on <see cref="Clear"/> (title, new game) and <see cref="Dispose"/>.
@@ -71,10 +71,12 @@ namespace TurnLimbo.Presentation
         public bool HasTried(string key) => HasOffered(key) || (key != null && failedKeys.Contains(key));
 
         /// <summary>Captures the beat on screen (<paramref name="key"/>, <see cref="TutorialRecall.Key"/>) once its card has
-        /// settled, if <paramref name="stillShown"/> then says the same beat is still up. A beat already tried
+        /// settled, if <paramref name="stillShown"/> then says the same beat is still up. While <paramref name="ready"/>
+        /// says the screen holds something passing that the memory should not keep (the controller's: a speech bubble),
+        /// the capture waits for it to go, as long as the beat stays up; null captures at once. A beat already tried
         /// (<see cref="HasTried"/>), or already waiting, is not asked again; a different one replaces the one waiting.
         /// Returns whether it waits now.</summary>
-        public bool RequestCapture(string key, Func<bool> stillShown)
+        public bool RequestCapture(string key, Func<bool> stillShown, Func<bool> ready = null)
         {
             if (string.IsNullOrEmpty(key)) throw new ArgumentException("A beat key is required.", nameof(key));
             if (stillShown == null) throw new ArgumentNullException(nameof(stillShown));
@@ -82,7 +84,7 @@ namespace TurnLimbo.Presentation
             if (pendingKey == key) return true;
             StopPending();
             pendingKey = key;
-            pending = host.StartCoroutine(CaptureWhenSettled(key, stillShown));
+            pending = host.StartCoroutine(CaptureWhenSettled(key, stillShown, ready));
             return true;
         }
 
@@ -236,11 +238,27 @@ namespace TurnLimbo.Presentation
         private static byte Channel(float grey, float value)
             => (byte)Mathf.Clamp(Mathf.RoundToInt(Mathf.Lerp(grey, value, MemorySaturation)), 0, 255);
 
-        // After the card has settled, and at the end of a frame, when the screen holds what was drawn.
-        private IEnumerator CaptureWhenSettled(string key, Func<bool> stillShown)
+        // After the card has settled, once the screen is ready (waiting a frame at a time while it is not and the beat is
+        // still up), and at the end of a frame, when the screen holds what was drawn.
+        private IEnumerator CaptureWhenSettled(string key, Func<bool> stillShown, Func<bool> ready)
         {
             yield return new WaitForSecondsRealtime(CaptureDelay);
-            yield return new WaitForEndOfFrame();
+            while (true)
+            {
+                if (disposed || HasTried(key) || !stillShown())
+                {
+                    pending = null;
+                    pendingKey = null;
+                    yield break;
+                }
+                if (ready == null || ready())
+                {
+                    yield return new WaitForEndOfFrame();
+                    // What came up during this frame was drawn too.
+                    if (ready == null || ready()) break;
+                }
+                else yield return null;
+            }
             pending = null;
             pendingKey = null;
             if (disposed || HasTried(key) || !stillShown()) yield break;

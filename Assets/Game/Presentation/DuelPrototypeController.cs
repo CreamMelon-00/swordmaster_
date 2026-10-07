@@ -1,3 +1,4 @@
+using TurnLimbo.Runtime.Barks;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.Cutscene;
 using TurnLimbo.Runtime.Campaign;
@@ -73,6 +74,24 @@ namespace TurnLimbo.Presentation
         private bool missionEmpowered;
         // A battle paused for a mission event scene or dialogue; it resumes where it stopped.
         private bool battlePausedForEvent;
+        // The finishing blow's slow motion, bars and freeze frame (every battle), and the 수훈 phase's cut-ins, grade, hum
+        // and shakes (the 서막's last mission after its event).
+        private DuelFinale finale;
+        private DuelEmpowermentCues empowermentCues;
+        // The battle's speech bubbles (Resources/Barks): told the battle's moments, they never pause it.
+        private DuelBarks barks;
+        // 엘리사's eye: the gear shimmer over the enemy's queue that each planning turn reveals, waiting until that turn is
+        // on screen (after the start card).
+        private DuelGearShimmer gearShimmer;
+        private bool enemyQueueRevealPending;
+        // The battle's start card holds it from the attempt's start to its first planning turn. A retry from the result
+        // gets the short one; keys of the frame that put it up belong to the screen before.
+        private DuelStartCard startCard;
+        private bool startCardRetry;
+        private int startCardOpenedFrame = -1;
+        private const string TrainingOpponentName = "허수아비";
+        // The forest's ambience bed under battles and forest scenes.
+        private DuelForestAmbience forestAmbience;
         // Reads a mission cutscene's text by Resources path, or null when there is none (tests supply their own).
         private System.Func<string, string> missionSceneText = ReadTextResource;
         private AudioSource effectsSource;
@@ -138,6 +157,23 @@ namespace TurnLimbo.Presentation
         /// <summary>Whether this mission attempt's empowerment has been applied (the 서막's last mission after 이아's 수훈):
         /// the enemy follows its new script, and a forced-loss defeat now completes the mission.</summary>
         public bool IsMissionEmpowered => missionEmpowered;
+        /// <summary>The finishing blow's slow motion, letterbox bars and freeze frame (and the 서막's final fall to grey).</summary>
+        public DuelFinale Finale => finale;
+        /// <summary>The 수훈 phase's presentation: cut-ins, the warm grade and vignette, the aura's hum, 라우다레's shakes.</summary>
+        public DuelEmpowermentCues EmpowermentCues => empowermentCues;
+        /// <summary>The battle's barks: one-line speech bubbles over the fighters' heads, from the battle's bark file.</summary>
+        public DuelBarks Barks => barks;
+        /// <summary>엘리사's eye: a brass gear and a glint over the enemy's queue as each planning turn reveals it.</summary>
+        public DuelGearShimmer GearShimmer => gearShimmer;
+        /// <summary>The start card that opens a battle: the two fighters' silhouettes and names, crossed swords between them.</summary>
+        public DuelStartCard StartCard => startCard;
+        /// <summary>Whether the battle's start card is up: it holds the battle until it has played or is skipped.</summary>
+        public bool IsShowingStartCard => startCard.IsShowing;
+        /// <summary>Whether a battle opens with its start card. Like auto-save, only the title's 이어하기/새 게임 turn it on,
+        /// so tests and direct API use start a battle at its first planning turn as before (a test of the card turns it on).</summary>
+        public bool StartCardsEnabled { get; set; }
+        /// <summary>The forest's ambience bed under battles and the scenes on the forest arena.</summary>
+        public DuelForestAmbience ForestAmbience => forestAmbience;
         public CutsceneHud CutsceneHud => cutsceneHud;
         /// <summary>What a cutscene's <c>@recall</c> brings back: the screens captured while the coached beats of the
         /// 서막's first missions were up this session (cleared at the title and on a new game).</summary>
@@ -189,7 +225,9 @@ namespace TurnLimbo.Presentation
                 return features;
             }
         }
-        public bool CanStep => session != null && !battlePausedForEvent && StepFeatures.AllowsAnyStep() &&
+        // A cut-in holds the battle: no step is judged against its held cue.
+        public bool CanStep => session != null && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
+            StepFeatures.AllowsAnyStep() &&
             session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
              viewPhase == ViewPhase.PlayingSlot || viewPhase == ViewPhase.BetweenSlots);
@@ -209,7 +247,7 @@ namespace TurnLimbo.Presentation
         public bool HasRequiredArt => art != null && art.HasRequiredAssets &&
             arena != null && arena.HasRequiredAssets && hud != null && hud.HasRequiredAssets &&
             lobbyHud != null && lobbyHud.HasRequiredAssets;
-        private bool IsInspecting => CanChoose && (guideInspectionRemaining > 0f ||
+        private bool IsInspecting => CanChoose && !startCard.IsShowing && (guideInspectionRemaining > 0f ||
             Keyboard.current != null && Keyboard.current.tabKey.isPressed);
         // A coached beat never runs out of time; a mission may also have no timer at all.
         private bool PlanningTimerRuns => !IsTrainingBattle &&
@@ -250,6 +288,12 @@ namespace TurnLimbo.Presentation
                 () => { if (IsPlayingCutscene) AdvanceCutscene(); else ContinueDialogue(); },
                 () => { if (IsPlayingCutscene) SkipCutscene(); else FinishDialogue(); });
             cutsceneHud = new CutsceneHud(transform, art);
+            finale = new DuelFinale(transform, arena, amount => FadeDuelOverlays(amount));
+            empowermentCues = new DuelEmpowermentCues(transform, arena, () => presentationSettings);
+            gearShimmer = new DuelGearShimmer(hud, () => presentationSettings);
+            barks = new DuelBarks(hud, art.UIFont, () => presentationSettings);
+            startCard = new DuelStartCard(transform, art, () => SkipStartCard());
+            forestAmbience = new DuelForestAmbience(transform, () => presentationSettings);
             Sprite lobbyRoomSprite = LobbyRoomBackdrop.PickRandom();
             lobbyHud = new CampaignLobbyHud(transform, art,
                 id => SelectCurriculumNode(id), () => ResetCurriculum(), id => EquipSkill(id),
@@ -261,7 +305,7 @@ namespace TurnLimbo.Presentation
             resultHud = new BattleResultHud(transform, art, () => DismissBattleResult(),
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
             coachHud = new MissionCoachHud(transform, art, () => AdvanceGuide(),
-                ReturnToLobby, () => InspectGuideEnemy());
+                () => AbandonBattle(), () => InspectGuideEnemy());
             recallAlbum = new TutorialRecallAlbum(this);
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
             titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite);
@@ -280,6 +324,10 @@ namespace TurnLimbo.Presentation
         private void AdvancePresentation(float realDelta, Keyboard keyboard)
         {
             realDelta = Mathf.Max(0f, realDelta);
+            // The 수훈 hum fades out on whatever screen follows the battle.
+            empowermentCues.TickAudio(realDelta);
+            // The forest's bed follows the scene: in under battles and forest scenes, out on the title, lobby and briefing.
+            forestAmbience.Tick(realDelta, ForestIsTheScene, ForestVisibility, StoryLoopLevel);
             if (IsPlayingCutscene)
             {
                 // Keys of the frame that opened it (e.g. the title's Enter) belong to the screen before.
@@ -348,9 +396,23 @@ namespace TurnLimbo.Presentation
                     StartCampaignStage(lobbyHud.SelectedStageNumber);
                 return;
             }
+            if (startCard.IsShowing)
+            {
+                AdvanceStartCard(realDelta, keyboard);
+                return;
+            }
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
             {
-                ReturnToLobby();
+                // A decided battle is not abandoned: Escape skips its finishing blow to the result or the outro.
+                AbandonBattle();
+                return;
+            }
+            // The finishing blow's freeze frame (and the 서막's final fall into black and white after it): nothing moves, not
+            // the fighters, the camera or the HUD's numbers, until it hands over to the result or the outro.
+            if (finale.IsFrozen)
+            {
+                finale.Tick(realDelta);
+                if (finale.IsComplete) CompleteFinale();
                 return;
             }
             guideInspectionRemaining = Mathf.Max(0f, guideInspectionRemaining - realDelta);
@@ -373,6 +435,8 @@ namespace TurnLimbo.Presentation
             // Keep local cinematic slow motion on the established combat clock;
             // the step gesture, camera and feedback lifetime still use real time.
             if (IsResolving) speed = Mathf.Min(speed, arena.StepPresentationSpeed);
+            // The finishing blow's longer slow motion takes over from the decisive close-up's.
+            if (finale.IsRunning) speed = finale.CombatSpeed;
             float stoppedTime = Mathf.Min(realDelta, hitStopRemaining);
             hitStopRemaining = Mathf.Max(0f, hitStopRemaining - stoppedTime);
             // The hit that brought the enemy to the event's threshold has landed and its hit stop has played out: the
@@ -382,14 +446,42 @@ namespace TurnLimbo.Presentation
                 OpenMissionEvent();
                 return;
             }
-            float delta = (realDelta - stoppedTime) * speed;
+            // A 수훈 technique's cut-in holds the battle after the hit stop (its camera ease and flare run meanwhile).
+            float liveTime = realDelta - stoppedTime;
+            liveTime -= empowermentCues.HoldBattle(liveTime);
+            empowermentCues.Tick(realDelta);
+            // The finishing blow's slow motion runs on the time the hit stop left; its freeze begins once it is over.
+            if (finale.IsRunning)
+            {
+                finale.Tick(liveTime);
+                if (finale.IsComplete)
+                {
+                    CompleteFinale();
+                    return;
+                }
+            }
+            float delta = liveTime * speed;
             // 전투 planning is bullet time in the arena only; the planning clock above is unchanged.
             arena.SetPlanningState(planningTime, IsInspecting, CanChoose && Encounter == EncounterKind.Battle);
+            // The running clock's last share pushes the camera in a touch (not untimed, not while a coached beat holds it).
+            arena.SetTimePressure(CanChoose && PlanningTimerRuns
+                ? LegacyTimePressure.Target(planningTime, CurrentPlanningDuration, presentationSettings.TimePressureShare) : 0f);
             arena.Tick(delta, realDelta);
             phaseTime += delta;
             switch (viewPhase)
             {
                 case ViewPhase.Planning:
+                    if (CanChoose)
+                    {
+                        // The first planning turn on screen opens the battle's barks (start); later turns say nothing new.
+                        barks.BattleStarted();
+                        // 엘리사's eye: the enemy's queue for this turn has just come up.
+                        if (enemyQueueRevealPending)
+                        {
+                            enemyQueueRevealPending = false;
+                            gearShimmer.Reveal();
+                        }
+                    }
                     if (keyboard != null) ReadPlanningInput(keyboard);
                     if (CanChoose && PlanningTimerRuns)
                     {
@@ -421,7 +513,8 @@ namespace TurnLimbo.Presentation
                 case ViewPhase.AfterTurn:
                     if (finishingHitPlayback)
                         arena.HoldSlotAtTime(Mathf.Min(finishingHitTime + phaseTime, finishingClipEnd));
-                    if (phaseTime >= TurnCleanupDelay)
+                    // A finishing blow hands over from its freeze frame itself (CompleteFinale), without the return.
+                    if (phaseTime >= TurnCleanupDelay && !finale.IsRunning)
                     {
                         hud.BeginReturn();
                         arena.EndTurn();
@@ -447,6 +540,26 @@ namespace TurnLimbo.Presentation
                 stepHud.Tick(realDelta);
                 RefreshHudClock(delta, realDelta);
             }
+        }
+
+        /// <summary>A frame of the battle's start card: it holds the battle (no planning clock, no input, no bullet time)
+        /// while the fighters breathe behind it. Enter, Space or Escape skips it, as a click on it does; the key that skips
+        /// it never reaches the battle, and keys of the frame that put it up belong to the screen before. The duel HUD comes
+        /// back under it as it leaves; the coach once it has gone.</summary>
+        private void AdvanceStartCard(float realDelta, Keyboard keyboard)
+        {
+            if (keyboard != null && Time.frameCount > startCardOpenedFrame && (keyboard.enterKey.wasPressedThisFrame ||
+                keyboard.spaceKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))
+            {
+                SkipStartCard();
+                return;
+            }
+            arena.SetPlanningState(planningTime, false);
+            arena.Tick(realDelta, realDelta);
+            if (startCard.Tick(realDelta)) EndStartCard();
+            // The duel HUD comes back under the leaving card (its veil still takes the clicks).
+            else if (startCard.IsLeaving && !hud.Root.activeSelf) hud.Root.SetActive(true);
+            RefreshHudClock(0f, realDelta);
         }
 
         private void PrepareNextSlot(bool waitBetweenSlots = false)
@@ -501,6 +614,8 @@ namespace TurnLimbo.Presentation
             LegacySkill playerAction = slot.PlayerSkill ?? slot.PendingPlayerCounter;
             slotStartDeferred = slot.PendingPlayerCounter != null;
             arena.BeginSlot(playerAction, slot.EnemySkill);
+            // One of 이아's 수훈 techniques opens with its cut-in; the slot's clock waits for it (HoldBattle).
+            if (missionEmpowered) empowermentCues.TryBeginCutIn(mission.Empowerment, slot.EnemySkill);
             hud.SetCurrentSkills(playerAction, slot.EnemySkill, slotDuration + slotAnticipationDuration);
             skillActivationCue.Reset();
             hud.SetSkillFeedback(slot);
@@ -511,6 +626,8 @@ namespace TurnLimbo.Presentation
             resistanceFeedback.Show(true, session.Player.Resistance - playerResistanceBefore);
             resistanceFeedback.Show(false, session.Enemy.Resistance - enemyResistanceBefore);
             AnnounceBreaks(playerWasBroken, enemyWasBroken);
+            // A slot's opening effects can break resistance (라우다레's 상대 붕괴), which the barks hear too.
+            barks.Hit(Blow(session.Enemy, enemyWasBroken, 0), Blow(session.Player, playerWasBroken, 0));
             SetViewPhase(slotAnticipationDuration > 0f ? ViewPhase.SkillWindup : ViewPhase.PlayingSlot);
         }
 
@@ -569,19 +686,28 @@ namespace TurnLimbo.Presentation
                         enemyHealthBefore > 0 && session.Enemy.Health <= 0,
                         Exchange(hit.EnemySkill, hit.EnemyAttacked));
                 if (hit.EnemyAttacked && !hit.PlayerDodged)
+                {
                     PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerResistanceBefore > 0 && session.Player.Resistance <= 0,
                         playerHealthBefore > 0 && session.Player.Health <= 0,
                         Exchange(hit.PlayerSkill, hit.PlayerAttacked));
+                    if (missionEmpowered) empowermentCues.NotifyEnemyHit(mission.Empowerment, hit.EnemySkill);
+                }
                 // Includes a deferred counter slot's start effects, which run inside this hit.
                 AnnounceBreaks(playerWasBroken, enemyWasBroken);
                 // The first hit that brings the enemy to a mission event's threshold (never one that ends the duel).
                 if (hit.EnemyReachedHealthThreshold && mission?.Empowerment != null && !missionEmpowered)
                     missionEventPending = true;
+                // The barks hear a hit the battle goes on after. The finishing blow is the finale's, and the event's
+                // scene answers the hit that opens it.
+                if (hit.Outcome == DuelMatchOutcome.InProgress && !missionEventPending)
+                    barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage),
+                        Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage));
                 if (hit.Outcome != DuelMatchOutcome.InProgress)
                 {
+                    BeginFinale(hit.Outcome);
                     // Finish this strike's pose without allowing another attack cycle.
                     finishingHitPlayback = true;
                     finishingHitTime = attackTime;
@@ -620,6 +746,11 @@ namespace TurnLimbo.Presentation
                 hud.ShowBreakCallout(false, arena.EnemyRenderer.transform.position, arena.EnemyRenderer.transform);
             arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
         }
+
+        /// <summary>What a fighter took in a moment, for the barks: whether its resistance broke just now, and the health it
+        /// lost to the hit.</summary>
+        private static BarkBlow Blow(LegacyFighterState fighter, bool wasBroken, int healthDamage)
+            => new BarkBlow(!wasBroken && fighter.IsResistanceBroken, healthDamage, fighter.Health, fighter.MaxHealth);
 
         // The rules resolve an attack against the target's attack skill as a resistance
         // exchange for the whole slot, even after that skill's own hits have ended.
@@ -675,6 +806,8 @@ namespace TurnLimbo.Presentation
                 hud.ShowRecoveryCallout(false, arena.EnemyRenderer.transform.position, arena.EnemyRenderer.transform);
             arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
             SetViewPhase(ViewPhase.Planning);
+            // The enemy's new queue is up: 엘리사's eye plays over it on the turn's first frame.
+            enemyQueueRevealPending = true;
             guide?.NotifyTurnBegan(session.RoundNumber);
             RefreshGuide();
         }
@@ -841,6 +974,8 @@ namespace TurnLimbo.Presentation
         public void CommitTurn()
         {
             if (!CanChoose || guide != null && !guide.AllowsCommit) return;
+            // A turn committed under the start card (direct API use; the player's input waits for it) begins the battle.
+            SkipStartCard();
             ClearHeldKeys();
             explainedSkill = null;
             guideInspectionRemaining = 0f;
@@ -905,6 +1040,7 @@ namespace TurnLimbo.Presentation
             lobbyHud.Hide();
             AutoSaveEnabled = false;
             StoryProgressionEnabled = false;
+            StartCardsEnabled = false;
             SyncStoryProgression();
             showingTitle = true;
             string summary = null, notice = null;
@@ -933,6 +1069,7 @@ namespace TurnLimbo.Presentation
             }
             AutoSaveEnabled = true;
             StoryProgressionEnabled = true;
+            StartCardsEnabled = true;
             SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
@@ -948,6 +1085,7 @@ namespace TurnLimbo.Presentation
             if (!IsInTitle) return false;
             AutoSaveEnabled = true;
             StoryProgressionEnabled = true;
+            StartCardsEnabled = true;
             StartNewGame();
             PlayCutscene(OpeningCutscene, ShowBriefing);
             return true;
@@ -987,23 +1125,26 @@ namespace TurnLimbo.Presentation
         /// <param name="battlefield">A mission whose scene this is: its fighters stand at their battle starting places
         /// first (<see cref="StageBattlefield"/>), and its last picture stays when it ends (a victory's result shows over
         /// the outro's end, not over a reset arena).</param>
+        /// <param name="fromGrey">Real seconds over which the scene regains its colour from black and white (the 서막's final
+        /// fall); 0 opens in colour.</param>
         private void OpenCutscene(CutsceneScript script, System.Action continuation, PrologueMission battlefield = null,
-            bool enemyAura = false)
+            bool enemyAura = false, float fromGrey = 0f)
         {
             // From a bare forest arena: no title, briefing, lobby, result, coach, dialogue or duel HUD.
             ClearBattleScreens();
             lobbyHud.Hide();
             if (battlefield != null) StageBattlefield(battlefield, enemyAura);
-            BeginCutscene(script, continuation, false, battlefield != null);
+            BeginCutscene(script, continuation, false, battlefield != null, fromGrey);
         }
 
-        private void BeginCutscene(CutsceneScript script, System.Action continuation, bool resumesBattle, bool keepsStage = false)
+        private void BeginCutscene(CutsceneScript script, System.Action continuation, bool resumesBattle, bool keepsStage = false,
+            float fromGrey = 0f)
         {
             cutsceneContinuation = continuation;
             cutsceneKeepsStage = keepsStage;
             cutsceneOpenedFrame = Time.frameCount;
             cutscene = new CutsceneDirector(script, arena, cutsceneHud, dialogueHud, defaultDialoguePortraitCatalog, resumesBattle,
-                recallAlbum);
+                recallAlbum) { OpensFromGreySeconds = fromGrey };
             cutscene.Start();
             if (cutscene.IsComplete) FinishCutscene();
         }
@@ -1022,12 +1163,13 @@ namespace TurnLimbo.Presentation
         /// the mission's fighters on stage) when that file exists, otherwise its dialogue (<paramref name="dialoguePath"/>),
         /// then runs <paramref name="continuation"/> once the player reaches its end or skips it. Returns false (and runs
         /// nothing) when neither plays.</summary>
+        /// <param name="fromGrey">The cutscene opens black and white and regains its colour over these seconds.</param>
         private bool PlayMissionScene(PrologueMission shown, string cutscenePath, string dialoguePath,
-            System.Action continuation, bool enemyAura = false)
+            System.Action continuation, bool enemyAura = false, float fromGrey = 0f)
         {
             CutsceneScript script = LoadMissionCutscene(shown, cutscenePath);
             if (script == null) return PlayMissionDialogue(dialoguePath, continuation);
-            OpenCutscene(script, continuation, shown, enemyAura);
+            OpenCutscene(script, continuation, shown, enemyAura, fromGrey);
             return true;
         }
 
@@ -1064,6 +1206,9 @@ namespace TurnLimbo.Presentation
             PrologueMission shown = mission;
             if (shown?.Empowerment == null || missionEmpowered) return;
             battlePausedForEvent = true;
+            empowermentCues.SetPaused(true);
+            // The scene answers the moment: no bubble waits over it.
+            barks.Hide();
             hud.Root.SetActive(false);
             coachHud.Hide();
             stepAudio.Stop();
@@ -1078,7 +1223,9 @@ namespace TurnLimbo.Presentation
         private void ResumeMissionBattle()
         {
             battlePausedForEvent = false;
+            empowermentCues.SetPaused(false);
             ApplyEmpowerment();
+            barks.Empowered();
             hud.Root.SetActive(true);
             ClearHeldKeys();
             RefreshHud(0f);
@@ -1086,7 +1233,8 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>From the next planning turn the enemy follows the empowered script; the turn in progress keeps its
-        /// queue. The 수훈 aura stays on the enemy until the battle ends (lit here if the scene did not light it).</summary>
+        /// queue. The 수훈 aura stays on the enemy until the battle ends (lit here if the scene did not light it), and the
+        /// 수훈 phase's presentation begins (<see cref="DuelEmpowermentCues"/>).</summary>
         private void ApplyEmpowerment()
         {
             MissionEmpowerment empowerment = mission?.Empowerment;
@@ -1094,6 +1242,7 @@ namespace TurnLimbo.Presentation
             missionEmpowered = true;
             session.ReplaceEnemyScript(empowerment.EnemyScript);
             if (empowerment.KeepsAura && !arena.EnemyPowerAura.IsAuraOn) arena.EnemyPowerAura.SetAura(true, EmpowermentAuraFade);
+            empowermentCues.Begin();
         }
 
         /// <summary>How long the 수훈 aura takes to fade in when the scene did not light it (skipped early, or no scene).</summary>
@@ -1393,6 +1542,15 @@ namespace TurnLimbo.Presentation
         public bool RetryBattleResult()
         {
             if (!IsShowingResult) return false;
+            // The same battle again: it opens with the short start card (the new attempt takes the flag).
+            startCardRetry = true;
+            bool retried = RestartFromResult();
+            startCardRetry = false;
+            return retried;
+        }
+
+        private bool RestartFromResult()
+        {
             if (battleResult.IsTraining)
             {
                 ShowLobby();
@@ -1481,7 +1639,8 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
-        /// <summary>Escape or the coach's abandon: a mission goes back to its briefing, a stage to the lobby.</summary>
+        /// <summary>Leaves the battle: a mission goes back to its briefing, a stage to the lobby. The player's Escape and the
+        /// coach's 임무 포기 come through <see cref="AbandonBattle"/>, which never leaves a decided battle.</summary>
         public void ReturnToLobby()
         {
             if (IsMission)
@@ -1491,6 +1650,61 @@ namespace TurnLimbo.Presentation
             }
             if (campaign.Phase == CampaignPhase.Battle) campaign.TryAbandonBattle();
             ShowLobby();
+        }
+
+        /// <summary>Escape in a battle, or the coach's 임무 포기: a decided battle is never abandoned. During its finishing
+        /// blow the result or the outro comes at once (<see cref="SkipFinale"/>); with every finishing-blow length at 0, a
+        /// battle already over whose last turn is still ending finishes now. Otherwise the battle is left
+        /// (<see cref="ReturnToLobby"/>).</summary>
+        private void AbandonBattle()
+        {
+            if (SkipFinale()) return;
+            if (session.IsFinished && viewPhase != ViewPhase.Outcome && !IsShowingResult)
+            {
+                FinishStage();
+                // Should the battle have refused to end, it is left as before.
+                if (viewPhase == ViewPhase.Outcome) return;
+            }
+            ReturnToLobby();
+        }
+
+        /// <summary>The hit that ended the duel has been presented: the finishing blow's slow motion, bars and freeze frame
+        /// begin (with every length switched off, the turn ends as it always did). The 서막's forced loss falls into black
+        /// and white after the freeze.</summary>
+        private void BeginFinale(DuelMatchOutcome outcome)
+        {
+            bool fall = outcome == DuelMatchOutcome.EnemyVictory && IsMission && mission.Completes(outcome, missionEmpowered);
+            finale.Begin(presentationSettings, outcome, fall, hitStopRemaining);
+            // The finishing blow has the moment to itself.
+            barks.Hide();
+        }
+
+        /// <summary>Escape or the coach's 임무 포기 during the finishing blow (<see cref="AbandonBattle"/>): what it leads to
+        /// (the result, or the outro) comes at once, so a decided battle is never abandoned. Returns false when no
+        /// finishing blow is playing.</summary>
+        public bool SkipFinale()
+        {
+            if (!finale.IsRunning) return false;
+            CompleteFinale();
+            return true;
+        }
+
+        /// <summary>The finishing blow has played out: the result or the outro comes now, over its still last picture. The
+        /// turn's usual return to idle is skipped, so nothing moves between the freeze frame and what follows.</summary>
+        private void CompleteFinale()
+        {
+            FinishStage();
+            // Should the battle have refused to end, its usual turn end takes over.
+            if (finale.IsComplete) finale.Clear();
+        }
+
+        /// <summary>The 서막's final fall drains the arena's colour, which the duel HUD, an overlay, never gets: the HUD fades
+        /// out with it, and the coach leaves as it begins (the hand-over would hide it a moment later anyway). At 1 (the
+        /// finale cleared) the HUD is back as drawn; the coach comes back with its next beat.</summary>
+        private void FadeDuelOverlays(float amount)
+        {
+            hud.SetFade(amount);
+            if (amount < 1f) coachHud.Hide();
         }
 
         private void FinishStage()
@@ -1553,6 +1767,8 @@ namespace TurnLimbo.Presentation
         {
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
             bool forcedLoss = !victory && mission.Completes(session.Outcome, missionEmpowered);
+            // The final fall hands over in black and white; the outro then regains its colour.
+            float fromGrey = forcedLoss && finale.EndsInGrey ? presentationSettings.FinalFallColourReturnSeconds : 0f;
             guide?.Finish();
             bool firstWin = prologue.TryComplete(mission.Number, session.Outcome, missionEmpowered);
             if (firstWin)
@@ -1570,7 +1786,7 @@ namespace TurnLimbo.Presentation
                 if (firstWin && lost.Number == PrologueMissions.Count)
                     lobbyHud.SetArrivalNotice(BattleResultHud.PrologueCompleteNotice(campaign.IsCurriculumOpen));
                 EndDuelPresentation();
-                if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura)) ShowBriefing();
+                if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura, fromGrey)) ShowBriefing();
                 return;
             }
             // After the story is synced, so mission 8's first win already reports the curriculum it opened.
@@ -1592,6 +1808,7 @@ namespace TurnLimbo.Presentation
         private void EndDuelPresentation()
         {
             ClearMissionEvent();
+            ClearBattleCinematics();
             effectsSource.Stop();
             hitStopRemaining = 0f;
             stepAudio.Stop();
@@ -1667,6 +1884,7 @@ namespace TurnLimbo.Presentation
             titleHud?.Hide();
             CloseDialogue();
             ClearMissionState();
+            ClearBattleCinematics();
             battleResult = null;
             resultHud.Hide();
             coachHud.Hide();
@@ -1704,6 +1922,7 @@ namespace TurnLimbo.Presentation
             // A new attempt starts unempowered; the arena reset below takes any 수훈 aura away.
             ClearMissionEvent();
             missionEmpowered = false;
+            ClearBattleCinematics();
             battleResult = null;
             guideInspectionRemaining = 0f;
             showingBriefing = false;
@@ -1738,14 +1957,89 @@ namespace TurnLimbo.Presentation
             hud.SetTrainingMode(IsTrainingBattle);
             hud.SetGuide(guide);
             if (IsMission) hud.SetStage(mission.Number, MissionCountFor(mission), mission.Title);
-            else if (IsTrainingBattle) hud.SetStage(1, 1, "허수아비");
+            else if (IsTrainingBattle) hud.SetStage(1, 1, TrainingOpponentName);
             else hud.SetStage(campaign.StageNumber, campaign.StageCount, campaign.CurrentStage.Name);
             // A mission names its enemy as the battle knows it (이아 in the 서막's last mission, unlike its briefing).
             hud.SetEnemyName(IsMission ? mission.BattleEnemyName : null);
+            // Each attempt hears its barks afresh: a retry may say its start line again.
+            barks.Begin(BarkResource);
             SetViewPhase(ViewPhase.Planning);
+            // The first planning turn reveals the enemy's queue too, once it is on screen.
+            enemyQueueRevealPending = true;
+            BeginStartCard();
             ClearHeldKeys();
             RefreshHud(0f);
             RefreshGuide();
+        }
+
+        /// <summary>The attempt opens with its start card when this session shows them and its length is not 0 (a retry
+        /// from the result gets the short one): the duel HUD waits under it until it leaves, the coach until it has gone.
+        /// Only a battle that starts (a mission, a stage, training) has one, not the duel the lobby keeps behind its
+        /// screens.</summary>
+        private void BeginStartCard()
+        {
+            bool starts = IsMission || campaign.Phase == CampaignPhase.Battle;
+            float seconds = !StartCardsEnabled || !starts ? 0f
+                : startCardRetry ? presentationSettings.StartCardRetrySeconds : presentationSettings.StartCardSeconds;
+            startCardRetry = false;
+            if (seconds <= 0f)
+            {
+                startCard.Clear();
+                return;
+            }
+            startCard.Show(seconds, StartCardOpponent, StartCardOpponentSilhouette);
+            startCardOpenedFrame = Time.frameCount;
+            hud.Root.SetActive(false);
+        }
+
+        /// <summary>Skips the battle's start card (a click on it, Enter, Space or Escape): the first planning turn begins at
+        /// once. Returns false when no card is up.</summary>
+        public bool SkipStartCard()
+        {
+            if (!startCard.IsShowing) return false;
+            startCard.Clear();
+            EndStartCard();
+            return true;
+        }
+
+        /// <summary>The start card has gone: the duel HUD is back (if its exit had not brought it yet), the coach comes up
+        /// and the first planning turn begins.</summary>
+        private void EndStartCard()
+        {
+            if (!hud.Root.activeSelf) hud.Root.SetActive(true);
+            ClearHeldKeys();
+            RefreshGuide();
+        }
+
+        /// <summary>The name the start card gives the opponent: a mission's battle name (이아 in the 서막's last mission) and
+        /// the dummy in training. A stage's enemy has no name yet, so its card shows the silhouette alone: a place name is
+        /// not a fighter's (and stage 8's has 결투 in it). Once stage enemies are named, their name goes here.</summary>
+        private string StartCardOpponent => IsTrainingBattle ? TrainingOpponentName : IsMission ? mission.BattleEnemyName
+            : string.Empty;
+
+        /// <summary>The opponent's silhouette on the start card: a mission's briefing silhouette, else the dummy's or the
+        /// knight's, as the arena draws the enemy.</summary>
+        private string StartCardOpponentSilhouette => IsMission ? mission.Enemies[0].SilhouetteResource
+            : IsTrainingBattle ? PrologueMissions.DummySilhouette : PrologueMissions.EnemySilhouette;
+
+        /// <summary>Whether the forest is the scene now (its ambience bed plays): a battle or its result, any cutscene (they
+        /// all play on the forest arena), or a mission's dialogue over its battlefield. Not the title, lobby or briefing.</summary>
+        private bool ForestIsTheScene => IsPlayingCutscene || viewPhase != ViewPhase.Outcome || IsShowingResult ||
+            IsShowingDialogue && IsMission;
+
+        /// <summary>How much of the picture shows: a cutscene's black fade hides the forest, and its sound with it.</summary>
+        private float ForestVisibility => IsPlayingCutscene ? 1f - cutsceneHud.FadeAmount : 1f;
+
+        /// <summary>How loud the story's own loop is, 0 to 1 (a cutscene's @ambience, the 수훈 hum): the forest gives way to it.</summary>
+        private float StoryLoopLevel
+        {
+            get
+            {
+                float scene = IsPlayingCutscene ? cutscene.Audio.AmbienceVolume : 0f;
+                float humVolume = presentationSettings.EmpowermentAuraLoopVolume;
+                float hum = humVolume > 0f ? empowermentCues.LoopVolume / humVolume : 0f;
+                return Mathf.Clamp01(Mathf.Max(scene, hum));
+            }
         }
 
         /// <summary>Drops a pending or paused mission event (the battle is left, restarted or over). Whether the attempt was
@@ -1756,9 +2050,28 @@ namespace TurnLimbo.Presentation
             battlePausedForEvent = false;
         }
 
+        /// <summary>Ends the start card, the finishing blow, the 수훈 phase's presentation, the barks and the gear shimmer at
+        /// once (the battle is over, restarted or left): no card, letterbox, grey, cut-in, warm grade, speech bubble or gear
+        /// is left behind, and the hum fades out on its own.</summary>
+        private void ClearBattleCinematics()
+        {
+            startCard.Clear();
+            finale.Clear();
+            empowermentCues.Clear();
+            barks.End();
+            gearShimmer.Clear();
+            enemyQueueRevealPending = false;
+        }
+
+        /// <summary>This battle's bark file: <c>Barks/mission-NN</c> for a story mission, <c>Barks/stage-NN</c> for a stage, none
+        /// in training.</summary>
+        private string BarkResource => IsTrainingBattle ? null
+            : IsMission ? BarkScript.MissionResource(mission.Number) : BarkScript.StageResource(campaign.StageNumber);
+
         private void RefreshGuide()
         {
-            if (guide == null || IsShowingResult || viewPhase == ViewPhase.Outcome)
+            // The coach waits for the start card to go.
+            if (guide == null || IsShowingResult || viewPhase == ViewPhase.Outcome || startCard.IsShowing)
             {
                 coachHud.Hide();
                 hud.SetGuide(null);
@@ -1773,7 +2086,9 @@ namespace TurnLimbo.Presentation
 
         /// <summary>The first missions' coached beats are the voice 엘리사 later hears in her head (mission 3's
         /// <c>@recall</c>): each beat's screen is captured once a session, after its card has settled, if that beat is
-        /// still the one up then (the album checks); a beat whose capture failed is not tried again.</summary>
+        /// still the one up then (the album checks); a beat whose capture failed is not tried again. A fighter's speech
+        /// bubble is no part of the voice: while one is up (a <c>start</c> line on the first beat), the capture waits
+        /// for it to go.</summary>
         private void RememberCoachBeat()
         {
             if (!TutorialRecall.Remembers(mission) || !recallAlbum.CapturesScreens) return;
@@ -1782,7 +2097,9 @@ namespace TurnLimbo.Presentation
             MissionGuide shown = guide;
             int step = shown.StepIndex;
             recallAlbum.RequestCapture(key, () => guide == shown && shown.StepIndex == step && !shown.IsComplete &&
-                coachHud.IsVisible && !IsPlayingScene && !IsShowingResult && !battlePausedForEvent);
+                coachHud.IsVisible && !IsPlayingScene && !IsShowingResult && !battlePausedForEvent && !finale.IsRunning &&
+                !startCard.IsShowing,
+                () => !barks.IsShowing(BarkSpeaker.Player) && !barks.IsShowing(BarkSpeaker.Enemy));
         }
 
         private void ClearHeldKeys()
@@ -1806,6 +2123,9 @@ namespace TurnLimbo.Presentation
             hud.SetLaneCycleCost(LaneCycleCost, CanAffordLaneCycle);
             hud.Refresh(session, planningTime, IsResolving, highlightedSlot, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta, CurrentPlanningDuration);
+            // On real time, over the head HUDs as just laid out.
+            barks.Tick(realDelta);
+            gearShimmer.Tick(realDelta);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.Refresh(CanStep, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,
                 StepWindowFraction, session.UsedStepThisTurn, session.StepAttemptsThisTurn, session.StepMissedThisTurn,
@@ -1827,6 +2147,7 @@ namespace TurnLimbo.Presentation
         {
             stepAudio?.Stop();
             skillActivationCue?.Reset();
+            forestAmbience?.Stop();
         }
 
         private void OnDestroy()
@@ -1848,6 +2169,12 @@ namespace TurnLimbo.Presentation
             stepAudio?.Dispose();
             resistanceFeedback?.Dispose();
             skillActivationCue?.Dispose();
+            startCard?.Dispose();
+            finale?.Dispose();
+            empowermentCues?.Dispose();
+            barks?.Dispose();
+            gearShimmer?.Dispose();
+            forestAmbience?.Dispose();
             hud?.Dispose();
             arena?.Dispose();
             art?.Dispose();

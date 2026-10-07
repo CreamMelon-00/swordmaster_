@@ -679,6 +679,10 @@ namespace TurnLimbo.Presentation.Tests
                 TitleSummary = Label(Controller.TitleHud.Root, "Title Save Summary").text;
                 Assert.That(Controller.ContinueGame(), Is.True);
                 Assert.That(Controller.StoryProgressionEnabled, Is.True, "이어하기 follows the story's unlocks.");
+                Assert.That(Controller.StartCardsEnabled, Is.True, "A title session opens its battles with the start card…");
+                // …which these tests of what the story opens skip, so their battles start at the first planning turn (held
+                // keys included); BattleIntroPlayModeTests covers the card.
+                Controller.StartCardsEnabled = false;
                 Assert.That(Controller.Prologue.ClearedCount, Is.EqualTo(missionsWon));
                 Assert.That(Controller.Campaign.ClearedStageCount, Is.EqualTo(stagesCleared));
             }
