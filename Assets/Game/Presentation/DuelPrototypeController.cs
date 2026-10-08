@@ -52,6 +52,7 @@ namespace TurnLimbo.Presentation
         private MissionCoachHud coachHud;
         private MissionBriefingHud briefingHud;
         private TitleHud titleHud;
+        private DuelLoadingHud loadingHud;
         private bool showingTitle;
         private GameSaveStore saveStore;
         private BattleResult battleResult;
@@ -141,6 +142,7 @@ namespace TurnLimbo.Presentation
         public MissionCoachHud CoachHud => coachHud;
         public MissionBriefingHud BriefingHud => briefingHud;
         public TitleHud TitleHud => titleHud;
+        public DuelLoadingHud LoadingHud => loadingHud;
         /// <summary>The auto-save file. Tests may point it elsewhere before using the title.</summary>
         public GameSaveStore SaveStore
         {
@@ -331,6 +333,7 @@ namespace TurnLimbo.Presentation
             recallAlbum = new TutorialRecallAlbum(this);
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
             titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite);
+            loadingHud = DuelLoadingHud.Create(transform, art.UIFont);
             saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
@@ -1766,6 +1769,7 @@ namespace TurnLimbo.Presentation
             if (!IsInLobby || !campaign.TryStartTraining()) return false;
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
+            loadingHud.Play("훈련장을 준비하는 중");
             return true;
         }
 
@@ -1820,11 +1824,13 @@ namespace TurnLimbo.Presentation
             {
                 ShowBriefing();
                 SaveAbandonedSkillExperience();
+                loadingHud.Play("임무 기록으로 돌아가는 중");
                 return;
             }
             if (campaign.Phase == CampaignPhase.Battle) campaign.TryAbandonBattle();
             ShowLobby();
             SaveAbandonedSkillExperience();
+            loadingHud.Play("기사학교로 돌아가는 중");
         }
 
         private void SaveAbandonedSkillExperience()
@@ -2088,6 +2094,7 @@ namespace TurnLimbo.Presentation
                 skill => campaign.GetOwnedSkill(skill.Id)?.Skill);
             ResetBattlePresentation(carryIntroPositions ? playerOpeningX : (float?)null,
                 carryIntroPositions ? enemyOpeningX : (float?)null);
+            loadingHud.Play("임무 전장을 준비하는 중");
         }
 
         /// <summary>The next mission's briefing; the lobby instead when no mission is playable right now.</summary>
@@ -2166,6 +2173,7 @@ namespace TurnLimbo.Presentation
         {
             session = campaign.CreateDuel(System.Environment.TickCount);
             ResetBattlePresentation();
+            loadingHud.Play("전투를 준비하는 중");
         }
 
         private void ResetBattlePresentation(float? playerOpeningX = null, float? enemyOpeningX = null)
@@ -2444,6 +2452,7 @@ namespace TurnLimbo.Presentation
             coachHud?.Dispose();
             briefingHud?.Dispose();
             titleHud?.Dispose();
+            loadingHud?.Dispose();
             lobbyHud?.Dispose();
             stepHud?.Dispose();
             stepAudio?.Dispose();
