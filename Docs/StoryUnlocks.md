@@ -124,7 +124,7 @@
 - Runtime `Prologue/MissionGuide`: 새 단계 `Breathe`·`Dodge`·`Pressure`·`Cycle`. `AllowsBreath`, `AllowsCycle`, `AllowsStep(action)`, `NotifyBreathed`, `NotifyCycled`, `NotifyStepped`. `Dodge`/`Pressure`는 다음 턴이 시작돼도 넘어간다.
 - Runtime `Campaign/CampaignRun`: `Features`(기본 `All`), `StageLimit`(기본 제한 없음), `SetProgression`/`ClearProgression`(`Reset`이 지우지 않는다), `IsLaneOpen`, `IsStageWaitingForMission`. 스테이지 입장은 `StageLimit`을 보고, `CreateDuel`은 `Features`를 넘기며, 닫힌 열의 편성 변경은 거부한다. `IsCurriculumOpen`(= `OpensCurriculum(Features)`, 세 열이 모두 열렸는지)이 거짓이면 커리큘럼 선택·초기화를 거부하고 `TryCompleteBattle`이 커리큘럼을 세지 않는다.
 - Runtime `Campaign/BattleResult`: `CurriculumOpen`(생성자의 마지막 인자, 기본 참). 닫힌 커리큘럼에 진행을 넣으면 생성자가 거부한다.
-- 맞물림(2026-10-08): `CampaignRun.CreateDuel(seed, meshPercent)`와 `PrologueMission.CreateDuel(seed, resolver, meshPercent)`가 맞물림 퍼센트를 전투에 넘긴다(기본 `LegacyMeshing.DefaultPercent` 20, `Meshing.md`). 해금은 `Features`의 열만으로 정해진다. 테스트는 EditMode `MeshingTests.StoryDuels_MeshFromMissionFive_WhereTheSecondLaneOpens`(1~4 임무는 한 열, 5 임무는 맞물림과 코치 문구)와 `MeshingTests.CampaignDuels_TakeThePercent`(Q열만 연 스테이지 전투는 맞물리지 않음).
+- 맞물림(2026-10-08): `CampaignRun.CreateDuel(seed, meshPercent)`와 `PrologueMission.CreateDuel(seed, resolver, meshPercent)`가 맞물림 퍼센트를 전투에 넘긴다(기본 `LegacyMeshing.DefaultPercent` 10, `Meshing.md`). 해금은 `Features`의 열만으로 정해진다. 테스트는 EditMode `MeshingTests.StoryDuels_MeshFromMissionFive_WhereTheSecondLaneOpens`(1~4 임무는 한 열, 5 임무는 맞물림과 코치 문구)와 `MeshingTests.CampaignDuels_TakeThePercent`(Q열만 연 스테이지 전투는 맞물리지 않음).
 - Presentation `DuelPrototypeController`
   - `StoryProgressionEnabled`, `IsNextMissionAvailable`.
   - `IsLaneOpen(lane)`: 닫힌 열의 Q/W/E·1/2/3은 `ReadPlanningInput`에서 바로 버린다.

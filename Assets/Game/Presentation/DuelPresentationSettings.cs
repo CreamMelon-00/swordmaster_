@@ -146,9 +146,9 @@ namespace TurnLimbo.Presentation
         private float gearRatchetVolume = LegacySkillGear.DefaultRatchetVolume;
 
         [Header("맞물림 — 위력은 다음 전투부터, 연출은 다음 물림부터 적용 (Docs/Meshing.md)")]
-        [SerializeField, Range(0, 100), Tooltip("맞물림 사슬의 기술 하나가 사슬 길이마다 받는 위력(%). 길이 N인 사슬의 기술은 모두 N배를 받습니다(20이면 사슬 2는 +40%, 사슬 3은 +60%). 연출 값이 아니라 전투 규칙 값으로, 새 전투(임무·스테이지·수련)를 만들 때 넘깁니다. 0이면 맞물림이 꺼져 아무것도 맞물리지 않고 스텝도 막지 않습니다.")]
+        [SerializeField, Range(0, 100), Tooltip("맞물림 사슬의 기술 하나가 사슬 길이마다 받는 위력(%). 길이 N인 사슬의 기술은 모두 N배를 받습니다(10이면 사슬 2는 +20%, 사슬 3은 +30%). 연출 값이 아니라 전투 규칙 값으로, 새 전투(임무·스테이지·수련)를 만들 때 넘깁니다. 0이면 맞물림이 꺼져 아무것도 맞물리지 않고 스텝도 막지 않습니다.")]
         private int meshPercent = LegacyMeshing.DefaultPercent;
-        [SerializeField, Range(0f, 1.5f), Tooltip("예약으로 사슬이 생기거나 길어질 때, 플레이어 대기열의 두 아이콘 사이에서 작은 놋쇠 톱니 한 쌍이 맞물려 돌고 불꽃이 튀는 시간(실제 초). 0이면 끕니다. 아이콘 아래의 톱니 표시와 '+40%'는 그대로 남습니다.")]
+        [SerializeField, Range(0f, 1.5f), Tooltip("예약으로 사슬이 생기거나 길어질 때, 플레이어 대기열의 두 아이콘 사이에서 작은 놋쇠 톱니 한 쌍이 맞물려 돌고 불꽃이 튀는 시간(실제 초). 0이면 끕니다. 아이콘 아래의 톱니 표시와 보너스 수치는 그대로 남습니다.")]
         private float meshBurstSeconds = LegacyMeshCue.DefaultBurstSeconds;
         [SerializeField, Range(16f, 48f), Tooltip("대기열에서 맞물리는 톱니 하나의 지름(HUD 단위, 1920x1080 기준). 아이콘 칸은 64입니다. 사슬이 길수록 조금 더 커집니다.")]
         private float meshGearSize = LegacyMeshCue.DefaultGearSize;

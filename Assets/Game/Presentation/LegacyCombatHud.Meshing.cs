@@ -6,7 +6,7 @@ using UnityEngine.UI;
 namespace TurnLimbo.Presentation
 {
     /// <summary>맞물림 on the duel HUD (<see cref="LegacyMeshing"/> has the rule). Each meshed card of the player's queue row
-    /// carries a small brass tab under its bottom edge, a gear and its chain's bonus ("+60%"), read from the duel every
+    /// carries a small brass tab under its bottom edge, a gear and its chain's bonus ("+30%"), read from the duel every
     /// frame: live while planning, so the marks change as skills are queued, and the committed queue while it resolves. A
     /// mark that appears or rises pops. The held skill's explanation gets one row over its hint while the duel can mesh
     /// (two lanes or more, a percent above 0): what queueing that skill now would earn, or how to earn it. The enemy's row
@@ -36,7 +36,7 @@ namespace TurnLimbo.Presentation
         /// <summary>The 맞물림 mark under the player's queued card <paramref name="queueIndex"/>, or null while it shows none.</summary>
         public RectTransform GetMeshMark(int queueIndex) => disposed ? null : playerQueue.GetMeshMark(queueIndex);
 
-        /// <summary>The bonus the player's queued card <paramref name="queueIndex"/> shows ("+40%"), or null while it shows none.</summary>
+        /// <summary>The bonus the player's queued card <paramref name="queueIndex"/> shows ("+20%"), or null while it shows none.</summary>
         public string GetMeshMarkLabel(int queueIndex) => disposed ? null : playerQueue.GetMeshLabel(queueIndex);
 
         /// <summary>The held explanation's 맞물림 row (null text while it is not shown).</summary>

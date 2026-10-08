@@ -207,7 +207,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void AttemptsInSkillGaps_HaveNoLimitAreCountedAndMissOnlyTheFollowingNaturalRecovery()
+        public void AttemptsInSkillGaps_HaveNoLimitAndReduceTheFollowingNaturalRecoveryToOne()
         {
             var duel = Duel(new[] { Attack(100, 1) }, new[] { Guard(101, 1) });
             duel.Commit();
@@ -219,29 +219,31 @@ namespace TurnLimbo.Core.Tests
             AssertStep(duel, LegacyStepAction.Pressure, true, false);
             Assert.That(duel.StepAttemptsThisTurn, Is.EqualTo(21));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(3), "Gap inputs are misses and cost the next natural recovery.");
+            Assert.That(duel.Act, Is.EqualTo(4), "Any step attempt leaves one natural ACT next turn.");
             Assert.That(duel.UsedStepThisTurn, Is.False);
             Assert.That(duel.StepAttemptsThisTurn, Is.Zero);
             Assert.That(duel.StepMissedThisTurn, Is.False);
             ResolveTurn(duel);
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(6));
+            Assert.That(duel.Act, Is.EqualTo(7), "The full natural recovery returns after a turn without steps.");
         }
 
-        [TestCase(1, 1)]
-        [TestCase(7, 2)]
-        public void MissedStep_KeepsResidualActAndSkillGrantedRecovery(int skillId, int bonus)
+        [TestCase(1, 1, false)]
+        [TestCase(7, 2, false)]
+        [TestCase(1, 1, true)]
+        [TestCase(7, 2, true)]
+        public void Step_KeepsResidualActAndSkillGrantedRecovery(int skillId, int bonus, bool timingSuccessful)
         {
             LegacySkill skill = skillId == 1 ? Attack(1, 1) : Guard(7, 10);
             LegacySkill enemy = new LegacySkill(101, "hit", 1, 1, 1,
                 LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 0, "");
             var duel = Duel(new[] { skill }, new[] { enemy });
             QueueAndBegin(duel);
-            AssertStep(duel, LegacyStepAction.Pressure, false, false);
+            AssertStep(duel, LegacyStepAction.Pressure, timingSuccessful, timingSuccessful);
             duel.ResolveNextSlot();
             Assert.That(duel.NextActGain, Is.EqualTo(3 + bonus));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(2 + bonus));
+            Assert.That(duel.Act, Is.EqualTo(3 + bonus));
             Assert.That(duel.NextActGain, Is.EqualTo(3));
             Assert.That(duel.UsedStepThisTurn, Is.False);
         }
@@ -267,7 +269,7 @@ namespace TurnLimbo.Core.Tests
             duel.CompleteCurrentSlot();
             Assert.That(duel.StepAttemptsThisTurn, Is.EqualTo(2));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(4));
+            Assert.That(duel.Act, Is.EqualTo(2));
             Assert.That(duel.UsedStepThisTurn, Is.False);
         }
 
@@ -412,7 +414,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void OnlyAMissCostsTheNaturalRecovery_SuccessesAreFree()
+        public void SuccessfulAndMissedStepsBothLimitTheNaturalRecoveryToOne()
         {
             var clean = Duel(new[] { Attack(100, 1) }, new[] { Attack(101, 1) });
             QueueAndBegin(clean);
@@ -421,7 +423,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(clean.StepMissedThisTurn, Is.False);
             clean.ResolveNextSlot();
             clean.BeginNextTurn();
-            Assert.That(clean.Act, Is.EqualTo(2 + 3), "Clean steps keep the natural recovery.");
+            Assert.That(clean.Act, Is.EqualTo(2 + 1), "Successful steps leave one natural ACT.");
 
             var missed = Duel(new[] { Attack(100, 1) }, new[] { Attack(101, 1) });
             QueueAndBegin(missed);
@@ -430,8 +432,48 @@ namespace TurnLimbo.Core.Tests
             Assert.That(missed.StepMissedThisTurn, Is.True, "Repeating a won dodge is a miss.");
             missed.ResolveNextSlot();
             missed.BeginNextTurn();
-            Assert.That(missed.Act, Is.EqualTo(2));
+            Assert.That(missed.Act, Is.EqualTo(2 + 1));
             Assert.That(missed.StepMissedThisTurn, Is.False);
+        }
+
+        [TestCase(LegacyStepAction.Dodge, true, 1)]
+        [TestCase(LegacyStepAction.Dodge, false, 1)]
+        [TestCase(LegacyStepAction.Pressure, true, 1)]
+        [TestCase(LegacyStepAction.Pressure, false, 1)]
+        [TestCase(LegacyStepAction.Dodge, true, 4)]
+        [TestCase(LegacyStepAction.Dodge, false, 4)]
+        [TestCase(LegacyStepAction.Pressure, true, 4)]
+        [TestCase(LegacyStepAction.Pressure, false, 4)]
+        public void OneOrManySteps_LeaveOneNaturalActOnlyForTheFollowingTurn(
+            LegacyStepAction action, bool timingSuccessful, int attempts)
+        {
+            var duel = Duel(new[] { Attack(100, 1) }, new[] { Attack(101, 1) });
+            QueueAndBegin(duel);
+            AssertStep(duel, action, timingSuccessful, timingSuccessful);
+            for (int i = 1; i < attempts; i++) AssertStep(duel, action, false, false);
+            Assert.That(duel.StepAttemptsThisTurn, Is.EqualTo(attempts));
+            duel.ResolveNextSlot();
+            duel.BeginNextTurn();
+            Assert.That(duel.Act, Is.EqualTo(3), "Residual ACT 2 plus one natural ACT, regardless of outcome or count.");
+            Assert.That(duel.StepAttemptsThisTurn, Is.Zero);
+            Assert.That(duel.UsedStepThisTurn, Is.False);
+            ResolveTurn(duel);
+            duel.BeginNextTurn();
+            Assert.That(duel.Act, Is.EqualTo(6), "A later turn without steps recovers the full natural ACT.");
+        }
+
+        [Test]
+        public void SteppingAlsoReducesCurriculumBoostedNaturalActToOne()
+        {
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 50,
+                new[] { Attack(100, 1) }, new[] { Attack(101, 1) }, new[] { 1 }, 42,
+                playerActGainBonus: 2);
+            Assert.That(duel.PlayerBaseActGain, Is.EqualTo(5));
+            QueueAndBegin(duel);
+            AssertStep(duel, LegacyStepAction.Pressure, true, true);
+            duel.ResolveNextSlot();
+            duel.BeginNextTurn();
+            Assert.That(duel.Act, Is.EqualTo(5), "Residual ACT 4 plus one natural ACT.");
         }
 
         [Test]

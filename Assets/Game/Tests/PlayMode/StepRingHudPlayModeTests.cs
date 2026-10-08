@@ -200,7 +200,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Hud.PressureRing.Radius, Is.EqualTo(40f).Within(.001f));
                 Assert.That(fixture.Hud.PressureRing.gameObject.activeInHierarchy, Is.True);
                 Assert.That(fixture.Hud.Root.transform.Find("ACT Recovery Notice").GetComponent<Text>().text,
-                    Does.Contain("성공 구간이 좁아졌습니다"));
+                    Does.Contain("스텝 사용: 다음 턴 ACT 자연 회복 +1"));
 
                 duel.ResolveNextHit();
                 fixture.Hud.Tick(.5f);

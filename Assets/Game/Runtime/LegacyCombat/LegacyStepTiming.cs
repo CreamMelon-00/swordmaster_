@@ -4,7 +4,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
 {
     /// <summary>How the dodge/pressure success window narrows with use: every attempt this turn, hit or miss,
     /// dodge or pressure, tightens the next window down to a human floor. The count restarts each turn
-    /// (<see cref="LegacyQueuedDuel.StepAttemptsThisTurn"/>). Only a miss costs ACT (<see cref="LegacyQueuedDuel.StepMissedThisTurn"/>).</summary>
+    /// (<see cref="LegacyQueuedDuel.StepAttemptsThisTurn"/>). Any accepted attempt limits the next turn's natural
+    /// ACT recovery to 1; misses also reset the success streak.</summary>
     public static class LegacyStepTiming
     {
         public const float DefaultDecay = 0.65f;

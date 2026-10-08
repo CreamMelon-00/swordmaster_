@@ -1934,23 +1934,27 @@ namespace TurnLimbo.Presentation
 
             public string GetMeshLabel(int index) => GetMeshMark(index) != null ? meshLabels[index].text : null;
 
-            // A small brass tab over the card's bottom edge (the counter's tab is over its top): a gear and the chain's bonus,
-            // readable on the row without opening anything.
+            // A brass-rimmed tab over the card's bottom edge (the counter's tab is over its top).
+            // The dark inset and larger light label keep the bonus legible at smaller canvas scales.
             private void AddMeshMark(RectTransform item)
             {
-                var badge = Image("Mesh Mark", item, white, new Vector2(0f, -30f), new Vector2(56f, 17f),
-                    new Color(Accent.r, Accent.g, Accent.b, .95f));
-                Image("Mesh Gear", badge.transform, meshGear, new Vector2(-18f, 0f), Vector2.one * 13f, DuelVisualTheme.Ink);
-                var label = Rect("Label", badge.transform, new Vector2(6f, 0f), new Vector2(40f, 17f), Vector2.one * .5f)
+                var badge = Image("Mesh Mark", item, white, new Vector2(0f, -30f), new Vector2(70f, 22f), Accent);
+                Image("Mesh Mark Inset", badge.transform, white, Vector2.zero, new Vector2(68f, 20f), DuelVisualTheme.Ink);
+                Image("Mesh Gear", badge.transform, meshGear, new Vector2(-26f, 0f), Vector2.one * 12f, Accent);
+                var label = Rect("Label", badge.transform, new Vector2(8f, 0f), new Vector2(54f, 22f), Vector2.one * .5f)
                     .gameObject.AddComponent<Text>();
                 label.font = font;
-                label.fontSize = 12;
-                label.fontStyle = FontStyle.Bold;
+                label.fontSize = 20;
+                label.fontStyle = FontStyle.Normal;
                 label.alignment = TextAnchor.MiddleCenter;
-                label.horizontalOverflow = HorizontalWrapMode.Overflow;
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.verticalOverflow = VerticalWrapMode.Truncate;
+                label.resizeTextForBestFit = true;
+                label.resizeTextMinSize = 18;
+                label.resizeTextMaxSize = 20;
                 label.supportRichText = false;
                 label.raycastTarget = false;
-                label.color = DuelVisualTheme.Ink;
+                label.color = Foreground;
                 badge.gameObject.SetActive(false);
                 meshMarks.Add(badge.rectTransform);
                 meshLabels.Add(label);

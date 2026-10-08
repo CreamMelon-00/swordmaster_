@@ -156,7 +156,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return MarkPopScale + (1f - MarkPopScale) * EaseOut(t);
         }
 
-        /// <summary>The label under a meshed icon: its bonus, "+60%"; nothing for an icon that is not meshed.</summary>
+        /// <summary>The label under a meshed icon: its bonus, "+30%"; nothing for an icon that is not meshed.</summary>
         public static string BonusLabel(int bonusPercent) => bonusPercent > 0 ? "+" + bonusPercent + "%" : string.Empty;
 
         private static float Smooth(float t)

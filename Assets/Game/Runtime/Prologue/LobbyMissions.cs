@@ -85,7 +85,7 @@ namespace TurnLimbo.Runtime.Prologue
                 Concat(LaneQ, LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "전투 중에도 움직입니다",
-                        "상대 공격이 들어오기 직전, 내 몸의 흰 원이 줄어듭니다. 원이 가장 작을 때 A를 누르면 피합니다. 빗나가면 다음 턴 ACT 회복이 줄어듭니다.", Continue),
+                        "상대 공격이 들어오기 직전, 내 몸의 흰 원이 줄어듭니다. 원이 가장 작을 때 A를 누르면 피합니다. 스텝은 성공해도 빗나가도 다음 턴 ACT 자연 회복이 1로 제한됩니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "빈손으로 확정하세요",
                         "이번 턴은 예약 없이 확정해 상대 공격만 받아 보세요.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.Dodge, "A로 피하세요",
@@ -124,7 +124,7 @@ namespace TurnLimbo.Runtime.Prologue
                 Concat(Concat(LaneQ, LaneW), LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "원하는 때에 몰아칩니다",
-                        "내 공격이 들어가기 직전 흰 원이 줄어들 때 D를 누르면 압박합니다. 성공하면 기술 위력만큼 추가 피해를 줍니다. 빗나가면 다음 턴 ACT 회복이 줄어듭니다.", Continue),
+                        "내 공격이 들어가기 직전 흰 원이 줄어들 때 D를 누르면 압박합니다. 성공하면 기술 위력만큼 추가 피해를 줍니다. 스텝은 성공해도 빗나가도 다음 턴 ACT 자연 회복이 1로 제한됩니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "W로 강한 기술을 예약하세요",
                         "압박은 강한 기술에 걸수록 효과가 큽니다. W를 누르세요.", "W 짧게 누르기 / 카드 클릭", lane: 1),
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",

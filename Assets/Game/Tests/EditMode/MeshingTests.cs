@@ -33,12 +33,12 @@ namespace TurnLimbo.Core.Tests
             IReadOnlyList<LegacySkill> skills = Queue(queue);
             for (int slot = 0; slot < skills.Count; slot++)
             {
-                LegacyMeshSlot mesh = LegacyMeshing.Find(skills, slot, 20);
+                LegacyMeshSlot mesh = LegacyMeshing.Find(skills, slot, LegacyMeshing.DefaultPercent);
                 int expected = lengths[slot] - '0';
                 Assert.That(mesh.SlotIndex, Is.EqualTo(slot));
                 Assert.That(mesh.ChainLength, Is.EqualTo(expected), queue + " slot " + slot);
                 Assert.That(mesh.IsMeshed, Is.EqualTo(expected >= 2), queue + " slot " + slot);
-                Assert.That(mesh.BonusPercent, Is.EqualTo(expected * 20), "Every skill of an N-skill chain gains N × 20%.");
+                Assert.That(mesh.BonusPercent, Is.EqualTo(expected * LegacyMeshing.DefaultPercent), "Every skill of an N-skill chain gains N × the default 10%.");
             }
         }
 
@@ -47,12 +47,12 @@ namespace TurnLimbo.Core.Tests
         {
             // The author's example: 정공1 - 정공2 - 강공1 - 기교1 - 기교2 → 정공2, 강공1 and 기교1 mesh.
             IReadOnlyList<LegacySkill> skills = Queue("QQWEE");
-            LegacyMeshSlot[] mesh = Enumerable.Range(0, skills.Count).Select(slot => LegacyMeshing.Find(skills, slot, 20)).ToArray();
+            LegacyMeshSlot[] mesh = Enumerable.Range(0, skills.Count).Select(slot => LegacyMeshing.Find(skills, slot, LegacyMeshing.DefaultPercent)).ToArray();
             Assert.That(mesh.Select(slot => slot.ChainStart), Is.EqualTo(new[] { 0, 1, 1, 1, 4 }));
             Assert.That(mesh.Select(slot => slot.ChainEnd), Is.EqualTo(new[] { 0, 3, 3, 3, 4 }));
             Assert.That(mesh.Select(slot => slot.MeshesWithPrevious), Is.EqualTo(new[] { false, false, true, true, false }));
             Assert.That(mesh.Select(slot => slot.MeshesWithNext), Is.EqualTo(new[] { false, true, true, false, false }));
-            Assert.That(mesh[2].BonusPercent, Is.EqualTo(60));
+            Assert.That(mesh[2].BonusPercent, Is.EqualTo(30));
         }
 
         [Test]
@@ -98,12 +98,12 @@ namespace TurnLimbo.Core.Tests
         public void PlanningQueue_MeshesLiveAsSkillsAreQueued_AndTheCommittedQueueKeepsIt()
         {
             var duel = Duel(new[] { Attack(100, 0, 3), Attack(101, 0, 3), Attack(102, 1, 3), Attack(103, 2, 3) }, cost: 0);
-            Assert.That(duel.MeshPercent, Is.EqualTo(LegacyMeshing.DefaultPercent).And.EqualTo(20), "The Runtime default.");
+            Assert.That(duel.MeshPercent, Is.EqualTo(LegacyMeshing.DefaultPercent).And.EqualTo(10), "The Runtime default.");
             Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
             Assert.That(Lengths(duel, 2), Is.EqualTo(new[] { 0, 0 }), "One school never meshes.");
             Assert.That(duel.TryQueueLane(1), Is.True);
             Assert.That(Lengths(duel, 3), Is.EqualTo(new[] { 0, 2, 2 }), "정공 - 정공 - 강공: the last two mesh.");
-            Assert.That(duel.PlayerMesh(2).BonusPercent, Is.EqualTo(40));
+            Assert.That(duel.PlayerMesh(2).BonusPercent, Is.EqualTo(20));
             Assert.That(duel.TryQueueLane(2), Is.True);
             Assert.That(Lengths(duel, 4), Is.EqualTo(new[] { 0, 3, 3, 3 }), "기교 extends the chain; every member updates.");
             Assert.That(duel.TryQueueBreath() && duel.TryQueueLane(0), Is.True);
@@ -141,7 +141,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(forecast.IsMeshed, Is.True);
             Assert.That(forecast.SlotIndex, Is.EqualTo(1));
             Assert.That(forecast.ChainStart, Is.Zero);
-            Assert.That(forecast.BonusPercent, Is.EqualTo(40));
+            Assert.That(forecast.BonusPercent, Is.EqualTo(20));
             Assert.That(duel.PlayerMeshIfQueued(1).IsMeshed, Is.False, "W holds nothing.");
             Assert.That(duel.TryCycleLanes(), Is.True);
             Assert.That(duel.GetLane(2)[0].Id, Is.EqualTo(102));
@@ -157,6 +157,9 @@ namespace TurnLimbo.Core.Tests
 
         // ---- Power ---------------------------------------------------------------------------------------------------
 
+        [TestCase(10, "QE", 50, 12)]
+        [TestCase(10, "QEW", 50, 13)]
+        [TestCase(10, "QEQE", 50, 14)]
         [TestCase(20, "QE", 50, 14)]
         [TestCase(20, "QEW", 50, 16)]
         [TestCase(20, "QEQE", 50, 18)]
@@ -180,23 +183,24 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void MeshedMultiHitPower_FloorsTheBoostedTotalAcrossItsHits()
         {
-            // 11 × 1.4 = 15.4: the slot's power is floor(15.4 / 3) = 5 a hit, where it was floor(11 / 3) = 3.
+            // 11 × 1.2 = 13.2: the slot's power is floor(13.2 / 3) = 4 a hit, where it was floor(11 / 3) = 3.
             var duel = Duel(new[] { Attack(100, 0, 11, hits: 3), Attack(101, 2, 10) }, cost: 0);
             Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(2), Is.True);
             duel.Commit();
             duel.BeginNextSlot();
             var damage = new List<int>();
             while (!duel.IsCurrentSlotResolved) damage.Add(duel.ResolveNextHit().EnemyHealthDamage);
-            Assert.That(damage, Is.EqualTo(new[] { 5, 5, 5 }));
+            Assert.That(damage, Is.EqualTo(new[] { 4, 4, 4 }));
             duel.CompleteCurrentSlot();
-            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(14));
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(12));
         }
 
+        [TestCase(10, 8)]
         [TestCase(20, 6)]
         [TestCase(0, 10)]
         public void MeshedGuard_GainsDefencePowerToo(int percent, int damageTaken)
         {
-            // A guard of 10 (14 when meshed) against an enemy strike of 20; the guard's partner is a weak 기교 attack.
+            // A guard of 10 (12 at the default percent, 14 when tuned to 20%) against an enemy strike of 20; the guard's partner is a weak 기교 attack.
             var enemy = new[] { Attack(200, 0, 20) };
             var duel = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { Guard(100, 0, 10, cost: 0), Attack(101, 2, 1, cost: 0) },
                 enemy, new[] { 1 }, 5, meshPercent: percent);
@@ -206,12 +210,13 @@ namespace TurnLimbo.Core.Tests
             Assert.That(guarded.PlayerHealthDamage, Is.EqualTo(damageTaken));
         }
 
+        [TestCase(10, 35)]
         [TestCase(20, 40)]
         [TestCase(0, 30)]
         public void MeshBonus_AddsIntoTheSamePercentAsPowerBuffs(int percent, int damage)
         {
-            // 쳐내기 (E) grants +20% power for two slots; the next 정공 meshes with it: 25 × (100 + 20 + 40)% = 40, not
-            // 25 × 1.2 × 1.4 = 42. The feedback keeps reporting the buff alone; the slot reports the mesh beside it.
+            // 쳐내기 (E) grants +20% power for two slots; the next 정공 meshes with it. At the default 10%,
+            // 25 × (100 + 20 + 20)% = 35, not 25 × 1.2 × 1.2 = 36. The feedback keeps reporting the buff alone.
             LegacySkill parry = LegacySkillDefinitions.Skill(9);
             Assume.That(LegacySkillDefinitions.Find(parry).Effect.BuffPowerPercent, Is.EqualTo(20));
             Assume.That(parry.LaneIndex, Is.EqualTo(2));
@@ -221,7 +226,7 @@ namespace TurnLimbo.Core.Tests
             duel.ResolveNextSlot();
             LegacyCurrentSlot slot = duel.BeginNextSlot();
             Assert.That(slot.PlayerFeedback.PowerBuffPercent, Is.EqualTo(20));
-            Assert.That(slot.PlayerMesh.BonusPercent, Is.EqualTo(percent == 0 ? 0 : 40));
+            Assert.That(slot.PlayerMesh.BonusPercent, Is.EqualTo(percent == 0 ? 0 : percent * 2));
             while (!duel.IsCurrentSlotResolved) duel.ResolveNextHit();
             Assert.That(duel.CompleteCurrentSlot().EnemyHealthDamage, Is.EqualTo(damage));
         }
@@ -246,11 +251,11 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.NextActGain, Is.EqualTo(nextActGain + 1));
             Assert.That(first.EnemyFeedback.PowerBuffPercent, Is.Zero);
             // The enemy's alternating Q/E copies never mesh: its 6-power strike lands as 6 on the player's resistance,
-            // while the player's meshed 9 (12 a hit) breaks through the enemy's broken guard twice over.
+            // while the player's meshed 9 (10 a hit) breaks through the enemy's broken guard twice over.
             LegacyHitResult hit = duel.ResolveNextHit();
             Assert.That(hit.PlayerMesh.IsMeshed, Is.True);
             Assert.That(hit.PlayerResistanceDamage, Is.EqualTo(6));
-            Assert.That(hit.EnemyHealthDamage, Is.EqualTo(24), "floor(9 × 1.4) = 12, doubled on the broken enemy.");
+            Assert.That(hit.EnemyHealthDamage, Is.EqualTo(20), "floor(9 × 1.2) = 10, doubled on the broken enemy.");
         }
 
         [Test]
@@ -291,7 +296,7 @@ namespace TurnLimbo.Core.Tests
                     Assert.That(success, Is.False);
                 }
             Assert.That(duel.StepAttemptsThisTurn, Is.Zero, "Not an attempt: the window does not narrow.");
-            Assert.That(duel.StepMissedThisTurn, Is.False, "Not a miss: no ACT penalty.");
+            Assert.That(duel.StepMissedThisTurn, Is.False, "Not an attempt: no ACT penalty.");
             Assert.That(duel.StepSuccessStreak, Is.Zero);
             Assert.That(meshed.DodgeAttempted || meshed.DodgeSucceeded || meshed.PressureSucceeded, Is.False);
             LegacyHitResult hit = duel.ResolveNextHit();
@@ -418,7 +423,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(five.LaneCount, Is.EqualTo(2));
             LegacyQueuedDuel meshing = five.CreateDuel(1);
             Assert.That(meshing.TryQueueLane(0) && meshing.TryQueueLane(2), Is.True);
-            Assert.That(meshing.PlayerMesh(1).BonusPercent, Is.EqualTo(40));
+            Assert.That(meshing.PlayerMesh(1).BonusPercent, Is.EqualTo(20));
             LegacyQueuedDuel off = five.CreateDuel(1, meshPercent: 0);
             Assert.That(off.TryQueueLane(0) && off.TryQueueLane(2), Is.True);
             Assert.That(off.PlayerMesh(1).IsMeshed, Is.False, "The percent passes through.");
@@ -444,7 +449,7 @@ namespace TurnLimbo.Core.Tests
             run.SetProgression(CombatFeature.LaneQ | CombatFeature.Cycle | CombatFeature.LaneE, 1);
             LegacyQueuedDuel twoLanes = run.CreateDuel(1);
             Assert.That(twoLanes.TryQueueLane(0), Is.True);
-            Assert.That(twoLanes.PlayerMeshIfQueued(2).BonusPercent, Is.EqualTo(40));
+            Assert.That(twoLanes.PlayerMeshIfQueued(2).BonusPercent, Is.EqualTo(20));
         }
 
         // ---- Helpers -------------------------------------------------------------------------------------------------

@@ -38,8 +38,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Cues.Queued(duel), Is.True, "Q Q W: the W meshes with the Q before it.");
                 fixture.Refresh(duel);
                 Assert.That(hud.GetMeshMarkLabel(0), Is.Null, "The first Q stands alone…");
-                Assert.That(hud.GetMeshMarkLabel(1), Is.EqualTo("+40%"), "…the chain of two shows +40% on both.");
-                Assert.That(hud.GetMeshMarkLabel(2), Is.EqualTo("+40%"));
+                Assert.That(hud.GetMeshMarkLabel(1), Is.EqualTo("+20%"), "…the chain of two shows +20% on both.");
+                Assert.That(hud.GetMeshMarkLabel(2), Is.EqualTo("+20%"));
                 RectTransform mark = hud.GetMeshMark(2), card = hud.GetQueuedSkillAnchor(true, 2);
                 Assert.That(mark.parent, Is.SameAs(card), "The mark rides its card…");
                 Assert.That(ScreenRect(mark).center.y, Is.LessThan(ScreenRect(card).center.y), "…under its icon.");
@@ -49,7 +49,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Cues.Queued(duel), Is.True);
                 fixture.Refresh(duel);
                 for (int slot = 1; slot <= 3; slot++)
-                    Assert.That(hud.GetMeshMarkLabel(slot), Is.EqualTo("+60%"), "Q Q W E: the chain of three, +60% each, slot " + slot);
+                    Assert.That(hud.GetMeshMarkLabel(slot), Is.EqualTo("+30%"), "Q Q W E: the chain of three, +30% each, slot " + slot);
                 Assert.That(hud.GetMeshMark(1).localScale.x, Is.GreaterThan(1f), "A bonus that rose pops…");
                 fixture.Refresh(duel, LegacyMeshCue.MarkPopSeconds);
                 Assert.That(hud.GetMeshMark(1).localScale.x, Is.EqualTo(1f).Within(.001f), "…and settles.");
@@ -58,7 +58,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Cues.Queued(duel), Is.False, "숨고르기 meshes with nothing.");
                 fixture.Refresh(duel);
                 Assert.That(hud.GetMeshMark(4), Is.Null);
-                Assert.That(hud.GetMeshMarkLabel(3), Is.EqualTo("+60%"), "It leaves the chain before it as it was.");
+                Assert.That(hud.GetMeshMarkLabel(3), Is.EqualTo("+30%"), "It leaves the chain before it as it was.");
 
                 Transform enemyRow = hud.Root.transform.Find("Enemy Requests");
                 foreach (Image image in enemyRow.GetComponentsInChildren<Image>())
@@ -69,7 +69,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 duel.Commit();
                 fixture.Refresh(duel);
-                Assert.That(hud.GetMeshMarkLabel(1), Is.EqualTo("+60%"), "The committed queue keeps its marks while it resolves.");
+                Assert.That(hud.GetMeshMarkLabel(1), Is.EqualTo("+30%"), "The committed queue keeps its marks while it resolves.");
                 while (!duel.IsTurnResolved) duel.ResolveNextSlot();
                 duel.BeginNextTurn();
                 fixture.Refresh(duel);
@@ -93,7 +93,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(cues.Audio.playOnAwake, Is.False);
                 RectTransform row = fixture.Hud.PlayerQueueRow;
                 Assert.That(cues.QueueLayer.parent, Is.SameAs(row.parent), "Beside the row…");
-                Assert.That(cues.QueueLayer.GetSiblingIndex(), Is.EqualTo(row.GetSiblingIndex() + 1), "…drawn just over its cards.");
+                Assert.That(cues.QueueLayer.GetSiblingIndex(), Is.EqualTo(row.GetSiblingIndex() - 1), "…drawn behind its cards.");
 
                 LegacyQueuedDuel duel = FreeDuel();
                 fixture.Refresh(duel);
@@ -131,7 +131,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Refresh(duel, LegacyMeshCue.DefaultBurstSeconds);
                 Assert.That(cues.IsPlaying, Is.False, "Gone once played.");
                 Assert.That(burst.gameObject.activeSelf, Is.False);
-                Assert.That(fixture.Hud.GetMeshMarkLabel(1), Is.EqualTo("+60%"), "The marks stay.");
+                Assert.That(fixture.Hud.GetMeshMarkLabel(1), Is.EqualTo("+30%"), "The marks stay.");
 
                 fixture.Settings("{\"meshBurstSeconds\":0}");
                 duel.Commit();
@@ -142,7 +142,138 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(cues.Queued(duel), Is.True, "Still a chain…");
                 fixture.Refresh(duel);
                 Assert.That(cues.IsPlaying, Is.False, "…but the burst is tuned off.");
-                Assert.That(fixture.Hud.GetMeshMarkLabel(1), Is.EqualTo("+40%"));
+                Assert.That(cues.ActiveLinkCount, Is.EqualTo(1), "The lasting seam does not depend on burst duration.");
+                Assert.That(cues.LinkGear(1).gameObject.activeInHierarchy, Is.True);
+                Assert.That(fixture.Hud.GetMeshMarkLabel(1), Is.EqualTo("+20%"));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator EveryMeshedSeam_KeepsItsGearsAndSparks_AfterTheQueueBurstEnds()
+        {
+            yield return null;
+            using (var fixture = new MeshFixture())
+            {
+                LegacyQueuedDuel duel = FreeDuel();
+                int[] lanes = { 0, 2, 1, 0, 2, 1 };
+                foreach (int lane in lanes)
+                {
+                    Assert.That(duel.TryQueueLane(lane), Is.True);
+                    fixture.Cues.Queued(duel);
+                    fixture.Refresh(duel);
+                }
+
+                DuelMeshCues cues = fixture.Cues;
+                Assert.That(cues.ActiveLinkCount, Is.EqualTo(lanes.Length - 1),
+                    "All five seams of one chain must coexist, beyond the four transient burst slots.");
+                fixture.Refresh(duel, LegacyMeshCue.DefaultBurstSeconds + .1f);
+                Assert.That(cues.IsPlaying, Is.False, "The reservation burst still has a finite lifetime.");
+                Assert.That(cues.ActiveLinkCount, Is.EqualTo(lanes.Length - 1), "The actual links remain.");
+
+                for (int seam = 1; seam < lanes.Length; seam++)
+                {
+                    Image gear = cues.LinkGear(seam);
+                    Assert.That(gear, Is.Not.Null, "Seam " + seam + " has its own persistent gear.");
+                    Assert.That(gear.gameObject.activeInHierarchy, Is.True, "Seam " + seam + " is visible after the burst.");
+                    Assert.That(gear.color.a, Is.GreaterThan(0f), "Seam " + seam + " has visible gear ink.");
+                    Assert.That(gear.sprite, Is.SameAs(fixture.Hud.MeshGearSprite));
+                    RectTransform before = fixture.Hud.GetQueuedSkillAnchor(true, seam - 1);
+                    RectTransform after = fixture.Hud.GetQueuedSkillAnchor(true, seam);
+                    Assert.That(Vector3.Distance(gear.transform.parent.position, (before.position + after.position) * .5f),
+                        Is.LessThan(1f), "The persistent gear stays on seam " + seam + ".");
+                    Assert.That(cues.LinkSparks(seam), Is.Not.Null, "Seam " + seam + " has a spark emitter.");
+                }
+
+                // Sample after the original burst lifetime twice: a single residual particle cannot satisfy both windows.
+                for (int window = 0; window < 2; window++)
+                {
+                    var seen = new bool[lanes.Length];
+                    for (int sample = 0; sample < 10; sample++)
+                    {
+                        fixture.Refresh(duel, .1f);
+                        for (int seam = 1; seam < lanes.Length; seam++)
+                        {
+                            DuelMeshSparks sparks = cues.LinkSparks(seam);
+                            Mesh rendered = sparks != null ? sparks.canvasRenderer.GetMesh() : null;
+                            if (sparks != null && sparks.gameObject.activeInHierarchy && sparks.Count > 0 &&
+                                rendered != null && rendered.vertexCount > 0)
+                                seen[seam] = true;
+                        }
+                    }
+                    for (int seam = 1; seam < lanes.Length; seam++)
+                        Assert.That(seen[seam], Is.True, "Seam " + seam + " keeps drawing sparks in later window " + window + ".");
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator PersistentLinks_LeaveOnlyWhenTheirCardsAreConsumedOrTheTurnEnds()
+        {
+            yield return null;
+            using (var fixture = new MeshFixture())
+            {
+                LegacyQueuedDuel duel = FreeDuel();
+                Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(2) && duel.TryQueueLane(1), Is.True);
+                fixture.Refresh(duel, LegacyMeshCue.DefaultBurstSeconds + .1f);
+                Assert.That(fixture.Cues.ActiveLinkCount, Is.EqualTo(2));
+
+                duel.Commit();
+                fixture.Refresh(duel);
+                Assert.That(fixture.Cues.ActiveLinkCount, Is.EqualTo(2), "Commit does not erase unspent links.");
+
+                duel.ResolveNextSlot();
+                fixture.Refresh(duel);
+                Assert.That(fixture.Cues.ActiveLinkCount, Is.EqualTo(1), "Only the seam touching the spent card disappears.");
+                Assert.That(fixture.Cues.LinkGear(1), Is.Null);
+                Assert.That(fixture.Cues.LinkSparks(1), Is.Null);
+                Assert.That(fixture.Cues.LinkGear(2), Is.Not.Null);
+
+                duel.ResolveNextSlot();
+                fixture.Refresh(duel);
+                Assert.That(fixture.Cues.ActiveLinkCount, Is.Zero);
+                Assert.That(fixture.Cues.LinkGear(2), Is.Null);
+
+                while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+                duel.BeginNextTurn();
+                fixture.Refresh(duel);
+                Assert.That(fixture.Cues.ActiveLinkCount, Is.Zero, "A new planning turn cannot show old links.");
+                Assert.That(fixture.Cues.LinkSparks(2), Is.Null);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator MeshedCardBonus_RemainsReadableAtDefaultAndHighTunedValues()
+        {
+            yield return null;
+            foreach (int percent in new[] { LegacyMeshing.DefaultPercent, 100 })
+            {
+                using (var fixture = new MeshFixture())
+                {
+                    LegacyQueuedDuel duel = FreeDuel(meshPercent: percent);
+                    int[] lanes = { 0, 2, 1, 0, 2, 1 };
+                    foreach (int lane in lanes) Assert.That(duel.TryQueueLane(lane), Is.True);
+                    fixture.Refresh(duel, LegacyMeshCue.MarkPopSeconds);
+                    string expected = LegacyMeshCue.BonusLabel(lanes.Length * percent);
+                    for (int slot = 0; slot < lanes.Length; slot++)
+                    {
+                        RectTransform mark = fixture.Hud.GetMeshMark(slot);
+                        Assert.That(mark, Is.Not.Null, "Every chain card retains its bonus badge.");
+                        Text label = mark.Find("Label").GetComponent<Text>();
+                        Image inset = mark.Find("Mesh Mark Inset").GetComponent<Image>();
+                        RectTransform gear = (RectTransform)mark.Find("Mesh Gear");
+                        Assert.That(label.text, Is.EqualTo(expected));
+                        Assert.That(label.cachedTextGenerator.lineCount, Is.EqualTo(1), "Bonus stays on one line.");
+                        Assert.That(label.cachedTextGenerator.characterCountVisible, Is.GreaterThanOrEqualTo(expected.Length),
+                            "The entire number and percent sign are drawn.");
+                        Assert.That(label.cachedTextGenerator.fontSizeUsedForBestFit,
+                            Is.GreaterThanOrEqualTo(Mathf.FloorToInt(18f * label.pixelsPerUnit)),
+                            "The number remains large enough to read.");
+                        Assert.That(ContrastRatio(label.color, inset.color), Is.GreaterThanOrEqualTo(4.5f),
+                            "The number contrasts with its background.");
+                        Assert.That(ScreenRect(label.rectTransform).xMin, Is.GreaterThanOrEqualTo(ScreenRect(gear).xMax),
+                            "The number does not cover the gear.");
+                    }
+                }
             }
         }
 
@@ -157,7 +288,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.MeshCues.IsPlaying, Is.False);
                 Assert.That(controller.QueueLane(2), Is.True);
                 Assert.That(controller.MeshCues.IsPlaying, Is.True, "Q Q E: the gears bite as the E is queued.");
-                Assert.That(controller.Hud.GetMeshMarkLabel(2), Is.EqualTo("+40%"));
+                Assert.That(controller.Hud.GetMeshMarkLabel(2), Is.EqualTo("+20%"));
                 controller.CommitTurn();
 
                 scope.Until(() => controller.Session.CurrentSlot != null);
@@ -170,7 +301,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Until(() => controller.Session.CurrentSlot != null && controller.Session.CurrentSlot.SlotIndex == 1);
                 LegacyCurrentSlot slot = controller.Session.CurrentSlot;
                 Assert.That(slot.PlayerMesh.IsMeshed, Is.True);
-                Assert.That(slot.PlayerMesh.BonusPercent, Is.EqualTo(40));
+                Assert.That(slot.PlayerMesh.BonusPercent, Is.EqualTo(20));
                 Assert.That(controller.IsSkillWindup, Is.False, "A meshed slot takes no steps, so it strikes without their windup.");
                 scope.Advance(0f);
                 Assert.That(controller.StepHud.DodgeRing.gameObject.activeInHierarchy, Is.False, "No ring for it…");
@@ -214,6 +345,9 @@ namespace TurnLimbo.Presentation.Tests
         public IEnumerator EveryDuel_TakesTheTunedPercent_AndZeroMeshesNothing()
         {
             yield return null;
+            DuelPresentationSettings asset = Resources.Load<DuelPresentationSettings>("DuelPresentationSettings");
+            Assert.That(asset, Is.Not.Null, "The game loads its serialized settings from Resources.");
+            Assert.That(asset.MeshPercent, Is.EqualTo(10), "The shipped setting uses 10% per chained skill.");
             using (var scope = new MeshScope())
             {
                 DuelPrototypeController controller = scope.Controller;
@@ -229,6 +363,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Session.MeshPercent, Is.Zero);
                 Assert.That(controller.QueueLane(0) && controller.QueueLane(2), Is.True);
                 Assert.That(controller.MeshCues.IsPlaying, Is.False, "Off: nothing meshes…");
+                Assert.That(controller.MeshCues.ActiveLinkCount, Is.Zero, "Off: no lasting seam either.");
                 Assert.That(controller.Hud.GetMeshMark(0) ?? controller.Hud.GetMeshMark(1), Is.Null, "…no card is marked…");
                 controller.Hud.ShowExplanation(controller.Session.GetLane(1)[0], false);
                 Assert.That(controller.Hud.MeshNote, Is.Null, "…and the explanation says nothing of it.");
@@ -263,13 +398,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(duel.TryQueueLane(0), Is.True);
                 fixture.Refresh(duel);
                 hud.ShowExplanation(duel.GetLane(2)[0], false);
-                Assert.That(hud.MeshNote, Is.EqualTo(LegacyCombatHud.MeshNoteText(40)), "After a Q, the E would mesh: +40%…");
+                Assert.That(hud.MeshNote, Is.EqualTo(LegacyCombatHud.MeshNoteText(20)), "After a Q, the E would mesh: +20%…");
                 hud.ShowExplanation(duel.GetLane(0)[0], false);
                 Assert.That(hud.MeshNote, Is.EqualTo(LegacyCombatHud.MeshNoteHint), "…another Q would not.");
                 Assert.That(duel.TryQueueLane(2), Is.True);
                 fixture.Refresh(duel);
                 hud.ShowExplanation(duel.GetLane(1)[0], false);
-                Assert.That(hud.MeshNote, Is.EqualTo(LegacyCombatHud.MeshNoteText(60)), "After Q E, a W lengthens it: +60%.");
+                Assert.That(hud.MeshNote, Is.EqualTo(LegacyCombatHud.MeshNoteText(30)), "After Q E, a W lengthens it: +30%.");
                 float noted = panel.rect.height;
                 hud.ShowExplanation(duel.GetLane(0)[0], false);
                 Assert.That(panel.rect.height, Is.EqualTo(noted).Within(.01f), "The card keeps its size as the note changes.");
@@ -294,17 +429,29 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         // Two free skills a lane, the table's own (their icons show), against an enemy that does one thing a turn.
-        private static LegacyQueuedDuel FreeDuel(CombatFeature features = CombatFeature.All)
+        private static LegacyQueuedDuel FreeDuel(CombatFeature features = CombatFeature.All, int meshPercent = LegacyMeshing.DefaultPercent)
         {
             var player = new LegacySkill[6];
             for (int index = 0; index < player.Length; index++) player[index] = Free(LegacySkillDefinitions.Skill(index + 1));
             return new LegacyQueuedDuel(1000, 50, 1000, 1000, player, new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3,
-                features: features);
+                features: features, meshPercent: meshPercent);
         }
 
         private static LegacySkill Free(LegacySkill skill)
             => new LegacySkill(skill.Id, skill.Name, 0, skill.MinPower, skill.MaxPower, skill.Kind, skill.Property,
                 skill.AttackCount, skill.LaneIndex, skill.Description, skill.AnimationName, skill.IconId);
+
+        private static float ContrastRatio(Color first, Color second)
+        {
+            float a = Luminance(first), b = Luminance(second);
+            return (Mathf.Max(a, b) + .05f) / (Mathf.Min(a, b) + .05f);
+        }
+
+        private static float Luminance(Color color)
+            => .2126f * LinearChannel(color.r) + .7152f * LinearChannel(color.g) + .0722f * LinearChannel(color.b);
+
+        private static float LinearChannel(float value)
+            => value <= .04045f ? value / 12.92f : Mathf.Pow((value + .055f) / 1.055f, 2.4f);
 
         private static Rect ScreenRect(RectTransform rect)
         {
@@ -336,8 +483,10 @@ namespace TurnLimbo.Presentation.Tests
             /// out its rows, then the cues follow them.</summary>
             public void Refresh(LegacyQueuedDuel duel, float realDelta = 0f)
             {
-                Hud.Refresh(duel, 10f, duel.Phase != LegacyDuelPhase.Planning, -1, null, null, null, 0f, realDelta);
+                int activeSlot = duel.Phase == LegacyDuelPhase.Planning ? -1 : duel.LastResolvedSlot + 1;
+                Hud.Refresh(duel, 10f, duel.Phase != LegacyDuelPhase.Planning, activeSlot, null, null, null, 0f, realDelta);
                 Canvas.ForceUpdateCanvases();
+                Cues.SyncLinks(duel);
                 Cues.Tick(realDelta);
                 Canvas.ForceUpdateCanvases();
             }
@@ -376,7 +525,7 @@ namespace TurnLimbo.Presentation.Tests
                 originalArenaSettings = (DuelPresentationSettings)arenaSettingsField.GetValue(Controller.ArenaView);
                 settingsClone = Object.Instantiate(originalSettings);
                 JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1,\"skillInterval\":0.28," +
-                    "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1,\"meshPercent\":20," +
+                    "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1,\"meshPercent\":10," +
                     "\"meshBurstSeconds\":0.6,\"meshFlashSeconds\":0.45}", settingsClone);
                 SetField("presentationSettings", settingsClone);
                 arenaSettingsField.SetValue(Controller.ArenaView, settingsClone);

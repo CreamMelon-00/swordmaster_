@@ -71,7 +71,7 @@ MonoBehaviour:
   skillGearRatchetBounce: 6
   gearTickVolume: 0.5
   gearRatchetVolume: 0.6
-  meshPercent: 20
+  meshPercent: 10
   meshBurstSeconds: 0.6
   meshGearSize: 30
   meshSparkCount: 10

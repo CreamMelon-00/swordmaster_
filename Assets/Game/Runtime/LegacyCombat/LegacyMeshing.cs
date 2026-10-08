@@ -12,7 +12,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     public static class LegacyMeshing
     {
         /// <summary>The per-skill percent a duel uses unless it is given another (tests, the dump, a new duel).</summary>
-        public const int DefaultPercent = 20;
+        public const int DefaultPercent = 10;
         /// <summary>The school of whatever is not a skill: it never meshes and breaks a chain.</summary>
         public const int NoSchool = -1;
 

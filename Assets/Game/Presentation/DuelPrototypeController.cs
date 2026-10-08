@@ -2417,6 +2417,7 @@ namespace TurnLimbo.Presentation
             // On real time, over the head HUDs as just laid out.
             barks.Tick(realDelta);
             gearShimmer.Tick(realDelta);
+            meshCues.SyncLinks(session);
             meshCues.Tick(realDelta, arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.Refresh(CanStep, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,

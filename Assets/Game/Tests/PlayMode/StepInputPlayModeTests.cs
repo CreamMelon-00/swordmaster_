@@ -180,7 +180,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator RepeatedMissesHaveNoTurnLimit_AndSuppressOnlyTheFollowingNaturalRecovery()
+        public IEnumerator RepeatedMissesHaveNoTurnLimit_AndCapOnlyTheFollowingNaturalRecovery()
         {
             yield return null;
             using (var scope = new StepScope(enemyActionCount: 2))
@@ -194,19 +194,21 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(controller.TryStep(action, out bool success), Is.True);
                     Assert.That(success, Is.False);
                 }
+                Assert.That(controller.StepHud.Root.transform.Find("ACT Recovery Notice").GetComponent<Text>().text,
+                    Does.Contain("스텝 사용: 다음 턴 ACT 자연 회복 +1"));
                 scope.Until(() => controller.IsBetweenSlots);
                 Assert.That(controller.CanStep, Is.True);
                 Assert.That(controller.Session.CurrentSlot, Is.Null);
                 Assert.That(controller.TryStep(LegacyStepAction.Pressure, out bool gapAttempt), Is.True);
                 Assert.That(gapAttempt, Is.False, "The gap accepts steps but has no skill timing success.");
                 scope.Until(() => controller.CanChoose && controller.Session.RoundNumber == 2);
-                Assert.That(controller.Session.Act, Is.EqualTo(2), "A miss costs the next natural ACT recovery.");
+                Assert.That(controller.Session.Act, Is.EqualTo(3), "Any accepted step caps the next natural ACT recovery at one.");
                 Assert.That(controller.Session.UsedStepThisTurn, Is.False);
                 Assert.That(controller.Session.StepAttemptsThisTurn, Is.Zero, "The narrowing restarts every turn.");
                 scope.BeginWindup();
                 scope.Until(() => controller.CanChoose && controller.Session.RoundNumber == 3);
-                Assert.That(controller.Session.Act, Is.EqualTo(4),
-                    "Without another step, leftover one ACT plus natural three ACT recovers normally.");
+                Assert.That(controller.Session.Act, Is.EqualTo(5),
+                    "Without another step, leftover two ACT plus natural three ACT recovers normally.");
             }
         }
 
@@ -384,9 +386,12 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(pressed, Is.True);
                 Assert.That(controller.Session.StepSuccessStreak, Is.EqualTo(2));
                 Assert.That(root.Find("Pressure Cue/Timing Status").GetComponent<Text>().text, Is.EqualTo("연속 2"));
-                Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text, Does.Contain("이번 턴 2회"));
+                Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text,
+                    Does.Contain("이번 턴 2회").And.Contain("스텝 사용: 다음 턴 ACT 자연 회복 +1"));
                 scope.Until(() => controller.CanChoose && controller.Session.RoundNumber == 2);
                 Assert.That(controller.CurrentStepWindow, Is.EqualTo(fresh).Within(.0001f), "A new turn restores the full window.");
+                Assert.That(controller.Session.Act, Is.EqualTo(3),
+                    "Even two successful steps cap the next natural ACT recovery at one.");
                 Assert.That(controller.Session.StepSuccessStreak, Is.Zero);
             }
         }
@@ -513,7 +518,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.TryStep(LegacyStepAction.Pressure, out bool success), Is.True);
                 Assert.That(success, Is.True);
                 Assert.That(root.Find("Pressure Cue/Timing Status").GetComponent<Text>().text, Does.Contain("성공"));
-                Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text, Does.Contain("성공 구간이 좁아졌습니다"));
+                Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text,
+                    Does.Contain("스텝 사용: 다음 턴 ACT 자연 회복 +1"));
                 LegacyCurrentSlot first = controller.Session.CurrentSlot;
                 scope.Until(() => controller.Session.CurrentSlot != null &&
                     !ReferenceEquals(controller.Session.CurrentSlot, first));
@@ -593,7 +599,7 @@ namespace TurnLimbo.Presentation.Tests
                 MethodInfo method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
                 Assert.That(method, Is.Not.Null);
                 advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
             }
 
             public void Advance(float realDelta, Keyboard keyboard = null) => advance(realDelta, keyboard);

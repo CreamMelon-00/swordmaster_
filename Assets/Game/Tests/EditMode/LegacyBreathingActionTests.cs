@@ -221,7 +221,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void PressureOnBreath_NeverSucceedsOrGuardsAndItsMissCostsTheNaturalRecovery()
+        public void PressureOnBreath_NeverSucceedsOrGuardsAndLimitsNextNaturalActToOne()
         {
             var duel = Duel(new[] { Attack(100, 1) }, new[] { Attack(900, 8) });
             Assert.That(duel.TryQueueBreath(), Is.True);
@@ -233,13 +233,13 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.UsedStepThisTurn, Is.True);
             Assert.That(duel.ResolveNextSlot().PlayerHealthDamage, Is.EqualTo(8));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(3));
+            Assert.That(duel.Act, Is.EqualTo(4), "Residual ACT 3 plus one natural ACT after the attempted step.");
             Assert.That(duel.BreathsRemainingThisTurn, Is.EqualTo(3));
             Assert.That(duel.UsedStepThisTurn, Is.False);
         }
 
         [Test]
-        public void DodgeDuringBreath_StillAvoidsEveryEnemyHitAndASuccessCostsNoAct()
+        public void DodgeDuringBreath_StillAvoidsEveryEnemyHitAndLimitsNextNaturalActToOne()
         {
             var duel = Duel(new[] { Attack(100, 1) }, new[] { Attack(900, 12, hits: 3) });
             Assert.That(duel.TryQueueBreath(), Is.True);
@@ -257,7 +257,7 @@ namespace TurnLimbo.Core.Tests
             }
             duel.CompleteCurrentSlot();
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(6));
+            Assert.That(duel.Act, Is.EqualTo(4), "A successful dodge also leaves one natural ACT.");
             Assert.That(duel.BreathsRemainingThisTurn, Is.EqualTo(3));
         }
 

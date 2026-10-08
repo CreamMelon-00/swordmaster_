@@ -154,8 +154,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int StepAttemptsThisTurn { get; private set; }
         /// <summary>Consecutive successful steps this turn; any miss or a new turn restarts it.</summary>
         public int StepSuccessStreak { get; private set; }
-        /// <summary>Whether any step missed this turn. A miss, not an attempt, costs the next turn's natural ACT
-        /// recovery: success is free, so skilled play can step without limit but guessing is not free.</summary>
+        /// <summary>Whether any step missed this turn, for the miss feedback. Any accepted step attempt, successful
+        /// or not, limits the next turn's natural ACT recovery to 1.</summary>
         public bool StepMissedThisTurn { get; private set; }
         public int BreathsQueuedThisTurn { get; private set; }
         /// <summary>넘기기 presses that turned the lanes this planning turn.</summary>
@@ -356,8 +356,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (IsCurrentSlotMeshed) return false;
 
             // Every attempt, including gaps between skills and repeated inputs, narrows the
-            // next window. Any miss (mistimed, no target, repeated, or in a gap) breaks the
-            // streak and costs the next turn's natural ACT recovery; successes cost nothing.
+            // next window and limits the next turn's natural ACT recovery to 1. A miss
+            // (mistimed, no target, repeated, or in a gap) also breaks the streak.
             StepAttemptsThisTurn++;
             success = ApplyStep(action, timingSuccessful);
             StepSuccessStreak = success ? StepSuccessStreak + 1 : 0;
@@ -620,7 +620,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             RoundNumber = 1;
             Act = 0;
             NextActGain = playerBaseActGain;
-            // A miss in the abandoned match must not cost the new match its opening ACT.
+            // Attempts in the abandoned match must not cost the new match its opening ACT.
             StepMissedThisTurn = false;
             StepAttemptsThisTurn = StepSuccessStreak = 0;
             Outcome = DuelMatchOutcome.InProgress;
@@ -629,7 +629,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private void StartPlanningTurn()
         {
-            Act = Math.Min(playerMaximumAct, Act + NextActGain - (StepMissedThisTurn ? playerBaseActGain : 0));
+            // NextActGain includes natural recovery and skill-granted bonuses. Steps reduce
+            // only the natural portion, once per turn regardless of how many were attempted.
+            int naturalActGain = UsedStepThisTurn ? 1 : playerBaseActGain;
+            Act = Math.Min(playerMaximumAct, Act + NextActGain - playerBaseActGain + naturalActGain);
             NextActGain = playerBaseActGain;
             StepAttemptsThisTurn = StepSuccessStreak = 0;
             StepMissedThisTurn = false;

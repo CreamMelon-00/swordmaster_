@@ -118,7 +118,7 @@ namespace TurnLimbo.Presentation
                 : features.AllowsStep(LegacyStepAction.Pressure) ? "맞물린 기술 · 압박 없음" : "맞물린 기술";
 
         /// <param name="attemptsThisTurn">Steps attempted this turn; each one narrowed the success window.</param>
-        /// <param name="missedThisTurn">A step missed this turn, so next turn's natural ACT recovery is lost.</param>
+        /// <param name="missedThisTurn">A step missed this turn; all accepted attempts cap the next natural ACT recovery at 1.</param>
         /// <param name="features">The duel's open steps: a closed step shows no cue and no key hint.</param>
         /// <param name="streakThisTurn">The duel's current consecutive successes, when available.</param>
         /// <param name="meshed">The slot is meshed (<see cref="LegacyQueuedDuel.IsCurrentSlotMeshed"/>): it takes no steps, so
@@ -170,9 +170,8 @@ namespace TurnLimbo.Presentation
                 shownFeatures = features;
                 shownMeshed = meshed;
                 string hint = meshed ? MeshedHintFor(features) : KeyHintFor(features);
-                recovery.text = attempts == 0 ? hint : missedThisTurn
-                    ? hint + "  ·  이번 턴 " + attempts + "회 · 빗나감: 다음 턴 ACT 자연 회복 없음"
-                    : hint + "  ·  이번 턴 " + attempts + "회 · 성공 구간이 좁아졌습니다";
+                recovery.text = attempts == 0 ? hint
+                    : hint + "  ·  이번 턴 " + attempts + "회 · 스텝 사용: 다음 턴 ACT 자연 회복 +1";
                 recovery.color = missedThisTurn ? DuelVisualTheme.Danger : DuelVisualTheme.Foreground;
             }
         }
