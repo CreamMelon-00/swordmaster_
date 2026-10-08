@@ -1200,11 +1200,8 @@ namespace TurnLimbo.Presentation
             disposed = true;
             Destroy(root.gameObject);
             ReleaseGearPictures();
-<<<<<<< HEAD
             ReleaseMeshPictures();
-=======
             ReleaseTimerGearPictures();
->>>>>>> origin/UI
             foreach (var icon in hudIcons.Values)
                 if (Application.isPlaying) UnityEngine.Object.Destroy(icon);
                 else UnityEngine.Object.DestroyImmediate(icon);
