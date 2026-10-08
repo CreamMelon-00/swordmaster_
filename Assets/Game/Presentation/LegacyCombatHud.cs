@@ -316,6 +316,7 @@ namespace TurnLimbo.Presentation
             timerTrack = Image("Timer Track", timerPanel, white, new Vector2(0f, 12f), new Vector2(520f, 6f), Track);
             timerFill = Image("Timer", timerPanel, white, new Vector2(0f, 12f), new Vector2(520f, 6f), Accent);
             Filled(timerFill, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
+            BuildTimerGear(controls);
             timeText = Text("Time Remaining", timerPanel, new Vector2(190f, -5f), new Vector2(88f, 24f), 22,
                 TextAnchor.MiddleCenter);
             untimedHint = Text("Untimed Hint", timerPanel, new Vector2(190f, -5f), new Vector2(200f, 24f), 16,
@@ -473,6 +474,7 @@ namespace TurnLimbo.Presentation
             bool showTimer = !trainingMode && (!missionMode || missionTimed);
             timerTrack.gameObject.SetActive(showTimer);
             timerFill.gameObject.SetActive(showTimer);
+            SetTimerGearVisible(showTimer);
             timeText.gameObject.SetActive(showTimer);
             untimedHint.text = trainingMode ? "수련 · 시간 제한 없음" : "임무 · 시간 제한 없음";
             untimedHint.gameObject.SetActive(!showTimer);
@@ -656,6 +658,7 @@ namespace TurnLimbo.Presentation
             bool timeLow = ratio <= .3f;
             timerFill.color = timeLow ? DuelVisualTheme.Danger : Accent;
             timeText.color = timeLow ? DuelVisualTheme.Danger : Foreground;
+            AdvanceTimerGear(timeRemaining, planningDuration, ratio, planning, actualDelta);
             int seconds = Mathf.CeilToInt(Mathf.Max(0f, timeRemaining));
             if (shownSeconds != seconds)
             {
@@ -1172,6 +1175,7 @@ namespace TurnLimbo.Presentation
             ApplyInputAvailability();
             for (int i = 0; i < 3; i++) shownSkills[i] = -1;
             ResetGears();
+            ResetTimerGear();
             timeSpentRemaining = 0f;
             AdvanceTimeSpent(0f);
             playerStatus.Reset(); enemyStatus.Reset();
@@ -1196,7 +1200,11 @@ namespace TurnLimbo.Presentation
             disposed = true;
             Destroy(root.gameObject);
             ReleaseGearPictures();
+<<<<<<< HEAD
             ReleaseMeshPictures();
+=======
+            ReleaseTimerGearPictures();
+>>>>>>> origin/UI
             foreach (var icon in hudIcons.Values)
                 if (Application.isPlaying) UnityEngine.Object.Destroy(icon);
                 else UnityEngine.Object.DestroyImmediate(icon);

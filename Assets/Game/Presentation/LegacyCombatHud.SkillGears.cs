@@ -107,6 +107,7 @@ namespace TurnLimbo.Presentation
                 if (!turned[lane] || !gears[lane].Present) continue;
                 gears[lane].PendingTurns++;
                 StartTurn(gears[lane], 1, true);
+                EmitLaneSteam(lane, true);
                 any = true;
             }
             if (!any) return;
@@ -123,6 +124,7 @@ namespace TurnLimbo.Presentation
             if (disposed || lane < 0 || lane >= gears.Length || !gears[lane].Present) return;
             gears[lane].PendingTurns++;
             StartTurn(gears[lane], 1, false);
+            EmitLaneSteam(lane, false);
             PlayGearSound(gearTick, presentationSettings != null ? presentationSettings.GearTickVolume
                 : LegacySkillGear.DefaultTickVolume);
             AdvanceLaneTurns(0f);

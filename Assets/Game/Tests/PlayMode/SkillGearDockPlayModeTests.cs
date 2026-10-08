@@ -86,6 +86,7 @@ namespace TurnLimbo.Presentation.Tests
                 RectTransform icon = fixture.Get<RectTransform>("Input/Keys/Current Q/Skill Image");
                 Assert.That(duel.TryQueueLane(0), Is.True);
                 hud.PlayLaneTurn(0);
+                Assert.That(hud.ActiveSteamPuffs, Is.EqualTo(3), "A normal choice gives its lane one visible valve breath.");
                 fixture.Refresh(duel);
                 Assert.That(hud.IsLaneTurning(0), Is.True, "Queueing turns its lane's gear…");
                 Assert.That(hud.IsLaneTurning(1) || hud.IsLaneTurning(2) || hud.AreIdlersTurning, Is.False, "…and only that one.");
@@ -98,8 +99,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Turned(hud.LaneGearRotation(1), w), Is.EqualTo(0f).Within(.01f));
                 Assert.That(Vector2.Distance(icon.anchoredPosition, Vector2.zero), Is.LessThan(.01f), "It rests in the window.");
 
+                fixture.Refresh(duel, 1f);
+                Assert.That(hud.ActiveSteamPuffs, Is.Zero);
+
                 Assert.That(duel.TryCycleLanes(), Is.True);
                 hud.PlayLaneTurn(new[] { true, true, true });
+                Assert.That(hud.ActiveSteamPuffs, Is.EqualTo(18),
+                    "Shift dumps a broad pressure burst from every meshed lane, unlike a normal choice.");
                 fixture.Refresh(duel);
                 Assert.That(hud.IsLaneTurning(0) && hud.IsLaneTurning(1) && hud.IsLaneTurning(2) && hud.AreIdlersTurning, Is.True,
                     "넘기기 turns every gear together, and the idlers.");
