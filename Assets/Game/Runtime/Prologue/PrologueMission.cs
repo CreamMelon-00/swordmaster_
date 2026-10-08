@@ -267,8 +267,11 @@ namespace TurnLimbo.Runtime.Prologue
         private static readonly CutsceneActor[] KnightCast = { CutsceneActor.Elisa, CutsceneActor.Knight };
 
         /// <summary>The duel for one attempt, with the enemy's health floor and the empowerment's threshold.
-        /// A player's owned technique can replace its sheet definition so story retries use earned levels too.</summary>
-        public LegacyQueuedDuel CreateDuel(int seed = 1, Func<LegacySkill, LegacySkill> playerSkillResolver = null)
+        /// A player's owned technique can replace its sheet definition so story retries use earned levels too.
+        /// <paramref name="meshPercent"/> is 맞물림's power percent per chained skill (<see cref="LegacyQueuedDuel.MeshPercent"/>);
+        /// a mission with one lane never meshes, so 맞물림 starts with mission 5's second lane.</summary>
+        public LegacyQueuedDuel CreateDuel(int seed = 1, Func<LegacySkill, LegacySkill> playerSkillResolver = null,
+            int meshPercent = LegacyMeshing.DefaultPercent)
         {
             IReadOnlyList<LegacySkill> playerSkills = PlayerSkills;
             if (playerSkillResolver != null)
@@ -280,7 +283,8 @@ namespace TurnLimbo.Runtime.Prologue
             }
             return new LegacyQueuedDuel(PlayerHealth, PlayerResistance, EnemyHealth, EnemyResistance,
                 playerSkills, EnemySkills, enemyActionCounts, seed, features: Features,
-                enemyHealthFloor: EnemyHealthFloor, enemyHealthThresholdPercent: Empowerment?.ThresholdPercent ?? 0);
+                enemyHealthFloor: EnemyHealthFloor, enemyHealthThresholdPercent: Empowerment?.ThresholdPercent ?? 0,
+                meshPercent: meshPercent);
         }
 
         /// <summary>Whether a finished battle completes the mission: a victory always does. After a forced-loss

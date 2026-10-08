@@ -33,6 +33,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly int enemyHealthThresholdPercent;
         private readonly int roundLimit;
         private readonly int randomSeed;
+        // 맞물림's power percent per chained skill (LegacyMeshing); 0 switches it off.
+        private readonly int meshPercent;
         private Random random;
         private LegacySkill[] committedPlayerQueue;
         private LegacySkill[] committedEnemyQueue;
@@ -53,33 +55,39 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// be defeated (서막 mission 4). Must stay under <paramref name="enemyHealth"/>.</param>
         /// <param name="enemyHealthThresholdPercent">0 for none, otherwise the percent of the enemy's maximum health whose
         /// first crossing is reported (<see cref="LegacyHitResult.EnemyReachedHealthThreshold"/>); below 100.</param>
+        /// <param name="meshPercent">맞물림: the power percent each skill of a chain gains per skill in the chain
+        /// (<see cref="MeshPercent"/>); 0 switches 맞물림 off.</param>
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, int randomSeed = 1,
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
-            int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0)
+            int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0,
+            int meshPercent = LegacyMeshing.DefaultPercent)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills, enemySkills,
                 enemyTurnActionCounts, null, randomSeed, playerCounter, enemyCounter, features,
-                playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent) { }
+                playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent,
+                meshPercent) { }
 
         /// <summary>A duel whose enemy follows <paramref name="enemyScript"/> turn by turn.</summary>
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, EnemyScript enemyScript, int randomSeed = 1,
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
-            int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0)
+            int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0,
+            int meshPercent = LegacyMeshing.DefaultPercent)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills,
                 (enemyScript ?? throw new ArgumentNullException(nameof(enemyScript))).AllSkills, enemyScript.TurnSizes,
                 enemyScript, randomSeed, playerCounter, enemyCounter, features,
-                playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent) { }
+                playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent,
+                meshPercent) { }
 
         private LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, EnemyScript enemyScript, int randomSeed,
             LegacyCounter playerCounter, LegacyCounter enemyCounter, CombatFeature features,
             int playerActGainBonus, int playerActCapacityBonus, int roundLimit,
-            int enemyHealthFloor, int enemyHealthThresholdPercent)
+            int enemyHealthFloor, int enemyHealthThresholdPercent, int meshPercent)
         {
             initialEnemyScript = enemyScript;
             PlayerCounter = playerCounter;
@@ -95,6 +103,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (enemyHealthFloor < 0 || enemyHealthFloor >= enemyHealth) throw new ArgumentOutOfRangeException(nameof(enemyHealthFloor));
             if (enemyHealthThresholdPercent < 0 || enemyHealthThresholdPercent >= 100)
                 throw new ArgumentOutOfRangeException(nameof(enemyHealthThresholdPercent));
+            if (meshPercent < 0) throw new ArgumentOutOfRangeException(nameof(meshPercent));
+            this.meshPercent = meshPercent;
             this.enemyHealthFloor = enemyHealthFloor;
             this.enemyHealthThresholdPercent = enemyHealthThresholdPercent;
             this.roundLimit = roundLimit;
@@ -169,6 +179,29 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Whether a hit of this attempt has brought the enemy to <see cref="EnemyHealthThresholdPercent"/> or below
         /// (<see cref="LegacyHitResult.EnemyReachedHealthThreshold"/>). <see cref="Reset"/> clears it.</summary>
         public bool EnemyHealthThresholdReached { get; private set; }
+        /// <summary>맞물림: the power percent each skill of a chain gains per skill in the chain, so every skill of an
+        /// N-skill chain gains +N × this (<see cref="LegacyMeshing"/>). 0 switches 맞물림 off: nothing meshes and steps
+        /// are never held back.</summary>
+        public int MeshPercent => meshPercent;
+        /// <summary>The current slot is meshed: its power carries the chain's bonus and it takes no steps.</summary>
+        public bool IsCurrentSlotMeshed => CurrentSlot != null && CurrentSlot.PlayerMesh.IsMeshed;
+
+        /// <summary>맞물림 for one slot of the player's queue: the live queue while planning (it changes as skills are
+        /// queued), the committed queue while resolving. Only the player's queue meshes; a slot past the queue is empty.</summary>
+        public LegacyMeshSlot PlayerMesh(int slotIndex) => LegacyMeshing.Find(QueueForForecast(true), slotIndex, meshPercent);
+
+        /// <summary>The chain the front skill of <paramref name="laneIndex"/> would join if it were queued now, as the
+        /// next slot (넘기기 changes the fronts, so this changes with it). Unmeshed outside planning or when that lane
+        /// cannot queue its front (closed, empty, or short of ACT).</summary>
+        public LegacyMeshSlot PlayerMeshIfQueued(int laneIndex)
+        {
+            int slotIndex = playerQueue.Count;
+            if (Phase != LegacyDuelPhase.Planning || laneIndex < 0 || laneIndex >= lanes.Length || !Features.HasLane(laneIndex))
+                return LegacyMeshSlot.Unmeshed(slotIndex);
+            List<LegacySkill> lane = lanes[laneIndex];
+            if (lane.Count == 0 || lane[0].IsWait || Act < lane[0].Cost) return LegacyMeshSlot.Unmeshed(slotIndex);
+            return LegacyMeshing.FindIfAppended(PlayerQueue, LegacyMeshing.School(lane[0]), meshPercent);
+        }
 
         /// <summary>From the next planning turn the enemy follows <paramref name="script"/> from its first turn, as when
         /// 이아 receives 수훈 in the 서막's last mission. The turn in progress keeps the queue it showed, even during
@@ -319,6 +352,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 (action != LegacyStepAction.Dodge && action != LegacyStepAction.Pressure)) return false;
             // A closed step is not an attempt: it neither narrows the window nor costs ACT.
             if (!Features.AllowsStep(action)) return false;
+            // Nor is a step in a meshed slot (맞물림): its gears take the place of steps, so the input is ignored.
+            if (IsCurrentSlotMeshed) return false;
 
             // Every attempt, including gaps between skills and repeated inputs, narrows the
             // next window. Any miss (mistimed, no target, repeated, or in a gap) breaks the
@@ -382,8 +417,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             LegacySkill pendingCounter = playerSkill == null && IsAttack(enemySkill) && PlayerCountersRemaining > 0
                 ? PlayerCounter.Skill : null;
-            double playerAttackMultiplier = AttackMultiplier(playerBuffs, out int playerPowerBuffPercent);
-            double enemyAttackMultiplier = AttackMultiplier(enemyBuffs, out int enemyPowerBuffPercent);
+            // 맞물림 adds into the player's power percent beside the buffs. A counter fills an empty slot, which never meshes.
+            LegacyMeshSlot playerMesh = LegacyMeshing.Find(committedPlayerQueue, nextSlot, meshPercent);
+            double playerAttackMultiplier = AttackMultiplier(playerBuffs, playerMesh.BonusPercent, out int playerPowerBuffPercent);
+            double enemyAttackMultiplier = AttackMultiplier(enemyBuffs, 0, out int enemyPowerBuffPercent);
             double playerReceivedMultiplier = ReceivedMultiplier(playerBuffs, out int playerProtectionBuffPercent);
             double enemyReceivedMultiplier = ReceivedMultiplier(enemyBuffs, out int enemyProtectionBuffPercent);
             int playerPower = RollPower(playerSkill, playerAttackMultiplier, out int playerTotalPower);
@@ -393,6 +430,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 playerPower, enemyPower, playerTotalPower,
                 playerReceivedMultiplier, enemyReceivedMultiplier, Player, Enemy);
             CurrentSlot.EnemyCountered = enemyCounters;
+            CurrentSlot.PlayerMesh = playerMesh;
             if (pendingCounter != null)
             {
                 CurrentSlot.PendingPlayerCounter = pendingCounter;
@@ -735,11 +773,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 actGainGranted, resistanceRestored, opponentResistanceReduced, opponentBroken);
         }
 
-        private static double AttackMultiplier(List<SkillBuff> buffs, out int powerBuffPercent)
+        /// <param name="meshBonusPercent">맞물림's bonus, added into the same percent as the buffs (100 + buffs + mesh);
+        /// <paramref name="powerBuffPercent"/> reports the buffs alone.</param>
+        private static double AttackMultiplier(List<SkillBuff> buffs, int meshBonusPercent, out int powerBuffPercent)
         {
             int percent = 100;
             foreach (SkillBuff buff in buffs) percent += buff.AttackPercent;
             powerBuffPercent = percent - 100;
+            percent += meshBonusPercent;
             return percent / 100d;
         }
 

@@ -398,6 +398,8 @@ namespace TurnLimbo.Presentation.Tests
                 LegacyQueuedDuel duel = controller.Session;
                 Assert.That(duel.Features, Is.EqualTo(QAndE | CombatFeature.Breath | CombatFeature.Dodge));
                 Assert.That(DuelStepHud.KeyHintFor(duel.Features), Is.EqualTo("A 회피"));
+                Assert.That(DuelStepHud.MeshedHintFor(duel.Features), Is.EqualTo("맞물린 기술 · 회피 없음"),
+                    "A meshed slot's hint names no step that has not opened yet.");
 
                 Assert.That(controller.AdvanceGuide(), Is.True);
                 Assert.That(controller.Guide.Kind, Is.EqualTo(MissionGuideStepKind.Commit));

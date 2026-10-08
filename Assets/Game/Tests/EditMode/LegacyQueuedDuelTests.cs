@@ -78,7 +78,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(first.PlayerHealthDamage, Is.Zero);
             Assert.That(first.EnemyHealthDamage, Is.Zero);
             Assert.That(first.PlayerResistanceDamage, Is.InRange(4, 5));
-            Assert.That(first.EnemyResistanceDamage, Is.InRange(4, 5));
+            // 베기 (Q) meshes with the W skill after it (맞물림, +40%): floor(4 × 1.4) = 5 or floor(5 × 1.4) = 7.
+            Assert.That(first.EnemyResistanceDamage, Is.EqualTo(5).Or.EqualTo(7));
             Assert.That(duel.IsTurnResolved, Is.False);
 
             LegacySlotResult second = duel.ResolveNextSlot();

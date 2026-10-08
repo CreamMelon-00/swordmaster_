@@ -33,7 +33,8 @@ namespace TurnLimbo.Runtime.Prologue
         // Copy names sheet techniques with tokens and the enemy's practice skills in words, as in PrologueMissions.
         private static readonly PrologueMission[] missions =
         {
-            // 5. E열 (기교): matching the opponent's action can directly reduce resistance. Opens after stage 1.
+            // 5. E열 (기교): matching the opponent's action can directly reduce resistance. Opens after stage 1. With a second
+            // school, 맞물림 (LegacyMeshing) starts here; the free beat mentions it.
             new PrologueMission(5, "기교 검술", Corridor,
                 new[] { "상대 공격에 {기술:5:를} 맞춰 저항을 낮춘다", "떠돌이 기사를 쓰러뜨린다", "완료하면 E열이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
@@ -49,7 +50,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기교를 지켜보세요",
                         "상대 공격에 {기술:5:를} 맞추면 저항이 직접 5 줄어듭니다. 기술마다 조건이 다르니 Q나 E를 길게 눌러 설명을 확인하세요.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "두 열로 승리하세요",
-                        "이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다. Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요.",
+                        "이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다. Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요. 두 열을 번갈아 넣으면 톱니가 맞물려 위력이 오릅니다.",
                         "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 적 확인\nQ/E 길게 눌러 기술 설명 · Esc 일시정지"),
                 },
                 AfterLaneE, CombatFeature.LaneE, 1, Chapter, "E열 기교 검술이 열렸습니다. 스테이지에서도 E열을 씁니다."),

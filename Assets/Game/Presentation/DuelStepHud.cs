@@ -34,6 +34,7 @@ namespace TurnLimbo.Presentation
         private int shownAttempts = -1;
         private bool shownMissed;
         private CombatFeature shownFeatures = CombatFeature.All;
+        private bool shownMeshed;
         private int successStreak;
         private int brokenStreak;
         private int resultStreak;
@@ -99,6 +100,9 @@ namespace TurnLimbo.Presentation
         }
 
         public const string KeyHint = "A 회피 · D 압박";
+        /// <summary>The key hint while a meshed slot plays with both steps open (맞물림, <c>Docs/Meshing.md</c>): its A
+        /// and D are ignored. <see cref="MeshedHintFor"/> names only the steps the duel has opened.</summary>
+        public const string MeshedHint = "맞물린 기술 · 회피·압박 없음";
 
         /// <summary>The key hint for the steps a duel has opened (missions open 회피 before 압박).</summary>
         public static string KeyHintFor(CombatFeature features)
@@ -106,13 +110,23 @@ namespace TurnLimbo.Presentation
                 : features.AllowsStep(LegacyStepAction.Dodge) ? "A 회피"
                 : features.AllowsStep(LegacyStepAction.Pressure) ? "D 압박" : string.Empty;
 
+        /// <summary>The meshed-slot hint for the steps a duel has opened: like <see cref="KeyHintFor"/>, a step not yet
+        /// taught is never named (before 압박 opens it reads "맞물린 기술 · 회피 없음").</summary>
+        public static string MeshedHintFor(CombatFeature features)
+            => features.AllowsStep(LegacyStepAction.Dodge) && features.AllowsStep(LegacyStepAction.Pressure) ? MeshedHint
+                : features.AllowsStep(LegacyStepAction.Dodge) ? "맞물린 기술 · 회피 없음"
+                : features.AllowsStep(LegacyStepAction.Pressure) ? "맞물린 기술 · 압박 없음" : "맞물린 기술";
+
         /// <param name="attemptsThisTurn">Steps attempted this turn; each one narrowed the success window.</param>
         /// <param name="missedThisTurn">A step missed this turn, so next turn's natural ACT recovery is lost.</param>
         /// <param name="features">The duel's open steps: a closed step shows no cue and no key hint.</param>
         /// <param name="streakThisTurn">The duel's current consecutive successes, when available.</param>
+        /// <param name="meshed">The slot is meshed (<see cref="LegacyQueuedDuel.IsCurrentSlotMeshed"/>): it takes no steps, so
+        /// it shows no rings and the hint says so (<see cref="MeshedHintFor"/>, naming only the open steps);
+        /// <see cref="DuelMeshCues"/> flashes its gears at the first hit instead.</param>
         public void Refresh(bool visible, LegacyCurrentSlot slot, float progress, bool timingWindow,
             float windowFraction, bool usedStep, int attemptsThisTurn = 0, bool missedThisTurn = false,
-            CombatFeature features = CombatFeature.All, int streakThisTurn = -1)
+            CombatFeature features = CombatFeature.All, int streakThisTurn = -1, bool meshed = false)
         {
             if (disposed) return;
             timingVisible = visible;
@@ -138,7 +152,8 @@ namespace TurnLimbo.Presentation
                 dodge.FeedbackTime = pressure.FeedbackTime = 0f;
                 shownSlot = slot;
             }
-            bool pending = slot != null && slot.HitsResolved == 0;
+            // A meshed slot's gears take the place of its steps: no ring waits for its first hit.
+            bool pending = slot != null && slot.HitsResolved == 0 && !meshed;
             bool anchored = TryProjectActor(out Vector2 center, out float targetRadius);
             UpdateCue(dodge, pending && features.AllowsStep(LegacyStepAction.Dodge) && slot.EnemySkill?.Kind == LegacySkillKind.Attack,
                 slot?.DodgeSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
@@ -148,12 +163,13 @@ namespace TurnLimbo.Presentation
                 slot?.PressureSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
             UpdateResult(anchored, center, targetRadius);
             int attempts = Math.Max(attemptsThisTurn, usedStep ? 1 : 0);
-            if (attempts != shownAttempts || missedThisTurn != shownMissed || features != shownFeatures)
+            if (attempts != shownAttempts || missedThisTurn != shownMissed || features != shownFeatures || meshed != shownMeshed)
             {
                 shownAttempts = attempts;
                 shownMissed = missedThisTurn;
                 shownFeatures = features;
-                string hint = KeyHintFor(features);
+                shownMeshed = meshed;
+                string hint = meshed ? MeshedHintFor(features) : KeyHintFor(features);
                 recovery.text = attempts == 0 ? hint : missedThisTurn
                     ? hint + "  ·  이번 턴 " + attempts + "회 · 빗나감: 다음 턴 ACT 자연 회복 없음"
                     : hint + "  ·  이번 턴 " + attempts + "회 · 성공 구간이 좁아졌습니다";
@@ -234,6 +250,7 @@ namespace TurnLimbo.Presentation
             shownAttempts = -1;
             shownMissed = false;
             shownFeatures = CombatFeature.All;
+            shownMeshed = false;
             timingVisible = false;
             HideCue(dodge);
             HideCue(pressure);

@@ -1,5 +1,7 @@
 # 스토리 해금 (수련 임무)
 
+2026-10-08. 맞물림(`Meshing.md`)은 따로 열지 않는다. 계열이 다른 두 열이 있어야 맞물리므로 E열이 열리는 5 임무 전투부터 자연히 생긴다. 5 임무 코치의 자유 단계가 한 줄로 알린다(아래 '임무').
+
 2026-10-07. 서막 뒤 임무(5~9)의 브리핑과 전투 배경을 학교 복도로 바꿨다. 임무 1~4의 숲 배경은 유지한다. 아래 2026-10-01 기록의 숲 브리핑 설정은 이전 상태다.
 
 2026-10-02. 잠긴 것은 스스로를 드러내지 않고, 화면은 열린 것만으로 짠 것처럼 보여야 한다(사용자 결정). 전투는 열린 열만 가운데로 모아 그리고, 편성은 닫힌 열을 아예 그리지 않는다. 커리큘럼은 세 열이 모두 열려야(임무 8의 승리) 생기고, 그 전에는 탭·링크·진행 표시가 없다. 홈 배너는 아직 할 수 없는 임무의 제목을 `???`로 가린다. 아래 본문은 이 결정을 반영한 현재 상태다.
@@ -47,6 +49,7 @@
 - 코치는 새 기능을 그 기능의 단계와 마지막 자유 단계에서만 허용한다. 그 밖의 단계에서는 이미 연 숨고르기·넘기기·스텝도 막는다.
   - 6 임무의 숨고르기 단계는 S만 받는다(예약과 확정은 막힌다). 숨고르기를 넣으면 다음 단계로 넘어간다.
   - 7 임무의 회피 단계와 9 임무의 압박 단계는 확정한 턴 동안 A(또는 D)만 받는다. 한 번 시도하면(성패와 관계없이) 넘어가고, 누르지 않아도 다음 턴이 시작되면 넘어가서 멈추지 않는다.
+- **맞물림**(2026-10-08, `Meshing.md`): 플레이어 큐에서 계열(열)이 다른 기술이 이웃하면 맞물려 위력이 오르고, 그 칸에서는 스텝을 쓸 수 없다. 해금 플래그는 없다. 서막 1~4 임무와 5 임무를 이기기 전의 스테이지는 Q열 하나라 맞물릴 수 없고, Q·E를 쓰는 5 임무 전투부터 맞물린다. 5 임무 자유 단계의 설명 끝에 `두 열을 번갈아 넣으면 톱니가 맞물려 위력이 오릅니다.`를 붙였다. 브리핑 목표는 그대로다. 7 임무의 회피 단계(빈 큐)와 9 임무의 압박 단계(W 하나)는 맞물리지 않으므로 스텝 수업을 막지 않는다.
 - 모든 수련 임무는 코치의 자유 단계부터 10초 제한이 흐른다.
 - 코치 안내의 제목과 설명은 서막과 같은 시스템 톤이다. 입력 안내·목표·해금 안내도 같은 톤이다(`Narrative.md`의 '코치 안내 문구').
 - 수련 임무와 스테이지는 **전투**다. 편성 중이 불릿타임이다(`DuelAndBattle.md`).
@@ -69,7 +72,7 @@
   - 닫힌 스텝은 흰 원 예고를 그리지 않는다. A/D를 눌러도 시도로 세지 않으므로 성공 구간이 좁아지거나 빗나감 대가가 생기지 않는다.
   - 스텝이 하나도 열리지 않았으면 기술 앞의 0.24초 예고도 건너뛴다.
   - 하단 안내는 열린 스텝만 적는다: `A 회피 · D 압박` / `A 회피` / `D 압박` / 없음.
-- **코치 문구**: Q열 하나뿐인 서막 2 임무의 넘기기 단계는 여러 열을 말하지 않는다. 두 열을 처음 쓰는 5 임무의 자유 단계가 `이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다.`로 시작한다.
+- **코치 문구**: Q열 하나뿐인 서막 2 임무의 넘기기 단계는 여러 열을 말하지 않는다. 두 열을 처음 쓰는 5 임무의 자유 단계가 `이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다.`로 시작하고 `두 열을 번갈아 넣으면 톱니가 맞물려 위력이 오릅니다.`로 끝난다(맞물림, 2026-10-08).
 - **편성**
   - 닫힌 열은 열 제목·슬롯·보유 기술 카드를 만들지 않는다. 열린 열은 Q·W·E 순서로 한 공간에 모은다. 열을 고르는 필터나 탭은 없다.
   - 보유 목록에는 열린 열의 기술 중 현재 편성 초안에 없는 기술만 모아서 표시한다. 기술을 선택하면 같은 열의 슬롯 세 개를 강조한다. 강조된 슬롯 클릭이나 드래그로 배치할 수 있으며, 닫힌 열에 넣기·빼기·순서 바꾸기는 Runtime이 거부한다.
@@ -83,7 +86,7 @@
 
 해금과 스테이지 제한은 타이틀의 **이어하기**나 **새 게임**으로 시작했을 때만 적용된다(`DuelPrototypeController.StoryProgressionEnabled`). 자동 저장과 같은 규칙이다. `ShowTitle`로 타이틀에 돌아오면 다시 꺼진다.
 
-테스트나 코드에서 `StartNewGame`·`RestartJourney`·`RestartMatch` 같은 API를 직접 부르면 스테이지 전투는 모든 열·숨고르기·넘기기·스텝이 열려 있고 스테이지 제한도 없으며, 커리큘럼도 처음부터 있다(`CampaignRun.ClearProgression`). 기존 테스트와 직접 API 사용이 그대로 동작하게 하려는 것이다. 이 규칙은 스테이지 쪽에만 해당한다. 임무 자체(홈 배너, 브리핑, 임무 전투의 열·기능)는 어느 경우든 스토리 진행을 따른다.
+테스트나 코드에서 `StartNewGame`·`RestartJourney`·`RestartMatch` 같은 API를 직접 부르면 스테이지 전투는 모든 열·숨고르기·넘기기·스텝이 열려 있고 스테이지 제한도 없으며, 커리큘럼도 처음부터 있다(`CampaignRun.ClearProgression`). 열이 모두 열려 있으므로 맞물림도 처음부터 쓴다. 기존 테스트와 직접 API 사용이 그대로 동작하게 하려는 것이다. 이 규칙은 스테이지 쪽에만 해당한다. 임무 자체(홈 배너, 브리핑, 임무 전투의 열·기능)는 어느 경우든 스토리 진행을 따른다.
 
 홈의 여정 초기화(`RestartJourney`)는 스토리 진행을 지우지 않는다. 연 기능은 그대로이고 스테이지만 처음으로 돌아가므로, 다음 임무가 기다리는 스테이지는 다시 깨야 한다.
 
@@ -121,6 +124,7 @@
 - Runtime `Prologue/MissionGuide`: 새 단계 `Breathe`·`Dodge`·`Pressure`·`Cycle`. `AllowsBreath`, `AllowsCycle`, `AllowsStep(action)`, `NotifyBreathed`, `NotifyCycled`, `NotifyStepped`. `Dodge`/`Pressure`는 다음 턴이 시작돼도 넘어간다.
 - Runtime `Campaign/CampaignRun`: `Features`(기본 `All`), `StageLimit`(기본 제한 없음), `SetProgression`/`ClearProgression`(`Reset`이 지우지 않는다), `IsLaneOpen`, `IsStageWaitingForMission`. 스테이지 입장은 `StageLimit`을 보고, `CreateDuel`은 `Features`를 넘기며, 닫힌 열의 편성 변경은 거부한다. `IsCurriculumOpen`(= `OpensCurriculum(Features)`, 세 열이 모두 열렸는지)이 거짓이면 커리큘럼 선택·초기화를 거부하고 `TryCompleteBattle`이 커리큘럼을 세지 않는다.
 - Runtime `Campaign/BattleResult`: `CurriculumOpen`(생성자의 마지막 인자, 기본 참). 닫힌 커리큘럼에 진행을 넣으면 생성자가 거부한다.
+- 맞물림(2026-10-08): `CampaignRun.CreateDuel(seed, meshPercent)`와 `PrologueMission.CreateDuel(seed, resolver, meshPercent)`가 맞물림 퍼센트를 전투에 넘긴다(기본 `LegacyMeshing.DefaultPercent` 20, `Meshing.md`). 해금은 `Features`의 열만으로 정해진다. 테스트는 EditMode `MeshingTests.StoryDuels_MeshFromMissionFive_WhereTheSecondLaneOpens`(1~4 임무는 한 열, 5 임무는 맞물림과 코치 문구)와 `MeshingTests.CampaignDuels_TakeThePercent`(Q열만 연 스테이지 전투는 맞물리지 않음).
 - Presentation `DuelPrototypeController`
   - `StoryProgressionEnabled`, `IsNextMissionAvailable`.
   - `IsLaneOpen(lane)`: 닫힌 열의 Q/W/E·1/2/3은 `ReadPlanningInput`에서 바로 버린다.
@@ -135,6 +139,6 @@
   - `BattleResultHud.Show(result, missionExitsToLobby, storyNotice)`. `result.CurriculumOpen`이 거짓이면 `Result Curriculum Panel`을 숨기고 카드를 114만큼 줄인다.
   - `LegacyCombatHud.SetMissionMode(enabled, timed, breath)`: 숨고르기 버튼은 전투가 허용하고, 임무라면 그 임무가 열었고, 코치가 허용할 때만 보인다. 넘기기 버튼은 전투가 허용하고 코치가 허용할 때 보인다.
   - `LegacyCombatHud`의 열 배치(`LegacyCombatHud.SkillGears.cs`): `Refresh`가 `LayoutGears(session.Features)`를 부르고, 열린 열 묶음(또는 톱니 튜닝)이 지난번과 다를 때만 `LegacySkillGear.LaneX`로 톱니와 `Current X`/`Next X`/`Used X`를 옮기고, 사이 톱니를 두 톱니 사이에 맞물리게 놓고, 넘기기 `Effect`를 고친다. 닫힌 열의 오브젝트는 이름 그대로 남아 비활성이다. 적 설명의 표식은 `EnemySkillCaption`.
-  - `DuelStepHud.Refresh(..., features)`와 `KeyHintFor`.
+  - `DuelStepHud.Refresh(..., features)`와 `KeyHintFor`, 맞물린 칸의 `MeshedHintFor`(압박이 열리기 전에는 `맞물린 기술 · 회피 없음`).
   - `CampaignLoadoutHud`: 열린 열만 만들고 한 화면에 모으며, 보유 목록도 열린 열의 미편성 기술로만 채운다. `CampaignCurriculumHud`의 닫힌 열 안내(`  ·  W열은 임무로 열림`)는 남겨 두었지만, 세 열이 모두 열려야 커리큘럼이 생기므로 게임에서는 나오지 않는다. 열이 닫힌 진행으로 `CampaignCurriculumHud`를 직접 만들 때만 보인다.
 - 테스트: EditMode `StoryUnlockTests`(커리큘럼이 열리는 때와 닫힌 동안의 규칙), `BattleResultTests`. PlayMode `MissionUnlockFlowPlayModeTests`(Q만·Q+E·임무 8 뒤의 로비·편성·결과·타이틀 요약, 전투 열 위치), `CampaignLoadoutHudPlayModeTests`, `CampaignLobbyHudPlayModeTests`, `ResultMissionHudPlayModeTests`, `BattleResultMissionFlowPlayModeTests`.

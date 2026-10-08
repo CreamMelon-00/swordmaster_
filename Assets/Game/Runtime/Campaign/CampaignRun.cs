@@ -418,7 +418,9 @@ namespace TurnLimbo.Runtime.Campaign
             return true;
         }
 
-        public LegacyQueuedDuel CreateDuel(int randomSeed = 1)
+        /// <param name="meshPercent">맞물림's power percent per chained skill for this duel
+        /// (<see cref="LegacyQueuedDuel.MeshPercent"/>); 0 switches it off.</param>
+        public LegacyQueuedDuel CreateDuel(int randomSeed = 1, int meshPercent = LegacyMeshing.DefaultPercent)
         {
             CurriculumStatReward stats = CurriculumStats;
             var playerSkills = new LegacySkill[EquippedSkillCount];
@@ -430,7 +432,7 @@ namespace TurnLimbo.Runtime.Campaign
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                     TrainingDummyHealth, 0, playerSkills, Array.Empty<LegacySkill>(), new[] { 0 }, randomSeed,
                     features: Features, playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity,
-                    roundLimit: TrainingRoundLimit);
+                    roundLimit: TrainingRoundLimit, meshPercent: meshPercent);
 
             LegacyCounter enemyCounter = CurrentStage.EnemyCounterBasis == null ? null
                 : new LegacyCounter(WithStagePower(CurrentStage.EnemyCounterBasis), CurrentStage.EnemyCountersPerTurn);
@@ -441,14 +443,14 @@ namespace TurnLimbo.Runtime.Campaign
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                     CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills,
                     script.Select(WithStagePower), randomSeed, enemyCounter: enemyCounter, features: Features,
-                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity);
+                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
             // The basic rhythm: the six basic skills in order, 2→3→2→1 actions a turn.
             var enemySkills = new LegacySkill[BasicRhythmSkillIds.Length];
             for (int i = 0; i < enemySkills.Length; i++) enemySkills[i] = WithStagePower(LegacySkillDefinitions.Skill(BasicRhythmSkillIds[i]));
             return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                 CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills, enemySkills,
                 new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter, features: Features,
-                playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity);
+                playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
         }
 
         private LegacySkill WithStagePower(LegacySkill basis)

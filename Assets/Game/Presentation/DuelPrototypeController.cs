@@ -92,6 +92,9 @@ namespace TurnLimbo.Presentation
         // on screen (after the start card).
         private DuelGearShimmer gearShimmer;
         private bool enemyQueueRevealPending;
+        // 맞물림's cues: the gears biting in the player's queue row as a chain forms, and their flash at a meshed slot's
+        // first hit.
+        private DuelMeshCues meshCues;
         // The battle's start card holds it from the attempt's start to its first planning turn. A retry from the result
         // gets the short one; keys of the frame that put it up belong to the screen before.
         private DuelStartCard startCard;
@@ -175,6 +178,12 @@ namespace TurnLimbo.Presentation
         public DuelBarks Barks => barks;
         /// <summary>엘리사's eye: a brass gear and a glint over the enemy's queue as each planning turn reveals it.</summary>
         public DuelGearShimmer GearShimmer => gearShimmer;
+        /// <summary>맞물림's cues: gears and sparks on the seam as queueing makes or lengthens a chain, and their flash at a
+        /// meshed slot's first hit, where the step rings would have been.</summary>
+        public DuelMeshCues MeshCues => meshCues;
+        /// <summary>맞물림's percent every duel this controller makes is given
+        /// (<see cref="DuelPresentationSettings.MeshPercent"/>; 0 switches it off).</summary>
+        public int MeshPercent => presentationSettings != null ? presentationSettings.MeshPercent : LegacyMeshing.DefaultPercent;
         /// <summary>The start card that opens a battle: the two fighters' silhouettes and names, crossed swords between them.</summary>
         public DuelStartCard StartCard => startCard;
         /// <summary>Whether the battle's start card is up: it holds the battle until it has played or is skipped.</summary>
@@ -311,6 +320,7 @@ namespace TurnLimbo.Presentation
             finale = new DuelFinale(transform, arena, amount => FadeDuelOverlays(amount));
             empowermentCues = new DuelEmpowermentCues(transform, arena, () => presentationSettings);
             gearShimmer = new DuelGearShimmer(hud, () => presentationSettings);
+            meshCues = new DuelMeshCues(hud, () => presentationSettings);
             barks = new DuelBarks(hud, art.UIFont, () => presentationSettings);
             startCard = new DuelStartCard(transform, art, () => SkipStartCard());
             forestAmbience = new DuelForestAmbience(transform, () => presentationSettings);
@@ -332,7 +342,7 @@ namespace TurnLimbo.Presentation
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
             titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite);
             saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
-            session = campaign.CreateDuel(System.Environment.TickCount);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
             lobbyHud.ResetView();
             ShowTitle();
@@ -640,7 +650,9 @@ namespace TurnLimbo.Presentation
             float clipDuration = OriginalClipDuration / slotPlaybackSpeed;
             slotImpactTime = OriginalAttackEventTime / slotPlaybackSpeed;
             slotCycleDuration = clipDuration + slotAttackInterval;
-            slotAnticipationDuration = StepFeatures.AllowsAnyStep() ? presentationSettings.StepAnticipationDuration : 0f;
+            // The windup is the steps' warning; a meshed slot (맞물림) takes no steps, so it strikes without one.
+            slotAnticipationDuration = StepFeatures.AllowsAnyStep() && !slot.PlayerMesh.IsMeshed
+                ? presentationSettings.StepAnticipationDuration : 0f;
             slotStepWindow = presentationSettings.StepTimingWindow;
             slotStepWindowDecay = presentationSettings.StepWindowDecay;
             slotStepMinimumWindow = presentationSettings.StepMinimumWindow;
@@ -702,6 +714,8 @@ namespace TurnLimbo.Presentation
                 bool playerWasBroken = session.Player.IsResistanceBroken;
                 bool enemyWasBroken = session.Enemy.IsResistanceBroken;
                 LegacyHitResult hit = session.ResolveNextHit();
+                // 맞물림: the meshed slot's gears flash at the player as its first hit lands, where the rings would have been.
+                if (hit.HitIndex == 0) meshCues.ShowSlotFlash(hit.PlayerMesh);
                 if (hit.HitIndex == 0 && slotStartDeferred)
                 {
                     // The slot's initial effects waited for the counter decision; report them now,
@@ -1027,6 +1041,8 @@ namespace TurnLimbo.Presentation
             guide?.NotifyQueued(lane);
             // The lane's gear turns a slot: the queued skill to the upper right, the next one up into the window.
             hud.PlayLaneTurn(lane);
+            // 맞물림: when it made or lengthened a chain, gears bite on the seam in the queue row, with sparks and a sound.
+            meshCues.Queued(session);
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             explainedSkill = null;
@@ -1117,7 +1133,7 @@ namespace TurnLimbo.Presentation
             ClearMissionState();
             campaign.Reset();
             SyncStoryProgression();
-            session = campaign.CreateDuel(System.Environment.TickCount);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
             lobbyHud.ResetView();
             ShowLobby();
@@ -1132,7 +1148,7 @@ namespace TurnLimbo.Presentation
             campaign.Reset();
             prologue.Reset();
             SyncStoryProgression();
-            session = campaign.CreateDuel(System.Environment.TickCount);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
             // A new story remembers only the lessons it teaches again.
             recallAlbum.Clear();
@@ -1180,7 +1196,7 @@ namespace TurnLimbo.Presentation
             StoryProgressionEnabled = true;
             StartCardsEnabled = true;
             SyncStoryProgression();
-            session = campaign.CreateDuel(System.Environment.TickCount);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
             lobbyHud.ResetView();
             ShowBriefing();
@@ -1764,7 +1780,7 @@ namespace TurnLimbo.Presentation
         public bool StartTraining()
         {
             if (!IsInLobby || !campaign.TryStartTraining()) return false;
-            session = campaign.CreateDuel(System.Environment.TickCount);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
             return true;
         }
@@ -2085,7 +2101,7 @@ namespace TurnLimbo.Presentation
             mission = next;
             guide = next.CreateGuide();
             session = next.CreateDuel(System.Environment.TickCount,
-                skill => campaign.GetOwnedSkill(skill.Id)?.Skill);
+                skill => campaign.GetOwnedSkill(skill.Id)?.Skill, MeshPercent);
             ResetBattlePresentation(carryIntroPositions ? playerOpeningX : (float?)null,
                 carryIntroPositions ? enemyOpeningX : (float?)null);
         }
@@ -2164,7 +2180,7 @@ namespace TurnLimbo.Presentation
 
         private void StartStageBattle()
         {
-            session = campaign.CreateDuel(System.Environment.TickCount);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
         }
 
@@ -2320,6 +2336,7 @@ namespace TurnLimbo.Presentation
             empowermentCues.Clear();
             barks.End();
             gearShimmer.Clear();
+            meshCues.Clear();
             enemyQueueRevealPending = false;
         }
 
@@ -2392,10 +2409,11 @@ namespace TurnLimbo.Presentation
             // On real time, over the head HUDs as just laid out.
             barks.Tick(realDelta);
             gearShimmer.Tick(realDelta);
+            meshCues.Tick(realDelta, arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.Refresh(CanStep, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,
                 StepWindowFraction, session.UsedStepThisTurn, session.StepAttemptsThisTurn, session.StepMissedThisTurn,
-                StepFeatures, session.StepSuccessStreak);
+                StepFeatures, session.StepSuccessStreak, session.IsCurrentSlotMeshed);
             resistanceFeedback.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
             // Reproject after the arena's pose and camera update without advancing the cue a second time.
@@ -2456,6 +2474,7 @@ namespace TurnLimbo.Presentation
             empowermentCues?.Dispose();
             barks?.Dispose();
             gearShimmer?.Dispose();
+            meshCues?.Dispose();
             forestAmbience?.Dispose();
             hud?.Dispose();
             arena?.Dispose();

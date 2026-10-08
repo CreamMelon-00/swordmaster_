@@ -4,7 +4,8 @@ using UnityEngine;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Persistent authoring values; runtime state and combat rules never live in this asset.</summary>
+    /// <summary>Persistent authoring values; runtime state and combat rules never live in this asset, but for one rule value
+    /// the game passes into every new duel: 맞물림's percent (<see cref="MeshPercent"/>; the rule itself stays in Runtime).</summary>
     [CreateAssetMenu(menuName = "Turn Limbo/Presentation Settings", fileName = "DuelPresentationSettings")]
     public sealed class DuelPresentationSettings : ScriptableObject
     {
@@ -143,6 +144,22 @@ namespace TurnLimbo.Presentation
         private float gearTickVolume = LegacySkillGear.DefaultTickVolume;
         [SerializeField, Range(0f, 1f), Tooltip("넘기기로 톱니들이 함께 돌 때의 드르륵 소리(Resources/Sfx/gear-ratchet) 음량. 0이면 끕니다.")]
         private float gearRatchetVolume = LegacySkillGear.DefaultRatchetVolume;
+
+        [Header("맞물림 — 위력은 다음 전투부터, 연출은 다음 물림부터 적용 (Docs/Meshing.md)")]
+        [SerializeField, Range(0, 100), Tooltip("맞물림 사슬의 기술 하나가 사슬 길이마다 받는 위력(%). 길이 N인 사슬의 기술은 모두 N배를 받습니다(20이면 사슬 2는 +40%, 사슬 3은 +60%). 연출 값이 아니라 전투 규칙 값으로, 새 전투(임무·스테이지·수련)를 만들 때 넘깁니다. 0이면 맞물림이 꺼져 아무것도 맞물리지 않고 스텝도 막지 않습니다.")]
+        private int meshPercent = LegacyMeshing.DefaultPercent;
+        [SerializeField, Range(0f, 1.5f), Tooltip("예약으로 사슬이 생기거나 길어질 때, 플레이어 대기열의 두 아이콘 사이에서 작은 놋쇠 톱니 한 쌍이 맞물려 돌고 불꽃이 튀는 시간(실제 초). 0이면 끕니다. 아이콘 아래의 톱니 표시와 '+40%'는 그대로 남습니다.")]
+        private float meshBurstSeconds = LegacyMeshCue.DefaultBurstSeconds;
+        [SerializeField, Range(16f, 48f), Tooltip("대기열에서 맞물리는 톱니 하나의 지름(HUD 단위, 1920x1080 기준). 아이콘 칸은 64입니다. 사슬이 길수록 조금 더 커집니다.")]
+        private float meshGearSize = LegacyMeshCue.DefaultGearSize;
+        [SerializeField, Range(0, 24), Tooltip("사슬 2일 때 튀는 불꽃 수. 사슬이 하나 길어질 때마다 4개씩 늘고(최대 40) 불꽃이 닿는 거리도 조금 늘어납니다. 첫 타격의 톱니 섬광도 같은 수를 씁니다. 0이면 불꽃을 끕니다.")]
+        private int meshSparkCount = LegacyMeshCue.DefaultSparkCount;
+        [SerializeField, Range(0f, 1f), Tooltip("톱니가 맞물리는 소리(Resources/Sfx/mesh-spark) 음량. 사슬이 길수록 조금 높게 납니다. 맞물린 칸의 첫 타격에는 이 음량의 절반으로 한 번 더 납니다. 0이면 끕니다.")]
+        private float meshSoundVolume = LegacyMeshCue.DefaultVolume;
+        [SerializeField, Range(0f, 1.5f), Tooltip("맞물린 칸의 첫 타격에 엘리사의 몸 앞에서 톱니 한 쌍이 번쩍이며 도는 시간(실제 초). 그 칸에는 스텝 원 대신 이것이 뜹니다. 0이면 끕니다.")]
+        private float meshFlashSeconds = LegacyMeshCue.DefaultFlashSeconds;
+        [SerializeField, Range(32f, 160f), Tooltip("첫 타격의 톱니 섬광에서 톱니 하나의 지름(HUD 단위). 불꽃은 이 크기에 맞춰 멀리 튑니다.")]
+        private float meshFlashSize = LegacyMeshCue.DefaultFlashSize;
 
         [Header("길게 눌러 기술 설명 — 실행 중 즉시 적용 (Q/W/E 키·톱니 창 누르기)")]
         [SerializeField, Range(.05f, .5f), Tooltip("Q/W/E(또는 톱니 창)를 누른 지 이 시간(실제 초) 안에 떼면 짧게 누른 것으로 보고 그 열의 기술을 예약합니다. 더 오래 누르다 떼면 예약하지 않습니다.")]
@@ -310,6 +327,19 @@ namespace TurnLimbo.Presentation
         /// <summary>The gears' sounds: a queue's tick and 넘기기's ratchet (0..1; 0 is silent).</summary>
         public float GearTickVolume => Safe(gearTickVolume, 0f, 1f, LegacySkillGear.DefaultTickVolume);
         public float GearRatchetVolume => Safe(gearRatchetVolume, 0f, 1f, LegacySkillGear.DefaultRatchetVolume);
+        /// <summary>맞물림 (<see cref="LegacyMeshing"/>): the power percent each skill of a chain gains per skill in it, passed
+        /// into every duel the game makes (0..100; 0 switches 맞물림 off). A rule value, the one this asset holds: it applies
+        /// from the next duel.</summary>
+        public int MeshPercent => Mathf.Clamp(meshPercent, 0, 100);
+        /// <summary>맞물림's cues (<see cref="LegacyMeshCue"/>): the queue row's burst (real seconds, 0 off) and its gears' size
+        /// (HUD units), the sparks for a two-skill chain (0 off), the mesh sound's volume, and the first hit's flash (real
+        /// seconds, 0 off) and its gears' size.</summary>
+        public float MeshBurstSeconds => Safe(meshBurstSeconds, 0f, 1.5f, LegacyMeshCue.DefaultBurstSeconds);
+        public float MeshGearSize => Safe(meshGearSize, 16f, 48f, LegacyMeshCue.DefaultGearSize);
+        public int MeshSparkCount => Mathf.Clamp(meshSparkCount, 0, 24);
+        public float MeshSoundVolume => Safe(meshSoundVolume, 0f, 1f, LegacyMeshCue.DefaultVolume);
+        public float MeshFlashSeconds => Safe(meshFlashSeconds, 0f, 1.5f, LegacyMeshCue.DefaultFlashSeconds);
+        public float MeshFlashSize => Safe(meshFlashSize, 32f, 160f, LegacyMeshCue.DefaultFlashSize);
         /// <summary>Holding a lane (<see cref="LegacyLaneHold"/>): the longest press that still queues and when a hold opens the
         /// skill's explanation (real seconds), and the planning clock's pace while the player reads it (0.05..1).</summary>
         public float LaneTapSeconds => Safe(laneTapSeconds, .05f, .5f, LegacyLaneHold.DefaultTapSeconds);
@@ -395,6 +425,9 @@ namespace TurnLimbo.Presentation
             skillGearTurnSeconds = SkillGearTurnSeconds; skillGearShiftSeconds = SkillGearShiftSeconds;
             skillGearRatchetBounce = SkillGearRatchetBounce;
             gearTickVolume = GearTickVolume; gearRatchetVolume = GearRatchetVolume;
+            meshPercent = MeshPercent; meshBurstSeconds = MeshBurstSeconds; meshGearSize = MeshGearSize;
+            meshSparkCount = MeshSparkCount; meshSoundVolume = MeshSoundVolume;
+            meshFlashSeconds = MeshFlashSeconds; meshFlashSize = MeshFlashSize;
             laneTapSeconds = LaneTapSeconds; explanationHoldSeconds = ExplanationHoldSeconds;
             explanationTimeScale = ExplanationTimeScale;
             forestAmbienceVolume = ForestAmbienceVolume; forestAmbienceFadeSeconds = ForestAmbienceFadeSeconds;

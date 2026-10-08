@@ -350,7 +350,10 @@ namespace TurnLimbo.Presentation
 
             playerStatus = BuildStatus(false);
             enemyStatus = BuildStatus(true);
-            playerQueue = new QueueView(Rect("Player Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), true, white, art.UIFont);
+            // 맞물림's marks ride the player's queued cards only; the enemy's queue never meshes.
+            BuildMeshPictures();
+            playerQueue = new QueueView(Rect("Player Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), true, white,
+                art.UIFont, meshGearSprite);
             enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
             guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
 
@@ -379,6 +382,7 @@ namespace TurnLimbo.Presentation
                 ExplanationType(14), TextAnchor.MiddleRight);
             playerExplanationHint.text = "키를 놓으면 닫기"; playerExplanationHint.color = DuelVisualTheme.Ink;
             FitExplanationLabel(playerExplanationHint, ExplanationType(11));
+            BuildMeshNote(explain);
             var enemyExplanationImage = Panel("Enemy Skill Explain", root, new Vector2(-480, 160), new Vector2(460, 368), DuelVisualTheme.Paper);
             Dress(enemyExplanationImage);
             enemyExplanation = enemyExplanationImage.rectTransform;
@@ -703,6 +707,7 @@ namespace TurnLimbo.Presentation
             enemyQueue.SetCounterMarks(counterForecast);
             playerStatus.SetCounter(session.PlayerCounter, session.PlayerCountersRemaining);
             enemyStatus.SetCounter(session.EnemyCounter, session.EnemyCountersRemaining);
+            SetMeshMarks(session);
             playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale);
             enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale);
             UpdateConditionPreview();
@@ -877,13 +882,19 @@ namespace TurnLimbo.Presentation
                 playerStyle.SetLane(skill.LaneIndex);
                 playerExplanationIcon.sprite = iconFor(skill.IconId);
                 playerInfo.SetSkill(skill, owned: owned);
+                UpdateMeshNote(skill);
                 LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
-                    PlayerExplanationScale);
+                    PlayerExplanationScale, playerMeshNote);
             }
             else if (!enemy)
             {
                 if (playerName.text != skill.Name) playerName.text = skill.Name;
                 playerInfo.SetSkill(skill, owned: owned);
+                // 맞물림's note follows the queue, ACT and 넘기기 while the skill is held; the card grows only when the note
+                // comes or goes.
+                if (UpdateMeshNote(skill))
+                    LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
+                        PlayerExplanationScale, playerMeshNote);
             }
             // Clamp after content sizing, including repeated holds at a moving screen edge.
             Vector2 desired = root.rect.size / 2 + new Vector2(-480, 160);
@@ -972,10 +983,13 @@ namespace TurnLimbo.Presentation
         // A type size of the held explanation (PlayerExplanationScale times the enemy's).
         private static int ExplanationType(int points) => Mathf.RoundToInt(points * PlayerExplanationScale);
 
+        /// <param name="note">The held explanation's 맞물림 row over the hint (<see cref="MeshNoteText"/>), taking room only while
+        /// it shows.</param>
         private static void LayoutExplanation(RectTransform panel, Image icon, Text name, SkillLaneBadge style, SkillInfoView info, Text hint,
-            float scale)
+            float scale, RectTransform note = null)
         {
-            float height = (90f + 36f) * scale + info.Height;
+            bool noted = note != null && note.gameObject.activeSelf;
+            float height = (90f + 36f + (noted ? MeshNoteRow : 0f)) * scale + info.Height;
             panel.sizeDelta = new Vector2(panel.sizeDelta.x, height);
             float top = height / 2f;
             icon.rectTransform.anchoredPosition = new Vector2(-146f * scale, top - 50f * scale);
@@ -985,6 +999,7 @@ namespace TurnLimbo.Presentation
             style.Root.anchoredPosition = new Vector2(-30f * scale, top - 65f * scale);
             info.PlaceTop(top - 90f * scale);
             hint.rectTransform.anchoredPosition = new Vector2(0f, -top + 16f * scale);
+            if (note != null) note.anchoredPosition = new Vector2(0f, -top + (16f + MeshNoteRow) * scale);
         }
 
         private static void FitExplanationLabel(Text label, int minSize)
@@ -1150,6 +1165,7 @@ namespace TurnLimbo.Presentation
             displayedSession = null;
             // The next duel may open other lanes, so a skill explained again is shown afresh (its badge may change).
             explainedPlayer = explainedEnemy = null;
+            ResetMeshNote();
             lastPlanning = false;
             shownBreathsRemaining = -1;
             UpdateBreathCount();
@@ -1180,6 +1196,7 @@ namespace TurnLimbo.Presentation
             disposed = true;
             Destroy(root.gameObject);
             ReleaseGearPictures();
+            ReleaseMeshPictures();
             foreach (var icon in hudIcons.Values)
                 if (Application.isPlaying) UnityEngine.Object.Destroy(icon);
                 else UnityEngine.Object.DestroyImmediate(icon);
@@ -1760,13 +1777,21 @@ namespace TurnLimbo.Presentation
             private readonly List<SkillCardFeedbackGraphic> feedback = new List<SkillCardFeedbackGraphic>();
             private readonly List<GameObject> counterMarks = new List<GameObject>();
             private readonly List<int> counterSlots = new List<int>();
+            // 맞물림 (the player's row only): each card's mark and label, the bonus it shows and its pop still to settle, and
+            // the bonus each slot should show.
+            private readonly Sprite meshGear;
+            private readonly List<RectTransform> meshMarks = new List<RectTransform>();
+            private readonly List<Text> meshLabels = new List<Text>();
+            private readonly List<int> shownMeshBonus = new List<int>(), meshBonus = new List<int>();
+            private readonly List<float> meshPop = new List<float>();
             private IReadOnlyList<LegacySkill> displayedQueue;
             private LegacySkill preview;
             private LegacySkillFeedback currentFeedback;
             private int previewSlot = -1, feedbackSlot = -1;
-            public QueueView(RectTransform root, bool player, Sprite white, Font font)
+            /// <param name="meshGear">맞물림's gear for the marks under meshed cards; null for a row that never meshes.</param>
+            public QueueView(RectTransform root, bool player, Sprite white, Font font, Sprite meshGear = null)
             {
-                Root = root; this.player = player; this.white = white; this.font = font;
+                Root = root; this.player = player; this.white = white; this.font = font; this.meshGear = meshGear;
             }
             public void Refresh(IReadOnlyList<LegacySkill> queue, Func<int, Sprite> iconFor, int activeSlot, bool resolving, int selected, float scale)
             {
@@ -1780,6 +1805,7 @@ namespace TurnLimbo.Presentation
                     icons.Add(icon); highlights.Add(highlight);
                     feedback.Add(SkillCardFeedbackGraphic.Create(item, "Skill Condition Feedback", 3f));
                     counterMarks.Add(CreateCounterMark(item));
+                    if (meshGear != null) AddMeshMark(item);
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
@@ -1797,6 +1823,7 @@ namespace TurnLimbo.Presentation
                 }
                 for (int i = 0; i < counterMarks.Count; i++)
                     counterMarks[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && counterSlots.Contains(i));
+                UpdateMeshMarks();
                 Layout(Pitch);
                 UpdateFeedback();
             }
@@ -1881,6 +1908,66 @@ namespace TurnLimbo.Presentation
             public void TickFeedback(float realDelta)
             {
                 foreach (var view in feedback) view.Tick(realDelta);
+                for (int index = 0; index < meshPop.Count; index++)
+                {
+                    if (!(meshPop[index] > 0f)) continue;
+                    meshPop[index] = Mathf.Max(0f, meshPop[index] - Mathf.Max(0f, realDelta));
+                    meshMarks[index].localScale = Vector3.one * LegacyMeshCue.MarkScale(meshPop[index]);
+                }
+            }
+
+            /// <summary>맞물림: the bonus each slot's card should carry (0: not meshed), read from the duel.</summary>
+            public void SetMeshBonuses(List<int> bonuses)
+            {
+                meshBonus.Clear();
+                meshBonus.AddRange(bonuses);
+            }
+
+            /// <summary>The mark under a meshed card (its gear and bonus), or null while that card shows none.</summary>
+            public RectTransform GetMeshMark(int index)
+                => index >= 0 && index < meshMarks.Count && meshMarks[index].gameObject.activeInHierarchy ? meshMarks[index] : null;
+
+            public string GetMeshLabel(int index) => GetMeshMark(index) != null ? meshLabels[index].text : null;
+
+            // A small brass tab over the card's bottom edge (the counter's tab is over its top): a gear and the chain's bonus,
+            // readable on the row without opening anything.
+            private void AddMeshMark(RectTransform item)
+            {
+                var badge = Image("Mesh Mark", item, white, new Vector2(0f, -30f), new Vector2(56f, 17f),
+                    new Color(Accent.r, Accent.g, Accent.b, .95f));
+                Image("Mesh Gear", badge.transform, meshGear, new Vector2(-18f, 0f), Vector2.one * 13f, DuelVisualTheme.Ink);
+                var label = Rect("Label", badge.transform, new Vector2(6f, 0f), new Vector2(40f, 17f), Vector2.one * .5f)
+                    .gameObject.AddComponent<Text>();
+                label.font = font;
+                label.fontSize = 12;
+                label.fontStyle = FontStyle.Bold;
+                label.alignment = TextAnchor.MiddleCenter;
+                label.horizontalOverflow = HorizontalWrapMode.Overflow;
+                label.supportRichText = false;
+                label.raycastTarget = false;
+                label.color = DuelVisualTheme.Ink;
+                badge.gameObject.SetActive(false);
+                meshMarks.Add(badge.rectTransform);
+                meshLabels.Add(label);
+                shownMeshBonus.Add(0);
+                meshPop.Add(0f);
+            }
+
+            // Each shown card carries its slot's bonus; a mark that appears or rises pops, so a chain growing reads at once.
+            private void UpdateMeshMarks()
+            {
+                for (int index = 0; index < meshMarks.Count; index++)
+                {
+                    bool visible = icons[index].transform.parent.gameObject.activeSelf;
+                    int bonus = visible && index < meshBonus.Count ? meshBonus[index] : 0;
+                    if (bonus == shownMeshBonus[index]) continue;
+                    if (bonus > shownMeshBonus[index]) meshPop[index] = LegacyMeshCue.MarkPopSeconds;
+                    else if (bonus == 0) meshPop[index] = 0f;
+                    shownMeshBonus[index] = bonus;
+                    meshLabels[index].text = LegacyMeshCue.BonusLabel(bonus);
+                    meshMarks[index].localScale = Vector3.one * LegacyMeshCue.MarkScale(meshPop[index]);
+                    meshMarks[index].gameObject.SetActive(bonus > 0);
+                }
             }
             public void Clear()
             {
@@ -1896,6 +1983,14 @@ namespace TurnLimbo.Presentation
                 foreach (var view in feedback) view.Clear();
                 foreach (var icon in icons) icon.transform.parent.gameObject.SetActive(false);
                 foreach (var mark in counterMarks) mark.SetActive(false);
+                meshBonus.Clear();
+                for (int index = 0; index < meshMarks.Count; index++)
+                {
+                    shownMeshBonus[index] = 0;
+                    meshPop[index] = 0f;
+                    meshMarks[index].localScale = Vector3.one;
+                    meshMarks[index].gameObject.SetActive(false);
+                }
             }
             public RectTransform GetAnchor(int index)
             {

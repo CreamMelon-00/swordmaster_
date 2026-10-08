@@ -194,6 +194,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool PlayerCountered { get; internal set; }
         /// <summary>The enemy's counter fills its empty slot; <see cref="EnemySkill"/> is that counter.</summary>
         public bool EnemyCountered { get; internal set; }
+        /// <summary>맞물림 for the player's queued skill in this slot: when meshed, its power carries the chain's bonus
+        /// (<see cref="LegacyMeshSlot.BonusPercent"/>, beside <see cref="LegacySkillFeedback.PowerBuffPercent"/>) and the
+        /// slot takes no steps. A counter in an empty slot never meshes.</summary>
+        public LegacyMeshSlot PlayerMesh { get; internal set; }
         public LegacySkillFeedback PlayerFeedback { get; internal set; } = LegacySkillFeedback.None;
         public LegacySkillFeedback EnemyFeedback { get; internal set; } = LegacySkillFeedback.None;
         internal int PlayerPower { get; set; }
@@ -237,6 +241,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyReachedHealthThreshold = enemyReachedHealthThreshold;
             PlayerAttackConditionMet = playerAttackConditionMet;
             EnemyAttackConditionMet = enemyAttackConditionMet;
+            PlayerMesh = slot.PlayerMesh;
         }
 
         public int SlotIndex { get; }
@@ -267,5 +272,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The enemy's attack at this hit met its technique's 상대 상태 조건 against the player as it landed
         /// (never for a dodged hit), so its 조건 피해 배율 multiplied whatever health damage it dealt.</summary>
         public bool EnemyAttackConditionMet { get; }
+        /// <summary>맞물림 for the slot this hit belongs to (<see cref="LegacyCurrentSlot.PlayerMesh"/>).</summary>
+        public LegacyMeshSlot PlayerMesh { get; }
     }
 }
