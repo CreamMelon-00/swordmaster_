@@ -164,12 +164,36 @@ namespace TurnLimbo.Presentation
         {
             TextAsset sheet = Resources.Load<TextAsset>(LegacySkillDefinitions.SheetResourcePath);
             if (sheet == null) throw new InvalidOperationException("The online versus skill sheet is missing.");
+            return ComputeRulesHashForContent(sheet.bytes, Application.version);
+        }
+
+        /// <summary>
+        /// Hashes the skill sheet's UTF-8 bytes after normalizing line endings. Git may check out the
+        /// same CSV with LF, CRLF, or mixed endings on different machines.
+        /// </summary>
+        public static string ComputeRulesHashForContent(byte[] content, string applicationVersion)
+        {
+            if (content == null) throw new ArgumentNullException(nameof(content));
+            if (applicationVersion == null) throw new ArgumentNullException(nameof(applicationVersion));
+
+            byte[] normalized = new byte[content.Length];
+            int length = 0;
+            for (int i = 0; i < content.Length; i++)
+            {
+                byte value = content[i];
+                if (value == '\r')
+                {
+                    normalized[length++] = (byte)'\n';
+                    if (i + 1 < content.Length && content[i + 1] == '\n') i++;
+                }
+                else normalized[length++] = value;
+            }
+
             ulong hash = Offset;
             AddString(ref hash, CombatRulesVersion);
-            AddString(ref hash, Application.version);
-            byte[] bytes = sheet.bytes;
-            AddInt(ref hash, bytes.Length);
-            for (int i = 0; i < bytes.Length; i++) AddByte(ref hash, bytes[i]);
+            AddString(ref hash, applicationVersion);
+            AddInt(ref hash, length);
+            for (int i = 0; i < length; i++) AddByte(ref hash, normalized[i]);
             return hash.ToString("x16");
         }
 

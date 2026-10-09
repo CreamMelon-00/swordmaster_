@@ -93,6 +93,28 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [Test]
+        public void RulesHash_TreatsLfCrLfAndMixedLineEndingsAsSameContent()
+        {
+            const string lf = "id,name\n1,가\n2,나\n";
+            const string crlf = "id,name\r\n1,가\r\n2,나\r\n";
+            const string mixed = "id,name\r\n1,가\n2,나\r";
+            byte[] lfBytes = System.Text.Encoding.UTF8.GetBytes(lf);
+            string expected = OnlineVersusProtocol.ComputeRulesHashForContent(lfBytes, "1.0");
+
+            Assert.That(OnlineVersusProtocol.ComputeRulesHashForContent(
+                System.Text.Encoding.UTF8.GetBytes(crlf), "1.0"), Is.EqualTo(expected));
+            Assert.That(OnlineVersusProtocol.ComputeRulesHashForContent(
+                System.Text.Encoding.UTF8.GetBytes(mixed), "1.0"), Is.EqualTo(expected));
+            Assert.That(expected, Is.EqualTo(ReferenceRulesHash(lfBytes, "1.0",
+                OnlineVersusProtocol.CombatRulesVersion)));
+            Assert.That(OnlineVersusProtocol.ComputeRulesHashForContent(
+                System.Text.Encoding.UTF8.GetBytes("id,name\n1,가\n2,다\n"), "1.0"),
+                Is.Not.EqualTo(expected));
+            Assert.That(OnlineVersusProtocol.ComputeRulesHashForContent(lfBytes, "1.1"),
+                Is.Not.EqualTo(expected));
+        }
+
+        [Test]
         public void StateHash_IsDeterministicAndChangesAfterPublicActions()
         {
             var left = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All, randomSeed: 37);
@@ -140,8 +162,10 @@ namespace TurnLimbo.Presentation.Tests
             }
             String(combatVersion);
             String(gameVersion);
-            Integer(sheet.Length);
-            foreach (byte item in sheet) Byte(item);
+            byte[] normalized = System.Text.Encoding.UTF8.GetBytes(
+                System.Text.Encoding.UTF8.GetString(sheet).Replace("\r\n", "\n").Replace("\r", "\n"));
+            Integer(normalized.Length);
+            foreach (byte item in normalized) Byte(item);
             return hash.ToString("x16");
         }
 
