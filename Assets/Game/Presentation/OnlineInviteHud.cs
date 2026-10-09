@@ -40,7 +40,7 @@ namespace TurnLimbo.Presentation
         private readonly InputField codeInput;
         private readonly Text codeDisplay, copyCaption, connectionLabel, localReadyLabel, remoteReadyLabel;
         private readonly Text messageLabel;
-        private readonly Button createButton, joinButton, copyButton, readyButton, startButton, leaveButton;
+        private readonly Button createButton, joinButton, copyButton, configureButton, readyButton, startButton, leaveButton;
         private readonly Action create, ready, start, leave;
         private readonly Action<string> join;
         private OnlineInviteView view;
@@ -53,7 +53,9 @@ namespace TurnLimbo.Presentation
         public Button CreateButton => createButton;
         public Button JoinButton => joinButton;
         public Button CopyButton => copyButton;
+        public Button ConfigureButton => configureButton;
         public Button ReadyButton => readyButton;
+        public Action ConfigureSkills { get; set; }
         public Button StartButton => startButton;
         public Button LeaveButton => leaveButton;
 
@@ -153,11 +155,14 @@ namespace TurnLimbo.Presentation
                 new Vector2(-223f, -82f), new Vector2(380f, 38f), 22, DuelVisualTheme.Muted);
             remoteReadyLabel = Label("Invite Remote Ready", lobbyCard.transform,
                 new Vector2(223f, -82f), new Vector2(380f, 38f), 22, DuelVisualTheme.Muted);
+            configureButton = ActionButton("Invite Configure Skills", lobbyCard.transform,
+                new Vector2(-302f, -144f), new Vector2(220f, 56f),
+                "기술 편성", () => ConfigureSkills?.Invoke());
             readyButton = ActionButton("Invite Ready", lobbyCard.transform,
-                new Vector2(-155f, -144f), new Vector2(262f, 56f),
+                new Vector2(0f, -144f), new Vector2(220f, 56f),
                 "준비", () => this.ready?.Invoke(), true);
             startButton = ActionButton("Invite Start", lobbyCard.transform,
-                new Vector2(155f, -144f), new Vector2(262f, 56f),
+                new Vector2(302f, -144f), new Vector2(220f, 56f),
                 "대전 시작", () => this.start?.Invoke(), true);
 
             messageLabel = Label("Invite Message", card.transform,
@@ -211,6 +216,8 @@ namespace TurnLimbo.Presentation
             localReadyLabel.color = view.LocalReady ? DuelVisualTheme.Accent : DuelVisualTheme.Muted;
             remoteReadyLabel.color = view.PeerConnected && view.RemoteReady
                 ? DuelVisualTheme.Accent : DuelVisualTheme.Muted;
+            configureButton.gameObject.SetActive(lobby);
+            configureButton.interactable = lobby && !view.LocalReady && !view.Busy;
             readyButton.gameObject.SetActive(lobby);
             readyButton.interactable = lobby && view.PeerConnected && !view.LocalReady && !view.Busy;
             startButton.gameObject.SetActive(lobby && view.Host);
@@ -295,6 +302,7 @@ namespace TurnLimbo.Presentation
             createButton.onClick.RemoveAllListeners();
             joinButton.onClick.RemoveAllListeners();
             copyButton.onClick.RemoveAllListeners();
+            configureButton.onClick.RemoveAllListeners();
             readyButton.onClick.RemoveAllListeners();
             startButton.onClick.RemoveAllListeners();
             leaveButton.onClick.RemoveAllListeners();

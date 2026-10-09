@@ -37,12 +37,13 @@ namespace TurnLimbo.Presentation.Tests
         {
             yield return null;
             var host = new GameObject("Online Invite Test Host");
-            int creates = 0, readies = 0, starts = 0, leaves = 0;
+            int creates = 0, configures = 0, readies = 0, starts = 0, leaves = 0;
             string joined = null;
             using (var art = new LegacyDuelArt())
             using (var hud = new OnlineInviteHud(host.transform, art,
                 () => creates++, code => joined = code, () => readies++, () => starts++, () => leaves++))
             {
+                hud.ConfigureSkills = () => configures++;
                 hud.Show();
                 Assert.That(hud.IsVisible, Is.True);
                 Assert.That(hud.CreateButton.interactable, Is.True);
@@ -68,6 +69,9 @@ namespace TurnLimbo.Presentation.Tests
                 });
                 Assert.That(Label(hud.Root, "Invite Code Display").text, Is.EqualTo("AB12CD"));
                 Assert.That(hud.CopyButton.gameObject.activeSelf, Is.True);
+                Assert.That(hud.ConfigureButton.interactable, Is.True);
+                hud.ConfigureButton.onClick.Invoke();
+                Assert.That(configures, Is.EqualTo(1));
                 Assert.That(hud.ReadyButton.interactable, Is.False);
                 Assert.That(hud.StartButton.interactable, Is.False);
                 hud.CopyButton.onClick.Invoke();
@@ -95,6 +99,7 @@ namespace TurnLimbo.Presentation.Tests
                     LocalReady = true,
                     RemoteReady = true
                 });
+                Assert.That(hud.ConfigureButton.interactable, Is.False);
                 Assert.That(hud.ReadyButton.interactable, Is.False);
                 Assert.That(hud.StartButton.interactable, Is.True);
                 hud.StartButton.onClick.Invoke();

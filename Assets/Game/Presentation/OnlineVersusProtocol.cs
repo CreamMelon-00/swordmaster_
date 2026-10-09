@@ -12,7 +12,7 @@ namespace TurnLimbo.Presentation
     [Serializable]
     public sealed class OnlineVersusMessage
     {
-        public const int CurrentProtocolVersion = 1;
+        public const int CurrentProtocolVersion = 2;
         public const int MaximumPayloadBytes = 4096;
 
         public int ProtocolVersion = CurrentProtocolVersion;
@@ -30,6 +30,8 @@ namespace TurnLimbo.Presentation
         public bool LeftReady;
         public bool RightReady;
         public string RulesHash = string.Empty;
+        public int[] LeftSkillIds = Array.Empty<int>();
+        public int[] RightSkillIds = Array.Empty<int>();
         public string StateHash = string.Empty;
         public string Text = string.Empty;
 
@@ -111,6 +113,15 @@ namespace TurnLimbo.Presentation
                 return Invalid("Identifier or text is too long or contains control characters.", out error);
             if (!ValidHash(RulesHash) || !ValidHash(StateHash))
                 return Invalid("Invalid hash.", out error);
+            if (!ValidLoadoutIds(LeftSkillIds) || !ValidLoadoutIds(RightSkillIds))
+                return Invalid("Invalid skill loadout.", out error);
+            if (Kind == OnlineVersusMessageKind.Start &&
+                (LeftSkillIds == null || LeftSkillIds.Length != VersusLoadout.SkillCount ||
+                 RightSkillIds == null || RightSkillIds.Length != VersusLoadout.SkillCount))
+                return Invalid("Start requires both skill loadouts.", out error);
+            if (Kind == OnlineVersusMessageKind.Ready && Player == 1 && RightReady &&
+                (RightSkillIds == null || RightSkillIds.Length != VersusLoadout.SkillCount))
+                return Invalid("Guest readiness requires a skill loadout.", out error);
             if (RequiresMatchId(Kind) && string.IsNullOrEmpty(MatchId))
                 return Invalid("Match identifier is required.", out error);
             if ((Kind == OnlineVersusMessageKind.Request || Kind == OnlineVersusMessageKind.Applied) &&
@@ -135,6 +146,15 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
+        private static bool ValidLoadoutIds(int[] ids)
+        {
+            if (ids == null || ids.Length == 0) return true;
+            if (ids.Length != VersusLoadout.SkillCount) return false;
+            for (int i = 0; i < ids.Length; i++)
+                if (ids[i] <= 0) return false;
+            return true;
+        }
+
         private static bool ValidHash(string hash)
         {
             if (hash == null) return false;
@@ -156,7 +176,7 @@ namespace TurnLimbo.Presentation
     public static class OnlineVersusProtocol
     {
         // Increment when the combat simulation changes without a corresponding skill-sheet edit.
-        public const string CombatRulesVersion = "local-versus-rules-1";
+        public const string CombatRulesVersion = "local-versus-rules-2";
         private const ulong Offset = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
@@ -237,13 +257,15 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, fighter.Queue.Count);
             for (int i = 0; i < fighter.Queue.Count; i++) AddInt(ref hash, fighter.Queue[i].Id);
 
-            // The initial nine skills are the only roster in this equal-start online mode.
-            var initial = LegacyInitialSkills.All;
-            AddInt(ref hash, initial.Count);
-            for (int i = 0; i < initial.Count; i++)
+            // Include cycle counters for every playable skill so custom versus loadouts
+            // cannot diverge silently when a non-starting cycling skill is used.
+            var definitions = LegacySkillDefinitions.All;
+            AddInt(ref hash, definitions.Count);
+            for (int i = 0; i < definitions.Count; i++)
             {
-                AddInt(ref hash, initial[i].Id);
-                AddInt(ref hash, fighter.CycleUses(initial[i].Id));
+                int id = definitions[i].Skill.Id;
+                AddInt(ref hash, id);
+                AddInt(ref hash, fighter.CycleUses(id));
             }
         }
 

@@ -41,6 +41,32 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [Test]
+        public void ReadyAndStart_RoundTripSeparateOrderedLoadouts()
+        {
+            var left = new VersusLoadout();
+            var right = new VersusLoadout();
+            Assert.That(right.TryPlaceSkill(right.GetSkillId(0, 1), 0, 0), Is.True);
+            Assert.That(right.ExportIds(), Is.Not.EqualTo(left.ExportIds()));
+
+            var ready = new OnlineVersusMessage {
+                Kind = OnlineVersusMessageKind.Ready, Player = 1,
+                RightReady = true, RightSkillIds = right.ExportIds()
+            };
+            Assert.That(OnlineVersusMessage.TryDecode(ready.Encode(), out OnlineVersusMessage readyCopy), Is.True);
+            Assert.That(readyCopy.RightSkillIds, Is.EqualTo(right.ExportIds()));
+
+            var start = new OnlineVersusMessage {
+                Kind = OnlineVersusMessageKind.Start, MatchId = "match_loadout",
+                Seed = 43, OpeningPlayer = 1, RulesHash = OnlineVersusProtocol.ComputeRulesHash(),
+                LeftSkillIds = left.ExportIds(), RightSkillIds = right.ExportIds()
+            };
+            Assert.That(OnlineVersusMessage.TryDecode(start.Encode(), out OnlineVersusMessage startCopy), Is.True);
+            Assert.That(startCopy.LeftSkillIds, Is.EqualTo(left.ExportIds()));
+            Assert.That(startCopy.RightSkillIds, Is.EqualTo(right.ExportIds()));
+            Assert.That(startCopy.LeftSkillIds, Is.Not.EqualTo(startCopy.RightSkillIds));
+        }
+
+        [Test]
         public void Decoder_RejectsMalformedOversizedUnsupportedAndOutOfRangeMessages()
         {
             AssertRejected(string.Empty);
@@ -49,7 +75,7 @@ namespace TurnLimbo.Presentation.Tests
             AssertRejected(new string('x', OnlineVersusMessage.MaximumPayloadBytes + 1));
 
             var invalid = new OnlineVersusMessage { Kind = OnlineVersusMessageKind.Hello };
-            invalid.ProtocolVersion = 2;
+            invalid.ProtocolVersion = OnlineVersusMessage.CurrentProtocolVersion + 1;
             AssertRejected(JsonUtility.ToJson(invalid));
             invalid.ProtocolVersion = OnlineVersusMessage.CurrentProtocolVersion;
             invalid.Kind = (OnlineVersusMessageKind)999;
@@ -74,6 +100,18 @@ namespace TurnLimbo.Presentation.Tests
             invalid.LeftClock = 0f;
             invalid.Round = 21;
             AssertRejected(JsonUtility.ToJson(invalid));
+
+            var missingGuestLoadout = new OnlineVersusMessage {
+                Kind = OnlineVersusMessageKind.Ready, Player = 1, RightReady = true
+            };
+            AssertRejected(JsonUtility.ToJson(missingGuestLoadout));
+            var missingStartLoadouts = new OnlineVersusMessage {
+                Kind = OnlineVersusMessageKind.Start, MatchId = "match"
+            };
+            AssertRejected(JsonUtility.ToJson(missingStartLoadouts));
+            missingStartLoadouts.LeftSkillIds = new[] { 1, 2 };
+            missingStartLoadouts.RightSkillIds = new VersusLoadout().ExportIds();
+            AssertRejected(JsonUtility.ToJson(missingStartLoadouts));
         }
 
         [Test]
@@ -139,6 +177,19 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(right.TryPass(1), Is.True);
             Assert.That(OnlineVersusProtocol.ComputeStateHash(right),
                 Is.EqualTo(OnlineVersusProtocol.ComputeStateHash(left)));
+        }
+
+        [Test]
+        public void StateHash_DistinguishesPlayerLoadoutsBeforeFirstAction()
+        {
+            var left = new VersusLoadout();
+            var alternate = new VersusLoadout();
+            Assert.That(alternate.TryPlaceSkill(alternate.GetSkillId(0, 1), 0, 0), Is.True);
+
+            var defaultMatch = new LocalVersusMatch(left.ToSkills(), left.ToSkills(), randomSeed: 17);
+            var customizedMatch = new LocalVersusMatch(left.ToSkills(), alternate.ToSkills(), randomSeed: 17);
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(customizedMatch),
+                Is.Not.EqualTo(OnlineVersusProtocol.ComputeStateHash(defaultMatch)));
         }
 
         private static string ReferenceRulesHash(byte[] sheet, string gameVersion, string combatVersion)

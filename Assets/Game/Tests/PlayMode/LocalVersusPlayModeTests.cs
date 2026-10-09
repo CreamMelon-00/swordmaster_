@@ -29,8 +29,13 @@ namespace TurnLimbo.Presentation.Tests
                 controller.TitleHud.LocalVersusButton.onClick.Invoke();
                 Assert.That(controller.IsInLocalVersus, Is.True);
                 Assert.That(controller.IsInTitle, Is.False);
-                Assert.That(controller.LocalVersus.Hud.IsVisible, Is.True);
+                Assert.That(controller.LocalVersus.IsPreparing, Is.True);
+                Assert.That(controller.LocalVersus.PreparationHud.IsVisible, Is.True);
                 Assert.That(controller.AutoSaveEnabled, Is.False);
+                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
+                Assert.That(controller.LocalVersus.PreparingPlayer, Is.EqualTo(1));
+                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
+                Assert.That(controller.LocalVersus.Hud.IsVisible, Is.True);
 
                 LocalVersusMatch match = controller.LocalVersus.Match;
                 Assert.That(match.RoundNumber, Is.EqualTo(1));
@@ -89,6 +94,82 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator VersusUsesMirroredElisaForBothFightersAcrossAttackAndReactions()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.StartLocalVersus(), Is.True);
+                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
+                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
+                LegacyArenaView arena = controller.ArenaView;
+                Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.Elisa));
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(arena.PlayerRenderer.sprite));
+                Assert.That(arena.PlayerRenderer.flipX, Is.False);
+                Assert.That(arena.EnemyRenderer.flipX, Is.True);
+
+                var attack = new LegacySkill(991, "검증", 1, 1, 1,
+                    LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, string.Empty);
+                arena.BeginSlot(attack, attack);
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("slash"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("slash"),
+                    "The opposing fighter must keep Elisa's attack frames beyond the first idle frame.");
+
+                arena.PresentHit(true, 0, 1, true, false, 1);
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("poses-block"));
+                arena.PresentHit(true, 2, 0, false, false, 1);
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("poses-hurt"));
+                Assert.That(arena.EnemyRenderer.flipX, Is.True);
+
+                arena.SetEnemyAppearance(EnemyAppearance.CadetA);
+                arena.Reset();
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("cadet-a-idle-frame-"));
+                Assert.That(arena.EnemyRenderer.flipX, Is.False,
+                    "Switching away from versus must restore the normal opposing facing.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator FirstPlayersRewardSkillSelectionReachesMatch_SecondPlayerKeepsDefaultLoadout()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.StartLocalVersus(), Is.True);
+                LocalVersusController versus = controller.LocalVersus;
+                Assert.That(versus.PreparingPlayer, Is.Zero);
+                Assert.That(versus.PreparationHud.IsVisible, Is.True);
+
+                LegacySkill reward = LegacySkillDefinitions.AcquisitionSkills[0];
+                int lane = reward.LaneIndex;
+                string laneLetter = new[] { "Q", "W", "E" }[lane];
+                int replacedId = versus.GetLocalLoadout(0).GetSkillId(lane, 0);
+                int[] secondPlayerDefault = versus.GetLocalLoadout(1).ExportIds();
+
+                ButtonNamed(versus.PreparationHud.Root, "Versus Available Skill " + reward.Id).onClick.Invoke();
+                ButtonNamed(versus.PreparationHud.Root, "Versus Slot " + laneLetter + " 1").onClick.Invoke();
+                Assert.That(versus.GetLocalLoadout(0).GetSkillId(lane, 0), Is.EqualTo(reward.Id));
+                Assert.That(versus.GetLocalLoadout(1).GetSkillId(lane, 0), Is.EqualTo(replacedId));
+
+                versus.PreparationHud.ConfirmButton.onClick.Invoke();
+                Assert.That(versus.PreparingPlayer, Is.EqualTo(1));
+                versus.PreparationHud.ConfirmButton.onClick.Invoke();
+                Assert.That(versus.IsPreparing, Is.False);
+                Assert.That(versus.Match.Left.GetLane(lane)[0].Id, Is.EqualTo(reward.Id));
+                for (int sideLane = 0; sideLane < VersusLoadout.LaneCount; sideLane++)
+                    for (int slot = 0; slot < VersusLoadout.SlotsPerLane; slot++)
+                        Assert.That(versus.Match.Right.GetLane(sideLane)[slot].Id,
+                            Is.EqualTo(secondPlayerDefault[sideLane * VersusLoadout.SlotsPerLane + slot]),
+                            "2P should retain their own default lineup.");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator TwentyEmptyRounds_DrawAndRematchSwitchesOpeningPlayer()
         {
             yield return null;
@@ -98,6 +179,8 @@ namespace TurnLimbo.Presentation.Tests
                 string saveBefore = scope.CreateSaveAndReadText();
                 controller.ShowTitle();
                 Assert.That(controller.StartLocalVersus(), Is.True);
+                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
+                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
 
                 LocalVersusController versus = controller.LocalVersus;
                 LocalVersusMatch first = versus.Match;

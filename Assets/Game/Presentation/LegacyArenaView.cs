@@ -228,6 +228,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Whether the dummy's hurt reaction is playing (it runs on past slot and turn boundaries).</summary>
         public bool IsEnemyHurtPlaying => EnemyIsDummy && enemy.HurtPlaying;
         private bool EnemyIsDummy => enemyAppearance == EnemyAppearance.TrainingDummy;
+        private bool EnemyIsElisa => enemyAppearance == EnemyAppearance.Elisa;
         private EnemyStudentAnimationSet ActiveEnemyAnimations => enemyAppearance == EnemyAppearance.CadetA
             ? cadetAAnimations : enemyAppearance == EnemyAppearance.CadetB ? cadetBAnimations : enemyAnimations;
         public SpriteRenderer EnemyRenderer => enemy.Renderer;
@@ -436,6 +437,8 @@ namespace TurnLimbo.Presentation
             ApplyGrade();
             ResetActor(player, new Vector3(-5f, ActorGroundY, 0f));
             ResetActor(enemy, new Vector3(5f, ActorGroundY, 0f));
+            player.Renderer.flipX = false;
+            enemy.Renderer.flipX = EnemyIsElisa;
             player.LowerAnimationTime = 0f;
             player.LowerTravelActive = player.HasLowerTravelProgress = false;
             player.LastVisualPosition = player.Renderer.transform.localPosition;
@@ -773,6 +776,11 @@ namespace TurnLimbo.Presentation
                 Debug.LogWarning("Training dummy art is missing; the student stands in.");
                 appearance = EnemyAppearance.Student;
             }
+            if (appearance == EnemyAppearance.Elisa && !mobAnimations.HasRequiredAssets)
+            {
+                Debug.LogWarning("Elisa animation resources are incomplete; the student stands in.");
+                appearance = EnemyAppearance.Student;
+            }
             if (appearance == EnemyAppearance.CadetA || appearance == EnemyAppearance.CadetB)
             {
                 EnemyStudentAnimationSet selected = GetOrLoadCadetAnimations(appearance);
@@ -783,6 +791,8 @@ namespace TurnLimbo.Presentation
                 }
             }
             enemyAppearance = appearance;
+            // SwordGirl faces right by default; the opposing fighter faces left.
+            enemy.Renderer.flipX = EnemyIsElisa;
             ResetMovementPose(enemy);
             enemy.HurtPlaying = false;
             enemy.HurtElapsed = enemy.IdleClock = 0f;
@@ -824,6 +834,15 @@ namespace TurnLimbo.Presentation
                 if (player.ReactionIsBlock) player.GuardVariant = player.ReactionVariant;
                 player.ReactionTime = ReactionPoseDuration;
                 SampleActor(player);
+            }
+            else if (target == enemy && EnemyIsElisa && mobAnimations.HasRequiredAssets &&
+                !keepsStrike && (guarded || damage > 0f || fatal))
+            {
+                enemy.ReactionIsBlock = blocks;
+                enemy.ReactionVariant = enemyReactionPoseRandom.Next(MobStudentAnimationSet.ReactionVariationCount);
+                if (blocks) enemy.GuardVariant = enemy.ReactionVariant;
+                enemy.ReactionTime = ReactionPoseDuration;
+                SampleActor(enemy);
             }
             else if (target == enemy && EnemyIsDummy && !keepsStrike && (guarded || damage > 0f || fatal))
             {
@@ -1374,7 +1393,7 @@ namespace TurnLimbo.Presentation
         private void SampleActor(Actor actor)
         {
             bool active = TryGetSkillFrame(actor, out float clipTime);
-            if (actor == player && mobAnimations.HasRequiredAssets)
+            if ((actor == player || actor == enemy && EnemyIsElisa) && mobAnimations.HasRequiredAssets)
             {
                 if (actor.ReactionTime > 0f)
                 {
@@ -1484,8 +1503,10 @@ namespace TurnLimbo.Presentation
 
         private int AttackVariant(Actor actor, int hitIndex)
         {
-            int count = actor == enemy ? (EnemyStudentAnimationSet.AttackKey(actor.Skill.Property, 0) != null
-                ? EnemyStudentAnimationSet.AttackVariationCount : 0) : MobStudentAnimationSet.AttackVariationCount(actor.Skill.Property);
+            int count = actor == enemy && !EnemyIsElisa
+                ? (EnemyStudentAnimationSet.AttackKey(actor.Skill.Property, 0) != null
+                    ? EnemyStudentAnimationSet.AttackVariationCount : 0)
+                : MobStudentAnimationSet.AttackVariationCount(actor.Skill.Property);
             if (count <= 1) return 0;
             // Cache by hit, not by rendered frame. Clock holds/rewinds must keep the same motion.
             if (!actor.AttackVariants.TryGetValue(hitIndex, out int variant))

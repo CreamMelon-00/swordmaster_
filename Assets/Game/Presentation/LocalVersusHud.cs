@@ -9,7 +9,7 @@ using UnityEngine.UI;
 namespace TurnLimbo.Presentation
 {
     /// <summary>The local duel's shared command desk. Match rules and keyboard input stay in the controller.</summary>
-    public sealed class LocalVersusHud : IDisposable
+    public sealed partial class LocalVersusHud : IDisposable
     {
         public const int SortingOrder = 110;
         private readonly LegacyDuelArt art;
@@ -89,6 +89,7 @@ namespace TurnLimbo.Presentation
             var dock = Panel("Versus Command Desk", root, new Vector2(0f, -443f),
                 new Vector2(1290f, 180f), DuelVisualTheme.Surface);
             DuelVisualTheme.DressPanel(dock);
+            commandDock = dock.rectTransform;
             commandHeading = Label("Versus Command Heading", dock.transform,
                 new Vector2(-446f, 65f), new Vector2(300f, 26f), 19,
                 DuelVisualTheme.Accent, TextAnchor.MiddleLeft);
@@ -158,6 +159,7 @@ namespace TurnLimbo.Presentation
             breathDescription.text = "ACT 0\n\n한 박자 쉬어 기술 순서를 조절합니다.";
             breathDescription.gameObject.SetActive(false);
             detailPanel.gameObject.SetActive(false);
+            BuildOnlinePresentation();
 
             var resultVeil = Panel("Versus Result Overlay", root, Vector2.zero, Vector2.zero,
                 new Color(DuelVisualTheme.Track.r, DuelVisualTheme.Track.g, DuelVisualTheme.Track.b, .8f));
@@ -197,13 +199,16 @@ namespace TurnLimbo.Presentation
             exitOverlay.SetActive(false);
         }
 
-        public void Refresh(LocalVersusMatch current, float leftClock, float rightClock, int localPlayer = -1)
+        public void Refresh(LocalVersusMatch current, float leftClock, float rightClock, int localPlayer = -1,
+            bool requestPending = false)
         {
             if (disposed || current == null) return;
             match = current;
             this.leftClock = leftClock;
             this.rightClock = rightClock;
             this.localPlayer = localPlayer >= 0 && localPlayer <= 1 ? localPlayer : -1;
+            this.requestPending = requestPending;
+            ConfigurePresentation(this.localPlayer);
             bool planning = current.Phase == LegacyDuelPhase.Planning && current.CurrentPlanner >= 0;
             bool resolving = current.Phase == LegacyDuelPhase.Resolving;
             roundLabel.text = current.RoundLimit == int.MaxValue ? "제 " + current.RoundNumber + " 턴" : "제 " + current.RoundNumber + " / " + current.RoundLimit + " 턴";
@@ -241,8 +246,9 @@ namespace TurnLimbo.Presentation
                     ? DuelVisualTheme.Danger : DuelVisualTheme.Accent;
                 queues[player].Refresh(fighter.Queue, activeSlot);
             }
+            if (onlineLayout) RefreshOnlinePresentation(current, planning);
 
-            bool canInput = planning && !IsExitConfirming &&
+            bool canInput = planning && !IsExitConfirming && !this.requestPending &&
                 (this.localPlayer < 0 || current.CurrentPlanner == this.localPlayer);
             int active = this.localPlayer >= 0 ? this.localPlayer : planning ? current.CurrentPlanner : 0;
             var currentFighter = current.GetFighter(active);
@@ -261,6 +267,7 @@ namespace TurnLimbo.Presentation
                 laneNames[lane].text = skill?.Name ?? "기술 없음";
                 int cost = skill != null ? currentFighter.EffectiveCost(skill) : 0;
                 laneCosts[lane].text = skill != null ? "ACT " + cost : string.Empty;
+                if (onlineLayout) RefreshOnlineLane(lane, skills, cost);
                 laneButtons[lane].interactable = canInput && skill != null && cost <= currentFighter.Act;
             }
             bool canCycle = false;
@@ -271,8 +278,9 @@ namespace TurnLimbo.Presentation
             breathLabel.text = "숨고르기 " + currentFighter.BreathsRemainingThisTurn +
                 "/" + LocalVersusMatch.MaximumBreathsPerTurn + "\n[S]";
             passButton.interactable = canInput;
-            passLabel.text = planning && this.localPlayer >= 0 && !canInput
-                ? "상대 차례" : planning ? "패스\n[Space]" : "판정 중";
+            passLabel.text = planning && this.localPlayer >= 0 && this.requestPending
+                ? "전송 중" : planning && this.localPlayer >= 0 && !canInput
+                    ? "상대 차례" : planning ? "패스\n[Space]" : "판정 중";
             if (hoveredLane >= 0 || hoveredQueuePlayer >= 0)
             {
                 if (!planning || IsExitConfirming) HideSkillDetail();
@@ -282,9 +290,15 @@ namespace TurnLimbo.Presentation
             resultOverlay.SetActive(current.Outcome != LocalVersusOutcome.InProgress);
             if (current.Outcome == LocalVersusOutcome.InProgress) return;
             resultHeading.text = current.Outcome == LocalVersusOutcome.Draw ? "무승부" :
-                current.Outcome == LocalVersusOutcome.LeftVictory ? "1P 승리" : "2P 승리";
+                this.localPlayer >= 0 ?
+                    (current.Outcome == (this.localPlayer == 0 ? LocalVersusOutcome.LeftVictory :
+                        LocalVersusOutcome.RightVictory) ? "승리" : "패배") :
+                    current.Outcome == LocalVersusOutcome.LeftVictory ? "1P 승리" : "2P 승리";
+            bool lostOnline = this.localPlayer >= 0 && current.Outcome != LocalVersusOutcome.Draw &&
+                current.Outcome != (this.localPlayer == 0 ? LocalVersusOutcome.LeftVictory :
+                    LocalVersusOutcome.RightVictory);
             resultHeading.color = current.Outcome == LocalVersusOutcome.Draw ?
-                DuelVisualTheme.Foreground : DuelVisualTheme.Accent;
+                DuelVisualTheme.Foreground : lostOnline ? DuelVisualTheme.Danger : DuelVisualTheme.Accent;
         }
 
         /// <summary>Opens the active player's front skill information, including its current cost and power.</summary>
@@ -350,7 +364,7 @@ namespace TurnLimbo.Presentation
             exitOverlay.SetActive(!exitOverlay.activeSelf);
             HideSkillDetail();
             ClearSelection();
-            if (match != null) Refresh(match, leftClock, rightClock, localPlayer);
+            if (match != null) Refresh(match, leftClock, rightClock, localPlayer, requestPending);
         }
 
         public void Hide()
@@ -393,9 +407,12 @@ namespace TurnLimbo.Presentation
                 new Vector2(x, 423f), new Vector2(468f, 176f), DuelVisualTheme.Surface);
             DuelVisualTheme.DressPanel(panel);
             statusSurfaces[player] = panel;
+            statusPanels[player] = panel.rectTransform;
             float direction = player == 0 ? 1f : -1f;
-            Label("Versus Player Name", panel.transform, new Vector2(-155f * direction, 65f),
-                new Vector2(110f, 30f), 24, DuelVisualTheme.Foreground).text = (player + 1) + "P";
+            statusNames[player] = Label("Versus Player Name", panel.transform,
+                new Vector2(-155f * direction, 65f),
+                new Vector2(110f, 30f), 24, DuelVisualTheme.Foreground);
+            statusNames[player].text = (player + 1) + "P";
             timeLabels[player] = Label("Versus Player Clock", panel.transform,
                 new Vector2(153f * direction, 65f), new Vector2(122f, 34f), 26, DuelVisualTheme.Accent);
             healthLabels[player] = Label("Versus HP", panel.transform, new Vector2(0f, 28f),
@@ -509,6 +526,11 @@ namespace TurnLimbo.Presentation
             private readonly int player;
             private readonly LegacyDuelArt art;
             private readonly RectTransform root;
+            private readonly Image background;
+            private readonly Text heading;
+            private bool online;
+            private float onlineRoom;
+            public RectTransform Root => root;
             private readonly Action<int, int> showDetail;
             private readonly Action hideDetail;
             private readonly List<Image> cardBorders = new List<Image>();
@@ -525,22 +547,45 @@ namespace TurnLimbo.Presentation
                 root = Panel("Versus " + (player + 1) + "P Queue", parent,
                     new Vector2(player == 0 ? -630f : 630f, -288f),
                     new Vector2(580f, 108f), DuelVisualTheme.Surface).rectTransform;
-                DuelVisualTheme.Frame(root.GetComponent<Image>());
-                Text title = Rect("Queue Heading", root, new Vector2(0f, 40f),
+                background = root.GetComponent<Image>();
+                DuelVisualTheme.Frame(background);
+                heading = Rect("Queue Heading", root, new Vector2(0f, 40f),
                     new Vector2(530f, 26f)).gameObject.AddComponent<Text>();
-                title.font = art.UIFont;
-                title.fontSize = 17;
-                title.color = DuelVisualTheme.Accent;
-                title.alignment = TextAnchor.MiddleLeft;
-                title.raycastTarget = false;
-                title.text = (player + 1) + "P 예약";
+                heading.font = art.UIFont;
+                heading.fontSize = 17;
+                heading.color = DuelVisualTheme.Accent;
+                heading.alignment = TextAnchor.MiddleLeft;
+                heading.raycastTarget = false;
+                heading.text = (player + 1) + "P 예약";
+            }
+
+            public void SetOnline(bool enabled, int localPlayer)
+            {
+                online = enabled;
+                background.enabled = !enabled;
+                Transform trim = root.Find("Brass Trim");
+                if (trim != null) trim.gameObject.SetActive(!enabled);
+                heading.text = enabled ? (player == localPlayer ? "나 예약" : "상대 예약") :
+                    (player + 1) + "P 예약";
+                heading.gameObject.SetActive(!enabled);
+                if (!enabled)
+                    root.anchoredPosition = new Vector2(player == 0 ? -630f : 630f, -288f);
+            }
+
+            public void PositionOnline(Vector2 statusCenter, float halfCanvasWidth)
+            {
+                if (!online) return;
+                root.anchoredPosition = statusCenter + new Vector2(player == 0 ? -266f : 266f, 90f);
+                onlineRoom = player == 0 ? statusCenter.x + halfCanvasWidth - 54f :
+                    halfCanvasWidth - 54f - statusCenter.x;
             }
 
             public void Refresh(IReadOnlyList<LegacySkill> queue, int activeSlot)
             {
                 int count = queue?.Count ?? 0;
                 while (icons.Count < count) AddChip();
-                float pitch = count < 2 ? 54f : Mathf.Min(54f, Room / (count - 1));
+                float room = online ? Mathf.Min(Room, Mathf.Max(54f, onlineRoom)) : Room;
+                float pitch = count < 2 ? 54f : Mathf.Min(54f, room / (count - 1));
                 for (int index = 0; index < icons.Count; index++)
                 {
                     Image icon = icons[index];

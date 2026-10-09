@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
@@ -22,6 +23,8 @@ namespace TurnLimbo.Presentation
         private readonly LegacyArenaView arena;
         private readonly Action exitToTitle;
         private readonly LocalVersusHud hud;
+        private readonly VersusLoadout[] localLoadouts = { new VersusLoadout(), new VersusLoadout() };
+        private readonly VersusLoadoutHud preparationHud;
         private readonly DuelSkillActivationCue activationCue;
         private readonly DuelResistanceFeedback resistanceFeedback;
         private readonly DuelBreakImpactCue breakImpactCue;
@@ -30,6 +33,8 @@ namespace TurnLimbo.Presentation
         private readonly GameObject audioRoot;
         private readonly float[] clocks = new float[2];
         private LocalVersusMatch match;
+        private LegacySkill[] leftSkills, rightSkills;
+        private int preparationPlayer = -1;
         private ViewPhase viewPhase;
         private float phaseTime;
         private float hitStopRemaining;
@@ -48,6 +53,11 @@ namespace TurnLimbo.Presentation
 
         public event Action<int, OnlineVersusAction, int, int> OnlineActionApplied;
         public bool IsActive => active;
+        public bool IsPreparing => active && preparationPlayer >= 0;
+        public int PreparingPlayer => preparationPlayer;
+        public VersusLoadoutHud PreparationHud => preparationHud;
+        public VersusLoadout GetLocalLoadout(int player) => player == 0 || player == 1
+            ? localLoadouts[player] : throw new ArgumentOutOfRangeException(nameof(player));
         public bool IsOnline => active && online;
         public int OnlineLocalPlayer => online ? onlineLocalPlayer : -1;
         public LocalVersusMatch Match => match;
@@ -63,7 +73,12 @@ namespace TurnLimbo.Presentation
             this.exitToTitle = exitToTitle ?? throw new ArgumentNullException(nameof(exitToTitle));
             hud = new LocalVersusHud(parent, art, lane => TryQueueLane(lane),
                 () => TryCycle(), () => TryBreath(), () => TryPass(), () => Rematch(), Exit);
+            hud.SetActorAnchors(arena.ArenaCamera, arena.PlayerRenderer.transform,
+                arena.EnemyRenderer.transform);
             hud.Hide();
+            preparationHud = new VersusLoadoutHud(parent, art, localLoadouts[0],
+                () => { ConfirmPreparation(); }, () => CancelPreparation());
+            preparationHud.Hide();
             activationCue = new DuelSkillActivationCue(hud.Root.transform, art.UIFont, localVersus: true);
             resistanceFeedback = new DuelResistanceFeedback(hud.Root.transform, art.UIFont);
             breakImpactCue = new DuelBreakImpactCue(hud.Root.transform);
@@ -84,17 +99,60 @@ namespace TurnLimbo.Presentation
             requestOnlineAction = null;
             requestOnlineRematch = null;
             rematchCount = 0;
+            localLoadouts[0].Reset();
+            localLoadouts[1].Reset();
+            leftSkills = rightSkills = null;
+            match = null;
+            active = true;
+            preparationPlayer = 0;
+            hud.Hide();
+            preparationHud.SetLoadout(localLoadouts[0]);
+            preparationHud.Show("1P 기술 편성", "2P 편성하기");
+        }
+
+        public bool ConfirmPreparation()
+        {
+            if (!IsPreparing || online) return false;
+            if (preparationPlayer == 0)
+            {
+                leftSkills = localLoadouts[0].ToSkills();
+                preparationPlayer = 1;
+                preparationHud.SetLoadout(localLoadouts[1]);
+                preparationHud.Show("2P 기술 편성", "대전 시작");
+                return true;
+            }
+            rightSkills = localLoadouts[1].ToSkills();
+            preparationPlayer = -1;
+            preparationHud.Hide();
             BeginMatch();
+            return true;
+        }
+
+        public void CancelPreparation()
+        {
+            if (!IsPreparing || online) return;
+            if (preparationPlayer == 1)
+            {
+                preparationPlayer = 0;
+                preparationHud.SetLoadout(localLoadouts[0]);
+                preparationHud.Show("1P 기술 편성", "2P 편성하기");
+            }
+            else Exit();
         }
 
         /// <summary>The host creates the seed and decides which side moves first; a guest only mirrors accepted actions.</summary>
         public void StartOnline(int seed, int localPlayer, bool isHost, int openingPlayer,
+            IReadOnlyList<LegacySkill> leftSkills, IReadOnlyList<LegacySkill> rightSkills,
             Action<OnlineVersusAction, int> requestAction, Action requestRematch)
         {
             if (disposed) throw new ObjectDisposedException(nameof(LocalVersusController));
             if (localPlayer < 0 || localPlayer > 1 || openingPlayer < 0 || openingPlayer > 1)
                 throw new ArgumentOutOfRangeException(nameof(localPlayer));
             online = true;
+            preparationPlayer = -1;
+            preparationHud.Hide();
+            this.leftSkills = CopySkills(leftSkills);
+            this.rightSkills = CopySkills(rightSkills);
             onlineHost = isHost;
             onlineLocalPlayer = localPlayer;
             onlineOpeningPlayer = openingPlayer;
@@ -116,6 +174,9 @@ namespace TurnLimbo.Presentation
             damageCue.Reset();
             hud.SetRematchPending(false);
             hud.Hide();
+            preparationHud.Hide();
+            preparationPlayer = -1;
+            leftSkills = rightSkills = null;
             match = null;
             online = false;
             onlineHost = pendingOnlineRequest = false;
@@ -213,7 +274,13 @@ namespace TurnLimbo.Presentation
 
         public void Tick(float realDelta, Keyboard keyboard)
         {
-            if (!active || disposed || match == null) return;
+            if (!active || disposed) return;
+            if (IsPreparing)
+            {
+                if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) CancelPreparation();
+                return;
+            }
+            if (match == null) return;
             realDelta = float.IsNaN(realDelta) || float.IsInfinity(realDelta) ? 0f : Mathf.Max(0f, realDelta);
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
             {
@@ -303,7 +370,7 @@ namespace TurnLimbo.Presentation
 
         private void BeginMatch()
         {
-            match = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All,
+            match = new LocalVersusMatch(leftSkills, rightSkills,
                 randomSeed: online ? onlineSeed : Environment.TickCount, roundLimit: 20,
                 openingPlayer: online ? onlineOpeningPlayer : rematchCount % 2);
             pendingOnlineRequest = false;
@@ -314,7 +381,7 @@ namespace TurnLimbo.Presentation
             breakImpactCue.Reset();
             damageCue.Reset();
             arena.SetBackdrop(ArenaBackdropKind.SchoolCorridor);
-            arena.SetEnemyAppearance(EnemyAppearance.CadetA);
+            arena.SetEnemyAppearance(EnemyAppearance.Elisa);
             arena.Reset();
             arena.BeginTurn();
             arena.SetResistanceBroken(false, false);
@@ -324,6 +391,15 @@ namespace TurnLimbo.Presentation
             active = true;
             hud.Show();
             RefreshHud();
+        }
+
+        private static LegacySkill[] CopySkills(IReadOnlyList<LegacySkill> skills)
+        {
+            if (skills == null || skills.Count == 0) throw new ArgumentException("A versus loadout is required.", nameof(skills));
+            var copy = new LegacySkill[skills.Count];
+            for (int i = 0; i < skills.Count; i++)
+                copy[i] = skills[i] ?? throw new ArgumentException("A versus loadout cannot contain empty skills.", nameof(skills));
+            return copy;
         }
 
         private void ResetClocks()
@@ -338,7 +414,8 @@ namespace TurnLimbo.Presentation
 
         private void RefreshHud()
         {
-            if (match != null) hud.Refresh(match, clocks[0], clocks[1], online ? onlineLocalPlayer : -1);
+            if (match != null) hud.Refresh(match, clocks[0], clocks[1],
+                online ? onlineLocalPlayer : -1, pendingOnlineRequest);
         }
 
         private void AfterReservation()
@@ -599,6 +676,7 @@ namespace TurnLimbo.Presentation
             resistanceFeedback.Dispose();
             breakImpactCue.Dispose();
             damageCue.Dispose();
+            preparationHud.Dispose();
             hud.Dispose();
             if (audioRoot != null) UnityEngine.Object.Destroy(audioRoot);
         }

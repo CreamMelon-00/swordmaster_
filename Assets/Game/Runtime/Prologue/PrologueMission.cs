@@ -17,6 +17,8 @@ namespace TurnLimbo.Runtime.Prologue
         CadetA,
         /// <summary>The trouser-uniform school cadet used in even-numbered campaign stages.</summary>
         CadetB,
+        /// <summary>Elisa's mirrored appearance for the opposing side of a versus match.</summary>
+        Elisa,
     }
 
     /// <summary>An enemy shown on a mission briefing.</summary>
