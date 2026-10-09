@@ -281,6 +281,17 @@ namespace TurnLimbo.Presentation
                 gear.Groups[0] = guideLaneGroups[lane];
                 guideLaneFocus[lane] = AddGuideOutline(window);
                 laneFeedback[lane] = SkillCardFeedbackGraphic.Create(window.transform, "Lane Condition Feedback", 3f);
+                // A small cycle counter rides the lower rim of the current skill, above the hub's ACT cost.
+                // Queued copies keep a separate compact count beside their card icon.
+                var cycleMark = Panel("Cycle Mark", window.transform, new Vector2(0f, -34f),
+                    new Vector2(82f, 21f), DuelVisualTheme.Ink, new Color32(81, 153, 143, 255));
+                cycleMarks[lane] = cycleMark.rectTransform;
+                cycleCounts[lane] = Text("Cycle Count", cycleMark.transform, Vector2.zero,
+                    new Vector2(78f, 18f), 14, TextAnchor.MiddleCenter);
+                cycleCounts[lane].color = Foreground;
+                cycleCounts[lane].supportRichText = false;
+                cycleCounts[lane].verticalOverflow = VerticalWrapMode.Truncate;
+                cycleMark.gameObject.SetActive(false);
 
                 // The one just used or sent back, dimmed at the upper right.
                 gear.Used = Rect("Used " + key, controls, Vector2.zero, Vector2.zero, Vector2.one * .5f);

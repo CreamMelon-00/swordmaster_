@@ -1,7 +1,9 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Sheets;
 
 namespace TurnLimbo.Core.Tests
 {
@@ -43,6 +45,265 @@ namespace TurnLimbo.Core.Tests
             CollectionAssert.AreEqual(new[] { 2, 7, 1 }, Ids(duel.GetLane(0)));
             CollectionAssert.AreEqual(new[] { 3, 4, 8 }, Ids(duel.GetLane(1)));
             CollectionAssert.AreEqual(new[] { 6, 9, 5 }, Ids(duel.GetLane(2)));
+        }
+
+        [Test]
+        public void QueueCancel_RemovesEarlierTechniquesImmediately_WithoutRefundingActOrBreaths()
+        {
+            LegacySkill costly = Attack(900, 10);
+            LegacySkill posture = LegacySkillDefinitions.Skill(45);
+            var duel = new LegacyQueuedDuel(100, 50, 100, 50,
+                new[] { costly, posture }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+            Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
+            Assert.That(duel.TryQueueBreath(), Is.True);
+            Assert.That(duel.TryQueueLane(2), Is.True);
+
+            CollectionAssert.AreEqual(new[] { -1, 45 }, Ids(duel.PlayerQueue));
+            Assert.That(duel.Act, Is.Zero, "The two removed ACT-1 skills are not refunded.");
+            Assert.That(duel.BreathsQueuedThisTurn, Is.EqualTo(1), "Breathing is not a technique and stays queued.");
+            Assert.That(duel.QueuePowerSourceSlotIndex, Is.EqualTo(1));
+            Assert.That(duel.QueuePowerRemovedSkillCount, Is.EqualTo(2));
+            Assert.That(duel.QueuePowerTargetSlotIndex, Is.EqualTo(-1), "No following technique is queued yet.");
+            duel.Commit();
+            Assert.That(duel.ResolveNextSlot().PlayerSkill.IsWait, Is.True);
+            Assert.That(duel.ResolveNextSlot().PlayerSkill.Id, Is.EqualTo(45));
+            duel.BeginNextTurn();
+            Assert.That(duel.QueuePowerSourceSlotIndex, Is.EqualTo(-1), "The boost expires with its turn.");
+        }
+
+        [TestCase(0, 1)]
+        [TestCase(1, 1)]
+        [TestCase(2, 2)]
+        [TestCase(5, 5)]
+        [TestCase(6, 5)]
+        public void QueueCancel_BoostsOnlyTheNextTechnique_ByRemovedCountUpToFive(int removedCount, int multiplier)
+        {
+            LegacySkill disposable = new LegacySkill(900, "disposable", 0, 1, 1,
+                LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "");
+            LegacySkill target = new LegacySkill(901, "target", 0, 10, 10,
+                LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 1, "");
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 50,
+                new[] { disposable, target, LegacySkillDefinitions.Skill(45) },
+                Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+            for (int i = 0; i < removedCount; i++)
+                Assert.That(duel.TryQueueLane(0), Is.True);
+            Assert.That(duel.TryQueueLane(2), Is.True);
+            Assert.That(duel.TryQueueLane(1) && duel.TryQueueLane(1), Is.True);
+
+            CollectionAssert.AreEqual(new[] { 45, 901, 901 }, Ids(duel.PlayerQueue));
+            Assert.That(duel.QueuePowerRemovedSkillCount, Is.EqualTo(removedCount));
+            Assert.That(duel.QueuePowerTargetSlotIndex, Is.EqualTo(1));
+            Assert.That(duel.QueuePowerMultiplierForSlot(1), Is.EqualTo(multiplier));
+            Assert.That(duel.QueuePowerMultiplierForSlot(2), Is.EqualTo(1));
+            duel.Commit();
+            duel.ResolveNextSlot();
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(10 * multiplier));
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(10),
+                "The multiplier is consumed by the first following technique.");
+        }
+
+        [Test]
+        public void QueueCancel_BoostsDefencePowerAndSkipsBreathingToFindTheNextTechnique()
+        {
+            LegacySkill disposable = new LegacySkill(900, "disposable", 0, 1, 1,
+                LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "");
+            LegacySkill guard = new LegacySkill(901, "guard", 0, 10, 10,
+                LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 1, "");
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 50,
+                new[] { disposable, guard, LegacySkillDefinitions.Skill(45) },
+                new[] { LegacyCommonActions.Breathe, LegacyCommonActions.Breathe, Attack(902, 30) },
+                new[] { 3 }, meshPercent: 0);
+            Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
+            Assert.That(duel.TryQueueLane(2), Is.True);
+            Assert.That(duel.TryQueueBreath(), Is.True);
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.QueuePowerTargetSlotIndex, Is.EqualTo(2));
+            Assert.That(duel.QueuePowerMultiplierForSlot(2), Is.EqualTo(2));
+
+            duel.Commit();
+            duel.ResolveNextSlot();
+            duel.ResolveNextSlot();
+            duel.BeginNextSlot();
+            Assert.That(duel.ResolveNextSlot().PlayerHealthDamage, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void QueueReturn_RefundsTheRemovedTechniquesButNotTheNewSkill()
+        {
+            var rows = CsvTable.Read(LegacySkillSheet.Write(LegacySkillDefinitions.Table))
+                .Select(record => record.Fields.ToArray()).ToList();
+            int modeColumn = Array.IndexOf(rows[0], "앞 기술 처리");
+            int capColumn = Array.IndexOf(rows[0], "후속 위력 배율 상한");
+            Assert.That(modeColumn, Is.GreaterThan(0));
+            Assert.That(capColumn, Is.GreaterThan(0));
+            string[] postureRow = rows.Single(row => row[0] == "45");
+            postureRow[modeColumn] = "반환";
+            postureRow[capColumn] = "";
+            string modifiedSheet = CsvTable.Write(rows);
+            try
+            {
+                LegacySkillDefinitions.Install(() => modifiedSheet);
+                LegacySkill replacement = LegacySkillDefinitions.Skill(45);
+                var duel = new LegacyQueuedDuel(100, 50, 100, 50,
+                    new[] { Attack(900, 10), replacement }, Array.Empty<LegacySkill>(), new[] { 0 });
+                Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
+                Assert.That(duel.Act, Is.EqualTo(1));
+                Assert.That(duel.TryQueueLane(2), Is.True);
+                CollectionAssert.AreEqual(new[] { 45 }, Ids(duel.PlayerQueue));
+                Assert.That(duel.Act, Is.EqualTo(2), "Two prior ACT are returned; the new skill still costs one.");
+                Assert.That(duel.QueuePowerSourceSlotIndex, Is.EqualTo(-1),
+                    "The return keyword alone does not grant a power multiplier.");
+            }
+            finally
+            {
+                LegacySkillDefinitions.Install(null);
+            }
+        }
+
+        [Test]
+        public void Cycle_FirstUseKeepsBaseStats_ThenRaisesTheNextTurnsCostAndPower()
+        {
+            LegacySkill sharpening = LegacySkillDefinitions.Skill(46);
+            var duel = new LegacyQueuedDuel(100, 50, 10000, 50,
+                new[] { sharpening }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+
+            Assert.That(duel.CycleUses(46), Is.Zero);
+            Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(1));
+            duel.EffectivePowerRange(sharpening, out int min, out int max);
+            Assert.That((min, max), Is.EqualTo((5, 10)));
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.Act, Is.EqualTo(2));
+            duel.Commit();
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.InRange(5, 10));
+            Assert.That(duel.CycleUses(46), Is.EqualTo(1));
+
+            duel.BeginNextTurn();
+            Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(2));
+            duel.EffectivePowerRange(sharpening, out min, out max);
+            Assert.That((min, max), Is.EqualTo((10, 15)));
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.Act, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Cycle_ReservationsInOneTurnKeepTheirPrice_ButEachActualUseGainsPower()
+        {
+            // One stable instance is deliberately reserved twice. Its sheet ID supplies the cycle effect;
+            // fixed base power makes the per-use roll exact without touching the owned skill's identity.
+            var sharpening = new LegacySkill(46, "연마", 1, 5, 5,
+                LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 1, "");
+            var duel = new LegacyQueuedDuel(100, 50, 10000, 50,
+                new[] { sharpening }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+
+            Assert.That(duel.TryQueueLane(1) && duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.Act, Is.EqualTo(1), "Both reservations cost one ACT before either skill is used.");
+            CollectionAssert.AreEqual(new[] { 46, 46 }, Ids(duel.PlayerQueue));
+            Assert.That(duel.CycleUses(46), Is.Zero, "Reservation alone is not a use.");
+            duel.Commit();
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(5));
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(10));
+            Assert.That(duel.CycleUses(46), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Cycle_CancelledReservationNeverCountsAsAUse()
+        {
+            LegacySkill sharpening = LegacySkillDefinitions.Skill(46);
+            var duel = new LegacyQueuedDuel(100, 50, 10000, 0,
+                new[] { sharpening, LegacySkillDefinitions.Skill(45) },
+                Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.TryQueueLane(2), Is.True);
+            CollectionAssert.AreEqual(new[] { 45 }, Ids(duel.PlayerQueue));
+            Assert.That(duel.CycleUses(46), Is.Zero);
+            duel.Commit();
+            duel.ResolveNextSlot();
+            duel.BeginNextTurn();
+            Assert.That(duel.CycleUses(46), Is.Zero);
+            Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(1));
+            duel.EffectivePowerRange(sharpening, out int min, out int max);
+            Assert.That((min, max), Is.EqualTo((5, 10)));
+        }
+
+        [Test]
+        public void Cycle_ResetStartsANewBattleAtZeroUses()
+        {
+            LegacySkill sharpening = LegacySkillDefinitions.Skill(46);
+            var duel = new LegacyQueuedDuel(100, 50, 10000, 50,
+                new[] { sharpening }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            duel.Commit();
+            duel.ResolveNextSlot();
+            Assert.That(duel.CycleUses(46), Is.EqualTo(1));
+
+            duel.Reset();
+            Assert.That(duel.RoundNumber, Is.EqualTo(1));
+            Assert.That(duel.CycleUses(46), Is.Zero);
+            Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(1));
+            duel.EffectivePowerRange(sharpening, out int min, out int max);
+            Assert.That((min, max), Is.EqualTo((5, 10)));
+        }
+
+        [Test]
+        public void Cycle_NineUsesCapBothCostAndPowerAcrossFurtherUses()
+        {
+            LegacySkill sharpening = LegacySkillDefinitions.Skill(46);
+            var duel = new LegacyQueuedDuel(100, 50, 100000, 0,
+                new[] { sharpening }, Array.Empty<LegacySkill>(), new[] { 0 },
+                playerActGainBonus: 7, meshPercent: 0);
+
+            for (int use = 0; use < 11; use++)
+            {
+                int cycle = Math.Min(use, 9);
+                Assert.That(duel.CycleUses(46), Is.EqualTo(cycle));
+                Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(1 + cycle));
+                duel.EffectivePowerRange(sharpening, out int min, out int max);
+                Assert.That((min, max), Is.EqualTo((5 + 5 * cycle, 10 + 5 * cycle)));
+                Assert.That(duel.TryQueueLane(1), Is.True);
+                duel.Commit();
+                duel.ResolveNextSlot();
+                Assert.That(duel.CycleUses(46), Is.EqualTo(Math.Min(use + 1, 9)));
+                if (use < 10) duel.BeginNextTurn();
+            }
+        }
+
+        [Test]
+        public void QueueReturn_RefundsTheActualCycleReservationCost()
+        {
+            var rows = CsvTable.Read(LegacySkillSheet.Write(LegacySkillDefinitions.Table))
+                .Select(record => record.Fields.ToArray()).ToList();
+            int modeColumn = Array.IndexOf(rows[0], "앞 기술 처리");
+            int capColumn = Array.IndexOf(rows[0], "후속 위력 배율 상한");
+            string[] postureRow = rows.Single(row => row[0] == "45");
+            postureRow[modeColumn] = "반환";
+            postureRow[capColumn] = "";
+            string modifiedSheet = CsvTable.Write(rows);
+            try
+            {
+                LegacySkillDefinitions.Install(() => modifiedSheet);
+                LegacySkill sharpening = LegacySkillDefinitions.Skill(46);
+                var duel = new LegacyQueuedDuel(100, 50, 10000, 0,
+                    new[] { sharpening, LegacySkillDefinitions.Skill(45) },
+                    Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+                Assert.That(duel.TryQueueLane(1), Is.True);
+                duel.Commit();
+                duel.ResolveNextSlot();
+                duel.BeginNextTurn();
+                Assert.That(duel.CycleUses(46), Is.EqualTo(1));
+                Assert.That(duel.Act, Is.EqualTo(5));
+
+                Assert.That(duel.TryQueueLane(1), Is.True);
+                Assert.That(duel.Act, Is.EqualTo(3), "The second reservation costs two ACT.");
+                Assert.That(duel.TryQueueLane(2), Is.True);
+                CollectionAssert.AreEqual(new[] { 45 }, Ids(duel.PlayerQueue));
+                Assert.That(duel.Act, Is.EqualTo(4), "Return refunds the spent two ACT, then charges one ACT.");
+                Assert.That(duel.CycleUses(46), Is.EqualTo(1), "The removed reservation was not used.");
+            }
+            finally
+            {
+                LegacySkillDefinitions.Install(null);
+            }
         }
 
         [Test]
@@ -710,7 +971,7 @@ namespace TurnLimbo.Core.Tests
         {
             LegacySkill flurry = Attack(900, 30, 3);
             LegacySkill empowered = Attack(901, 2);
-            var duel = new LegacyQueuedDuel(100, 0, 40, 0, new[] { flurry },
+            var duel = new LegacyQueuedDuel(100, 0, 40, 1, new[] { flurry },
                 new[] { LegacyCommonActions.Breathe }, new[] { 1 }, enemyHealthFloor: 1,
                 enemyHealthThresholdPercent: 50);
             for (int i = 0; i < 3; i++) Assert.That(duel.TryQueueLane(0), Is.True);
@@ -744,7 +1005,7 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void InterruptResolvingTurn_AfterSettledSlot_DoesNotSettleItTwice()
         {
-            var duel = new LegacyQueuedDuel(100, 0, 40, 0, new[] { Attack(900, 30) },
+            var duel = new LegacyQueuedDuel(100, 0, 40, 1, new[] { Attack(900, 30) },
                 new[] { LegacyCommonActions.Breathe }, new[] { 1 }, enemyHealthFloor: 1,
                 enemyHealthThresholdPercent: 50);
             Assert.That(duel.TryQueueLane(0), Is.True);

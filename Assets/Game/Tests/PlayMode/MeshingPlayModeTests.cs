@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Cutscene;
@@ -428,6 +429,135 @@ namespace TurnLimbo.Presentation.Tests
                 Mathf.Clamp(position.y, bounds.yMin + inset, bounds.yMax - inset));
         }
 
+        [UnityTest]
+        public IEnumerator QueuePowerMarks_ShowCancelledCountAndNextMultiplier_WithoutCoveringCounterOrMesh()
+        {
+            yield return null;
+            using (var fixture = new MeshFixture())
+            {
+                LegacyCombatHud hud = fixture.Hud;
+                var player = new[] { Free(LegacySkillDefinitions.Skill(1)), Free(LegacySkillDefinitions.Skill(3)),
+                    Free(LegacySkillDefinitions.Skill(45)) };
+                var duel = new LegacyQueuedDuel(1000, 50, 1000, 1000, player,
+                    new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3,
+                    enemyCounter: new LegacyCounter(LegacySkillDefinitions.Skill(7)));
+                Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(1) && duel.TryQueueLane(2), Is.True);
+                fixture.Refresh(duel);
+                Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1), "The posture removes earlier skills at queue time.");
+                Assert.That(hud.GetQueuePowerSourceMarkLabel(0), Is.EqualTo("취소 2"),
+                    "The source card reports the count even before a target is queued.");
+                Assert.That(hud.GetQueuePowerTargetMarkLabel(0), Is.Null);
+
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                fixture.Refresh(duel);
+                Assert.That(hud.GetQueuePowerSourceMarkLabel(0), Is.EqualTo("취소 2"));
+                Assert.That(hud.GetQueuePowerTargetMarkLabel(1), Is.EqualTo("다음 2배"));
+                Assert.That(hud.GetMeshMarkLabel(1), Is.EqualTo("+20%"), "The lower mesh mark stays readable.");
+                RectTransform target = hud.GetQueuePowerTargetMark(1);
+                RectTransform counter = hud.GetQueuedSkillAnchor(true, 1).Find("Counter Mark").GetComponent<RectTransform>();
+                Assert.That(counter.gameObject.activeInHierarchy, Is.True);
+                Assert.That(ScreenRect(target).yMin, Is.GreaterThan(ScreenRect(counter).yMax),
+                    "The multiplier sits over the existing counter mark instead of obscuring it.");
+                Assert.That(ScreenRect(target).yMin, Is.GreaterThan(ScreenRect(hud.GetMeshMark(1)).yMax));
+                foreach (Transform enemyCard in hud.Root.transform.Find("Enemy Requests"))
+                    Assert.That(enemyCard.Find("Queue Power Mark"), Is.Null, "Only the player's queue carries power marks.");
+
+                duel.Commit();
+                fixture.Refresh(duel);
+                Assert.That(hud.GetQueuePowerTargetMarkLabel(1), Is.EqualTo("다음 2배"));
+                while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+                duel.BeginNextTurn();
+                fixture.Refresh(duel);
+                Assert.That(hud.GetQueuePowerSourceMarkLabel(0), Is.Null);
+                Assert.That(hud.GetQueuePowerTargetMarkLabel(1), Is.Null);
+            }
+        }
+        [UnityTest]
+        public IEnumerator QueueCancellation_DiscardedCardsBounceOutAndFallBeforeClearing()
+        {
+            yield return null;
+            using (var fixture = new MeshFixture())
+            {
+                var player = new[] { Free(LegacySkillDefinitions.Skill(1)), Free(LegacySkillDefinitions.Skill(3)),
+                    Free(LegacySkillDefinitions.Skill(45)) };
+                var duel = new LegacyQueuedDuel(1000, 50, 1000, 1000, player,
+                    new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3);
+                Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(1), Is.True);
+                fixture.Refresh(duel);
+                var queuedBefore = new LegacySkill[duel.PlayerQueue.Count];
+                for (int i = 0; i < queuedBefore.Length; i++) queuedBefore[i] = duel.PlayerQueue[i];
+
+                Assert.That(duel.TryQueueLane(2), Is.True);
+                fixture.Hud.PlayQueueCancellation(queuedBefore);
+                fixture.Refresh(duel);
+
+                Transform layer = fixture.Hud.Root.transform.Find("Queue Cancellation Layer");
+                Assert.That(layer, Is.Not.Null);
+                List<RectTransform> ghosts = ActiveCancelledCards(layer);
+                Assert.That(ghosts.Count, Is.EqualTo(2), "Both removed skills remain visible briefly after leaving the queue.");
+                var start = new Vector2[ghosts.Count];
+                for (int i = 0; i < ghosts.Count; i++)
+                {
+                    start[i] = ghosts[i].anchoredPosition;
+                    foreach (Graphic graphic in ghosts[i].GetComponentsInChildren<Graphic>())
+                    {
+                        bool ignoresRaycasts = !graphic.raycastTarget;
+                        for (Transform parent = graphic.transform; parent != null && !ignoresRaycasts; parent = parent.parent)
+                        {
+                            CanvasGroup group = parent.GetComponent<CanvasGroup>();
+                            if (group != null && !group.blocksRaycasts) ignoresRaycasts = true;
+                        }
+                        Assert.That(ignoresRaycasts, Is.True, "A falling card must not block combat input.");
+                    }
+                }
+
+                fixture.Refresh(duel, .12f);
+                for (int i = 0; i < ghosts.Count; i++)
+                {
+                    Assert.That(ghosts[i].gameObject.activeInHierarchy, Is.True);
+                    Assert.That(Mathf.Abs(ghosts[i].anchoredPosition.x - start[i].x), Is.GreaterThan(1f),
+                        "The card should be knocked out of the queue, not just fade in place.");
+                }
+
+                fixture.Refresh(duel, .28f);
+                for (int i = 0; i < ghosts.Count; i++)
+                    Assert.That(ghosts[i].anchoredPosition.y, Is.LessThan(start[i].y),
+                        "After the small bounce, gravity pulls the removed card down.");
+
+                fixture.Refresh(duel, .7f);
+                Assert.That(ActiveCancelledCards(layer), Is.Empty, "The flying cards clear after their short exit.");
+                Assert.That(duel.PlayerQueue.Count, Is.EqualTo(1), "The visual never restores cancelled skills.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator QueueCancellation_ControllerAutomaticallyPlaysTwoDiscardedCards()
+        {
+            yield return null;
+            var player = new[] { Free(LegacySkillDefinitions.Skill(1)), Free(LegacySkillDefinitions.Skill(3)),
+                Free(LegacySkillDefinitions.Skill(45)) };
+            using (var scope = new MeshScope(player))
+            {
+                DuelPrototypeController controller = scope.Controller;
+                Assert.That(controller.QueueLane(0) && controller.QueueLane(1), Is.True);
+                Transform layer = controller.Hud.Root.transform.Find("Queue Cancellation Layer");
+                Assert.That(layer, Is.Not.Null);
+                Assert.That(ActiveCancelledCards(layer), Is.Empty);
+
+                Assert.That(controller.QueueLane(2), Is.True);
+                Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(1));
+                Assert.That(ActiveCancelledCards(layer).Count, Is.EqualTo(2),
+                    "The real queue command must trigger the exit visual without an explicit HUD call.");
+            }
+        }
+        private static List<RectTransform> ActiveCancelledCards(Transform layer)
+        {
+            var cards = new List<RectTransform>();
+            foreach (Transform child in layer)
+                if (child.name == "Cancelled Skill" && child.gameObject.activeInHierarchy)
+                    cards.Add(child.GetComponent<RectTransform>());
+            return cards;
+        }
         // Two free skills a lane, the table's own (their icons show), against an enemy that does one thing a turn.
         private static LegacyQueuedDuel FreeDuel(CombatFeature features = CombatFeature.All, int meshPercent = LegacyMeshing.DefaultPercent)
         {
@@ -512,7 +642,7 @@ namespace TurnLimbo.Presentation.Tests
             private readonly Action<float, UnityEngine.InputSystem.Keyboard> advance;
             public DuelPrototypeController Controller { get; }
 
-            public MeshScope()
+            public MeshScope(LegacySkill[] customPlayerSkills = null)
             {
                 Controller = Object.FindAnyObjectByType<DuelPrototypeController>();
                 Assert.That(Controller, Is.Not.Null);
@@ -529,7 +659,7 @@ namespace TurnLimbo.Presentation.Tests
                     "\"meshBurstSeconds\":0.6,\"meshFlashSeconds\":0.45}", settingsClone);
                 SetField("presentationSettings", settingsClone);
                 arenaSettingsField.SetValue(Controller.ArenaView, settingsClone);
-                var playerSkills = new[] { Weak(101, 0), Weak(103, 1), Weak(105, 2) };
+                var playerSkills = customPlayerSkills ?? new[] { Weak(101, 0), Weak(103, 1), Weak(105, 2) };
                 SetField("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000, playerSkills, new[] { Weak(201, 0) }, new[] { 1 }, 1));
                 MethodInfo method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
                 Assert.That(method, Is.Not.Null);

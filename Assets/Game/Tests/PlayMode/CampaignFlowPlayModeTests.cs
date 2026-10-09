@@ -105,7 +105,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Battle));
                 Assert.That(controller.ArenaView.EnemyAppearance, Is.EqualTo(EnemyAppearance.CadetB),
                     "The second stage fields the cadet shown in its lobby preview.");
-                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.StartWith("cadet-b-idle-frame-"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.StartWith("cadet-b-"),
+                    "The entrance may still be showing Cadet B walking when this frame is checked.");
                 Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("advance"));
                 Assert.That(controller.Campaign.Curriculum.ActiveBattles, Is.Zero);
                 Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
@@ -307,7 +308,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(8));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(760));
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("breathing"), Is.True);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(12));
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(14));
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(8));
                 controller.RestartJourney();
@@ -384,7 +385,7 @@ namespace TurnLimbo.Presentation.Tests
             public void InstallDuel(LegacyQueuedDuel duel)
             {
                 typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller, duel);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
             }
 
             public void WinStage()

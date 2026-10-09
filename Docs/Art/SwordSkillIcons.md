@@ -1,5 +1,7 @@
 # 검 전용 세부 역할 아이콘 제작
 
+> 2026-10-09 현재: 인게임 스킬 20개는 같은 48×48 논리 도트와 44×44 외곽 크기로 정리했다. 적용 자산과 편집 원본은 [SkillIcons/README.md](SkillIcons/README.md) 및 [Unified/README.md](SkillIcons/Unified/README.md)를 따른다. 아래 내용은 기존 그림의 제작 기록이다.
+
 > 2026-10-07 추가: 이아의 적 전용 수훈 기술 라우다레(그림 18)·베네디체레(19)·프레디카레(20)를 황금색 포인트의 개별 Sprite로 제작했다. 베네디체레는 검 대신 투구를 중심 문양으로 쓴다. 편집 가능한 Aseprite 원본과 미리보기는 `SkillIcons/README.md`에 있다.
 
 > 2026-10-03 추가: 탐색(그림 16)과 몰아치기(그림 17)는 기존 15개 아틀라스를 유지하고 각각 `Assets/Game/Resources/SkillRoles/role16.png`, `role17.png`로 로드한다. 탐색은 사용자 요청에 따라 검 대신 눈을 중심 문양으로 쓴다. 편집 가능한 Aseprite 원본과 제작 조건은 `SkillIcons/README.md`에 있다.

@@ -102,6 +102,40 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void ThirdStageReward_CancelsEarlierSkills_AndPowersTheNextOne()
+        {
+            LegacySkill posture = LegacySkillDefinitions.Skill(45);
+            Assert.That((posture.Name, posture.Cost, posture.MinPower, posture.MaxPower, posture.AttackCount, posture.LaneIndex),
+                Is.EqualTo(("자세 잡기", 1, 3, 5, 1, 2)));
+            Assert.That((posture.Kind, posture.Property),
+                Is.EqualTo((LegacySkillKind.Defence, LegacySkillProperty.Defence)));
+            Assert.That(posture.IconId, Is.EqualTo(9), "Reuse an existing E guard icon until dedicated art exists.");
+            LegacySkillDefinition definition = LegacySkillDefinitions.Find(posture);
+            Assert.That(definition.Effect.QueueRemovalMode, Is.EqualTo(LegacyQueueRemovalMode.Cancel));
+            Assert.That(definition.Effect.QueuePowerMultiplierCap, Is.EqualTo(5));
+            Assert.That((LegacySkillRoles.Get(posture) & LegacySkillRole.QueueCancel) != 0, Is.True);
+            Assert.That(definition.Text.Info.Main, Is.EqualTo("취소"));
+            Assert.That(definition.Text.Info.Description, Does.Contain("앞에 예약한 스킬을 취소"));
+            Assert.That(definition.Text.Info.Description, Does.Contain("(취소한 스킬 수)배만큼 다음 스킬 1개의 위력 증가"));
+            Assert.That(definition.Text.Info.Description, Does.Not.Contain("ACT"));
+        }
+
+        [Test]
+        public void FifthStageReward_HasReusableCycleRules()
+        {
+            LegacySkill honing = LegacySkillDefinitions.Skill(46);
+            Assert.That((honing.Name, honing.Cost, honing.MinPower, honing.MaxPower, honing.AttackCount, honing.LaneIndex),
+                Is.EqualTo(("연마", 1, 5, 10, 1, 1)));
+            Assert.That((honing.Kind, honing.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Slash)));
+            LegacySkillDefinition definition = LegacySkillDefinitions.Find(honing);
+            Assert.That((definition.Effect.CyclePowerPerUse, definition.Effect.CycleCostPerUse, definition.Effect.CycleMaxCount),
+                Is.EqualTo((5, 1, 9)));
+            Assert.That(definition.Effect.HasCycle, Is.True);
+            Assert.That((LegacySkillRoles.Get(honing) & LegacySkillRole.Cycle) != 0, Is.True);
+            Assert.That(definition.Text.Info.Main, Is.EqualTo("순환"));
+        }
+
+        [Test]
         public void Laudare_IsIasEnemyOnlyFiveHitSlashThatBreaksItsTarget()
         {
             LegacySkill laudare = LegacySkillDefinitions.Skill(500);
@@ -196,16 +230,16 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ShippedSheet_HoldsTheTwentyFourTechniquesInTableOrder()
+        public void ShippedSheet_HoldsTheTwentySixTechniquesInTableOrder()
         {
             string path = Path.Combine(Environment.CurrentDirectory, LegacySkillDefinitions.SheetAssetPath);
             byte[] bytes = File.ReadAllBytes(path);
             Assert.That(bytes.Take(3).ToArray(), Is.EqualTo(new byte[] { 0xEF, 0xBB, 0xBF }), "UTF-8 with a byte order mark, for Excel.");
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
             Assert.That(table.All.Select(d => d.Skill.Id),
-                Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 500, 501, 502 }));
+                Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 500, 501, 502 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
-            Assert.That(table.AcquisitionSkills.Select(s => s.Id), Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44 }));
+            Assert.That(table.AcquisitionSkills.Select(s => s.Id), Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46 }));
             Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
                 "The runtime reads the same file.");
@@ -230,6 +264,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(17, "호흡")]
         [TestCase(43, "탐색")]
         [TestCase(44, "몰아치기")]
+        [TestCase(45, "자세 잡기")]
         public void ShippedSheet_NamesTheTechniques(int id, string name)
         {
             Assert.That(LegacySkillDefinitions.Skill(id).Name, Is.EqualTo(name));

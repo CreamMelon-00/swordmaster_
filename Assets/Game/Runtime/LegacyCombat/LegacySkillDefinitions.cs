@@ -7,10 +7,10 @@ using TurnLimbo.Runtime.Sheets;
 namespace TurnLimbo.Runtime.LegacyCombat
 {
     /// <summary>Semantic pictogram for a skill keyword; presentation draws it.</summary>
-    public enum LegacySkillSymbol { Act, Sword, Guard, Hits, Recovery, Followup, Reduction, Variance }
+    public enum LegacySkillSymbol { Act, Sword, Guard, Hits, Recovery, Followup, Reduction, Variance, Cycle }
 
     /// <summary>Semantic tone for a skill keyword; presentation colours it.</summary>
-    public enum LegacySkillTone { Neutral, Recovery, Followup, Reduction, HighPower, MultiHit, Variance, Defence }
+    public enum LegacySkillTone { Neutral, Recovery, Followup, Reduction, HighPower, MultiHit, Variance, Defence, Cycle }
 
     /// <summary>A sheet row's 상대 상태 조건: the state the opposing fighter must be in for the row's resistance recovery
     /// and conditional damage multiplier (<see cref="LegacySkillEffect.OpponentState"/>).</summary>
@@ -24,6 +24,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// percent of its maximum.</summary>
         HealthAtMost,
     }
+
+    /// <summary>How a queue skill removes earlier reservations. Cancel keeps their ACT spent; Return refunds it.</summary>
+    public enum LegacyQueueRemovalMode { None, Cancel, Return }
 
     /// <summary>A skill's effects. Initial effects apply once when its slot starts, in this order:
     /// resistance recovery (if the opponent state condition holds), then (if the opponent condition holds) direct
@@ -66,6 +69,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <see cref="OpponentState"/> holds against the target at that hit, after the broken target's doubling, the
         /// defensive pressure's halving and <see cref="BrokenTargetDamagePercent"/>. Zero for none; attacks only.</summary>
         public int ConditionalDamagePercent { get; internal set; }
+        /// <summary>Immediately removes all earlier queued skills when equipped. Cancel keeps their ACT spent;
+        /// Return refunds their ACT. This is separate from any following-skill power effect.</summary>
+        public LegacyQueueRemovalMode QueueRemovalMode { get; internal set; }
+        /// <summary>When positive, the next used skill's power is multiplied by the number of removed skills,
+        /// capped at this value. Zero means queue removal grants no power multiplier.</summary>
+        public int QueuePowerMultiplierCap { get; internal set; }
+        /// <summary>Base power added per previous use of this skill in the current battle.</summary>
+        public int CyclePowerPerUse { get; internal set; }
+        /// <summary>ACT cost added per previous use of this skill in the current battle.</summary>
+        public int CycleCostPerUse { get; internal set; }
+        /// <summary>Maximum previous uses counted for this skill; zero means it has no Cycle effect.</summary>
+        public int CycleMaxCount { get; internal set; }
+        public bool HasCycle => CycleMaxCount > 0;
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
         public bool HasOpponentStateCondition => OpponentState != LegacyOpponentState.None;
@@ -100,6 +116,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (BrokenTargetDamagePercent > 0) roles |= LegacySkillRole.BrokenTargetDamage;
                 if (BreaksOpponent) roles |= LegacySkillRole.OpponentBreak;
                 if (ConditionalDamagePercent > 0) roles |= LegacySkillRole.ConditionalDamage;
+                if (QueueRemovalMode == LegacyQueueRemovalMode.Cancel) roles |= LegacySkillRole.QueueCancel;
+                if (QueueRemovalMode == LegacyQueueRemovalMode.Return) roles |= LegacySkillRole.QueueReturn;
+                if (HasCycle) roles |= LegacySkillRole.Cycle;
                 return roles;
             }
         }

@@ -163,6 +163,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public const string OpponentBreak = "상대 붕괴";
             public const string OpponentState = "상대 상태 조건";
             public const string ConditionalDamage = "조건 피해 배율";
+            public const string QueueRemovalMode = "앞 기술 처리";
+            public const string QueuePowerMultiplierCap = "후속 위력 배율 상한";
+            public const string CyclePowerPerUse = "순환 위력 증가";
+            public const string CycleCostPerUse = "순환 ACT 증가";
+            public const string CycleMaxCount = "순환 상한";
         }
 
         public const string StartingGroup = "시작";
@@ -197,6 +202,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Column.InfoMain, Column.InfoEnemyMain, Column.InfoMainSymbol, Column.InfoMainTone, Column.InfoSecondary,
             Column.InfoEnemySecondary, Column.InfoSecondarySymbol, Column.InfoSecondaryTone, Column.InfoDescription,
             Column.BrokenTargetDamage, Column.OpponentBreak, Column.OpponentState, Column.ConditionalDamage,
+            Column.QueueRemovalMode, Column.QueuePowerMultiplierCap,
+            Column.CyclePowerPerUse, Column.CycleCostPerUse, Column.CycleMaxCount,
         });
 
         /// <summary>Reads a sheet. Every problem is collected first and thrown once as a <see cref="SkillSheetException"/>.</summary>
@@ -396,6 +403,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 OpponentProperty = r.Property(Column.OpponentProperty, required: false),
                 OpponentKind = r.Kind(Column.OpponentKind, required: false),
                 ConditionalDamagePercent = r.Multiplier(Column.ConditionalDamage),
+                QueueRemovalMode = r.QueueRemovalMode(),
+                QueuePowerMultiplierCap = r.Integer(Column.QueuePowerMultiplierCap, 0, required: false),
+                CyclePowerPerUse = r.Integer(Column.CyclePowerPerUse, 0, required: false),
+                CycleCostPerUse = r.Integer(Column.CycleCostPerUse, 0, required: false),
+                CycleMaxCount = r.Integer(Column.CycleMaxCount, 0, required: false),
             };
             effect.OpponentState = r.OpponentState(out int opponentHealthPercent);
             effect.OpponentHealthPercent = opponentHealthPercent;
@@ -460,6 +472,22 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // Enemies never recover ACT, so on an enemy-only row the cell could only mislead.
             if (group == LegacySkillGroup.Enemy && r.Ok(Column.Group, Column.ActGain) && effect.ActGain > 0)
                 r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.ActGain}'을(를) 쓸 수 없습니다. 적은 ACT를 회복하지 않습니다.");
+            if (group == LegacySkillGroup.Enemy && effect.QueueRemovalMode != LegacyQueueRemovalMode.None &&
+                r.Ok(Column.Group, Column.QueueRemovalMode))
+                r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.QueueRemovalMode}'을(를) 쓸 수 없습니다. 적은 기술을 대기열에 직접 장착하지 않습니다.");
+            if (effect.QueueRemovalMode != LegacyQueueRemovalMode.None && r.Ok(Column.Kind) && kind != LegacySkillKind.Defence)
+                r.RowProblem($"'{Column.QueueRemovalMode}'은(는) 방어 기술에만 쓸 수 있습니다.");
+            if (effect.QueuePowerMultiplierCap > 0 && effect.QueueRemovalMode == LegacyQueueRemovalMode.None &&
+                r.Ok(Column.QueueRemovalMode, Column.QueuePowerMultiplierCap))
+                r.RowProblem($"'{Column.QueuePowerMultiplierCap}'을(를) 쓰려면 '{Column.QueueRemovalMode}'을(를) 지정해야 합니다.");
+            if (group == LegacySkillGroup.Enemy && effect.HasCycle && r.Ok(Column.Group, Column.CycleMaxCount))
+                r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.CycleMaxCount}'을(를) 쓸 수 없습니다. 적의 기술은 순환 횟수를 기록하지 않습니다.");
+            if (effect.HasCycle && effect.CyclePowerPerUse == 0 && effect.CycleCostPerUse == 0 &&
+                r.Ok(Column.CyclePowerPerUse, Column.CycleCostPerUse, Column.CycleMaxCount))
+                r.RowProblem($"'{Column.CycleMaxCount}'을(를) 쓰려면 '{Column.CyclePowerPerUse}'나 '{Column.CycleCostPerUse}'을(를) 지정해야 합니다.");
+            if (!effect.HasCycle && (effect.CyclePowerPerUse > 0 || effect.CycleCostPerUse > 0) &&
+                r.Ok(Column.CyclePowerPerUse, Column.CycleCostPerUse, Column.CycleMaxCount))
+                r.RowProblem($"순환 증가값을 쓰려면 '{Column.CycleMaxCount}'을(를) 지정해야 합니다.");
             if ((highPower || variablePower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.HighPower}'과(와) '{Column.VariablePower}'은(는) 공격에만 붙일 수 있습니다.");
             if (text.Info != null && (text.Info.Main == null || text.Info.Description == null))
@@ -470,7 +498,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             bool hasEffect = effect.ActGain != 0 || effect.HasBuff || effect.ResistanceRecoveryPercent != 0 ||
                 effect.OpponentResistanceReduction != 0 || effect.BrokenTargetDamagePercent != 0 ||
                 effect.BreaksOpponent || effect.HasOpponentCondition || effect.HasOpponentStateCondition ||
-                effect.ConditionalDamagePercent != 0;
+                effect.ConditionalDamagePercent != 0 || effect.QueueRemovalMode != LegacyQueueRemovalMode.None ||
+                effect.QueuePowerMultiplierCap > 0 || effect.HasCycle;
             row.Definition = new LegacySkillDefinition(
                 new LegacySkill(id, name, cost, minPower, maxPower, kind, property, hits, lane, description, animation, icon),
                 hasEffect ? effect : null, text, highPower, variablePower);
@@ -509,6 +538,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 [Column.OpponentBreak] = effect.BreaksOpponent ? TrueCell : string.Empty,
                 [Column.OpponentState] = LegacySkillLabels.OpponentState(effect.OpponentState, effect.OpponentHealthPercent),
                 [Column.ConditionalDamage] = Percent(effect.ConditionalDamagePercent),
+                [Column.QueueRemovalMode] = effect.QueueRemovalMode == LegacyQueueRemovalMode.Cancel ? "취소"
+                    : effect.QueueRemovalMode == LegacyQueueRemovalMode.Return ? "반환" : string.Empty,
+                [Column.QueuePowerMultiplierCap] = Optional(effect.QueuePowerMultiplierCap),
+                [Column.CyclePowerPerUse] = Optional(effect.CyclePowerPerUse),
+                [Column.CycleCostPerUse] = Optional(effect.CycleCostPerUse),
+                [Column.CycleMaxCount] = Optional(effect.CycleMaxCount),
                 [Column.OpponentProperty] = effect.OpponentProperty.HasValue ? LegacySkillLabels.Property(effect.OpponentProperty.Value) : string.Empty,
                 [Column.OpponentKind] = effect.OpponentKind.HasValue ? LegacySkillLabels.Kind(effect.OpponentKind.Value) : string.Empty,
                 [Column.HighPower] = definition.HighPower ? TrueCell : string.Empty,
@@ -665,6 +700,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (LegacySkillLabels.TryParseTone(cell, out LegacySkillTone tone)) return tone;
                 Problem(header, Choice(cell, "비워 두거나 " + Labels((LegacySkillTone[])Enum.GetValues(typeof(LegacySkillTone)), LegacySkillLabels.Tone)));
                 return null;
+            }
+
+            /// <summary>The queue-removal keyword: blank, 취소, or 반환.</summary>
+            public LegacyQueueRemovalMode QueueRemovalMode()
+            {
+                string cell = Cell(Column.QueueRemovalMode);
+                if (cell.Length == 0) return LegacyQueueRemovalMode.None;
+                if (cell == "취소") return LegacyQueueRemovalMode.Cancel;
+                if (cell == "반환") return LegacyQueueRemovalMode.Return;
+                Problem(Column.QueueRemovalMode, Choice(cell, "비워 두거나 취소, 반환"));
+                return LegacyQueueRemovalMode.None;
             }
 
             /// <summary>상대 상태 조건: blank for none, 붕괴, or 체력 N% 이하.</summary>

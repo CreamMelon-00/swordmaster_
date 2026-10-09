@@ -31,6 +31,59 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator CycleSkill_ShowsBattleUsesAndCurrentCostOnTheWCommandWindow()
+        {
+            yield return null;
+            LegacySkill skill = Skill(46);
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 50,
+                new[] { skill }, new LegacySkill[0], new[] { 0 }, 11,
+                features: CombatFeature.LaneW);
+            var parent = new GameObject("Cycle Command Window Test");
+            LegacyCombatHud hud = null;
+            try
+            {
+                hud = new LegacyCombatHud(parent.transform, new LegacyDuelArt(), null, null, null);
+                hud.Refresh(duel, 10f, false, -1, null, null, null);
+                Transform w = Named(hud.Root, "Current W");
+                Assert.That(Label(w.gameObject, "Cycle Count").text, Is.EqualTo("순환 0/9"));
+                Assert.That(Named(w.gameObject, "Cycle Mark").gameObject.activeInHierarchy, Is.True);
+                Assert.That(Label(w.gameObject, "SkillCost").text, Is.EqualTo("1 ACT"));
+                hud.ShowExplanation(skill, false);
+                GameObject popup = Named(hud.Root, "Skill Explain").gameObject;
+                Assert.That(Label(popup, "Keyword 1 Text").text, Is.EqualTo("순환 0/9"));
+
+                Assert.That(duel.TryQueueLane(1), Is.True);
+                Assert.That(duel.CycleUses(skill.Id), Is.Zero, "Booking the skill is not yet a use.");
+                hud.Refresh(duel, 10f, false, -1, null, null, null);
+                Assert.That(Label(w.gameObject, "Cycle Count").text, Is.EqualTo("순환 0/9"));
+                Transform queued = Named(hud.Root, "Player Requests").GetChild(0);
+                Assert.That(Label(queued.gameObject, "Cycle Count").text, Is.EqualTo("0/9"),
+                    "The reserved skill retains a compact count after its W gear rotates.");
+                duel.Commit();
+                duel.BeginNextSlot();
+                hud.Refresh(duel, 10f, true, 0, null, null, null);
+                Assert.That(Label(queued.gameObject, "Cycle Count").text, Is.EqualTo("1/9"),
+                    "The active queue card shows the increased count during its use.");
+                while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+                duel.BeginNextTurn();
+                hud.Refresh(duel, 10f, false, -1, null, null, null);
+                Assert.That(Label(w.gameObject, "Cycle Count").text, Is.EqualTo("순환 1/9"));
+                Assert.That(Label(w.gameObject, "SkillCost").text, Is.EqualTo("2 ACT"));
+                hud.ShowExplanation(skill, false);
+                Assert.That(Label(popup, "Keyword 1 Text").text, Is.EqualTo("순환 1/9"));
+                Assert.That(Label(popup, "ACT Value").text, Is.EqualTo("2"));
+                Assert.That(Label(popup, "Player Detail Values").text, Is.EqualTo("10–15"));
+
+                duel.Reset();
+                hud.Refresh(duel, 10f, false, -1, null, null, null);
+                Assert.That(Label(w.gameObject, "Cycle Count").text, Is.EqualTo("순환 0/9"));
+                Assert.That(Label(w.gameObject, "SkillCost").text, Is.EqualTo("1 ACT"));
+            }
+            finally { hud?.Dispose(); Object.Destroy(parent); }
+            yield return null;
+        }
+
+        [UnityTest]
         public IEnumerator SchoolBadge_ReusesItsNodesAndClearOrEnemyDisplayCannotLeaveAnInputKey()
         {
             yield return null;
@@ -188,7 +241,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo(CampaignSkillText.Power(skill)), node.Id);
                     shown.Add(skill.Id);
                 }
-                Assert.That(shown.Count, Is.EqualTo(CampaignSkillCatalog.AcquisitionSkills.Count), "Every acquirable skill has a node.");
+                Assert.That(shown.Count, Is.EqualTo(run.Curriculum.Tree.Nodes.Count), "Every skill-granting curriculum node is shown.");
                 // The school follows the granted skill's lane, not the curriculum branch it is taught in.
                 Click(lobby.Root, "Curriculum Node one-stroke");
                 Assert.That(Label(detail, "Curriculum Detail Heading").text, Is.EqualTo("강공 검술"));

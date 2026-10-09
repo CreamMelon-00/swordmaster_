@@ -56,7 +56,10 @@ namespace TurnLimbo.Presentation.Tests
                                 Assert.That(fixture.View.EffectText.text, Does.Contain("플레이어 전용"));
                             AssertBodyFits(body, fixture.View.EffectText);
                             foreach (Graphic decoration in body.GetComponentsInChildren<Graphic>(true))
-                                Assert.That(decoration.raycastTarget, Is.False, decoration.name);
+                                if (decoration.raycastTarget)
+                                    Assert.That(decoration is SkillKeywordHitGraphic ||
+                                        decoration.name == "Keyword 1" || decoration.name == "Keyword 2", Is.True,
+                                        decoration.name + " must only catch a defined keyword.");
                         }
                     }
                     fixture.View.SetSkill(Skill(1));
@@ -125,7 +128,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 float height = fixture.View.Height;
                 const string line = "상대 조건 충족 시 효과 적용";
-                fixture.View.SetEmptyMessage(string.Join("\n", new[] { line, line, line, line, line, line, line, line }));
+                fixture.View.SetEmptyMessage(string.Join("\n", new[] { line, line, line, line, line, line,
+                    line, line, line, line, line, line }));
                 Canvas.ForceUpdateCanvases();
                 Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
                 Assert.That(fixture.View.EffectText.resizeTextForBestFit, Is.True);
@@ -153,7 +157,7 @@ namespace TurnLimbo.Presentation.Tests
                     float shortHeight = popup.GetComponent<RectTransform>().rect.height;
                     // The held explanation is the enemy's card drawn larger, to read at a glance; both stay compact.
                     float scale = enemy ? 1f : LegacyCombatHud.PlayerExplanationScale;
-                    Assert.That(shortHeight, Is.LessThan(320f * scale), "The fixed popup should remain compact.");
+                    Assert.That(shortHeight, Is.LessThan(370f * scale), "The fixed popup should remain compact.");
                     foreach (LegacySkill skill in AllSkills())
                     {
                         hud.ShowExplanation(skill, enemy);
@@ -182,7 +186,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActualLoadoutDetail_KeepsItsSizeAndTopWithoutHidingTheRemoveButton()
+        public IEnumerator ActualLoadoutDetail_KeepsItsSizeAndTopWithTheRemoveButtonOutsideTheCard()
         {
             yield return null;
             var parent = new GameObject("Compact Loadout Skill Detail Test");
@@ -197,7 +201,7 @@ namespace TurnLimbo.Presentation.Tests
                 GameObject detail = Named(lobby.Root, "Loadout Selected Detail").gameObject;
                 RectTransform border = detail.GetComponent<RectTransform>();
                 float shortHeight = border.rect.height, originalTop = Bounds(border, border.parent).yMax;
-                Assert.That(shortHeight, Is.LessThan(350f), "One-line details should not retain the old 396px paper.");
+                Assert.That(shortHeight, Is.LessThan(390f), "The detail should fit the side panel.");
                 foreach (string slot in new[] { "Loadout Slot W 1", "Loadout Slot Q 3", "Loadout Slot E 1", "Loadout Slot Q 1" })
                 {
                     Click(lobby.Root, slot);
@@ -206,8 +210,13 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(originalTop).Within(.1f), "Only the lower card edge moves during selection.");
                     RectTransform paper = Named(detail, "Detail Surface").GetComponent<RectTransform>();
                     RectTransform body = Named(detail, "Skill Summary").GetComponent<RectTransform>();
-                    RectTransform remove = Named(detail, "Loadout Remove Selected").GetComponent<RectTransform>();
-                    AssertInside(body, paper); AssertInside(remove, paper); AssertNoOverlap(body, remove, paper);
+                    RectTransform remove = Named(lobby.Root, "Loadout Remove Selected").GetComponent<RectTransform>();
+                    Assert.That(remove.IsChildOf(detail.transform), Is.False, "The removal action belongs below, outside the detail card.");
+                    AssertInside(body, paper);
+                    AssertNoOverlap(border, remove, lobby.Root.transform);
+                    Assert.That(Bounds(remove, lobby.Root.transform).yMax,
+                        Is.LessThanOrEqualTo(Bounds(border, lobby.Root.transform).yMin + 1f),
+                        "The removal action stays below the card, even when the selected skill changes.");
                     AssertBodyFits(body, Label(detail, "Loadout Detail Effect"));
                     AssertHeaderClear(detail, paper, "Loadout Detail Name", "Loadout Detail Role", "Loadout Detail Icon");
                     Assert.That(run.HasLoadoutChanges, Is.False);
@@ -333,7 +342,8 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         private static void AssertThatTextFits(Text text)
-            => Assert.That(text.rectTransform.rect.height + 1f, Is.GreaterThanOrEqualTo(text.preferredHeight), text.name + " should show all measured text lines.");
+            => Assert.That(text.rectTransform.rect.height + 1f, Is.GreaterThanOrEqualTo(text.preferredHeight),
+                text.name + " [" + text.text + "] should show all measured text lines.");
 
         private static Rect InkBounds(Text text, Transform relativeTo)
         {

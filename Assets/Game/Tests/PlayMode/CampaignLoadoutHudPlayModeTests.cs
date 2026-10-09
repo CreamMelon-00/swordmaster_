@@ -104,6 +104,48 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator SelectedSkill_ShowsReadableExperienceAndKeepsRemovalOutsideTheDetailCard()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                ClickSelectionOnly(fixture, "Loadout Slot Q 1");
+                Canvas.ForceUpdateCanvases();
+                GameObject root = fixture.Hud.Root;
+                RectTransform detail = Named(root, "Loadout Selected Detail").GetComponent<RectTransform>();
+                RectTransform surface = Named(root, "Detail Surface").GetComponent<RectTransform>();
+                RectTransform summary = Named(root, "Skill Summary").GetComponent<RectTransform>();
+                RectTransform remove = Button(root, "Loadout Remove Selected").GetComponent<RectTransform>();
+                RectTransform ownedHeading = Named(root, "Loadout Owned Heading").GetComponent<RectTransform>();
+                RectTransform placementHint = Named(root, "Loadout Owned Hint").GetComponent<RectTransform>();
+                RectTransform collection = Named(root, "Loadout Collection").GetComponent<RectTransform>();
+                Transform space = root.transform;
+                Assert.That(remove.IsChildOf(detail.transform), Is.False, "The action must be separate from the skill description.");
+                Assert.That(remove.gameObject.activeInHierarchy, Is.True);
+                Assert.That(WorldBounds(remove, space).yMax,
+                    Is.LessThanOrEqualTo(WorldBounds(detail, space).yMin + 1f), "The action sits below the detail card.");
+                Assert.That(WorldBounds(remove, space).yMin,
+                    Is.GreaterThanOrEqualTo(WorldBounds(collection, space).yMax - 1f), "The action stays above the owned list.");
+                Assert.That(WorldBounds(remove, space).Overlaps(WorldBounds(ownedHeading, space)), Is.False);
+                Assert.That(WorldBounds(remove, space).Overlaps(WorldBounds(placementHint, space)), Is.False);
+                Assert.That(WorldBounds(summary, surface).yMin,
+                    Is.GreaterThanOrEqualTo(surface.rect.yMin - 1f), "The enlarged footer stays on the card.");
+
+                RectTransform progress = Named(root, "Skill Experience").GetComponent<RectTransform>();
+                Text level = Label(root, "Skill Experience Level");
+                Text value = Label(root, "Skill Experience Value");
+                RectTransform track = Named(root, "Skill Experience Track").GetComponent<RectTransform>();
+                Assert.That(progress.gameObject.activeInHierarchy, Is.True);
+                Assert.That(level.fontSize, Is.GreaterThanOrEqualTo(17));
+                Assert.That(value.fontSize, Is.GreaterThanOrEqualTo(17));
+                Assert.That(level.rectTransform.rect.height, Is.GreaterThanOrEqualTo(22f));
+                Assert.That(value.rectTransform.rect.height, Is.GreaterThanOrEqualTo(22f));
+                Assert.That(track.rect.height, Is.GreaterThanOrEqualTo(8f));
+                Assert.That(level.preferredHeight, Is.LessThanOrEqualTo(level.rectTransform.rect.height + 1f));
+                Assert.That(value.preferredHeight, Is.LessThanOrEqualTo(value.rectTransform.rect.height + 1f));
+            }
+        }
+        [UnityTest]
         public IEnumerator EarnedLevel_UpdatesSelectedDetailAndSlotWithoutChangingLoadout()
         {
             yield return null;
@@ -316,7 +358,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Build();
                 Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(1));
                 ClickSelectionOnly(fixture, "Loadout Owned Skill 3");
-                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Effect").text, Is.EqualTo("표시 위력으로 1회 공격"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Effect").text, Is.EqualTo("추가 효과 없음"));
                 Assert.That(Label(fixture.Hud.Root, "Hits Value").text, Is.EqualTo("1회"));
                 Assert.That(Label(fixture.Hud.Root, "ACT Value").text, Is.EqualTo("2"));
                 fixture.Build();
@@ -471,6 +513,20 @@ namespace TurnLimbo.Presentation.Tests
             return count;
         }
 
+        private static Rect WorldBounds(RectTransform rect, Transform relativeTo)
+        {
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            foreach (Vector3 corner in corners)
+            {
+                Vector2 local = relativeTo.InverseTransformPoint(corner);
+                min = Vector2.Min(min, local);
+                max = Vector2.Max(max, local);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
+        }
         private static Transform Named(GameObject root, string name)
         {
             foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true)) if (candidate.name == name) return candidate;

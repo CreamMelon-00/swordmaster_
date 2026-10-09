@@ -15,7 +15,7 @@ namespace TurnLimbo.Core.Tests
     {
         // Sheet rows of the shipped table as written: the header is row 1, then ids in table order.
         private const int Row1 = 2, Row2 = 3, Row5 = 6, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row19 = 19, Row42 = 20, Row43 = 21,
-            Row44 = 22, Row500 = 23, Row501 = 24, Row502 = 25;
+            Row44 = 22, Row45 = 23, Row46 = 24, Row500 = 25, Row501 = 26, Row502 = 27;
 
         /// <summary>The shipped table as the writer lays it out, one string array per sheet row.</summary>
         private static List<string[]> Rows()
@@ -96,8 +96,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(csv[0], Is.EqualTo('\ufeff'), "Excel needs the mark to read Korean.");
             Assert.That(csv, Does.Not.Contain("\r"));
             Assert.That(csv.Substring(1, csv.IndexOf('\n') - 1), Is.EqualTo(string.Join(",", LegacySkillSheet.Headers)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(40));
-            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(40));
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(45));
+            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(45));
         }
 
         [Test]
@@ -168,7 +168,7 @@ namespace TurnLimbo.Core.Tests
             rows.Insert(3, new[] { "  " });
             rows.Insert(4, Enumerable.Repeat(" ", width).ToArray());
             LegacySkillTable table = Parse(rows);
-            Assert.That(table.All.Count, Is.EqualTo(24));
+            Assert.That(table.All.Count, Is.EqualTo(26));
             Assert.That(table.All[0].Skill.Id, Is.EqualTo(1));
 
             Set(rows, 2, Column.Cost, "1.5");
@@ -213,8 +213,8 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.HighPower, "maybe", "O, ○, TRUE, 1, 예, Y")]
         [TestCase(Column.ShortLabel, "", "비어 있습니다")]
         [TestCase(Column.Detail, "", "비어 있습니다")]
-        [TestCase(Column.InfoMainSymbol, "별", "비워 두거나 ACT, 검, 방어, 타수, 회복, 후속, 감소, 편차 중 하나")]
-        [TestCase(Column.InfoSecondaryTone, "빨강", "비워 두거나 기본, 회복, 후속, 감소, 고화력, 연타, 편차, 방어 중 하나")]
+        [TestCase(Column.InfoMainSymbol, "별", "비워 두거나 ACT, 검, 방어, 타수, 회복, 후속, 감소, 편차, 순환 중 하나")]
+        [TestCase(Column.InfoSecondaryTone, "빨강", "비워 두거나 기본, 회복, 후속, 감소, 고화력, 연타, 편차, 방어, 순환 중 하나")]
         public void BadCell_NamesItsRowColumnAndValue(string header, string value, string expected)
         {
             List<string[]> rows = Rows();
@@ -350,6 +350,67 @@ namespace TurnLimbo.Core.Tests
 
             Set(rows, 43, Column.BrokenTargetDamage, "25%");
             Assert.That(Problem(rows), Is.EqualTo($"{Row43}행 (ID 43) '붕괴 대상 추가 피해'은(는) 공격 기술에만 쓸 수 있습니다."));
+        }
+
+        [Test]
+        public void QueueRemoval_ParsesCancelAndReturn_SeparatelyFromTheFollowingPowerCap()
+        {
+            List<string[]> rows = Rows();
+            Assert.That(RowOf(rows, 45)[Index(Column.QueueRemovalMode)], Is.EqualTo("취소"));
+            Assert.That(RowOf(rows, 45)[Index(Column.QueuePowerMultiplierCap)], Is.EqualTo("5"));
+            LegacySkillEffect posture = Parse(rows).Find(45).Effect;
+            Assert.That(posture.QueueRemovalMode, Is.EqualTo(LegacyQueueRemovalMode.Cancel));
+            Assert.That(posture.QueuePowerMultiplierCap, Is.EqualTo(5));
+
+            Set(rows, 45, Column.QueueRemovalMode, "반환");
+            Set(rows, 45, Column.QueuePowerMultiplierCap, "");
+            LegacySkillTable returned = Parse(rows);
+            Assert.That(returned.Find(45).Effect.QueueRemovalMode, Is.EqualTo(LegacyQueueRemovalMode.Return));
+            Assert.That(returned.Find(45).Effect.QueuePowerMultiplierCap, Is.Zero,
+                "ACT 반환 alone must not grant the canceled-count power bonus.");
+            LegacySkillTable roundTrip = LegacySkillSheet.Parse("return round trip", LegacySkillSheet.Write(returned));
+            Assert.That(roundTrip.Find(45).Effect.QueueRemovalMode, Is.EqualTo(LegacyQueueRemovalMode.Return));
+            Assert.That(roundTrip.Find(45).Effect.QueuePowerMultiplierCap, Is.Zero);
+
+            rows = Rows();
+            Set(rows, 45, Column.QueueRemovalMode, "소멸");
+            Assert.That(Problem(rows), Does.StartWith($"{Row45}행 '앞 기술 처리': '소멸'은(는) 쓸 수 없습니다."));
+
+            rows = Rows();
+            Set(rows, 45, Column.QueueRemovalMode, "");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row45}행 (ID 45) '후속 위력 배율 상한'을(를) 쓰려면 '앞 기술 처리'을(를) 지정해야 합니다."));
+
+            rows = Rows();
+            Set(rows, 42, Column.QueueRemovalMode, "취소");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row42}행 (ID 42) '앞 기술 처리'은(는) 방어 기술에만 쓸 수 있습니다."));
+
+            rows = Rows();
+            Set(rows, 501, Column.QueueRemovalMode, "반환");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row501}행 (ID 501) '구분'이(가) '적'인 기술은 '앞 기술 처리'을(를) 쓸 수 없습니다. 적은 기술을 대기열에 직접 장착하지 않습니다."));
+        }
+
+        [Test]
+        public void Cycle_ParsesAndRoundTrips_AndRequiresAValidCapAndGain()
+        {
+            List<string[]> rows = Rows();
+            Assert.That(RowOf(rows, 46)[Index(Column.CyclePowerPerUse)], Is.EqualTo("5"));
+            Assert.That(RowOf(rows, 46)[Index(Column.CycleCostPerUse)], Is.EqualTo("1"));
+            Assert.That(RowOf(rows, 46)[Index(Column.CycleMaxCount)], Is.EqualTo("9"));
+            LegacySkillEffect honing = Parse(rows).Find(46).Effect;
+            Assert.That((honing.CyclePowerPerUse, honing.CycleCostPerUse, honing.CycleMaxCount),
+                Is.EqualTo((5, 1, 9)));
+            LegacySkillTable roundTrip = LegacySkillSheet.Parse("cycle round trip", LegacySkillSheet.Write(Parse(rows)));
+            Assert.That(roundTrip.Find(46).Effect.HasCycle, Is.True);
+
+            Set(rows, 46, Column.CycleMaxCount, "");
+            Assert.That(Problem(rows), Does.StartWith($"{Row46}행 (ID 46) 순환 증가값을 쓰려면"));
+            Set(rows, 46, Column.CycleMaxCount, "9");
+            Set(rows, 46, Column.CyclePowerPerUse, "");
+            Set(rows, 46, Column.CycleCostPerUse, "");
+            Assert.That(Problem(rows), Does.StartWith($"{Row46}행 (ID 46) '순환 상한'을(를) 쓰려면"));
+            Set(rows, 46, Column.CyclePowerPerUse, "5");
+            Set(rows, 46, Column.CycleCostPerUse, "-1");
+            Assert.That(Problem(rows), Does.StartWith($"{Row46}행 '순환 ACT 증가':"));
         }
 
         [Test]
@@ -591,8 +652,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Problem(rows), Does.Contain("지금 Q 4개, W 3개, E 3개"));
 
             rows = Rows();
+            int acquisitionCount = rows.Skip(1).Count(row => row[Index(Column.Group)] == "획득");
             foreach (string[] row in rows.Skip(1)) if (row[Index(Column.Group)] == "획득") row[Index(Column.Group)] = "";
-            Assert.That(Problems(rows).Count(problem => problem.Contains("'구분'")), Is.EqualTo(12),
+            Assert.That(Problems(rows).Count(problem => problem.Contains("'구분'")), Is.EqualTo(acquisitionCount),
                 "Blank groups are cell problems; the table rules wait until every row's group reads.");
 
             rows = Rows().Take(10).ToList();
@@ -624,9 +686,11 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void CsvSyntaxErrors_BecomeSheetProblemsWithTheRow()
         {
-            string csv = LegacySkillSheet.Write(LegacySkillDefinitions.Table) + "99,\"열린 따옴표\n";
+            string written = LegacySkillSheet.Write(LegacySkillDefinitions.Table);
+            int invalidRow = Rows().Count + 1;
+            string csv = written + "99,\"열린 따옴표\n";
             var error = Assert.Throws<SkillSheetException>(() => LegacySkillSheet.Parse("test", csv));
-            Assert.That(error.Problems.Single(), Does.StartWith("26행: "));
+            Assert.That(error.Problems.Single(), Does.StartWith($"{invalidRow}행: "));
         }
 
         [Test]
@@ -650,7 +714,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(changes.Changed, Is.EqualTo(1));
             Assert.That(changes.Reordered, Is.False, "12 is new, so the others keep their order.");
             Assert.That(changes.HasChanges, Is.True);
-            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 24개)"));
+            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 26개)"));
         }
 
         [Test]
@@ -660,7 +724,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillSheetChanges same = LegacySkillSheet.Describe(current, Parse(Rows()));
             Assert.That(same.HasChanges, Is.False);
             Assert.That(same.Lines, Is.Empty);
-            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 24개)."));
+            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 26개)."));
 
             List<string[]> rows = Rows();
             string[] guard = RowOf(rows, 7);
@@ -672,7 +736,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(moved.Summary, Does.Contain("순서 변경"));
 
             LegacySkillSheetChanges fresh = LegacySkillSheet.Describe(null, current);
-            Assert.That(fresh.Added, Is.EqualTo(24));
+            Assert.That(fresh.Added, Is.EqualTo(26));
             Assert.That(fresh.Lines[0], Is.EqualTo("추가: 1 베기"));
             Assert.That(fresh.Reordered, Is.False);
         }

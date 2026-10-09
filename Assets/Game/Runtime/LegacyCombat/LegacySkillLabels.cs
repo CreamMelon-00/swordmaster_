@@ -18,11 +18,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             LegacySkillSymbol.Act, LegacySkillSymbol.Sword, LegacySkillSymbol.Guard, LegacySkillSymbol.Hits,
             LegacySkillSymbol.Recovery, LegacySkillSymbol.Followup, LegacySkillSymbol.Reduction, LegacySkillSymbol.Variance,
+            LegacySkillSymbol.Cycle,
         };
         private static readonly LegacySkillTone[] tones =
         {
             LegacySkillTone.Neutral, LegacySkillTone.Recovery, LegacySkillTone.Followup, LegacySkillTone.Reduction,
             LegacySkillTone.HighPower, LegacySkillTone.MultiHit, LegacySkillTone.Variance, LegacySkillTone.Defence,
+            LegacySkillTone.Cycle,
         };
 
         public static string Property(LegacySkillProperty property)
@@ -58,6 +60,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 case LegacySkillSymbol.Recovery: return "회복";
                 case LegacySkillSymbol.Followup: return "후속";
                 case LegacySkillSymbol.Reduction: return "감소";
+                case LegacySkillSymbol.Cycle: return "순환";
                 default: return "편차";
             }
         }
@@ -73,6 +76,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 case LegacySkillTone.HighPower: return "고화력";
                 case LegacySkillTone.MultiHit: return "연타";
                 case LegacySkillTone.Variance: return "편차";
+                case LegacySkillTone.Cycle: return "순환";
                 default: return "방어";
             }
         }

@@ -49,8 +49,10 @@ namespace TurnLimbo.Presentation.Tests
                     fixture.View.SetSkill(skill);
                     Assert.That(fixture.View.AttackTypeText.text, Is.EqualTo(types[index]), skill.Name);
                     Assert.That(fixture.View.AttackTypeText.name, Is.EqualTo("Attack Type"));
-                    Assert.That(Label(fixture.View.Root, "Type Label").text,
-                        Is.EqualTo(skill.Kind == LegacySkillKind.Defence ? "기술 타입" : "공격 타입"), skill.Name);
+                    Assert.That(Label(fixture.View.Root, "Type Label").text, Is.Empty, skill.Name);
+                    Assert.That(Label(fixture.View.Root, "Type Label").gameObject.activeSelf, Is.False, skill.Name);
+                    Assert.That(Label(fixture.View.Root, "Hits Label").text, Is.Empty, skill.Name);
+                    Assert.That(Label(fixture.View.Root, "Hits Label").gameObject.activeSelf, Is.False, skill.Name);
                     var ribbon = Named(fixture.View.Root, "Type Attachment").GetComponent<SkillInfoAttachment>();
                     Assert.That(ribbon, Is.Not.Null);
                     Assert.That(ribbon.color.a, Is.EqualTo(1f).Within(.001f), "Type dye must remain opaque behind its text.");
@@ -71,7 +73,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator Attachments_ReplaceTheThreeInnerTilesAndOverhangBothCardWidths()
+        public IEnumerator Facts_StayInsideTheCardAndReadFromCostToPowerToType()
         {
             yield return null;
             foreach (float width in new[] { 334f, 416f })
@@ -80,25 +82,26 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     fixture.View.SetSkill(Skill(3));
                     Canvas.ForceUpdateCanvases();
-                    foreach (string oldTile in new[] { "ACT Tile", "Power Tile", "Hits Tile" })
-                        Assert.That(Find(fixture.View.Root, oldTile), Is.Null, "Old divided stat tiles should no longer be created.");
-                    Transform group = Named(fixture.View.Root, "Skill Attachments");
-                    Assert.That(group.GetComponent<Graphic>(), Is.Null, "The attachments are separate silhouettes, not an inner panel.");
                     var attachments = fixture.View.Root.GetComponentsInChildren<SkillInfoAttachment>(true);
                     Assert.That(attachments.Length, Is.EqualTo(3));
-                    Rect paper = LocalBounds(fixture.Paper, fixture.Paper);
-                    foreach (string name in new[] { "ACT Attachment", "Power Attachment" })
+                    RectTransform card = fixture.View.Root.GetComponent<RectTransform>();
+                    Rect cost = LocalBounds(Named(fixture.View.Root, "ACT Attachment").GetComponent<RectTransform>(), card);
+                    Rect power = LocalBounds(Named(fixture.View.Root, "Power Attachment").GetComponent<RectTransform>(), card);
+                    Rect type = LocalBounds(Named(fixture.View.Root, "Type Attachment").GetComponent<RectTransform>(), card);
+                    foreach (Rect fact in new[] { cost, power, type })
                     {
-                        Rect bounds = LocalBounds(Named(fixture.View.Root, name).GetComponent<RectTransform>(), fixture.Paper);
-                        Assert.That(bounds.xMin, Is.LessThan(paper.xMin - 20f), name + " should visibly attach outside the left paper edge.");
-                        Assert.That(bounds.xMin, Is.GreaterThanOrEqualTo(paper.xMin - SkillInfoView.AttachmentOverhang - 1f));
+                        Assert.That(fact.xMin, Is.GreaterThanOrEqualTo(card.rect.xMin - 1f));
+                        Assert.That(fact.xMax, Is.LessThanOrEqualTo(card.rect.xMax + 1f));
+                        Assert.That(fact.yMin, Is.GreaterThanOrEqualTo(card.rect.yMin - 1f));
+                        Assert.That(fact.yMax, Is.LessThanOrEqualTo(card.rect.yMax + 1f));
                     }
-                    Rect type = LocalBounds(Named(fixture.View.Root, "Type Attachment").GetComponent<RectTransform>(), fixture.Paper);
-                    Assert.That(type.xMax, Is.GreaterThan(paper.xMax + 20f), "The type ribbon should visibly attach outside the right edge.");
-                    Assert.That(type.xMax, Is.LessThanOrEqualTo(paper.xMax + SkillInfoView.AttachmentOverhang + 1f));
+                    Assert.That(cost.xMax, Is.LessThan(power.xMin));
+                    Assert.That(power.xMax, Is.LessThan(type.xMin));
+                    Assert.That(fixture.View.Overhang, Is.Zero);
                     Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
                     Assert.That(fixture.View.PowerText.text, Is.EqualTo("11–14"));
-                    Assert.That(Label(fixture.View.Root, "Hits Label").text, Is.EqualTo("타격"));
+                    Assert.That(Label(fixture.View.Root, "Hits Label").text, Is.Empty);
+                    Assert.That(Label(fixture.View.Root, "Hits Label").gameObject.activeSelf, Is.False);
                     Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo("1회"));
                 }
                 yield return null;
@@ -116,17 +119,24 @@ namespace TurnLimbo.Presentation.Tests
                     LegacySkill skill = Skill(id);
                     fixture.View.SetSkill(skill);
                     Assert.That(fixture.View.AttackTypeText.text, Is.EqualTo("방어"), skill.Name);
-                    Assert.That(Label(fixture.View.Root, "Type Label").text, Is.EqualTo("기술 타입"));
-                    Assert.That(Label(fixture.View.Root, "Power Label").text, Does.Contain("방어"));
+                    Assert.That(Label(fixture.View.Root, "Type Label").text, Is.Empty);
+                    Assert.That(Label(fixture.View.Root, "Type Label").gameObject.activeSelf, Is.False);
+                    Assert.That(Label(fixture.View.Root, "Power Label").text, Is.Empty,
+                        "The shield and type ribbon already identify defence.");
+                    Assert.That(Label(fixture.View.Root, "Power Label").gameObject.activeSelf, Is.False);
+                    foreach (Text costText in Named(fixture.View.Root, "ACT Attachment").GetComponentsInChildren<Text>(true))
+                        Assert.That(costText.text, Is.Not.EqualTo("ACT"), "The lightning glyph identifies ACT.");
                     Assert.That(fixture.View.PowerText.text, Is.EqualTo(CampaignSkillText.Power(skill)));
-                    Assert.That(Label(fixture.View.Root, "Hits Label").text, Is.EqualTo("대응"));
+                    Assert.That(Label(fixture.View.Root, "Hits Label").text, Is.Empty);
+                    Assert.That(Label(fixture.View.Root, "Hits Label").gameObject.activeSelf, Is.False);
                     Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo("같은 칸"));
                     Assert.That(fixture.View.DamageText.text, Is.Empty);
                     Assert.That(fixture.View.DamageText.gameObject.activeInHierarchy, Is.False);
                 }
                 fixture.View.SetSkill(Skill(5));
                 Assert.That(fixture.View.AttackTypeText.text, Is.EqualTo("타격"));
-                Assert.That(Label(fixture.View.Root, "Power Label").text, Is.EqualTo("위력"));
+                Assert.That(Label(fixture.View.Root, "Power Label").text, Is.Empty);
+                Assert.That(Label(fixture.View.Root, "Power Label").gameObject.activeSelf, Is.False);
                 Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo("2회"));
             }
             yield return null;
@@ -150,7 +160,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.View.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodes));
                 CollectionAssert.AreEquivalent(original, fixture.View.Root.GetComponentsInChildren<SkillInfoAttachment>(true));
                 foreach (Graphic graphic in fixture.View.Root.GetComponentsInChildren<Graphic>(true))
-                    Assert.That(graphic.raycastTarget, Is.False, graphic.name + " must not block clicks, holds or card drags.");
+                    if (graphic.raycastTarget)
+                        Assert.That(graphic is SkillKeywordHitGraphic || graphic.name == "Keyword 1" ||
+                            graphic.name == "Keyword 2", Is.True,
+                            graphic.name + " should only catch a defined keyword.");
                 foreach (string keyword in new[] { "Keyword 1", "Keyword 2" })
                     Assert.That(Named(fixture.View.Root, keyword).GetComponent<Image>().color.a, Is.EqualTo(1f).Within(.001f));
 

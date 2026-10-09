@@ -375,8 +375,13 @@ namespace TurnLimbo.Presentation.Tests
             foreach (string name in textNames)
             {
                 Text label = Find<Text>(detailRoot, name);
-                Assert.That(label.color, Is.EqualTo(DuelVisualTheme.Ink), name + " must read as ink on paper.");
-                Assert.That(Contrast(paper.color, label.color), Is.GreaterThanOrEqualTo(4.5f),
+                bool onDarkPlate = name.EndsWith("Detail Values", StringComparison.Ordinal);
+                Color expectedInk = onDarkPlate ? DuelVisualTheme.Foreground : DuelVisualTheme.Ink;
+                Color background = onDarkPlate
+                    ? Find<SkillInfoAttachment>(detailRoot, "Power Attachment").color : paper.color;
+                Assert.That(label.color, Is.EqualTo(expectedInk),
+                    name + " must contrast with its own paper or dark stat plate.");
+                Assert.That(Contrast(background, label.color), Is.GreaterThanOrEqualTo(4.5f),
                     name + " must retain readable contrast after theming.");
                 Assert.That(label.raycastTarget, Is.False);
             }

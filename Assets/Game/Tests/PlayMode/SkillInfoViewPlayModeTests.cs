@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Sheets;
 using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
@@ -49,21 +51,23 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(fixture.View.PowerText.text, Is.EqualTo(powers[index]), skill.Name);
                     if (skill.Kind == LegacySkillKind.Attack)
                     {
-                        Assert.That(Label(fixture.View.Root, "Power Label").text, Is.EqualTo("위력"), skill.Name);
+                        Assert.That(Label(fixture.View.Root, "Power Label").text, Is.Empty, skill.Name);
+                        Assert.That(Label(fixture.View.Root, "Power Label").gameObject.activeSelf, Is.False, skill.Name);
                         Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo(hits[index] + "회"), skill.Name);
                         if (hits[index] > 1)
                         {
                             AssertNoPowerSplittingExplanation(fixture.View.EffectText.text, skill.Name + " skill card");
                             AssertNoPowerSplittingExplanation(CampaignSkillText.Effect(skill), skill.Name + " lobby effect");
                             if (ids[index] == 2 || ids[index] == 15)
-                                Assert.That(fixture.View.EffectText.text, Is.Empty,
-                                    "An ordinary multi-hit skill needs no calculation paragraph: " + skill.Name);
+                                Assert.That(fixture.View.EffectText.text, Is.EqualTo("추가 효과 없음"),
+                                    "An ordinary multi-hit skill has no extra effect paragraph: " + skill.Name);
                         }
                     }
                     else
                     {
-                        Assert.That(Label(fixture.View.Root, "Power Label").text, Does.Contain("방어"),
-                            "Defense power must not be presented as an attack's total power.");
+                        Assert.That(Label(fixture.View.Root, "Power Label").text, Is.Empty,
+                            "The shield glyph identifies defence without repeating the type label.");
+                        Assert.That(Label(fixture.View.Root, "Power Label").gameObject.activeSelf, Is.False, skill.Name);
                         Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo("같은 칸"), skill.Name);
                         Assert.That(fixture.View.DamageText.text, Is.Empty, skill.Name);
                     }
@@ -75,6 +79,22 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("공격과 대결 → 저항"), skill.Name);
                     Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("방어·빈칸 → 체력"), skill.Name);
                 }
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator PostureSkill_HighlightsCancel_AndExplainsTheNextSkillMultiplier()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                fixture.View.SetSkill(Skill(45));
+                Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("취소"));
+                Assert.That(Label(fixture.View.Root, "Keyword 2 Text").text, Does.Contain("×5"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("앞에 예약한 스킬을 취소"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("다음 스킬 1개의 위력 증가"));
+                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("1"));
             }
             yield return null;
         }
@@ -93,17 +113,17 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(Skill(3));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("고화력").And.Contain("단타"));
                 Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("1회 공격"));
+                Assert.That(fixture.View.EffectText.text, Is.EqualTo("추가 효과 없음"));
                 Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("10%"),
                     "The first W skill no longer promises a following-slot buff.");
 
                 fixture.View.SetSkill(Skill(5));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -5").And.Contain("공격 대응"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("상대가 공격이면").And.Contain("저항 5 감소"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("공격 기술").And.Contain("저항 즉시 5 감소"));
 
                 fixture.View.SetSkill(Skill(6));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -8").And.Contain("방어 대응"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("상대가 방어이면").And.Contain("저항 8 감소"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("방어 기술").And.Contain("저항 즉시 8 감소"));
 
                 fixture.View.SetSkill(Skill(7));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT").And.Contain("2"));
@@ -112,7 +132,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(Skill(8));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("25%").And.Contain("다음 1칸"));
                 Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("3"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("이번 턴").And.Contain("다음 1칸"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("이번 턴").And.Contain("바로 다음 1칸"));
 
                 fixture.View.SetSkill(Skill(9));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("20%").And.Contain("뒤 2칸"));
@@ -162,20 +182,20 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(Skill(12));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT +3").And.Contain("배율 +50%"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("다음 턴 ACT 회복 +3").And.Contain("이번 턴 · 다음 1칸 받는 피해 배율 +50%"));
+                    Does.Contain("다음 턴 ACT 회복 +3").And.Contain("받는 피해 배율 +50%"));
                 Assert.That(CampaignSkillText.Effect(Skill(12)), Does.Contain("받는 피해").And.Contain("50%"));
 
                 fixture.View.SetSkill(Skill(19));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 회복").And.Contain("10%"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("기술 시작 시 최대 저항").And.Contain("최대치 제한"));
+                    Does.Contain("기술 시작").And.Contain("최대 저항의 10% 회복"));
                 Assert.That(Keywords(fixture.View.Root), Does.Not.Contain("피해 -30%"));
                 Assert.That(CampaignSkillText.Effect(Skill(19)), Does.Contain("최대 저항").And.Contain("최대치를 넘지"));
 
                 fixture.View.SetSkill(Skill(42));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -20").And.Contain("ACT +3"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("기술 시작 시 같은 칸 상대가 방어이면").And.Contain("체력 피해 없음"));
+                    Does.Contain("방어 기술").And.Contain("저항 즉시 20 감소"));
                 Assert.That(CampaignSkillText.Effect(Skill(42)), Does.Contain("체력 피해로 이어지지"));
 
                 foreach (int id in new[] { 12, 42 })
@@ -192,6 +212,138 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(Skill(17));
                 Assert.That(Keywords(fixture.View.Root), Does.Not.Contain("저항 회복"));
                 Assert.That(CampaignSkillText.Effect(Skill(17)), Does.Not.Contain("회복"));
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator CycleKeywordAndLiveCount_KeepTheFixedCardCurrentWithoutLeakingToLobby()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                LegacySkill skill = Skill(46);
+                float fixedHeight = fixture.View.Height;
+                fixture.View.SetSkill(skill);
+                Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("순환"));
+                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("1"));
+                Assert.That(fixture.View.PowerText.text, Is.EqualTo("5–10"));
+                Assert.That(Label(fixture.View.Root, "Keyword 1 Text").color,
+                    Is.EqualTo((Color)new Color32(34, 83, 82, 255)));
+
+                fixture.View.SetSkill(skill, cycleUses: 0, effectiveCost: 1, effectivePower: "5–10");
+                Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("순환 0/9"));
+                fixture.View.SetSkill(skill, cycleUses: 1, effectiveCost: 2, effectivePower: "10–15");
+                Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("순환 1/9"),
+                    "The same skill object must refresh when its battle count changes.");
+                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
+                Assert.That(fixture.View.PowerText.text, Is.EqualTo("10–15"));
+                Assert.That(fixture.View.Height, Is.EqualTo(fixedHeight).Within(.1f));
+                fixture.View.SetSkill(skill);
+                Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("순환"),
+                    "The lobby has no battle count to carry over.");
+                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("1"));
+                fixture.View.Clear();
+                Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.Empty);
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator QueueRemovalAndCycle_KeepBothSharedKeywordsInOrder()
+        {
+            yield return null;
+            var rows = CsvTable.Read(LegacySkillSheet.Write(LegacySkillDefinitions.Table))
+                .Select(record => record.Fields.ToArray()).ToList();
+            int mode = Array.IndexOf(rows[0], "앞 기술 처리");
+            int power = Array.IndexOf(rows[0], "순환 위력 증가");
+            int cost = Array.IndexOf(rows[0], "순환 ACT 증가");
+            int cap = Array.IndexOf(rows[0], "순환 상한");
+            string[] posture = rows.Single(row => row[0] == "45");
+            posture[power] = "5";
+            posture[cost] = "1";
+            posture[cap] = "9";
+            try
+            {
+                using (var fixture = new Fixture())
+                {
+                    foreach (string removal in new[] { "취소", "반환" })
+                    {
+                        posture[mode] = removal;
+                        string sheet = CsvTable.Write(rows);
+                        LegacySkillDefinitions.Install(() => sheet);
+                        LegacySkill skill = LegacySkillDefinitions.Skill(45);
+                        fixture.View.SetSkill(skill, cycleUses: 2);
+                        Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo(removal));
+                        Assert.That(Label(fixture.View.Root, "Keyword 2 Text").text, Is.EqualTo("순환 2/9"));
+                        Assert.That(Named(fixture.View.Root, "Keyword 2").gameObject.activeInHierarchy, Is.True);
+                    }
+                }
+            }
+            finally { LegacySkillDefinitions.Install(null); }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EveryAuthoredSkill_FitsTheSame334PixelCardAsPlayerEnemyAndOwned()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var run = new CampaignRun();
+                float fixedHeight = fixture.View.Height;
+                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(26));
+                foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
+                {
+                    foreach (bool enemy in new[] { false, true })
+                    {
+                        fixture.View.SetSkill(definition.Skill, enemy);
+                        Canvas.ForceUpdateCanvases();
+                        Assert.That(fixture.View.Height, Is.EqualTo(fixedHeight).Within(.1f), definition.Skill.Name);
+                        Assert.That(fixture.View.EffectText.preferredHeight,
+                            Is.LessThanOrEqualTo(fixture.View.EffectText.rectTransform.rect.height + 1f),
+                            definition.Skill.Name + (enemy ? " enemy copy" : " player copy"));
+                    }
+                    CampaignOwnedSkill owned = run.OwnedSkills.FirstOrDefault(item => item.SkillId == definition.Skill.Id);
+                    if (owned == null) continue;
+                    fixture.View.SetSkill(owned.Skill, owned: owned);
+                    Canvas.ForceUpdateCanvases();
+                    Assert.That(fixture.View.Height, Is.EqualTo(fixedHeight).Within(.1f), definition.Skill.Name);
+                    Assert.That(fixture.View.EffectText.preferredHeight,
+                        Is.LessThanOrEqualTo(fixture.View.EffectText.rectTransform.rect.height + 1f),
+                        definition.Skill.Name + " owned copy");
+                }
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SkillCard_ReadsFromFactsToEffectToKeywordsAndExperience()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var owned = new CampaignRun().OwnedSkills[0];
+                fixture.View.SetSkill(owned.Skill, owned: owned);
+                Canvas.ForceUpdateCanvases();
+                RectTransform card = fixture.View.Root.GetComponent<RectTransform>();
+                RectTransform cost = Named(fixture.View.Root, "ACT Attachment").GetComponent<RectTransform>();
+                RectTransform power = Named(fixture.View.Root, "Power Attachment").GetComponent<RectTransform>();
+                RectTransform type = Named(fixture.View.Root, "Type Attachment").GetComponent<RectTransform>();
+                RectTransform rule = Named(fixture.View.Root, "Skill Effect Rule").GetComponent<RectTransform>();
+                RectTransform effect = fixture.View.EffectText.rectTransform;
+                RectTransform badges = Named(fixture.View.Root, "Skill Keywords").GetComponent<RectTransform>();
+                RectTransform experience = Named(fixture.View.Root, "Skill Experience").GetComponent<RectTransform>();
+                Assert.That(cost.anchoredPosition.y, Is.EqualTo(power.anchoredPosition.y).Within(.1f));
+                Assert.That(power.anchoredPosition.y, Is.EqualTo(type.anchoredPosition.y).Within(.1f));
+                Assert.That(cost.anchoredPosition.y + cost.rect.yMin, Is.GreaterThan(rule.anchoredPosition.y + rule.rect.yMax));
+                Assert.That(type.anchoredPosition.y + type.rect.yMin, Is.GreaterThan(rule.anchoredPosition.y + rule.rect.yMax));
+                Assert.That(rule.anchoredPosition.y + rule.rect.yMin, Is.GreaterThan(effect.anchoredPosition.y + effect.rect.yMax));
+                Assert.That(effect.anchoredPosition.y + effect.rect.yMin, Is.GreaterThan(badges.anchoredPosition.y + badges.rect.yMax));
+                Assert.That(badges.anchoredPosition.y + badges.rect.yMin, Is.GreaterThan(experience.anchoredPosition.y + experience.rect.yMax));
+                Assert.That(experience.anchoredPosition.y + experience.rect.yMin,
+                    Is.GreaterThanOrEqualTo(card.rect.yMin - 1f));
+                Assert.That(fixture.View.EffectText.preferredHeight, Is.LessThanOrEqualTo(effect.rect.height + 1f));
             }
             yield return null;
         }
@@ -279,7 +431,7 @@ namespace TurnLimbo.Presentation.Tests
                 float height = fixture.View.Height;
                 LegacySkill skill = Skill(5);
                 fixture.View.SetSkill(skill, false, "능력치 보상: 최대 체력 +5 · 매 턴 ACT 회복 +1");
-                Assert.That(fixture.View.EffectText.text, Does.Contain("저항 5 감소").And.Contain("최대 체력 +5"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("저항 즉시 5 감소").And.Contain("최대 체력 +5"));
                 Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
                 fixture.View.SetSkill(skill);
                 Assert.That(fixture.View.EffectText.text, Does.Not.Contain("최대 체력 +5"));
@@ -316,7 +468,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(glyph.raycastTarget, Is.False, glyph.name + " is a decorative symbol, not an input target.");
                 }
                 foreach (Text text in fixture.View.Root.GetComponentsInChildren<Text>(true))
-                    Assert.That(text.raycastTarget, Is.False, text.name);
+                    Assert.That(text.raycastTarget, Is.False, text.name + " is rendered, not an input target.");
             }
             yield return null;
         }
@@ -366,7 +518,7 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 Click(lobby.Root, "Curriculum Node suppleness");
                 Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("유연함"));
-                Assert.That(Label(detail, "Power Label").text, Does.Contain("방어"));
+                Assert.That(Label(detail, "Power Label").text, Is.Empty);
                 Assert.That(Keywords(detail), Does.Contain("수치 방어"));
                 Assert.That(run.Curriculum.Active, Is.Null, "Choosing information must not start a curriculum node.");
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);

@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation
         private static readonly Vector2[] RibbonPoints =
         {
             new Vector2(-.5f, .34f), new Vector2(-.34f, .5f), new Vector2(.34f, .5f),
-            new Vector2(.5f, .34f), new Vector2(.5f, -.5f), new Vector2(0f, -.40f),
+            new Vector2(.5f, .34f), new Vector2(.5f, -.5f), new Vector2(0f, -.47f),
             new Vector2(-.5f, -.5f)
         };
         private SkillInfoAttachmentShape shape;

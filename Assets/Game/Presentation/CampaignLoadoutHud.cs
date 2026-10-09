@@ -130,14 +130,16 @@ namespace TurnLimbo.Presentation
             Fit(detailName, 16, 23);
             detailRole = Label("Loadout Detail Role", detail.transform, new Vector2(45f, 116f), new Vector2(246f, 26f), 16, Accent);
             Fit(detailRole, 14, 16);
-            detailInfo = new SkillInfoView(detail.transform, art.UIFont, new Vector2(0f, -17f), 334f, "Loadout");
+            detailInfo = new SkillInfoView(detail.transform, art.UIFont, new Vector2(0f, -17f), 334f,
+                "Loadout", expandedExperience: true);
             detailName.color = detailRole.color = DuelVisualTheme.Ink;
-            removeButton = ActionButton("Loadout Remove Selected", detail.transform, "편성에서 빼기",
-                new Vector2(0f, -172f), new Vector2(190f, 34f), RemoveSelected);
+            // Keep the removal action outside the paper detail, on the collection heading row.
+            removeButton = ActionButton("Loadout Remove Selected", root, "편성에서 빼기",
+                new Vector2(423f, -124f), new Vector2(310f, 36f), RemoveSelected);
 
             Label("Loadout Owned Heading", root, new Vector2(-479f, -124f), new Vector2(220f, 30f), 21).text = "보유 기술";
-            placementHint = Label("Loadout Owned Hint", root, new Vector2(389f, -124f),
-                new Vector2(380f, 28f), 16, Accent, TextAnchor.MiddleRight);
+            placementHint = Label("Loadout Owned Hint", root, new Vector2(-140f, -124f),
+                new Vector2(400f, 28f), 16, Accent, TextAnchor.MiddleRight);
             var collection = Rect("Loadout Collection", root, new Vector2(0f, -222f), new Vector2(1200f, 126f));
             var scroll = collection.gameObject.AddComponent<ScrollRect>();
             var viewport = Panel("Loadout Collection Viewport", collection, Vector2.zero, new Vector2(1200f, 126f), Color.clear);
@@ -318,8 +320,8 @@ namespace TurnLimbo.Presentation
 
         private void LayoutDetail()
         {
-            // Reserve the action area even when the selected skill cannot be removed.
-            float height = 104f + detailInfo.Height + 54f;
+            // The loadout card uses the former action row for its larger experience footer.
+            float height = 104f + detailInfo.Height;
             detailFrame.sizeDelta = new Vector2(384f, height + 4f);
             detailFrame.anchoredPosition = new Vector2(423f, 284f - (height + 4f) / 2f);
             detailSurface.sizeDelta = new Vector2(380f, height);
@@ -332,8 +334,6 @@ namespace TurnLimbo.Presentation
             detailRole.rectTransform.anchoredPosition = new Vector2(20f, top - 78f);
             detailRole.rectTransform.sizeDelta = new Vector2(162f, 26f);
             detailInfo.PlaceTop(top - 104f);
-            removeButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(12f, -top + 28f);
-            removeButton.GetComponent<RectTransform>().sizeDelta = new Vector2(310f, 34f);
         }
 
         private void SelectOwned(int skillId)

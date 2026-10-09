@@ -61,16 +61,16 @@ namespace TurnLimbo.Core.Tests
         public void CurriculumSkillRenumberedOrDeleted_IsAProblem()
         {
             List<string[]> rows = Rows();
-            Set(rows, 42, Column.Id, "45");
+            Set(rows, 42, Column.Id, "47");
             LegacySkillTable renumbered = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(renumbered), Is.EqualTo(new[]
             {
                 "ID 42 기술이 시트에 없습니다. 커리큘럼 과정 'quick-draw'이(가) 이 기술을 주므로 그 과정을 마치는 전투가 끝날 때 " +
                 "게임이 멈춥니다. ID를 바꾸거나 행을 지우지 마세요.",
             }));
-            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 45 쿠페: "));
+            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 47 쿠페: "));
 
-            rows.Remove(RowOf(rows, 45));
+            rows.Remove(RowOf(rows, 47));
             LegacySkillTable deleted = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(deleted).Single(), Does.StartWith("ID 42 기술이 시트에 없습니다."));
             Assert.That(CampaignSheetCheck.Warnings(deleted), Is.Empty);

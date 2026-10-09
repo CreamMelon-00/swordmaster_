@@ -1,0 +1,970 @@
+{
+  "source_sha256": {
+    "skill-role-atlas.png": "e07bec3455c7ffb860e972c450c088e55f0f75d72e8945c67aa2323e540059fe",
+    "skill-role-atlas.png.meta": "e8e7110beae275c7f6d165f0137a169d010a373809d84557ead23499ab4bc74a",
+    "role16.png": "bbdb681df720a05d85f255260c5bc76ba2ec9dc8bf91a52804fbe1ef2ffabec1",
+    "role16.png.meta": "f44cfd73a22baf13bb8fc436dbe28680c161b821a343cde196c3b6bd462016e6",
+    "role17.png": "c5f423d1e0f30607dec06ed4000070ea0b1e125c57bc3af9f060adfb10225389",
+    "role17.png.meta": "aef189520fedf0d69fcf880b066266bf1cabd6cecbb9705adeee0e865d6bb927",
+    "role18.png": "98679c981d7dfb92ddf9efb099241d42774a1d302c7907b385dc8335b57cfe2e",
+    "role18.png.meta": "658eb43d6d3ea5c08d7836fb5b6a494ac645c8cbe5b5bb0eb51c746490c59560",
+    "role19.png": "1b47e99559db86825939b4ef047019bdabe403dd08e8cfdfa56962e4e7c1e613",
+    "role19.png.meta": "5af4dfa34bcf28e07fb274ed038fc9b9e0c2ba26cbb88ab600efadafc112c49e",
+    "role20.png": "25fd47de374c6012b5ae6294726a22f774f260f163657ba830d130d2e6acc35a",
+    "role20.png.meta": "58f894e1611689bf1e707b1aa3481c2ea34f89008bf400f72386475e16389942"
+  },
+  "source_atlas_rects": {
+    "1": {
+      "x": 23,
+      "y": 1297,
+      "width": 300,
+      "height": 304,
+      "spriteID": "1af3b0dffe3c843931b3c00ab8ee5cde",
+      "internalID": 21300000
+    },
+    "2": {
+      "x": 335,
+      "y": 1295,
+      "width": 302,
+      "height": 306,
+      "spriteID": "657caec390b550343f10712e8f915c52",
+      "internalID": 21300002
+    },
+    "3": {
+      "x": 673,
+      "y": 1298,
+      "width": 274,
+      "height": 303,
+      "spriteID": "4678261f130954ad393cd7ba8832494d",
+      "internalID": 21300004
+    },
+    "4": {
+      "x": 47,
+      "y": 1002,
+      "width": 263,
+      "height": 294,
+      "spriteID": "6f6570efce7ba680164371d1b0506a83",
+      "internalID": 21300006
+    },
+    "5": {
+      "x": 351,
+      "y": 1021,
+      "width": 268,
+      "height": 258,
+      "spriteID": "83eeadcada9ac9de44dfa475bde9c3ed",
+      "internalID": 21300008
+    },
+    "6": {
+      "x": 662,
+      "y": 1021,
+      "width": 269,
+      "height": 258,
+      "spriteID": "d4d643ac9b009618ce0be370193fc94b",
+      "internalID": 21300010
+    },
+    "7": {
+      "x": 40,
+      "y": 694,
+      "width": 265,
+      "height": 304,
+      "spriteID": "cc7ebafacdb271408c81a6339fbbbfa8",
+      "internalID": 21300012
+    },
+    "8": {
+      "x": 351,
+      "y": 694,
+      "width": 268,
+      "height": 304,
+      "spriteID": "68539719bc1a653c71c4da2e913ee843",
+      "internalID": 21300014
+    },
+    "9": {
+      "x": 666,
+      "y": 694,
+      "width": 266,
+      "height": 304,
+      "spriteID": "d08ce2c0e6c817277b98ffc34be94062",
+      "internalID": 21300016
+    },
+    "10": {
+      "x": 23,
+      "y": 388,
+      "width": 300,
+      "height": 303,
+      "spriteID": "d44b6bec39b44d29791706369b143c34",
+      "internalID": 21300018
+    },
+    "11": {
+      "x": 335,
+      "y": 388,
+      "width": 302,
+      "height": 303,
+      "spriteID": "2223d92355a00e71bd15beddf158d716",
+      "internalID": 21300020
+    },
+    "12": {
+      "x": 646,
+      "y": 388,
+      "width": 303,
+      "height": 304,
+      "spriteID": "8a11403fd59831a67650a0d5504fead8",
+      "internalID": 21300022
+    },
+    "13": {
+      "x": 40,
+      "y": 74,
+      "width": 265,
+      "height": 314,
+      "spriteID": "c357f3150cdcf3e592694c2fb5c9c4ee",
+      "internalID": 21300024
+    },
+    "14": {
+      "x": 348,
+      "y": 76,
+      "width": 288,
+      "height": 312,
+      "spriteID": "346be10052b7003f5f05385bf0255135",
+      "internalID": 21300026
+    },
+    "15": {
+      "x": 666,
+      "y": 74,
+      "width": 266,
+      "height": 314,
+      "spriteID": "7042adf9e983633263f29f8c6c174022",
+      "internalID": 21300028
+    }
+  },
+  "logical_canvas": 48,
+  "logical_art_extent": 44,
+  "base_palette_limit": 48,
+  "runtime_canvas": 192,
+  "roles": {
+    "role1": {
+      "48": {
+        "source_bbox": [
+          2,
+          2,
+          298,
+          303
+        ],
+        "output_bbox": [
+          2,
+          2,
+          45,
+          46
+        ],
+        "opaque_colors": 48
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          2,
+          298,
+          303
+        ],
+        "output_bbox": [
+          1,
+          1,
+          30,
+          30
+        ],
+        "opaque_colors": 32
+      }
+    },
+    "role2": {
+      "48": {
+        "source_bbox": [
+          1,
+          2,
+          301,
+          305
+        ],
+        "output_bbox": [
+          2,
+          2,
+          46,
+          46
+        ],
+        "opaque_colors": 48
+      },
+      "32": {
+        "source_bbox": [
+          1,
+          2,
+          301,
+          305
+        ],
+        "output_bbox": [
+          1,
+          1,
+          30,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role3": {
+      "48": {
+        "source_bbox": [
+          1,
+          2,
+          272,
+          301
+        ],
+        "output_bbox": [
+          4,
+          2,
+          44,
+          46
+        ],
+        "opaque_colors": 48
+      },
+      "32": {
+        "source_bbox": [
+          1,
+          2,
+          272,
+          301
+        ],
+        "output_bbox": [
+          3,
+          1,
+          29,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role4": {
+      "48": {
+        "source_bbox": [
+          1,
+          2,
+          261,
+          293
+        ],
+        "output_bbox": [
+          4,
+          2,
+          43,
+          46
+        ],
+        "opaque_colors": 46
+      },
+      "32": {
+        "source_bbox": [
+          1,
+          2,
+          261,
+          293
+        ],
+        "output_bbox": [
+          3,
+          1,
+          29,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role5": {
+      "48": {
+        "source_bbox": [
+          2,
+          1,
+          266,
+          256
+        ],
+        "output_bbox": [
+          2,
+          3,
+          46,
+          45
+        ],
+        "opaque_colors": 47
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          1,
+          266,
+          256
+        ],
+        "output_bbox": [
+          1,
+          2,
+          30,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role6": {
+      "48": {
+        "source_bbox": [
+          2,
+          1,
+          268,
+          256
+        ],
+        "output_bbox": [
+          2,
+          3,
+          46,
+          45
+        ],
+        "opaque_colors": 48
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          1,
+          268,
+          256
+        ],
+        "output_bbox": [
+          1,
+          2,
+          30,
+          30
+        ],
+        "opaque_colors": 32
+      }
+    },
+    "role7": {
+      "48": {
+        "source_bbox": [
+          2,
+          1,
+          264,
+          302
+        ],
+        "output_bbox": [
+          5,
+          2,
+          43,
+          46
+        ],
+        "opaque_colors": 47
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          1,
+          264,
+          302
+        ],
+        "output_bbox": [
+          3,
+          1,
+          28,
+          30
+        ],
+        "opaque_colors": 32
+      }
+    },
+    "role8": {
+      "48": {
+        "source_bbox": [
+          1,
+          1,
+          266,
+          302
+        ],
+        "output_bbox": [
+          4,
+          2,
+          43,
+          46
+        ],
+        "opaque_colors": 46
+      },
+      "32": {
+        "source_bbox": [
+          1,
+          1,
+          266,
+          302
+        ],
+        "output_bbox": [
+          3,
+          1,
+          29,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role9": {
+      "48": {
+        "source_bbox": [
+          2,
+          1,
+          264,
+          302
+        ],
+        "output_bbox": [
+          5,
+          2,
+          43,
+          46
+        ],
+        "opaque_colors": 47
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          1,
+          264,
+          302
+        ],
+        "output_bbox": [
+          3,
+          1,
+          28,
+          30
+        ],
+        "opaque_colors": 30
+      }
+    },
+    "role10": {
+      "48": {
+        "source_bbox": [
+          2,
+          1,
+          298,
+          301
+        ],
+        "output_bbox": [
+          2,
+          2,
+          45,
+          46
+        ],
+        "opaque_colors": 48
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          1,
+          298,
+          301
+        ],
+        "output_bbox": [
+          1,
+          1,
+          30,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role11": {
+      "48": {
+        "source_bbox": [
+          2,
+          1,
+          300,
+          302
+        ],
+        "output_bbox": [
+          2,
+          2,
+          46,
+          46
+        ],
+        "opaque_colors": 48
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          1,
+          300,
+          302
+        ],
+        "output_bbox": [
+          1,
+          1,
+          30,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role12": {
+      "48": {
+        "source_bbox": [
+          2,
+          2,
+          301,
+          303
+        ],
+        "output_bbox": [
+          2,
+          2,
+          46,
+          46
+        ],
+        "opaque_colors": 48
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          2,
+          301,
+          303
+        ],
+        "output_bbox": [
+          1,
+          1,
+          30,
+          30
+        ],
+        "opaque_colors": 32
+      }
+    },
+    "role13": {
+      "48": {
+        "source_bbox": [
+          2,
+          2,
+          264,
+          312
+        ],
+        "output_bbox": [
+          5,
+          2,
+          42,
+          46
+        ],
+        "opaque_colors": 46
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          2,
+          264,
+          312
+        ],
+        "output_bbox": [
+          3,
+          1,
+          28,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role14": {
+      "48": {
+        "source_bbox": [
+          2,
+          2,
+          287,
+          310
+        ],
+        "output_bbox": [
+          3,
+          2,
+          44,
+          46
+        ],
+        "opaque_colors": 48
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          2,
+          287,
+          310
+        ],
+        "output_bbox": [
+          2,
+          1,
+          29,
+          30
+        ],
+        "opaque_colors": 30
+      }
+    },
+    "role15": {
+      "48": {
+        "source_bbox": [
+          2,
+          2,
+          264,
+          312
+        ],
+        "output_bbox": [
+          5,
+          2,
+          42,
+          46
+        ],
+        "opaque_colors": 46
+      },
+      "32": {
+        "source_bbox": [
+          2,
+          2,
+          264,
+          312
+        ],
+        "output_bbox": [
+          3,
+          1,
+          28,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role16": {
+      "48": {
+        "source_bbox": [
+          29,
+          11,
+          285,
+          304
+        ],
+        "output_bbox": [
+          5,
+          2,
+          43,
+          46
+        ],
+        "opaque_colors": 46
+      },
+      "32": {
+        "source_bbox": [
+          29,
+          11,
+          285,
+          304
+        ],
+        "output_bbox": [
+          3,
+          1,
+          28,
+          30
+        ],
+        "opaque_colors": 32
+      }
+    },
+    "role17": {
+      "48": {
+        "source_bbox": [
+          16,
+          16,
+          297,
+          297
+        ],
+        "output_bbox": [
+          2,
+          2,
+          46,
+          46
+        ],
+        "opaque_colors": 47
+      },
+      "32": {
+        "source_bbox": [
+          16,
+          16,
+          297,
+          297
+        ],
+        "output_bbox": [
+          1,
+          1,
+          30,
+          30
+        ],
+        "opaque_colors": 32
+      }
+    },
+    "role18": {
+      "48": {
+        "source_bbox": [
+          15,
+          15,
+          297,
+          294
+        ],
+        "output_bbox": [
+          2,
+          2,
+          46,
+          46
+        ],
+        "opaque_colors": 13,
+        "override_sha256": "88382a3448cd4482fb041c6482dc127409dde60692ab746b2864728c513e73e1"
+      },
+      "32": {
+        "source_bbox": [
+          15,
+          15,
+          297,
+          294
+        ],
+        "output_bbox": [
+          1,
+          1,
+          30,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role19": {
+      "48": {
+        "source_bbox": [
+          32,
+          16,
+          281,
+          301
+        ],
+        "output_bbox": [
+          5,
+          2,
+          43,
+          46
+        ],
+        "opaque_colors": 47
+      },
+      "32": {
+        "source_bbox": [
+          32,
+          16,
+          281,
+          301
+        ],
+        "output_bbox": [
+          3,
+          1,
+          28,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    },
+    "role20": {
+      "48": {
+        "source_bbox": [
+          16,
+          15,
+          298,
+          297
+        ],
+        "output_bbox": [
+          2,
+          2,
+          46,
+          46
+        ],
+        "opaque_colors": 16,
+        "override_sha256": "32dca6b4fb8c8b949c17f0ced66b2a4b2005fe6d0140ef47e43762c08e6ef104"
+      },
+      "32": {
+        "source_bbox": [
+          16,
+          15,
+          298,
+          297
+        ],
+        "output_bbox": [
+          1,
+          1,
+          30,
+          30
+        ],
+        "opaque_colors": 31
+      }
+    }
+  },
+  "proposed_atlas_48_rects_bottom_origin": {
+    "role1": {
+      "x": 4,
+      "y": 212,
+      "width": 48,
+      "height": 48
+    },
+    "role2": {
+      "x": 56,
+      "y": 212,
+      "width": 48,
+      "height": 48
+    },
+    "role3": {
+      "x": 108,
+      "y": 212,
+      "width": 48,
+      "height": 48
+    },
+    "role4": {
+      "x": 4,
+      "y": 160,
+      "width": 48,
+      "height": 48
+    },
+    "role5": {
+      "x": 56,
+      "y": 160,
+      "width": 48,
+      "height": 48
+    },
+    "role6": {
+      "x": 108,
+      "y": 160,
+      "width": 48,
+      "height": 48
+    },
+    "role7": {
+      "x": 4,
+      "y": 108,
+      "width": 48,
+      "height": 48
+    },
+    "role8": {
+      "x": 56,
+      "y": 108,
+      "width": 48,
+      "height": 48
+    },
+    "role9": {
+      "x": 108,
+      "y": 108,
+      "width": 48,
+      "height": 48
+    },
+    "role10": {
+      "x": 4,
+      "y": 56,
+      "width": 48,
+      "height": 48
+    },
+    "role11": {
+      "x": 56,
+      "y": 56,
+      "width": 48,
+      "height": 48
+    },
+    "role12": {
+      "x": 108,
+      "y": 56,
+      "width": 48,
+      "height": 48
+    },
+    "role13": {
+      "x": 4,
+      "y": 4,
+      "width": 48,
+      "height": 48
+    },
+    "role14": {
+      "x": 56,
+      "y": 4,
+      "width": 48,
+      "height": 48
+    },
+    "role15": {
+      "x": 108,
+      "y": 4,
+      "width": 48,
+      "height": 48
+    }
+  },
+  "proposed_atlas_192_rects_bottom_origin": {
+    "role1": {
+      "x": 16,
+      "y": 848,
+      "width": 192,
+      "height": 192
+    },
+    "role2": {
+      "x": 224,
+      "y": 848,
+      "width": 192,
+      "height": 192
+    },
+    "role3": {
+      "x": 432,
+      "y": 848,
+      "width": 192,
+      "height": 192
+    },
+    "role4": {
+      "x": 16,
+      "y": 640,
+      "width": 192,
+      "height": 192
+    },
+    "role5": {
+      "x": 224,
+      "y": 640,
+      "width": 192,
+      "height": 192
+    },
+    "role6": {
+      "x": 432,
+      "y": 640,
+      "width": 192,
+      "height": 192
+    },
+    "role7": {
+      "x": 16,
+      "y": 432,
+      "width": 192,
+      "height": 192
+    },
+    "role8": {
+      "x": 224,
+      "y": 432,
+      "width": 192,
+      "height": 192
+    },
+    "role9": {
+      "x": 432,
+      "y": 432,
+      "width": 192,
+      "height": 192
+    },
+    "role10": {
+      "x": 16,
+      "y": 224,
+      "width": 192,
+      "height": 192
+    },
+    "role11": {
+      "x": 224,
+      "y": 224,
+      "width": 192,
+      "height": 192
+    },
+    "role12": {
+      "x": 432,
+      "y": 224,
+      "width": 192,
+      "height": 192
+    },
+    "role13": {
+      "x": 16,
+      "y": 16,
+      "width": 192,
+      "height": 192
+    },
+    "role14": {
+      "x": 224,
+      "y": 16,
+      "width": 192,
+      "height": 192
+    },
+    "role15": {
+      "x": 432,
+      "y": 16,
+      "width": 192,
+      "height": 192
+    }
+  }
+}

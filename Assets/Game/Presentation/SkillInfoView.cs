@@ -6,97 +6,142 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Skill text with edge-mounted facts, shared by selection panels and held explanations.</summary>
+    /// <summary>Fixed-height skill facts shared by selection panels and held explanations.</summary>
     public sealed class SkillInfoView
     {
-        public const float AttachmentOverhang = 34f;
-        private const float BodyLeftInset = 24f;
-        private const float FixedBodyHeight = 160f;
-        private readonly RectTransform root, stats, keywords, costSeal, powerPlate, experienceRoot, experienceFill;
+        public const float AttachmentOverhang = 0f;
+        private const float BodyInset = 16f;
+        private const float FixedBodyHeight = 206f;
+        private const float ExpandedExperienceExtra = 54f;
+        private readonly RectTransform root, stats, keywords, costSeal, powerPlate, experienceRoot, experienceFill, divider;
         private readonly Text act, powerLabel, hits, hitsLabel, typeLabel, firstKeyword, secondKeyword;
         private readonly Text experienceLabel, experienceValue;
         private readonly SkillInfoGlyph firstSymbol, secondSymbol, powerSymbol;
         private readonly Image firstBadge, secondBadge;
         private readonly SkillInfoAttachment typeAttachment;
+        private readonly SkillKeywordHover keywordHover;
+        // The loadout uses its former action row for a readable experience footer.
+        private readonly bool expandedExperience;
         // How much larger than its standard size the card is drawn (the battle's held explanation), fittings and type alike.
         private readonly float scale;
         private LegacySkill shown;
         private CampaignOwnedSkill shownOwned;
-        private int shownLevel, shownExperience;
+        private int shownLevel, shownExperience, shownCycleUses = -1;
+        private int? shownEffectiveCost;
+        private string shownEffectivePower;
         private bool shownEnemy;
         private string shownAdditionalDescription;
 
         public GameObject Root => root.gameObject;
         public float Height => root.sizeDelta.y;
-        /// <summary>How far the edge fittings reach past the body on either side (<see cref="AttachmentOverhang"/> at the
-        /// standard size).</summary>
+        /// <summary>The facts stay inside the card, so the held popup needs no side allowance.</summary>
         public float Overhang => AttachmentOverhang * scale;
         public Text PowerText { get; }
         public Text AttackTypeText { get; }
         public Text EffectText { get; }
         public Text DamageText { get; }
 
-        /// <param name="scale">Draws the card larger than its standard size (its fittings, type and fixed body height;
+        /// <param name="scale">Draws the card larger than its standard size (its facts, type and fixed body height;
         /// <paramref name="width"/> is the body's width as drawn). 1 is the standard card.</param>
-        public SkillInfoView(Transform parent, Font font, Vector2 center, float width, string prefix, float scale = 1f)
+        public SkillInfoView(Transform parent, Font font, Vector2 center, float width, string prefix,
+            float scale = 1f, bool expandedExperience = false)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.scale = scale > 0f && !float.IsInfinity(scale) ? scale : 1f;
-            float bodyHeight = S(FixedBodyHeight), bodyInset = S(BodyLeftInset);
+            this.expandedExperience = expandedExperience;
+            float bodyHeight = S(FixedBodyHeight + (expandedExperience ? ExpandedExperienceExtra : 0f));
+            float innerWidth = width - S(BodyInset * 2f);
             root = Rect("Skill Summary", parent, center, new Vector2(width, bodyHeight));
-            stats = Rect("Skill Attachments", root, Vector2.zero, new Vector2(width + Overhang * 2f, bodyHeight));
-            float edge = width / 2f + S(12f);
-            costSeal = Attachment("ACT Attachment", stats, new Vector2(-edge - S(6f), S(74f)), Vector2.one * S(58f),
-                SkillInfoAttachmentShape.Seal, DuelVisualTheme.Surface);
-            var costSymbol = Glyph(costSeal, LegacySkillSymbol.Act, new Vector2(S(-14f), S(12f)), S(12f));
-            costSymbol.color = DuelVisualTheme.Foreground;
-            var costLabel = Label("ACT Label", costSeal, font, new Vector2(S(8f), S(12f)), new Vector2(S(30f), S(20f)), F(14));
-            costLabel.text = "ACT"; costLabel.color = DuelVisualTheme.Foreground;
-            act = Label("ACT Value", costSeal, font, new Vector2(0, S(-9f)), new Vector2(S(46f), S(28f)), F(24));
-            act.color = DuelVisualTheme.Foreground;
-            powerPlate = Attachment("Power Attachment", stats, new Vector2(-edge - S(6f), S(-4f)), new Vector2(S(70f), S(60f)),
-                SkillInfoAttachmentShape.PowerPlate, DuelVisualTheme.Paper);
-            powerSymbol = Glyph(powerPlate, LegacySkillSymbol.Sword, new Vector2(S(-18f), S(14f)), S(14f));
-            powerLabel = Label("Power Label", powerPlate, font, new Vector2(S(10f), S(14f)), new Vector2(S(34f), S(18f)), F(14));
-            PowerText = Label(prefix + " Detail Values", powerPlate, font, new Vector2(0, S(-9f)), new Vector2(S(60f), S(28f)), F(21));
-            PowerText.resizeTextMinSize = F(16);
-            var typeRibbon = Attachment("Type Attachment", stats, new Vector2(edge - S(16f), S(74f)), new Vector2(S(104f), S(80f)),
-                SkillInfoAttachmentShape.TypeRibbon, DuelVisualTheme.Paper);
-            typeAttachment = typeRibbon.GetComponent<SkillInfoAttachment>();
-            typeLabel = Label("Type Label", typeRibbon, font, new Vector2(0, S(24f)), new Vector2(S(88f), S(18f)), F(14));
-            AttackTypeText = Label("Attack Type", typeRibbon, font, new Vector2(0, S(3f)), new Vector2(S(88f), S(24f)), F(19));
-            hitsLabel = Label("Hits Label", typeRibbon, font, new Vector2(S(-26f), S(-18f)), new Vector2(S(34f), S(18f)), F(14));
-            hits = Label("Hits Value", typeRibbon, font, new Vector2(S(20f), S(-18f)), new Vector2(S(52f), S(18f)), F(14));
+            stats = Rect("Skill Attachments", root, Vector2.zero, new Vector2(width, bodyHeight));
 
-            keywords = Rect("Skill Keywords", root, Vector2.zero, new Vector2(width, S(28f)));
-            float badgeWidth = (width - S(8f)) / 2f;
-            var first = Tile("Keyword 1", keywords, -(badgeWidth + S(8f)) / 2f, badgeWidth, S(28f));
-            firstBadge = first.GetComponent<Image>();
-            firstSymbol = Glyph(first, LegacySkillSymbol.Sword, new Vector2(-badgeWidth / 2f + S(17f), 0), S(19f));
-            firstKeyword = Label("Keyword 1 Text", first, font, new Vector2(S(13f), 0), new Vector2(badgeWidth - S(34f), S(26f)), F(17));
-            firstKeyword.resizeTextMinSize = F(11);
-            var second = Tile("Keyword 2", keywords, (badgeWidth + S(8f)) / 2f, badgeWidth, S(28f));
-            secondBadge = second.GetComponent<Image>();
-            secondSymbol = Glyph(second, LegacySkillSymbol.Hits, new Vector2(-badgeWidth / 2f + S(17f), 0), S(19f));
-            secondKeyword = Label("Keyword 2 Text", second, font, new Vector2(S(13f), 0), new Vector2(badgeWidth - S(34f), S(26f)), F(17));
-            secondKeyword.resizeTextMinSize = F(11);
-            EffectText = Label(prefix + " Detail Effect", root, font, new Vector2(bodyInset / 2f, S(-12f)), new Vector2(width - bodyInset, S(108f)), F(18));
+            // The three facts form one compact read across the card, directly below its name and icon.
+            float statY = bodyHeight / 2f - S(33f);
+            float left = -width / 2f + S(BodyInset);
+            costSeal = Attachment("ACT Attachment", stats, new Vector2(left + S(40f), statY),
+                new Vector2(S(80f), S(42f)), SkillInfoAttachmentShape.PowerPlate, DuelVisualTheme.Surface);
+            var costSymbol = Glyph(costSeal, LegacySkillSymbol.Act, new Vector2(S(-27f), 0f), S(13f));
+            costSymbol.color = DuelVisualTheme.Accent;
+            // The lightning glyph already identifies ACT; leave the number unobstructed.
+            act = Label("ACT Value", costSeal, font, new Vector2(S(11f), 0f),
+                new Vector2(S(46f), S(30f)), F(22));
+            act.color = DuelVisualTheme.Foreground;
+
+            powerPlate = Attachment("Power Attachment", stats, new Vector2(left + S(145f), statY),
+                new Vector2(S(120f), S(42f)), SkillInfoAttachmentShape.PowerPlate, DuelVisualTheme.Surface);
+            powerSymbol = Glyph(powerPlate, LegacySkillSymbol.Sword, new Vector2(S(-47f), 0f), S(14f));
+            powerSymbol.color = DuelVisualTheme.Accent;
+            powerLabel = Label("Power Label", powerPlate, font, new Vector2(S(-25f), 0f),
+                new Vector2(S(35f), S(27f)), F(13));
+            powerLabel.color = DuelVisualTheme.Foreground;
+            PowerText = Label(prefix + " Detail Values", powerPlate, font, new Vector2(S(22f), 0f),
+                new Vector2(S(72f), S(30f)), F(18));
+            PowerText.color = DuelVisualTheme.Foreground;
+            PowerText.resizeTextMinSize = F(13);
+
+            float right = width / 2f - S(BodyInset);
+            var typeRibbon = Attachment("Type Attachment", stats, new Vector2(right - S(47f), statY),
+                new Vector2(S(94f), S(58f)), SkillInfoAttachmentShape.TypeRibbon, DuelVisualTheme.Paper);
+            typeAttachment = typeRibbon.GetComponent<SkillInfoAttachment>();
+            // The folded ribbon needs only the property and the number of hits.
+            typeLabel = Label("Type Label", typeRibbon, font, new Vector2(0f, S(17f)),
+                new Vector2(S(80f), S(15f)), F(11));
+            typeLabel.gameObject.SetActive(false);
+            AttackTypeText = Label("Attack Type", typeRibbon, font, new Vector2(0f, S(8f)),
+                new Vector2(S(80f), S(20f)), F(17));
+            hitsLabel = Label("Hits Label", typeRibbon, font, new Vector2(S(-25f), S(-15f)),
+                new Vector2(S(32f), S(14f)), F(11));
+            hitsLabel.gameObject.SetActive(false);
+            hits = Label("Hits Value", typeRibbon, font, new Vector2(0f, S(-11f)),
+                new Vector2(S(80f), S(17f)), F(13));
+
+            divider = Rect("Skill Effect Rule", root, Vector2.zero, new Vector2(innerWidth, S(2f)));
+            var line = divider.gameObject.AddComponent<Image>();
+            line.color = new Color(DuelVisualTheme.Border.r, DuelVisualTheme.Border.g,
+                DuelVisualTheme.Border.b, .74f);
+            line.raycastTarget = false;
+
+            EffectText = Label(prefix + " Detail Effect", root, font, Vector2.zero,
+                new Vector2(innerWidth, S(80f)), F(17));
             EffectText.alignment = TextAnchor.UpperLeft;
             EffectText.resizeTextForBestFit = true;
-            EffectText.resizeTextMinSize = F(12);
-            EffectText.lineSpacing = 1.1f;
+            EffectText.resizeTextMinSize = F(11);
+            EffectText.lineSpacing = 1.08f;
 
-            // Progress belongs to the player's owned skill, not to the immutable skill definition or an enemy card.
-            float experienceWidth = width - S(64f);
-            experienceRoot = Rect("Skill Experience", root, Vector2.zero, new Vector2(experienceWidth, S(24f)));
+            keywords = Rect("Skill Keywords", root, Vector2.zero, new Vector2(innerWidth, S(28f)));
+            float badgeWidth = (innerWidth - S(6f)) / 2f;
+            var first = Tile("Keyword 1", keywords, -(badgeWidth + S(6f)) / 2f, badgeWidth, S(28f));
+            firstBadge = first.GetComponent<Image>();
+            firstSymbol = Glyph(first, LegacySkillSymbol.Sword,
+                new Vector2(-badgeWidth / 2f + S(15f), 0f), S(17f));
+            firstKeyword = Label("Keyword 1 Text", first, font, new Vector2(S(12f), 0f),
+                new Vector2(badgeWidth - S(32f), S(26f)), F(15));
+            firstKeyword.resizeTextMinSize = F(10);
+            var second = Tile("Keyword 2", keywords, (badgeWidth + S(6f)) / 2f, badgeWidth, S(28f));
+            secondBadge = second.GetComponent<Image>();
+            secondSymbol = Glyph(second, LegacySkillSymbol.Hits,
+                new Vector2(-badgeWidth / 2f + S(15f), 0f), S(17f));
+            secondKeyword = Label("Keyword 2 Text", second, font, new Vector2(S(12f), 0f),
+                new Vector2(badgeWidth - S(32f), S(26f)), F(15));
+            secondKeyword.resizeTextMinSize = F(10);
+
+            // Progress belongs to the player's owned skill. The loadout has room for a larger footer.
+            float experienceHeight = expandedExperience ? 68f : 20f;
+            float experienceTextY = expandedExperience ? 12f : 5f;
+            float experienceTextHeight = expandedExperience ? 24f : 10f;
+            int experienceFontSize = expandedExperience ? 18 : 11;
+            experienceRoot = Rect("Skill Experience", root, Vector2.zero,
+                new Vector2(innerWidth, S(experienceHeight)));
             experienceLabel = Label("Skill Experience Level", experienceRoot, font,
-                new Vector2(-experienceWidth / 4f, S(6f)), new Vector2(experienceWidth / 2f, S(14f)), F(12));
+                new Vector2(-innerWidth / 4f, S(experienceTextY)),
+                new Vector2(innerWidth / 2f, S(experienceTextHeight)), F(experienceFontSize));
             experienceLabel.alignment = TextAnchor.MiddleLeft;
             experienceValue = Label("Skill Experience Value", experienceRoot, font,
-                new Vector2(experienceWidth / 4f, S(6f)), new Vector2(experienceWidth / 2f, S(14f)), F(12));
+                new Vector2(innerWidth / 4f, S(experienceTextY)),
+                new Vector2(innerWidth / 2f, S(experienceTextHeight)), F(experienceFontSize));
             experienceValue.alignment = TextAnchor.MiddleRight;
-            var track = Rect("Skill Experience Track", experienceRoot, new Vector2(0f, S(-6f)),
-                new Vector2(experienceWidth, S(5f)));
+            var track = Rect("Skill Experience Track", experienceRoot,
+                new Vector2(0f, S(expandedExperience ? -19f : -5f)),
+                new Vector2(innerWidth, S(expandedExperience ? 8f : 4f)));
             var trackImage = track.gameObject.AddComponent<Image>();
             trackImage.color = DuelVisualTheme.Border;
             trackImage.raycastTarget = false;
@@ -111,41 +156,55 @@ namespace TurnLimbo.Presentation
             // Older consumers retain this reference; shared combat rules no longer belong in a skill card.
             DamageText = Label(prefix + " Damage Hint", root, font, Vector2.zero, Vector2.zero, F(14));
             DamageText.gameObject.SetActive(false);
+            keywordHover = SkillKeywordHover.Attach(root, firstBadge, firstKeyword, secondBadge,
+                secondKeyword, EffectText, font, this.scale);
             Clear();
         }
 
         public void SetSkill(LegacySkill skill, bool enemy = false, string additionalDescription = null,
-            CampaignOwnedSkill owned = null)
+            CampaignOwnedSkill owned = null, int cycleUses = -1, int? effectiveCost = null, string effectivePower = null)
         {
             if (skill == null) { Clear(); return; }
             if (enemy || owned?.SkillId != skill.Id) owned = null;
             if (owned != null) skill = owned.Skill;
+            if (enemy) { cycleUses = -1; effectiveCost = null; effectivePower = null; }
             int level = owned?.Level ?? 0, experience = owned?.Experience ?? 0;
             if (ReferenceEquals(shown, skill) && shownEnemy == enemy && shownAdditionalDescription == additionalDescription &&
-                ReferenceEquals(shownOwned, owned) && shownLevel == level && shownExperience == experience) return;
+                ReferenceEquals(shownOwned, owned) && shownLevel == level && shownExperience == experience &&
+                shownCycleUses == cycleUses && shownEffectiveCost == effectiveCost && shownEffectivePower == effectivePower) return;
             shown = skill; shownEnemy = enemy; shownAdditionalDescription = additionalDescription;
             shownOwned = owned; shownLevel = level; shownExperience = experience;
+            shownCycleUses = cycleUses; shownEffectiveCost = effectiveCost; shownEffectivePower = effectivePower;
             stats.gameObject.SetActive(true);
             keywords.gameObject.SetActive(true);
             bool defence = skill.Kind == LegacySkillKind.Defence;
             SetAttackType(skill.Property, defence);
-            act.text = skill.Cost.ToString();
-            powerLabel.text = defence ? "방어" : "위력";
+            act.text = (effectiveCost ?? skill.Cost).ToString();
+            // The sword or shield glyph identifies the value without repeating a text label.
+            powerLabel.text = string.Empty;
+            powerLabel.gameObject.SetActive(false);
             powerSymbol.SetSymbol(defence ? LegacySkillSymbol.Guard : LegacySkillSymbol.Sword);
-            PowerText.text = CampaignSkillText.Power(skill);
-            hitsLabel.text = defence ? "대응" : "타격";
+            PowerText.rectTransform.anchoredPosition = new Vector2(S(8f), 0f);
+            PowerText.rectTransform.sizeDelta = new Vector2(S(88f), S(30f));
+            PowerText.text = effectivePower ?? CampaignSkillText.Power(skill);
+            hitsLabel.text = string.Empty;
             hits.text = defence ? "같은 칸" : skill.AttackCount + "회";
             SkillInfoContent content = SkillInfoContent.For(skill, enemy);
-            firstKeyword.text = content.Main;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            bool showCycleCount = cycleUses >= 0 && effect?.HasCycle == true;
+            string cycleLabel = showCycleCount ? "순환 " + cycleUses + "/" + effect.CycleMaxCount : null;
+            firstKeyword.text = showCycleCount && content.Main == "순환" ? cycleLabel : content.Main;
             firstSymbol.SetSymbol(content.MainSymbol);
             StyleKeyword(firstBadge, firstKeyword, firstSymbol, content.MainTone);
-            secondKeyword.text = content.Secondary;
+            secondKeyword.text = showCycleCount && content.Secondary == "순환" ? cycleLabel : content.Secondary;
             secondSymbol.SetSymbol(content.SecondarySymbol);
             StyleKeyword(secondBadge, secondKeyword, secondSymbol, content.SecondaryTone);
             secondBadge.gameObject.SetActive(!string.IsNullOrEmpty(content.Secondary));
             EffectText.text = string.IsNullOrEmpty(additionalDescription) ? content.Description
                 : string.IsNullOrEmpty(content.Description) ? additionalDescription
                 : content.Description + "\n" + additionalDescription;
+            if (string.IsNullOrWhiteSpace(EffectText.text)) EffectText.text = "추가 효과 없음";
+            EffectText.color = DuelVisualTheme.Ink;
             experienceRoot.gameObject.SetActive(owned != null);
             if (owned != null)
             {
@@ -157,6 +216,7 @@ namespace TurnLimbo.Presentation
             }
             DamageText.text = string.Empty;
             RefreshLayout();
+            keywordHover.SetTerms(firstKeyword.text, secondKeyword.text, EffectText.text);
         }
 
         public void Clear()
@@ -164,9 +224,14 @@ namespace TurnLimbo.Presentation
             shown = null;
             shownOwned = null;
             shownLevel = shownExperience = 0;
+            shownCycleUses = -1;
+            shownEffectiveCost = null;
+            shownEffectivePower = null;
             shownAdditionalDescription = null;
             stats.gameObject.SetActive(false);
+            divider.gameObject.SetActive(false);
             keywords.gameObject.SetActive(false);
+            keywordHover.Clear();
             experienceRoot.gameObject.SetActive(false);
             experienceLabel.text = experienceValue.text = string.Empty;
             experienceFill.sizeDelta = Vector2.zero;
@@ -188,33 +253,41 @@ namespace TurnLimbo.Presentation
 
         private void RefreshLayout()
         {
-            // Keep the card's edges and badges still while text changes; only the type size adapts.
-            float bodyHeight = S(FixedBodyHeight), bodyInset = S(BodyLeftInset);
-            float bodyWidth = root.sizeDelta.x - bodyInset;
+            // Every skill keeps one silhouette. Longer copy shrinks inside the reserved description area.
+            float top = root.sizeDelta.y / 2f, bottom = -top;
+            float innerWidth = root.sizeDelta.x - S(BodyInset * 2f);
+            bool hasFacts = stats.gameObject.activeSelf;
             bool hasKeywords = keywords.gameObject.activeSelf;
+            bool hasExperience = experienceRoot.gameObject.activeSelf;
+            divider.gameObject.SetActive(hasFacts);
+            divider.anchoredPosition = new Vector2(0f, top - S(72f));
+
             bool hasSecond = hasKeywords && secondBadge.gameObject.activeSelf;
-            float badgeWidth = hasSecond ? (bodyWidth - S(8f)) / 2f : bodyWidth;
-            ArrangeKeyword(firstBadge, firstSymbol, firstKeyword, hasSecond ? -(badgeWidth + S(8f)) / 2f : 0f, badgeWidth);
-            ArrangeKeyword(secondBadge, secondSymbol, secondKeyword, (badgeWidth + S(8f)) / 2f, badgeWidth);
-            float keywordHeight = hasKeywords ? S(36f) : 0f;
-            float textHeight = bodyHeight - S(16f) - keywordHeight - (experienceRoot.gameObject.activeSelf ? S(24f) : 0f);
-            keywords.sizeDelta = new Vector2(bodyWidth, S(28f));
-            keywords.anchoredPosition = new Vector2(bodyInset / 2f, bodyHeight / 2f - S(22f));
-            EffectText.rectTransform.sizeDelta = new Vector2(bodyWidth, textHeight);
-            EffectText.rectTransform.anchoredPosition = new Vector2(bodyInset / 2f,
-                bodyHeight / 2f - S(8f) - keywordHeight - textHeight / 2f);
-            experienceRoot.anchoredPosition = new Vector2(S(24f), -bodyHeight / 2f + S(14f));
-            costSeal.anchoredPosition = new Vector2(costSeal.anchoredPosition.x, bodyHeight / 2f + S(38f));
-            typeAttachment.rectTransform.anchoredPosition = new Vector2(typeAttachment.rectTransform.anchoredPosition.x, bodyHeight / 2f + S(38f));
-            powerPlate.anchoredPosition = new Vector2(powerPlate.anchoredPosition.x, -bodyHeight / 2f + S(32f));
+            float badgeWidth = hasSecond ? (innerWidth - S(6f)) / 2f : innerWidth;
+            ArrangeKeyword(firstBadge, firstSymbol, firstKeyword,
+                hasSecond ? -(badgeWidth + S(6f)) / 2f : 0f, badgeWidth);
+            ArrangeKeyword(secondBadge, secondSymbol, secondKeyword,
+                (badgeWidth + S(6f)) / 2f, badgeWidth);
+
+            float keywordY = hasExperience ? bottom + S(expandedExperience ? 91f : 37f)
+                : bottom + S(19f);
+            keywords.sizeDelta = new Vector2(innerWidth, S(28f));
+            keywords.anchoredPosition = new Vector2(0f, keywordY);
+            experienceRoot.anchoredPosition = new Vector2(0f, bottom + S(expandedExperience ? 36f : 12f));
+
+            float textTop = hasFacts ? top - S(80f) : top - S(16f);
+            float textBottom = hasKeywords ? keywordY + S(18f) : bottom + S(16f);
+            EffectText.rectTransform.sizeDelta = new Vector2(innerWidth, textTop - textBottom);
+            EffectText.rectTransform.anchoredPosition =
+                new Vector2(0f, (textTop + textBottom) / 2f);
         }
 
         private void ArrangeKeyword(Image badge, SkillInfoGlyph glyph, Text label, float x, float width)
         {
             badge.rectTransform.anchoredPosition = new Vector2(x, 0f);
             badge.rectTransform.sizeDelta = new Vector2(width, S(28f));
-            glyph.rectTransform.anchoredPosition = new Vector2(-width / 2f + S(17f), 0f);
-            label.rectTransform.sizeDelta = new Vector2(width - S(34f), S(26f));
+            glyph.rectTransform.anchoredPosition = new Vector2(-width / 2f + S(15f), 0f);
+            label.rectTransform.sizeDelta = new Vector2(width - S(32f), S(26f));
         }
 
         // A standard size, and a standard type size, at this card's scale.
@@ -237,7 +310,7 @@ namespace TurnLimbo.Presentation
             }
             // 숨고르기 (no property) wears the guard's label, as it wears its colours.
             AttackTypeText.text = LegacySkillLabels.Property(property == LegacySkillProperty.None ? LegacySkillProperty.Defence : property);
-            typeLabel.text = defence ? "기술 타입" : "공격 타입";
+            typeLabel.text = string.Empty;
             typeAttachment.color = paper;
             AttackTypeText.color = typeLabel.color = hits.color = hitsLabel.color = ink;
         }
@@ -264,6 +337,8 @@ namespace TurnLimbo.Presentation
                     ink = new Color32(36, 89, 75, 255); paper = new Color32(197, 212, 182, 255); break;
                 case LegacySkillTone.Followup:
                     ink = new Color32(89, 65, 107, 255); paper = new Color32(215, 197, 214, 255); break;
+                case LegacySkillTone.Cycle:
+                    ink = new Color32(34, 83, 82, 255); paper = new Color32(183, 215, 204, 255); break;
                 case LegacySkillTone.Reduction:
                     ink = new Color32(51, 81, 107, 255); paper = new Color32(198, 211, 217, 255); break;
                 case LegacySkillTone.HighPower:
@@ -353,6 +428,12 @@ namespace TurnLimbo.Presentation
                 case LegacySkillSymbol.Followup:
                     Line(vh, -.32f, -.28f, 0, .04f); Line(vh, 0, .04f, .32f, -.28f);
                     Line(vh, -.32f, .04f, 0, .36f); Line(vh, 0, .36f, .32f, .04f); break;
+                case LegacySkillSymbol.Cycle:
+                    Line(vh, -.22f, .29f, .13f, .29f); Line(vh, .13f, .29f, .31f, .10f);
+                    Line(vh, .31f, .10f, .31f, -.13f); Line(vh, .31f, -.13f, .15f, -.30f);
+                    Line(vh, .15f, -.30f, -.17f, -.30f); Line(vh, -.17f, -.30f, -.32f, -.11f);
+                    Line(vh, -.32f, -.11f, -.32f, .13f); Line(vh, -.32f, .13f, -.22f, .29f);
+                    Line(vh, -.22f, .29f, -.19f, .08f); Line(vh, -.22f, .29f, -.03f, .19f); break;
                 case LegacySkillSymbol.Reduction:
                     Line(vh, -.32f, .3f, .32f, .3f); Line(vh, 0, .3f, 0, -.25f);
                     Line(vh, -.2f, -.05f, 0, -.28f); Line(vh, 0, -.28f, .2f, -.05f);

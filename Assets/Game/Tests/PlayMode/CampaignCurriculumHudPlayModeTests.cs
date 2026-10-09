@@ -291,8 +291,9 @@ namespace TurnLimbo.Presentation.Tests
                         Is.EqualTo(CampaignCurriculumHud.BranchName(node.Branch) + " 과정  ·  전투 1회"));
                     Assert.That(Label(root, "Curriculum Detail Heading").text, Is.EqualTo(SkillLaneStyle.FullName(skill.LaneIndex)));
                     Assert.That(Label(root, "Curriculum Detail Values").text, Is.EqualTo(CampaignSkillText.Power(skill)), node.Id);
+                    string effect = SkillInfoContent.For(skill, false).Description;
                     Assert.That(Label(root, "Curriculum Detail Effect").text,
-                        Is.EqualTo(SkillInfoContent.For(skill, false).Description), node.Id);
+                        Is.EqualTo(string.IsNullOrWhiteSpace(effect) ? "추가 효과 없음" : effect), node.Id);
                     Assert.That(Named(root, "Skill Keywords").gameObject.activeSelf, Is.True, node.Id);
                     Assert.That(icon.enabled, Is.True, node.Id);
                     Assert.That(icon.sprite, Is.Not.Null, node.Id);

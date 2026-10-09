@@ -20,6 +20,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         OpponentBreak = 1 << 11,
         /// <summary>조건 피해 배율: more health damage to a target in the row's 상대 상태 조건.</summary>
         ConditionalDamage = 1 << 12,
+        /// <summary>Removes earlier queued skills without refunding their ACT.</summary>
+        QueueCancel = 1 << 13,
+        /// <summary>Removes earlier queued skills and refunds their ACT.</summary>
+        QueueReturn = 1 << 14,
+        /// <summary>The skill grows in power and ACT cost each time it is used in a battle.</summary>
+        Cycle = 1 << 15,
     }
 
     /// <summary>Presentation metadata for implemented rules, never a new combat authority.</summary>

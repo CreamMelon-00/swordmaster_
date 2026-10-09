@@ -20,6 +20,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly List<LegacySkill>[] lanes = { new List<LegacySkill>(), new List<LegacySkill>(), new List<LegacySkill>() };
         private readonly IReadOnlyList<LegacySkill>[] laneViews;
         private readonly List<LegacySkill> playerQueue = new List<LegacySkill>();
+        // The ACT actually paid for each reservation; Return refunds that amount, even for a cycling skill.
+        private readonly List<int> playerQueueActCosts = new List<int>();
+        private readonly Dictionary<int, int> cycleUses = new Dictionary<int, int>();
         private readonly List<LegacySkill> enemyQueue = new List<LegacySkill>();
         private readonly List<SkillBuff> playerBuffs = new List<SkillBuff>();
         private readonly List<SkillBuff> enemyBuffs = new List<SkillBuff>();
@@ -35,6 +38,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly int randomSeed;
         // 맞물림's power percent per chained skill (LegacyMeshing); 0 switches it off.
         private readonly int meshPercent;
+        // A queue-removing technique may arm one later skill for a power multiplier.
+        private int queuePowerSourceSlotIndex = -1;
+        private int queuePowerRemovedSkillCount;
+        private int queuePowerMultiplierCap;
         private Random random;
         private LegacySkill[] committedPlayerQueue;
         private LegacySkill[] committedEnemyQueue;
@@ -142,6 +149,23 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int NextActGain { get; private set; }
         public int PlayerBaseActGain => playerBaseActGain;
         public int PlayerMaximumAct => playerMaximumAct;
+        /// <summary>Uses begun in this duel, capped by the skill sheet limit.</summary>
+        public int CycleUses(int skillId) => cycleUses.TryGetValue(skillId, out int uses) ? uses : 0;
+        /// <summary>ACT paid if this skill is reserved now. Existing reservations do not count as uses.</summary>
+        public int EffectiveCost(LegacySkill skill)
+        {
+            if (skill == null) return 0;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            return effect != null && effect.HasCycle
+                ? checked(skill.Cost + CycleUses(skill.Id) * effect.CycleCostPerUse) : skill.Cost;
+        }
+        /// <summary>Current power range for the next use, before buffs, meshing, and hit division.</summary>
+        public void EffectivePowerRange(LegacySkill skill, out int min, out int max)
+        {
+            int bonus = CyclePowerBonus(skill);
+            min = skill == null ? 0 : checked(skill.MinPower + bonus);
+            max = skill == null ? 0 : checked(skill.MaxPower + bonus);
+        }
         public LegacyDuelPhase Phase { get; private set; }
         public DuelMatchOutcome Outcome { get; private set; }
         public IReadOnlyList<LegacySkill> PlayerQueue { get; }
@@ -183,6 +207,26 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// N-skill chain gains +N × this (<see cref="LegacyMeshing"/>). 0 switches 맞물림 off: nothing meshes and steps
         /// are never held back.</summary>
         public int MeshPercent => meshPercent;
+        /// <summary>The queued technique whose removal effect armed a later power boost, or -1.</summary>
+        public int QueuePowerSourceSlotIndex => queuePowerSourceSlotIndex;
+        /// <summary>Skills removed by that technique. Common actions such as breathing do not count.</summary>
+        public int QueuePowerRemovedSkillCount => queuePowerSourceSlotIndex >= 0 ? queuePowerRemovedSkillCount : 0;
+        /// <summary>The first technique after the source, skipping common actions, or -1 if none is queued.</summary>
+        public int QueuePowerTargetSlotIndex
+        {
+            get
+            {
+                if (queuePowerSourceSlotIndex < 0) return -1;
+                IReadOnlyList<LegacySkill> queue = QueueForForecast(true);
+                for (int i = queuePowerSourceSlotIndex + 1; i < queue.Count; i++)
+                    if (!queue[i].IsWait) return i;
+                return -1;
+            }
+        }
+        /// <summary>The source's multiplier for this slot; 1 for any other slot or no removed skills.</summary>
+        public int QueuePowerMultiplierForSlot(int slotIndex)
+            => slotIndex >= 0 && slotIndex == QueuePowerTargetSlotIndex
+                ? Math.Max(1, Math.Min(queuePowerRemovedSkillCount, queuePowerMultiplierCap)) : 1;
         /// <summary>The current slot is meshed: its power carries the chain's bonus and it takes no steps.</summary>
         public bool IsCurrentSlotMeshed => CurrentSlot != null && CurrentSlot.PlayerMesh.IsMeshed;
 
@@ -199,7 +243,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Phase != LegacyDuelPhase.Planning || laneIndex < 0 || laneIndex >= lanes.Length || !Features.HasLane(laneIndex))
                 return LegacyMeshSlot.Unmeshed(slotIndex);
             List<LegacySkill> lane = lanes[laneIndex];
-            if (lane.Count == 0 || lane[0].IsWait || Act < lane[0].Cost) return LegacyMeshSlot.Unmeshed(slotIndex);
+            if (lane.Count == 0 || lane[0].IsWait || Act < EffectiveCost(lane[0])) return LegacyMeshSlot.Unmeshed(slotIndex);
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(lane[0])?.Effect;
+            if (effect != null && effect.QueueRemovalMode != LegacyQueueRemovalMode.None)
+            {
+                // Queue removal leaves common actions in place but takes away every earlier technique.
+                int remainingActions = 0;
+                foreach (LegacySkill queued in playerQueue)
+                    if (queued.IsWait) remainingActions++;
+                return LegacyMeshSlot.Unmeshed(remainingActions);
+            }
             return LegacyMeshing.FindIfAppended(PlayerQueue, LegacyMeshing.School(lane[0]), meshPercent);
         }
 
@@ -292,12 +345,38 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (laneIndex < 0 || laneIndex >= lanes.Length || !Features.HasLane(laneIndex)) return false;
             List<LegacySkill> lane = lanes[laneIndex];
-            if (Phase != LegacyDuelPhase.Planning || lane.Count == 0 || lane[0].IsWait || Act < lane[0].Cost) return false;
+            if (Phase != LegacyDuelPhase.Planning || lane.Count == 0 || lane[0].IsWait) return false;
             LegacySkill skill = lane[0];
-            Act -= skill.Cost;
+            int paidCost = EffectiveCost(skill);
+            if (Act < paidCost) return false;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            LegacyQueueRemovalMode removalMode = effect?.QueueRemovalMode ?? LegacyQueueRemovalMode.None;
+            int removedSkills = 0, returnedAct = 0;
+            if (removalMode != LegacyQueueRemovalMode.None)
+            {
+                // Cancelling a cast never rewinds its spent ACT or the lane rotation. Returning only refunds ACT.
+                for (int i = playerQueue.Count - 1; i >= 0; i--)
+                {
+                    LegacySkill queued = playerQueue[i];
+                    if (queued.IsWait) continue;
+                    removedSkills++;
+                    if (removalMode == LegacyQueueRemovalMode.Return) returnedAct += playerQueueActCosts[i];
+                    playerQueue.RemoveAt(i);
+                    playerQueueActCosts.RemoveAt(i);
+                }
+            }
+            Act = Math.Min(playerMaximumAct, Act - paidCost + returnedAct);
             playerQueue.Add(skill);
+            playerQueueActCosts.Add(paidCost);
             lane.RemoveAt(0);
             lane.Add(skill);
+            if (removalMode != LegacyQueueRemovalMode.None)
+            {
+                // A later remover also removes the former source, so only its own removed count can arm a boost.
+                queuePowerMultiplierCap = effect?.QueuePowerMultiplierCap ?? 0;
+                queuePowerSourceSlotIndex = queuePowerMultiplierCap > 0 ? playerQueue.Count - 1 : -1;
+                queuePowerRemovedSkillCount = queuePowerMultiplierCap > 0 ? removedSkills : 0;
+            }
             return true;
         }
 
@@ -326,6 +405,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Phase != LegacyDuelPhase.Planning || !Features.Has(CombatFeature.Breath) ||
                 BreathsQueuedThisTurn >= MaximumBreathsPerTurn) return false;
             playerQueue.Add(LegacyCommonActions.Breathe);
+            playerQueueActCosts.Add(0);
             BreathsQueuedThisTurn++;
             return true;
         }
@@ -420,10 +500,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // 맞물림 adds into the player's power percent beside the buffs. A counter fills an empty slot, which never meshes.
             LegacyMeshSlot playerMesh = LegacyMeshing.Find(committedPlayerQueue, nextSlot, meshPercent);
             double playerAttackMultiplier = AttackMultiplier(playerBuffs, playerMesh.BonusPercent, out int playerPowerBuffPercent);
+            // Queue power is a whole-skill multiplier, separate from additive buffs and meshing.
+            playerAttackMultiplier *= QueuePowerMultiplierForSlot(nextSlot);
             double enemyAttackMultiplier = AttackMultiplier(enemyBuffs, 0, out int enemyPowerBuffPercent);
             double playerReceivedMultiplier = ReceivedMultiplier(playerBuffs, out int playerProtectionBuffPercent);
             double enemyReceivedMultiplier = ReceivedMultiplier(enemyBuffs, out int enemyProtectionBuffPercent);
-            int playerPower = RollPower(playerSkill, playerAttackMultiplier, out int playerTotalPower);
+            int playerPower = RollPower(playerSkill, playerAttackMultiplier, out int playerTotalPower,
+                CyclePowerBonus(playerSkill));
+            RecordCycleUse(playerSkill);
             int enemyPower = RollPower(enemySkill, enemyAttackMultiplier, out _);
 
             CurrentSlot = new LegacyCurrentSlot(nextSlot, playerSkill, enemySkill,
@@ -495,7 +579,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 slot.PlayerSkill = counter;
                 slot.PlayerCountered = true;
                 PlayerCountersRemaining--;
-                slot.PlayerPower = RollPower(counter, deferredPlayerAttackMultiplier, out int totalPower);
+                slot.PlayerPower = RollPower(counter, deferredPlayerAttackMultiplier, out int totalPower,
+                    CyclePowerBonus(counter));
+                RecordCycleUse(counter);
                 slot.PlayerTotalPower = totalPower;
             }
             ApplySlotStart(slot, deferredPlayerPowerBuffPercent, deferredPlayerProtectionBuffPercent,
@@ -606,6 +692,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public void Reset()
         {
+            cycleUses.Clear();
             random = new Random(randomSeed);
             Player = new LegacyFighterState(playerMaxHealth, playerMaxResistance);
             Enemy = new LegacyFighterState(enemyMaxHealth, enemyMaxResistance, enemyHealthFloor);
@@ -646,6 +733,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             playerBuffs.Clear();
             enemyBuffs.Clear();
             playerQueue.Clear();
+            playerQueueActCosts.Clear();
+            queuePowerSourceSlotIndex = -1;
+            queuePowerRemovedSkillCount = queuePowerMultiplierCap = 0;
             enemyQueue.Clear();
             if (pendingEnemyScript != null)
             {
@@ -670,11 +760,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Phase = LegacyDuelPhase.Planning;
         }
 
-        private int RollPower(LegacySkill skill, double multiplier, out int totalPower)
+        private int CyclePowerBonus(LegacySkill skill)
+        {
+            if (skill == null || skill.IsWait) return 0;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            return effect != null && effect.HasCycle
+                ? checked(CycleUses(skill.Id) * effect.CyclePowerPerUse) : 0;
+        }
+
+        private void RecordCycleUse(LegacySkill skill)
+        {
+            if (skill == null || skill.IsWait) return;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            if (effect == null || !effect.HasCycle) return;
+            int uses = CycleUses(skill.Id);
+            if (uses < effect.CycleMaxCount) cycleUses[skill.Id] = uses + 1;
+        }
+
+        private int RollPower(LegacySkill skill, double multiplier, out int totalPower, int powerBonus = 0)
         {
             totalPower = 0;
             if (skill == null || skill.IsWait) return 0;
-            int rolledPower = random.Next(skill.MinPower, skill.MaxPower + 1);
+            int rolledPower = random.Next(checked(skill.MinPower + powerBonus), checked(skill.MaxPower + powerBonus + 1));
             totalPower = (int)Math.Floor(rolledPower * multiplier);
             return Math.Max(1, (int)Math.Floor(rolledPower * multiplier / skill.AttackCount));
         }

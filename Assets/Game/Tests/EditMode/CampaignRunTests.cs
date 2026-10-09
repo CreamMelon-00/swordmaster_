@@ -94,9 +94,13 @@ namespace TurnLimbo.Core.Tests
         public void ActFiveSkill_UsesOneClashPerLevel()
         {
             var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("one-stroke"), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("one-stroke"), Is.True);
             Assert.That(run.TryStartNextStage(), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             CampaignOwnedSkill owned = run.GetOwnedSkill(16);
@@ -233,7 +237,7 @@ namespace TurnLimbo.Core.Tests
             var run = NewBattleRun();
             Assert.That(run.GetStage(1).FirstClearSkillId, Is.EqualTo(43));
             Assert.That(run.GetStage(2).FirstClearSkillId, Is.EqualTo(44));
-            Assert.That(run.GetStage(3).FirstClearSkillId, Is.Zero);
+            Assert.That(run.GetStage(3).FirstClearSkillId, Is.EqualTo(45));
 
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
             Assert.That(Owned(run, 43), Is.Null);
@@ -267,6 +271,104 @@ namespace TurnLimbo.Core.Tests
             Assert.That(restored.TryStartStage(2), Is.True);
             Assert.That(restored.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(restored.OwnedSkills.Count, Is.EqualTo(11));
+        }
+
+        [Test]
+        public void ThirdStageFirstClear_GrantsPostureSkillOnce_AndRestoresItsLoadout()
+        {
+            var run = NewBattleRun();
+            Assert.That(Owned(run, 45), Is.Null);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+
+            Assert.That(run.TryStartTraining(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(Owned(run, 45), Is.Null, "Training at stage 3 must not grant the campaign reward.");
+            Assert.That(run.IsStageCleared(3), Is.False);
+
+            Assert.That(run.TryStartStage(3), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
+            Assert.That(Owned(run, 45), Is.Null, "Only a first victory grants the skill.");
+            Assert.That(run.RetryCurrentStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            CampaignOwnedSkill awarded = Owned(run, 45);
+            Assert.That(awarded?.Skill.Name, Is.EqualTo("자세 잡기"));
+            Assert.That(awarded.Skill.LaneIndex, Is.EqualTo(2));
+            Assert.That(awarded.Skill.Cost, Is.EqualTo(1));
+            Assert.That(run.IsSkillEquipped(45), Is.False);
+
+            int ownedCount = run.OwnedSkills.Count;
+            Assert.That(run.TryStartStage(3), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(ownedCount), "Replaying stage 3 gives no duplicate.");
+            Assert.That(run.TryUnequipSkill(9), Is.True);
+            Assert.That(run.TryEquipSkill(45), Is.True);
+            Assert.That(run.TrySaveLoadout(), Is.True);
+
+            CampaignSave save = run.CaptureSave();
+            var restored = new CampaignRun();
+            Assert.That(restored.TryRestore(save, out string error), Is.True, error);
+            Assert.That(Owned(restored, 45)?.Skill.Name, Is.EqualTo("자세 잡기"));
+            Assert.That(restored.IsSkillEquipped(45), Is.True);
+            Assert.That(restored.GetEquippedLane(2)[2].SkillId, Is.EqualTo(45));
+        }
+
+        [Test]
+        public void FifthStageFirstClear_GrantsHoningOnce_AndOlderSavesReceiveIt()
+        {
+            var run = NewBattleRun();
+            Assert.That(run.GetStage(4).FirstClearSkillId, Is.Zero);
+            Assert.That(run.GetStage(5).FirstClearSkillId, Is.EqualTo(46));
+            Assert.That(run.GetStage(6).FirstClearSkillId, Is.Zero);
+            for (int stage = 1; stage <= 4; stage++)
+            {
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.TryStartNextStage(), Is.True);
+            }
+            Assert.That(run.CurrentStage.Number, Is.EqualTo(5));
+            Assert.That(Owned(run, 46), Is.Null);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
+            Assert.That(Owned(run, 46), Is.Null);
+            Assert.That(run.RetryCurrentStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            CampaignOwnedSkill awarded = Owned(run, 46);
+            Assert.That(awarded?.Skill.Name, Is.EqualTo("연마"));
+            Assert.That((awarded.Skill.Cost, awarded.Skill.MinPower, awarded.Skill.MaxPower, awarded.Skill.LaneIndex),
+                Is.EqualTo((1, 5, 10, 1)));
+            Assert.That(run.IsSkillEquipped(46), Is.False);
+
+            int ownedCount = run.OwnedSkills.Count;
+            Assert.That(run.TryStartStage(5), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(ownedCount));
+            Assert.That(run.TryUnequipSkill(8), Is.True);
+            Assert.That(run.TryEquipSkill(46), Is.True);
+            Assert.That(run.TrySaveLoadout(), Is.True);
+            var restored = new CampaignRun();
+            Assert.That(restored.TryRestore(run.CaptureSave(), out string error), Is.True, error);
+            Assert.That(Owned(restored, 46)?.Skill.Name, Is.EqualTo("연마"));
+            Assert.That(restored.IsSkillEquipped(46), Is.True);
+
+            var olderSave = new CampaignSave(300, new[] { 1, 2, 3, 4, 5 }, new string[0], null, 0,
+                new IEnumerable<int>[] { new[] { 1, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
+            var olderRun = new CampaignRun();
+            Assert.That(olderRun.TryRestore(olderSave, out error), Is.True, error);
+            Assert.That(Owned(olderRun, 46)?.Skill.Name, Is.EqualTo("연마"));
+            Assert.That(olderRun.IsSkillEquipped(46), Is.False);
+        }
+
+        [Test]
+        public void RestoreOlderSaveWithStageThreeCleared_GrantsItsNewReward()
+        {
+            // Older saves list cleared stages and the equipped lanes, but never serialize skill ownership.
+            var olderSave = new CampaignSave(210, new[] { 1, 2, 3 }, new string[0], null, 0,
+                new IEnumerable<int>[] { new[] { 1, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
+            var run = new CampaignRun();
+            Assert.That(run.TryRestore(olderSave, out string error), Is.True, error);
+            Assert.That(run.IsStageCleared(3), Is.True);
+            Assert.That(Owned(run, 45)?.Skill.Name, Is.EqualTo("자세 잡기"));
+            Assert.That(run.IsSkillEquipped(45), Is.False);
         }
 
         [Test]

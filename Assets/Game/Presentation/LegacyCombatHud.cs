@@ -58,6 +58,8 @@ namespace TurnLimbo.Presentation
         private readonly float[] holdCancelRemaining = new float[3];
         private readonly Text[] costs = new Text[3];
         private readonly Text[] skillNames = new Text[3];
+        private readonly RectTransform[] cycleMarks = new RectTransform[3];
+        private readonly Text[] cycleCounts = new Text[3];
         private readonly SkillCardFeedbackGraphic[] laneFeedback = new SkillCardFeedbackGraphic[3];
         private readonly int[] shownSkills = { -1, -1, -1 };
         private readonly Button commitButton;
@@ -75,6 +77,9 @@ namespace TurnLimbo.Presentation
         private string stageName;
         private readonly StatusView playerStatus, enemyStatus;
         private readonly QueueView playerQueue, enemyQueue;
+        private const float QueueCancellationSeconds = .64f, QueueCancellationFadeStart = .33f;
+        private readonly RectTransform queueCancellationLayer;
+        private readonly List<QueueCancellationGhost> queueCancellationGhosts = new List<QueueCancellationGhost>();
         // Each fighter's head HUD as last laid out, and its panel's centre over the head (TryGetHeadStack).
         private Rect playerHeadStack, enemyHeadStack;
         private float playerHeadX, enemyHeadX;
@@ -174,6 +179,61 @@ namespace TurnLimbo.Presentation
         /// <summary>The displayed queue card, including its pulse and head attachment.</summary>
         public RectTransform GetQueuedSkillAnchor(bool playerSide, int queueIndex)
             => disposed ? null : (playerSide ? playerQueue : enemyQueue).GetAnchor(queueIndex);
+
+        /// <summary>Lets cancelled reservations tumble out from their last visible slots. Gameplay has already
+        /// removed them; these non-interactive cards only bridge the queue's immediate visual refresh.</summary>
+        public void PlayQueueCancellation(IReadOnlyList<LegacySkill> queuedBefore)
+        {
+            if (disposed || queuedBefore == null) return;
+            for (int index = 0; index < queuedBefore.Count; index++)
+            {
+                LegacySkill skill = queuedBefore[index];
+                if (skill == null || skill.IsWait) continue;
+                RectTransform source = playerQueue.GetAnchor(index);
+                if (source == null) continue;
+                Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, source.position);
+                if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(queueCancellationLayer,
+                    screen, null, out Vector2 start)) continue;
+
+                var card = Panel("Cancelled Skill", queueCancellationLayer, start, Vector2.one * QueueCardSize,
+                    Card, DuelVisualTheme.Danger);
+                var icon = Image("Icon", card.transform, iconFor(skill.IconId), Vector2.zero, Vector2.one * 48f);
+                icon.preserveAspect = true;
+                var group = card.gameObject.AddComponent<CanvasGroup>();
+                group.interactable = group.blocksRaycasts = false;
+                queueCancellationGhosts.Add(new QueueCancellationGhost(card.rectTransform, group, start, index));
+            }
+        }
+
+        private void AdvanceQueueCancellations(float realDelta)
+        {
+            for (int index = queueCancellationGhosts.Count - 1; index >= 0; index--)
+            {
+                QueueCancellationGhost ghost = queueCancellationGhosts[index];
+                ghost.Elapsed = Mathf.Min(QueueCancellationSeconds, ghost.Elapsed + Mathf.Max(0f, realDelta));
+                float time = ghost.Elapsed;
+                // A short upward kick releases the card from its slot; gravity pulls it down as it spins outward.
+                ghost.Rect.anchoredPosition = ghost.Start + new Vector2(
+                    ghost.OutwardSpeed * time, ghost.UpwardSpeed * time - 625f * time * time);
+                ghost.Rect.localRotation = Quaternion.Euler(0f, 0f, ghost.SpinSpeed * time);
+                ghost.Group.alpha = 1f - Mathf.Clamp01((time - QueueCancellationFadeStart) /
+                    (QueueCancellationSeconds - QueueCancellationFadeStart));
+                if (time < QueueCancellationSeconds) continue;
+                ghost.Rect.gameObject.SetActive(false);
+                Destroy(ghost.Rect.gameObject);
+                queueCancellationGhosts.RemoveAt(index);
+            }
+        }
+
+        private void ClearQueueCancellations()
+        {
+            foreach (QueueCancellationGhost ghost in queueCancellationGhosts)
+            {
+                ghost.Rect.gameObject.SetActive(false);
+                Destroy(ghost.Rect.gameObject);
+            }
+            queueCancellationGhosts.Clear();
+        }
 
         public void BeginCombat() => SetCinematic(1);
 
@@ -357,6 +417,9 @@ namespace TurnLimbo.Presentation
                 art.UIFont, meshGearSprite);
             enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
             guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
+            queueCancellationLayer = Rect("Queue Cancellation Layer", root, Vector2.zero, Vector2.zero, Vector2.one * .5f);
+            queueCancellationLayer.anchorMin = Vector2.zero;
+            queueCancellationLayer.anchorMax = Vector2.one;
 
             // A held skill's explanation: the enemy's card drawn larger (PlayerExplanationScale), on a dark drop shadow.
             const float explain = PlayerExplanationScale;
@@ -684,14 +747,29 @@ namespace TurnLimbo.Presentation
                 // A lane the duel does not have (e.g. W/E in the Q-only opening missions) is not drawn at all.
                 bool present = sequence.Count > 0;
                 SetGearPresent(lane, present);
-                laneAffordable[lane] = present && session.Act >= sequence[0].Cost;
-                if (!present) continue;
+                if (!present)
+                {
+                    laneAffordable[lane] = false;
+                    cycleMarks[lane].gameObject.SetActive(false);
+                    continue;
+                }
                 var current = sequence[0];
+                int currentCost = session.EffectiveCost(current);
+                laneAffordable[lane] = session.Act >= currentCost;
                 if (shownSkills[lane] != current.Id || skillNames[lane].text != current.Name)
                 {
                     shownSkills[lane] = current.Id;
-                    costs[lane].text = $"{current.Cost} ACT";
                     skillNames[lane].text = current.Name;
+                }
+                string costText = currentCost + " ACT";
+                if (costs[lane].text != costText) costs[lane].text = costText;
+                LegacySkillEffect effect = LegacySkillDefinitions.Find(current)?.Effect;
+                bool hasCycle = effect?.HasCycle == true;
+                cycleMarks[lane].gameObject.SetActive(hasCycle);
+                if (hasCycle)
+                {
+                    string countText = "순환 " + session.CycleUses(current.Id) + "/" + effect.CycleMaxCount;
+                    if (cycleCounts[lane].text != countText) cycleCounts[lane].text = countText;
                 }
                 FollowLaneOrder(lane, sequence, laneAffordable[lane]);
             }
@@ -711,12 +789,14 @@ namespace TurnLimbo.Presentation
             playerStatus.SetCounter(session.PlayerCounter, session.PlayerCountersRemaining);
             enemyStatus.SetCounter(session.EnemyCounter, session.EnemyCountersRemaining);
             SetMeshMarks(session);
-            playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale);
+            SetQueuePowerMarks(session);
+            playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale, session);
             enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale);
             UpdateConditionPreview();
             UpdateEffectEmphasis();
             playerQueue.TickFeedback(actualDelta);
             enemyQueue.TickFeedback(actualDelta);
+            AdvanceQueueCancellations(actualDelta);
             foreach (var feedback in laneFeedback) feedback.Tick(actualDelta);
             playerEffectFeedback.Tick(actualDelta);
             enemyEffectFeedback.Tick(actualDelta);
@@ -884,7 +964,7 @@ namespace TurnLimbo.Presentation
                 playerName.text = skill.Name;
                 playerStyle.SetLane(skill.LaneIndex);
                 playerExplanationIcon.sprite = iconFor(skill.IconId);
-                playerInfo.SetSkill(skill, owned: owned);
+                SetPlayerInfoSkill(skill, owned);
                 UpdateMeshNote(skill);
                 LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
                     PlayerExplanationScale, playerMeshNote);
@@ -892,7 +972,7 @@ namespace TurnLimbo.Presentation
             else if (!enemy)
             {
                 if (playerName.text != skill.Name) playerName.text = skill.Name;
-                playerInfo.SetSkill(skill, owned: owned);
+                SetPlayerInfoSkill(skill, owned);
                 // 맞물림's note follows the queue, ACT and 넘기기 while the skill is held; the card grows only when the note
                 // comes or goes.
                 if (UpdateMeshNote(skill))
@@ -916,6 +996,21 @@ namespace TurnLimbo.Presentation
             conditionPreview = !enemy && lastPlanning ? skill : null;
             UpdateConditionPreview();
             UpdateEffectEmphasis();
+        }
+
+        private void SetPlayerInfoSkill(LegacySkill skill, CampaignOwnedSkill owned)
+        {
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            if (displayedSession == null || effect?.HasCycle != true)
+            {
+                playerInfo.SetSkill(skill, owned: owned);
+                return;
+            }
+
+            displayedSession.EffectivePowerRange(skill, out int min, out int max);
+            string power = min == max ? min.ToString() : min + "–" + max;
+            playerInfo.SetSkill(skill, owned: owned, cycleUses: displayedSession.CycleUses(skill.Id),
+                effectiveCost: displayedSession.EffectiveCost(skill), effectivePower: power);
         }
 
         private void UpdateConditionPreview()
@@ -1179,6 +1274,7 @@ namespace TurnLimbo.Presentation
             timeSpentRemaining = 0f;
             AdvanceTimeSpent(0f);
             playerStatus.Reset(); enemyStatus.Reset();
+            ClearQueueCancellations();
             playerQueue.Clear(); enemyQueue.Clear();
             SetHoldProgress(-1, 0);
             outcomePanel.gameObject.SetActive(false);
@@ -1278,7 +1374,7 @@ namespace TurnLimbo.Presentation
             var halfCanvas = root.rect.size / 2;
             var statusSize = status.Root.sizeDelta;
             var queueSize = queue.DisplaySize;
-            float extraHeight = queueSize.y > 0 ? 12 + queueSize.y + 8 : 0;
+            float extraHeight = queueSize.y > 0 ? 12 + queueSize.y + 8 + (queue.HasQueuePowerMark ? 24 : 0) : 0;
             // The status panel stays on its fighter's head: clamp it, with the row's height above it, on its own,
             // so a long row never drags it away (or onto the other fighter's panel). The row sits above the panel
             // even while Tab focuses an off-centre actor.
@@ -1301,7 +1397,7 @@ namespace TurnLimbo.Presentation
                 right = Mathf.Max(right, position.x + queue.HorizontalSpan.y);
             }
             stack = UnityEngine.Rect.MinMaxRect(left, position.y - statusSize.y / 2, right,
-                position.y + statusSize.y / 2 + QueueRowRoom);
+                position.y + statusSize.y / 2 + QueueRowRoom + (queue.HasQueuePowerMark ? 24 : 0));
             headX = position.x;
         }
 
@@ -1762,6 +1858,31 @@ namespace TurnLimbo.Presentation
 
         private const float StatusWidth = 236f;
 
+        /// <summary>The cancellation count above the queued power skill, including before its followup is chosen.</summary>
+        public string GetQueuePowerSourceMarkLabel(int queueIndex)
+            => disposed ? null : playerQueue.GetQueuePowerSourceMarkLabel(queueIndex);
+
+        /// <summary>The multiplier above the next queued skill, or null when no target has been chosen yet.</summary>
+        public string GetQueuePowerTargetMarkLabel(int queueIndex)
+            => disposed ? null : playerQueue.GetQueuePowerTargetMarkLabel(queueIndex);
+
+        public RectTransform GetQueuePowerSourceMark(int queueIndex)
+            => disposed ? null : playerQueue.GetQueuePowerSourceMark(queueIndex);
+
+        public RectTransform GetQueuePowerTargetMark(int queueIndex)
+            => disposed ? null : playerQueue.GetQueuePowerTargetMark(queueIndex);
+
+        private void SetQueuePowerMarks(LegacyQueuedDuel session)
+        {
+            int source = session.QueuePowerSourceSlotIndex;
+            int target = session.QueuePowerTargetSlotIndex;
+            LegacySkillEffect effect = source >= 0 && source < session.PlayerQueue.Count
+                ? LegacySkillDefinitions.Find(session.PlayerQueue[source])?.Effect : null;
+            playerQueue.SetQueuePowerMarks(source, session.QueuePowerRemovedSkillCount,
+                target, target < 0 ? 1 : session.QueuePowerMultiplierForSlot(target),
+                effect?.QueueRemovalMode ?? LegacyQueueRemovalMode.None);
+        }
+
         /// <summary>A fighter's queue above its status panel: one row, never wrapping, growing outward. The two first
         /// slots face each other: the player's slot 1 sits at its panel's right edge and the row grows left (read
         /// right to left); the enemy's slot 1 sits at its panel's left edge and the row grows right. A row longer
@@ -1789,6 +1910,14 @@ namespace TurnLimbo.Presentation
             private readonly List<Text> meshLabels = new List<Text>();
             private readonly List<int> shownMeshBonus = new List<int>(), meshBonus = new List<int>();
             private readonly List<float> meshPop = new List<float>();
+            private readonly List<RectTransform> queuePowerSourceMarks = new List<RectTransform>(), queuePowerTargetMarks = new List<RectTransform>();
+            private readonly List<Text> queuePowerSourceLabels = new List<Text>(), queuePowerTargetLabels = new List<Text>();
+            private readonly List<RectTransform> cycleMarks = new List<RectTransform>();
+            private readonly List<Text> cycleLabels = new List<Text>();
+            private int queuePowerSourceSlot = -1, queuePowerTargetSlot = -1, queuePowerRemovedCount, queuePowerMultiplier = 1;
+            private int shownQueuePowerSourceSlot = -1, shownQueuePowerTargetSlot = -1, shownQueuePowerRemovedCount = -1, shownQueuePowerMultiplier = -1;
+            private LegacyQueueRemovalMode queuePowerRemovalMode, shownQueuePowerRemovalMode;
+            public bool HasQueuePowerMark => player && (queuePowerSourceSlot >= 0 || queuePowerTargetSlot >= 0);
             private IReadOnlyList<LegacySkill> displayedQueue;
             private LegacySkill preview;
             private LegacySkillFeedback currentFeedback;
@@ -1798,7 +1927,8 @@ namespace TurnLimbo.Presentation
             {
                 Root = root; this.player = player; this.white = white; this.font = font; this.meshGear = meshGear;
             }
-            public void Refresh(IReadOnlyList<LegacySkill> queue, Func<int, Sprite> iconFor, int activeSlot, bool resolving, int selected, float scale)
+            public void Refresh(IReadOnlyList<LegacySkill> queue, Func<int, Sprite> iconFor, int activeSlot, bool resolving,
+                int selected, float scale, LegacyQueuedDuel cycleSession = null)
             {
                 while (icons.Count < queue.Count)
                 {
@@ -1811,6 +1941,11 @@ namespace TurnLimbo.Presentation
                     feedback.Add(SkillCardFeedbackGraphic.Create(item, "Skill Condition Feedback", 3f));
                     counterMarks.Add(CreateCounterMark(item));
                     if (meshGear != null) AddMeshMark(item);
+                    if (player)
+                    {
+                        AddQueuePowerMarks(item);
+                        AddCycleMark(item);
+                    }
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
@@ -1825,10 +1960,23 @@ namespace TurnLimbo.Presentation
                     visibleItems.Add(item);
                     item.localScale = Vector3.one * (resolving && i == activeSlot ? Mathf.Min(scale, 1.2f) : 1);
                     highlights[i].enabled = !resolving && i == selected;
+                    if (player)
+                    {
+                        LegacySkillEffect effect = LegacySkillDefinitions.Find(queue[i])?.Effect;
+                        bool cycle = effect?.HasCycle == true;
+                        cycleMarks[i].gameObject.SetActive(cycle);
+                        if (cycle)
+                        {
+                            string count = (cycleSession != null ? cycleSession.CycleUses(queue[i].Id) : 0) +
+                                "/" + effect.CycleMaxCount;
+                            if (cycleLabels[i].text != count) cycleLabels[i].text = count;
+                        }
+                    }
                 }
                 for (int i = 0; i < counterMarks.Count; i++)
                     counterMarks[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && counterSlots.Contains(i));
                 UpdateMeshMarks();
+                UpdateQueuePowerMarks();
                 Layout(Pitch);
                 UpdateFeedback();
             }
@@ -1928,6 +2076,30 @@ namespace TurnLimbo.Presentation
                 meshBonus.AddRange(bonuses);
             }
 
+            /// <summary>The cancellation count and selected followup multiplier for the current queue.</summary>
+            public void SetQueuePowerMarks(int sourceSlot, int removedCount, int targetSlot, int multiplier, LegacyQueueRemovalMode removalMode)
+            {
+                queuePowerSourceSlot = sourceSlot;
+                queuePowerRemovedCount = removedCount;
+                queuePowerTargetSlot = targetSlot;
+                queuePowerMultiplier = multiplier;
+                queuePowerRemovalMode = removalMode;
+            }
+
+            public RectTransform GetQueuePowerSourceMark(int index)
+                => index >= 0 && index < queuePowerSourceMarks.Count && queuePowerSourceMarks[index].gameObject.activeInHierarchy
+                    ? queuePowerSourceMarks[index] : null;
+
+            public RectTransform GetQueuePowerTargetMark(int index)
+                => index >= 0 && index < queuePowerTargetMarks.Count && queuePowerTargetMarks[index].gameObject.activeInHierarchy
+                    ? queuePowerTargetMarks[index] : null;
+
+            public string GetQueuePowerSourceMarkLabel(int index)
+                => GetQueuePowerSourceMark(index) == null ? null : queuePowerSourceLabels[index].text;
+
+            public string GetQueuePowerTargetMarkLabel(int index)
+                => GetQueuePowerTargetMark(index) == null ? null : queuePowerTargetLabels[index].text;
+
             /// <summary>The mark under a meshed card (its gear and bonus), or null while that card shows none.</summary>
             public RectTransform GetMeshMark(int index)
                 => index >= 0 && index < meshMarks.Count && meshMarks[index].gameObject.activeInHierarchy ? meshMarks[index] : null;
@@ -1962,6 +2134,88 @@ namespace TurnLimbo.Presentation
                 meshPop.Add(0f);
             }
 
+            // This small count sits on the card's right rim, between its top counter and lower mesh tabs.
+            // The selected W command shows the full keyword; queued skills only need the compact fraction.
+            private void AddCycleMark(RectTransform item)
+            {
+                var badge = Image("Cycle Mark", item, white, new Vector2(25f, 0f),
+                    new Vector2(36f, 20f), new Color32(81, 153, 143, 255));
+                Image("Cycle Mark Inset", badge.transform, white, Vector2.zero,
+                    new Vector2(34f, 18f), DuelVisualTheme.Ink);
+                var label = Rect("Cycle Count", badge.transform, Vector2.zero,
+                    new Vector2(32f, 18f), Vector2.one * .5f).gameObject.AddComponent<Text>();
+                label.font = font;
+                label.fontSize = 13;
+                label.alignment = TextAnchor.MiddleCenter;
+                label.color = Foreground;
+                label.raycastTarget = false;
+                label.supportRichText = false;
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.verticalOverflow = VerticalWrapMode.Truncate;
+                badge.gameObject.SetActive(false);
+                cycleMarks.Add(badge.rectTransform);
+                cycleLabels.Add(label);
+            }
+
+            // Tabs rise over the counter mark, leaving the card art and the mesh mark readable.
+            private void AddQueuePowerMarks(RectTransform item)
+            {
+                queuePowerSourceMarks.Add(CreateQueuePowerMark(item, "Queue Cancel Mark", DuelVisualTheme.Danger,
+                    out Text sourceLabel));
+                queuePowerSourceLabels.Add(sourceLabel);
+                queuePowerTargetMarks.Add(CreateQueuePowerMark(item, "Queue Power Mark", Accent,
+                    out Text targetLabel));
+                queuePowerTargetLabels.Add(targetLabel);
+            }
+
+            private RectTransform CreateQueuePowerMark(RectTransform item, string name, Color rim, out Text label)
+            {
+                var badge = Image(name, item, white, new Vector2(0f, 52f), new Vector2(68f, 20f), rim);
+                Image(name + " Inset", badge.transform, white, Vector2.zero, new Vector2(66f, 18f), DuelVisualTheme.Ink);
+                label = Rect("Label", badge.transform, Vector2.zero, new Vector2(64f, 18f), Vector2.one * .5f)
+                    .gameObject.AddComponent<Text>();
+                label.font = font;
+                label.fontSize = 16;
+                label.alignment = TextAnchor.MiddleCenter;
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.verticalOverflow = VerticalWrapMode.Truncate;
+                label.resizeTextForBestFit = true;
+                label.resizeTextMinSize = 14;
+                label.resizeTextMaxSize = 16;
+                label.supportRichText = false;
+                label.raycastTarget = false;
+                label.color = Foreground;
+                badge.gameObject.SetActive(false);
+                return badge.rectTransform;
+            }
+
+            private void UpdateQueuePowerMarks()
+            {
+                for (int index = 0; index < queuePowerSourceMarks.Count; index++)
+                {
+                    bool visible = icons[index].transform.parent.gameObject.activeSelf;
+                    bool source = visible && index == queuePowerSourceSlot;
+                    bool target = visible && index == queuePowerTargetSlot;
+                    if (source && (index != shownQueuePowerSourceSlot || queuePowerRemovedCount != shownQueuePowerRemovedCount ||
+                        queuePowerRemovalMode != shownQueuePowerRemovalMode))
+                    {
+                        queuePowerSourceLabels[index].text =
+                            (queuePowerRemovalMode == LegacyQueueRemovalMode.Return ? "반환 " : "취소 ") + queuePowerRemovedCount;
+                        queuePowerSourceMarks[index].GetComponent<Image>().color = queuePowerRemovalMode == LegacyQueueRemovalMode.Return
+                            ? DuelVisualTheme.Health : DuelVisualTheme.Danger;
+                    }
+                    if (target && (index != shownQueuePowerTargetSlot || queuePowerMultiplier != shownQueuePowerMultiplier))
+                        queuePowerTargetLabels[index].text = "다음 " + queuePowerMultiplier + "배";
+                    queuePowerSourceMarks[index].gameObject.SetActive(source);
+                    queuePowerTargetMarks[index].gameObject.SetActive(target);
+                }
+                shownQueuePowerSourceSlot = queuePowerSourceSlot;
+                shownQueuePowerRemovedCount = queuePowerRemovedCount;
+                shownQueuePowerTargetSlot = queuePowerTargetSlot;
+                shownQueuePowerMultiplier = queuePowerMultiplier;
+                shownQueuePowerRemovalMode = queuePowerRemovalMode;
+            }
+
             // Each shown card carries its slot's bonus; a mark that appears or rises pops, so a chain growing reads at once.
             private void UpdateMeshMarks()
             {
@@ -1992,6 +2246,15 @@ namespace TurnLimbo.Presentation
                 foreach (var view in feedback) view.Clear();
                 foreach (var icon in icons) icon.transform.parent.gameObject.SetActive(false);
                 foreach (var mark in counterMarks) mark.SetActive(false);
+                queuePowerSourceSlot = queuePowerTargetSlot = -1;
+                queuePowerRemovedCount = 0;
+                queuePowerMultiplier = 1;
+                queuePowerRemovalMode = shownQueuePowerRemovalMode = LegacyQueueRemovalMode.None;
+                shownQueuePowerSourceSlot = shownQueuePowerTargetSlot = -1;
+                shownQueuePowerRemovedCount = shownQueuePowerMultiplier = -1;
+                foreach (var mark in queuePowerSourceMarks) mark.gameObject.SetActive(false);
+                foreach (var mark in queuePowerTargetMarks) mark.gameObject.SetActive(false);
+                foreach (var mark in cycleMarks) mark.gameObject.SetActive(false);
                 meshBonus.Clear();
                 for (int index = 0; index < meshMarks.Count; index++)
                 {
@@ -2006,6 +2269,25 @@ namespace TurnLimbo.Presentation
                 if (index < 0 || index >= icons.Count) return null;
                 var card = icons[index].transform.parent.GetComponent<RectTransform>();
                 return card.gameObject.activeInHierarchy ? card : null;
+            }
+        }
+
+        private sealed class QueueCancellationGhost
+        {
+            public readonly RectTransform Rect;
+            public readonly CanvasGroup Group;
+            public readonly Vector2 Start;
+            public readonly float OutwardSpeed, UpwardSpeed, SpinSpeed;
+            public float Elapsed;
+
+            public QueueCancellationGhost(RectTransform rect, CanvasGroup group, Vector2 start, int slot)
+            {
+                Rect = rect;
+                Group = group;
+                Start = start;
+                OutwardSpeed = -110f - slot % 3 * 18f;
+                UpwardSpeed = 145f + slot % 3 * 12f;
+                SpinSpeed = -105f - slot % 3 * 24f;
             }
         }
 

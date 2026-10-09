@@ -728,7 +728,7 @@ namespace TurnLimbo.Runtime.Campaign
             EnemyResistance = 15 + 3 * (number - 1);
             EnemyPowerBonus = number - 1;
             Reward = 60 + 10 * (number - 1);
-            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : 0;
+            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 5 ? 46 : 0;
             // Placeholder counters until enemy archetypes exist: a guard (막기, 7) that taxes a
             // one-sided attack from stage five, then a strong thrust (정교한 찌르기, 4) from stage seven.
             enemyCounterSkillId = number >= 7 ? 4 : number >= 5 ? 7 : 0;

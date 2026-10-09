@@ -1039,7 +1039,19 @@ namespace TurnLimbo.Presentation
         public bool QueueLane(int lane)
         {
             if (!CanChoose || IsInspecting || lane < 0 || lane > 2 ||
-                guide != null && !guide.AllowsQueue(lane) || !session.TryQueueLane(lane)) return false;
+                guide != null && !guide.AllowsQueue(lane)) return false;
+            // The duel removes cancelled reservations immediately. Keep their old order just long enough for the
+            // HUD to let the cards tumble out before its normal queue refresh reuses those card objects.
+            LegacySkill[] cancelledQueue = null;
+            var laneSkills = session.GetLane(lane);
+            if (laneSkills.Count > 0 && LegacySkillDefinitions.Find(laneSkills[0])?.Effect?.QueueRemovalMode ==
+                LegacyQueueRemovalMode.Cancel && session.PlayerQueue.Count > 0)
+            {
+                cancelledQueue = new LegacySkill[session.PlayerQueue.Count];
+                for (int index = 0; index < cancelledQueue.Length; index++) cancelledQueue[index] = session.PlayerQueue[index];
+            }
+            if (!session.TryQueueLane(lane)) return false;
+            if (cancelledQueue != null) hud.PlayQueueCancellation(cancelledQueue);
             hud.ClearHoldCancel();
             guide?.NotifyQueued(lane);
             // The lane's gear turns a slot: the queued skill to the upper right, the next one up into the window.
