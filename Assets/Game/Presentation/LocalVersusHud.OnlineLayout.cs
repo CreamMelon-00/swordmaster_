@@ -10,6 +10,11 @@ namespace TurnLimbo.Presentation
         // remains available when localPlayer is -1.
         private readonly RectTransform[] statusPanels = new RectTransform[2];
         private readonly Text[] statusNames = new Text[2];
+        private readonly Image[] onlineOwnPlates = new Image[2];
+        private readonly RectTransform[] onlineTurnFrames = new RectTransform[2];
+        private readonly Image[,] onlineTurnRails = new Image[2, 4];
+        private readonly Image[] onlineTurnBadges = new Image[2];
+        private readonly Text[] onlineTurnCaptions = new Text[2];
         private readonly Transform[] actors = new Transform[2];
         private readonly RectTransform[] onlineGears = new RectTransform[3];
         private readonly Text[] onlineLaneNames = new Text[3];
@@ -133,6 +138,39 @@ namespace TurnLimbo.Presentation
                 onlineNextIcons[lane].gameObject.SetActive(false);
                 onlineUsedIcons[lane].gameObject.SetActive(false);
             }
+
+            for (int side = 0; side < 2; side++)
+            {
+                string prefix = "Versus " + (side + 1) + "P ";
+                RectTransform panel = statusPanels[side];
+                onlineOwnPlates[side] = Panel(prefix + "Identity Plate", panel,
+                    new Vector2(61f, 33f), new Vector2(102f, 24f), DuelVisualTheme.Steel);
+                onlineOwnPlates[side].rectTransform.SetAsFirstSibling();
+                onlineOwnPlates[side].gameObject.SetActive(false);
+
+                var frame = Rect(prefix + "Turn Frame", panel, Vector2.zero,
+                    new Vector2(236f, 92f));
+                onlineTurnFrames[side] = frame;
+                onlineTurnRails[side, 0] = Panel(prefix + "Turn Top", frame,
+                    new Vector2(0f, 44f), new Vector2(232f, 4f), DuelVisualTheme.Accent);
+                onlineTurnRails[side, 1] = Panel(prefix + "Turn Bottom", frame,
+                    new Vector2(0f, -44f), new Vector2(232f, 4f), DuelVisualTheme.Accent);
+                onlineTurnRails[side, 2] = Panel(prefix + "Turn Left", frame,
+                    new Vector2(-115f, 0f), new Vector2(4f, 88f), DuelVisualTheme.Accent);
+                onlineTurnRails[side, 3] = Panel(prefix + "Turn Right", frame,
+                    new Vector2(115f, 0f), new Vector2(4f, 88f), DuelVisualTheme.Accent);
+                frame.gameObject.SetActive(false);
+
+                onlineTurnBadges[side] = Panel(prefix + "Turn Badge", panel,
+                    new Vector2(-56f, 33f), new Vector2(104f, 24f), DuelVisualTheme.Accent);
+                onlineTurnCaptions[side] = Label(prefix + "Turn Caption",
+                    onlineTurnBadges[side].transform, Vector2.zero,
+                    new Vector2(100f, 20f), 15, DuelVisualTheme.Ink);
+                onlineTurnCaptions[side].text = "행동 중";
+                onlineTurnBadges[side].gameObject.SetActive(false);
+                statusNames[side].transform.SetAsLastSibling();
+            }
+            BuildTurnMarkers();
         }
 
         private void ConfigurePresentation(int player)
@@ -141,6 +179,7 @@ namespace TurnLimbo.Presentation
             if (onlineLayout == online && lastLayoutPlayer == player) return;
             onlineLayout = online;
             lastLayoutPlayer = player;
+            SetTurnMarkersEnabled(online);
             onlineTurnHeader.gameObject.SetActive(online);
             onlineTurnStatePlate.gameObject.SetActive(online);
             onlineStagePlate.gameObject.SetActive(online);
@@ -277,7 +316,15 @@ namespace TurnLimbo.Presentation
         {
             RectTransform panel = statusPanels[side];
             float direction = side == 0 ? 1f : -1f;
-            statusNames[side].text = online ? (side == player ? "나" : "상대") : (side + 1) + "P";
+            bool ownSide = online && side == player;
+            statusNames[side].text = online ? (ownSide ? "내 캐릭터" : "상대") :
+                (side + 1) + "P";
+            onlineOwnPlates[side].gameObject.SetActive(ownSide);
+            if (!online)
+            {
+                onlineTurnFrames[side].gameObject.SetActive(false);
+                onlineTurnBadges[side].gameObject.SetActive(false);
+            }
             timeLabels[side].gameObject.SetActive(!online);
             actLabels[side].gameObject.SetActive(!online);
             panel.Find("Versus ACT Track").gameObject.SetActive(!online);
@@ -285,10 +332,12 @@ namespace TurnLimbo.Presentation
             if (online)
             {
                 panel.sizeDelta = new Vector2(236f, 92f);
-                Place(statusNames[side].rectTransform, new Vector2(0f, 34f),
-                    new Vector2(196f, 18f));
-                statusNames[side].alignment = TextAnchor.MiddleRight;
-                statusNames[side].fontSize = 14;
+                Place(statusNames[side].rectTransform, new Vector2(61f, 33f),
+                    new Vector2(94f, 20f));
+                statusNames[side].alignment = TextAnchor.MiddleCenter;
+                statusNames[side].fontSize = ownSide ? 17 : 16;
+                statusNames[side].color = ownSide ? DuelVisualTheme.Ink :
+                    DuelVisualTheme.Muted;
                 Place(healthLabels[side].rectTransform, new Vector2(0f, 15f),
                     new Vector2(196f, 18f));
                 healthLabels[side].fontSize = 14;
@@ -312,6 +361,7 @@ namespace TurnLimbo.Presentation
                     new Vector2(110f, 30f));
                 statusNames[side].alignment = TextAnchor.MiddleCenter;
                 statusNames[side].fontSize = 24;
+                statusNames[side].color = DuelVisualTheme.Foreground;
                 Place(healthLabels[side].rectTransform, new Vector2(0f, 28f),
                     new Vector2(410f, 22f));
                 healthLabels[side].fontSize = 17;
@@ -386,6 +436,19 @@ namespace TurnLimbo.Presentation
             onlineTimerFill.fillAmount = planning ? Mathf.Clamp01(clock / LocalVersusController.PlanningSeconds) : 0f;
             onlineTimerFill.color = planning && clock <= 5f ?
                 DuelVisualTheme.Danger : DuelVisualTheme.Accent;
+            for (int side = 0; side < 2; side++)
+            {
+                bool acting = planning && planner == side;
+                onlineTurnFrames[side].gameObject.SetActive(acting);
+                onlineTurnBadges[side].gameObject.SetActive(acting);
+                if (!acting) continue;
+                Color cue = side == localPlayer ? DuelVisualTheme.Accent :
+                    DuelVisualTheme.Danger;
+                onlineTurnBadges[side].color = cue;
+                for (int edge = 0; edge < 4; edge++)
+                    onlineTurnRails[side, edge].color = cue;
+            }
+            RefreshTurnMarkers(current, planning);
         }
 
         private static void Anchor(RectTransform rect, Vector2 anchor, Vector2 pivot)

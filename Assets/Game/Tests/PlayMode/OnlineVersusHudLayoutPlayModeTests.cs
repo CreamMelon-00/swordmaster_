@@ -46,9 +46,19 @@ namespace TurnLimbo.Presentation.Tests
                 }
 
                 Assert.That(Label(Named(hud.Root, "Versus 1P Status"), "Versus Player Name").text,
-                    Is.EqualTo("나"));
+                    Is.EqualTo("내 캐릭터"));
                 Assert.That(Label(Named(hud.Root, "Versus 2P Status"), "Versus Player Name").text,
                     Is.EqualTo("상대"));
+                Assert.That(Named(hud.Root, "Versus 1P Identity Plate").activeSelf, Is.True);
+                Assert.That(Named(hud.Root, "Versus 2P Identity Plate").activeSelf, Is.False);
+                Assert.That(Named(hud.Root, "Versus 1P Turn Frame").activeSelf, Is.True);
+                Assert.That(Named(hud.Root, "Versus 2P Turn Frame").activeSelf, Is.False);
+                Assert.That(Label(hud.Root, "Versus 1P Turn Caption").text,
+                    Is.EqualTo("행동 중"));
+                Assert.That(Rect(hud.Root, "Versus 1P Turn Badge").anchoredPosition.x +
+                    Rect(hud.Root, "Versus 1P Turn Badge").sizeDelta.x * .5f,
+                    Is.LessThan(Rect(hud.Root, "Versus 1P Identity Plate").anchoredPosition.x -
+                        Rect(hud.Root, "Versus 1P Identity Plate").sizeDelta.x * .5f));
                 Assert.That(Label(Named(hud.Root, "Versus 1P Queue"), "Queue Heading").text,
                     Does.Contain("나"));
                 Assert.That(Label(Named(hud.Root, "Versus 2P Queue"), "Queue Heading").text,
@@ -94,7 +104,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(Named(hud.Root, "Versus 1P Status"), "Versus Player Name").text,
                     Is.EqualTo("상대"));
                 Assert.That(Label(Named(hud.Root, "Versus 2P Status"), "Versus Player Name").text,
-                    Is.EqualTo("나"));
+                    Is.EqualTo("내 캐릭터"));
+                Assert.That(Named(hud.Root, "Versus 1P Identity Plate").activeSelf, Is.False);
+                Assert.That(Named(hud.Root, "Versus 2P Identity Plate").activeSelf, Is.True);
+                Assert.That(Named(hud.Root, "Versus 1P Turn Frame").activeSelf, Is.True);
+                Assert.That(Named(hud.Root, "Versus 2P Turn Frame").activeSelf, Is.False);
+                Assert.That(Named(hud.Root, "Versus 1P Turn Badge").GetComponent<Image>().color,
+                    Is.EqualTo(DuelVisualTheme.Danger));
                 Assert.That(Label(Named(hud.Root, "Versus 1P Queue"), "Queue Heading").text,
                     Does.Contain("상대"));
                 Assert.That(Label(Named(hud.Root, "Versus 2P Queue"), "Queue Heading").text,
@@ -114,6 +130,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(match.TryQueueLane(0, 0), Is.True);
                 hud.Refresh(match, 19.5f, 13.5f, 1);
                 Assert.That(Label(hud.Root, "Versus Active Player").text, Is.EqualTo("내 차례"));
+                Assert.That(Named(hud.Root, "Versus 1P Turn Frame").activeSelf, Is.False);
+                Assert.That(Named(hud.Root, "Versus 2P Turn Frame").activeSelf, Is.True);
+                Assert.That(Named(hud.Root, "Versus 2P Identity Plate").activeSelf, Is.True);
+                Assert.That(Named(hud.Root, "Versus 2P Turn Badge").GetComponent<Image>().color,
+                    Is.EqualTo(DuelVisualTheme.Accent));
                 Assert.That(Label(hud.Root, "Versus Online Clock").text, Is.EqualTo("13.5s"));
                 Assert.That(Button(hud.Root, "Versus Lane Q").interactable, Is.True);
                 Assert.That(Button(hud.Root, "Versus Cycle").interactable, Is.True);
@@ -184,6 +205,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(desk.sizeDelta.y, Is.EqualTo(180f).Within(1f));
                 Assert.That(desk.anchorMin, Is.EqualTo(Vector2.one * .5f));
                 Assert.That(Named(hud.Root, "Versus Skill Gear Q").activeSelf, Is.False);
+                Assert.That(Named(hud.Root, "Versus 1P Identity Plate").activeSelf, Is.False);
+                Assert.That(Named(hud.Root, "Versus 2P Identity Plate").activeSelf, Is.False);
+                Assert.That(Named(hud.Root, "Versus 1P Turn Frame").activeSelf, Is.False);
+                Assert.That(Named(hud.Root, "Versus 2P Turn Frame").activeSelf, Is.False);
                 GameObject onlineTurnHeader = Find(hud.Root, "Versus Turn Header");
                 Assert.That(onlineTurnHeader == null || !onlineTurnHeader.activeSelf, Is.True);
                 Assert.That(Label(Named(hud.Root, "Versus 1P Status"), "Versus Player Name").text,
