@@ -52,6 +52,8 @@ namespace TurnLimbo.Presentation
         private MissionCoachHud coachHud;
         private MissionBriefingHud briefingHud;
         private TitleHud titleHud;
+        private LocalVersusController localVersus;
+        private OnlineVersusController onlineVersus;
         private DuelLoadingHud loadingHud;
         private bool showingTitle;
         private GameSaveStore saveStore;
@@ -145,6 +147,10 @@ namespace TurnLimbo.Presentation
         public MissionCoachHud CoachHud => coachHud;
         public MissionBriefingHud BriefingHud => briefingHud;
         public TitleHud TitleHud => titleHud;
+        public LocalVersusController LocalVersus => localVersus;
+        public OnlineVersusController OnlineVersus => onlineVersus;
+        public bool IsInOnlineVersus => onlineVersus != null && onlineVersus.IsActive;
+        public bool IsInLocalVersus => localVersus != null && localVersus.IsActive && !IsInOnlineVersus;
         public DuelLoadingHud LoadingHud => loadingHud;
         /// <summary>The auto-save file. Tests may point it elsewhere before using the title.</summary>
         public GameSaveStore SaveStore
@@ -215,7 +221,7 @@ namespace TurnLimbo.Presentation
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
         public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && !IsPlayingCutscene &&
             viewPhase == ViewPhase.Outcome && !IsShowingResult;
-        public bool IsInLobby => !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
+        public bool IsInLobby => !IsInLocalVersus && !IsInOnlineVersus && !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
             !IsMission && !showingBriefing && !showingTitle && campaign.Phase == CampaignPhase.Lobby;
         public DuelPresentationSettings PresentationSettings => presentationSettings;
         public LegacyArenaView ArenaView => arena;
@@ -342,7 +348,11 @@ namespace TurnLimbo.Presentation
                 () => AbandonBattle(), () => InspectGuideEnemy());
             recallAlbum = new TutorialRecallAlbum(this);
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
-            titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite);
+            titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite,
+                () => StartLocalVersus(), () => StartOnlineVersus());
+            localVersus = new LocalVersusController(transform, art, arena,
+                () => { if (onlineVersus != null && onlineVersus.IsActive) onlineVersus.LeaveToTitle(); else ShowTitle(); });
+            onlineVersus = new OnlineVersusController(transform, art, localVersus, () => ShowTitle());
             loadingHud = DuelLoadingHud.Create(transform, art.UIFont);
             saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
             session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
@@ -359,6 +369,16 @@ namespace TurnLimbo.Presentation
         private void AdvancePresentation(float realDelta, Keyboard keyboard)
         {
             realDelta = Mathf.Max(0f, realDelta);
+            if (onlineVersus != null && onlineVersus.IsActive)
+            {
+                onlineVersus.Tick(realDelta, keyboard);
+                return;
+            }
+            if (localVersus != null && localVersus.IsActive)
+            {
+                localVersus.Tick(realDelta, keyboard);
+                return;
+            }
             if (IsPaused)
             {
                 if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) ResumeBattle();
@@ -1172,9 +1192,35 @@ namespace TurnLimbo.Presentation
             AutoSave();
         }
 
+        /// <summary>Starts a same-keyboard, two-player duel without changing the campaign or save file.</summary>
+        public bool StartLocalVersus()
+        {
+            if (!IsInTitle || localVersus == null) return false;
+            titleHud.Hide();
+            showingTitle = false;
+            lobbyHud.Hide();
+            hud.Root.SetActive(false);
+            localVersus.Start();
+            return true;
+        }
+
+        /// <summary>Opens a two-player invite-code lobby without changing campaign progress.</summary>
+        public bool StartOnlineVersus()
+        {
+            if (!IsInTitle || onlineVersus == null) return false;
+            titleHud.Hide();
+            showingTitle = false;
+            lobbyHud.Hide();
+            hud.Root.SetActive(false);
+            onlineVersus.Start();
+            return true;
+        }
+
         /// <summary>The title screen: 이어하기 when a valid save exists, and 새 게임. Auto-saving stays off until one is chosen.</summary>
         public void ShowTitle()
         {
+            onlineVersus?.Stop();
+            localVersus?.Stop();
             ClearBattleScreens();
             recallAlbum.Clear();
             lobbyHud.Hide();
@@ -2482,6 +2528,8 @@ namespace TurnLimbo.Presentation
             resultHud?.Dispose();
             coachHud?.Dispose();
             briefingHud?.Dispose();
+            onlineVersus?.Dispose();
+            localVersus?.Dispose();
             titleHud?.Dispose();
             loadingHud?.Dispose();
             lobbyHud?.Dispose();

@@ -343,7 +343,7 @@ namespace TurnLimbo.Presentation.Tests
                     LegacySkillProperty.Slash, 1, 0, "", iconId: 1);
                 typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller,
                     new LegacyQueuedDuel(100, 50, 1, 0, LegacyInitialSkills.All, new[] { zero }, new[] { 1 }, 3));
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 int frames = 0;

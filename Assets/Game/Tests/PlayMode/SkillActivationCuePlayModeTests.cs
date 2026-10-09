@@ -47,6 +47,45 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator LocalVersusGuard_ShowsFirstAndSecondPlayerActRecovery_WithoutChangingSingleplayerCue()
+        {
+            yield return null;
+            LegacySkill guard = LegacySkillDefinitions.Skill(7);
+            LegacySkill hit = LegacySkillDefinitions.Skill(5);
+            using (var fixture = new Fixture(localVersus: true))
+            {
+                var leftGuards = new LocalVersusMatch(new[] { guard }, new[] { hit });
+                Assert.That(leftGuards.TryQueueLane(0, 0), Is.True);
+                Assert.That(leftGuards.TryQueueLane(1, 2), Is.True);
+                Assert.That(leftGuards.TryPass(0) && leftGuards.TryPass(1), Is.True);
+                LocalVersusSlot leftSlot = leftGuards.BeginNextSlot();
+                Assert.That(leftSlot.LeftFeedback.ActGainGranted, Is.EqualTo(2));
+                Assert.That(fixture.Cue.Show(true, guard, leftSlot.LeftFeedback), Is.True);
+                Assert.That(fixture.PlayerTitle.text, Is.EqualTo("1P 막기 성공!"));
+                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("다음 턴 ACT 회복 +2"));
+
+                var rightGuards = new LocalVersusMatch(new[] { hit }, new[] { guard });
+                Assert.That(rightGuards.TryQueueLane(0, 2), Is.True);
+                Assert.That(rightGuards.TryQueueLane(1, 0), Is.True);
+                Assert.That(rightGuards.TryPass(0) && rightGuards.TryPass(1), Is.True);
+                LocalVersusSlot rightSlot = rightGuards.BeginNextSlot();
+                Assert.That(rightSlot.RightFeedback.ActGainGranted, Is.EqualTo(2));
+                Assert.That(fixture.Cue.Show(false, guard, rightSlot.RightFeedback), Is.True);
+                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("2P 막기 성공!"));
+                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("다음 턴 ACT 회복 +2"));
+                Assert.That(fixture.EnemyDetail.text, Does.Not.Contain("내 공격을 읽음"));
+            }
+
+            using (var singleplayer = new Fixture())
+            {
+                LegacyCurrentSlot slot = BeginSlot(Attack(900, LegacySkillProperty.Hit), guard);
+                Assert.That(singleplayer.Cue.Show(false, guard, slot.EnemyFeedback), Is.True);
+                Assert.That(singleplayer.EnemyTitle.text, Is.EqualTo("상대 막기 대응!"));
+                Assert.That(singleplayer.EnemyDetail.text, Is.EqualTo("내 공격을 읽음"));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator OpeningESkill_ShowsAnAppliedResistanceCutOnlyAgainstAnAttack()
         {
             yield return null;
@@ -271,7 +310,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(playerCue.Find("Applied Effect").GetComponent<Text>().text,
                     Is.EqualTo("다음 턴 ACT 회복 +2"));
                 Assert.That(CountNamed(controller.Hud.Root.transform, "Player Skill Activation Cue"), Is.EqualTo(1));
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 Assert.That(playerCue.gameObject.activeSelf, Is.False,
                     "ResetBattlePresentation must clear the previous activation.");
                 Assert.That(playerBurst.gameObject.activeSelf, Is.False);
@@ -475,7 +514,7 @@ namespace TurnLimbo.Presentation.Tests
             var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000,
                 playerSkills, enemySkills, new[] { enemySkills.Length });
             sessionField.SetValue(controller, duel);
-            reset.Invoke(controller, null);
+            reset.Invoke(controller, new object[] { null, null });
             for (int index = 0; index < playerSkills.Length; index++)
                 Assert.That(duel.TryQueueLane(0), Is.True);
             duel.Commit();
@@ -515,7 +554,7 @@ namespace TurnLimbo.Presentation.Tests
             public readonly Transform PlayerActor, EnemyActor;
             public readonly Text PlayerTitle, PlayerDetail, EnemyTitle, EnemyDetail;
 
-            public Fixture()
+            public Fixture(bool localVersus = false)
             {
                 Owner = new GameObject("Skill Activation Cue Fixture", typeof(RectTransform), typeof(Canvas),
                     typeof(CanvasScaler));
@@ -534,7 +573,7 @@ namespace TurnLimbo.Presentation.Tests
                 PlayerActor.position = new Vector3(-3f, 0f, 0f);
                 EnemyActor.position = new Vector3(3f, 0f, 0f);
                 art = new LegacyDuelArt();
-                Cue = new DuelSkillActivationCue(Owner.transform, art.UIFont);
+                Cue = new DuelSkillActivationCue(Owner.transform, art.UIFont, localVersus);
                 Root = Owner.transform.Find("Skill Activation Cues");
                 Assert.That(Root, Is.Not.Null);
                 Player = Root.Find("Player Skill Activation Cue");
