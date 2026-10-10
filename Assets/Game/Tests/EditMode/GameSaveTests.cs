@@ -57,6 +57,48 @@ namespace TurnLimbo.Core.Tests
             Assert.That(target.OwnedSkills.Any(owned => owned.SkillId == 12), Is.True);
         }
 
+        [TestCase(OpeningVoiceChoice.Leave)]
+        [TestCase(OpeningVoiceChoice.Essential)]
+        public void OpeningChoice_PersistsWithoutChangingOlderVersionTwoSaves(OpeningVoiceChoice choice)
+        {
+            var prologue = new PrologueRun();
+            var campaign = new CampaignRun();
+            string text = GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign, choice));
+            StringAssert.Contains($"\nopening-choice {(int)choice}\n", text);
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            Assert.That(parsed.OpeningChoice, Is.EqualTo(choice));
+            Assert.That(GameSaveCodec.Serialize(parsed), Is.EqualTo(text));
+
+            string original = GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign));
+            StringAssert.DoesNotContain("opening-choice", original);
+            Assert.That(GameSaveCodec.TryParse(original, out GameSave oldSave, out error), Is.True, error);
+            Assert.That(oldSave.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Full));
+        }
+
+        [TestCase(OpeningVoiceChoice.Full)]
+        [TestCase(OpeningVoiceChoice.Leave)]
+        [TestCase(OpeningVoiceChoice.Essential)]
+        public void UnfinishedOpening_RoundTrips_WhileOlderSavesRemainComplete(OpeningVoiceChoice choice)
+        {
+            var prologue = new PrologueRun();
+            var campaign = new CampaignRun();
+            string pending = GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign, choice, false));
+            StringAssert.Contains("\nopening-pending 1\n", pending);
+            Assert.That(GameSaveCodec.TryParse(pending, out GameSave parsed, out string error), Is.True, error);
+            Assert.That(parsed.OpeningChoice, Is.EqualTo(choice));
+            Assert.That(parsed.OpeningCompleted, Is.False);
+            Assert.That(GameSaveCodec.Serialize(parsed), Is.EqualTo(pending));
+
+            string older = GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign, choice));
+            StringAssert.DoesNotContain("opening-pending", older);
+            Assert.That(GameSaveCodec.TryParse(older, out GameSave completed, out error), Is.True, error);
+            Assert.That(completed.OpeningCompleted, Is.True);
+            Assert.That(GameSaveCodec.TryParse(pending.Replace("opening-pending 1", "opening-pending 0"),
+                out _, out _), Is.False);
+            Assert.That(GameSaveCodec.TryParse(pending.Replace("opening-pending 1", "opening-pending 1\nopening-pending 1"),
+                out _, out _), Is.False);
+        }
+
         [Test]
         public void FreshGame_SavesAndLoadsAsAFreshGame()
         {
@@ -199,6 +241,7 @@ namespace TurnLimbo.Core.Tests
                     skillXp: new[] { new KeyValuePair<int, int>(1, 31) })),
                 ["arc below zero"] = Save(-1, valid),
                 ["story past the end"] = Save(StoryMissions.Count + 1, valid),
+                ["mission completed before the opening"] = new GameSave(1, valid, OpeningVoiceChoice.Leave, false),
             };
             foreach (KeyValuePair<string, GameSave> entry in broken)
             {

@@ -235,7 +235,7 @@ namespace TurnLimbo.Presentation
             shadeButton.navigation = new Navigation { mode = Navigation.Mode.None };
             shadeButton.onClick.AddListener(CloseReplayList);
 
-            bool hasOpening = HasMissionScene(0);
+            bool hasOpening = HasScene(DuelPrototypeController.OpeningCutscene);
             int rows = hasOpening ? 1 : 0;
             for (int number = 1; number <= LastAuthoredMission; number++)
                 if (HasMissionScene(number)) rows++;
@@ -272,6 +272,13 @@ namespace TurnLimbo.Presentation
             return false;
         }
 
+        private bool HasScene(string resourcePath)
+        {
+            foreach (StoryReplayEntry scene in availableScenes)
+                if (scene.ResourcePath == resourcePath) return true;
+            return false;
+        }
+
         private void AddReplayRow(RectTransform panel, string heading, int missionNumber, float y)
         {
             RectTransform row = MakePanel("Story Replay Row " + missionNumber, panel, new Vector2(0f, y),
@@ -285,7 +292,8 @@ namespace TurnLimbo.Presentation
 
             if (missionNumber == 0)
             {
-                AddSceneButton(row, DuelPrototypeController.OpeningCutscene, "다시 보기  ▶", 255f, 188f);
+                AddSceneButton(row, DuelPrototypeController.OpeningCutscene,
+                    "다시 보기  ▶", 255f, 188f);
                 return;
             }
 

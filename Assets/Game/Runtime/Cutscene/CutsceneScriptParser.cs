@@ -31,6 +31,7 @@ namespace TurnLimbo.Runtime.Cutscene
         {
             "@wait", "@fade", "@bars", "@camera", "@image", "@actor",
             "@flashback", "@shake", "@sound", "@ambience", "@charge", "@aura", "@recall",
+            "@mark", "@jump", "@choice", "@if-full", "@endif",
         };
         // Lets the dialogue parser validate stage directives after the last line and files with no dialogue at all.
         private const string Sentinel = "\n@narrator\n__TURN_LIMBO_CUTSCENE_END__\n";
@@ -81,7 +82,9 @@ namespace TurnLimbo.Runtime.Cutscene
                 string command = line.StartsWith("@", StringComparison.Ordinal) ? FirstToken(line) : null;
                 if (command != null && Array.IndexOf(StagingDirectives, command) >= 0)
                 {
-                    staging.Add(ParseStaging(id, lineNumber, command, Arguments(line, command), state));
+                    staging.Add(command == "@choice"
+                        ? ParseChoice(id, lineNumber, line.Substring(command.Length).Trim())
+                        : ParseStaging(id, lineNumber, command, Arguments(line, command), state));
                     masked.Append('#');
                     continue;
                 }
@@ -89,7 +92,7 @@ namespace TurnLimbo.Runtime.Cutscene
                     throw new CutsceneParseException(id, lineNumber,
                         $"알 수 없는 지시어 '{command}'입니다. 대사 지시어(@narrator, @left, @right, @show, @hide, @move)나 " +
                         "연출 지시어(@wait, @fade, @bars, @camera, @image, @actor, @flashback, @shake, @sound, @ambience, " +
-                        "@charge, @aura, @recall)를 소문자로 적으세요.");
+                        "@charge, @aura, @recall, @mark, @jump, @choice, @if-full, @endif)를 소문자로 적으세요.");
                 masked.Append(lines[index]);
             }
             masked.Append(Sentinel);
@@ -116,6 +119,7 @@ namespace TurnLimbo.Runtime.Cutscene
             }
             while (stagingIndex < staging.Count) steps.Add(staging[stagingIndex++]);
             if (steps.Count == 0) throw new CutsceneParseException(id, 0, "연출 명령이나 대사가 하나도 없습니다.");
+            ValidateBranches(id, steps);
             return new CutsceneScript(id, steps, cast);
         }
 
@@ -129,6 +133,22 @@ namespace TurnLimbo.Runtime.Cutscene
             }
             switch (command)
             {
+                case "@mark":
+                    RejectNoWait(id, line, waits, "@mark");
+                    Expect(id, line, args, 1, 1, "@mark <이름>");
+                    return CutsceneStep.ForMark(line, BranchLabel(id, line, args[0]));
+                case "@jump":
+                    RejectNoWait(id, line, waits, "@jump");
+                    Expect(id, line, args, 1, 1, "@jump <이름>");
+                    return CutsceneStep.ForJump(line, BranchLabel(id, line, args[0]));
+                case "@if-full":
+                    RejectNoWait(id, line, waits, "@if-full");
+                    Expect(id, line, args, 0, 0, "@if-full");
+                    return CutsceneStep.ForIfFull(line);
+                case "@endif":
+                    RejectNoWait(id, line, waits, "@endif");
+                    Expect(id, line, args, 0, 0, "@endif");
+                    return CutsceneStep.ForEndIf(line);
                 case "@wait":
                     if (!waits) throw Error(id, line, "@wait는 기다리는 명령이라 &를 붙이면 아무 일도 하지 않습니다. &를 지우세요.");
                     Expect(id, line, args, 1, 1, "@wait <초>");
@@ -251,6 +271,51 @@ namespace TurnLimbo.Runtime.Cutscene
             }
         }
 
+        private static CutsceneStep ParseChoice(string id, int line, string content)
+        {
+            string[] parts = content.Split('|');
+            if (parts.Length != 4) throw Error(id, line, "형식은 '@choice <A 문구>|<A 이동점>|<B 문구>|<B 이동점>'입니다.");
+            for (int index = 0; index < parts.Length; index++) parts[index] = parts[index].Trim();
+            if (parts[0].Length == 0 || parts[2].Length == 0)
+                throw Error(id, line, "선택지 문구가 비어 있습니다.");
+            return CutsceneStep.ForChoice(line, parts[0], BranchLabel(id, line, parts[1]),
+                parts[2], BranchLabel(id, line, parts[3]));
+        }
+
+        private static string BranchLabel(string id, int line, string label)
+        {
+            if (label.Length == 0) throw Error(id, line, "이동점 이름이 비어 있습니다.");
+            foreach (char character in label)
+                if (!char.IsLower(character) && !char.IsDigit(character) && character != '-')
+                    throw Error(id, line, "이동점 이름은 소문자, 숫자, -만 쓸 수 있습니다.");
+            return label;
+        }
+
+        private static void ValidateBranches(string id, IReadOnlyList<CutsceneStep> steps)
+        {
+            var marks = new HashSet<string>(StringComparer.Ordinal);
+            var conditionStack = new Stack<int>();
+            foreach (CutsceneStep step in steps)
+            {
+                if (step.Kind == CutsceneStepKind.Mark && !marks.Add(step.Label))
+                    throw Error(id, step.SourceLineNumber, $"이동점 '{step.Label}'이(가) 중복됩니다.");
+                if (step.Kind == CutsceneStepKind.IfFull) conditionStack.Push(step.SourceLineNumber);
+                if (step.Kind == CutsceneStepKind.EndIf && conditionStack.Count == 0)
+                    throw Error(id, step.SourceLineNumber, "@endif에 대응하는 @if-full이 없습니다.");
+                if (step.Kind == CutsceneStepKind.EndIf) conditionStack.Pop();
+            }
+            if (conditionStack.Count > 0)
+                throw Error(id, conditionStack.Pop(), "@if-full을 @endif로 닫아 주세요.");
+            foreach (CutsceneStep step in steps)
+            {
+                if (step.Kind == CutsceneStepKind.Jump && !marks.Contains(step.Label))
+                    throw Error(id, step.SourceLineNumber, $"이동점 '{step.Label}'을(를) 찾을 수 없습니다.");
+                if (step.Kind == CutsceneStepKind.Choice &&
+                    (!marks.Contains(step.TargetA) || !marks.Contains(step.TargetB)))
+                    throw Error(id, step.SourceLineNumber, "선택지가 가리키는 이동점을 찾을 수 없습니다.");
+            }
+        }
+
         // The actor of @charge or @aura, who must already stand on stage.
         private static CutsceneActor OnStageActor(string id, int line, string[] args, string usage, StageState state)
         {
@@ -268,7 +333,7 @@ namespace TurnLimbo.Runtime.Cutscene
 
         private static CutsceneStep ParseActor(string id, int line, string[] args, bool waits, StageState actors)
         {
-            if (args.Length < 2) throw Error(id, line, "@actor <elisa|knight|dummy|senior> <at|hide|move|face|pose|attack|tremble> ... 형식으로 적으세요.");
+            if (args.Length < 2) throw Error(id, line, "@actor <elisa|knight|dummy|senior> <at|hide|move|face|pose|attack|tremble|shimmer> ... 형식으로 적으세요.");
             CutsceneActor actor = Actor(id, line, args[0]);
             string action = args[1];
             if (action != "at" && !actors.IsVisible(actor))
@@ -340,8 +405,17 @@ namespace TurnLimbo.Runtime.Cutscene
                     }
                     return CutsceneStep.ForTremble(line, actor, seconds, strength, waits);
                 }
+                case "shimmer":
+                {
+                    Expect(id, line, args, 3, 3, "@actor senior shimmer <초>");
+                    if (actor != CutsceneActor.Senior)
+                        throw Error(id, line, "일렁임은 상급기사에게만 쓸 수 있습니다.");
+                    float seconds = Seconds(id, line, args[2]);
+                    if (seconds <= 0f) throw Error(id, line, "일렁이는 시간은 0보다 길어야 합니다.");
+                    return CutsceneStep.ForShimmer(line, seconds, waits);
+                }
                 default:
-                    throw Error(id, line, $"'{action}'은(는) 인물 명령이 아닙니다. at, hide, move, face, pose, attack, tremble 중 하나를 적으세요.");
+                    throw Error(id, line, $"'{action}'은(는) 인물 명령이 아닙니다. at, hide, move, face, pose, attack, tremble, shimmer 중 하나를 적으세요.");
             }
         }
 

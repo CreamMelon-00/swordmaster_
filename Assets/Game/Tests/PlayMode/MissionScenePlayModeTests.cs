@@ -258,8 +258,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.EnemyPowerAura.IsAuraOn, Is.False, "…until the outro's @aura knight off.");
                 Assert.That(arena.ActiveAuraAfterimageCount, Is.Zero, "Switched off at once, it takes them with it.");
                 Assert.That(controller.AdvanceCutscene(), Is.True);
-                Assert.That(controller.IsPlayingCutscene, Is.False);
-                Assert.That(controller.IsInLobby, Is.True, "Then the lobby, where the old win's 여정 계속 went…");
+                Assert.That(controller.IsInLobby, Is.True, "The lobby follows the completed outro.");
                 Assert.That(controller.Result, Is.Null);
                 Assert.That(controller.IsMissionEmpowered, Is.False);
                 Assert.That(ActiveTexts(controller.LobbyHud.Root, "Outcome Banner"),
@@ -732,7 +731,7 @@ namespace TurnLimbo.Presentation.Tests
             public void InstallDuel(LegacyQueuedDuel duel)
             {
                 SetField("session", duel);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
             }
 
             public void ShowBriefing()

@@ -103,7 +103,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator NewGameFromTitle_PlaysTheOpeningFirst_AndEscapeSkipsToTheFirstBriefing()
+        public IEnumerator NewGameFromTitle_PlaysTheOpeningFirst_AndEscapeOpensTheEarlyChoice()
         {
             yield return null;
             using (var scope = new CutsceneScope(saveToTemporaryStore: true))
@@ -123,11 +123,24 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.StartCampaignStage(1), Is.False);
                 Assert.That(scope.LoadSave().PrologueCleared, Is.Zero, "The new game is saved before the cutscene.");
 
+                RectTransform card = Named(controller.DialogueHud.Root, "Dialogue Card Border").GetComponent<RectTransform>();
+                Vector2 restingCardPosition = card.anchoredPosition;
                 Press(keyboard.escapeKey);
                 yield return null;
                 scope.Advance(0f, keyboard);
                 Release(keyboard.escapeKey);
-                Assert.That(controller.IsPlayingCutscene, Is.False, "Escape skips the whole cutscene.");
+                Assert.That(controller.IsPlayingCutscene, Is.True, "Escape opens the voice interruption before the first laugh.");
+                Assert.That(controller.Cutscene.Playback.CurrentLine.Text, Is.EqualTo("…"));
+                Assert.That(controller.CutsceneHud.FadeAmount, Is.EqualTo(1f), "The interruption begins on black.");
+                Assert.That(controller.Cutscene.IsShaking, Is.True);
+                scope.Advance(.08f);
+                Assert.That(Vector2.Distance(card.anchoredPosition, restingCardPosition), Is.GreaterThan(.1f),
+                    "A world-camera shake alone is invisible behind the black fade; the dialogue card must move.");
+                scope.Advance(.4f);
+                Assert.That(controller.Cutscene.IsShaking, Is.False);
+                Assert.That(Vector2.Distance(card.anchoredPosition, restingCardPosition), Is.LessThan(.01f),
+                    "The card returns exactly to its resting position after the one-shot cue.");
+                Assert.That(controller.SkipCutscene(), Is.True);
                 Assert.That(controller.IsInBriefing, Is.True, "…and the story continues at the first briefing.");
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(1));
                 Assert.That(controller.IsShowingDialogue, Is.False);
@@ -417,11 +430,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.DialogueHud.CurrentLine.Text, Is.EqualTo("하나"), "The key that opened it is ignored.");
                 Release(keyboard.enterKey);
                 yield return null;
+                scope.Advance(5f, keyboard);
                 Press(keyboard.spaceKey);
                 yield return null;
                 scope.Advance(0f, keyboard);
                 Release(keyboard.spaceKey);
                 Assert.That(controller.DialogueHud.CurrentLine.Text, Is.EqualTo("둘"));
+                scope.Advance(5f, keyboard);
                 yield return null;
                 Press(keyboard.enterKey);
                 yield return null;
@@ -485,6 +500,56 @@ namespace TurnLimbo.Presentation.Tests
             finally { Object.Destroy(parent); }
         }
 
+        [UnityTest]
+        public IEnumerator SeniorShimmer_EchoesBothCels_EndsOnTime_AndCleansUpWhenSkipped()
+        {
+            yield return null;
+            using (var scope = new CutsceneScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                Assert.Throws<CutsceneParseException>(() => CutsceneScriptParser.Parse("Cutscene/invalid-shimmer",
+                    "@actor elisa at -5\n@actor elisa shimmer 1\n하나"),
+                    "Only the senior knight has a shimmer.");
+
+                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("Cutscene/shimmer",
+                    "@actor senior at -8 right\n@actor senior shimmer 1.2\n하나")), Is.True);
+                CutsceneDirector director = controller.Cutscene;
+                SpriteRenderer senior = director.SeniorRenderer;
+                Transform echoRoot = senior.transform.Find("Senior Knight Shimmer");
+                Assert.That(echoRoot, Is.Not.Null);
+                Assert.That(director.IsSeniorShimmering, Is.True);
+                Assert.That(controller.DialogueHud.CurrentLine, Is.Null, "The effect gets its own beat before the reply.");
+                SpriteRenderer[] echoes = echoRoot.GetComponentsInChildren<SpriteRenderer>(true);
+                Assert.That(echoes.Length, Is.EqualTo(4), "The upper and lower cels each have two faint echoes.");
+
+                scope.Advance(.15f);
+                Assert.That(echoRoot.gameObject.activeSelf, Is.True);
+                Assert.That(echoes.Any(echo => echo.color.a > .05f && echo.sprite != null), Is.True);
+                Assert.That(echoes.Count(echo => echo.sprite == senior.sprite), Is.EqualTo(2),
+                    "Upper echoes follow the current upper cel.");
+                float firstOffset = echoes[0].transform.localPosition.x;
+                scope.Advance(.08f);
+                Assert.That(Mathf.Abs(echoes[0].transform.localPosition.x - firstOffset), Is.GreaterThan(.001f),
+                    "The outline visibly wavers while the senior knight stays in place.");
+                Assert.That(senior.transform.localPosition.x, Is.EqualTo(-8f));
+
+                scope.Advance(1f);
+                Assert.That(controller.DialogueHud.CurrentLine?.Text, Is.EqualTo("하나"));
+                Assert.That(director.IsSeniorShimmering, Is.False);
+                Assert.That(echoRoot.gameObject.activeSelf, Is.False, "The echoes leave before the next dialogue line.");
+                Assert.That(controller.SkipCutscene(), Is.True);
+
+                Assert.That(controller.StartCutscene(CutsceneScriptParser.Parse("Cutscene/shimmer-cut",
+                    "@actor senior at -8 right\n@actor senior shimmer 2 &\n하나")), Is.True);
+                CutsceneDirector cut = controller.Cutscene;
+                Assert.That(cut.IsSeniorShimmering, Is.True);
+                scope.Advance(.2f);
+                Assert.That(controller.SkipCutscene(), Is.True);
+                Assert.That(cut.IsSeniorShimmering, Is.False);
+                yield return null;
+                Assert.That(cut.SeniorRenderer == null, Is.True, "Skipping releases the senior and its echo objects.");
+            }
+        }
         [UnityTest]
         public IEnumerator Tremble_ShiversEveryFigureAroundItsPlace_WithinItsStrength_AndEndsExactlyThere()
         {

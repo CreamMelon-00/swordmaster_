@@ -59,6 +59,52 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator CinematicDialogue_RevealsTextMasksTheNameAndShowsBothChoices()
+        {
+            yield return null;
+            var parent = new GameObject("Dialogue Choice Test");
+            DialogueHud hud = null;
+            try
+            {
+                hud = new DialogueHud(parent.transform, new LegacyDuelArt(), null, null);
+                hud.SetCinematic(true);
+                hud.MaskElisaName = true;
+                var line = new DialogueLine(1, DialogueSide.Left, "엘리사", "???",
+                    "엘리사라는 이름을 들었다.");
+                hud.Show(line, 0, 1);
+                Assert.That(Label(hud.Root, "Dialogue Speaker").text, Is.EqualTo("???"));
+                Assert.That(hud.IsRevealing, Is.True);
+                Assert.That(Label(hud.Root, "Dialogue Body").text, Is.Empty);
+                hud.Tick(.1f);
+                Assert.That(Label(hud.Root, "Dialogue Body").text.Length, Is.InRange(1, 5));
+                hud.CompleteReveal();
+                Assert.That(Label(hud.Root, "Dialogue Body").text, Is.EqualTo("???라는 이름을 들었다."));
+
+                int selected = -1;
+                hud.ShowChoices("날 보내줘", "…", index => selected = index);
+                Button top = Button(hud.Root, "Dialogue Choice A");
+                Button bottom = Button(hud.Root, "Dialogue Choice B");
+                Assert.That(top.GetComponentInChildren<Text>().text, Is.EqualTo("날 보내줘"));
+                Assert.That(bottom.GetComponentInChildren<Text>().text, Is.EqualTo("…"));
+                Assert.That(top.GetComponent<RectTransform>().anchoredPosition.x,
+                    Is.EqualTo(bottom.GetComponent<RectTransform>().anchoredPosition.x));
+                Assert.That(top.GetComponent<RectTransform>().anchoredPosition.y,
+                    Is.GreaterThan(bottom.GetComponent<RectTransform>().anchoredPosition.y));
+                Assert.That(Label(hud.Root, "Dialogue Input Hint").text, Does.Contain("↑ / ↓"));
+                hud.MoveChoiceSelection(1);
+                Assert.That(bottom.image.color, Is.EqualTo(DuelVisualTheme.Accent));
+                hud.ConfirmChoiceSelection();
+                Assert.That(selected, Is.EqualTo(1));
+                Assert.That(hud.IsChoosing, Is.False);
+            }
+            finally
+            {
+                hud?.Dispose();
+                Object.Destroy(parent);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator DialogueHud_BlocksUnderlyingClicksAndInvokesOnlyRequestedActions()
         {
             yield return null;

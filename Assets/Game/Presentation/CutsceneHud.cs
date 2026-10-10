@@ -18,6 +18,7 @@ namespace TurnLimbo.Presentation
         private static readonly Color RecallVeil = new Color(.93f, .91f, .86f, .2f);
         private readonly RectTransform root;
         private readonly Image image, fade;
+        private readonly Text hint;
         private readonly RectTransform topBar, bottomBar;
         private readonly AspectRatioFitter imageFitter;
         private readonly RectTransform recall;
@@ -81,7 +82,7 @@ namespace TurnLimbo.Presentation
             Stretch(fade.rectTransform);
             fade.color = Color.black;
 
-            var hint = Graphic<Text>("Cutscene Skip Hint", root);
+            hint = Graphic<Text>("Cutscene Skip Hint", root);
             hint.font = art.UIFont;
             hint.text = "Esc  건너뛰기";
             hint.fontSize = 20;
@@ -116,9 +117,15 @@ namespace TurnLimbo.Presentation
         /// <summary>The recall's white flash: 1 = a white screen.</summary>
         public float RecallFlash => recallFlash.enabled ? recallFlash.color.a : 0f;
 
+        public void SetSkipHint(string caption)
+        {
+            if (!disposed) hint.text = caption;
+        }
+
         public void Show()
         {
             if (disposed) return;
+            hint.text = "Esc  건너뛰기";
             SetFade(0f);
             SetBars(0f);
             SetImage(null, 0f);

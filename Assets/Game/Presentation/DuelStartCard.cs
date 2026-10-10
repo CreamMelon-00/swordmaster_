@@ -119,7 +119,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Puts the card up for <paramref name="seconds"/> of real time (0: none) with 엘리사 on the left and
         /// <paramref name="opponentName"/>, drawn from the sprite at <paramref name="opponentSilhouette"/> (Resources), on
         /// the right.</summary>
-        public void Show(float seconds, string opponentName, string opponentSilhouette)
+        public void Show(float seconds, string opponentName, string opponentSilhouette, string playerName = PlayerName)
         {
             if (disposed) return;
             timeline.Begin(seconds);
@@ -128,7 +128,7 @@ namespace TurnLimbo.Presentation
                 Hide();
                 return;
             }
-            SetSide(player, PlayerName, PlayerSilhouette);
+            SetSide(player, playerName, PlayerSilhouette);
             SetSide(opponent, opponentName, opponentSilhouette);
             root.gameObject.SetActive(true);
             Apply();

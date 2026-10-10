@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -68,6 +69,296 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(saved.Campaign.Currency, Is.Zero);
                 Assert.That(saved.Campaign.CurriculumCompleted, Is.Empty);
                 Assert.That(saved.Campaign.CurriculumActive, Is.Null);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator OpeningChoiceA_MasksTheFirstDestinationLineBeforeItAppears_AndSavesTheChoice()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.NewGameFromTitle(), Is.True);
+                scope.Advance(1.1f);
+                Assert.That(controller.DialogueHud.CurrentLine.Text, Does.StartWith("이룰 수 없는 꿈"));
+                Assert.That(Label(controller.CutsceneHud.Root, "Cutscene Skip Hint").text, Is.EqualTo("Esc  선택으로"));
+
+                Button close = NamedButton(controller.DialogueHud.Root, "Dialogue Close");
+                close.onClick.Invoke();
+                Assert.That(controller.Cutscene.Playback.CurrentLine.Text, Is.EqualTo("…"));
+                for (int i = 0; i < 20 && !controller.DialogueHud.IsChoosing; i++)
+                {
+                    if (!controller.AdvanceCutscene()) scope.Advance(2f);
+                }
+                Assert.That(controller.DialogueHud.IsChoosing, Is.True);
+                Assert.That(NamedButton(controller.DialogueHud.Root, "Dialogue Choice A").GetComponentInChildren<Text>().text, Is.EqualTo("날 보내줘"));
+                Assert.That(Label(controller.CutsceneHud.Root, "Cutscene Skip Hint").text,
+                    Is.EqualTo("↑ / ↓  선택  ·  Enter  결정"));
+                controller.Cutscene.Choose(0);
+                Assert.That(controller.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Leave));
+                Assert.That(controller.DialogueHud.MaskElisaName, Is.True);
+                Assert.That(scope.Load().OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Leave));
+
+                for (int i = 0; i < 20 && controller.DialogueHud.CurrentLine?.SpeakerName != "엘리사"; i++)
+                {
+                    if (!controller.AdvanceCutscene()) scope.Advance(2f);
+                }
+                Assert.That(controller.DialogueHud.CurrentLine?.SpeakerName, Is.EqualTo("엘리사"));
+                Assert.That(Label(controller.DialogueHud.Root, "Dialogue Speaker").text, Is.EqualTo("???"),
+                    "The identity mask must be active when the first opening line is presented.");
+                Assert.That(controller.DialogueHud.CurrentLine.Text, Is.EqualTo("…!"));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator OpeningChoices_UseVerticalKeyboardNavigationWithoutLetterShortcuts()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.NewGameFromTitle(), Is.True);
+                scope.Advance(1.1f);
+                NamedButton(controller.DialogueHud.Root, "Dialogue Close").onClick.Invoke();
+                for (int i = 0; i < 20 && !controller.DialogueHud.IsChoosing; i++)
+                {
+                    if (!controller.AdvanceCutscene()) scope.Advance(2f);
+                }
+                Assert.That(controller.DialogueHud.IsChoosing, Is.True);
+
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                controller.enabled = true;
+                Press(keyboard.aKey);
+                yield return null;
+                Release(keyboard.aKey);
+                yield return null;
+                Assert.That(controller.DialogueHud.IsChoosing, Is.True,
+                    "A is an internal branch id, not a player-facing shortcut.");
+
+                Press(keyboard.downArrowKey);
+                yield return null;
+                Release(keyboard.downArrowKey);
+                yield return null;
+                Assert.That(NamedButton(controller.DialogueHud.Root, "Dialogue Choice B").image.color,
+                    Is.EqualTo(DuelVisualTheme.Accent));
+
+                Press(keyboard.enterKey);
+                yield return null;
+                Release(keyboard.enterKey);
+                yield return null;
+                controller.enabled = false;
+                Assert.That(controller.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Essential));
+                Assert.That(controller.DialogueHud.IsChoosing, Is.False);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Opening_FullyRevealedLineClicks_DoNotReachTheChoiceBeforeHaHa()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.NewGameFromTitle(), Is.True);
+                controller.Cutscene.Tick(1.1f);
+                var mouse = InputSystem.AddDevice<Mouse>();
+                Button next = NamedButton(controller.DialogueHud.Root, "Dialogue Next");
+                yield return null;
+
+                for (int i = 0; i < 6; i++)
+                {
+                    scope.Advance(5f);
+                    Assert.That(controller.DialogueHud.IsRevealing, Is.False);
+                    Press(mouse.leftButton);
+                    yield return null;
+                    scope.Advance(0f);
+                    Assert.That(scope.OpeningClicks, Is.EqualTo(i + 1));
+                    Release(mouse.leftButton);
+                    yield return null;
+                    next.onClick.Invoke();
+                }
+
+                Assert.That(controller.Cutscene.Playback.CurrentLine.Text, Is.EqualTo("하하하…"));
+                Assert.That(controller.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Full));
+                Assert.That(controller.DialogueHud.IsChoosing, Is.False);
+                Press(mouse.leftButton);
+                yield return null;
+                scope.Advance(0f);
+                Assert.That(scope.OpeningClicks, Is.EqualTo(6), "The first 하하하 line closes the interruption window.");
+                Release(mouse.leftButton);
+                yield return null;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Opening_TenthRapidClick_Interrupts_AndRevealClickNeverAdvancesItsLine()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.NewGameFromTitle(), Is.True);
+                controller.Cutscene.Tick(1.1f);
+                var mouse = InputSystem.AddDevice<Mouse>();
+                Button next = NamedButton(controller.DialogueHud.Root, "Dialogue Next");
+                yield return null;
+
+                for (int i = 0; i < 5; i++)
+                {
+                    string line = controller.Cutscene.Playback.CurrentLine.Text;
+                    Assert.That(controller.DialogueHud.IsRevealing, Is.True);
+                    Press(mouse.leftButton);
+                    yield return null;
+                    scope.Advance(0f);
+                    Assert.That(scope.OpeningClicks, Is.EqualTo(i * 2 + 1));
+                    // Releasing after the text naturally finishes still belongs to the revealing click.
+                    scope.Advance(5f);
+                    Release(mouse.leftButton);
+                    yield return null;
+                    next.onClick.Invoke();
+                    Assert.That(controller.Cutscene.Playback.CurrentLine.Text, Is.EqualTo(line));
+
+                    Press(mouse.leftButton);
+                    yield return null;
+                    scope.Advance(0f);
+                    Assert.That(scope.OpeningClicks, Is.EqualTo(i * 2 + 2));
+                    Release(mouse.leftButton);
+                    yield return null;
+                    next.onClick.Invoke();
+                    if (i < 4)
+                        Assert.That(controller.Cutscene.Playback.CurrentLine.Text, Is.Not.EqualTo(line));
+                }
+
+                Assert.That(controller.Cutscene.Playback.CurrentLine.Text, Is.EqualTo("…"),
+                    "The tenth physical press shows the interruption and its release cannot skip the new line.");
+                Assert.That(controller.DialogueHud.IsChoosing, Is.False);
+                Assert.That(controller.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Full));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator OpeningReplay_FollowsTheSavedAOrBRoute_WithoutChangingTheSave()
+        {
+            yield return null;
+            foreach (OpeningVoiceChoice selected in new[] { OpeningVoiceChoice.Leave, OpeningVoiceChoice.Essential })
+            {
+                using (var scope = new SaveScope())
+                {
+                    var prologue = new PrologueRun();
+                    prologue.CompleteAll();
+                    Assert.That(scope.Store.TrySave(GameSave.Capture(prologue, new CampaignRun(), selected),
+                        out string error), Is.True, error);
+                    string savedBeforeReplay = File.ReadAllText(scope.Store.Path);
+                    DuelPrototypeController controller = scope.Controller;
+                    controller.ShowTitle();
+                    Assert.That(controller.ContinueGame(), Is.True);
+                    Assert.That(controller.IsInLobby, Is.True);
+                    Assert.That(controller.ReplayStoryCutscene(DuelPrototypeController.OpeningCutscene), Is.True);
+
+                    var heard = new List<string>();
+                    for (int turn = 0; turn < 150 && controller.IsPlayingCutscene; turn++)
+                    {
+                        if (controller.Cutscene.Playback.CurrentLine != null)
+                        {
+                            heard.Add(controller.Cutscene.Playback.CurrentLine.Text);
+                            Assert.That(controller.DialogueHud.IsChoosing, Is.False,
+                                "Replay must use the saved answer automatically.");
+                            Assert.That(controller.AdvanceCutscene(), Is.True);
+                        }
+                        else scope.Advance(30f);
+                    }
+
+                    Assert.That(controller.IsInLobby, Is.True);
+                    Assert.That(heard.Count, Is.GreaterThan(7));
+                    Assert.That(heard[0], Does.StartWith("이룰 수 없는 꿈"));
+                    Assert.That(heard[6], Is.EqualTo("…"), "Replay interrupts after the first six lines.");
+                    Assert.That(heard, Does.Not.Contain("하하하…"));
+                    Assert.That(heard, Does.Contain(selected == OpeningVoiceChoice.Leave
+                        ? "좋아, 다만 명심해." : "이야기를 들어주겠다는 뜻으로 이해해도 될까?"));
+                    Assert.That(heard.Contains("그냥."), Is.EqualTo(selected == OpeningVoiceChoice.Essential));
+                    Assert.That(heard, Does.Not.Contain("그냥 모두 죽여버리면 돼."));
+                    Assert.That(controller.OpeningChoice, Is.EqualTo(selected));
+                    Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo(savedBeforeReplay));
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Continue_ReopensAnUnfinishedOpening_ThenCompletesTheSavedChoice()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.NewGameFromTitle(), Is.True);
+                Assert.That(scope.Load().OpeningCompleted, Is.False,
+                    "The first new-game save precedes the player's opening choice.");
+                controller.ShowTitle();
+                Assert.That(controller.ContinueGame(), Is.True);
+                Assert.That(controller.IsPlayingCutscene, Is.True);
+                Assert.That(controller.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Full));
+                scope.Advance(1.1f);
+                NamedButton(controller.DialogueHud.Root, "Dialogue Close").onClick.Invoke();
+                Assert.That(controller.Cutscene.Playback.CurrentLine.Text, Is.EqualTo("…"),
+                    "An unfinished opening still offers the interruption after Continue.");
+                for (int i = 0; i < 20 && !controller.DialogueHud.IsChoosing; i++)
+                {
+                    if (!controller.AdvanceCutscene()) scope.Advance(2f);
+                }
+                Assert.That(controller.DialogueHud.IsChoosing, Is.True);
+                controller.Cutscene.Choose(1);
+                Assert.That(controller.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Essential));
+                Assert.That(scope.Load().OpeningCompleted, Is.False);
+                Assert.That(scope.Load().OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Essential));
+
+                controller.ShowTitle();
+                Assert.That(controller.ContinueGame(), Is.True);
+                Assert.That(controller.IsPlayingCutscene, Is.True);
+                var heard = new List<string>();
+                for (int turn = 0; turn < 150 && controller.IsPlayingCutscene; turn++)
+                {
+                    if (controller.Cutscene.Playback.CurrentLine != null)
+                    {
+                        heard.Add(controller.Cutscene.Playback.CurrentLine.Text);
+                        Assert.That(controller.AdvanceCutscene(), Is.True);
+                    }
+                    else scope.Advance(30f);
+                }
+                Assert.That(controller.IsInBriefing, Is.True);
+                Assert.That(heard[6], Is.EqualTo("…"));
+                Assert.That(heard, Does.Not.Contain("하하하…"));
+                Assert.That(heard, Does.Contain("그냥."));
+                Assert.That(scope.Load().OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Essential));
+                Assert.That(scope.Load().OpeningCompleted, Is.True);
+
+                controller.ShowTitle();
+                Assert.That(controller.ContinueGame(), Is.True);
+                Assert.That(controller.IsPlayingCutscene, Is.False,
+                    "Once finished, Continue resumes at mission 1 instead of repeating the opening.");
+                Assert.That(controller.IsInBriefing, Is.True);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Continue_RestoresTheHiddenNameChoice()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                GameSave selected = GameSave.Capture(new PrologueRun(), new CampaignRun(), OpeningVoiceChoice.Leave);
+                Assert.That(scope.Store.TrySave(selected, out string error), Is.True, error);
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.ContinueGame(), Is.True);
+                Assert.That(controller.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Leave));
+                Assert.That(controller.DialogueHud.MaskElisaName, Is.True);
+                Assert.That(scope.Load().OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Leave));
             }
         }
 
@@ -295,6 +586,14 @@ namespace TurnLimbo.Presentation.Tests
             return null;
         }
 
+        private static Button NamedButton(GameObject root, string name)
+        {
+            foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
+                if (candidate.name == name) return candidate.GetComponent<Button>();
+            Assert.Fail("Missing UI node: " + name);
+            return null;
+        }
+
         private static Image NamedImage(GameObject root, string name)
         {
             foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
@@ -332,6 +631,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(save.Validate(out error), Is.True, error);
                 return save;
             }
+
+            public void Advance(float seconds) => advance(seconds, null);
+
+            public int OpeningClicks => (int)typeof(DuelPrototypeController)
+                .GetField("openingClickCount", PrivateInstance).GetValue(Controller);
 
             public void SetGuide(MissionGuide guide)
                 => typeof(DuelPrototypeController).GetField("guide", PrivateInstance).SetValue(Controller, guide);

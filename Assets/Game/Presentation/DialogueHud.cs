@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
     {
         private readonly LegacyDuelArt art;
         private readonly Action advance, close;
-        private readonly RectTransform root;
+        private readonly RectTransform root, cardBorder;
         private readonly RectTransform nameplate;
         private readonly Image leftPortrait, rightPortrait;
         private readonly Text speakerName, speakerRole, body, progress, inputHint, closeCaption;
@@ -21,7 +21,15 @@ namespace TurnLimbo.Presentation
         /// <summary>The body text of a monologue line (<see cref="DialogueLine.IsMonologue"/>): a cool, quieter tone
         /// set apart from the warm paper colour of speech.</summary>
         public static readonly Color MonologueColor = new Color(.66f, .78f, .86f, 1f);
-        private readonly Button backdropButton, nextButton, closeButton;
+        private readonly Button backdropButton, nextButton, closeButton, choiceAButton, choiceBButton;
+        private readonly RectTransform choicePanel;
+        private readonly Text choiceALabel, choiceBLabel;
+        private Action<int> choose;
+        private int selectedChoiceIndex = -1;
+        private string displayText;
+        private int visibleCharacters;
+        private float revealElapsed;
+        private const float CharactersPerSecond = 42f;
         private bool disposed;
 
         public DialogueHud(Transform parent, LegacyDuelArt art, Action advance, Action close)
@@ -58,7 +66,8 @@ namespace TurnLimbo.Presentation
             rightPortrait = CreatePortrait("Dialogue Portrait Right", 620f);
 
             var border = Panel("Dialogue Card Border", root, Vector2.zero, new Vector2(1604f, 334f), DuelVisualTheme.Border);
-            AnchorToBottom(border.rectTransform, 48f);
+            cardBorder = border.rectTransform;
+            AnchorToBottom(cardBorder, 48f);
             var card = Panel("Dialogue Card", border.transform, Vector2.zero, new Vector2(1600f, 330f), DuelVisualTheme.Surface);
             DuelVisualTheme.DressPanel(card);
 
@@ -87,6 +96,15 @@ namespace TurnLimbo.Presentation
             closeCaption = closeButton.GetComponentInChildren<Text>();
             nextButton = ActionButton("Dialogue Next", card.transform, "다음",
                 new Vector2(680f, -116f), new Vector2(150f, 48f), InvokeAdvance, true);
+            choicePanel = Rect("Dialogue Choices", root, new Vector2(0f, 270f), new Vector2(1000f, 216f));
+            Panel("Dialogue Choices Backdrop", choicePanel, Vector2.zero, new Vector2(1000f, 216f),
+                new Color(BackdropColor.r, BackdropColor.g, BackdropColor.b, .96f));
+            choiceAButton = ActionButton("Dialogue Choice A", choicePanel, string.Empty,
+                new Vector2(0f, 48f), new Vector2(920f, 72f), () => SelectChoice(0));
+            choiceBButton = ActionButton("Dialogue Choice B", choicePanel, string.Empty,
+                new Vector2(0f, -48f), new Vector2(920f, 72f), () => SelectChoice(1));
+            choiceALabel = choiceAButton.GetComponentInChildren<Text>();
+            choiceBLabel = choiceBButton.GetComponentInChildren<Text>();
             Hide();
         }
 
@@ -99,6 +117,9 @@ namespace TurnLimbo.Presentation
         public bool IsVisible => !disposed && root.gameObject.activeSelf;
         /// <summary>A cutscene's lines: the scene is not dimmed (a click anywhere still advances) and closing skips it.</summary>
         public bool IsCinematic { get; private set; }
+        public bool MaskElisaName { get; set; }
+        public bool IsRevealing => IsCinematic && CurrentLine != null && visibleCharacters < displayText.Length;
+        public bool IsChoosing => choicePanel.gameObject.activeSelf;
 
         public void SetCinematic(bool cinematic)
         {
@@ -107,7 +128,14 @@ namespace TurnLimbo.Presentation
             backdropImage.color = cinematic ? new Color(BackdropColor.r, BackdropColor.g, BackdropColor.b, 0f) : BackdropColor;
             inputHint.text = cinematic ? CinematicHintText : HintText;
             closeCaption.text = cinematic ? CinematicCloseText : CloseText;
+            if (!cinematic) SetCinematicShake(Vector2.zero);
         }
+        public void SetCinematicHint(string caption)
+        {
+            if (!disposed && IsCinematic)
+                inputHint.text = string.IsNullOrEmpty(caption) ? CinematicHintText : caption;
+        }
+
         public DialogueLine CurrentLine { get; private set; }
 
         public void Show(DialogueLine line, int currentIndex, int lineCount)
@@ -126,9 +154,13 @@ namespace TurnLimbo.Presentation
             if (lineCount < 1) throw new ArgumentOutOfRangeException(nameof(lineCount));
             if (currentIndex < 0 || currentIndex >= lineCount) throw new ArgumentOutOfRangeException(nameof(currentIndex));
 
+            HideChoices();
             CurrentLine = line;
             root.gameObject.SetActive(true);
-            body.text = line.Text;
+            displayText = MaskElisaName ? line.Text.Replace("엘리사", "???") : line.Text;
+            revealElapsed = 0f;
+            visibleCharacters = IsCinematic ? 0 : displayText.Length;
+            body.text = IsCinematic ? string.Empty : displayText;
             // A thought in parentheses keeps them and reads in its own colour.
             body.color = line.IsMonologue ? MonologueColor : DuelVisualTheme.Foreground;
             progress.text = $"{currentIndex + 1:00} / {lineCount:00}";
@@ -146,7 +178,7 @@ namespace TurnLimbo.Presentation
             {
                 bool right = line.Side == DialogueSide.Right;
                 nameplate.anchoredPosition = new Vector2(right ? 490f : -490f, 119f);
-                speakerName.text = line.SpeakerName;
+                speakerName.text = MaskElisaName && line.SpeakerName == "엘리사" ? "???" : line.SpeakerName;
                 speakerRole.text = line.SpeakerRole;
                 speakerName.alignment = right ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft;
                 speakerRole.alignment = right ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
@@ -160,6 +192,87 @@ namespace TurnLimbo.Presentation
             ClearSelection();
         }
 
+        public void Tick(float realDelta)
+        {
+            if (!IsRevealing) return;
+            revealElapsed += Mathf.Max(0f, realDelta);
+            int count = Mathf.Min(displayText.Length, Mathf.FloorToInt(revealElapsed * CharactersPerSecond));
+            if (count == visibleCharacters) return;
+            visibleCharacters = count;
+            body.text = displayText.Substring(0, visibleCharacters);
+        }
+
+        public void CompleteReveal()
+        {
+            if (!IsRevealing) return;
+            visibleCharacters = displayText.Length;
+            body.text = displayText;
+        }
+
+        public void ShowChoices(string labelA, string labelB, Action<int> onChoose)
+        {
+            if (disposed) return;
+            CompleteReveal();
+            choose = onChoose;
+            choiceALabel.text = labelA;
+            choiceBLabel.text = labelB;
+            choicePanel.gameObject.SetActive(true);
+            nextButton.gameObject.SetActive(false);
+            closeButton.gameObject.SetActive(false);
+            ClearSelection();
+            inputHint.text = "↑ / ↓로 고르고 Enter / Space로 결정";
+            SelectChoiceIndex(0);
+        }
+
+        /// <summary>Keyboard selection follows the visible vertical order, without exposing internal branch ids.</summary>
+        public void MoveChoiceSelection(int direction)
+        {
+            if (!IsChoosing || direction == 0) return;
+            SelectChoiceIndex(Mathf.Clamp(selectedChoiceIndex + Math.Sign(direction), 0, 1));
+        }
+
+        public void ConfirmChoiceSelection()
+        {
+            if (IsChoosing && selectedChoiceIndex >= 0) SelectChoice(selectedChoiceIndex);
+        }
+
+        /// <summary>Offsets the dialogue card and choices together for a short cinematic tremor.</summary>
+        public void SetCinematicShake(Vector2 offset)
+        {
+            if (disposed) return;
+            Vector2 applied = IsCinematic ? offset : Vector2.zero;
+            cardBorder.anchoredPosition = new Vector2(0f, 48f) + applied;
+            choicePanel.anchoredPosition = new Vector2(0f, 270f) + applied;
+        }
+
+        private void SelectChoiceIndex(int index)
+        {
+            selectedChoiceIndex = index;
+            choiceAButton.image.color = index == 0 ? DuelVisualTheme.Accent : DuelVisualTheme.RaisedSurface;
+            choiceBButton.image.color = index == 1 ? DuelVisualTheme.Accent : DuelVisualTheme.RaisedSurface;
+            choiceALabel.color = index == 0 ? DuelVisualTheme.Ink : DuelVisualTheme.Foreground;
+            choiceBLabel.color = index == 1 ? DuelVisualTheme.Ink : DuelVisualTheme.Foreground;
+        }
+
+        public void HideChoices()
+        {
+            if (choicePanel.gameObject.activeSelf)
+                inputHint.text = IsCinematic ? CinematicHintText : HintText;
+            choose = null;
+            selectedChoiceIndex = -1;
+            choicePanel.gameObject.SetActive(false);
+            nextButton.gameObject.SetActive(true);
+            closeButton.gameObject.SetActive(true);
+        }
+
+        private void SelectChoice(int index)
+        {
+            Action<int> action = choose;
+            HideChoices();
+            ClearSelection();
+            action?.Invoke(index);
+        }
+
         public void RequestAdvance()
         {
             if (!IsVisible) return;
@@ -169,7 +282,10 @@ namespace TurnLimbo.Presentation
         public void Hide()
         {
             if (disposed) return;
+            SetCinematicShake(Vector2.zero);
             CurrentLine = null;
+            displayText = null;
+            HideChoices();
             ClearPortrait(leftPortrait);
             ClearPortrait(rightPortrait);
             root.gameObject.SetActive(false);
@@ -183,7 +299,11 @@ namespace TurnLimbo.Presentation
             backdropButton.onClick.RemoveAllListeners();
             nextButton.onClick.RemoveAllListeners();
             closeButton.onClick.RemoveAllListeners();
+            choiceAButton.onClick.RemoveAllListeners();
+            choiceBButton.onClick.RemoveAllListeners();
             CurrentLine = null;
+            displayText = null;
+            HideChoices();
             ClearPortrait(leftPortrait);
             ClearPortrait(rightPortrait);
             root.gameObject.SetActive(false);
@@ -194,12 +314,14 @@ namespace TurnLimbo.Presentation
         private void InvokeAdvance()
         {
             ClearSelection();
+            if (IsChoosing) return;
             advance?.Invoke();
         }
 
         private void InvokeClose()
         {
             ClearSelection();
+            if (IsChoosing) return;
             close?.Invoke();
         }
 

@@ -36,6 +36,9 @@ namespace TurnLimbo.Runtime.Save
             var text = new StringBuilder();
             text.Append(Header).Append(' ').Append(GameSave.CurrentVersion).Append('\n');
             text.Append("prologue ").Append(save.PrologueCleared).Append('\n');
+            if (save.OpeningChoice != OpeningVoiceChoice.Full)
+                text.Append("opening-choice ").Append((int)save.OpeningChoice).Append('\n');
+            if (!save.OpeningCompleted) text.Append("opening-pending 1\n");
             text.Append("currency ").Append(campaign.Currency).Append('\n');
             // Keep zero absent so existing version 2 files round-trip byte for byte.
             if (campaign.TrainingVictoryCount != 0)
@@ -73,7 +76,7 @@ namespace TurnLimbo.Runtime.Save
             string[] lines = source.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             if (lines.Length > 0 && lines[0].Length > 0 && lines[0][0] == '﻿') lines[0] = lines[0].Substring(1);
 
-            int? prologue = null, currency = null, trainingWins = null;
+            int? prologue = null, currency = null, trainingWins = null, openingChoice = null, openingPending = null;
             List<int> cleared = null;
             List<string> curriculumDone = null;
             bool curriculumActiveRead = false;
@@ -124,6 +127,18 @@ namespace TurnLimbo.Runtime.Save
                         if (values.Length != 1) return Fail(out error, lineNumber, "prologue에는 값이 하나만 필요합니다.");
                         prologue = values[0];
                         break;
+                    case "opening-choice":
+                        if (openingChoice.HasValue) return Fail(out error, lineNumber, "opening-choice가 두 번 있습니다.");
+                        if (values.Length != 1 || values[0] < 1 || values[0] > 2)
+                            return Fail(out error, lineNumber, "opening-choice는 1 또는 2여야 합니다.");
+                        openingChoice = values[0];
+                        break;
+                    case "opening-pending":
+                        if (openingPending.HasValue) return Fail(out error, lineNumber, "opening-pending가 두 번 있습니다.");
+                        if (values.Length != 1 || values[0] != 1)
+                            return Fail(out error, lineNumber, "opening-pending는 1이어야 합니다.");
+                        openingPending = 1;
+                        break;
                     case "currency":
                         if (currency.HasValue) return Fail(out error, lineNumber, "currency가 두 번 있습니다.");
                         if (values.Length != 1) return Fail(out error, lineNumber, "currency에는 값이 하나만 필요합니다.");
@@ -163,7 +178,8 @@ namespace TurnLimbo.Runtime.Save
 
             save = new GameSave(prologue.Value,
                 new CampaignSave(currency.Value, cleared, curriculumDone, curriculumActive, curriculumBattles, lanes,
-                    trainingWins ?? 0, skillExperience));
+                    trainingWins ?? 0, skillExperience),
+                (OpeningVoiceChoice)(openingChoice ?? 0), !openingPending.HasValue);
             error = null;
             return true;
         }

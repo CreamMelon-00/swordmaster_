@@ -29,6 +29,7 @@ namespace TurnLimbo.Presentation
         private const float CameraDropPerSize = .2f;
         // How fast the shake wanders (noise cycles per second).
         private const float ShakeFrequency = 22f;
+        private const float MaxBlackScreenShakePixels = 8f;
         // A battle's tilted close-up levels out this fast when a scene starts in its middle; the zoom stays.
         private const float LevelSeconds = .3f;
         // A tremble shivers at about this rate (cycles per second), easing in and out over the first and last moments.
@@ -70,6 +71,7 @@ namespace TurnLimbo.Presentation
         // The senior knight's own objects; created only for a script that uses him.
         private readonly GameObject seniorRoot;
         private readonly SeniorKnightAnimationSet seniorArt;
+        private readonly SeniorKnightShimmer seniorShimmer;
         private Tween fade, bars, cameraX, cameraSize, imageAmount, flashback;
         // A staged start's camera height and roll away from the cutscene framing, kept until the first @camera.
         private Tween cameraLift, cameraTilt;
@@ -80,6 +82,7 @@ namespace TurnLimbo.Presentation
         private bool imageLeaving;
         private bool otherIsDummy;
         private bool disposed;
+        private bool showingChoice;
 
         private struct Tween
         {
@@ -120,10 +123,12 @@ namespace TurnLimbo.Presentation
                 Renderer = arena.EnemyRenderer, Aura = arena.EnemyPowerAura, FacesRightByDefault = false, FacesRight = false, X = 5f,
             };
             if (UsesSenior(script)) senior = CreateSenior(out seniorRoot, out seniorArt);
+            if (senior != null) seniorShimmer = new SeniorKnightShimmer(senior.Renderer, senior.Lower);
             Audio = new CutsceneAudio(arena.Root);
         }
 
         public CutscenePlayback Playback { get; }
+        public event Action<int> ChoiceSelected;
         public bool IsComplete => Playback.IsComplete;
         /// <summary>Whether the scene plays in the middle of a battle and gives the arena back as the battle left it.</summary>
         public bool ResumesBattle { get; }
@@ -133,6 +138,7 @@ namespace TurnLimbo.Presentation
         public SpriteRenderer SeniorRenderer => senior?.Renderer;
         public SpriteRenderer SeniorLowerRenderer => senior?.Lower;
         public DuelPowerAura SeniorPowerAura => senior?.Aura;
+        public bool IsSeniorShimmering => seniorShimmer != null && seniorShimmer.IsActive;
         /// <summary>Whether a <c>@shake</c> is still moving the camera.</summary>
         public bool IsShaking => shakeElapsed < shakeSeconds;
         /// <summary>Whether a <c>@recall</c> is still on screen.</summary>
@@ -167,6 +173,7 @@ namespace TurnLimbo.Presentation
             shakeStrength = shakeElapsed = shakeSeconds = 0f;
             recallElapsed = recallSeconds = 0f;
             if (senior != null) senior.Visible = false;
+            seniorShimmer?.Stop();
             if (Playback.Script.OnStage.Count > 0) StartOnStage();
             else
             {
@@ -179,12 +186,14 @@ namespace TurnLimbo.Presentation
             dialogueHud.Hide();
             dialogueHud.SetCinematic(true);
             Playback.Start();
+            SyncChoices();
             Apply(0f);
         }
 
         public bool Advance()
         {
             if (disposed || !Playback.Advance()) return false;
+            SyncChoices();
             Apply(0f);
             return true;
         }
@@ -206,6 +215,7 @@ namespace TurnLimbo.Presentation
             AdvanceFigure(elisa, delta);
             AdvanceFigure(other, delta);
             if (senior != null) AdvanceFigure(senior, delta);
+            seniorShimmer?.Tick(delta);
             Audio.Tick(delta);
             if (imageLeaving && imageAmount.Done)
             {
@@ -218,7 +228,42 @@ namespace TurnLimbo.Presentation
                 if (recallElapsed >= recallSeconds) EndRecall();
             }
             Playback.Tick(delta);
+            SyncChoices();
             Apply(delta);
+        }
+
+        public bool JumpTo(string label)
+        {
+            if (disposed || !Playback.JumpTo(label)) return false;
+            SyncChoices();
+            Apply(0f);
+            return true;
+        }
+
+        public void Choose(int index)
+        {
+            if (disposed || Playback.CurrentChoice == null || (index != 0 && index != 1)) return;
+            // The choice changes identity before the destination line is shown.
+            ChoiceSelected?.Invoke(index);
+            if (disposed || !Playback.Choose(index)) return;
+            SyncChoices();
+            Apply(0f);
+        }
+
+        private void SyncChoices()
+        {
+            CutsceneStep choice = Playback.CurrentChoice;
+            if (choice == null)
+            {
+                if (dialogueHud.IsChoosing) dialogueHud.HideChoices();
+                if (showingChoice) hud.SetSkipHint("Esc  건너뛰기");
+                showingChoice = false;
+                return;
+            }
+            if (!dialogueHud.IsChoosing)
+                dialogueHud.ShowChoices(choice.ChoiceA, choice.ChoiceB, Choose);
+            if (!showingChoice) hud.SetSkipHint("↑ / ↓  선택  ·  Enter  결정");
+            showingChoice = true;
         }
 
         void ICutsceneStage.Run(CutsceneStep step)
@@ -298,6 +343,7 @@ namespace TurnLimbo.Presentation
             Audio.Dispose();
             if (senior != null)
             {
+                seniorShimmer?.Dispose();
                 senior.Aura.Dispose();
                 seniorArt.Dispose();
                 if (Application.isPlaying) Object.Destroy(seniorRoot);
@@ -503,6 +549,7 @@ namespace TurnLimbo.Presentation
                     // Leaving the stage takes the figure's power with it (and at once any afterimages it leaves).
                     figure.Aura?.StopCharge();
                     figure.Aura?.SetAura(false);
+                    if (figure == senior) seniorShimmer?.Stop();
                     break;
                 case CutsceneActorAction.Move:
                     figure.MoveFrom = figure.X;
@@ -531,6 +578,9 @@ namespace TurnLimbo.Presentation
                     figure.TrembleElapsed = 0f;
                     figure.TrembleSeconds = step.Seconds;
                     figure.TrembleStrength = step.Strength;
+                    break;
+                case CutsceneActorAction.Shimmer:
+                    seniorShimmer?.Start(step.Seconds);
                     break;
             }
         }
@@ -584,6 +634,7 @@ namespace TurnLimbo.Presentation
             ApplyFigure(elisa);
             ApplyFigure(other);
             if (senior != null) ApplyFigure(senior);
+            seniorShimmer?.Render();
             Camera camera = arena.ArenaCamera;
             float size = cameraSize.Value;
             Vector2 shake = ShakeOffset(size);
@@ -591,6 +642,11 @@ namespace TurnLimbo.Presentation
             camera.transform.localPosition = new Vector3(cameraX.Value + shake.x,
                 CameraHeight(size) + cameraLift.Value + shake.y, -10f);
             camera.transform.localRotation = Quaternion.Euler(0f, 0f, cameraTilt.Value);
+            // The camera is hidden by a full black fade; move the visible dialogue card instead.
+            Vector2 dialogueShake = fade.Value >= .99f
+                ? Vector2.ClampMagnitude(shake * (540f / size), MaxBlackScreenShakePixels)
+                : Vector2.zero;
+            dialogueHud.SetCinematicShake(dialogueShake);
             arena.TickBackdrop(camera, false, delta);
         }
 

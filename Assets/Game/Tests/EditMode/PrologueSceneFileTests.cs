@@ -11,16 +11,19 @@ using TurnLimbo.Runtime.Prologue;
 namespace TurnLimbo.Core.Tests
 {
     /// <summary>The shipped cutscene files (Resources/Cutscene), read from disk and parsed as the game parses them: a
-    /// mission's scenes with that mission's fighters on stage, anything else (the opening) on a bare stage. The 서막's
-    /// scenes are the author's manuscript (Docs/PrologueManuscript.md); these tests hold them to the format, to the
-    /// manuscript's nameplates and to the staging it asks for (the 수훈 aura; the 2nd edition's tremble, sword swing and
-    /// tutorial recall), not to their wording.</summary>
+    /// mission's scenes with that mission's fighters on stage, and the opening on a bare stage. The
+    /// scenes are the author's manuscript (Docs/StoryManuscript.md); these tests hold them to its nameplates,
+    /// branches and staging, not to their wording.</summary>
     public sealed class PrologueSceneFileTests
     {
         private const string ResourcesFolder = "Assets/Game/Resources/";
         private const string CutsceneFolder = ResourcesFolder + "Cutscene";
-        // The manuscript's nameplates (이름 | 칭호). 이아 gives her name in mission 4's intro; before it she is ??? | 떠돌이 기사.
-        private static readonly string[] Nameplates = { "엘리사 | ???", "??? | ???", "??? | 떠돌이 기사", "이아 | 떠돌이 기사", "이아 | 도미니코 기사단" };
+        // The manuscript's nameplates (이름 | 칭호). Ia gives a name in mission 4's intro; earlier labels remain ??? | 떠돌이 기사.
+        private static readonly string[] Nameplates =
+        {
+            "엘리사 | ???", "??? | ???", "??? | 선배?", "??? | 떠돌이 기사",
+            "이아 | 떠돌이 기사", "이아 | 도미니코 기사단"
+        };
         private static readonly string[] IaRoles = { "떠돌이 기사", "도미니코 기사단" };
         // ??? | ??? is the voice and the shout off the right edge, except the senior knight, who enters from the left.
         private const string SeniorKnightScene = "mission-04-outro";
@@ -96,8 +99,10 @@ namespace TurnLimbo.Core.Tests
                         Assert.That(line.Side, Is.EqualTo(DialogueSide.Right), where);
                         Assert.That(line.SpeakerName, Is.EqualTo(knowsIa ? "이아" : "???"), where + ": named once she gives her name.");
                     }
+                    else if (line.SpeakerRole == "선배?" || scene == SeniorKnightScene)
+                        Assert.That(line.Side, Is.EqualTo(DialogueSide.Left), where);
                     else
-                        Assert.That(line.Side, Is.EqualTo(scene == SeniorKnightScene ? DialogueSide.Left : DialogueSide.Right), where);
+                        Assert.That(line.Side, Is.EqualTo(DialogueSide.Right), where);
                 }
             }
         }
@@ -130,7 +135,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void SecondEditionStaging_TheTremble_TheSwordSwing_AndTheTutorialRecall_ArePlayed()
+        public void RevisedStaging_TheTremble_AndBothSwordSwings_ArePlayed_WithoutMissionThreeRecall()
         {
             // [엘리사가 살짝 떨리는 연출] closes the opening, after 엘리사's last line.
             List<CutsceneStep> opening = Read(Project(CutsceneFolder + "/opening.txt")).Steps.ToList();
@@ -149,20 +154,129 @@ namespace TurnLimbo.Core.Tests
             CutsceneStep[] afterCry = missionTwo.Skip(lastLine + 1).ToArray();
             Assert.That(afterCry.Any(step => IsActor(step, CutsceneActor.Elisa, CutsceneActorAction.Move)), Is.False,
                 "The manuscript does not send Elisa back to her starting mark after the clash.");
-            Assert.That(afterCry.Where(step => step.Kind == CutsceneStepKind.Wait).Sum(step => step.Seconds),
-                Is.GreaterThanOrEqualTo(CutsceneStep.AttackSeconds - CutsceneStep.AttackImpactSeconds),
+            float remainingStroke = CutsceneStep.AttackSeconds - CutsceneStep.AttackImpactSeconds;
+            float settledTime = afterCry.Where(step => step.Kind == CutsceneStepKind.Wait).Sum(step => step.Seconds);
+            Assert.That(settledTime + 0.0001f, Is.GreaterThanOrEqualTo(remainingStroke),
                 "Even an immediate advance lets the blade finish before the handoff.");
             Assert.That(afterCry.Last().Kind, Is.EqualTo(CutsceneStepKind.Wait),
                 "The battle start card takes over the close-range clash without a black flash.");
 
-            // {튜토리얼 화면 연상}: one recall, after 엘리사's '(머릿속에서 들리는 이 소리는…)' and before the knight speaks.
+            // The revised mission 3 begins with the knight; Elisa no longer remembers the tutorial here.
             List<CutsceneStep> missionThree = Read(Project(CutsceneFolder + "/mission-03-intro.txt")).Steps.ToList();
-            Assert.That(missionThree.Count(step => step.Kind == CutsceneStepKind.Recall), Is.EqualTo(1));
-            int recall = missionThree.FindIndex(step => step.Kind == CutsceneStepKind.Recall);
-            int elisa = missionThree.FindIndex(step => step.Kind == CutsceneStepKind.Line && step.Line.SpeakerName == "엘리사");
-            int knight = missionThree.FindIndex(step => step.Kind == CutsceneStepKind.Line && step.Line.SpeakerRole == "떠돌이 기사");
-            Assert.That(elisa, Is.GreaterThanOrEqualTo(0));
-            Assert.That(recall, Is.GreaterThan(elisa).And.LessThan(knight), "The voice in her head is the coach she heard.");
+            Assert.That(missionThree.Any(step => step.Kind == CutsceneStepKind.Recall), Is.False);
+            Assert.That(missionThree.Where(step => step.Kind == CutsceneStepKind.Line)
+                .All(step => step.Line.SpeakerRole == "떠돌이 기사"), Is.True);
+
+            // Elisa strikes while Ia is still asking for her name, before his last cry and the battle.
+            List<CutsceneStep> missionFour = Read(Project(CutsceneFolder + "/mission-04-intro.txt")).Steps.ToList();
+            int cry = missionFour.FindLastIndex(step => step.Kind == CutsceneStepKind.Line);
+            int question = missionFour.FindLastIndex(cry - 1, step => step.Kind == CutsceneStepKind.Line);
+            int secondSlash = missionFour.FindIndex(step => IsActor(step, CutsceneActor.Elisa, CutsceneActorAction.Attack) &&
+                step.Attack == CutsceneAttack.Slash);
+            Assert.That(secondSlash, Is.GreaterThan(question).And.LessThan(cry));
+        }
+
+        [Test]
+        public void InterruptedOpening_OffersBothChoices_AndOnlyFullListeningShowsVoiceFlashbacks()
+        {
+            CutsceneScript script = Read(Project(CutsceneFolder + "/opening.txt"));
+            CutsceneStep[] choices = script.Steps.Where(step => step.Kind == CutsceneStepKind.Choice).ToArray();
+            Assert.That(choices.Length, Is.EqualTo(1), "The opening offers one interruption choice.");
+            Assert.That(choices[0].ChoiceA, Is.EqualTo("날 보내줘"));
+            Assert.That(choices[0].ChoiceB, Is.EqualTo("…"));
+            Assert.That(script.Steps.Any(step => step.Kind == CutsceneStepKind.Mark && step.Label == "core"),
+                Is.True, "The essentials choice needs a return point at the short order.");
+            AssertVoiceFlashbackIsFullOnly("opening");
+            AssertVoiceFlashbackIsFullOnly("mission-02-intro");
+        }
+
+        [Test]
+        public void EitherInterruptionChoice_SuppressesLaterVoiceMemories()
+        {
+            PlaybackRecord send = PlayScene("opening", false, 0);
+            PlaybackRecord essentials = PlayScene("opening", false, 1);
+            PlaybackRecord missionTwo = PlayScene("mission-02-intro", false);
+            PlaybackRecord fullOpening = PlayScene("opening", true);
+
+            foreach (PlaybackRecord skipped in new[] { send, essentials, missionTwo })
+                Assert.That(skipped.Steps.Any(step => step.Kind == CutsceneStepKind.Flashback), Is.False,
+                    "A and B must both leave the voice's later recall unplayed.");
+            Assert.That(missionTwo.Lines.Any(line => line.SpeakerName == "???" && line.SpeakerRole == "???"),
+                Is.False, "Neither skipped route may remember voice lines in mission 2.");
+            Assert.That(send.Lines.Any(line => line.Text == "모두 죽여버리면 돼."), Is.False,
+                "A goes straight to the forest.");
+            Assert.That(essentials.Lines.Any(line => line.Text == "모두 죽여버리면 돼."), Is.True,
+                "B hears the essential order before the forest.");
+            Assert.That(fullOpening.Steps.Count(step => step.Kind == CutsceneStepKind.Flashback), Is.EqualTo(2),
+                "Listening through still shows the opening memory.");
+        }
+
+        private static void AssertVoiceFlashbackIsFullOnly(string scene)
+        {
+            int fullDepth = 0;
+            int flashbackSteps = 0;
+            bool inFlashback = false;
+            foreach (CutsceneStep step in Read(Project(CutsceneFolder + "/" + scene + ".txt")).Steps)
+            {
+                if (step.Kind == CutsceneStepKind.IfFull) { fullDepth++; continue; }
+                if (step.Kind == CutsceneStepKind.EndIf)
+                {
+                    fullDepth--;
+                    Assert.That(fullDepth, Is.GreaterThanOrEqualTo(0), scene + ": unmatched @endif.");
+                    continue;
+                }
+                bool voiceSound = step.Kind == CutsceneStepKind.Sound && step.Resource == "Sfx/flashback";
+                if (step.Kind == CutsceneStepKind.Flashback)
+                {
+                    flashbackSteps++;
+                    if (step.FlashbackOn) inFlashback = true;
+                }
+                if (inFlashback || voiceSound || step.Kind == CutsceneStepKind.Flashback)
+                    Assert.That(fullDepth, Is.GreaterThan(0),
+                        scene + ":" + step.SourceLineNumber + ": A and B must skip the entire voice memory.");
+                if (step.Kind == CutsceneStepKind.Flashback && !step.FlashbackOn) inFlashback = false;
+            }
+            Assert.That(fullDepth, Is.Zero, scene + ": conditional blocks must be closed.");
+            Assert.That(inFlashback, Is.False, scene + ": the flashback must end.");
+            Assert.That(flashbackSteps, Is.EqualTo(2), scene + ": the full-listening memory remains.");
+        }
+
+        private sealed class PlaybackRecord : ICutsceneStage
+        {
+            public readonly List<DialogueLine> Lines = new List<DialogueLine>();
+            public readonly List<CutsceneStep> Steps = new List<CutsceneStep>();
+
+            public void Run(CutsceneStep step) => Steps.Add(step);
+            public void ShowLine(DialogueLine line, int lineIndex, int lineCount) => Lines.Add(line);
+            public void HideLine() { }
+        }
+
+        private static PlaybackRecord PlayScene(string scene, bool full, int? interruptionChoice = null)
+        {
+            var record = new PlaybackRecord();
+            var playback = new CutscenePlayback(Read(Project(CutsceneFolder + "/" + scene + ".txt")), record)
+            {
+                PlayFullVoiceMemories = full
+            };
+            playback.Start();
+            if (interruptionChoice.HasValue)
+                Assert.That(playback.JumpTo("skip-interrupt"), Is.True, scene + ": interruption target missing.");
+            for (int turn = 0; turn < 500 && !playback.IsComplete; turn++)
+            {
+                if (playback.CurrentChoice != null)
+                {
+                    Assert.That(interruptionChoice.HasValue, Is.True, scene + ": unexpected choice.");
+                    Assert.That(playback.Choose(interruptionChoice.Value), Is.True);
+                }
+                else if (playback.CurrentLine != null)
+                    Assert.That(playback.Advance(), Is.True);
+                else if (playback.HoldRemaining > 0f)
+                    playback.Tick(30f);
+                else
+                    Assert.Fail(scene + ": playback did not advance.");
+            }
+            Assert.That(playback.IsComplete, Is.True, scene + ": playback did not finish.");
+            return record;
         }
 
         private static bool IsActor(CutsceneStep step, CutsceneActor actor, CutsceneActorAction action)

@@ -73,6 +73,16 @@ namespace TurnLimbo.Presentation
         private System.Action cutsceneContinuation;
         private bool lastCutsceneCompletedNaturally;
         private int cutsceneOpenedFrame = -1;
+        private OpeningVoiceChoice openingChoice = OpeningVoiceChoice.Full;
+        private bool openingCompleted = true;
+        private bool openingBranchEnabled;
+        private bool openingInterruptTriggered;
+        private int openingClickCount;
+        private int openingClickFrame = -1;
+        private int openingInterruptFrame = -1;
+        private bool openingSuppressNextPointerAdvance;
+        private bool pointerPressedDuringReveal;
+        private bool openingReplayUsesSavedRoute;
         // The first missions' coached screens, captured for the 서막's tutorial recall (@recall); kept for the session.
         private TutorialRecallAlbum recallAlbum;
         // A mission's battlefield scene leaves its last picture when it ends, for the result to show over (whatever
@@ -168,6 +178,8 @@ namespace TurnLimbo.Presentation
         public bool IsNextMissionAvailable => prologue.CanPlayCurrent(campaign.IsStageCleared);
         /// <summary>The awakening opening, played after the title's 새 게임 and before the first briefing.</summary>
         public const string OpeningCutscene = "Cutscene/opening";
+        public OpeningVoiceChoice OpeningChoice => openingChoice;
+        public bool OpeningCompleted => openingCompleted;
         public bool IsInTitle => showingTitle && !IsShowingDialogue && !IsPlayingCutscene && titleHud != null && titleHud.IsVisible;
         public bool IsPlayingCutscene => cutscene != null;
         public CutsceneDirector Cutscene => cutscene;
@@ -322,8 +334,8 @@ namespace TurnLimbo.Presentation
             skillLevelUpCue = new DuelSkillLevelUpCue(transform, art.UIFont);
             // A cutscene's lines use the same dialogue box: its buttons advance or skip the cutscene instead.
             dialogueHud = new DialogueHud(transform, art,
-                () => { if (IsPlayingCutscene) AdvanceCutscene(); else ContinueDialogue(); },
-                () => { if (IsPlayingCutscene) SkipCutscene(); else FinishDialogue(); });
+                () => { if (IsPlayingCutscene) AdvanceCutsceneFromPointer(); else ContinueDialogue(); },
+                () => { if (IsPlayingCutscene) RequestCutsceneSkip(true); else FinishDialogue(); });
             cutsceneHud = new CutsceneHud(transform, art);
             finale = new DuelFinale(transform, arena, amount => FadeDuelOverlays(amount));
             empowermentCues = new DuelEmpowermentCues(transform, arena, () => presentationSettings);
@@ -397,19 +409,47 @@ namespace TurnLimbo.Presentation
             forestAmbience.Tick(realDelta, ForestIsTheScene, ForestVisibility, StoryLoopLevel);
             if (IsPlayingCutscene)
             {
+                if (Time.frameCount > cutsceneOpenedFrame && Mouse.current != null &&
+                    Mouse.current.leftButton.wasPressedThisFrame && !dialogueHud.IsChoosing)
+                {
+                    // Remember the state at press time: the text may finish naturally before Button.onClick runs.
+                    pointerPressedDuringReveal = dialogueHud.IsRevealing;
+                    RegisterOpeningClick();
+                }
                 // Keys of the frame that opened it (e.g. the title's Enter) belong to the screen before.
                 if (keyboard != null && Time.frameCount > cutsceneOpenedFrame)
                 {
-                    if (keyboard.escapeKey.wasPressedThisFrame)
+                    if (dialogueHud.IsChoosing)
                     {
-                        SkipCutscene();
+                        if (keyboard.upArrowKey.wasPressedThisFrame) dialogueHud.MoveChoiceSelection(-1);
+                        else if (keyboard.downArrowKey.wasPressedThisFrame) dialogueHud.MoveChoiceSelection(1);
+                        else if (keyboard.enterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame)
+                            dialogueHud.ConfirmChoiceSelection();
                         return;
                     }
-                    if (keyboard.enterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame) AdvanceCutscene();
+                    if (keyboard.escapeKey.wasPressedThisFrame)
+                    {
+                        RequestCutsceneSkip();
+                        return;
+                    }
+                    if (keyboard.enterKey.wasPressedThisFrame || keyboard.spaceKey.wasPressedThisFrame)
+                    {
+                        if (dialogueHud.IsRevealing) dialogueHud.CompleteReveal();
+                        else AdvanceCutscene();
+                    }
                 }
                 if (IsPlayingCutscene)
                 {
                     cutscene.Tick(realDelta);
+                    ChooseSavedOpeningReplayRoute();
+                    dialogueHud.Tick(realDelta);
+                    if (openingBranchEnabled && !openingInterruptTriggered)
+                    {
+                        bool canInterrupt = IsOpeningSkipWindow;
+                        cutsceneHud.SetSkipHint(canInterrupt ? "Esc  선택으로" : "Esc  건너뛰기");
+                        dialogueHud.SetCinematicHint(canInterrupt
+                            ? "클릭 / Enter / Space로 글 완성·다음  ·  Esc로 선택" : null);
+                    }
                     if (cutscene.IsComplete) FinishCutscene();
                 }
                 // Never let the key that advances or ends the cutscene reach the next screen in the same frame.
@@ -1176,12 +1216,21 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>A new game: a fresh campaign and the opening arc from its first mission briefing.</summary>
-        public void StartNewGame()
+        public void StartNewGame() => StartNewGame(false);
+
+        private void StartNewGame(bool playOpening)
         {
             CloseDialogue();
             ClearMissionState();
             campaign.Reset();
             prologue.Reset();
+            openingChoice = OpeningVoiceChoice.Full;
+            openingCompleted = !playOpening;
+            dialogueHud.MaskElisaName = false;
+            openingBranchEnabled = openingInterruptTriggered = false;
+            openingClickCount = 0;
+            openingSuppressNextPointerAdvance = false;
+            pointerPressedDuringReveal = false;
             SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
@@ -1242,7 +1291,7 @@ namespace TurnLimbo.Presentation
             titleHud.Show(summary, notice, saveStore.Exists);
         }
 
-        /// <summary>Loads the save and resumes at the next mission's briefing, or the lobby once the arc is over.</summary>
+        /// <summary>Loads the save and resumes an unfinished opening, the next mission briefing, or the lobby.</summary>
         public bool ContinueGame()
         {
             if (!IsInTitle) return false;
@@ -1256,25 +1305,56 @@ namespace TurnLimbo.Presentation
             AutoSaveEnabled = true;
             StoryProgressionEnabled = true;
             StartCardsEnabled = true;
+            openingChoice = save.OpeningChoice;
+            openingCompleted = save.OpeningCompleted;
+            dialogueHud.MaskElisaName = openingChoice == OpeningVoiceChoice.Leave;
             SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
             lobbyHud.ResetView();
-            ShowBriefing();
+            if (!openingCompleted)
+            {
+                openingBranchEnabled = openingChoice == OpeningVoiceChoice.Full;
+                openingClickCount = 0;
+                if (PlayCutscene(OpeningCutscene, CompleteOpeningAndShowBriefing))
+                {
+                    openingReplayUsesSavedRoute = openingChoice != OpeningVoiceChoice.Full;
+                    if (openingBranchEnabled) ShowOpeningInterruptionHint();
+                }
+                else CompleteOpeningAndShowBriefing();
+            }
+            else ShowBriefing();
             return true;
         }
 
         /// <summary>The title's 새 게임: starts over and replaces any save with the fresh state, then plays the
-        /// awakening opening before the first briefing. Only this path plays it; 이어하기 and direct API use do not.</summary>
+        /// awakening opening before the first briefing. 이어하기 resumes it if the opening was left unfinished.</summary>
         public bool NewGameFromTitle()
         {
             if (!IsInTitle) return false;
             AutoSaveEnabled = true;
             StoryProgressionEnabled = true;
             StartCardsEnabled = true;
-            StartNewGame();
-            PlayCutscene(OpeningCutscene, ShowBriefing);
+            StartNewGame(true);
+            openingBranchEnabled = true;
+            openingClickCount = 0;
+            if (PlayCutscene(OpeningCutscene, CompleteOpeningAndShowBriefing)) ShowOpeningInterruptionHint();
+            else CompleteOpeningAndShowBriefing();
             return true;
+        }
+
+        private void ShowOpeningInterruptionHint()
+        {
+            if (!IsPlayingCutscene) return;
+            cutsceneHud.SetSkipHint("Esc  선택으로");
+            dialogueHud.SetCinematicHint("클릭 / Enter / Space로 글 완성·다음  ·  Esc로 선택");
+        }
+
+        private void CompleteOpeningAndShowBriefing()
+        {
+            openingCompleted = true;
+            AutoSave();
+            ShowBriefing();
         }
 
         /// <summary>Plays a cutscene from the lobby and comes back to it. Later story scenes default to the school;
@@ -1299,11 +1379,11 @@ namespace TurnLimbo.Presentation
             if (missionNumber == 0)
             {
                 if (resourcePath != OpeningCutscene) return false;
-                TextAsset source = Resources.Load<TextAsset>(OpeningCutscene);
+                TextAsset source = Resources.Load<TextAsset>(resourcePath);
                 if (source == null) return false;
                 try
                 {
-                    script = CutsceneScriptParser.Parse(OpeningCutscene, source.text);
+                    script = CutsceneScriptParser.Parse(resourcePath, source.text);
                 }
                 catch (CutsceneParseException exception)
                 {
@@ -1325,13 +1405,15 @@ namespace TurnLimbo.Presentation
             lobbyHud.ShowTab(LobbyTab.Home);
             bool enemyAura = shown?.Empowerment?.KeepsAura == true && resourcePath == shown.OutroCutscene;
             OpenCutscene(script, ShowLobby, shown, enemyAura,
-                bareBackdrop: missionNumber == 0 ? ArenaBackdropKind.Forest : ArenaBackdropKind.SchoolCorridor);
+                bareBackdrop: resourcePath == OpeningCutscene ? ArenaBackdropKind.Forest : ArenaBackdropKind.SchoolCorridor);
+            openingReplayUsesSavedRoute = resourcePath == OpeningCutscene && openingChoice != OpeningVoiceChoice.Full;
             return true;
         }
 
         /// <summary>Plays a cutscene from Resources, then runs <paramref name="continuation"/> once the player reaches
         /// its end or skips it. Returns false (and runs nothing) when the file is missing or invalid.</summary>
-        private bool PlayCutscene(string resourcePath, System.Action continuation)
+        private bool PlayCutscene(string resourcePath, System.Action continuation,
+            ArenaBackdropKind backdrop = ArenaBackdropKind.Forest)
         {
             TextAsset source = string.IsNullOrWhiteSpace(resourcePath) ? null : Resources.Load<TextAsset>(resourcePath);
             if (source == null)
@@ -1342,7 +1424,7 @@ namespace TurnLimbo.Presentation
             try
             {
                 OpenCutscene(CutsceneScriptParser.Parse(resourcePath, source.text), continuation,
-                    bareBackdrop: ArenaBackdropKind.Forest);
+                    bareBackdrop: backdrop);
                 return true;
             }
             catch (CutsceneParseException exception)
@@ -1376,11 +1458,14 @@ namespace TurnLimbo.Presentation
         private void BeginCutscene(CutsceneScript script, System.Action continuation, bool resumesBattle, bool keepsStage = false,
             float fromGrey = 0f)
         {
+            openingReplayUsesSavedRoute = false;
             cutsceneContinuation = continuation;
             cutsceneKeepsStage = keepsStage;
             cutsceneOpenedFrame = Time.frameCount;
             cutscene = new CutsceneDirector(script, arena, cutsceneHud, dialogueHud, defaultDialoguePortraitCatalog, resumesBattle,
                 recallAlbum) { OpensFromGreySeconds = fromGrey };
+            cutscene.Playback.PlayFullVoiceMemories = openingChoice == OpeningVoiceChoice.Full;
+            cutscene.ChoiceSelected += OnCutsceneChoiceSelected;
             cutscene.Start();
             if (cutscene.IsComplete) FinishCutscene();
         }
@@ -1495,10 +1580,106 @@ namespace TurnLimbo.Presentation
         /// <summary>How long the 수훈 aura takes to fade in when the scene did not light it (skipped early, or no scene).</summary>
         private const float EmpowermentAuraFade = .4f;
 
+        private void AdvanceCutsceneFromPointer()
+        {
+            if (openingSuppressNextPointerAdvance)
+            {
+                openingSuppressNextPointerAdvance = false;
+                pointerPressedDuringReveal = false;
+                return;
+            }
+            if (dialogueHud.IsChoosing) return;
+            bool revealOnly = pointerPressedDuringReveal || dialogueHud.IsRevealing;
+            pointerPressedDuringReveal = false;
+            if (revealOnly)
+            {
+                dialogueHud.CompleteReveal();
+                return;
+            }
+            AdvanceCutscene();
+        }
+
+        private bool IsOpeningSkipWindow
+        {
+            get
+            {
+                if (!openingBranchEnabled || openingInterruptTriggered || cutscene == null ||
+                    cutscene.Playback.Script.Id != OpeningCutscene) return false;
+                return cutscene.Playback.Script.TryFindMark("skip-end", out int end) &&
+                    cutscene.Playback.StepsRun <= end;
+            }
+        }
+
+        private void RegisterOpeningClick()
+        {
+            // A previous press may have triggered the interruption while no dialogue button was present.
+            if (openingSuppressNextPointerAdvance && Time.frameCount > openingInterruptFrame)
+                openingSuppressNextPointerAdvance = false;
+            if (!IsOpeningSkipWindow || openingClickFrame == Time.frameCount) return;
+            openingClickFrame = Time.frameCount;
+            if (++openingClickCount >= 10 && TriggerOpeningInterruption())
+                openingSuppressNextPointerAdvance = true;
+        }
+
+        private bool TriggerOpeningInterruption()
+        {
+            if (!IsOpeningSkipWindow) return false;
+            openingInterruptTriggered = true;
+            openingInterruptFrame = Time.frameCount;
+            cutscene.Playback.PlayFullVoiceMemories = false;
+            if (cutscene.JumpTo("skip-interrupt"))
+            {
+                cutsceneHud.SetSkipHint("선택지까지 진행");
+                dialogueHud.SetCinematicHint("클릭 / Enter / Space로 글 완성·다음");
+                return true;
+            }
+            openingInterruptTriggered = false;
+            return false;
+        }
+
+        private void RequestCutsceneSkip(bool fromPointer = false)
+        {
+            if (cutscene == null) return;
+            if (fromPointer && openingSuppressNextPointerAdvance)
+            {
+                openingSuppressNextPointerAdvance = false;
+                return;
+            }
+            if (TriggerOpeningInterruption()) return;
+            if ((openingInterruptTriggered && openingBranchEnabled) || dialogueHud.IsChoosing) return;
+            SkipCutscene();
+        }
+
+        private void OnCutsceneChoiceSelected(int index)
+        {
+            if (!openingInterruptTriggered || cutscene == null ||
+                cutscene.Playback.Script.Id != OpeningCutscene) return;
+            openingChoice = index == 0 ? OpeningVoiceChoice.Leave : OpeningVoiceChoice.Essential;
+            dialogueHud.MaskElisaName = openingChoice == OpeningVoiceChoice.Leave;
+            dialogueHud.SetCinematicHint(null);
+            openingBranchEnabled = openingInterruptTriggered = false;
+            AutoSave();
+        }
+
+        private void ChooseSavedOpeningReplayRoute()
+        {
+            if (!openingReplayUsesSavedRoute || cutscene?.Playback.CurrentChoice == null) return;
+            cutscene.Choose(openingChoice == OpeningVoiceChoice.Leave ? 0 : 1);
+        }
+
         /// <summary>Moves past the cutscene's waiting line. Returns false while a timed step plays.</summary>
         public bool AdvanceCutscene()
         {
-            if (!IsPlayingCutscene || !cutscene.Advance()) return false;
+            if (!IsPlayingCutscene) return false;
+            bool atSavedInterruption = openingReplayUsesSavedRoute &&
+                cutscene.Playback.Script.TryFindMark("skip-end", out int end) &&
+                cutscene.Playback.CurrentLine != null && cutscene.Playback.StepsRun == end;
+            if (atSavedInterruption)
+            {
+                if (!cutscene.JumpTo("skip-interrupt")) return false;
+            }
+            else if (!cutscene.Advance()) return false;
+            ChooseSavedOpeningReplayRoute();
             if (cutscene.IsComplete) FinishCutscene();
             return true;
         }
@@ -1538,6 +1719,11 @@ namespace TurnLimbo.Presentation
             cutsceneContinuation = null;
             cutsceneKeepsStage = false;
             cutsceneOpenedFrame = -1;
+            openingBranchEnabled = openingInterruptTriggered = false;
+            openingSuppressNextPointerAdvance = false;
+            pointerPressedDuringReveal = false;
+            openingReplayUsesSavedRoute = false;
+            stopping.ChoiceSelected -= OnCutsceneChoiceSelected;
             stopping.Dispose();
             if (!resetArena) return;
             arena.SetEnemyAppearance(EnemyAppearance.Student);
@@ -1606,7 +1792,8 @@ namespace TurnLimbo.Presentation
         private void AutoSave()
         {
             if (!AutoSaveEnabled || saveStore == null) return;
-            if (!saveStore.TrySave(GameSave.Capture(prologue, campaign), out string error)) Debug.LogWarning(error);
+            if (!saveStore.TrySave(GameSave.Capture(prologue, campaign, openingChoice, openingCompleted), out string error))
+                Debug.LogWarning(error);
         }
 
         /// <summary>Starts the briefed mission: its intro scene first (the battlefield cutscene, or the dialogue where there
@@ -2108,7 +2295,8 @@ namespace TurnLimbo.Presentation
                 if (firstWin && lost.Number == PrologueMissions.Count)
                     lobbyHud.SetArrivalNotice(BattleResultHud.PrologueCompleteNotice(campaign.IsCurriculumOpen));
                 EndDuelPresentation();
-                if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura, fromGrey)) ShowBriefing();
+                if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura, fromGrey))
+                    ShowBriefing();
                 return;
             }
             // After the story is synced, so mission 8's first win already reports the curriculum it opened.
@@ -2330,7 +2518,8 @@ namespace TurnLimbo.Presentation
                 startCard.Clear();
                 return;
             }
-            startCard.Show(seconds, StartCardOpponent, StartCardOpponentSilhouette);
+            startCard.Show(seconds, StartCardOpponent, StartCardOpponentSilhouette,
+                openingChoice == OpeningVoiceChoice.Leave ? "???" : DuelStartCard.PlayerName);
             startCardOpenedFrame = Time.frameCount;
             hud.Root.SetActive(false);
         }

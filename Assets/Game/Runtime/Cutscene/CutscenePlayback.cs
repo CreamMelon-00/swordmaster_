@@ -33,6 +33,8 @@ namespace TurnLimbo.Runtime.Cutscene
         public bool IsComplete { get; private set; }
         /// <summary>The line waiting for the player, or null.</summary>
         public DialogueLine CurrentLine { get; private set; }
+        public CutsceneStep CurrentChoice { get; private set; }
+        public bool PlayFullVoiceMemories { get; set; } = true;
         /// <summary>How long the current timed step still holds.</summary>
         public float HoldRemaining { get; private set; }
         /// <summary>Steps run so far.</summary>
@@ -59,17 +61,56 @@ namespace TurnLimbo.Runtime.Cutscene
         /// <summary>Moves past the waiting line. Returns false when no line is waiting (a timed step is playing).</summary>
         public bool Advance()
         {
-            if (CurrentLine == null) return false;
+            if (CurrentLine == null || CurrentChoice != null) return false;
             CurrentLine = null;
             Continue();
             return true;
         }
 
+        public bool JumpTo(string label)
+        {
+            if (!IsStarted || IsComplete || !Script.TryFindMark(label, out int target)) return false;
+            if (lineShown) HideLine();
+            CurrentLine = null;
+            CurrentChoice = null;
+            HoldRemaining = 0f;
+            nextStep = target;
+            Continue();
+            return true;
+        }
+
+        public bool Choose(int index)
+        {
+            if (CurrentChoice == null || (index != 0 && index != 1)) return false;
+            string label = index == 0 ? CurrentChoice.TargetA : CurrentChoice.TargetB;
+            CurrentChoice = null;
+            return JumpTo(label);
+        }
+
         private void Continue()
         {
+            int stepsThisPass = 0;
             while (nextStep < Script.Steps.Count)
             {
+                if (++stepsThisPass > Script.Steps.Count * 2)
+                    throw new InvalidOperationException($"Cutscene '{Script.Id}' loops without a waiting step.");
                 CutsceneStep step = Script.Steps[nextStep++];
+                if (step.Kind == CutsceneStepKind.Mark || step.Kind == CutsceneStepKind.EndIf) continue;
+                if (step.Kind == CutsceneStepKind.Jump)
+                {
+                    Script.TryFindMark(step.Label, out nextStep);
+                    continue;
+                }
+                if (step.Kind == CutsceneStepKind.IfFull)
+                {
+                    if (!PlayFullVoiceMemories) SkipCondition();
+                    continue;
+                }
+                if (step.Kind == CutsceneStepKind.Choice)
+                {
+                    CurrentChoice = step;
+                    return;
+                }
                 if (step.Kind == CutsceneStepKind.Line)
                 {
                     CurrentLine = step.Line;
@@ -87,6 +128,17 @@ namespace TurnLimbo.Runtime.Cutscene
             }
             if (lineShown) HideLine();
             IsComplete = true;
+        }
+
+        private void SkipCondition()
+        {
+            int depth = 1;
+            while (nextStep < Script.Steps.Count && depth > 0)
+            {
+                CutsceneStep step = Script.Steps[nextStep++];
+                if (step.Kind == CutsceneStepKind.IfFull) depth++;
+                else if (step.Kind == CutsceneStepKind.EndIf) depth--;
+            }
         }
 
         private void HideLine()

@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Cutscene;
 using TurnLimbo.Runtime.Dialogue;
+using UnityEngine;
 
 namespace TurnLimbo.Core.Tests
 {
@@ -10,11 +12,15 @@ namespace TurnLimbo.Core.Tests
         private sealed class RecordingStage : ICutsceneStage
         {
             public readonly List<string> Log = new List<string>();
+            public readonly List<string> ShownTexts = new List<string>();
 
             public void Run(CutsceneStep step) => Log.Add("run " + step.SourceLineNumber);
 
             public void ShowLine(DialogueLine line, int lineIndex, int lineCount)
-                => Log.Add($"show {line.Text} {lineIndex + 1}/{lineCount}");
+            {
+                Log.Add($"show {line.Text} {lineIndex + 1}/{lineCount}");
+                ShownTexts.Add(line.Text);
+            }
 
             public void HideLine() => Log.Add("hide");
         }
@@ -145,6 +151,52 @@ namespace TurnLimbo.Core.Tests
                 "A recall written with & stays up behind the next line.");
             Assert.That(playback.Advance(), Is.True);
             Assert.That(playback.IsComplete, Is.True);
+        }
+
+        [TestCase(-1)]
+        [TestCase(0)]
+        [TestCase(1)]
+        public void AuthoredOpening_FullAndBothSkipBranchesReachTheCorrectLines(int choice)
+        {
+            TextAsset source = Resources.Load<TextAsset>("Cutscene/opening");
+            Assert.That(source, Is.Not.Null);
+            var stage = new RecordingStage();
+            var playback = new CutscenePlayback(CutsceneScriptParser.Parse("Cutscene/opening", source.text), stage);
+            playback.PlayFullVoiceMemories = choice < 0;
+            playback.Start();
+            if (choice >= 0)
+            {
+                playback.Tick(30f);
+                Assert.That(playback.JumpTo("skip-interrupt"), Is.True);
+            }
+
+            for (int turn = 0; turn < 500 && !playback.IsComplete; turn++)
+            {
+                if (playback.CurrentChoice != null)
+                    Assert.That(playback.Choose(choice), Is.True);
+                else if (playback.CurrentLine != null)
+                    Assert.That(playback.Advance(), Is.True);
+                else playback.Tick(30f);
+            }
+            Assert.That(playback.IsComplete, Is.True, "The authored route must reach the scene end.");
+            Assert.That(stage.ShownTexts, Does.Contain("숲..?"));
+            Assert.That(stage.ShownTexts.Contains("그냥."), Is.EqualTo(choice != 0));
+            Assert.That(stage.ShownTexts.Contains("모두 죽여버리면 돼."), Is.EqualTo(choice != 0));
+            Assert.That(stage.ShownTexts.Contains("그냥 모두 죽여버리면 돼."), Is.EqualTo(choice < 0),
+                "Neither skip route may recall dialogue the player did not hear.");
+            Assert.That(stage.ShownTexts.Contains("좋아, 다만 명심해."), Is.EqualTo(choice == 0));
+            Assert.That(stage.ShownTexts.Contains("너가 무엇을 해야하는지만 명확하게 알려줄게."), Is.EqualTo(choice == 1));
+        }
+
+        [Test]
+        public void IfFull_SkipsOnlyTheEnclosedLinesAndEffects()
+        {
+            CutscenePlayback playback = Play("첫째\n@if-full\n@sound flashback\n기억\n@endif\n마지막", out var stage);
+            playback.PlayFullVoiceMemories = false;
+            Assert.That(playback.Advance(), Is.True);
+            Assert.That(playback.CurrentLine.Text, Is.EqualTo("마지막"));
+            Assert.That(stage.Log.Any(entry => entry == "run 3"), Is.False);
+            Assert.That(stage.ShownTexts, Is.EqualTo(new[] { "첫째", "마지막" }));
         }
 
         [Test]

@@ -32,6 +32,11 @@ namespace TurnLimbo.Runtime.Cutscene
         /// <summary>A remembered tutorial screen flashes up over the scene for the step's seconds and fades away
         /// (<see cref="Prologue.TutorialRecall"/>).</summary>
         Recall,
+        Mark,
+        Jump,
+        Choice,
+        IfFull,
+        EndIf,
     }
 
     /// <summary>Who stands in the scene. Elisa is the player's figure; the knight and the dummy share the other one,
@@ -60,6 +65,8 @@ namespace TurnLimbo.Runtime.Cutscene
         /// <summary>Shivers on the spot for the step's seconds (a small, fast side-to-side jitter of
         /// <see cref="CutsceneStep.Strength"/>), then stands exactly where it was.</summary>
         Tremble,
+        /// <summary>A short wavering echo of the senior knight's current upper and lower cels.</summary>
+        Shimmer,
     }
 
     public enum CutsceneFacing
@@ -155,6 +162,11 @@ namespace TurnLimbo.Runtime.Cutscene
         /// (it never flares on its own).</summary>
         public bool ChargeHolds { get; private set; }
         public bool AuraOn { get; private set; }
+        public string Label { get; private set; }
+        public string ChoiceA { get; private set; }
+        public string ChoiceB { get; private set; }
+        public string TargetA { get; private set; }
+        public string TargetB { get; private set; }
 
         public static CutsceneStep ForLine(DialogueLine line)
         {
@@ -190,8 +202,8 @@ namespace TurnLimbo.Runtime.Cutscene
             CutsceneAttack attack = CutsceneAttack.Slash, float seconds = 0f, bool waits = true)
         {
             if (Math.Abs(x) > MaximumX || float.IsNaN(x)) throw new ArgumentOutOfRangeException(nameof(x));
-            if (action == CutsceneActorAction.Tremble)
-                throw new ArgumentException("A tremble has a strength; make it with ForTremble.", nameof(action));
+            if (action == CutsceneActorAction.Tremble || action == CutsceneActorAction.Shimmer)
+                throw new ArgumentException("Use ForTremble or ForShimmer to create a timed actor effect.", nameof(action));
             if (action == CutsceneActorAction.Attack) seconds = AttackSeconds;
             else if (action != CutsceneActorAction.Move) seconds = 0f;
             return new CutsceneStep(CutsceneStepKind.Actor, lineNumber, seconds, waits)
@@ -210,6 +222,15 @@ namespace TurnLimbo.Runtime.Cutscene
             return new CutsceneStep(CutsceneStepKind.Actor, lineNumber, seconds, waits)
             {
                 Actor = actor, Action = CutsceneActorAction.Tremble, Strength = strength,
+            };
+        }
+
+        public static CutsceneStep ForShimmer(int lineNumber, float seconds, bool waits = true)
+        {
+            if (seconds <= 0f) throw new ArgumentOutOfRangeException(nameof(seconds));
+            return new CutsceneStep(CutsceneStepKind.Actor, lineNumber, seconds, waits)
+            {
+                Actor = CutsceneActor.Senior, Action = CutsceneActorAction.Shimmer,
             };
         }
 
@@ -261,6 +282,24 @@ namespace TurnLimbo.Runtime.Cutscene
             if (seconds <= 0f) throw new ArgumentOutOfRangeException(nameof(seconds));
             return new CutsceneStep(CutsceneStepKind.Recall, lineNumber, seconds, waits);
         }
+
+        public static CutsceneStep ForMark(int lineNumber, string label)
+            => new CutsceneStep(CutsceneStepKind.Mark, lineNumber, 0f, true) { Label = label };
+
+        public static CutsceneStep ForJump(int lineNumber, string label)
+            => new CutsceneStep(CutsceneStepKind.Jump, lineNumber, 0f, true) { Label = label };
+
+        public static CutsceneStep ForChoice(int lineNumber, string choiceA, string targetA, string choiceB, string targetB)
+            => new CutsceneStep(CutsceneStepKind.Choice, lineNumber, 0f, true)
+            {
+                ChoiceA = choiceA, TargetA = targetA, ChoiceB = choiceB, TargetB = targetB,
+            };
+
+        public static CutsceneStep ForIfFull(int lineNumber)
+            => new CutsceneStep(CutsceneStepKind.IfFull, lineNumber, 0f, true);
+
+        public static CutsceneStep ForEndIf(int lineNumber)
+            => new CutsceneStep(CutsceneStepKind.EndIf, lineNumber, 0f, true);
     }
 
     /// <summary>A parsed cutscene: its steps in source order, and who already stands on stage when it starts.</summary>
@@ -269,6 +308,7 @@ namespace TurnLimbo.Runtime.Cutscene
         private static readonly CutsceneActor[] NoActors = new CutsceneActor[0];
         private readonly CutsceneStep[] steps;
         private readonly CutsceneActor[] onStage;
+        private readonly Dictionary<string, int> marks = new Dictionary<string, int>(StringComparer.Ordinal);
 
         public CutsceneScript(string id, IReadOnlyList<CutsceneStep> steps) : this(id, steps, null) { }
 
@@ -284,6 +324,12 @@ namespace TurnLimbo.Runtime.Cutscene
             {
                 this.steps[index] = steps[index] ?? throw new ArgumentException("Cutscene steps cannot be null.", nameof(steps));
                 if (this.steps[index].Kind == CutsceneStepKind.Line) LineCount++;
+                if (this.steps[index].Kind == CutsceneStepKind.Mark)
+                {
+                    if (marks.ContainsKey(this.steps[index].Label))
+                        throw new ArgumentException($"Duplicate cutscene mark '{this.steps[index].Label}'.", nameof(steps));
+                    marks.Add(this.steps[index].Label, index);
+                }
             }
             this.onStage = CheckCast(onStage);
             Id = id.Trim();
@@ -296,6 +342,7 @@ namespace TurnLimbo.Runtime.Cutscene
         /// <summary>The figures already on stage when the scene starts, where the arena has them; empty for a bare stage.</summary>
         public IReadOnlyList<CutsceneActor> OnStage => onStage;
         public bool StartsOnStage(CutsceneActor actor) => Array.IndexOf(onStage, actor) >= 0;
+        public bool TryFindMark(string label, out int index) => marks.TryGetValue(label, out index);
 
         /// <summary>A copy of a starting cast; throws for a repeated actor, or the knight and the dummy together (they
         /// share one figure).</summary>
