@@ -34,7 +34,7 @@ namespace TurnLimbo.Presentation
         private readonly Image detailIcon;
         private readonly SkillInfoView detailInfo;
         private readonly Button resetButton;
-        private VersusLoadout loadout;
+        private readonly VersusLoadout loadout;
         private int selectedId;
         private int[] openingIds;
         private bool disposed;
@@ -180,15 +180,6 @@ namespace TurnLimbo.Presentation
             confirmLabel = Label("Button Label", ConfirmButton.transform, Vector2.zero,
                 new Vector2(230f, 52f), 20, DuelVisualTheme.Ink, TextAnchor.MiddleCenter);
             Hide();
-        }
-
-        public void SetLoadout(VersusLoadout value)
-        {
-            if (disposed) return;
-            loadout = value ?? throw new ArgumentNullException(nameof(value));
-            selectedId = 0;
-            openingIds = null;
-            Refresh();
         }
 
         public void Show(string heading = "대전 기술 편성", string confirmCaption = "편성 완료")

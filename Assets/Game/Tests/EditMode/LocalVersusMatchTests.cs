@@ -204,6 +204,48 @@ namespace TurnLimbo.Core.Tests
             Assert.That(match.Right.Act, Is.EqualTo(3));
         }
 
+        [Test]
+        public void CanReads_AgreeWithTheCommands_AndNeverChangeTheMatch()
+        {
+            // Left's only lane opens on a 4-ACT skill with a 1-ACT one behind it; Right has one skill.
+            var match = NewMatch(new[] { Attack(100, 4, 5), Attack(101, 1, 5) }, new[] { Attack(200, 1, 5) });
+            Assert.That(match.CanQueueLane(0, 0), Is.False, "3 ACT cannot pay 4.");
+            Assert.That(match.TryQueueLane(0, 0), Is.False);
+            Assert.That(match.CanQueueLane(0, 1), Is.False, "An empty lane.");
+            Assert.That(match.CanQueueLane(0, 3), Is.False);
+            Assert.That(match.CanQueueLane(1, 0), Is.False, "Not Right's turn.");
+            Assert.That(match.CanQueueBreath(1), Is.False);
+            Assert.That(match.CanCycleLanes(1), Is.False);
+            Assert.That(match.CanQueueBreath(0), Is.True);
+            Assert.That(match.CanCycleLanes(0), Is.True);
+            Assert.That(match.CurrentPlanner, Is.Zero, "Reading changes nothing.");
+            Assert.That(match.Left.GetLane(0)[0].Id, Is.EqualTo(100));
+            Assert.That(match.Left.LaneCyclesThisTurn, Is.Zero);
+            Assert.That(match.Left.Act, Is.EqualTo(3));
+
+            Assert.That(match.TryCycleLanes(0), Is.True);
+            Assert.That(match.CanQueueLane(0, 0), Is.True, "The lane rotation brought the 1-ACT skill forward.");
+            Assert.That(match.TryQueueLane(0, 0), Is.True);
+
+            // One skill per lane has nothing to turn; breaths stop at the turn's limit.
+            Assert.That(match.CanCycleLanes(1), Is.False);
+            Assert.That(match.TryCycleLanes(1), Is.False);
+            for (int breath = 0; breath < LocalVersusMatch.MaximumBreathsPerTurn; breath++)
+            {
+                Assert.That(match.CanQueueBreath(1), Is.True);
+                Assert.That(match.TryQueueBreath(1), Is.True);
+                Assert.That(match.TryPass(0), Is.True);
+            }
+            Assert.That(match.CanQueueBreath(1), Is.False);
+            Assert.That(match.TryQueueBreath(1), Is.False);
+            Assert.That(match.CanQueueLane(1, 0), Is.True);
+
+            Assert.That(match.TryPass(1), Is.True, "Left passed last, so this pass resolves.");
+            Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
+            Assert.That(match.CanQueueLane(1, 0) || match.CanQueueBreath(1) || match.CanCycleLanes(0), Is.False,
+                "Nothing is taken outside planning.");
+        }
+
         private static LocalVersusMatch NewMatch(LegacySkill[] left, LegacySkill[] right,
             int health = 100, int resistance = 50)
             => new LocalVersusMatch(left, right, health, resistance, health, resistance, randomSeed: 17);

@@ -119,7 +119,10 @@ namespace TurnLimbo.Presentation
         /// <summary>Puts the card up for <paramref name="seconds"/> of real time (0: none) with 엘리사 on the left and
         /// <paramref name="opponentName"/>, drawn from the sprite at <paramref name="opponentSilhouette"/> (Resources), on
         /// the right.</summary>
-        public void Show(float seconds, string opponentName, string opponentSilhouette, string playerName = PlayerName)
+        /// <param name="mirrorOpponent">Draws the opponent's sprite flipped, facing left: versus draws 엘리사 on both sides,
+        /// and her sprite faces right.</param>
+        public void Show(float seconds, string opponentName, string opponentSilhouette, string playerName = PlayerName,
+            bool mirrorOpponent = false)
         {
             if (disposed) return;
             timeline.Begin(seconds);
@@ -130,6 +133,7 @@ namespace TurnLimbo.Presentation
             }
             SetSide(player, playerName, PlayerSilhouette);
             SetSide(opponent, opponentName, opponentSilhouette);
+            opponent.Figure.rectTransform.localScale = new Vector3(mirrorOpponent ? -1f : 1f, 1f, 1f);
             root.gameObject.SetActive(true);
             Apply();
         }

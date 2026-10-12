@@ -12,22 +12,25 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class OnlineInviteHudPlayModeTests
     {
         [UnityTest]
-        public IEnumerator TitleOffersLocalAndOnlineVersusSeparately()
+        public IEnumerator TitleOffersOnlineVersusOnly_CentredUnderNewGame()
         {
             yield return null;
             var host = new GameObject("Online Title Test Host");
-            int local = 0, online = 0;
+            int online = 0;
             using (var art = new LegacyDuelArt())
-            using (var title = new TitleHud(host.transform, art, () => { }, () => { },
-                null, () => local++, () => online++))
+            using (var title = new TitleHud(host.transform, art, () => { }, () => { }, null, () => online++))
             {
                 title.Show(null, null, false);
-                Assert.That(title.LocalVersusButton.interactable, Is.True);
                 Assert.That(title.OnlineVersusButton.interactable, Is.True);
-                title.LocalVersusButton.onClick.Invoke();
                 title.OnlineVersusButton.onClick.Invoke();
-                Assert.That(local, Is.EqualTo(1));
                 Assert.That(online, Is.EqualTo(1));
+                foreach (Transform child in title.Root.GetComponentsInChildren<Transform>(true))
+                    Assert.That(child.name, Is.Not.EqualTo("Title Local Versus"), "One keyboard's two-player play is gone.");
+                var onlineRect = title.OnlineVersusButton.GetComponent<RectTransform>();
+                var newGameRect = title.NewGameButton.GetComponent<RectTransform>();
+                Assert.That(onlineRect.anchoredPosition.x, Is.Zero, "The one versus entry sits in the title's column.");
+                Assert.That(onlineRect.anchoredPosition.y, Is.LessThan(newGameRect.anchoredPosition.y));
+                Assert.That(onlineRect.sizeDelta.x, Is.EqualTo(newGameRect.sizeDelta.x));
             }
             Object.Destroy(host);
         }
@@ -118,38 +121,6 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(leaves, Is.EqualTo(1));
                 hud.Hide();
                 Assert.That(hud.IsVisible, Is.False);
-            }
-            Object.Destroy(host);
-        }
-
-        [UnityTest]
-        public IEnumerator OnlineDuelDesk_KeepsOwnSkillsAndWaitsForOpponent()
-        {
-            yield return null;
-            var host = new GameObject("Online Duel Desk Test Host");
-            using (var art = new LegacyDuelArt())
-            using (var hud = new LocalVersusHud(host.transform, art, _ => { }, () => { },
-                () => { }, () => { }, () => { }, () => { }))
-            {
-                var match = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All);
-                hud.Refresh(match, 20f, 20f, 1);
-                Assert.That(Label(hud.Root, "Versus Active Player").text, Is.EqualTo("상대 차례"));
-                Assert.That(Button(hud.Root, "Versus Lane Q").interactable, Is.False);
-                Assert.That(Button(hud.Root, "Versus Pass").interactable, Is.False);
-                Assert.That(Label(hud.Root, "Versus Command Heading").text, Does.StartWith("내 기술"));
-                hud.ShowSkillDetail(0);
-                Assert.That(Named(hud.Root, "Versus Skill Detail").activeSelf, Is.True);
-
-                Assert.That(match.TryQueueLane(0, 0), Is.True);
-                hud.Refresh(match, 19f, 20f, 1);
-                Assert.That(Label(hud.Root, "Versus Active Player").text, Is.EqualTo("내 차례"));
-                Assert.That(Button(hud.Root, "Versus Lane Q").interactable, Is.True);
-                hud.SetRematchPending(true);
-                Assert.That(Button(hud.Root, "Versus Rematch").interactable, Is.False);
-                Assert.That(Label(hud.Root, "Button Label",
-                    Button(hud.Root, "Versus Rematch").transform).text, Is.EqualTo("상대 기다리는 중"));
-                hud.SetRematchPending(false);
-                Assert.That(Button(hud.Root, "Versus Rematch").interactable, Is.True);
             }
             Object.Destroy(host);
         }

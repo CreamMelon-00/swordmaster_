@@ -165,7 +165,12 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(PlayerName, Is.Not.Null);
             }
 
-            public void HoldReady(int lane) => ((float[])Field("holdTimes").GetValue(Controller))[lane] = 1.1f;
+            // The controller's lane holds (DuelLaneHolds, internal) keep each lane's held time.
+            public void HoldReady(int lane)
+            {
+                object holds = Field("laneHolds").GetValue(Controller);
+                ((float[])holds.GetType().GetField("holdTimes", PrivateInstance).GetValue(holds))[lane] = 1.1f;
+            }
             public void Advance(Keyboard keyboard) => advance(0f, keyboard);
             public SkillCardFeedbackGraphic Feedback(bool player, int slot)
             {

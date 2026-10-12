@@ -153,7 +153,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public DuelMatchOutcome Outcome { get; }
     }
 
-    public sealed class LegacyCurrentSlot
+    public sealed class LegacyCurrentSlot : ILegacySlotView
     {
         internal LegacyCurrentSlot(int index, LegacySkill playerSkill, LegacySkill enemySkill,
             int playerPower, int enemyPower, int playerTotalPower,

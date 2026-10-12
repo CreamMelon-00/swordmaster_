@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
@@ -13,67 +14,81 @@ using Object = UnityEngine.Object;
 
 namespace TurnLimbo.Presentation.Tests
 {
+    /// <summary>Versus on the scene's own controller: the title's 온라인 친구 대전 (versus's only entry), then the match the
+    /// room's 대전 시작 would start, run host-only without a network on the shared engine
+    /// (<see cref="DuelPrototypeController.LocalVersus"/>): the guest's commands arrive as the host accepts them. Covers the
+    /// arena-driven loop into the next turn, the mirrored 엘리사, each side's loadout, the 20-turn draw on the result card
+    /// and the rematch, and that versus never touches the campaign save.</summary>
     public sealed class LocalVersusPlayModeTests
     {
+        private const int Seed = 11;
+
         [UnityTest]
-        public IEnumerator TitleEntry_PublicAlternatingReservations_ResolveAndReturnWithoutChangingSave()
+        public IEnumerator HostOnlyMatch_AlternatesPublicReservations_ResolvesAndLeavesToTitleWithoutChangingSave()
         {
             yield return null;
             using (var scope = new SaveScope())
             {
                 DuelPrototypeController controller = scope.Controller;
                 string saveBefore = scope.CreateSaveAndReadText();
-                controller.ShowTitle();
-                Assert.That(controller.TitleHud.LocalVersusButton.interactable, Is.True);
-
-                controller.TitleHud.LocalVersusButton.onClick.Invoke();
-                Assert.That(controller.IsInLocalVersus, Is.True);
+                LocalVersusController versus = scope.StartHostOnly(LegacyInitialSkills.All, LegacyInitialSkills.All);
+                Assert.That(controller.IsInOnlineVersus, Is.True);
                 Assert.That(controller.IsInTitle, Is.False);
-                Assert.That(controller.LocalVersus.IsPreparing, Is.True);
-                Assert.That(controller.LocalVersus.PreparationHud.IsVisible, Is.True);
+                Assert.That(controller.IsInLobby, Is.False);
                 Assert.That(controller.AutoSaveEnabled, Is.False);
-                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
-                Assert.That(controller.LocalVersus.PreparingPlayer, Is.EqualTo(1));
-                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
-                Assert.That(controller.LocalVersus.Hud.IsVisible, Is.True);
+                // The title's entry opens every match with the start card, on both peers alike.
+                Assert.That(versus.StartCardsEnabled, Is.True);
+                Assert.That(versus.IsShowingStartCard, Is.EqualTo(versus.PresentationSettings.StartCardSeconds > 0f));
+                scope.FinishStartCard();
+                Assert.That(versus.Hud.IsBattleVisible, Is.True);
+                Assert.That(versus.BattleHud.Root.activeSelf, Is.True);
 
-                LocalVersusMatch match = controller.LocalVersus.Match;
+                LocalVersusMatch match = versus.Match;
                 Assert.That(match.RoundNumber, Is.EqualTo(1));
                 Assert.That(match.OpeningPlayer, Is.Zero);
                 Assert.That(match.CurrentPlanner, Is.Zero);
                 Assert.That(match.Left.Queue, Is.Empty);
                 Assert.That(match.Right.Queue, Is.Empty);
 
-                // Both players use the same visible command desk. Every reservation
-                // transfers control, and both queues stay public on screen.
-                Button lane = ButtonNamed(controller.LocalVersus.Hud.Root, "Versus Lane Q");
+                // The host's own desk. Every reservation hands the turn over, and both queues stay public on screen.
+                versus.Tick(0f, null);
+                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
+                Button lane = ButtonNamed(versus.BattleHud.Root, "Current Q");
                 Assert.That(lane.interactable, Is.True);
                 lane.onClick.Invoke();
                 Assert.That(match.Left.Queue.Count, Is.EqualTo(1));
                 Assert.That(match.Right.Queue, Is.Empty);
                 Assert.That(match.CurrentPlanner, Is.EqualTo(1));
-                Assert.That(LabelNamed(controller.LocalVersus.Hud.Root, "Versus Active Player").text,
-                    Does.Contain("2P"));
-
+                versus.Tick(0f, null);
+                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
+                Assert.That(lane.interactable, Is.False, "The opponent's turn holds the host's desk.");
                 lane.onClick.Invoke();
+                Assert.That(match.Left.Queue.Count, Is.EqualTo(1), "Only the viewer's own turn acts.");
+                Assert.That(match.Right.Queue, Is.Empty, "Nobody reserves for the opponent on this screen.");
+
+                // The guest's reservation, as the host accepts it.
+                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
                 Assert.That(match.Left.Queue.Count, Is.EqualTo(1));
                 Assert.That(match.Right.Queue.Count, Is.EqualTo(1));
                 Assert.That(match.CurrentPlanner, Is.Zero);
-                Assert.That(LabelNamed(controller.LocalVersus.Hud.Root, "Versus Active Player").text,
-                    Does.Contain("1P"));
+                versus.Tick(0f, null);
+                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
+                Assert.That(versus.BattleHud.GetQueuedSkillAnchor(false, 0), Is.Not.Null,
+                    "The opponent's reservation rides its public queue row.");
 
-                Button pass = ButtonNamed(controller.LocalVersus.Hud.Root, "Versus Pass");
+                // The seal is 패스: one yields the turn, the next in a row (the opponent's) resolves both queues.
+                Button pass = ButtonNamed(versus.BattleHud.Root, "AButton");
                 pass.onClick.Invoke();
                 Assert.That(match.ConsecutivePasses, Is.EqualTo(1));
                 Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
-                pass.onClick.Invoke();
+                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
 
                 int frames = 0;
                 while (!match.IsFinished &&
                        !(match.RoundNumber == 2 && match.Phase == LegacyDuelPhase.Planning) &&
                        frames++ < 2000)
-                    controller.LocalVersus.Tick(.05f, null);
+                    versus.Tick(.05f, null);
                 Assert.That(frames, Is.LessThan(2000), "A committed turn must finish in finite presentation time.");
                 Assert.That(match.IsFinished || match.RoundNumber == 2, Is.True);
                 if (!match.IsFinished)
@@ -82,13 +97,17 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(match.CurrentPlanner, Is.EqualTo(1));
                 }
                 Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo(saveBefore),
-                    "A local match must not award, advance, or overwrite campaign progress.");
+                    "A versus match must not award, advance, or overwrite campaign progress.");
 
-                ButtonNamed(controller.LocalVersus.Hud.Root, "Versus Exit").onClick.Invoke();
-                Assert.That(controller.LocalVersus.Hud.IsExitConfirming, Is.True);
-                ButtonNamed(controller.LocalVersus.Hud.Root, "Versus Confirm Exit").onClick.Invoke();
+                // 타이틀로 leaves the match and the room together.
+                ButtonNamed(versus.Hud.Root, "Versus Exit").onClick.Invoke();
+                Assert.That(versus.Hud.IsExitConfirming, Is.True);
+                ButtonNamed(versus.Hud.Root, "Versus Confirm Exit").onClick.Invoke();
                 Assert.That(controller.IsInTitle, Is.True);
-                Assert.That(controller.IsInLocalVersus, Is.False);
+                Assert.That(controller.TitleHud.IsVisible, Is.True);
+                Assert.That(controller.IsInOnlineVersus, Is.False);
+                Assert.That(versus.IsActive, Is.False);
+                Assert.That(versus.BattleHud.Root.activeSelf, Is.False);
                 Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo(saveBefore));
             }
         }
@@ -99,12 +118,9 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             using (var scope = new SaveScope())
             {
-                DuelPrototypeController controller = scope.Controller;
-                controller.ShowTitle();
-                Assert.That(controller.StartLocalVersus(), Is.True);
-                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
-                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
-                LegacyArenaView arena = controller.ArenaView;
+                scope.StartHostOnly(LegacyInitialSkills.All, LegacyInitialSkills.All);
+                LegacyArenaView arena = scope.Controller.ArenaView;
+                Assert.That(arena.BackdropKind, Is.EqualTo(ArenaBackdropKind.SchoolCorridor));
                 Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.Elisa));
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
                 Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(arena.PlayerRenderer.sprite));
@@ -133,57 +149,53 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator FirstPlayersRewardSkillSelectionReachesMatch_SecondPlayerKeepsDefaultLoadout()
+        public IEnumerator EachSidesLoadout_ReachesItsOwnFighter_AndEachScreensDeskIsItsOwn()
         {
             yield return null;
             using (var scope = new SaveScope())
             {
-                DuelPrototypeController controller = scope.Controller;
-                controller.ShowTitle();
-                Assert.That(controller.StartLocalVersus(), Is.True);
-                LocalVersusController versus = controller.LocalVersus;
-                Assert.That(versus.PreparingPlayer, Is.Zero);
-                Assert.That(versus.PreparationHud.IsVisible, Is.True);
-
                 LegacySkill reward = LegacySkillDefinitions.AcquisitionSkills[0];
                 int lane = reward.LaneIndex;
-                string laneLetter = new[] { "Q", "W", "E" }[lane];
-                int replacedId = versus.GetLocalLoadout(0).GetSkillId(lane, 0);
-                int[] secondPlayerDefault = versus.GetLocalLoadout(1).ExportIds();
+                string window = "Input/Keys/Current " + "QWE"[lane] + "/Skill Name";
+                var hostLoadout = new VersusLoadout();
+                var guestLoadout = new VersusLoadout();
+                int[] guestDefault = guestLoadout.ExportIds();
+                string guestLaneSkill = guestLoadout.GetSkill(lane, 0).Name;
+                Assert.That(hostLoadout.TryPlaceSkill(reward.Id, lane, 0), Is.True);
+                Assert.That(hostLoadout.GetSkillId(lane, 0), Is.EqualTo(reward.Id));
+                Assert.That(guestLaneSkill, Is.Not.EqualTo(reward.Name));
 
-                ButtonNamed(versus.PreparationHud.Root, "Versus Available Skill " + reward.Id).onClick.Invoke();
-                ButtonNamed(versus.PreparationHud.Root, "Versus Slot " + laneLetter + " 1").onClick.Invoke();
-                Assert.That(versus.GetLocalLoadout(0).GetSkillId(lane, 0), Is.EqualTo(reward.Id));
-                Assert.That(versus.GetLocalLoadout(1).GetSkillId(lane, 0), Is.EqualTo(replacedId));
-
-                versus.PreparationHud.ConfirmButton.onClick.Invoke();
-                Assert.That(versus.PreparingPlayer, Is.EqualTo(1));
-                versus.PreparationHud.ConfirmButton.onClick.Invoke();
-                Assert.That(versus.IsPreparing, Is.False);
+                // The host's screen: its loadout is Left's, and its desk shows it.
+                LocalVersusController versus = scope.StartHostOnly(hostLoadout.ToSkills(), guestLoadout.ToSkills());
+                scope.FinishStartCard();
                 Assert.That(versus.Match.Left.GetLane(lane)[0].Id, Is.EqualTo(reward.Id));
-                for (int sideLane = 0; sideLane < VersusLoadout.LaneCount; sideLane++)
-                    for (int slot = 0; slot < VersusLoadout.SlotsPerLane; slot++)
-                        Assert.That(versus.Match.Right.GetLane(sideLane)[slot].Id,
-                            Is.EqualTo(secondPlayerDefault[sideLane * VersusLoadout.SlotsPerLane + slot]),
-                            "2P should retain their own default lineup.");
+                AssertLineup(versus.Match.Right, guestDefault, "The guest keeps its own default lineup.");
+                Assert.That(TextAt(versus.BattleHud.Root, window).text, Is.EqualTo(reward.Name));
+
+                // The guest's screen of the same match: Right's lanes are its own desk; the host's reward is not on it.
+                versus = scope.StartGuestOnly(hostLoadout.ToSkills(), guestLoadout.ToSkills());
+                scope.FinishStartCard();
+                Assert.That(versus.Perspective.LocalPlayer, Is.EqualTo(1));
+                Assert.That(versus.Match.Left.GetLane(lane)[0].Id, Is.EqualTo(reward.Id));
+                AssertLineup(versus.Match.Right, guestDefault, "The guest keeps its own default lineup.");
+                Assert.That(TextAt(versus.BattleHud.Root, window).text, Is.EqualTo(guestLaneSkill));
             }
         }
 
         [UnityTest]
-        public IEnumerator TwentyEmptyRounds_DrawAndRematchSwitchesOpeningPlayer()
+        public IEnumerator TwentyEmptyRounds_DrawOnTheResultCard_AndTheRematchSwitchesTheOpeningPlayer()
         {
             yield return null;
             using (var scope = new SaveScope())
             {
-                DuelPrototypeController controller = scope.Controller;
                 string saveBefore = scope.CreateSaveAndReadText();
-                controller.ShowTitle();
-                Assert.That(controller.StartLocalVersus(), Is.True);
-                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
-                Assert.That(controller.LocalVersus.ConfirmPreparation(), Is.True);
+                int rematchVotes = 0;
+                LocalVersusController versus = scope.StartHostOnly(LegacyInitialSkills.All, LegacyInitialSkills.All,
+                    () => rematchVotes++);
+                scope.FinishStartCard();
 
-                LocalVersusController versus = controller.LocalVersus;
                 LocalVersusMatch first = versus.Match;
+                Assert.That(first.RoundLimit, Is.EqualTo(LocalVersusController.RoundLimit));
                 Assert.That(first.RoundLimit, Is.EqualTo(20));
                 for (int round = 1; round <= first.RoundLimit; round++)
                 {
@@ -191,8 +203,10 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(first.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
                     Assert.That(first.OpeningPlayer, Is.EqualTo((round - 1) % 2));
                     Assert.That(first.CurrentPlanner, Is.EqualTo(first.OpeningPlayer));
-                    Assert.That(versus.TryPass(), Is.True);
-                    Assert.That(versus.TryPass(), Is.True);
+                    // Two passes in a row, whoever opens: the host's own, and the guest's as the host accepts it.
+                    for (int pass = 0; pass < 2; pass++)
+                        Assert.That(first.CurrentPlanner == 0 ? versus.TryPass()
+                            : versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, round), Is.True);
                     if (round == first.RoundLimit) break;
 
                     int frames = 0;
@@ -204,10 +218,24 @@ namespace TurnLimbo.Presentation.Tests
 
                 Assert.That(first.IsFinished, Is.True);
                 Assert.That(first.Outcome, Is.EqualTo(LocalVersusOutcome.Draw));
-                Assert.That(versus.Hud.Root.transform.Find("Versus Result Overlay").gameObject.activeSelf, Is.True);
-                Assert.That(LabelNamed(versus.Hud.Root, "Versus Result Heading").text, Is.EqualTo("무승부"));
+                // The last turn's return plays out, then the single-play result card comes.
+                int settle = 0;
+                while (!versus.IsShowingResult && settle++ < 400) versus.Tick(.05f, null);
+                Assert.That(versus.IsShowingResult, Is.True);
+                Assert.That(LabelNamed(versus.ResultHud.Root, "Result Heading").text, Is.EqualTo("무승부"));
+                Assert.That(LabelNamed(versus.ResultHud.Root, "Result Rounds").text, Is.EqualTo("20"));
 
-                ButtonNamed(versus.Hud.Root, "Versus Rematch").onClick.Invoke();
+                // 다시 겨루기 is a vote: the match stays until the room's host starts the next one.
+                Button retry = ButtonNamed(versus.ResultHud.Root, "Result Retry");
+                retry.onClick.Invoke();
+                Assert.That(rematchVotes, Is.EqualTo(1));
+                Assert.That(retry.interactable, Is.False);
+                Assert.That(retry.GetComponentInChildren<Text>(true).text, Is.EqualTo(BattleResultHud.VersusWaitingCaption));
+                Assert.That(versus.Match, Is.SameAs(first));
+
+                // Both voted: the host starts the rematch with the other opener (the room counts its rematches).
+                versus.StartOnline(Seed + 1, 0, true, 1, LegacyInitialSkills.All, LegacyInitialSkills.All,
+                    (action, lane) => { }, () => rematchVotes++);
                 Assert.That(versus.IsActive, Is.True);
                 Assert.That(versus.Match, Is.Not.SameAs(first));
                 Assert.That(versus.Match.RoundNumber, Is.EqualTo(1));
@@ -216,15 +244,29 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(versus.Match.CurrentPlanner, Is.EqualTo(1));
                 Assert.That(versus.Match.Left.Queue, Is.Empty);
                 Assert.That(versus.Match.Right.Queue, Is.Empty);
-                Assert.That(versus.Hud.Root.transform.Find("Versus Result Overlay").gameObject.activeSelf, Is.False);
+                Assert.That(versus.IsShowingResult, Is.False);
+                float retryCard = versus.PresentationSettings.StartCardRetrySeconds;
+                Assert.That(versus.IsShowingStartCard, Is.EqualTo(retryCard > 0f));
+                if (retryCard > 0f)
+                    Assert.That(versus.StartCard.Timeline.Seconds, Is.EqualTo(retryCard).Within(1e-4f),
+                        "A rematch opens with the short start card.");
                 Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo(saveBefore));
             }
         }
+
+        private static void AssertLineup(LocalVersusFighter fighter, int[] ids, string message)
+        {
+            for (int lane = 0; lane < VersusLoadout.LaneCount; lane++)
+                for (int slot = 0; slot < VersusLoadout.SlotsPerLane; slot++)
+                    Assert.That(fighter.GetLane(lane)[slot].Id,
+                        Is.EqualTo(ids[lane * VersusLoadout.SlotsPerLane + slot]), message);
+        }
+
         private static Button ButtonNamed(GameObject root, string name)
         {
             foreach (Button button in root.GetComponentsInChildren<Button>(true))
                 if (button.name == name) return button;
-            Assert.Fail("Missing local versus button: " + name);
+            Assert.Fail("Missing versus button: " + name);
             return null;
         }
 
@@ -232,14 +274,22 @@ namespace TurnLimbo.Presentation.Tests
         {
             foreach (Text label in root.GetComponentsInChildren<Text>(true))
                 if (label.name == name) return label;
-            Assert.Fail("Missing local versus label: " + name);
+            Assert.Fail("Missing versus label: " + name);
             return null;
+        }
+
+        private static Text TextAt(GameObject root, string path)
+        {
+            Transform part = root.transform.Find(path);
+            Assert.That(part, Is.Not.Null, "Missing duel HUD part: " + path);
+            return part.GetComponent<Text>();
         }
 
         private sealed class SaveScope : IDisposable
         {
             private readonly GameSaveStore originalStore;
             private readonly bool originalEnabled;
+            private readonly bool originalRunInBackground;
             private readonly string directory;
 
             public DuelPrototypeController Controller { get; }
@@ -250,6 +300,7 @@ namespace TurnLimbo.Presentation.Tests
                 Controller = Object.FindAnyObjectByType<DuelPrototypeController>();
                 Assert.That(Controller, Is.Not.Null);
                 originalEnabled = Controller.enabled;
+                originalRunInBackground = Application.runInBackground;
                 Controller.enabled = false;
                 originalStore = Controller.SaveStore;
                 directory = Path.Combine(Application.temporaryCachePath,
@@ -265,11 +316,48 @@ namespace TurnLimbo.Presentation.Tests
                 return File.ReadAllText(Store.Path);
             }
 
+            /// <summary>The title's 온라인 친구 대전, then the match the room's 대전 시작 starts once both are ready, here with no
+            /// network: the shared engine started host-only, the invite room put away as the room does.</summary>
+            public LocalVersusController StartHostOnly(IReadOnlyList<LegacySkill> left, IReadOnlyList<LegacySkill> right,
+                Action rematch = null) => Start(0, true, left, right, rematch);
+
+            /// <summary>The same match on the guest's screen: its own commands only go out as requests.</summary>
+            public LocalVersusController StartGuestOnly(IReadOnlyList<LegacySkill> left, IReadOnlyList<LegacySkill> right)
+                => Start(1, false, left, right, null);
+
+            private LocalVersusController Start(int localPlayer, bool isHost,
+                IReadOnlyList<LegacySkill> left, IReadOnlyList<LegacySkill> right, Action rematch)
+            {
+                Controller.ShowTitle();
+                Assert.That(Controller.TitleHud.OnlineVersusButton.interactable, Is.True);
+                Controller.TitleHud.OnlineVersusButton.onClick.Invoke();
+                Assert.That(Controller.IsInOnlineVersus, Is.True);
+                Assert.That(Controller.OnlineVersus.IsInBattle, Is.False, "No network: the room never starts a battle.");
+                Controller.OnlineVersus.Hud.Hide();
+                LocalVersusController versus = Controller.LocalVersus;
+                versus.StartOnline(Seed, localPlayer, isHost, 0, left, right, (action, lane) => { },
+                    rematch ?? (() => { }));
+                Assert.That(versus.IsActive, Is.True);
+                Assert.That(versus.OnlineLocalPlayer, Is.EqualTo(localPlayer));
+                return versus;
+            }
+
+            /// <summary>Plays the start card out: it holds the clocks and the input, and nothing can cut it short.</summary>
+            public void FinishStartCard()
+            {
+                LocalVersusController versus = Controller.LocalVersus;
+                int frames = 0;
+                while (versus.IsShowingStartCard && frames++ < 400) versus.Tick(.05f, null);
+                Assert.That(versus.IsShowingStartCard, Is.False);
+            }
+
             public void Dispose()
             {
+                Controller.enabled = false;
                 Controller.ShowTitle();
                 Controller.SaveStore = originalStore;
                 Controller.enabled = originalEnabled;
+                Application.runInBackground = originalRunInBackground;
                 if (Directory.Exists(directory)) Directory.Delete(directory, true);
             }
         }

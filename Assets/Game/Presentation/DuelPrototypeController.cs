@@ -26,11 +26,10 @@ namespace TurnLimbo.Presentation
         public const float TurnCleanupDelay = 0.12f;
         [SerializeField] private DuelPresentationSettings presentationSettings;
         private enum ViewPhase { Planning, Approaching, ClosingDistance, SkillWindup, PlayingSlot, BetweenSlots, AfterTurn, Settling, Outcome }
-        // Each lane's hold (its key, or the pointer on its gear's window): how long it has been held (real time), whether it
-        // is held now, and whether its release must not queue (LegacyLaneHold).
-        private readonly float[] holdTimes = new float[3];
-        private readonly bool[] laneHeld = new bool[3];
-        private readonly bool[] holdConsumed = new bool[3];
+        // Each lane's hold (its key, or the pointer on its gear's window) and the explanation a hold opened (LegacyLaneHold);
+        // versus reads its lanes the same way.
+        private readonly DuelLaneHolds laneHolds = new DuelLaneHolds();
+        private System.Func<int, bool> queueLaneOnRelease;
         private LegacyQueuedDuel session;
         private LegacyDuelArt art;
         private LegacyArenaView arena;
@@ -144,8 +143,6 @@ namespace TurnLimbo.Presentation
         private int highlightedSlot;
         private int inspectingEnemy;
         private int playerSlotDamage, enemySlotDamage;
-        private LegacySkill explainedSkill;
-        private int explainedLane = -1;
         private DuelPresentationSettings ownedPresentationSettings;
 
         public LegacyQueuedDuel Session => session;
@@ -160,7 +157,6 @@ namespace TurnLimbo.Presentation
         public LocalVersusController LocalVersus => localVersus;
         public OnlineVersusController OnlineVersus => onlineVersus;
         public bool IsInOnlineVersus => onlineVersus != null && onlineVersus.IsActive;
-        public bool IsInLocalVersus => localVersus != null && localVersus.IsActive && !IsInOnlineVersus;
         public DuelLoadingHud LoadingHud => loadingHud;
         /// <summary>The auto-save file. Tests may point it elsewhere before using the title.</summary>
         public GameSaveStore SaveStore
@@ -233,7 +229,7 @@ namespace TurnLimbo.Presentation
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
         public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && !IsPlayingCutscene &&
             viewPhase == ViewPhase.Outcome && !IsShowingResult;
-        public bool IsInLobby => !IsInLocalVersus && !IsInOnlineVersus && !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
+        public bool IsInLobby => !IsInOnlineVersus && !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
             !IsMission && !showingBriefing && !showingTitle && campaign.Phase == CampaignPhase.Lobby;
         public DuelPresentationSettings PresentationSettings => presentationSettings;
         public LegacyArenaView ArenaView => arena;
@@ -290,8 +286,8 @@ namespace TurnLimbo.Presentation
             Keyboard.current != null && Keyboard.current.tabKey.isPressed);
         /// <summary>Whether the player is reading a held skill's explanation this planning frame (Tab's inspection takes
         /// over from it). The planning clock runs at <see cref="DuelPresentationSettings.ExplanationTimeScale"/> meanwhile.</summary>
-        public bool IsReadingExplanation => CanChoose && !IsInspecting && explainedSkill != null &&
-            explainedSkill.Kind != LegacySkillKind.Wait;
+        public bool IsReadingExplanation => CanChoose && !IsInspecting && laneHolds.ExplainedSkill != null &&
+            laneHolds.ExplainedSkill.Kind != LegacySkillKind.Wait;
         /// <summary>The planning clock's pace now (<see cref="LegacyLaneHold.PlanningTimeScale"/>): Tab's 0.2, a held
         /// explanation's, or 1. 전투's bullet-time drift runs on the same clock.</summary>
         public float PlanningTimeScale => LegacyLaneHold.PlanningTimeScale(CanChoose, IsInspecting, IsReadingExplanation,
@@ -308,6 +304,7 @@ namespace TurnLimbo.Presentation
         {
             campaign = new CampaignRun();
             prologue = new PrologueRun();
+            queueLaneOnRelease = QueueLane;
             art = new LegacyDuelArt();
             effectsSource = gameObject.AddComponent<AudioSource>();
             effectsSource.playOnAwake = false;
@@ -361,9 +358,10 @@ namespace TurnLimbo.Presentation
             recallAlbum = new TutorialRecallAlbum(this);
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
             titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite,
-                () => StartLocalVersus(), () => StartOnlineVersus());
-            localVersus = new LocalVersusController(transform, art, arena,
-                () => { if (onlineVersus != null && onlineVersus.IsActive) onlineVersus.LeaveToTitle(); else ShowTitle(); });
+                () => StartOnlineVersus());
+            // The online friend duel's battle plays on the same arena with its own duel HUD, timed by the same presentation
+            // settings. Its 타이틀로 goes back to the title, which also closes the online room (ShowTitle stops both).
+            localVersus = new LocalVersusController(transform, art, arena, () => ShowTitle(), presentationSettings);
             onlineVersus = new OnlineVersusController(transform, art, localVersus, () => ShowTitle());
             loadingHud = DuelLoadingHud.Create(transform, art.UIFont);
             saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
@@ -381,14 +379,10 @@ namespace TurnLimbo.Presentation
         private void AdvancePresentation(float realDelta, Keyboard keyboard)
         {
             realDelta = Mathf.Max(0f, realDelta);
+            // The online room ticks its battle itself (the versus duel only runs under it).
             if (onlineVersus != null && onlineVersus.IsActive)
             {
                 onlineVersus.Tick(realDelta, keyboard);
-                return;
-            }
-            if (localVersus != null && localVersus.IsActive)
-            {
-                localVersus.Tick(realDelta, keyboard);
                 return;
             }
             if (IsPaused)
@@ -901,7 +895,7 @@ namespace TurnLimbo.Presentation
 
         // The rules resolve an attack against the target's attack skill as a resistance
         // exchange for the whole slot, even after that skill's own hits have ended.
-        private static LegacyArenaView.HitExchange Exchange(LegacySkill targetSkill, bool targetStrikes) =>
+        internal static LegacyArenaView.HitExchange Exchange(LegacySkill targetSkill, bool targetStrikes) =>
             targetSkill?.Kind != LegacySkillKind.Attack ? LegacyArenaView.HitExchange.None
                 : targetStrikes ? LegacyArenaView.HitExchange.MutualClash : LegacyArenaView.HitExchange.BladeBlock;
 
@@ -942,7 +936,7 @@ namespace TurnLimbo.Presentation
             planningTime = CurrentPlanningDuration;
             highlightedSlot = -1;
             inspectingEnemy = 0;
-            explainedSkill = null;
+            laneHolds.DropExplanation();
             arena.BeginTurn();
             hud.BeginTurn();
             skillActivationCue.Reset();
@@ -1015,7 +1009,7 @@ namespace TurnLimbo.Presentation
             if (keyboard == null)
             {
                 // Without a keyboard the lanes still answer the pointer held on their gears' windows.
-                for (int lane = 0; lane < holdTimes.Length; lane++) ReadLaneHold(lane, false, false, false, realDelta);
+                for (int lane = 0; lane < DuelLaneHolds.LaneCount; lane++) ReadLaneHold(lane, false, false, false, realDelta);
                 return;
             }
             if (keyboard.lKey.wasPressedThisFrame) hud.ToggleLog();
@@ -1042,58 +1036,8 @@ namespace TurnLimbo.Presentation
         private void ReadLaneHold(int lane, bool keyHeld, bool keyPressed, bool keyReleased, float realDelta)
         {
             if (!IsLaneOpen(lane)) return;
-            bool pointerHeld = hud.ReadLanePointer(lane, out bool pointerPressed, out bool pointerReleased, out bool releasedAway);
-            bool held = keyHeld || pointerHeld;
-            bool pressed = keyPressed || pointerPressed;
-            // Let go of both; or a hold that ended with no release seen (its window went away mid-press), which never queues.
-            bool letGo = keyReleased || pointerReleased;
-            bool vanished = !held && !letGo && laneHeld[lane];
-            // A new press is a new hold, a tap until it is held long enough, whatever ended the one before (ClearHeldKeys
-            // closes a key still down from then).
-            if (pressed)
-            {
-                holdConsumed[lane] = false;
-                hud.ClearHoldCancel(lane);
-            }
-            if (releasedAway || vanished) holdConsumed[lane] = true;
-            float tap = presentationSettings.LaneTapSeconds, explain = presentationSettings.ExplanationHoldSeconds;
-            if (pressed && explainedSkill != null)
-            {
-                explainedSkill = null;
-                explainedLane = -1;
-            }
-            laneHeld[lane] = held;
-            if (held)
-            {
-                // The frame a press is first seen counts nothing: it went down somewhere within it, and a hitch before the
-                // press (a battle being set up) is no time held.
-                if (!pressed) holdTimes[lane] += realDelta;
-                hud.SetHoldProgress(lane, LegacyLaneHold.Progress(holdTimes[lane], tap, explain));
-                // An open lane a fixture duel left empty has nothing to explain.
-                var laneSkills = session.GetLane(lane);
-                if (LegacyLaneHold.OpensExplanation(holdTimes[lane], tap, explain) && laneSkills.Count > 0)
-                {
-                    explainedSkill = laneSkills[0];
-                    explainedLane = lane;
-                    holdConsumed[lane] = true;
-                }
-            }
-            else if (letGo || vanished)
-            {
-                bool queues = LegacyLaneHold.ReleaseQueues(holdTimes[lane], holdConsumed[lane], tap);
-                bool safelyCancelled = letGo && !held && !releasedAway && !holdConsumed[lane] && !queues &&
-                    holdTimes[lane] < LegacyLaneHold.ExplainSeconds(tap, explain);
-                if (queues) QueueLane(lane);
-                if (explainedLane == lane)
-                {
-                    explainedSkill = null;
-                    explainedLane = -1;
-                }
-                holdTimes[lane] = 0f;
-                holdConsumed[lane] = false;
-                hud.SetHoldProgress(lane, 0f);
-                if (safelyCancelled) hud.ShowHoldCancel(lane);
-            }
+            laneHolds.Read(lane, keyHeld, keyPressed, keyReleased, realDelta, hud, presentationSettings, session.GetLane(lane),
+                queueLaneOnRelease);
         }
 
         public bool QueueLane(int lane)
@@ -1120,7 +1064,7 @@ namespace TurnLimbo.Presentation
             meshCues.Queued(session);
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
-            explainedSkill = null;
+            laneHolds.DropExplanation();
             RefreshHud(0f);
             RefreshGuide();
             return true;
@@ -1148,9 +1092,8 @@ namespace TurnLimbo.Presentation
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             // A lane key already down was pressed for the skill that just left, so its release must not queue the
             // one that came forward. A held explanation picks up the new front on the next frame.
-            for (int lane = 0; lane < holdTimes.Length; lane++)
-                if (laneHeld[lane] || holdTimes[lane] > 0f) holdConsumed[lane] = true;
-            explainedSkill = null;
+            laneHolds.ConsumeActive();
+            laneHolds.DropExplanation();
             guide?.NotifyCycled();
             RefreshHud(0f);
             RefreshGuide();
@@ -1164,7 +1107,7 @@ namespace TurnLimbo.Presentation
             hud.ClearHoldCancel();
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
-            explainedSkill = null;
+            laneHolds.DropExplanation();
             guide?.NotifyBreathed();
             RefreshHud(0f);
             RefreshGuide();
@@ -1177,7 +1120,7 @@ namespace TurnLimbo.Presentation
             // A turn committed under the start card (direct API use; the player's input waits for it) begins the battle.
             SkipStartCard();
             ClearHeldKeys();
-            explainedSkill = null;
+            laneHolds.DropExplanation();
             guideInspectionRemaining = 0f;
             hud.HideExplanation();
             session.Commit();
@@ -1241,19 +1184,8 @@ namespace TurnLimbo.Presentation
             AutoSave();
         }
 
-        /// <summary>Starts a same-keyboard, two-player duel without changing the campaign or save file.</summary>
-        public bool StartLocalVersus()
-        {
-            if (!IsInTitle || localVersus == null) return false;
-            titleHud.Hide();
-            showingTitle = false;
-            lobbyHud.Hide();
-            hud.Root.SetActive(false);
-            localVersus.Start();
-            return true;
-        }
-
-        /// <summary>Opens a two-player invite-code lobby without changing campaign progress.</summary>
+        /// <summary>The title's 온라인 친구 대전, versus's only entry: opens a two-player invite-code lobby without changing
+        /// campaign progress. Its battles run on <see cref="LocalVersus"/>.</summary>
         public bool StartOnlineVersus()
         {
             if (!IsInTitle || onlineVersus == null) return false;
@@ -1261,11 +1193,14 @@ namespace TurnLimbo.Presentation
             showingTitle = false;
             lobbyHud.Hide();
             hud.Root.SetActive(false);
+            // A match the title opens starts with its start card, on both peers alike.
+            localVersus.StartCardsEnabled = true;
             onlineVersus.Start();
             return true;
         }
 
-        /// <summary>The title screen: 이어하기 when a valid save exists, and 새 게임. Auto-saving stays off until one is chosen.</summary>
+        /// <summary>The title screen: 이어하기 when a valid save exists, 새 게임, and 온라인 친구 대전 (which never touches the
+        /// save). Auto-saving stays off until 이어하기 or 새 게임 is chosen.</summary>
         public void ShowTitle()
         {
             onlineVersus?.Stop();
@@ -1276,6 +1211,7 @@ namespace TurnLimbo.Presentation
             AutoSaveEnabled = false;
             StoryProgressionEnabled = false;
             StartCardsEnabled = false;
+            if (localVersus != null) localVersus.StartCardsEnabled = false;
             SyncStoryProgression();
             showingTitle = true;
             string summary = null, notice = null;
@@ -2126,9 +2062,9 @@ namespace TurnLimbo.Presentation
         {
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null) return;
-            if (keyboard.qKey.isPressed) holdConsumed[0] = true;
-            if (keyboard.wKey.isPressed) holdConsumed[1] = true;
-            if (keyboard.eKey.isPressed) holdConsumed[2] = true;
+            if (keyboard.qKey.isPressed) laneHolds.Consume(0);
+            if (keyboard.wKey.isPressed) laneHolds.Consume(1);
+            if (keyboard.eKey.isPressed) laneHolds.Consume(2);
         }
 
         /// <summary>Starts the same mission, stage or dummy training again without resetting campaign progression.</summary>
@@ -2326,7 +2262,7 @@ namespace TurnLimbo.Presentation
             skillActivationCue.Reset();
             planningTime = 0f;
             ClearHeldKeys();
-            explainedSkill = null;
+            laneHolds.DropExplanation();
             SetViewPhase(ViewPhase.Outcome);
             hud.ClearSkillFeedback();
             hud.Root.SetActive(false);
@@ -2427,7 +2363,7 @@ namespace TurnLimbo.Presentation
             SetViewPhase(ViewPhase.Outcome);
             planningTime = 0f;
             ClearHeldKeys();
-            explainedSkill = null;
+            laneHolds.DropExplanation();
             hud.Root.SetActive(false);
         }
 
@@ -2475,7 +2411,7 @@ namespace TurnLimbo.Presentation
             planningTime = CurrentPlanningDuration;
             highlightedSlot = -1;
             inspectingEnemy = 0;
-            explainedSkill = null;
+            laneHolds.DropExplanation();
             arena.SetEnemyAppearance(IsTrainingBattle ? EnemyAppearance.TrainingDummy
                 : IsMission ? mission.EnemyAppearance : CampaignEnemyVariant.ForStage(campaign.StageNumber));
             arena.SetBackdrop(IsMission && mission.Number <= PrologueMissions.Count
@@ -2634,23 +2570,9 @@ namespace TurnLimbo.Presentation
                 () => !barks.IsShowing(BarkSpeaker.Player) && !barks.IsShowing(BarkSpeaker.Enemy));
         }
 
-        private void ClearHeldKeys()
-        {
-            explainedSkill = null;
-            explainedLane = -1;
-            for (int i = 0; i < holdTimes.Length; i++)
-            {
-                holdTimes[i] = 0f;
-                // A key (or the pointer on a window) still down was pressed before: under Tab, for the explanation the
-                // guide's Enter closed, or for a turn now committed. Its hold is over, so letting go of it never queues;
-                // the next press starts a new one (ReadLaneHold). One let go meanwhile ends on the vanished path.
-                holdConsumed[i] = laneHeld[i];
-                hud?.SetHoldProgress(i, 0f);
-            }
-            // Presses on the windows from before (or under Tab) are not taken for taps later.
-            hud?.ClearLanePointers();
-            hud?.ClearHoldCancel();
-        }
+        // A key (or the pointer on a window) still down was pressed before: under Tab, for the explanation the guide's Enter
+        // closed, or for a turn now committed. Its hold is over, so letting go of it never queues (DuelLaneHolds.Clear).
+        private void ClearHeldKeys() => laneHolds.Clear(hud);
 
         private void RefreshHud(float delta) => RefreshHudClock(delta, delta);
 
@@ -2684,11 +2606,11 @@ namespace TurnLimbo.Presentation
                 hud.SetInspectedSlot(Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1));
                 hud.ShowExplanation(session.EnemyQueue[Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1)], true);
             }
-            else if (CanChoose && explainedSkill != null)
+            else if (CanChoose && laneHolds.ExplainedSkill != null)
             {
-                CampaignOwnedSkill owned = campaign.GetOwnedSkill(explainedSkill.Id);
-                hud.ShowExplanation(explainedSkill, false,
-                    ReferenceEquals(owned?.Skill, explainedSkill) ? owned : null);
+                LegacySkill explained = laneHolds.ExplainedSkill;
+                CampaignOwnedSkill owned = campaign.GetOwnedSkill(explained.Id);
+                hud.ShowExplanation(explained, false, ReferenceEquals(owned?.Skill, explained) ? owned : null);
             }
             else hud.HideExplanation();
         }

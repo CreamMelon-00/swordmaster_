@@ -33,6 +33,10 @@ namespace TurnLimbo.Presentation
         private static readonly Color Foreground = DuelVisualTheme.Foreground;
         private static readonly Color Muted = DuelVisualTheme.Muted;
 
+        /// <summary>The versus card's buttons (<see cref="ShowVersus"/>) and its note.</summary>
+        public const string VersusRematchCaption = "다시 겨루기", VersusWaitingCaption = "상대 기다리는 중",
+            VersusExitCaption = "타이틀로", VersusNotice = "두 사람 모두 다시 겨루기를 누르면 새 대전이 시작됩니다.";
+
         public GameObject Root => root.gameObject;
         public bool IsVisible => !disposed && root.gameObject.activeSelf;
 
@@ -177,6 +181,48 @@ namespace TurnLimbo.Presentation
             SetActionProminence(retryButton, true);
             lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-153f, actionY);
             retryButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(139f, actionY);
+        }
+
+        /// <summary>A versus result (<see cref="LocalVersusController"/>) on the same card: 승리, 패배 or 무승부 from the
+        /// viewer's side, the turns played and both fighters' health, with 다시 겨루기 (the retry button) and 타이틀로 (the
+        /// lobby button) and no curriculum or next stage. Two players have to agree on a rematch:
+        /// <see cref="SetRematchPending"/> shows that one is waiting.</summary>
+        /// <param name="outcome">The match's result as the viewer reads it (their win is
+        /// <see cref="DuelMatchOutcome.PlayerVictory"/>).</param>
+        public void ShowVersus(DuelMatchOutcome outcome, string title, int turns, int ownHealth, int opponentHealth)
+        {
+            if (disposed) return;
+            if (outcome == DuelMatchOutcome.InProgress) throw new ArgumentOutOfRangeException(nameof(outcome));
+            root.gameObject.SetActive(true);
+            heading.text = outcome == DuelMatchOutcome.PlayerVictory ? "승리"
+                : outcome == DuelMatchOutcome.Draw ? "무승부" : "패배";
+            heading.color = outcome == DuelMatchOutcome.PlayerVictory ? Accent
+                : outcome == DuelMatchOutcome.Draw ? Foreground : DuelVisualTheme.Danger;
+            stage.text = title ?? string.Empty;
+            rounds.text = Mathf.Max(0, turns).ToString();
+            playerHealth.text = Mathf.Max(0, ownHealth).ToString();
+            enemyHealth.text = Mathf.Max(0, opponentHealth).ToString();
+            LayoutCurriculumRow(false);
+            curriculum.text = curriculumDetail.text = string.Empty;
+            notice.text = VersusNotice;
+            lobbyCaption.text = VersusExitCaption;
+            lobbyButton.gameObject.SetActive(true);
+            nextButton.gameObject.SetActive(false);
+            SetRematchPending(false);
+            SetActionProminence(lobbyButton, false);
+            SetActionProminence(retryButton, true);
+            lobbyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-153f, actionY);
+            retryButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(139f, actionY);
+            ClearSelection();
+        }
+
+        /// <summary>The versus card's 다시 겨루기 is sent and waits for the opponent's: it reads 상대 기다리는 중 and takes
+        /// no more clicks until the rematch starts (or the card is shown again).</summary>
+        public void SetRematchPending(bool pending)
+        {
+            if (disposed) return;
+            retryCaption.text = pending ? VersusWaitingCaption : VersusRematchCaption;
+            retryButton.interactable = !pending;
         }
 
         /// <summary>Shows the curriculum row, or closes the card up without it while the curriculum is closed.</summary>

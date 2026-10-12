@@ -47,33 +47,33 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LocalVersusGuard_ShowsFirstAndSecondPlayerActRecovery_WithoutChangingSingleplayerCue()
+        public IEnumerator VersusGuard_IsWordedFromTheViewersSide_WithoutPlayerNumbers_WithoutChangingSingleplayerCue()
         {
             yield return null;
             LegacySkill guard = LegacySkillDefinitions.Skill(7);
             LegacySkill hit = LegacySkillDefinitions.Skill(5);
-            using (var fixture = new Fixture(localVersus: true))
+            using (var fixture = new Fixture())
             {
-                var leftGuards = new LocalVersusMatch(new[] { guard }, new[] { hit });
-                Assert.That(leftGuards.TryQueueLane(0, 0), Is.True);
-                Assert.That(leftGuards.TryQueueLane(1, 2), Is.True);
-                Assert.That(leftGuards.TryPass(0) && leftGuards.TryPass(1), Is.True);
-                LocalVersusSlot leftSlot = leftGuards.BeginNextSlot();
-                Assert.That(leftSlot.LeftFeedback.ActGainGranted, Is.EqualTo(2));
-                Assert.That(fixture.Cue.Show(true, guard, leftSlot.LeftFeedback), Is.True);
-                Assert.That(fixture.PlayerTitle.text, Is.EqualTo("1P 막기 성공!"));
+                // The guest (Right) guards the host's attack: its own cue on the guest's screen, the opponent's on the host's.
+                var match = new LocalVersusMatch(new[] { hit }, new[] { guard });
+                Assert.That(match.TryQueueLane(0, 2), Is.True);
+                Assert.That(match.TryQueueLane(1, 0), Is.True);
+                Assert.That(match.TryPass(0) && match.TryPass(1), Is.True);
+                LocalVersusSlot slot = match.BeginNextSlot();
+                LocalVersusPerspectiveSlot guest = new LocalVersusPerspective(match, 1).Slot(slot);
+                Assert.That(guest.PlayerSkill, Is.SameAs(guard));
+                Assert.That(guest.PlayerFeedback.ActGainGranted, Is.EqualTo(2));
+                Assert.That(fixture.Cue.Show(true, guest.PlayerSkill, guest.PlayerFeedback), Is.True);
+                Assert.That(fixture.PlayerTitle.text, Is.EqualTo("막기 성공!"));
                 Assert.That(fixture.PlayerDetail.text, Is.EqualTo("다음 턴 ACT 회복 +2"));
 
-                var rightGuards = new LocalVersusMatch(new[] { hit }, new[] { guard });
-                Assert.That(rightGuards.TryQueueLane(0, 2), Is.True);
-                Assert.That(rightGuards.TryQueueLane(1, 0), Is.True);
-                Assert.That(rightGuards.TryPass(0) && rightGuards.TryPass(1), Is.True);
-                LocalVersusSlot rightSlot = rightGuards.BeginNextSlot();
-                Assert.That(rightSlot.RightFeedback.ActGainGranted, Is.EqualTo(2));
-                Assert.That(fixture.Cue.Show(false, guard, rightSlot.RightFeedback), Is.True);
-                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("2P 막기 성공!"));
+                LocalVersusPerspectiveSlot hostView = new LocalVersusPerspective(match, 0).Slot(slot);
+                Assert.That(hostView.EnemySkill, Is.SameAs(guard));
+                Assert.That(fixture.Cue.Show(false, hostView.EnemySkill, hostView.EnemyFeedback), Is.True);
+                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 막기 성공!"));
                 Assert.That(fixture.EnemyDetail.text, Is.EqualTo("다음 턴 ACT 회복 +2"));
-                Assert.That(fixture.EnemyDetail.text, Does.Not.Contain("내 공격을 읽음"));
+                Assert.That(fixture.EnemyDetail.text, Does.Not.Contain("내 공격을 읽음"),
+                    "A guard that earned its ACT is a success, not the campaign enemy's warning.");
             }
 
             using (var singleplayer = new Fixture())
@@ -554,7 +554,7 @@ namespace TurnLimbo.Presentation.Tests
             public readonly Transform PlayerActor, EnemyActor;
             public readonly Text PlayerTitle, PlayerDetail, EnemyTitle, EnemyDetail;
 
-            public Fixture(bool localVersus = false)
+            public Fixture()
             {
                 Owner = new GameObject("Skill Activation Cue Fixture", typeof(RectTransform), typeof(Canvas),
                     typeof(CanvasScaler));
@@ -573,7 +573,7 @@ namespace TurnLimbo.Presentation.Tests
                 PlayerActor.position = new Vector3(-3f, 0f, 0f);
                 EnemyActor.position = new Vector3(3f, 0f, 0f);
                 art = new LegacyDuelArt();
-                Cue = new DuelSkillActivationCue(Owner.transform, art.UIFont, localVersus);
+                Cue = new DuelSkillActivationCue(Owner.transform, art.UIFont);
                 Root = Owner.transform.Find("Skill Activation Cues");
                 Assert.That(Root, Is.Not.Null);
                 Player = Root.Find("Player Skill Activation Cue");

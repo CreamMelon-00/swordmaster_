@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Title entry for continuing, starting a new campaign, and versus play.
+    /// <summary>Title entry for continuing, starting a new campaign, and the online friend duel.
     /// Starting a new campaign asks for confirmation when it would overwrite a save.</summary>
     public sealed class TitleHud : IDisposable
     {
@@ -14,10 +14,10 @@ namespace TurnLimbo.Presentation
         // Retained for old content that addresses the previous room directly.
         public const string BackgroundResource = "LobbyRoom/room";
         private readonly LegacyDuelArt art;
-        private readonly Action continueGame, newGame, localVersus, onlineVersus;
+        private readonly Action continueGame, newGame, onlineVersus;
         private readonly RectTransform root;
         private readonly Text summary, notice, continueCaption, newGameCaption;
-        private readonly Button continueButton, newGameButton, localVersusButton, onlineVersusButton, confirmButton, cancelButton;
+        private readonly Button continueButton, newGameButton, onlineVersusButton, confirmButton, cancelButton;
         private readonly GameObject confirmPanel;
         private bool confirmNewGame, disposed;
 
@@ -27,19 +27,17 @@ namespace TurnLimbo.Presentation
         public bool IsConfirming => IsVisible && confirmPanel.activeSelf;
         public Button ContinueButton => continueButton;
         public Button NewGameButton => newGameButton;
-        public Button LocalVersusButton => localVersusButton;
         public Button OnlineVersusButton => onlineVersusButton;
         public Button ConfirmButton => confirmButton;
         public Button CancelButton => cancelButton;
 
         public TitleHud(Transform parent, LegacyDuelArt art, Action continueGame, Action newGame,
-            Sprite selectedRoomSprite = null, Action localVersus = null, Action onlineVersus = null)
+            Sprite selectedRoomSprite = null, Action onlineVersus = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
             this.continueGame = continueGame;
             this.newGame = newGame;
-            this.localVersus = localVersus;
             this.onlineVersus = onlineVersus;
             root = Rect("Title HUD", parent, Vector2.zero, Vector2.zero);
             var canvas = root.gameObject.AddComponent<Canvas>();
@@ -74,10 +72,9 @@ namespace TurnLimbo.Presentation
             newGameButton = ActionButton("Title New Game", root, "새 게임", new Vector2(0f, -200f), new Vector2(460f, 68f),
                 PressNewGame);
             newGameCaption = newGameButton.GetComponentInChildren<Text>();
-            localVersusButton = ActionButton("Title Local Versus", root, "로컬 2인 대전", new Vector2(-236f, -286f),
-                new Vector2(452f, 68f), () => this.localVersus?.Invoke());
-            onlineVersusButton = ActionButton("Title Online Versus", root, "온라인 친구 대전", new Vector2(236f, -286f),
-                new Vector2(452f, 68f), () => this.onlineVersus?.Invoke());
+            // Under 새 게임, in the same column.
+            onlineVersusButton = ActionButton("Title Online Versus", root, "온라인 친구 대전", new Vector2(0f, -286f),
+                new Vector2(460f, 68f), () => this.onlineVersus?.Invoke());
             notice = Label("Title Notice", root, new Vector2(0f, -376f), new Vector2(1100f, 64f), 20, DuelVisualTheme.Danger);
 
             var veil = Panel("Title Confirm", root, Vector2.zero, Vector2.zero,
@@ -157,7 +154,6 @@ namespace TurnLimbo.Presentation
             disposed = true;
             continueButton.onClick.RemoveAllListeners();
             newGameButton.onClick.RemoveAllListeners();
-            localVersusButton.onClick.RemoveAllListeners();
             onlineVersusButton.onClick.RemoveAllListeners();
             confirmButton.onClick.RemoveAllListeners();
             cancelButton.onClick.RemoveAllListeners();

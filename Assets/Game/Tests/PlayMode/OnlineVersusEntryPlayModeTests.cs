@@ -28,7 +28,6 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.TitleHud.OnlineVersusButton.interactable, Is.True);
                 controller.TitleHud.OnlineVersusButton.onClick.Invoke();
                 Assert.That(controller.IsInOnlineVersus, Is.True);
-                Assert.That(controller.IsInLocalVersus, Is.False);
                 Assert.That(controller.IsInTitle, Is.False);
                 Assert.That(controller.OnlineVersus.Hud.IsVisible, Is.True);
                 Assert.That(controller.OnlineVersus.IsInBattle, Is.False);

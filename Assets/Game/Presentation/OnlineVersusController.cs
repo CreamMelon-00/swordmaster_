@@ -154,8 +154,10 @@ namespace TurnLimbo.Presentation
             }
             else
             {
-                ApplyAcceptedInOrder();
+                // A round's planning digest is the state before any of that round's commands, so it is checked before
+                // the queued ones are replayed (a quick host can act before this screen reaches the round).
                 CheckDigests();
+                ApplyAcceptedInOrder();
             }
         }
 
@@ -458,6 +460,10 @@ namespace TurnLimbo.Presentation
             if (host || !battle || duel.Match == null) return;
             while (accepted.Count > 0)
             {
+                // The host sends a round's planning digest before any command of that round, so verify it first: the
+                // digest hashes the state no command has touched yet.
+                CheckDigests();
+                if (!battle || duel.Match == null) return;
                 OnlineVersusMessage packet = accepted.Peek();
                 if (packet.Round > duel.Match.RoundNumber) return;
                 if (packet.Round < duel.Match.RoundNumber)

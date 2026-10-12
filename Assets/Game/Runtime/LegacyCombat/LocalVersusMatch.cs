@@ -66,6 +66,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
             max = skill == null ? 0 : checked(skill.MaxPower + bonus);
         }
 
+        /// <summary>The cancel boost, read as <see cref="LegacyQueuedDuel"/>'s for the duel HUD: the queued technique
+        /// whose removal effect armed it, or -1.</summary>
+        public int QueuePowerSourceSlotIndex => BoostSource;
+
+        /// <summary>Skills that technique removed (common actions such as breathing do not count); 0 without a source.</summary>
+        public int QueuePowerRemovedSkillCount => BoostSource >= 0 ? BoostRemoved : 0;
+
+        /// <summary>The first technique queued after the source, skipping common actions, or -1 if none is queued.</summary>
+        public int QueuePowerTargetSlotIndex
+        {
+            get
+            {
+                if (BoostSource < 0) return -1;
+                for (int i = BoostSource + 1; i < QueueSkills.Count; i++)
+                    if (!QueueSkills[i].IsWait) return i;
+                return -1;
+            }
+        }
+
+        /// <summary>The boost's whole-skill power multiplier for a slot of this queue; 1 for any slot but the target.</summary>
+        public int QueuePowerMultiplierForSlot(int slotIndex) => PowerMultiplierForSlot(slotIndex);
+
         internal void Reset()
         {
             State = new LegacyFighterState(maxHealth, maxResistance);
@@ -90,13 +112,31 @@ namespace TurnLimbo.Runtime.LegacyCombat
             BreathsQueuedThisTurn = LaneCyclesThisTurn = 0;
         }
 
-        internal bool QueueLane(int laneIndex)
+        /// <summary>Whether <see cref="QueueLane"/> would reserve this lane's front skill now: the lane has one, it is not a
+        /// wait, and ACT covers its cost.</summary>
+        internal bool CanQueueLane(int laneIndex)
         {
             if (laneIndex < 0 || laneIndex > 2 || lanes[laneIndex].Count == 0) return false;
             LegacySkill skill = lanes[laneIndex][0];
-            if (skill.IsWait) return false;
+            return !skill.IsWait && Act >= EffectiveCost(skill);
+        }
+
+        /// <summary>Whether a breath may still be queued this turn.</summary>
+        internal bool CanQueueBreath() => BreathsQueuedThisTurn < LocalVersusMatch.MaximumBreathsPerTurn;
+
+        /// <summary>Whether a lane rotation would turn anything: some lane holds two skills or more.</summary>
+        internal bool CanCycleLanes()
+        {
+            foreach (List<LegacySkill> lane in lanes)
+                if (lane.Count >= 2) return true;
+            return false;
+        }
+
+        internal bool QueueLane(int laneIndex)
+        {
+            if (!CanQueueLane(laneIndex)) return false;
+            LegacySkill skill = lanes[laneIndex][0];
             int cost = EffectiveCost(skill);
-            if (Act < cost) return false;
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             LegacyQueueRemovalMode removal = effect?.QueueRemovalMode ?? LegacyQueueRemovalMode.None;
             int removed = 0, returned = 0;
@@ -127,7 +167,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         internal bool QueueBreath()
         {
-            if (BreathsQueuedThisTurn >= LocalVersusMatch.MaximumBreathsPerTurn) return false;
+            if (!CanQueueBreath()) return false;
             QueueSkills.Add(LegacyCommonActions.Breathe);
             QueueCosts.Add(0);
             BreathsQueuedThisTurn++;
@@ -136,17 +176,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         internal bool CycleLanes()
         {
-            bool turned = false;
+            if (!CanCycleLanes()) return false;
             foreach (List<LegacySkill> lane in lanes)
             {
                 if (lane.Count < 2) continue;
                 LegacySkill front = lane[0];
                 lane.RemoveAt(0);
                 lane.Add(front);
-                turned = true;
             }
-            if (turned) LaneCyclesThisTurn++;
-            return turned;
+            LaneCyclesThisTurn++;
+            return true;
         }
 
         internal int PowerMultiplierForSlot(int slotIndex)
@@ -225,6 +264,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     {
         internal LocalVersusHit(LocalVersusSlot slot, int index, bool leftAttack, bool rightAttack,
             int leftHealth, int rightHealth, int leftResistance, int rightResistance,
+            LegacyHitImpact leftImpact, LegacyHitImpact rightImpact,
             bool leftCondition, bool rightCondition, LocalVersusOutcome outcome)
         {
             SlotIndex = slot.SlotIndex;
@@ -237,6 +277,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             RightHealthDamage = rightHealth;
             LeftResistanceDamage = leftResistance;
             RightResistanceDamage = rightResistance;
+            LeftPushPower = leftImpact.PushPower;
+            RightPushPower = rightImpact.PushPower;
+            LeftDisplayedDamage = leftImpact.DisplayedDamage;
+            RightDisplayedDamage = rightImpact.DisplayedDamage;
             LeftAttackConditionMet = leftCondition;
             RightAttackConditionMet = rightCondition;
             IsFinalHit = slot.IsResolved;
@@ -252,6 +296,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int RightHealthDamage { get; }
         public int LeftResistanceDamage { get; }
         public int RightResistanceDamage { get; }
+        /// <summary>The knockback the left fighter takes from this hit (<see cref="LegacyHitResult.PlayerPushPower"/>'s
+        /// rule); 0 when the right fighter did not attack.</summary>
+        public int LeftPushPower { get; }
+        public int RightPushPower { get; }
+        /// <summary>The damage number this hit shows on the left fighter, as a single-player hit's
+        /// (<see cref="LegacyHitResult.PlayerDisplayedDamage"/>): the health damage before health stops at zero, or the
+        /// resistance taken when the resistance held. 0 when the right fighter did not attack.</summary>
+        public int LeftDisplayedDamage { get; }
+        public int RightDisplayedDamage { get; }
         public bool LeftAttackConditionMet { get; }
         public bool RightAttackConditionMet { get; }
         public bool IsFinalHit { get; }
@@ -282,7 +335,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LocalVersusOutcome Outcome { get; }
     }
 
-    /// <summary>Public alternating reservations for two local players; no dodge, pressure or meshing.</summary>
+    /// <summary>Public alternating reservations for two players (the online friend duel: both peers run the same match from
+    /// one seed); no dodge, pressure or meshing.</summary>
     public sealed class LocalVersusMatch
     {
         public const int MaximumBreathsPerTurn = 3;
@@ -339,6 +393,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool TryCycleLanes(int playerIndex)
             => IsCurrentPlanner(playerIndex) && GetFighter(playerIndex).CycleLanes();
 
+        /// <summary>Whether <see cref="TryQueueLane"/> would take this command now. Like the other Can... reads it never
+        /// changes the match: the guest asks its own copy before it sends a request to the host.</summary>
+        public bool CanQueueLane(int playerIndex, int laneIndex)
+            => IsCurrentPlanner(playerIndex) && GetFighter(playerIndex).CanQueueLane(laneIndex);
+
+        /// <summary>Whether <see cref="TryQueueBreath"/> would take this command now.</summary>
+        public bool CanQueueBreath(int playerIndex)
+            => IsCurrentPlanner(playerIndex) && GetFighter(playerIndex).CanQueueBreath();
+
+        /// <summary>Whether <see cref="TryCycleLanes"/> would turn a lane now.</summary>
+        public bool CanCycleLanes(int playerIndex)
+            => IsCurrentPlanner(playerIndex) && GetFighter(playerIndex).CanCycleLanes();
+
         /// <summary>One pass yields; two consecutive passes start resolving the visible queues.</summary>
         public bool TryPass(int playerIndex)
         {
@@ -381,12 +448,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
             bool leftAttack = HasAttackHit(slot.LeftSkill, index);
             bool rightAttack = HasAttackHit(slot.RightSkill, index);
             bool leftCondition = false, rightCondition = false;
+            // What each fighter receives, kept for presentation only (damage numbers and knockback).
+            LegacyHitImpact leftImpact = default, rightImpact = default;
             // Both attacks at this hit index land before defeat is checked; later hits stop after a KO.
             if (leftAttack)
-                ResolveHit(slot.LeftSkill, slot.RightSkill, slot.LeftPower, slot.RightPower,
+                rightImpact = ResolveHit(slot.LeftSkill, slot.RightSkill, slot.LeftPower, slot.RightPower,
                     Right.State, slot.RightReceivedMultiplier, out leftCondition);
             if (rightAttack)
-                ResolveHit(slot.RightSkill, slot.LeftSkill, slot.RightPower, slot.LeftPower,
+                leftImpact = ResolveHit(slot.RightSkill, slot.LeftSkill, slot.RightPower, slot.LeftPower,
                     Left.State, slot.LeftReceivedMultiplier, out rightCondition);
             slot.HitsResolved++;
             LocalVersusOutcome outcome = DetermineOutcome();
@@ -394,7 +463,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return new LocalVersusHit(slot, index, leftAttack, rightAttack,
                 leftHealth - Left.State.Health, rightHealth - Right.State.Health,
                 leftResistance - Left.State.Resistance, rightResistance - Right.State.Resistance,
-                leftCondition, rightCondition, outcome);
+                leftImpact, rightImpact, leftCondition, rightCondition, outcome);
         }
 
         public LocalVersusSlotResult CompleteCurrentSlot()
@@ -564,7 +633,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private static bool HasAttackHit(LegacySkill skill, int hitIndex)
             => skill != null && skill.Kind == LegacySkillKind.Attack && hitIndex < skill.AttackCount;
 
-        private static void ResolveHit(LegacySkill attack, LegacySkill defence, int attackPower, int defencePower,
+        private static LegacyHitImpact ResolveHit(LegacySkill attack, LegacySkill defence, int attackPower, int defencePower,
             LegacyFighterState target, double received, out bool conditionMet)
         {
             int power = attackPower;
@@ -573,7 +642,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacySkillEffect effect = LegacySkillDefinitions.Find(attack)?.Effect;
             int brokenBonus = target.IsResistanceBroken ? effect?.BrokenTargetDamagePercent ?? 0 : 0;
             conditionMet = effect != null && effect.ConditionalDamagePercent > 0 && effect.OpponentStateHolds(target);
-            target.ReceiveHit(power, defence != null && defence.Kind == LegacySkillKind.Attack,
+            return target.ReceiveHit(power, defence != null && defence.Kind == LegacySkillKind.Attack,
                 received, false, brokenBonus, conditionMet ? effect.ConditionalDamagePercent : 0);
         }
 

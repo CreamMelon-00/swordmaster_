@@ -7,7 +7,8 @@ using Object = UnityEngine.Object;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>A brief, side-specific announcement for a condition that actually matched during a slot.</summary>
+    /// <summary>A brief, side-specific announcement for a condition that actually matched during a slot. The player side is
+    /// the viewer's own fighter, the other is worded as the opponent's (상대 …), in versus as in the campaign's battles.</summary>
     public sealed class DuelSkillActivationCue : IDisposable
     {
         private const float Duration = 1.05f;
@@ -20,14 +21,12 @@ namespace TurnLimbo.Presentation
         private readonly RectTransform root;
         private readonly Canvas canvas;
         private readonly CueView player, enemy;
-        private readonly bool localVersus;
         private bool disposed;
 
-        public DuelSkillActivationCue(Transform parent, Font font, bool localVersus = false)
+        public DuelSkillActivationCue(Transform parent, Font font)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             if (font == null) throw new ArgumentNullException(nameof(font));
-            this.localVersus = localVersus;
             root = new GameObject("Skill Activation Cues", typeof(RectTransform)).GetComponent<RectTransform>();
             root.SetParent(parent, false);
             root.anchorMin = Vector2.zero;
@@ -46,7 +45,7 @@ namespace TurnLimbo.Presentation
 
             // The matching guard is still a readable threat when the enemy has no ACT pool.
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
-            bool enemyGuardResponse = !localVersus && !playerSide && !feedback.EffectActivated &&
+            bool enemyGuardResponse = !playerSide && !feedback.EffectActivated &&
                 skill.Kind == LegacySkillKind.Defence && effect != null &&
                 effect.HasOpponentCondition && effect.ActGain > 0;
             if (!feedback.EffectActivated && !enemyGuardResponse) return false;
@@ -56,8 +55,8 @@ namespace TurnLimbo.Presentation
             if (feedback.OpponentResistanceReduced > 0)
             {
                 // The sheet never pairs a break with a direct reduction, so a break owns the whole amount.
-                detail = feedback.OpponentBroken ? (localVersus || playerSide ? "상대 붕괴" : "내 저항 붕괴")
-                    : (localVersus || playerSide ? "상대 저항 -" : "내 저항 -") + feedback.OpponentResistanceReduced;
+                detail = feedback.OpponentBroken ? (playerSide ? "상대 붕괴" : "내 저항 붕괴")
+                    : (playerSide ? "상대 저항 -" : "내 저항 -") + feedback.OpponentResistanceReduced;
                 if (playerSide) tint = DuelVisualTheme.Accent;
             }
             if (feedback.ResistanceRestored > 0)
@@ -70,7 +69,7 @@ namespace TurnLimbo.Presentation
                 // The 상대 상태 조건 already holds and the slot's hits reach health (the opponent is broken or not
                 // attacking, and no guard absorbs them), so they carry the multiplier. The enemy's cue comes before the
                 // dodge window and reads as a warning: a dodge still cancels the strike.
-                detail = Join(detail, ConditionalDamageText(feedback.ConditionalDamagePercent) + " (" + (localVersus || playerSide ? "상대 " : "내 ") +
+                detail = Join(detail, ConditionalDamageText(feedback.ConditionalDamagePercent) + " (" + (playerSide ? "상대 " : "내 ") +
                     (effect.OpponentState == LegacyOpponentState.Broken ? "저항 붕괴" : "체력 " + effect.OpponentHealthPercent + "% 이하") + ")");
                 if (playerSide) tint = DuelVisualTheme.Accent;
             }
@@ -88,8 +87,7 @@ namespace TurnLimbo.Presentation
             if (string.IsNullOrEmpty(detail)) return false;
 
             CueView view = playerSide ? player : enemy;
-            view.Title.text = (localVersus ? (playerSide ? "1P " : "2P ") :
-                playerSide ? string.Empty : "상대 ") + skill.Name +
+            view.Title.text = (playerSide ? string.Empty : "상대 ") + skill.Name +
                 (enemyGuardResponse ? " 대응!" : " 성공!");
             view.Detail.text = detail;
             view.Title.color = tint;

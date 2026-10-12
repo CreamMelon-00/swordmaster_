@@ -167,7 +167,6 @@ namespace TurnLimbo.Presentation
             if (skill == null) { Clear(); return; }
             if (enemy || owned?.SkillId != skill.Id) owned = null;
             if (owned != null) skill = owned.Skill;
-            if (enemy) { cycleUses = -1; effectiveCost = null; effectivePower = null; }
             int level = owned?.Level ?? 0, experience = owned?.Experience ?? 0;
             if (ReferenceEquals(shown, skill) && shownEnemy == enemy && shownAdditionalDescription == additionalDescription &&
                 ReferenceEquals(shownOwned, owned) && shownLevel == level && shownExperience == experience &&

@@ -4,7 +4,7 @@ using TurnLimbo.Runtime.Combat;
 
 namespace TurnLimbo.Runtime.LegacyCombat
 {
-    public sealed class LegacyQueuedDuel
+    public sealed class LegacyQueuedDuel : ILegacyDuelView
     {
         public const int MaximumBreathsPerTurn = 3;
         private const int BaseActGain = 3;
@@ -166,11 +166,20 @@ namespace TurnLimbo.Runtime.LegacyCombat
             min = skill == null ? 0 : checked(skill.MinPower + bonus);
             max = skill == null ? 0 : checked(skill.MaxPower + bonus);
         }
+        // The scripted enemy never cycles (the sheet keeps 순환 off enemy skills): its skills read as the sheet has them.
+        int ILegacyDuelView.EnemyCycleUses(int skillId) => 0;
+        int ILegacyDuelView.EnemyEffectiveCost(LegacySkill skill) => skill == null ? 0 : skill.Cost;
+        void ILegacyDuelView.EnemyEffectivePowerRange(LegacySkill skill, out int min, out int max)
+        {
+            min = skill == null ? 0 : skill.MinPower;
+            max = skill == null ? 0 : skill.MaxPower;
+        }
         public LegacyDuelPhase Phase { get; private set; }
         public DuelMatchOutcome Outcome { get; private set; }
         public IReadOnlyList<LegacySkill> PlayerQueue { get; }
         public IReadOnlyList<LegacySkill> EnemyQueue { get; }
         public LegacyCurrentSlot CurrentSlot { get; private set; }
+        ILegacySlotView ILegacyDuelView.CurrentSlot => CurrentSlot;
         /// <summary>Whether any step was attempted this turn.</summary>
         public bool UsedStepThisTurn => StepAttemptsThisTurn > 0;
         /// <summary>Dodge and pressure attempts this turn, hit or miss; each one narrows the next

@@ -47,7 +47,7 @@ namespace TurnLimbo.Presentation
         private readonly Action queueBreath, cycleLanes;
         private Button cycleButton;
         private RectTransform cycleNote;
-        private LegacyQueuedDuel displayedSession;
+        private ILegacyDuelView displayedSession;
         private int shownBreathsRemaining = -1;
         private MissionGuide guide;
         private bool lastPlanning;
@@ -75,6 +75,15 @@ namespace TurnLimbo.Presentation
         private CombatFeature laidOutLanes = AllLanes;
         private int stageNumber, stageCount;
         private string stageName;
+        // The stage plate's words as given (SetStageText), over a stage's, a mission's or training's; null for those.
+        private string stageOverride;
+        // The planning inputs wait on someone else (SetInputsHeld): versus's opponent's turn, or a request the host has
+        // not confirmed yet.
+        private bool inputsHeld;
+        private const float HeldInputAlpha = .55f;
+        private readonly Text commitLabel;
+        /// <summary>The commit seal's word in the campaign's battles (<see cref="SetCommitLabel"/>).</summary>
+        public const string CommitLabel = "확정";
         private readonly StatusView playerStatus, enemyStatus;
         private readonly QueueView playerQueue, enemyQueue;
         private const float QueueCancellationSeconds = .64f, QueueCancellationFadeStart = .33f;
@@ -124,7 +133,7 @@ namespace TurnLimbo.Presentation
         private LegacySkill conditionPreview;
         private LegacySkill stateHintSkill;
         private string stateHint;
-        private LegacyCurrentSlot feedbackSlot;
+        private ILegacySlotView feedbackSlot;
         private Camera worldCamera;
         private bool disposed;
         private float transition, targetTransition, slotElapsed, slotDuration;
@@ -139,6 +148,9 @@ namespace TurnLimbo.Presentation
         // small tabs outside the desk, but remain in the same input group for the planning fade.
         private const float DockWidth = 980f, DockHeight = 200f, DockBottomInset = 14f;
         private const float EndButtonX = 550f, ToolDividerX = 288f;
+        /// <summary>The duel HUD's canvas order: over the arena, under what stands over a battle (versus's overlay at
+        /// <see cref="LocalVersusHud.SortingOrder"/>, the bars, the start and result cards).</summary>
+        public const int SortingOrder = 100;
         /// <summary>The ACT track's height in the dock ('Input/Keys' space), along its top over the gears; the
         /// <c>n / 10 ACT</c> value sits just above it.</summary>
         public const float ActTrackY = 60f;
@@ -270,7 +282,7 @@ namespace TurnLimbo.Presentation
             canvas = root.gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             canvas.pixelPerfect = true;
-            canvas.sortingOrder = 100;
+            canvas.sortingOrder = SortingOrder;
             var scaler = root.gameObject.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
@@ -362,7 +374,8 @@ namespace TurnLimbo.Presentation
             actText.color = Foreground;
             guideActFocus = GuideFocusFrame("Guide ACT Focus", controls, new Vector2(0f, ActTrackY + 11f), new Vector2(540f, 40f));
             var start = Panel("AButton", controls, new Vector2(EndButtonX, -4f), new Vector2(96, 112), RaisedSurface, Accent);
-            BuildActionIcon(start.transform, "confirm-turn", "확정", "Space");
+            BuildActionIcon(start.transform, "confirm-turn", CommitLabel, "Space");
+            commitLabel = start.transform.Find("Label").GetComponent<Text>();
             commitButton = AddButton(start, true);
             guideCommitGroup = start.gameObject.AddComponent<CanvasGroup>();
             guideCommitFocus = AddGuideOutline(start);
@@ -505,6 +518,44 @@ namespace TurnLimbo.Presentation
             UpdateStageLabel();
         }
 
+        /// <summary>The stage plate's words as given, instead of a stage's, a mission's or training's (versus names its match
+        /// there); null goes back to those. <see cref="Reset"/> keeps them.</summary>
+        public void SetStageText(string text)
+        {
+            if (disposed) return;
+            stageOverride = text;
+            UpdateStageLabel();
+        }
+
+        /// <summary>What the stage plate says now.</summary>
+        public string StageText => stageText.text;
+
+        /// <summary>The commit seal's word: <see cref="CommitLabel"/> in the campaign's battles; versus, where the seal passes
+        /// the reservation turn (two passes in a row resolve both queues), calls it 패스. Null or empty goes back to
+        /// <see cref="CommitLabel"/>. <see cref="Reset"/> keeps it.</summary>
+        public void SetCommitLabel(string label)
+        {
+            if (disposed) return;
+            commitLabel.text = string.IsNullOrEmpty(label) ? CommitLabel : label;
+        }
+
+        /// <summary>The commit seal's word now.</summary>
+        public string CommitLabelText => commitLabel.text;
+
+        /// <summary>Holds the planning inputs while the duel waits on someone else (versus: the opponent's reservation turn,
+        /// or a request the host has not confirmed yet). The dock stays up, its timer showing whoever's clock runs, and a
+        /// held lane still opens its explanation; the lanes, 넘기기, 숨고르기 and the commit seal dim and take no clicks.
+        /// <see cref="Reset"/> lets them go.</summary>
+        public void SetInputsHeld(bool held)
+        {
+            if (disposed || inputsHeld == held) return;
+            inputsHeld = held;
+            ApplyInputAvailability();
+        }
+
+        /// <summary>Whether the planning inputs are held (<see cref="SetInputsHeld"/>).</summary>
+        public bool InputsHeld => inputsHeld;
+
         /// <summary>Mission duels label the stage as a mission and keep breathing closed.</summary>
         /// <param name="timed">Whether the mission runs the planning timer; otherwise an untimed hint replaces it.</param>
         /// <param name="breath">Whether the mission has opened 숨고르기; closed missions hide its button.</param>
@@ -562,7 +613,7 @@ namespace TurnLimbo.Presentation
             (guide == null || guide.AllowsCycle);
 
         private bool CanCycle()
-            => !disposed && cycleLanes != null && lastPlanning && CycleShown && inspectedSlot < 0 &&
+            => !disposed && cycleLanes != null && lastPlanning && !inputsHeld && CycleShown && inspectedSlot < 0 &&
                 displayedSession.Phase == LegacyDuelPhase.Planning && laneCycleAffordable;
 
         /// <summary>What 넘기기 costs now (planning seconds; 0 while the clock is held) and whether it can be paid.</summary>
@@ -626,18 +677,18 @@ namespace TurnLimbo.Presentation
             breathNote.gameObject.SetActive(false);
             breathButton.interactable = CanQueueBreath();
             bool allowCommit = guide == null || guide.AllowsCommit;
-            commitButton.interactable = lastPlanning && allowCommit;
-            guideCommitGroup.alpha = allowCommit ? 1f : .4f;
+            commitButton.interactable = lastPlanning && !inputsHeld && allowCommit;
+            guideCommitGroup.alpha = !allowCommit ? .4f : inputsHeld ? HeldInputAlpha : 1f;
             for (int lane = 0; lane < laneButtons.Length; lane++)
             {
                 bool allowLane = guide == null || guide.AllowsQueue(lane);
-                laneButtons[lane].interactable = lastPlanning && laneAffordable[lane] && allowLane;
-                SetLaneFade(lane, allowLane ? 1f : .4f);
+                laneButtons[lane].interactable = lastPlanning && !inputsHeld && laneAffordable[lane] && allowLane;
+                SetLaneFade(lane, !allowLane ? .4f : inputsHeld ? HeldInputAlpha : 1f);
             }
         }
 
         private bool CanQueueBreath()
-            => !disposed && queueBreath != null && lastPlanning && BreathShown &&
+            => !disposed && queueBreath != null && lastPlanning && !inputsHeld && BreathShown &&
                 inspectedSlot < 0 && displayedSession != null && displayedSession.Phase == LegacyDuelPhase.Planning &&
                 displayedSession.BreathsRemainingThisTurn > 0;
 
@@ -675,9 +726,9 @@ namespace TurnLimbo.Presentation
 
         private void UpdateStageLabel()
         {
-            stageText.text = trainingMode ? $"수련  ·  {stageName}"
+            stageText.text = stageOverride ?? (trainingMode ? $"수련  ·  {stageName}"
                 : missionMode ? $"임무 {stageNumber:00} / {stageCount:00}  ·  {stageName}"
-                : $"{stageNumber:00} / {stageCount:00}  ·  {stageName}";
+                : $"{stageNumber:00} / {stageCount:00}  ·  {stageName}");
         }
 
         private void UpdateGuideEnemyFocus()
@@ -690,7 +741,9 @@ namespace TurnLimbo.Presentation
             guideEnemyFocus.anchoredPosition = new Vector2((span.x + span.y) * .5f, 0f);
         }
 
-        public void Refresh(LegacyQueuedDuel session, float timeRemaining, bool isResolving, int currentSlot,
+        /// <param name="session">The duel as the player sees it: a <see cref="LegacyQueuedDuel"/>, or a versus match from one
+        /// player's side (<see cref="LocalVersusPerspective"/>).</param>
+        public void Refresh(ILegacyDuelView session, float timeRemaining, bool isResolving, int currentSlot,
             Camera camera, Transform player, Transform enemy, float delta = 0, float realDelta = -1,
             float planningDuration = 10f)
         {
@@ -791,7 +844,7 @@ namespace TurnLimbo.Presentation
             SetMeshMarks(session);
             SetQueuePowerMarks(session);
             playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale, session);
-            enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale);
+            enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale, session);
             UpdateConditionPreview();
             UpdateEffectEmphasis();
             playerQueue.TickFeedback(actualDelta);
@@ -853,8 +906,9 @@ namespace TurnLimbo.Presentation
         /// <summary>Retimes the current slot's queue pulse without restarting it, e.g. after a dodge withdraws a counter.</summary>
         public void SetCurrentSlotDuration(float duration) => slotDuration = Mathf.Max(.4f, duration);
 
-        /// <summary>Uses the immutable combat snapshot; presentation never evaluates or consumes a buff.</summary>
-        public void SetSkillFeedback(LegacyCurrentSlot slot)
+        /// <summary>Uses the immutable combat snapshot; presentation never evaluates or consumes a buff. The feedback stays
+        /// while <paramref name="slot"/> is the duel's current slot (the same object, <see cref="ILegacyDuelView.CurrentSlot"/>).</summary>
+        public void SetSkillFeedback(ILegacySlotView slot)
         {
             if (disposed) return;
             ClearSkillFeedback();
@@ -955,7 +1009,7 @@ namespace TurnLimbo.Presentation
                 else enemyStyle.Clear(EnemySkillCaption);
                 enemyExplanationHint.text = named ? EnemyHint : NeutralEnemyHint;
                 enemyExplanationIcon.sprite = iconFor(skill.IconId);
-                enemyInfo.SetSkill(skill, true);
+                SetEnemyInfoSkill(skill);
                 LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint, 1f);
             }
             else if (changed)
@@ -969,7 +1023,16 @@ namespace TurnLimbo.Presentation
                 LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
                     PlayerExplanationScale, playerMeshNote);
             }
-            else if (!enemy)
+            else if (enemy)
+            {
+                // A versus opponent's 순환 count, cost and power follow its uses while the card stays open, and the same
+                // skill comes back on later turns; the card grows only when its info does.
+                float height = enemyInfo.Height;
+                SetEnemyInfoSkill(skill);
+                if (!Mathf.Approximately(height, enemyInfo.Height))
+                    LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint, 1f);
+            }
+            else
             {
                 if (playerName.text != skill.Name) playerName.text = skill.Name;
                 SetPlayerInfoSkill(skill, owned);
@@ -1011,6 +1074,23 @@ namespace TurnLimbo.Presentation
             string power = min == max ? min.ToString() : min + "–" + max;
             playerInfo.SetSkill(skill, owned: owned, cycleUses: displayedSession.CycleUses(skill.Id),
                 effectiveCost: displayedSession.EffectiveCost(skill), effectivePower: power);
+        }
+
+        // The enemy's card reads the enemy's own uses of a cycling skill, as the player's reads the player's: a versus
+        // opponent cycles too. The campaign's scripted enemy never does, so its card shows the sheet's cost and power.
+        private void SetEnemyInfoSkill(LegacySkill skill)
+        {
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            if (displayedSession == null || effect?.HasCycle != true)
+            {
+                enemyInfo.SetSkill(skill, true);
+                return;
+            }
+
+            displayedSession.EnemyEffectivePowerRange(skill, out int min, out int max);
+            string power = min == max ? min.ToString() : min + "–" + max;
+            enemyInfo.SetSkill(skill, true, cycleUses: displayedSession.EnemyCycleUses(skill.Id),
+                effectiveCost: displayedSession.EnemyEffectiveCost(skill), effectivePower: power);
         }
 
         private void UpdateConditionPreview()
@@ -1265,6 +1345,7 @@ namespace TurnLimbo.Presentation
             explainedPlayer = explainedEnemy = null;
             ResetMeshNote();
             lastPlanning = false;
+            inputsHeld = false;
             shownBreathsRemaining = -1;
             UpdateBreathCount();
             ApplyInputAvailability();
@@ -1872,7 +1953,7 @@ namespace TurnLimbo.Presentation
         public RectTransform GetQueuePowerTargetMark(int queueIndex)
             => disposed ? null : playerQueue.GetQueuePowerTargetMark(queueIndex);
 
-        private void SetQueuePowerMarks(LegacyQueuedDuel session)
+        private void SetQueuePowerMarks(ILegacyDuelView session)
         {
             int source = session.QueuePowerSourceSlotIndex;
             int target = session.QueuePowerTargetSlotIndex;
@@ -1928,7 +2009,7 @@ namespace TurnLimbo.Presentation
                 Root = root; this.player = player; this.white = white; this.font = font; this.meshGear = meshGear;
             }
             public void Refresh(IReadOnlyList<LegacySkill> queue, Func<int, Sprite> iconFor, int activeSlot, bool resolving,
-                int selected, float scale, LegacyQueuedDuel cycleSession = null)
+                int selected, float scale, ILegacyDuelView cycleSession = null)
             {
                 while (icons.Count < queue.Count)
                 {
@@ -1941,11 +2022,8 @@ namespace TurnLimbo.Presentation
                     feedback.Add(SkillCardFeedbackGraphic.Create(item, "Skill Condition Feedback", 3f));
                     counterMarks.Add(CreateCounterMark(item));
                     if (meshGear != null) AddMeshMark(item);
-                    if (player)
-                    {
-                        AddQueuePowerMarks(item);
-                        AddCycleMark(item);
-                    }
+                    if (player) AddQueuePowerMarks(item);
+                    AddCycleMark(item);
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
@@ -1960,17 +2038,16 @@ namespace TurnLimbo.Presentation
                     visibleItems.Add(item);
                     item.localScale = Vector3.one * (resolving && i == activeSlot ? Mathf.Min(scale, 1.2f) : 1);
                     highlights[i].enabled = !resolving && i == selected;
-                    if (player)
+                    // Each row counts its own side's uses: a versus opponent cycles too.
+                    LegacySkillEffect effect = LegacySkillDefinitions.Find(queue[i])?.Effect;
+                    bool cycle = effect?.HasCycle == true;
+                    cycleMarks[i].gameObject.SetActive(cycle);
+                    if (cycle)
                     {
-                        LegacySkillEffect effect = LegacySkillDefinitions.Find(queue[i])?.Effect;
-                        bool cycle = effect?.HasCycle == true;
-                        cycleMarks[i].gameObject.SetActive(cycle);
-                        if (cycle)
-                        {
-                            string count = (cycleSession != null ? cycleSession.CycleUses(queue[i].Id) : 0) +
-                                "/" + effect.CycleMaxCount;
-                            if (cycleLabels[i].text != count) cycleLabels[i].text = count;
-                        }
+                        int uses = cycleSession == null ? 0
+                            : player ? cycleSession.CycleUses(queue[i].Id) : cycleSession.EnemyCycleUses(queue[i].Id);
+                        string count = uses + "/" + effect.CycleMaxCount;
+                        if (cycleLabels[i].text != count) cycleLabels[i].text = count;
                     }
                 }
                 for (int i = 0; i < counterMarks.Count; i++)

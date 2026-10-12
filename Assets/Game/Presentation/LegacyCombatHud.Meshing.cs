@@ -102,7 +102,7 @@ namespace TurnLimbo.Presentation
 
         // Each of the player's slots' bonus, for the cards' marks: the live queue while planning, the committed one while
         // it resolves (LegacyQueuedDuel.PlayerMesh). 0 for a slot not in a chain.
-        private void SetMeshMarks(LegacyQueuedDuel session)
+        private void SetMeshMarks(ILegacyDuelView session)
         {
             meshBonuses.Clear();
             for (int slot = 0; slot < session.PlayerQueue.Count; slot++) meshBonuses.Add(session.PlayerMesh(slot).BonusPercent);

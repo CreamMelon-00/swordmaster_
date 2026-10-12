@@ -26,9 +26,11 @@ namespace TurnLimbo.Presentation.Tests
             using (var hud = new VersusLoadoutHud(host.transform, art, loadout,
                 () => confirmed++, () => cancelled++, () => changed++))
             {
-                hud.Show("1P 기술 편성", "준비 완료");
+                // As the online room opens it (기술 편성).
+                hud.Show();
                 Assert.That(hud.IsVisible, Is.True);
-                Assert.That(Label(hud.Root, "Versus Loadout Heading").text, Is.EqualTo("1P 기술 편성"));
+                Assert.That(Label(hud.Root, "Versus Loadout Heading").text, Is.EqualTo("대전 기술 편성"));
+                Assert.That(hud.ConfirmButton.GetComponentInChildren<Text>().text, Is.EqualTo("편성 완료"));
                 Button(hud.Root, "Versus Available Skill " + qSkill.Id).onClick.Invoke();
                 Assert.That(Named(hud.Root, "Versus Slot Target Q 1").activeSelf, Is.True);
                 Assert.That(Named(hud.Root, "Versus Slot Target W 1").activeSelf, Is.False);
@@ -41,7 +43,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.IsVisible, Is.False);
                 Assert.That(loadout.ToSkills()[0].Id, Is.EqualTo(qSkill.Id));
 
-                hud.Show("2P 기술 편성", "준비 완료");
+                hud.Show();
                 Button(hud.Root, "Versus Available Skill " + originalQ).onClick.Invoke();
                 Button(hud.Root, "Versus Slot Q 1").onClick.Invoke();
                 Assert.That(loadout.GetSkillId(0, 0), Is.EqualTo(originalQ));
