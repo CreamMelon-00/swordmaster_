@@ -169,6 +169,18 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(.05f, 1f), Tooltip("기술 설명을 읽는 동안 편성 시간이 흐르는 배율. 전투에서는 불릿타임에 다가가는 움직임도 같은 배율로 느려집니다(Tab 확인이 0.2배로 느리게 하듯). 편성 밖에서는 느려지지 않습니다. 1이면 느려지지 않습니다.")]
         private float explanationTimeScale = LegacyLaneHold.DefaultExplanationTimeScale;
 
+        [Header("편성 예상 — 실행 중 즉시 적용 (Docs/SlotForecast.md)")]
+        [SerializeField, Tooltip("편성 중 내 큐 카드마다 같은 칸의 상대 기술과 맞붙었을 때의 예상을 작은 표식(유리 ▲ 녹색 · 불리 ▼ 적색 · 비슷 = 회색)으로 보여 주고, 길게 눌러 연 기술 설명과 Tab 확인 카드에 '예상: 상대 저항 -12 · 내 저항 -6' 같은 한 줄을 더합니다. 실제 전투 규칙으로 지금 편성을 복사본에서 끝까지 풀어 본 값입니다(위력은 범위의 평균, 스텝 없음, 버프·맞물림·반격 포함). 끄면 표식과 줄이 모두 사라집니다.")]
+        private bool slotForecastEnabled = true;
+        [SerializeField, Tooltip("온라인 대전에서도 편성 예상을 보여 줍니다. 두 사람의 큐가 모두 보이므로 같은 방식으로 계산합니다. 끄면 대전에서만 숨깁니다.")]
+        private bool slotForecastInVersus = true;
+        [SerializeField, Range(0, 100), Tooltip("예상 판정에서 저항 1이 체력 1의 몇 %로 치는지. 50이면 저항 2 = 체력 1. 판정 = (상대가 잃는 체력 − 내가 잃는 체력) + 저항 차이 × 이 비율 ± 붕괴 가치.")]
+        private int slotForecastResistanceWeight = LegacySlotForecast.DefaultResistanceWeightPercent;
+        [SerializeField, Range(0, 30), Tooltip("그 칸에서 상대(또는 내) 저항이 붕괴하면 체력 몇만큼으로 치는지. 붕괴는 그 턴과 다음 턴의 체력 피해를 두 배로 만들므로 따로 더합니다. 0이면 붕괴를 따로 치지 않습니다.")]
+        private int slotForecastBreakBonus = LegacySlotForecast.DefaultBreakBonus;
+        [SerializeField, Range(0, 30), Tooltip("판정 값이 체력 이만큼 이상 앞서면 유리, 이만큼 이상 뒤지면 불리, 그 사이는 비슷. 그 칸에서 승부가 나면 이 값과 관계없이 유리·불리입니다.")]
+        private int slotForecastMargin = LegacySlotForecast.DefaultMargin;
+
         [Header("숲 소리 — 실행 중 즉시 적용 (Resources/Sfx/forest-ambience-loop)")]
         [SerializeField, Range(0f, 1f), Tooltip("전투와 숲 장면(컷신) 내내 낮게 깔리는 숲 소리(바람·잎·먼 새)의 음량. 로비·타이틀·브리핑에서는 잦아들어 멈춥니다. 0이면 끕니다.")]
         private float forestAmbienceVolume = .4f;
@@ -345,6 +357,13 @@ namespace TurnLimbo.Presentation
         public float LaneTapSeconds => Safe(laneTapSeconds, .05f, .5f, LegacyLaneHold.DefaultTapSeconds);
         public float ExplanationHoldSeconds => Safe(explanationHoldSeconds, .1f, 1.5f, LegacyLaneHold.DefaultExplainSeconds);
         public float ExplanationTimeScale => Safe(explanationTimeScale, .05f, 1f, LegacyLaneHold.DefaultExplanationTimeScale);
+        /// <summary>편성 예상 (<see cref="LegacySlotForecast"/>): whether the duel HUD shows it (and in versus), and how a slot's
+        /// verdict weighs resistance (percent of a health point), a break (health points) and its margin (health points).</summary>
+        public bool SlotForecastEnabled => slotForecastEnabled;
+        public bool SlotForecastInVersus => slotForecastInVersus;
+        public int SlotForecastResistanceWeight => Mathf.Clamp(slotForecastResistanceWeight, 0, 100);
+        public int SlotForecastBreakBonus => Mathf.Clamp(slotForecastBreakBonus, 0, 30);
+        public int SlotForecastMargin => Mathf.Clamp(slotForecastMargin, 0, 30);
         public float ForestAmbienceVolume => Safe(forestAmbienceVolume, 0f, 1f, .4f);
         public float ForestAmbienceFadeSeconds => Safe(forestAmbienceFadeSeconds, 0f, 5f, 1.2f);
         public float ForestAmbienceSceneDuck => Safe(forestAmbienceSceneDuck, 0f, 1f, .7f);
@@ -430,6 +449,8 @@ namespace TurnLimbo.Presentation
             meshFlashSeconds = MeshFlashSeconds; meshFlashSize = MeshFlashSize;
             laneTapSeconds = LaneTapSeconds; explanationHoldSeconds = ExplanationHoldSeconds;
             explanationTimeScale = ExplanationTimeScale;
+            slotForecastResistanceWeight = SlotForecastResistanceWeight; slotForecastBreakBonus = SlotForecastBreakBonus;
+            slotForecastMargin = SlotForecastMargin;
             forestAmbienceVolume = ForestAmbienceVolume; forestAmbienceFadeSeconds = ForestAmbienceFadeSeconds;
             forestAmbienceSceneDuck = ForestAmbienceSceneDuck;
             timePressureShare = TimePressureShare; timePressureCameraPush = TimePressureCameraPush;

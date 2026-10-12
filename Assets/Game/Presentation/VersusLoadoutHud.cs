@@ -19,6 +19,7 @@ namespace TurnLimbo.Presentation
             public Button Button;
             public Image Image, Icon;
             public Text Name;
+            public SkillRolePip Role;
         }
 
         private readonly LegacyDuelArt art;
@@ -29,9 +30,12 @@ namespace TurnLimbo.Presentation
         private readonly Image[,] slotIcons = new Image[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
         private readonly Text[,] slotNames = new Text[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
         private readonly Image[,] slotTargets = new Image[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
+        // Each slot's skill's core mechanic at its icon's upper right (as the campaign loadout's).
+        private readonly SkillRolePip[,] slotRoles = new SkillRolePip[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
         private readonly List<SkillCard> availableCards = new List<SkillCard>();
         private readonly Text heading, confirmLabel, hint, detailName, detailKind;
         private readonly Image detailIcon;
+        private readonly SkillLaneBadge detailStyle;
         private readonly SkillInfoView detailInfo;
         private readonly Button resetButton;
         private readonly VersusLoadout loadout;
@@ -95,11 +99,9 @@ namespace TurnLimbo.Presentation
             {
                 int selectedLane = lane;
                 float x = firstX + lane * pitch;
-                var laneHeader = Panel("Versus Loadout Lane " + lanes[lane], paper.transform,
-                    new Vector2(x, 264f), new Vector2(236f, 36f), DuelVisualTheme.RaisedSurface);
-                DuelVisualTheme.Frame(laneHeader);
-                Label("Lane Letter", laneHeader.transform, Vector2.zero, new Vector2(210f, 32f),
-                    23, DuelVisualTheme.Accent, TextAnchor.MiddleCenter).text = lanes[lane];
+                // The school's dyed badge with its key, as the campaign loadout's lane headings.
+                new SkillLaneBadge(paper.transform, art.UIFont, "Versus Loadout Heading " + lanes[lane],
+                    new Vector2(x, 264f), 236f, 36f, 22).SetLane(lane);
                 for (int slot = 0; slot < VersusLoadout.SlotsPerLane; slot++)
                 {
                     int selectedSlot = slot;
@@ -118,6 +120,7 @@ namespace TurnLimbo.Presentation
                         new Vector2(51f, 51f), Color.white);
                     icon.preserveAspect = true;
                     slotIcons[lane, slot] = icon;
+                    slotRoles[lane, slot] = new SkillRolePip(button.transform, new Vector2(-50f, 18f));
                     var name = Label("Slot Name", button.transform, new Vector2(37f, 0f),
                         new Vector2(145f, 44f), 20, DuelVisualTheme.Foreground);
                     Fit(name, 14, 20);
@@ -130,14 +133,19 @@ namespace TurnLimbo.Presentation
             var detail = Panel("Versus Loadout Detail", detailBorder.transform, Vector2.zero,
                 new Vector2(408f, 402f), DuelVisualTheme.Paper);
             DuelVisualTheme.Frame(detail, true);
-            detailIcon = Panel("Versus Detail Icon", detail.transform, new Vector2(-145f, 143f),
+            // The selected skill's school badge over its icon and name, and its role line (로비 목적), as the campaign
+            // loadout's detail.
+            detailStyle = new SkillLaneBadge(detail.transform, art.UIFont, "Versus Detail Heading", new Vector2(-20f, 183f),
+                250f, 24f, 16);
+            detailIcon = Panel("Versus Detail Icon", detail.transform, new Vector2(-145f, 135f),
                 new Vector2(66f, 66f), Color.white);
             detailIcon.preserveAspect = true;
-            detailName = Label("Versus Detail Name", detail.transform, new Vector2(44f, 159f),
+            detailName = Label("Versus Detail Name", detail.transform, new Vector2(44f, 151f),
                 new Vector2(248f, 32f), 25, DuelVisualTheme.Ink);
             Fit(detailName, 16, 25);
-            detailKind = Label("Versus Detail Kind", detail.transform, new Vector2(44f, 125f),
+            detailKind = Label("Versus Detail Kind", detail.transform, new Vector2(44f, 119f),
                 new Vector2(248f, 25f), 17, DuelVisualTheme.Ink);
+            Fit(detailKind, 12, 17);
             detailInfo = new SkillInfoView(detail.transform, art.UIFont, new Vector2(0f, -51f),
                 370f, "Versus Loadout");
 
@@ -235,6 +243,7 @@ namespace TurnLimbo.Presentation
                     LegacySkill skill = loadout.GetSkill(lane, slot);
                     slotIcons[lane, slot].sprite = art.GetSkillIcon(skill.IconId);
                     slotIcons[lane, slot].enabled = slotIcons[lane, slot].sprite != null;
+                    slotRoles[lane, slot].SetSkill(skill);
                     slotNames[lane, slot].text = skill.Name;
                     slotButtons[lane, slot].GetComponent<Image>().color =
                         selectedId == skill.Id ? DuelVisualTheme.Selected : DuelVisualTheme.Card;
@@ -259,9 +268,10 @@ namespace TurnLimbo.Presentation
             detailIcon.enabled = selected != null && art.GetSkillIcon(selected.IconId) != null;
             detailIcon.sprite = selected == null ? null : art.GetSkillIcon(selected.IconId);
             detailName.text = selected?.Name ?? "기술을 선택하세요";
-            detailKind.text = selected == null ? string.Empty
-                : (new[] { "Q", "W", "E" })[selected.LaneIndex] + "  ·  " +
-                    (selected.Kind == LegacySkillKind.Defence ? "방어" : "공격");
+            // As the campaign loadout's detail: the school's badge only while a skill is selected.
+            detailStyle.Root.gameObject.SetActive(selected != null);
+            if (selected != null) detailStyle.SetLane(selected.LaneIndex);
+            detailKind.text = selected == null ? string.Empty : CampaignSkillText.Purpose(selected);
             if (selected == null) detailInfo.SetEmptyMessage("보유 기술이나 편성된 기술을 선택하면 효과를 볼 수 있습니다.");
             else detailInfo.SetSkill(selected);
         }
@@ -286,6 +296,8 @@ namespace TurnLimbo.Presentation
             card.Icon.sprite = art.GetSkillIcon(skill.IconId);
             card.Icon.enabled = card.Icon.sprite != null;
             card.Icon.preserveAspect = true;
+            card.Role = new SkillRolePip(card.Button.transform, new Vector2(22f, 44f));
+            card.Role.SetSkill(skill);
             card.Name = Label("Available Name", card.Button.transform, new Vector2(0f, -22f),
                 new Vector2(178f, 25f), 17, DuelVisualTheme.Foreground, TextAnchor.MiddleCenter);
             card.Name.text = skill.Name;
@@ -293,7 +305,7 @@ namespace TurnLimbo.Presentation
             Label("Available Cost", card.Button.transform, new Vector2(-43f, -46f),
                 new Vector2(88f, 20f), 14, DuelVisualTheme.Muted).text = "ACT " + skill.Cost;
             Label("Available Lane", card.Button.transform, new Vector2(53f, -46f),
-                new Vector2(64f, 20f), 14, DuelVisualTheme.Accent,
+                new Vector2(64f, 20f), 14, SkillLaneStyle.Edge(skill.LaneIndex),
                 TextAnchor.MiddleRight).text = (new[] { "Q", "W", "E" })[skill.LaneIndex];
             availableCards.Add(card);
         }

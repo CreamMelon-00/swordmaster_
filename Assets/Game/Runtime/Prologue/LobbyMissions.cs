@@ -48,7 +48,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
                         "Q와 E 두 열을 오가며 순서를 짭니다. 확정하세요.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기교를 지켜보세요",
-                        "상대 공격에 {기술:5:를} 맞추면 저항이 직접 5 줄어듭니다. 기술마다 조건이 다르니 Q나 E를 길게 눌러 설명을 확인하세요.", Watch),
+                        "상대 공격에 {기술:5:를} 맞추면 저항이 직접 10 줄어듭니다. 기술마다 조건이 다르니 Q나 E를 길게 눌러 설명을 확인하세요.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "두 열로 승리하세요",
                         "이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다. Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요. 두 열을 번갈아 넣으면 톱니가 맞물려 위력이 오릅니다.",
                         "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 적 확인\nQ/E 길게 눌러 기술 설명 · Esc 일시정지"),

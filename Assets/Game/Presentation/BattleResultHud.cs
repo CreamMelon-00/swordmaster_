@@ -349,7 +349,9 @@ namespace TurnLimbo.Presentation
             foreach (int id in node.SkillIds)
             {
                 LegacySkill skill = LegacySkillDefinitions.Find(id)?.Skill;
-                if (skill != null) names.Add(skill.Name);
+                // Named with its school, as everywhere a skill is shown: "사선베기(Q 정공)".
+                if (skill != null)
+                    names.Add(skill.Name + "(" + SkillLaneStyle.Key(skill.LaneIndex) + " " + SkillLaneStyle.Name(skill.LaneIndex) + ")");
             }
             return names.Count > 0 ? string.Join(", ", names) : "없음";
         }

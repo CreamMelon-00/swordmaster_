@@ -69,14 +69,14 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.PlayerLabel.color, Is.EqualTo(DuelVisualTheme.Health));
                 Assert.That(fixture.PlayerLabel.gameObject.activeSelf, Is.True);
 
-                var draw = new LegacyQueuedDuel(100, 50, 100, 15,
+                var draw = new LegacyQueuedDuel(100, 50, 100, 12,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 draw.TryQueueLane(0); draw.Commit();
                 before = draw.Enemy.Resistance;
                 draw.BeginNextSlot();
                 fixture.Feedback.Show(false, draw.Enemy.Resistance - before);
                 fixture.Tick(0f);
-                Assert.That(fixture.EnemyLabel.text, Is.EqualTo("저항 -15"), "A direct reduction cannot remove more resistance than remains.");
+                Assert.That(fixture.EnemyLabel.text, Is.EqualTo("저항 -12"), "A direct reduction cannot remove more resistance than remains.");
                 Assert.That(fixture.EnemyLabel.color, Is.EqualTo(DuelVisualTheme.Danger));
                 Assert.That(fixture.EnemyLabel.gameObject.activeSelf, Is.True);
                 Assert.That(draw.Enemy.Health, Is.EqualTo(100));
@@ -100,7 +100,7 @@ namespace TurnLimbo.Presentation.Tests
             MethodInfo advance = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
             try
             {
-                var draw = new LegacyQueuedDuel(100, 50, 100, 15,
+                var draw = new LegacyQueuedDuel(100, 50, 100, 12,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 sessionField.SetValue(controller, draw);
                 reset.Invoke(controller, null);
@@ -110,7 +110,7 @@ namespace TurnLimbo.Presentation.Tests
                 advance.Invoke(controller, new object[] { 0f, null });
                 Canvas.ForceUpdateCanvases();
                 Text enemyLabel = Label(controller.Hud.Root, "Enemy Resistance Effect");
-                Assert.That(enemyLabel.text, Is.EqualTo("저항 -15"));
+                Assert.That(enemyLabel.text, Is.EqualTo("저항 -12"));
                 Assert.That(enemyLabel.gameObject.activeInHierarchy, Is.True);
                 Assert.That(draw.CurrentSlot.HitsResolved, Is.Zero);
                 Assert.That(draw.Enemy.Health, Is.EqualTo(100));

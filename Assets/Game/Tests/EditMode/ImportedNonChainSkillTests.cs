@@ -220,7 +220,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(8));
             Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(12));
             Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(8));
-            Assert.That(duel.NextActGain, Is.EqualTo(6));
+            Assert.That(duel.NextActGain, Is.EqualTo(5));
         }
 
         [Test]
@@ -266,8 +266,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.NextActGain, Is.EqualTo(3));
         }
 
+        // 쿠페 (42) also granted ACT until the 2026-10-12 lane rebalance left it one mechanic (the guard counter).
         [TestCase(12)]
-        [TestCase(42)]
         public void LastSlotActBonus_SurvivesAStepAndDoesNotRefundCurrentAct(int id)
         {
             var duel = Duel(new[] { Imported(id, 4, cost: 1) }, new[] { Guard(900, 100) }, new[] { 1 });
@@ -279,9 +279,9 @@ namespace TurnLimbo.Core.Tests
             duel.ResolveNextSlot();
 
             Assert.That(duel.Act, Is.EqualTo(2));
-            Assert.That(duel.NextActGain, Is.EqualTo(6));
+            Assert.That(duel.NextActGain, Is.EqualTo(5));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(6), "The step leaves one natural ACT and preserves the skill bonus.");
+            Assert.That(duel.Act, Is.EqualTo(5), "The step leaves one natural ACT and preserves the skill bonus.");
             Assert.That(duel.NextActGain, Is.EqualTo(3));
         }
 
@@ -389,8 +389,8 @@ namespace TurnLimbo.Core.Tests
         }
 
         [TestCase(5, 0)]
-        [TestCase(20, 0)]
-        [TestCase(50, 30)]
+        [TestCase(15, 0)]
+        [TestCase(50, 35)]
         public void DrawSword_ReducesGuardResistanceOnceWithoutHealthOverflowAcrossMultipleHits(int resistance, int remaining)
         {
             var duel = Duel(new[] { Imported(42, 12, hits: 3) }, new[] { Guard(900, 100) },
@@ -400,7 +400,7 @@ namespace TurnLimbo.Core.Tests
             duel.BeginNextSlot();
             Assert.That(duel.Enemy.Resistance, Is.EqualTo(remaining));
             Assert.That(duel.Enemy.Health, Is.EqualTo(1000));
-            Assert.That(duel.NextActGain, Is.EqualTo(6));
+            Assert.That(duel.NextActGain, Is.EqualTo(3), "쿠페 grants no ACT.");
 
             for (int hit = 0; hit < 3; hit++)
             {
@@ -408,7 +408,7 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(result.EnemyResistanceDamage, Is.Zero);
                 Assert.That(result.EnemyHealthDamage, Is.Zero);
                 Assert.That(duel.Enemy.Resistance, Is.EqualTo(remaining));
-                Assert.That(duel.NextActGain, Is.EqualTo(6));
+                Assert.That(duel.NextActGain, Is.EqualTo(3));
             }
             Assert.That(duel.CompleteCurrentSlot().EnemyResistanceDamage, Is.EqualTo(resistance - remaining));
         }
@@ -470,10 +470,10 @@ namespace TurnLimbo.Core.Tests
             Queue(duel, 0);
             duel.Commit();
             duel.BeginNextSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(30));
+            Assert.That(duel.Player.Resistance, Is.EqualTo(35));
             Assert.That(duel.NextActGain, Is.EqualTo(3));
             while (!duel.IsCurrentSlotResolved) duel.ResolveNextHit();
-            Assert.That(duel.CompleteCurrentSlot().PlayerResistanceDamage, Is.EqualTo(20));
+            Assert.That(duel.CompleteCurrentSlot().PlayerResistanceDamage, Is.EqualTo(15));
 
             duel.Reset();
             Assert.That(duel.Player.Resistance, Is.EqualTo(50));
@@ -524,11 +524,11 @@ namespace TurnLimbo.Core.Tests
             Assert.That(waiting.PlayerSkill, Is.SameAs(LegacyCommonActions.Breathe));
             Assert.That(waiting.PlayerHealthDamage, Is.EqualTo(12));
             Assert.That(waiting.PlayerResistanceDamage, Is.Zero);
-            Assert.That(duel.NextActGain, Is.EqualTo(6));
+            Assert.That(duel.NextActGain, Is.EqualTo(5));
             Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(8));
-            Assert.That(duel.NextActGain, Is.EqualTo(6));
+            Assert.That(duel.NextActGain, Is.EqualTo(5));
             duel.BeginNextTurn();
-            Assert.That(duel.Act, Is.EqualTo(9));
+            Assert.That(duel.Act, Is.EqualTo(8));
             Assert.That(duel.NextActGain, Is.EqualTo(3));
         }
 

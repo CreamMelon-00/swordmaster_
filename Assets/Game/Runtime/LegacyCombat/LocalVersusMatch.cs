@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TurnLimbo.Runtime.Combat;
 
 namespace TurnLimbo.Runtime.LegacyCombat
 {
@@ -30,6 +31,34 @@ namespace TurnLimbo.Runtime.LegacyCombat
             for (int i = 0; i < 3; i++) laneViews[i] = lanes[i].AsReadOnly();
             Queue = QueueSkills.AsReadOnly();
         }
+
+        // A forecast's copy (LocalVersusMatch.ForecastTurn): the same skills and numbers on lists and a state of its own.
+        private LocalVersusFighter(LocalVersusFighter source)
+        {
+            initialSkills = source.initialSkills;
+            maxHealth = source.maxHealth;
+            maxResistance = source.maxResistance;
+            for (int i = 0; i < 3; i++)
+            {
+                lanes[i].AddRange(source.lanes[i]);
+                laneViews[i] = lanes[i].AsReadOnly();
+            }
+            QueueSkills.AddRange(source.QueueSkills);
+            QueueCosts.AddRange(source.QueueCosts);
+            foreach (KeyValuePair<int, int> uses in source.Cycles) Cycles.Add(uses.Key, uses.Value);
+            foreach (LocalVersusBuff buff in source.Buffs) Buffs.Add(new LocalVersusBuff(buff.Power, buff.Protection, buff.SlotsRemaining));
+            BoostSource = source.BoostSource;
+            BoostRemoved = source.BoostRemoved;
+            BoostCap = source.BoostCap;
+            Queue = QueueSkills.AsReadOnly();
+            State = source.State.Copy();
+            Act = source.Act;
+            NextActGain = source.NextActGain;
+            BreathsQueuedThisTurn = source.BreathsQueuedThisTurn;
+            LaneCyclesThisTurn = source.LaneCyclesThisTurn;
+        }
+
+        internal LocalVersusFighter Copy() => new LocalVersusFighter(this);
 
         public LegacyFighterState State { get; private set; }
         public int Act { get; internal set; }
@@ -343,6 +372,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly int randomSeed, initialOpeningPlayer;
         private Random random;
         private int consecutivePasses, nextSlot, slotCount;
+        // A forecast's copy (ForecastTurn) rolls every power at its range's average and never draws from the generator.
+        private readonly bool averageRolls;
 
         public LocalVersusMatch(IReadOnlyList<LegacySkill> leftSkills, IReadOnlyList<LegacySkill> rightSkills,
             int leftHealth = 100, int leftResistance = 50, int rightHealth = 100, int rightResistance = 50,
@@ -356,6 +387,97 @@ namespace TurnLimbo.Runtime.LegacyCombat
             this.randomSeed = randomSeed;
             initialOpeningPlayer = openingPlayer;
             Reset();
+        }
+
+        // A forecast's copy of a planning match: fighters of its own, the same rules, power at each range's average. Nothing
+        // it does reaches the source, whose generator (and so its state hash) it never touches.
+        private LocalVersusMatch(LocalVersusMatch source)
+        {
+            if (source.Phase != LegacyDuelPhase.Planning)
+                throw new InvalidOperationException("Only a planning turn can be forecast.");
+            averageRolls = true;
+            Left = source.Left.Copy();
+            Right = source.Right.Copy();
+            RoundLimit = source.RoundLimit;
+            randomSeed = source.randomSeed;
+            initialOpeningPlayer = source.initialOpeningPlayer;
+            random = new Random(source.randomSeed);
+            RoundNumber = source.RoundNumber;
+            OpeningPlayer = source.OpeningPlayer;
+            CurrentPlanner = source.CurrentPlanner;
+            LastPassPlayer = source.LastPassPlayer;
+            consecutivePasses = source.consecutivePasses;
+            Outcome = source.Outcome;
+            Phase = LegacyDuelPhase.Planning;
+        }
+
+        /// <summary>편성 예상 from one player's side (<paramref name="perspectivePlayer"/>: 0 Left, 1 Right, read as the forecast's
+        /// player): the turn's slots as both visible queues would resolve now, in order, into <paramref name="slots"/> (cleared
+        /// first; empty outside planning). The queues resolve on a copy of the match with every power roll at its range's
+        /// average, as <see cref="LegacyQueuedDuel.ForecastTurn(List{LegacySlotForecast})"/> does. The match, its queues,
+        /// fighters and random generator never change.</summary>
+        public void ForecastTurn(int perspectivePlayer, List<LegacySlotForecast> slots)
+        {
+            if (perspectivePlayer < 0 || perspectivePlayer > 1) throw new ArgumentOutOfRangeException(nameof(perspectivePlayer));
+            if (slots == null) throw new ArgumentNullException(nameof(slots));
+            slots.Clear();
+            if (Phase != LegacyDuelPhase.Planning) return;
+            new LocalVersusMatch(this).ResolveForecast(perspectivePlayer, slots);
+        }
+
+        /// <summary>The slot the front skill of <paramref name="laneIndex"/> would take if <paramref name="perspectivePlayer"/>
+        /// queued it next, whoever holds the reservation turn now, forecast with the whole turn. Null outside planning or when
+        /// that fighter cannot queue the lane's front (a wait or short of ACT).</summary>
+        public LegacySlotForecast ForecastIfQueued(int perspectivePlayer, int laneIndex)
+        {
+            if (perspectivePlayer < 0 || perspectivePlayer > 1) throw new ArgumentOutOfRangeException(nameof(perspectivePlayer));
+            if (Phase != LegacyDuelPhase.Planning) return null;
+            var copy = new LocalVersusMatch(this);
+            LocalVersusFighter fighter = copy.GetFighter(perspectivePlayer);
+            if (!fighter.QueueLane(laneIndex)) return null;
+            int slotIndex = fighter.Queue.Count - 1;
+            var slots = new List<LegacySlotForecast>();
+            copy.ResolveForecast(perspectivePlayer, slots);
+            return slotIndex < slots.Count ? slots[slotIndex] : null;
+        }
+
+        // Only on a forecast's copy: commits both queues and resolves every slot, read from the perspective player's side.
+        private void ResolveForecast(int perspectivePlayer, List<LegacySlotForecast> slots)
+        {
+            LocalVersusFighter self = GetFighter(perspectivePlayer), other = GetFighter(1 - perspectivePlayer);
+            Commit();
+            for (int index = 0; index < slotCount; index++)
+            {
+                if (Phase != LegacyDuelPhase.Resolving)
+                {
+                    slots.Add(LegacySlotForecast.Unreached(index, index < self.Queue.Count ? self.Queue[index] : null,
+                        index < other.Queue.Count ? other.Queue[index] : null, PerspectiveOutcome(Outcome, perspectivePlayer)));
+                    continue;
+                }
+                bool selfWhole = !self.State.IsResistanceBroken, otherWhole = !other.State.IsResistanceBroken;
+                LocalVersusSlotResult result = ResolveNextSlot();
+                bool left = perspectivePlayer == 0;
+                slots.Add(new LegacySlotForecast(result.SlotIndex,
+                    left ? result.LeftSkill : result.RightSkill, left ? result.RightSkill : result.LeftSkill,
+                    left ? result.LeftHealthDamage : result.RightHealthDamage, left ? result.RightHealthDamage : result.LeftHealthDamage,
+                    left ? result.LeftResistanceDamage : result.RightResistanceDamage,
+                    left ? result.RightResistanceDamage : result.LeftResistanceDamage,
+                    selfWhole && self.State.IsResistanceBroken, otherWhole && other.State.IsResistanceBroken,
+                    PerspectiveOutcome(result.Outcome, perspectivePlayer)));
+            }
+        }
+
+        private static DuelMatchOutcome PerspectiveOutcome(LocalVersusOutcome outcome, int perspectivePlayer)
+        {
+            switch (outcome)
+            {
+                case LocalVersusOutcome.LeftVictory:
+                    return perspectivePlayer == 0 ? DuelMatchOutcome.PlayerVictory : DuelMatchOutcome.EnemyVictory;
+                case LocalVersusOutcome.RightVictory:
+                    return perspectivePlayer == 1 ? DuelMatchOutcome.PlayerVictory : DuelMatchOutcome.EnemyVictory;
+                case LocalVersusOutcome.Draw: return DuelMatchOutcome.Draw;
+                default: return DuelMatchOutcome.InProgress;
+            }
         }
 
         public LocalVersusFighter Left { get; }
@@ -553,7 +675,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             foreach (LocalVersusBuff buff in fighter.Buffs) protectionBuffPercent += buff.Protection;
             if (skill == null || skill.IsWait) return 0;
             int bonus = fighter.PowerBonus(skill);
-            int roll = random.Next(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus + 1));
+            int roll = averageRolls
+                ? LegacySlotForecast.AveragePower(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus))
+                : random.Next(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus + 1));
             double multiplier = (100 + powerBuffPercent) / 100d * fighter.PowerMultiplierForSlot(slotIndex);
             return Math.Max(1, (int)Math.Floor(roll * multiplier / skill.AttackCount));
         }

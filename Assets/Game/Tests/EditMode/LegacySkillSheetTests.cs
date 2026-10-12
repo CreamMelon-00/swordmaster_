@@ -285,7 +285,7 @@ namespace TurnLimbo.Core.Tests
         {
             List<string[]> rows = Rows();
             Set(rows, 1, Column.MinPower, "9");
-            Assert.That(Problem(rows), Is.EqualTo($"{Row1}행 (ID 1) '최대 위력'(5)이(가) '최소 위력'(9)보다 작습니다."));
+            Assert.That(Problem(rows), Is.EqualTo($"{Row1}행 (ID 1) '최대 위력'(4)이(가) '최소 위력'(9)보다 작습니다."));
 
             rows = Rows();
             Set(rows, 9, Column.BuffSlots, "");
@@ -345,8 +345,8 @@ namespace TurnLimbo.Core.Tests
         public void BrokenTargetBonus_RequiresAnAttackAndRoundTripsThroughTheSheet()
         {
             List<string[]> rows = Rows();
-            Assert.That(RowOf(rows, 44)[Index(Column.BrokenTargetDamage)], Is.EqualTo("25%"));
-            Assert.That(Parse(rows).Find(44).Effect.BrokenTargetDamagePercent, Is.EqualTo(25));
+            Assert.That(RowOf(rows, 44)[Index(Column.BrokenTargetDamage)], Is.EqualTo("100%"));
+            Assert.That(Parse(rows).Find(44).Effect.BrokenTargetDamagePercent, Is.EqualTo(100));
 
             Set(rows, 43, Column.BrokenTargetDamage, "25%");
             Assert.That(Problem(rows), Is.EqualTo($"{Row43}행 (ID 43) '붕괴 대상 추가 피해'은(는) 공격 기술에만 쓸 수 있습니다."));
@@ -586,7 +586,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillTable table = Parse(rows);
             LegacySkillEffect effect = table.Find(44).Effect;
             Assert.That((effect.OpponentState, effect.ResistanceRecoveryPercent, effect.ConditionalDamagePercent, effect.BrokenTargetDamagePercent),
-                Is.EqualTo((LegacyOpponentState.Broken, 10, 150, 25)));
+                Is.EqualTo((LegacyOpponentState.Broken, 10, 150, 100)));
             Assert.That(effect.Roles, Is.EqualTo(LegacySkillRole.ResistanceRecovery | LegacySkillRole.BrokenTargetDamage |
                 LegacySkillRole.ConditionalDamage));
             Assert.That(LegacySkillSheet.Describe(LegacySkillDefinitions.Table, table).Lines,
@@ -675,7 +675,7 @@ namespace TurnLimbo.Core.Tests
             {
                 $"{Row1}행 '속성': 'y'은(는) 쓸 수 없습니다. 참격, 타격, 관통, 방어 중 하나를 적으세요.",
                 $"{Row1}행 'ACT': 'x'은(는) 0 이상의 정수여야 합니다.",
-                $"{Row2}행 (ID 2) '최대 위력'(9)이(가) '최소 위력'(99)보다 작습니다.",
+                $"{Row2}행 (ID 2) '최대 위력'(7)이(가) '최소 위력'(99)보다 작습니다.",
                 $"{Row16}행 '열': 칸이 비어 있습니다. Q, W, E 중 하나를 적으세요.",
             }));
             Assert.That(error.Message, Does.StartWith("기술 시트 'Skills/test.csv'"));
@@ -699,7 +699,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillTable current = LegacySkillDefinitions.Table;
             List<string[]> oldRows = Rows();
             Set(oldRows, 16, Column.Name, "일도양단");
-            Set(oldRows, 16, Column.Cost, "4");
+            Set(oldRows, 16, Column.Cost, "5");
             oldRows.Remove(RowOf(oldRows, 12));
             string[] retired = RowOf(oldRows, 14).ToArray();
             retired[Index(Column.Id)] = "99";

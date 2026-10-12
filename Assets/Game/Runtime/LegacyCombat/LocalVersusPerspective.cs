@@ -128,6 +128,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int QueuePowerTargetSlotIndex => Me.QueuePowerTargetSlotIndex;
         public int QueuePowerMultiplierForSlot(int slotIndex) => Me.QueuePowerMultiplierForSlot(slotIndex);
 
+        // 편성 예상 from this side: the match forecasts on a copy of itself (LocalVersusMatch.ForecastTurn), so reading it
+        // never changes the match or its state hash.
+        public void ForecastTurn(List<LegacySlotForecast> slots) => Match.ForecastTurn(LocalPlayer, slots);
+        public LegacySlotForecast ForecastIfQueued(int laneIndex) => Match.ForecastIfQueued(LocalPlayer, laneIndex);
+
         private static void ClearSlots(List<int> slots)
         {
             if (slots == null) throw new ArgumentNullException(nameof(slots));

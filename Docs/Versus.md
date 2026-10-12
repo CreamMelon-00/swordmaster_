@@ -44,6 +44,7 @@
 - 기술 톱니와 사이 톱니, 돌기와 소리, 창의 키·열 이름·기술 이름·비용·순환 표시, 길게 눌러 설명(1.25배 카드, 톱니 위), ACT 줄, 증기 나는 시계 톱니, 넘기기(무료)·숨고르기, 기록(L), 확정 자리의 인장(대전에서는 **패스**), 책상 장식이 모두 같다.
 - 판정 때는 도크가 접히고 위·아래 띠와 기울기가 들어온다. 턴 머리표, 머리 위 상태 패널(지연 막대 포함)과 큐 줄(지금 칸의 맥동, 쓴 칸 사라짐), 피해 숫자, 붕괴·저항 회복 문구, 발동 표시, 저항 변화 표시, 붕괴 충격도 그대로다.
 - 단계 표지는 `온라인 대전 · 최대 20턴`, 적 이름은 `상대`다.
+- **편성 예상**(`SlotForecast.md`)도 나온다. 두 큐가 모두 보이므로 경기를 복사해 지금 두 큐를 끝까지 풀어 보고, 내 큐 카드에 유리·불리·비슷 표식을, 설명·Tab 카드에 `예상: …` 한 줄을 단다. 상대 차례에도 보이며(상대가 더 예약하면 바뀐다) 설명의 한 줄은 '내가 다음에 예약하면'이다. 복사본만 쓰므로 경기와 상태 해시는 바뀌지 않는다. 연출 설정 Slot Forecast In Versus로 대전에서만 끌 수 있다.
 - **손님은 거울로 본다**: 손님 화면에서도 내 캐릭터가 전장 왼쪽이다. 칸 시작, 타격, 붕괴 상태, 발동 표시, 피해 숫자, 큐, 책상, 시계, 결과를 모두 손님 쪽에서 다시 맞춘다. 방장은 원래대로 왼쪽이 자기다.
 - 칸 재생은 캠페인 전투와 같은 순서와 시간이다. 시간은 `DuelPresentationSettings`에서 읽는다(재생 배율, 연타·칸 사이 간격, 히트 스톱, 결정타 기준, 마무리 일격). 결정타에는 집중 슬로모션과 치명타 소리가 붙고, 승부를 낸 타격은 마무리 일격(`DuelFinale`)으로 보여 준다.
 - 내가 예약하면 톱니가 돌고 선택 소리가 난다. 취소형 기술이면 큐 카드가 굴러떨어진다. 손님은 방장의 확인이 왔을 때 이 연출이 나온다(방장 판정을 위한 선택).
@@ -110,7 +111,7 @@
 
 - Runtime `LegacyCombat/LocalVersusMatch`: 대전 규칙(위 '규칙'). `LocalVersusHit`는 타격의 표시 피해와 밀림(`LegacyHitImpact`)도 실어 피해 숫자가 캠페인 전투와 같게 나온다. 판정, 결과, 상태 해시는 바뀌지 않았다. 읽기 전용 `CanQueueLane` / `CanQueueBreath` / `CanCycleLanes`는 명령이 받아들여질지를 말한다. 명령 자체도 같은 검사를 쓰므로 규칙은 한 곳에 있다.
 - Runtime `LegacyCombat/ILegacyDuelView`, `ILegacySlotView`: 전투 HUD가 읽는 것만 모은 읽기 경계다. `LegacyQueuedDuel`은 바뀌지 않은 채 이를 구현한다. 적 쪽 순환 읽기(`EnemyCycleUses`, `EnemyEffectiveCost`, `EnemyEffectivePowerRange`)는 명시적 구현으로, 순환하지 않는 캠페인의 적에게는 시트 값(0, 비용, 기본 위력)을 돌려준다.
-- Runtime `LegacyCombat/LocalVersusPerspective`: 대전을 한 사람 쪽에서 읽는 어댑터(`ILegacyDuelView`)다. 거울용 도우미(`IsPlayerSide`, `ForPlayer`/`ForEnemy`, `Slot`, `Hit`, `Outcome`)가 함께 있다.
+- Runtime `LegacyCombat/LocalVersusPerspective`: 대전을 한 사람 쪽에서 읽는 어댑터(`ILegacyDuelView`)다. 거울용 도우미(`IsPlayerSide`, `ForPlayer`/`ForEnemy`, `Slot`, `Hit`, `Outcome`)가 함께 있다. 편성 예상은 `LocalVersusMatch.ForecastTurn(관점, …)`·`ForecastIfQueued`로 넘긴다(경기의 복사본, 평균 위력, `SlotForecast.md`).
 - Runtime `LegacyCombat/VersusLoadout`: 대전 편성(열마다 3개), 방의 메시지에 ID로 실린다.
 - Presentation `LocalVersusController`: 대전 전투의 엔진이자 화면이다. 칸 재생, 시계, 입력, 시작 카드, 마무리 일격, 결과 창을 맡는다. 입구는 `StartOnline` 하나이고 `OnlineVersusController`가 부른다. 네트워크 없이 방장으로만 부르면 한 화면에서 한 판이 다 돈다(검사가 이렇게 쓴다).
 - Presentation `LocalVersusHud`(+ `TurnMarkers`): 대전 층.

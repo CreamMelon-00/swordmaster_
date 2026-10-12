@@ -24,6 +24,8 @@ namespace TurnLimbo.Presentation
             public Button Button;
             public Image Background, Icon, Marker;
             public Text Title, Status;
+            /// <summary>The granted skill's core mechanic (<see cref="SkillRolePip"/>); null for a node that grants none.</summary>
+            public SkillRolePip Role;
         }
 
         public const float NodeWidth = 116f, NodeHeight = 100f;
@@ -205,8 +207,13 @@ namespace TurnLimbo.Presentation
             card.Icon.sprite = skill != null ? art.GetSkillIcon(skill.IconId) : null;
             card.Icon.enabled = card.Icon.sprite != null;
             if (skill != null)
-                Label("Node Lane", card.Button.transform, new Vector2(22f, 30f), new Vector2(40f, 22f), 15, Muted,
-                    TextAnchor.MiddleCenter).text = SkillLaneStyle.Key(skill.LaneIndex);
+            {
+                // The granted skill's school in its dye, and its core mechanic at the icon's upper right.
+                Label("Node Lane", card.Button.transform, new Vector2(22f, 30f), new Vector2(40f, 22f), 15,
+                    SkillLaneStyle.Edge(skill.LaneIndex), TextAnchor.MiddleCenter).text = SkillLaneStyle.Key(skill.LaneIndex);
+                card.Role = new SkillRolePip(card.Button.transform, new Vector2(-13f, 36f), 14f);
+                card.Role.SetSkill(skill);
+            }
             else if (!node.StatReward.IsEmpty)
             {
                 Text rewardLabel = Label("Node Lane", card.Button.transform, new Vector2(22f, 30f),
@@ -246,6 +253,7 @@ namespace TurnLimbo.Presentation
             bool dim = state == CurriculumNodeState.Locked || state == CurriculumNodeState.Excluded;
             card.Title.color = dim ? Muted : Foreground;
             card.Icon.color = dim ? new Color(1f, 1f, 1f, .4f) : Color.white;
+            card.Role?.SetAlpha(dim ? .4f : 1f);
             card.Status.text = StateText(state, card.Node, curriculum);
             card.Status.color = state == CurriculumNodeState.Active || state == CurriculumNodeState.Completed ? Accent
                 : state == CurriculumNodeState.Excluded ? DuelVisualTheme.Danger : Muted;

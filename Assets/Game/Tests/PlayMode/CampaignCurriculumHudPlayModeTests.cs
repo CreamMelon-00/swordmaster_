@@ -323,7 +323,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Hud.SelectNode("horizontal-cut");
 
                 Assert.That(Label(fixture.Root, "Curriculum Detail Name").text, Is.EqualTo("가로베기+"));
-                Assert.That(Label(fixture.Root, "Curriculum Detail Values").text, Is.EqualTo("8–14"));
+                Assert.That(Label(fixture.Root, "Curriculum Detail Values").text, Is.EqualTo("7–11"));
                 Assert.That(Label(fixture.Root, "Skill Experience Level").text, Is.EqualTo("숙련 1/3"));
                 Assert.That(Named(fixture.Root, "Skill Experience").gameObject.activeInHierarchy, Is.True);
                 Assert.That(Label(Named(fixture.Root, "Curriculum Node horizontal-cut").gameObject, "Node Title").text,

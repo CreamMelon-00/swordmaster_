@@ -14,8 +14,8 @@ namespace TurnLimbo.Runtime.Campaign
         /// <summary>Do not fire into its guard: two light turns, a four-guard turn (more than three free 숨고르기 can
         /// step past), then one heavy blow with open slots.</summary>
         Gatekeeper,
-        /// <summary>Strong from turn 1, then a little lighter: two heavy opening turns once, then a loop of about two
-        /// thirds of that, every looping turn still attacking at least twice.</summary>
+        /// <summary>Strong from turn 1, then a little lighter: two heavy opening turns once, then a loop of a little
+        /// under two thirds of that, every looping turn still attacking at least twice.</summary>
         Opener,
         /// <summary>Saving gets you hit: three and four actions every turn, nearly all attacks.</summary>
         Onslaught,

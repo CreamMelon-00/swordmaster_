@@ -26,6 +26,8 @@ namespace TurnLimbo.Presentation
             public Button Button;
             public Image Background, Icon, TargetBorder;
             public Text Name, Cost, Marker;
+            /// <summary>The skill's core mechanic at its icon's upper right (<see cref="SkillRolePip"/>).</summary>
+            public SkillRolePip Role;
             public CampaignLoadoutCardDrag Drag;
             public int SkillId;
         }
@@ -108,6 +110,7 @@ namespace TurnLimbo.Presentation
                     Label("Slot Order", card.Button.transform, new Vector2(-105f, 27f), new Vector2(24f, 22f),
                         16, Muted, TextAnchor.MiddleCenter).text = (slot + 1).ToString();
                     card.Icon = SkillIcon("Slot Icon", card.Button.transform, new Vector2(-72f, -4f), 54f);
+                    card.Role = new SkillRolePip(card.Button.transform, new Vector2(-49f, 19f));
                     card.Name = Label("Slot Name", card.Button.transform, new Vector2(38f, 15f), new Vector2(144f, 30f), 20);
                     Fit(card.Name, 14, 20);
                     card.Cost = Label("Slot ACT", card.Button.transform, new Vector2(38f, -18f), new Vector2(144f, 24f), 16, Muted);
@@ -185,6 +188,7 @@ namespace TurnLimbo.Presentation
                     card.Drag.Configure(this, card.SkillId, lane, slot);
                     card.Icon.enabled = owned != null;
                     card.Icon.sprite = owned == null ? null : art.GetSkillIcon(owned.Skill.IconId);
+                    card.Role.SetSkill(owned?.Skill);
                     card.Name.text = owned?.Skill.Name ?? "빈 슬롯";
                     card.Name.color = owned == null ? Muted : Foreground;
                     card.Cost.text = owned == null ? string.Empty : "ACT " + owned.Skill.Cost;
@@ -253,13 +257,15 @@ namespace TurnLimbo.Presentation
                 card.Background = card.Button.GetComponent<Image>();
                 card.Icon = SkillIcon("Owned Icon", card.Button.transform, new Vector2(0f, 20f), 48f);
                 card.Icon.sprite = art.GetSkillIcon(owned.Skill.IconId);
+                card.Role = new SkillRolePip(card.Button.transform, new Vector2(20f, 40f));
+                card.Role.SetSkill(owned.Skill);
                 card.Name = Label("Owned Name", card.Button.transform, new Vector2(0f, -18f), new Vector2(174f, 24f), 17,
                     null, TextAnchor.MiddleCenter);
                 Fit(card.Name, 13, 17);
                 card.Cost = Label("Owned ACT", card.Button.transform, new Vector2(-42f, -40f), new Vector2(90f, 20f), 15, Muted);
                 card.Cost.text = "ACT " + owned.Skill.Cost;
                 card.Marker = Label("Owned Lane", card.Button.transform, new Vector2(54f, -40f),
-                    new Vector2(60f, 20f), 15, SkillLaneStyle.Paper(owned.Skill.LaneIndex), TextAnchor.MiddleRight);
+                    new Vector2(60f, 20f), 15, SkillLaneStyle.Edge(owned.Skill.LaneIndex), TextAnchor.MiddleRight);
                 card.Marker.text = LaneNames[owned.Skill.LaneIndex];
                 card.Drag = card.Button.gameObject.AddComponent<CampaignLoadoutCardDrag>();
                 card.Drag.Configure(this, id, owned.Skill.LaneIndex, -1);

@@ -38,6 +38,8 @@ namespace TurnLimbo.Presentation
         private const float GearMaskTop = DockHeight * .5f;
         // Over the window: the skill's name, and above it the lane's key and school.
         private const float SkillNameRow = SkillWindowSize * .5f + 12f, KeyRow = SkillWindowSize * .5f + 32f;
+        // The role pip's centre from the window's: inside its upper right corner, over the icon's.
+        private const float RolePipOffset = CurrentSkillSize * .5f - 4f;
         // On the hub, below the window: the cost's plate and, under it, the hold bar on its dark track (from the gear's centre).
         private const float CostAboveHub = 18f, HoldAboveHub = 4f;
         private const int WheelTexels = 256, IdlerTexels = 96, SocketTexels = 64;
@@ -233,13 +235,17 @@ namespace TurnLimbo.Presentation
             {
                 SkillGear gear = gears[lane];
                 char key = "QWE"[lane];
-                var window = Panel("Current " + key, controls, Vector2.zero, Vector2.one * SkillWindowSize, Card, Border);
+                // The window wears its school: a 3px ring and the school's name in its dye (SkillLaneStyle.Edge).
+                var window = Panel("Current " + key, controls, Vector2.zero, Vector2.one * SkillWindowSize, Card, SkillLaneStyle.Edge(lane));
+                PanelSurface(window).rectTransform.sizeDelta = new Vector2(-6f, -6f);
                 gear.Window = window.rectTransform;
                 AddSlot(gear, 2, window.transform, "Socket", "Skill Image");
+                // The current skill's core mechanic (its first keyword's glyph) at the icon's upper right.
+                gear.Role = new SkillRolePip(window.transform, Vector2.one * RolePipOffset);
                 var keyLabel = Text("Key", window.transform, new Vector2(-18f, KeyRow), new Vector2(24f, 22f), 20, TextAnchor.MiddleCenter);
                 keyLabel.text = key.ToString(); keyLabel.color = Accent;
                 var styleName = Text("Style Name", window.transform, new Vector2(16f, KeyRow), new Vector2(48f, 20f), 14, TextAnchor.MiddleLeft);
-                styleName.text = SkillLaneStyle.Name(lane); styleName.color = Foreground;
+                styleName.text = SkillLaneStyle.Name(lane); styleName.color = SkillLaneStyle.Edge(lane);
                 skillNames[lane] = Text("Skill Name", window.transform, new Vector2(0f, SkillNameRow), new Vector2(150f, 20f), 15, TextAnchor.MiddleCenter);
                 skillNames[lane].supportRichText = false;
                 skillNames[lane].verticalOverflow = VerticalWrapMode.Truncate;
@@ -644,6 +650,8 @@ namespace TurnLimbo.Presentation
         {
             public RectTransform Node, Spent, Window, Used, Next, CostPlate, HoldTrack;
             public Image Wheel;
+            /// <summary>The current skill's core mechanic (<see cref="SkillRolePip"/>) in the window.</summary>
+            public SkillRolePip Role;
             public readonly Image[] Icons = new Image[4], Sockets = new Image[4];
             // Where each slot's holder rests, from the gear's centre.
             public readonly Vector2[] Homes = new Vector2[4];

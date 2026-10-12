@@ -14,6 +14,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
             HealthFloor = healthFloor;
         }
 
+        // A forecast's copy (LegacySlotForecast): the same numbers, the pending recovery included, on a state of its own.
+        private LegacyFighterState(LegacyFighterState source)
+        {
+            MaxHealth = source.MaxHealth;
+            Health = source.Health;
+            HealthFloor = source.HealthFloor;
+            MaxResistance = source.MaxResistance;
+            Resistance = source.Resistance;
+            recoveryPending = source.recoveryPending;
+        }
+
+        internal LegacyFighterState Copy() => new LegacyFighterState(this);
+
         public int Health { get; private set; }
         public int MaxHealth { get; }
         /// <summary>Damage never takes health below this; above zero, the fighter cannot be defeated.</summary>

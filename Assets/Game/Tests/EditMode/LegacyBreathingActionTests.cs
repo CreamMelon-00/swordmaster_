@@ -291,7 +291,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(waiting.PlayerHealthDamage, Is.EqualTo(6));
             Assert.That(waiting.PlayerResistanceDamage, Is.Zero);
             Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(4));
-            Assert.That(duel.NextActGain, Is.EqualTo(6), "Only the existing Forward action grants its bonus.");
+            Assert.That(duel.NextActGain, Is.EqualTo(5), "Only the existing Forward action grants its bonus.");
         }
 
         [Test]

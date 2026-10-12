@@ -74,10 +74,12 @@ namespace TurnLimbo.Runtime.Prologue
                         "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", FirstFreeKeys),
                 }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다.", encounter: EncounterKind.Duel),
             // 2. The enemy attacks: clashes trade resistance, the break doubles HP damage, ACT recovers each turn.
+            // Resistance 9 is what the coached 베기 + 연속 베기 deal at their lowest rolls (3 + 3 + 3), so the first turn
+            // always shows the break (12 before the 2026-10-12 lane rebalance lowered Q's power).
             new PrologueMission(2, "인사는 칼로", Forest,
                 new[] { "맞부딪쳐 상대의 저항을 무너뜨린다", "떠돌이 기사를 쓰러뜨린다" },
                 new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
-                36, 12, new MissionSkill[] { PracticeSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 1 },
+                36, 9, new MissionSkill[] { PracticeSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 1 },
                 new[] { Slash, DoubleSlash }, false, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "상대도 공격합니다",

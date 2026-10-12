@@ -58,6 +58,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
         int QueuePowerRemovedSkillCount { get; }
         int QueuePowerTargetSlotIndex { get; }
         int QueuePowerMultiplierForSlot(int slotIndex);
+        /// <summary>편성 예상: this planning turn's slots as both queues would resolve now, from the player's side, into
+        /// <paramref name="slots"/> (cleared first; empty outside planning). The duel's own rules resolve a copy of it with
+        /// average power rolls and no steps (<see cref="LegacySlotForecast"/>); the duel itself never changes.</summary>
+        void ForecastTurn(List<LegacySlotForecast> slots);
+        /// <summary>The slot the front skill of <paramref name="laneIndex"/> would take if the player queued it next, forecast
+        /// with the whole turn; null when it cannot be queued (or outside planning).</summary>
+        LegacySlotForecast ForecastIfQueued(int laneIndex);
     }
 
     /// <summary>A resolving slot as the duel HUD reads it, seen from the player's side: both skills and the feedback of

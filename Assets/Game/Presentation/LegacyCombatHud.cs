@@ -477,6 +477,7 @@ namespace TurnLimbo.Presentation
             enemyExplanationHint = Text("Explanation Hint", enemyExplanation, new Vector2(0, -157), new Vector2(416, 20), 14, TextAnchor.MiddleRight);
             enemyExplanationHint.text = EnemyHint; enemyExplanationHint.color = DuelVisualTheme.Ink;
             FitExplanationLabel(enemyExplanationHint, 11);
+            BuildForecastNotes();
 
             BuildLogPanel(white);
 
@@ -814,6 +815,7 @@ namespace TurnLimbo.Presentation
                     shownSkills[lane] = current.Id;
                     skillNames[lane].text = current.Name;
                 }
+                gears[lane].Role.SetSkill(current);
                 string costText = currentCost + " ACT";
                 if (costs[lane].text != costText) costs[lane].text = costText;
                 LegacySkillEffect effect = LegacySkillDefinitions.Find(current)?.Effect;
@@ -843,6 +845,9 @@ namespace TurnLimbo.Presentation
             enemyStatus.SetCounter(session.EnemyCounter, session.EnemyCountersRemaining);
             SetMeshMarks(session);
             SetQueuePowerMarks(session);
+            // The player's own schools are always open; the enemy's cards are dyed once all three are (as its Tab badge).
+            enemyQueue.SetSchoolsNamed(session.Features.LaneCount() == 3);
+            UpdateSlotForecast(session, planning);
             playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale, session);
             enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale, session);
             UpdateConditionPreview();
@@ -1010,7 +1015,9 @@ namespace TurnLimbo.Presentation
                 enemyExplanationHint.text = named ? EnemyHint : NeutralEnemyHint;
                 enemyExplanationIcon.sprite = iconFor(skill.IconId);
                 SetEnemyInfoSkill(skill);
-                LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint, 1f);
+                UpdateEnemyForecastNote();
+                LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint, 1f,
+                    forecast: enemyForecastNote);
             }
             else if (changed)
             {
@@ -1020,27 +1027,30 @@ namespace TurnLimbo.Presentation
                 playerExplanationIcon.sprite = iconFor(skill.IconId);
                 SetPlayerInfoSkill(skill, owned);
                 UpdateMeshNote(skill);
+                UpdatePlayerForecastNote(skill);
                 LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
-                    PlayerExplanationScale, playerMeshNote);
+                    PlayerExplanationScale, playerMeshNote, playerForecastNote);
             }
             else if (enemy)
             {
                 // A versus opponent's 순환 count, cost and power follow its uses while the card stays open, and the same
                 // skill comes back on later turns; the card grows only when its info does.
+                // Its 예상 line follows the inspected slot (two slots may hold the same skill).
                 float height = enemyInfo.Height;
                 SetEnemyInfoSkill(skill);
-                if (!Mathf.Approximately(height, enemyInfo.Height))
-                    LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint, 1f);
+                if (UpdateEnemyForecastNote() | !Mathf.Approximately(height, enemyInfo.Height))
+                    LayoutExplanation(enemyExplanation, enemyExplanationIcon, enemyName, enemyStyle, enemyInfo, enemyExplanationHint, 1f,
+                        forecast: enemyForecastNote);
             }
             else
             {
                 if (playerName.text != skill.Name) playerName.text = skill.Name;
                 SetPlayerInfoSkill(skill, owned);
-                // 맞물림's note follows the queue, ACT and 넘기기 while the skill is held; the card grows only when the note
-                // comes or goes.
-                if (UpdateMeshNote(skill))
+                // 맞물림's note and the 예상 line follow the queue, ACT and 넘기기 while the skill is held; the card grows only
+                // when a row comes or goes.
+                if (UpdateMeshNote(skill) | UpdatePlayerForecastNote(skill))
                     LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
-                        PlayerExplanationScale, playerMeshNote);
+                        PlayerExplanationScale, playerMeshNote, playerForecastNote);
             }
             // Clamp after content sizing, including repeated holds at a moving screen edge.
             Vector2 desired = root.rect.size / 2 + new Vector2(-480, 160);
@@ -1163,11 +1173,13 @@ namespace TurnLimbo.Presentation
 
         /// <param name="note">The held explanation's 맞물림 row over the hint (<see cref="MeshNoteText"/>), taking room only while
         /// it shows.</param>
+        /// <param name="forecast">The 예상 row (<see cref="ForecastNote"/>) over that, likewise.</param>
         private static void LayoutExplanation(RectTransform panel, Image icon, Text name, SkillLaneBadge style, SkillInfoView info, Text hint,
-            float scale, RectTransform note = null)
+            float scale, RectTransform note = null, RectTransform forecast = null)
         {
             bool noted = note != null && note.gameObject.activeSelf;
-            float height = (90f + 36f + (noted ? MeshNoteRow : 0f)) * scale + info.Height;
+            bool forecasted = forecast != null && forecast.gameObject.activeSelf;
+            float height = (90f + 36f + (noted ? MeshNoteRow : 0f) + (forecasted ? ForecastNoteRow : 0f)) * scale + info.Height;
             panel.sizeDelta = new Vector2(panel.sizeDelta.x, height);
             float top = height / 2f;
             icon.rectTransform.anchoredPosition = new Vector2(-146f * scale, top - 50f * scale);
@@ -1178,6 +1190,8 @@ namespace TurnLimbo.Presentation
             info.PlaceTop(top - 90f * scale);
             hint.rectTransform.anchoredPosition = new Vector2(0f, -top + 16f * scale);
             if (note != null) note.anchoredPosition = new Vector2(0f, -top + (16f + MeshNoteRow) * scale);
+            if (forecast != null)
+                forecast.anchoredPosition = new Vector2(0f, -top + (16f + (noted ? MeshNoteRow : 0f) + ForecastNoteRow) * scale);
         }
 
         private static void FitExplanationLabel(Text label, int minSize)
@@ -1344,6 +1358,7 @@ namespace TurnLimbo.Presentation
             // The next duel may open other lanes, so a skill explained again is shown afresh (its badge may change).
             explainedPlayer = explainedEnemy = null;
             ResetMeshNote();
+            ResetForecast();
             lastPlanning = false;
             inputsHeld = false;
             shownBreathsRemaining = -1;
@@ -1981,6 +1996,15 @@ namespace TurnLimbo.Presentation
             private readonly Sprite white;
             private readonly Font font;
             private readonly List<Image> icons = new List<Image>(), highlights = new List<Image>();
+            // Each card's ring: its school's dye (SkillLaneStyle.Edge), brass for 숨고르기 and while the schools go unnamed.
+            private readonly List<Image> frames = new List<Image>();
+            private bool schoolsNamed = true;
+            // 편성 예상 (the player's row only): each card's mark, its fill and sign, and the verdict each slot should show
+            // (-1: none).
+            private readonly List<RectTransform> forecastMarks = new List<RectTransform>();
+            private readonly List<Image> forecastFills = new List<Image>();
+            private readonly List<SlotForecastGlyph> forecastGlyphs = new List<SlotForecastGlyph>();
+            private readonly List<int> forecastVerdicts = new List<int>();
             private readonly List<SkillCardFeedbackGraphic> feedback = new List<SkillCardFeedbackGraphic>();
             private readonly List<GameObject> counterMarks = new List<GameObject>();
             private readonly List<int> counterSlots = new List<int>();
@@ -2013,8 +2037,12 @@ namespace TurnLimbo.Presentation
             {
                 while (icons.Count < queue.Count)
                 {
-                    var item = Panel("Queued Skill", Root, Vector2.zero, new Vector2(64, 64), Card).rectTransform;
+                    var frame = Panel("Queued Skill", Root, Vector2.zero, new Vector2(64, 64), Card);
+                    var item = frame.rectTransform;
                     Pin(item, Vector2.one * .5f);
+                    // A 3px ring, so the school's dye reads round the icon.
+                    PanelSurface(frame).rectTransform.sizeDelta = new Vector2(-6f, -6f);
+                    frames.Add(frame);
                     var highlight = Image("Selected", item, white, Vector2.zero, new Vector2(64, 64), new Color(Accent.r, Accent.g, Accent.b, .4f));
                     var icon = Image("Icon", item, null, Vector2.zero, new Vector2(48, 48));
                     icon.preserveAspect = true;
@@ -2024,6 +2052,7 @@ namespace TurnLimbo.Presentation
                     if (meshGear != null) AddMeshMark(item);
                     if (player) AddQueuePowerMarks(item);
                     AddCycleMark(item);
+                    if (player) AddForecastMark(item);
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
@@ -2035,6 +2064,7 @@ namespace TurnLimbo.Presentation
                     item.gameObject.SetActive(visible);
                     if (!visible) { feedback[i].Clear(); continue; }
                     icons[i].sprite = iconFor(queue[i].IconId);
+                    frames[i].color = schoolsNamed && !queue[i].IsWait ? SkillLaneStyle.Edge(queue[i].LaneIndex) : Border;
                     visibleItems.Add(item);
                     item.localScale = Vector3.one * (resolving && i == activeSlot ? Mathf.Min(scale, 1.2f) : 1);
                     highlights[i].enabled = !resolving && i == selected;
@@ -2054,6 +2084,7 @@ namespace TurnLimbo.Presentation
                     counterMarks[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && counterSlots.Contains(i));
                 UpdateMeshMarks();
                 UpdateQueuePowerMarks();
+                UpdateForecastMarks();
                 Layout(Pitch);
                 UpdateFeedback();
             }
@@ -2081,6 +2112,53 @@ namespace TurnLimbo.Presentation
                 float inner = player ? StatusWidth / 2 - CardSize / 2 : -StatusWidth / 2 + CardSize / 2;
                 for (int index = 0; index < count; index++)
                     visibleItems[index].anchoredPosition = new Vector2(inner + (player ? -1f : 1f) * index * pitch, 0f);
+            }
+
+            /// <summary>Whether the cards' rings wear their schools' dyes (the enemy's row waits until all three are open).</summary>
+            public void SetSchoolsNamed(bool named) => schoolsNamed = named;
+
+            /// <summary>편성 예상: the verdict each slot's card should show ((int)<see cref="LegacyForecastVerdict"/>, -1 for none).</summary>
+            public void SetForecastVerdicts(List<int> verdicts)
+            {
+                forecastVerdicts.Clear();
+                forecastVerdicts.AddRange(verdicts);
+            }
+
+            public RectTransform GetForecastMark(int index)
+                => index >= 0 && index < forecastMarks.Count && forecastMarks[index].gameObject.activeInHierarchy
+                    ? forecastMarks[index] : null;
+
+            public LegacyForecastVerdict? GetForecastVerdict(int index)
+                => GetForecastMark(index) == null ? (LegacyForecastVerdict?)null : forecastGlyphs[index].Verdict;
+
+            // A small square on the card's left rim (the 순환 count rides the right): the verdict's fill and its sign in ink.
+            private void AddForecastMark(RectTransform item)
+            {
+                var badge = Image("Forecast Mark", item, white, ForecastMarkCenter, Vector2.one * ForecastMarkSize, DuelVisualTheme.Muted);
+                var sign = Rect("Forecast Sign", badge.transform, Vector2.zero, Vector2.one * (ForecastMarkSize - 6f), Vector2.one * .5f);
+                sign.gameObject.AddComponent<CanvasRenderer>();
+                var glyph = sign.gameObject.AddComponent<SlotForecastGlyph>();
+                glyph.raycastTarget = false;
+                glyph.color = DuelVisualTheme.Ink;
+                badge.gameObject.SetActive(false);
+                forecastMarks.Add(badge.rectTransform);
+                forecastFills.Add(badge);
+                forecastGlyphs.Add(glyph);
+            }
+
+            private void UpdateForecastMarks()
+            {
+                for (int index = 0; index < forecastMarks.Count; index++)
+                {
+                    bool visible = icons[index].transform.parent.gameObject.activeSelf;
+                    int verdict = visible && index < forecastVerdicts.Count ? forecastVerdicts[index] : -1;
+                    bool shown = verdict >= 0;
+                    if (forecastMarks[index].gameObject.activeSelf != shown) forecastMarks[index].gameObject.SetActive(shown);
+                    if (!shown) continue;
+                    var value = (LegacyForecastVerdict)verdict;
+                    forecastGlyphs[index].SetVerdict(value);
+                    forecastFills[index].color = ForecastFill(value);
+                }
             }
 
             /// <summary>Queue indices whose attack the opponent's counter will answer.</summary>
@@ -2332,6 +2410,8 @@ namespace TurnLimbo.Presentation
                 foreach (var mark in queuePowerSourceMarks) mark.gameObject.SetActive(false);
                 foreach (var mark in queuePowerTargetMarks) mark.gameObject.SetActive(false);
                 foreach (var mark in cycleMarks) mark.gameObject.SetActive(false);
+                forecastVerdicts.Clear();
+                foreach (var mark in forecastMarks) mark.gameObject.SetActive(false);
                 meshBonus.Clear();
                 for (int index = 0; index < meshMarks.Count; index++)
                 {

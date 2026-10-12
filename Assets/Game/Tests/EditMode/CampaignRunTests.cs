@@ -91,8 +91,9 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ActFiveSkill_UsesOneClashPerLevel()
+        public void ActFourSkill_UsesTwoClashesPerLevel()
         {
+            // 알티바호 is the only 4-ACT skill (5 ACT before the 2026-10-12 lane rebalance); no sheet skill costs 5 now.
             var run = new CampaignRun();
             Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
@@ -105,9 +106,12 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             CampaignOwnedSkill owned = run.GetOwnedSkill(16);
             Assert.That(owned, Is.Not.Null);
-            Assert.That(owned.ExperienceRequired, Is.EqualTo(1));
+            Assert.That(owned.Skill.Cost, Is.EqualTo(4));
+            Assert.That(owned.ExperienceRequired, Is.EqualTo(2));
             for (int level = 1; level <= CampaignOwnedSkill.MaxLevel; level++)
             {
+                Assert.That(run.TryGainClashExperience(owned.Skill, LegacySkillDefinitions.Skill(1)), Is.True);
+                Assert.That(owned.Level, Is.EqualTo(level - 1), "One clash is half a level.");
                 Assert.That(run.TryGainClashExperience(owned.Skill, LegacySkillDefinitions.Skill(1)), Is.True);
                 Assert.That(owned.Level, Is.EqualTo(level));
             }
@@ -186,8 +190,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(owned.Skill, Is.Not.SameAs(granted), "Player upgrades must not mutate the shared skill sheet.");
             Assert.That(owned.Skill.IconId, Is.EqualTo(10));
             Assert.That(owned.Skill.AnimationName, Is.EqualTo("Slash"));
-            Assert.That(owned.Skill.MinPower, Is.EqualTo(6));
-            Assert.That(owned.Skill.MaxPower, Is.EqualTo(12));
+            Assert.That(owned.Skill.MinPower, Is.EqualTo(5));
+            Assert.That(owned.Skill.MaxPower, Is.EqualTo(9));
             Assert.That(run.IsSkillEquipped(granted.Id), Is.False);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.TryEquipSkill(granted.Id), Is.False);

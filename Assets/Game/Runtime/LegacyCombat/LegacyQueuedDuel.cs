@@ -54,6 +54,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private double deferredPlayerAttackMultiplier;
         private int deferredPlayerPowerBuffPercent, deferredPlayerProtectionBuffPercent;
         private int deferredEnemyPowerBuffPercent, deferredEnemyProtectionBuffPercent;
+        // A forecast's copy (ForecastTurn) rolls every power at its range's average and never draws from the generator.
+        private readonly bool averageRolls;
 
         public LegacyQueuedDuel() : this(100, 50, 80, 15, LegacyInitialSkills.All,
             FirstSixSkills(), new[] { 2, 3, 2, 1 }, Environment.TickCount) { }
@@ -139,6 +141,72 @@ namespace TurnLimbo.Runtime.LegacyCombat
             PlayerQueue = playerQueue.AsReadOnly();
             EnemyQueue = enemyQueue.AsReadOnly();
             Reset();
+        }
+
+        /// <summary>A forecast's copy of a planning duel (<see cref="ForecastTurn(List{LegacySlotForecast})"/>): its own lanes,
+        /// queues, fighters, buffs and uses, the same rules and skills, and power rolled at each range's average. Nothing it
+        /// does reaches <paramref name="source"/>, whose generator it never touches.</summary>
+        private LegacyQueuedDuel(LegacyQueuedDuel source)
+        {
+            if (source.Phase != LegacyDuelPhase.Planning)
+                throw new InvalidOperationException("Only a planning turn can be forecast.");
+            averageRolls = true;
+            initialPlayerSkills = source.initialPlayerSkills;
+            enemyPattern = source.enemyPattern;
+            initialEnemyScript = source.initialEnemyScript;
+            enemyActionCounts = source.enemyActionCounts;
+            enemyScript = source.enemyScript;
+            pendingEnemyScript = source.pendingEnemyScript;
+            enemyScriptFirstRound = source.enemyScriptFirstRound;
+            playerMaxHealth = source.playerMaxHealth;
+            playerMaxResistance = source.playerMaxResistance;
+            playerBaseActGain = source.playerBaseActGain;
+            playerMaximumAct = source.playerMaximumAct;
+            enemyMaxHealth = source.enemyMaxHealth;
+            enemyMaxResistance = source.enemyMaxResistance;
+            enemyHealthFloor = source.enemyHealthFloor;
+            enemyHealthThresholdPercent = source.enemyHealthThresholdPercent;
+            roundLimit = source.roundLimit;
+            randomSeed = source.randomSeed;
+            meshPercent = source.meshPercent;
+            random = new Random(source.randomSeed);
+            PlayerCounter = source.PlayerCounter;
+            EnemyCounter = source.EnemyCounter;
+            Features = source.Features;
+            laneViews = new IReadOnlyList<LegacySkill>[3];
+            for (int i = 0; i < lanes.Length; i++)
+            {
+                lanes[i].AddRange(source.lanes[i]);
+                laneViews[i] = lanes[i].AsReadOnly();
+            }
+            playerQueue.AddRange(source.playerQueue);
+            playerQueueActCosts.AddRange(source.playerQueueActCosts);
+            enemyQueue.AddRange(source.enemyQueue);
+            foreach (KeyValuePair<int, int> uses in source.cycleUses) cycleUses.Add(uses.Key, uses.Value);
+            foreach (SkillBuff buff in source.playerBuffs) playerBuffs.Add(buff.Copy());
+            foreach (SkillBuff buff in source.enemyBuffs) enemyBuffs.Add(buff.Copy());
+            PlayerQueue = playerQueue.AsReadOnly();
+            EnemyQueue = enemyQueue.AsReadOnly();
+            queuePowerSourceSlotIndex = source.queuePowerSourceSlotIndex;
+            queuePowerRemovedSkillCount = source.queuePowerRemovedSkillCount;
+            queuePowerMultiplierCap = source.queuePowerMultiplierCap;
+            enemyPatternIndex = source.enemyPatternIndex;
+            Player = source.Player.Copy();
+            Enemy = source.Enemy.Copy();
+            RoundNumber = source.RoundNumber;
+            Act = source.Act;
+            NextActGain = source.NextActGain;
+            StepAttemptsThisTurn = source.StepAttemptsThisTurn;
+            StepSuccessStreak = source.StepSuccessStreak;
+            StepMissedThisTurn = source.StepMissedThisTurn;
+            BreathsQueuedThisTurn = source.BreathsQueuedThisTurn;
+            LaneCyclesThisTurn = source.LaneCyclesThisTurn;
+            LastResolvedSlot = source.LastResolvedSlot;
+            PlayerCountersRemaining = source.PlayerCountersRemaining;
+            EnemyCountersRemaining = source.EnemyCountersRemaining;
+            EnemyHealthThresholdReached = source.EnemyHealthThresholdReached;
+            Outcome = source.Outcome;
+            Phase = LegacyDuelPhase.Planning;
         }
 
         public LegacyFighterState Player { get; private set; }
@@ -305,6 +373,64 @@ namespace TurnLimbo.Runtime.LegacyCombat
             for (int i = enemyQueue.Count; i < playerQueue.Count; i++)
                 if (IsAttack(playerQueue[i])) answered++;
             return answered < EnemyCountersRemaining ? EnemyCounter.Skill : null;
+        }
+
+        /// <summary>편성 예상: this planning turn's slots as they would resolve now (<see cref="LegacySlotForecast"/>), in order,
+        /// up to the longer queue. Empty outside planning.</summary>
+        public IReadOnlyList<LegacySlotForecast> ForecastTurn()
+        {
+            var slots = new List<LegacySlotForecast>();
+            ForecastTurn(slots);
+            return slots;
+        }
+
+        /// <summary>The same into <paramref name="slots"/>, which it clears first. The turn is committed and resolved, slot by
+        /// slot, on a copy of this duel with every power roll at its range's average and no steps: buffs, 맞물림, counters,
+        /// breaks and every skill effect act as they would here. This duel, its lanes, ACT, queues, fighters and random
+        /// generator never change.</summary>
+        public void ForecastTurn(List<LegacySlotForecast> slots)
+        {
+            if (slots == null) throw new ArgumentNullException(nameof(slots));
+            slots.Clear();
+            if (Phase != LegacyDuelPhase.Planning) return;
+            new LegacyQueuedDuel(this).ResolveForecast(slots);
+        }
+
+        /// <summary>The slot the front skill of <paramref name="laneIndex"/> would take if it were queued now, forecast with the
+        /// whole turn as <see cref="ForecastTurn(List{LegacySlotForecast})"/> does (a skill that takes earlier ones off the queue
+        /// lands where that leaves it). Null outside planning or when the lane cannot queue its front (closed, empty, a wait or
+        /// short of ACT).</summary>
+        public LegacySlotForecast ForecastIfQueued(int laneIndex)
+        {
+            if (Phase != LegacyDuelPhase.Planning) return null;
+            var copy = new LegacyQueuedDuel(this);
+            if (!copy.TryQueueLane(laneIndex)) return null;
+            int slotIndex = copy.playerQueue.Count - 1;
+            var slots = new List<LegacySlotForecast>();
+            copy.ResolveForecast(slots);
+            return slotIndex < slots.Count ? slots[slotIndex] : null;
+        }
+
+        // Only on a forecast's copy: commits the turn and resolves every slot, noting what each one did.
+        private void ResolveForecast(List<LegacySlotForecast> slots)
+        {
+            Commit();
+            for (int index = 0; index < slotCount; index++)
+            {
+                if (Phase != LegacyDuelPhase.Resolving)
+                {
+                    slots.Add(LegacySlotForecast.Unreached(index,
+                        index < committedPlayerQueue.Length ? committedPlayerQueue[index] : null,
+                        index < committedEnemyQueue.Length ? committedEnemyQueue[index] : null, Outcome));
+                    continue;
+                }
+                bool playerWhole = !Player.IsResistanceBroken, enemyWhole = !Enemy.IsResistanceBroken;
+                LegacySlotResult result = ResolveNextSlot();
+                slots.Add(new LegacySlotForecast(result.SlotIndex, result.PlayerSkill, result.EnemySkill,
+                    result.PlayerHealthDamage, result.EnemyHealthDamage,
+                    result.PlayerResistanceDamage, result.EnemyResistanceDamage,
+                    playerWhole && Player.IsResistanceBroken, enemyWhole && Enemy.IsResistanceBroken, result.Outcome));
+            }
         }
 
         private IReadOnlyList<LegacySkill> QueueForForecast(bool player) => Phase == LegacyDuelPhase.Planning
@@ -790,7 +916,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             totalPower = 0;
             if (skill == null || skill.IsWait) return 0;
-            int rolledPower = random.Next(checked(skill.MinPower + powerBonus), checked(skill.MaxPower + powerBonus + 1));
+            int rolledPower = averageRolls
+                ? LegacySlotForecast.AveragePower(checked(skill.MinPower + powerBonus), checked(skill.MaxPower + powerBonus))
+                : random.Next(checked(skill.MinPower + powerBonus), checked(skill.MaxPower + powerBonus + 1));
             totalPower = (int)Math.Floor(rolledPower * multiplier);
             return Math.Max(1, (int)Math.Floor(rolledPower * multiplier / skill.AttackCount));
         }
@@ -946,6 +1074,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public int AttackPercent { get; }
             public int DefencePercent { get; }
             public int SlotsRemaining;
+            public SkillBuff Copy() => new SkillBuff(AttackPercent, DefencePercent, SlotsRemaining);
         }
     }
 }

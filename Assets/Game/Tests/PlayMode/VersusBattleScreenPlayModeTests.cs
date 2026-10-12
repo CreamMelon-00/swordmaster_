@@ -218,7 +218,8 @@ namespace TurnLimbo.Presentation.Tests
                 // It opens the next turn with the same skill: its card reads its own count, cost and power.
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, hone.LaneIndex, 2), Is.True);
                 versus.Tick(0f, null);
-                Transform card = scope.HudPart("Enemy Requests").GetChild(0);
+                // The card itself: the row's first child is the guide's focus frame.
+                Transform card = versus.BattleHud.GetQueuedSkillAnchor(false, 0);
                 Assert.That(TextUnder(card, "Cycle Count").text, Is.EqualTo("1/9"));
                 Assert.That(TextUnder(card, "Cycle Count").transform.parent.gameObject.activeSelf, Is.True);
 

@@ -116,7 +116,9 @@ namespace TurnLimbo.Core.Tests
             int[] openingPower = Enumerable.Range(1, opener.OpeningLength).Select(round => Power(opener.Turn(round))).ToArray();
             int[] loopPower = Enumerable.Range(opener.OpeningLength + 1, opener.LoopLength).Select(round => Power(opener.Turn(round))).ToArray();
             Assert.That(openingPower.Min(), Is.GreaterThan(loopPower.Max()));
-            Assert.That(loopPower.Average(), Is.GreaterThanOrEqualTo(.6 * openingPower.Average()), "Only a little lighter.");
+            // About 0.59 since the 2026-10-12 lane rebalance made the W thrusts that fill the opening heavier
+            // (about 0.64 before); Docs/SkillBalance.md.
+            Assert.That(loopPower.Average(), Is.GreaterThanOrEqualTo(.55 * openingPower.Average()), "Only a little lighter.");
             Assert.That(Enumerable.Range(opener.OpeningLength + 1, opener.LoopLength)
                 .All(round => opener.Turn(round).Count(skill => !IsGuard(skill)) >= 2), Is.True);
 

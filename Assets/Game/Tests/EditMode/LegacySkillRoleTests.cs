@@ -15,10 +15,10 @@ namespace TurnLimbo.Core.Tests
         [TestCase(5, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.DirectResistanceDamage, "공격 대응")]
         [TestCase(6, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.DirectResistanceDamage, "방어 대응")]
         [TestCase(7, LegacySkillRole.ActRecovery, "조건부 ACT")]
-        [TestCase(8, LegacySkillRole.DamageReduction, "강한 방어·보호")]
+        [TestCase(8, LegacySkillRole.DamageReduction, "다음 칸 보호")]
         [TestCase(9, LegacySkillRole.FollowupPower, "후속 위력")]
         [TestCase(10, LegacySkillRole.ResistanceOnClash | LegacySkillRole.FollowupPower, "다음 칸 강화")]
-        [TestCase(12, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.ActRecovery | LegacySkillRole.Vulnerability, "ACT 회복·취약")]
+        [TestCase(12, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.ActRecovery | LegacySkillRole.Vulnerability, "무리한 돌진")]
         [TestCase(14, LegacySkillRole.ResistanceOnClash, "단타")]
         [TestCase(15, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit, "연타")]
         [TestCase(16, LegacySkillRole.ResistanceOnClash | LegacySkillRole.VariablePower, "변동 한방")]
@@ -26,7 +26,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(19, LegacySkillRole.ResistanceRecovery, "저항 회복")]
         [TestCase(21, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower, "고화력")]
         [TestCase(32, LegacySkillRole.None, "방어")]
-        [TestCase(42, LegacySkillRole.ResistanceOnClash | LegacySkillRole.ActRecovery | LegacySkillRole.DirectResistanceDamage, "방어 대응·저항 감소")]
+        [TestCase(42, LegacySkillRole.ResistanceOnClash | LegacySkillRole.DirectResistanceDamage, "방어 대응·저항 감소")]
         [TestCase(500, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.HighPower | LegacySkillRole.OpponentBreak, "붕괴 연타")]
         [TestCase(501, LegacySkillRole.ResistanceRecovery, "조건부 저항 회복")]
         [TestCase(502, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower | LegacySkillRole.ConditionalDamage, "마무리 일격")]
@@ -69,10 +69,10 @@ namespace TurnLimbo.Core.Tests
             StringAssert.Contains("ACT 3", heavierStrike);
             string attackCounter = LegacySkillRoles.GetDetail(FindSkill(5));
             StringAssert.Contains("상대가 공격이면", attackCounter);
-            StringAssert.Contains("저항을 직접 5", attackCounter);
+            StringAssert.Contains("저항을 직접 10", attackCounter);
             string guardCounter = LegacySkillRoles.GetDetail(FindSkill(6));
             StringAssert.Contains("상대가 방어이면", guardCounter);
-            StringAssert.Contains("저항을 직접 8", guardCounter);
+            StringAssert.Contains("저항을 직접 15", guardCounter);
             string guardedRecovery = LegacySkillRoles.GetDetail(FindSkill(7));
             StringAssert.Contains("상대가 타격 기술이면", guardedRecovery);
             StringAssert.Contains("다음 턴 ACT 회복량 +2", guardedRecovery);
@@ -94,7 +94,7 @@ namespace TurnLimbo.Core.Tests
             StringAssert.DoesNotContain("ACT", preparation);
 
             string advance = LegacySkillRoles.GetDetail(FindSkill(12));
-            StringAssert.Contains("다음 턴 ACT 회복량 +3", advance);
+            StringAssert.Contains("다음 턴 ACT 회복량 +2", advance);
             StringAssert.Contains("플레이어 전용", advance);
             StringAssert.Contains("이번 턴의 바로 다음 1슬롯", advance);
             StringAssert.Contains("받는 피해 배율 +50%", advance);
@@ -106,8 +106,8 @@ namespace TurnLimbo.Core.Tests
 
             string draw = LegacySkillRoles.GetDetail(FindSkill(42));
             StringAssert.Contains("기술 시작 시 같은 슬롯 상대가 방어이면", draw);
-            StringAssert.Contains("저항을 직접 20", draw);
-            StringAssert.Contains("다음 턴 ACT 회복량 +3", draw);
+            StringAssert.Contains("저항을 직접 15", draw);
+            StringAssert.DoesNotContain("ACT", draw);
             StringAssert.Contains("체력 피해로 이어지지", draw);
         }
 

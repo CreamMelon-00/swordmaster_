@@ -58,6 +58,8 @@ Unity 상단 **Turn Limbo → 연출 튜닝 열기**를 누르면 `Assets/Game/R
 | 맞물림 | Mesh Flash Seconds / Mesh Flash Size | 실제 0.45초 / 72. 맞물린 칸의 첫 타격에 엘리사 몸 가운데(스텝 원이 있었을 자리)에서 톱니 한 쌍이 번쩍이며 도는 시간과 톱니 하나의 지름(32~160). 그 칸에는 스텝 원이 없다. 시간 0으로 끄기 |
 | 길게 눌러 설명 | Lane Tap Seconds / Explanation Hold Seconds | 실제 0.2초 / 0.35초. Q/W/E(또는 톱니 창)를 누른 지 이 안에 떼면 예약(0.05~0.5), 이만큼 누르고 있으면 그 열 지금 기술의 설명이 열림(0.1~1.5). 홀드 진행선은 둘 사이에 찬다. 설명 시간을 예약 시간보다 짧게 두면 예약 시간에 연다. 열린 뒤 떼면 예약하지 않음 (아래 '길게 눌러 설명') |
 | 길게 눌러 설명 | Explanation Time Scale | 0.3. 기술 설명을 읽는 동안 편성 시간이 흐르는 배율(0.05~1). 전투에서는 불릿타임의 다가감도 같은 배율로 느려진다(Tab 확인의 0.2배처럼). Tab이 함께면 Tab의 0.2배. 편성 밖에서는 느려지지 않음. 1이면 끄기 |
+| 편성 예상 | Slot Forecast Enabled / Slot Forecast In Versus | 켜짐 / 켜짐. 편성 중 내 큐 카드의 예상 표식(유리 ▲·불리 ▼·비슷 =)과, 길게 눌러 연 설명·Tab 카드의 `예상: 상대 저항 -12 · 내 저항 -6` 한 줄. 실제 규칙으로 지금 편성을 복사본에서 풀어 본 값(평균 위력, 스텝 없음). 끄면 모두 숨김, 둘째는 대전에서만 숨김. 실행 중 바로 적용 (`SlotForecast.md`) |
+| 편성 예상 | Slot Forecast Resistance Weight / Slot Forecast Break Bonus / Slot Forecast Margin | 50 / 8 / 3. 판정에서 저항 1을 체력 몇 %로 칠지(0~100), 붕괴 하나를 체력 몇으로 칠지(0~30), 유리·불리로 볼 차이(체력, 0~30). 그 칸에서 승부가 나면 늘 유리·불리 |
 | 숲 소리 | Forest Ambience Volume / Forest Ambience Fade Seconds / Forest Ambience Scene Duck | 0.4 / 실제 1.2초 / 0.7. 전투와 숲 장면 내내 낮게 깔리는 숲 소리(`Sfx/forest-ambience-loop`)의 음량, 들어오고 나가는 시간, 장면의 `@ambience`·수훈 기운 소리가 날 때 물러나는 비율(1이면 다 내림). 음량 0으로 끄기 (아래 '숲 소리') |
 | 시간 압박 카메라 | Time Pressure Share / Time Pressure Camera Push | 0.3 / 0.04. 편성 제한 시간이 이 비율보다 적게 남으면 카메라가 남은 시간이 줄수록 조금 더(다 됐을 때 화면 크기의 4%) 다가간다. 시간 제한 없는 임무·코치가 시계를 멈춘 동안·수련에는 없다. 비율 0으로 끄기 (아래 '시간 압박 카메라') |
 | 스텝 | Step Anticipation Duration | 0.24초. 첫 발동 전 예고; 연타 간격은 그대로 |

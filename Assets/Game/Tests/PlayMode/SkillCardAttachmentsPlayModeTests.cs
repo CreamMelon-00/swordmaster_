@@ -99,7 +99,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(power.xMax, Is.LessThan(type.xMin));
                     Assert.That(fixture.View.Overhang, Is.Zero);
                     Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
-                    Assert.That(fixture.View.PowerText.text, Is.EqualTo("11–14"));
+                    Assert.That(fixture.View.PowerText.text, Is.EqualTo("15–18"));
                     Assert.That(Label(fixture.View.Root, "Hits Label").text, Is.Empty);
                     Assert.That(Label(fixture.View.Root, "Hits Label").gameObject.activeSelf, Is.False);
                     Assert.That(Label(fixture.View.Root, "Hits Value").text, Is.EqualTo("1회"));
@@ -238,8 +238,8 @@ namespace TurnLimbo.Presentation.Tests
                 GameObject detail = Named(lobby.Root, "Loadout Selected Detail").gameObject;
                 foreach (var selection in new[]
                 {
-                    new[] { "Loadout Slot Q 1", "참격", "4–5", "1" },
-                    new[] { "Loadout Slot W 1", "관통", "11–14", "2" },
+                    new[] { "Loadout Slot Q 1", "참격", "3–4", "1" },
+                    new[] { "Loadout Slot W 1", "관통", "15–18", "2" },
                     new[] { "Loadout Slot E 1", "타격", "4–6", "1" },
                     new[] { "Loadout Slot Q 3", "방어", "5–8", "1" },
                 })
@@ -254,8 +254,8 @@ namespace TurnLimbo.Presentation.Tests
                 Click(lobby.Root, "Curriculum Node one-stroke");
                 detail = Named(lobby.Root, "Curriculum Selected Detail").gameObject;
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("참격"));
-                Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("5"));
-                Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo("3–20"));
+                Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("4"));
+                Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo("18–42"));
                 Click(lobby.Root, "Curriculum Node fighting-spirit");
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("방어"));
                 Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("2"));

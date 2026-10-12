@@ -338,9 +338,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(first.EnemySkill.Id, Is.EqualTo(1));
             Assert.That(first.PlayerHealthDamage, Is.Zero);
             Assert.That(first.EnemyHealthDamage, Is.Zero);
-            Assert.That(first.PlayerResistanceDamage, Is.InRange(4, 5));
-            // 베기 (Q) meshes with the W skill after it (맞물림, +20%): floor(4 × 1.2) = 4 or floor(5 × 1.2) = 6.
-            Assert.That(first.EnemyResistanceDamage, Is.EqualTo(4).Or.EqualTo(6));
+            Assert.That(first.PlayerResistanceDamage, Is.InRange(3, 4));
+            // 베기 (Q) meshes with the W skill after it (맞물림, +20%): floor(3 × 1.2) = 3 or floor(4 × 1.2) = 4.
+            Assert.That(first.EnemyResistanceDamage, Is.EqualTo(3).Or.EqualTo(4));
             Assert.That(duel.IsTurnResolved, Is.False);
 
             LegacySlotResult second = duel.ResolveNextSlot();
@@ -466,7 +466,7 @@ namespace TurnLimbo.Core.Tests
             for (int i = 0; i < 5; i++) Assert.That(duel.TryQueueLane(1), Is.True);
             duel.Commit();
 
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.InRange(11, 14));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.InRange(15, 18));
             for (int i = 0; i < 4; i++) Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(20));
         }
 
@@ -719,7 +719,8 @@ namespace TurnLimbo.Core.Tests
 
             LegacyHitResult followup = enhanced.ResolveNextHit();
             LegacyHitResult plainFollowup = baseline.ResolveNextHit();
-            int expected = (int)Math.Round(plainFollowup.EnemyHealthDamage * 1.25,
+            int bonusPercent = LegacySkillDefinitions.Find(barrage).Effect.BrokenTargetDamagePercent;
+            int expected = (int)Math.Round(plainFollowup.EnemyHealthDamage * (100 + bonusPercent) / 100.0,
                 MidpointRounding.ToEven);
             Assert.That(followup.EnemyHealthDamage, Is.EqualTo(expected));
             Assert.That(followup.EnemyHealthDamage, Is.GreaterThan(plainFollowup.EnemyHealthDamage));

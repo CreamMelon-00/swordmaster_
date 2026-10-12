@@ -1,4 +1,5 @@
 using System;
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,15 +16,104 @@ namespace TurnLimbo.Presentation
             new Color32(218, 204, 172, 255), new Color32(189, 207, 201, 255), new Color32(217, 188, 174, 255),
         };
 
+        // The same dyes deepened for thin lines and letters on the dark HUD (a card's ring, a key letter): each paper's hue
+        // at three times its saturation (at most .6), so Q reads gold, W teal and E terracotta at a glance.
+        private static readonly Color[] Edges = { Deepen(Papers[0]), Deepen(Papers[1]), Deepen(Papers[2]) };
+
         public static string Name(int lane) => Names[Checked(lane)];
         public static string FullName(int lane) => FullNames[Checked(lane)];
         public static string Key(int lane) => Keys[Checked(lane)];
+        /// <summary>The school's dyed paper: its badges (<see cref="SkillLaneBadge"/>) and papers.</summary>
         public static Color Paper(int lane) => Papers[Checked(lane)];
+        /// <summary>The school's dye on the dark HUD: the ring round a skill's window or card and its lane letter.</summary>
+        public static Color Edge(int lane) => Edges[Checked(lane)];
+
+        private static Color Deepen(Color paper)
+        {
+            Color.RGBToHSV(paper, out float hue, out float saturation, out float value);
+            return Color.HSVToRGB(hue, Mathf.Min(.6f, saturation * 3f), value);
+        }
 
         private static int Checked(int lane)
         {
             if (lane < 0 || lane > 2) throw new ArgumentOutOfRangeException(nameof(lane));
             return lane;
+        }
+    }
+
+    /// <summary>A skill's one core mechanic at a glance: its first keyword's engraved glyph on that keyword's dye
+    /// (<see cref="SkillInfoContent.Main"/>, <see cref="SkillToneStyle"/>), the badge the skill card opens with, as a small
+    /// square riding the upper right of the skill's icon. The battle dock's windows, the loadout's and the curriculum's
+    /// cards wear one; it never takes input.</summary>
+    public sealed class SkillRolePip
+    {
+        private readonly Image paper;
+        private readonly SkillInfoGlyph glyph;
+        private float alpha = 1f;
+
+        public SkillRolePip(Transform parent, Vector2 center, float size = 16f, string name = "Role Pip")
+        {
+            if (parent == null) throw new ArgumentNullException(nameof(parent));
+            Root = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
+            Root.gameObject.layer = 5;
+            Root.SetParent(parent, false);
+            Root.anchorMin = Root.anchorMax = Root.pivot = Vector2.one * .5f;
+            Root.anchoredPosition = center;
+            Root.sizeDelta = Vector2.one * size;
+            paper = Root.gameObject.AddComponent<Image>();
+            paper.raycastTarget = false;
+            var mark = new GameObject("Role Glyph", typeof(RectTransform)).GetComponent<RectTransform>();
+            mark.gameObject.layer = 5;
+            mark.SetParent(Root, false);
+            mark.anchorMin = mark.anchorMax = mark.pivot = Vector2.one * .5f;
+            mark.sizeDelta = Vector2.one * (size - 3f);
+            mark.gameObject.AddComponent<CanvasRenderer>();
+            glyph = mark.gameObject.AddComponent<SkillInfoGlyph>();
+            glyph.raycastTarget = false;
+            Clear();
+        }
+
+        public RectTransform Root { get; }
+        /// <summary>The skill shown, or null while the pip is hidden.</summary>
+        public LegacySkill Skill { get; private set; }
+        public LegacySkillSymbol Symbol { get; private set; }
+        public LegacySkillTone Tone { get; private set; }
+
+        /// <summary>Shows <paramref name="skill"/>'s first keyword (null or a wait hides the pip).</summary>
+        public void SetSkill(LegacySkill skill)
+        {
+            if (skill == null || skill.IsWait) { Clear(); return; }
+            if (ReferenceEquals(Skill, skill) && Root.gameObject.activeSelf) return;
+            SkillInfoContent content = SkillInfoContent.For(skill, false);
+            Skill = skill;
+            Symbol = content.MainSymbol;
+            Tone = content.MainTone;
+            glyph.SetSymbol(Symbol);
+            Tint();
+            Root.gameObject.SetActive(true);
+        }
+
+        /// <summary>Fades the pip with a dimmed card (a locked course's icon), 1 drawing it whole.</summary>
+        public void SetAlpha(float value)
+        {
+            value = Mathf.Clamp01(value);
+            if (Mathf.Approximately(alpha, value)) return;
+            alpha = value;
+            Tint();
+        }
+
+        private void Tint()
+        {
+            Color background = SkillToneStyle.Paper(Tone), ink = SkillToneStyle.Ink(Tone);
+            background.a = ink.a = alpha;
+            paper.color = background;
+            glyph.color = ink;
+        }
+
+        public void Clear()
+        {
+            Skill = null;
+            Root.gameObject.SetActive(false);
         }
     }
 

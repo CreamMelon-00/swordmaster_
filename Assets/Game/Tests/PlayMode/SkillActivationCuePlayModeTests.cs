@@ -100,10 +100,10 @@ namespace TurnLimbo.Presentation.Tests
                 duel.Commit();
                 LegacyCurrentSlot matched = duel.BeginNextSlot();
                 Assert.That(matched.PlayerFeedback.ConditionMet, Is.True);
-                Assert.That(matched.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(5));
+                Assert.That(matched.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(10));
                 Assert.That(fixture.Cue.Show(true, response, matched.PlayerFeedback), Is.True);
                 Assert.That(fixture.PlayerTitle.text, Is.EqualTo("기세 꺾기 성공!"));
-                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("상대 저항 -5"));
+                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("상대 저항 -10"));
                 fixture.Tick(.02f);
                 Assert.That(fixture.PlayerBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Strike));
                 Assert.That(fixture.PlayerBurst.gameObject.activeSelf, Is.True);
@@ -124,10 +124,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(enemyDuel.TryQueueLane(0), Is.True);
                 enemyDuel.Commit();
                 LegacyCurrentSlot enemyMatched = enemyDuel.BeginNextSlot();
-                Assert.That(enemyMatched.EnemyFeedback.OpponentResistanceReduced, Is.EqualTo(5));
+                Assert.That(enemyMatched.EnemyFeedback.OpponentResistanceReduced, Is.EqualTo(10));
                 Assert.That(fixture.Cue.Show(false, response, enemyMatched.EnemyFeedback), Is.True);
                 Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 기세 꺾기 성공!"));
-                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("내 저항 -5"));
+                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("내 저항 -10"));
                 fixture.Tick(.02f);
                 Assert.That(fixture.EnemyBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Danger));
             }
@@ -214,7 +214,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "쿠페");
                 LegacyCurrentSlot strike = BeginSlot(draw, Guard(900, "방어"));
-                Assert.That(strike.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(20));
+                Assert.That(strike.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(15));
                 Assert.That(fixture.Cue.Show(true, draw, strike.PlayerFeedback), Is.True);
                 fixture.Tick(.02f);
                 Assert.That(fixture.PlayerBurst.gameObject.activeSelf, Is.True);

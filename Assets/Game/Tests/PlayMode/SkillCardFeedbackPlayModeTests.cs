@@ -96,7 +96,7 @@ namespace TurnLimbo.Presentation.Tests
                 duel.Commit();
                 LegacyCurrentSlot slot = duel.BeginNextSlot();
                 fixture.ShowSlot(duel, slot);
-                Assert.That(slot.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(5));
+                Assert.That(slot.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(10));
                 Assert.That(fixture.Queue(true, 0).ConditionReady, Is.True);
                 Assert.That(fixture.Queue(true, 0).EffectActivated, Is.True);
                 Assert.That(fixture.Queue(true, 0).HasBuffParticles, Is.False);

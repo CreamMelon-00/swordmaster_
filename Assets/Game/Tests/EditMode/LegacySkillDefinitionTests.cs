@@ -47,7 +47,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(new[] { slash.Cost, combo.Cost, guard.Cost }, Is.EqualTo(new[] { 1, 1, 1 }));
             Assert.That(combo.Name, Is.EqualTo("연속 베기"));
             Assert.That(combo.AttackCount, Is.EqualTo(2));
-            Assert.That(combo.MaxPower, Is.EqualTo(9));
+            Assert.That(combo.MaxPower, Is.EqualTo(7));
             Assert.That(LegacySkillDefinitions.Find(combo).HighPower, Is.False,
                 "The basic Q combo must leave the concentrated burst role to W.");
             Assert.That(guard.Kind, Is.EqualTo(LegacySkillKind.Defence));
@@ -58,7 +58,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkill deep = LegacySkillDefinitions.Skill(3);
             LegacySkill precise = LegacySkillDefinitions.Skill(4);
             LegacySkill parry = LegacySkillDefinitions.Skill(8);
-            Assert.That(new[] { deep.Cost, precise.Cost, parry.Cost }, Is.EqualTo(new[] { 2, 3, 3 }));
+            Assert.That(new[] { deep.Cost, precise.Cost, parry.Cost }, Is.EqualTo(new[] { 2, 3, 2 }));
             Assert.That(deep.MinPower, Is.GreaterThan(combo.MaxPower));
             Assert.That(precise.MinPower, Is.GreaterThan(deep.MinPower));
             Assert.That(parry.MinPower, Is.GreaterThan(guard.MaxPower));
@@ -73,9 +73,9 @@ namespace TurnLimbo.Core.Tests
             LegacySkill deflect = LegacySkillDefinitions.Skill(9);
             Assert.That(new[] { pressure.Cost, opening.Cost, deflect.Cost }, Is.EqualTo(new[] { 1, 2, 1 }));
             Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Attack));
-            Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentResistanceReduction, Is.EqualTo(5));
+            Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentResistanceReduction, Is.EqualTo(10));
             Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Defence));
-            Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentResistanceReduction, Is.EqualTo(8));
+            Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentResistanceReduction, Is.EqualTo(15));
             Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffPowerPercent, Is.EqualTo(20));
             Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffSlots, Is.EqualTo(2));
         }
@@ -92,12 +92,12 @@ namespace TurnLimbo.Core.Tests
 
             LegacySkill barrage = LegacySkillDefinitions.Skill(44);
             Assert.That((barrage.Name, barrage.Cost, barrage.MinPower, barrage.MaxPower, barrage.AttackCount),
-                Is.EqualTo(("몰아치기", 3, 10, 15, 4)));
+                Is.EqualTo(("몰아치기", 3, 12, 16, 4)));
             Assert.That(barrage.Kind, Is.EqualTo(LegacySkillKind.Attack));
             Assert.That(barrage.Property, Is.EqualTo(LegacySkillProperty.Slash));
             Assert.That(barrage.LaneIndex, Is.Zero);
             Assert.That(barrage.IconId, Is.EqualTo(17));
-            Assert.That(LegacySkillDefinitions.Find(barrage).Effect.BrokenTargetDamagePercent, Is.EqualTo(25));
+            Assert.That(LegacySkillDefinitions.Find(barrage).Effect.BrokenTargetDamagePercent, Is.EqualTo(100));
             Assert.That((LegacySkillRoles.Get(barrage) & LegacySkillRole.BrokenTargetDamage) != 0, Is.True);
         }
 

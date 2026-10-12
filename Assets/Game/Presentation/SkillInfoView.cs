@@ -328,31 +328,8 @@ namespace TurnLimbo.Presentation
 
         private static void StyleKeyword(Image badge, Text label, SkillInfoGlyph glyph, LegacySkillTone tone)
         {
-            // Muted dyes fit the paper/brass theme; opaque backgrounds keep ink contrast predictable.
-            Color32 ink, paper;
-            switch (tone)
-            {
-                case LegacySkillTone.Recovery:
-                    ink = new Color32(36, 89, 75, 255); paper = new Color32(197, 212, 182, 255); break;
-                case LegacySkillTone.Followup:
-                    ink = new Color32(89, 65, 107, 255); paper = new Color32(215, 197, 214, 255); break;
-                case LegacySkillTone.Cycle:
-                    ink = new Color32(34, 83, 82, 255); paper = new Color32(183, 215, 204, 255); break;
-                case LegacySkillTone.Reduction:
-                    ink = new Color32(51, 81, 107, 255); paper = new Color32(198, 211, 217, 255); break;
-                case LegacySkillTone.HighPower:
-                    ink = new Color32(116, 61, 45, 255); paper = new Color32(220, 195, 173, 255); break;
-                case LegacySkillTone.MultiHit:
-                    ink = new Color32(102, 75, 32, 255); paper = new Color32(223, 206, 163, 255); break;
-                case LegacySkillTone.Variance:
-                    ink = new Color32(106, 76, 25, 255); paper = new Color32(224, 208, 166, 255); break;
-                case LegacySkillTone.Defence:
-                    ink = new Color32(69, 82, 47, 255); paper = new Color32(202, 208, 174, 255); break;
-                default:
-                    ink = new Color32(73, 63, 49, 255); paper = new Color32(215, 201, 172, 255); break;
-            }
-            badge.color = paper;
-            label.color = glyph.color = ink;
+            badge.color = SkillToneStyle.Paper(tone);
+            label.color = glyph.color = SkillToneStyle.Ink(tone);
         }
 
         private static RectTransform Tile(string name, Transform parent, float x, float width, float height = 52)
@@ -392,6 +369,44 @@ namespace TurnLimbo.Presentation
             var glyph = rect.gameObject.AddComponent<SkillInfoGlyph>();
             glyph.color = DuelVisualTheme.Ink; glyph.raycastTarget = false; glyph.SetSymbol(symbol);
             return glyph;
+        }
+    }
+
+    /// <summary>The keyword badges' dyes (Docs/SkillInformationDesign.md '키워드 색 언어'): muted paper and a dark ink of the
+    /// same meaning, opaque so the ink's contrast holds. The skill card's badges and the role pips (<see cref="SkillRolePip"/>)
+    /// share them.</summary>
+    public static class SkillToneStyle
+    {
+        public static Color Ink(LegacySkillTone tone)
+        {
+            switch (tone)
+            {
+                case LegacySkillTone.Recovery: return new Color32(36, 89, 75, 255);
+                case LegacySkillTone.Followup: return new Color32(89, 65, 107, 255);
+                case LegacySkillTone.Cycle: return new Color32(34, 83, 82, 255);
+                case LegacySkillTone.Reduction: return new Color32(51, 81, 107, 255);
+                case LegacySkillTone.HighPower: return new Color32(116, 61, 45, 255);
+                case LegacySkillTone.MultiHit: return new Color32(102, 75, 32, 255);
+                case LegacySkillTone.Variance: return new Color32(106, 76, 25, 255);
+                case LegacySkillTone.Defence: return new Color32(69, 82, 47, 255);
+                default: return new Color32(73, 63, 49, 255);
+            }
+        }
+
+        public static Color Paper(LegacySkillTone tone)
+        {
+            switch (tone)
+            {
+                case LegacySkillTone.Recovery: return new Color32(197, 212, 182, 255);
+                case LegacySkillTone.Followup: return new Color32(215, 197, 214, 255);
+                case LegacySkillTone.Cycle: return new Color32(183, 215, 204, 255);
+                case LegacySkillTone.Reduction: return new Color32(198, 211, 217, 255);
+                case LegacySkillTone.HighPower: return new Color32(220, 195, 173, 255);
+                case LegacySkillTone.MultiHit: return new Color32(223, 206, 163, 255);
+                case LegacySkillTone.Variance: return new Color32(224, 208, 166, 255);
+                case LegacySkillTone.Defence: return new Color32(202, 208, 174, 255);
+                default: return new Color32(215, 201, 172, 255);
+            }
         }
     }
 
