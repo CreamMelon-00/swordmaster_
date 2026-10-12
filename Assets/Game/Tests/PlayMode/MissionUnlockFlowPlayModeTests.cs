@@ -34,36 +34,39 @@ namespace TurnLimbo.Presentation.Tests
             {
                 DuelPrototypeController controller = scope.Controller;
                 scope.ContinueFrom(PrologueMissions.Count, 0);
-                Assert.That(controller.IsInLobby, Is.True, "Mission 5 waits for stage 1, so 이어하기 resumes in the lobby.");
+                Assert.That(controller.IsInAcademyField, Is.True, "Mission 5 waits for stage 1, so 이어하기 resumes in the academy field.");
                 Assert.That(controller.IsInBriefing, Is.False);
                 Assert.That(controller.Prologue.IsArcComplete, Is.True);
                 Assert.That(controller.Campaign.Features, Is.EqualTo(QAndCycle), "Only the Q lane and 넘기기 are open after the 서막.");
-                Assert.That(controller.Campaign.StageLimit, Is.EqualTo(1));
+                Assert.That(controller.Campaign.StageLimit, Is.EqualTo(2));
                 Assert.That(controller.IsNextMissionAvailable, Is.False);
                 Assert.That(controller.OpenNextMission(), Is.False);
                 Assert.That(controller.IsInLobby, Is.True);
                 Assert.That(controller.LobbyHud.NextMission.Number, Is.EqualTo(5));
                 Assert.That(controller.LobbyHud.IsNextMissionAvailable, Is.False);
-                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home));
+                Assert.That(controller.LobbyHud.IsVisible, Is.False);
+                Assert.That(controller.AcademyField.VisibleStageCount, Is.EqualTo(2),
+                    "The opening pair can be tackled in either order.");
                 GameObject lobby = controller.LobbyHud.Root;
-                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("가르침  ·  임무 5  ·  ???"),
-                    "The title would give away what the mission opens, so it waits until the mission can be played.");
-                Assert.That(ActiveLabel(lobby, "Home Mission State").text, Does.Contain("스테이지 01을 클리어하면 열립니다"));
-                Assert.That(ActiveButton(lobby, "Home Mission Open").interactable, Is.False, "The banner stays locked.");
+                Assert.That(controller.OpenFieldMenu(), Is.True);
+                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Loadout));
+                Assert.That(TryFindActive(lobby, "Tab Home"), Is.Null);
+                Assert.That(TryFindActive(lobby, "Tab Stages"), Is.Null);
 
                 // Until mission 8 opens the last lane the curriculum does not exist: no tab, link, progress or title line.
                 Assert.That(controller.Campaign.IsCurriculumOpen, Is.False);
-                Assert.That(scope.TitleSummary, Does.Contain("로비").And.Not.Contain("커리큘럼"));
+                Assert.That(scope.TitleSummary, Does.Not.Contain("커리큘럼"));
                 Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Home Open Curriculum"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Header Curriculum"), Is.Null);
-                AssertNoActiveText(lobby, "커리큘럼", "Home");
+                AssertNoActiveText(lobby, "커리큘럼", "Field menu");
                 controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
-                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home), "Asking for its page shows Home.");
+                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Loadout), "A locked curriculum returns to loadout.");
                 Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.False);
                 controller.LobbyHud.ShowTab(LobbyTab.Stages);
+                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Loadout));
                 Assert.That(TryFindActive(lobby, "Selected Stage Curriculum"), Is.Null);
-                AssertNoActiveText(lobby, "커리큘럼", "Stages");
+                AssertNoActiveText(lobby, "커리큘럼", "Field menu");
 
                 // The Q-only loadout shows only open slots and has no lane filter.
                 controller.LobbyHud.ShowTab(LobbyTab.Loadout);
@@ -79,7 +82,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null);
                 Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("보유 기술을 골라 강조된 칸을 누르세요."));
                 AssertNoActiveText(lobby, "커리큘럼", "Loadout");
-                controller.LobbyHud.ShowTab(LobbyTab.Home);
+                Assert.That(controller.CloseFieldMenu(), Is.True);
+                Assert.That(controller.LobbyHud.IsVisible, Is.False);
 
                 // Stage 1 fights with the Q lane only: the saved W/E skills, 숨고르기 and the steps stay out.
                 Assert.That(controller.StartCampaignStage(1), Is.True);
@@ -164,14 +168,14 @@ namespace TurnLimbo.Presentation.Tests
                 controller.ReturnToLobby();
                 Assert.That(controller.IsInLobby, Is.True);
 
-                // Clearing stage 1 brings the mission; stage 2 waits for it.
+                // Clearing stage 1 brings the mission; stage 2 remains a free choice on the field.
                 Assert.That(controller.StartCampaignStage(1), Is.True);
                 scope.WinToSettled();
                 Assert.That(controller.IsShowingResult, Is.True);
                 Assert.That(controller.Result.IsMission, Is.False);
                 Assert.That(controller.Result.Victory, Is.True);
-                Assert.That(controller.Result.CanAdvance, Is.False, "Stage 2 waits for the mission, so no next-stage button.");
-                Assert.That(FindButton(controller.ResultHud.Root, "Result Next Stage").gameObject.activeSelf, Is.False);
+                Assert.That(controller.Result.CanAdvance, Is.True, "The result can return to the academy field.");
+                Assert.That(FindButton(controller.ResultHud.Root, "Result Next Stage").gameObject.activeSelf, Is.True);
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text, Does.Contain("새 임무 '기교 검술' 도착"),
                     "The stage result announces the mission that has just arrived.");
                 Assert.That(controller.Result.CurriculumOpen, Is.False);
@@ -179,32 +183,20 @@ namespace TurnLimbo.Presentation.Tests
                     "The result has no curriculum row either.");
                 AssertNoActiveText(controller.ResultHud.Root, "커리큘럼", "Stage result");
                 Assert.That(controller.DismissBattleResult(), Is.True);
-                Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(controller.IsInAcademyField, Is.True);
                 Assert.That(controller.Campaign.IsStageCleared(1), Is.True);
                 Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(2));
                 Assert.That(controller.IsNextMissionAvailable, Is.True);
                 Assert.That(controller.LobbyHud.IsNextMissionAvailable, Is.True);
-                controller.LobbyHud.ShowTab(LobbyTab.Home);
-                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("가르침  ·  임무 5  ·  기교 검술"),
-                    "A mission that can be played shows its title.");
-                Assert.That(ActiveLabel(lobby, "Home Mission State").text, Is.EqualTo("새 임무가 도착했습니다."));
-                Assert.That(ActiveButton(lobby, "Home Mission Open").interactable, Is.True);
-                Assert.That(controller.Campaign.IsStageWaitingForMission(2), Is.True);
-                Assert.That(controller.Campaign.CanStartStage(2), Is.False, "Stage 2 waits for the mission.");
-                Assert.That(controller.StartCampaignStage(2), Is.False);
-                Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(controller.LobbyHud.IsVisible, Is.False);
+                Assert.That(controller.AcademyField.VisibleStageCount, Is.EqualTo(2));
+                Assert.That(controller.Campaign.IsStageWaitingForMission(2), Is.False);
+                Assert.That(controller.Campaign.CanStartStage(2), Is.True, "The second opening fight is optional before the lesson.");
+                Assert.That(controller.Campaign.CanStartStage(3), Is.False, "The next group still waits for story progression.");
+                Assert.That(controller.IsInAcademyField, Is.True);
 
-                controller.LobbyHud.ShowTab(LobbyTab.Stages);
-                Assert.That(ActiveLabel(lobby, "Stage State 1").text, Is.EqualTo("클리어"));
-                Assert.That(ActiveLabel(lobby, "Stage State 2").text, Is.EqualTo("임무 필요"));
-                Assert.That(ActiveLabel(lobby, "Stage State 3").text, Is.EqualTo("잠김"));
-                Assert.That(controller.LobbyHud.SelectStage(2), Is.True);
-                Assert.That(ActiveLabel(lobby, "Selected Stage State").text, Is.EqualTo("먼저 임무 '기교 검술'을(를) 완료하세요"));
-                Assert.That(ActiveButton(lobby, "Start Selected Stage").interactable, Is.False);
-                Button openMission = ActiveButton(lobby, "Stages Open Mission");
-                Assert.That(openMission.interactable, Is.True);
-                openMission.onClick.Invoke();
-                Assert.That(controller.IsInBriefing, Is.True, "The Stages tab opens the waiting mission's briefing.");
+                Assert.That(controller.OpenNextMission(), Is.True);
+                Assert.That(controller.IsInBriefing, Is.True, "The academy story board opens the waiting mission's briefing.");
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(5));
                 Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("가르침  ·  임무 5 / 9"));
                 Assert.That(controller.BriefingHud.BackButton.gameObject.activeSelf, Is.True);
@@ -215,14 +207,17 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LobbyMission_BriefsFromTheLobby_EscapeLeaves_AndItsWinOpensTheELaneForStages()
+        public IEnumerator FieldMission_BriefsFromTheBoard_EscapeLeaves_AndItsWinOpensTheELaneForStages()
         {
             yield return null;
             using (var scope = new UnlockScope())
             {
                 DuelPrototypeController controller = scope.Controller;
                 scope.ContinueFrom(PrologueMissions.Count, 1);
-                Assert.That(controller.IsInBriefing, Is.True, "With stage 1 cleared, 이어하기 resumes at mission 5's briefing.");
+                Assert.That(controller.IsInAcademyField, Is.True, "A post-arc save resumes at the academy field.");
+                Assert.That(controller.IsNextMissionAvailable, Is.True);
+                Assert.That(controller.OpenNextMission(), Is.True, "The story board opens the waiting mission.");
+                Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(5));
                 Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("가르침  ·  임무 5 / 9"));
                 Assert.That(Label(controller.BriefingHud.Root, "Briefing Title").text, Is.EqualTo("기교 검술"));
@@ -230,8 +225,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(back, Is.Not.Null);
                 Assert.That(back.name, Is.EqualTo("Mission Back"));
                 Assert.That(back.gameObject.activeSelf, Is.True, "A lobby mission's briefing offers the way back.");
-                Assert.That(back.GetComponentInChildren<Text>(true).text, Is.EqualTo("로비로  [Esc]"));
-                Assert.That(controller.OpenNextMission(), Is.False, "Only the lobby opens a briefing.");
+                Assert.That(back.GetComponentInChildren<Text>(true).text, Does.Contain("Esc"));
+                Assert.That(controller.OpenNextMission(), Is.False, "Only the field opens a briefing.");
 
                 var keyboard = InputSystem.AddDevice<Keyboard>();
                 controller.enabled = true;
@@ -240,16 +235,16 @@ namespace TurnLimbo.Presentation.Tests
                 Release(keyboard.escapeKey);
                 yield return null;
                 controller.enabled = false;
-                Assert.That(controller.IsInLobby, Is.True, "Escape leaves a lobby mission's briefing for the lobby.");
+                Assert.That(controller.IsInAcademyField, Is.True, "Escape leaves a mission briefing for the field.");
                 Assert.That(controller.IsInBriefing, Is.False);
                 Assert.That(controller.BriefingHud.IsVisible, Is.False);
                 Assert.That(controller.Prologue.ClearedCount, Is.EqualTo(PrologueMissions.Count));
 
                 GameObject lobby = controller.LobbyHud.Root;
-                ActiveButton(lobby, "Home Mission Open").onClick.Invoke();
-                Assert.That(controller.IsInBriefing, Is.True, "The Home banner opens the briefing.");
+                Assert.That(controller.OpenNextMission(), Is.True);
+                Assert.That(controller.IsInBriefing, Is.True);
                 back.onClick.Invoke();
-                Assert.That(controller.IsInLobby, Is.True, "…and the back button returns to the lobby.");
+                Assert.That(controller.IsInAcademyField, Is.True, "…and the back button returns to the field.");
                 Assert.That(controller.OpenNextMission(), Is.True);
                 Assert.That(controller.IsInBriefing, Is.True);
                 scope.StartBriefedMission();
@@ -283,18 +278,19 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsNextMissionAvailable, Is.False);
                 Assert.That(Label(controller.ResultHud.Root, "Result Stage").text, Is.EqualTo("가르침  ·  임무 05  ·  기교 검술"));
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
-                    Does.Contain(StoryMissions.Get(5).UnlockText).And.Contain("다음 스테이지를 깨면 다음 임무가 열립니다"));
+                    Does.Contain(StoryMissions.Get(5).UnlockText).And.Contain("학원에서 필요한 전투를 마치면 다음 임무가 열립니다"));
                 Button next = FindButton(controller.ResultHud.Root, "Result Next Stage");
                 Assert.That(next.gameObject.activeSelf, Is.True);
-                Assert.That(next.GetComponentInChildren<Text>().text, Is.EqualTo("여정 계속"));
+                Assert.That(next.GetComponentInChildren<Text>().text, Is.EqualTo("학원으로"));
                 Assert.That(FindButton(controller.ResultHud.Root, "Result Lobby").gameObject.activeSelf, Is.False);
                 next.onClick.Invoke();
-                Assert.That(controller.IsInLobby, Is.True, "Mission 6 waits for stage 2, so 여정 계속 opens the lobby.");
+                Assert.That(controller.IsInAcademyField, Is.True, "Mission 6 waits for stage 2, so the result returns to the field.");
                 Assert.That(controller.IsInBriefing, Is.False);
                 Assert.That(controller.LobbyHud.NextMission.Number, Is.EqualTo(6));
                 Assert.That(controller.LobbyHud.IsNextMissionAvailable, Is.False);
-                Assert.That(ActiveLabel(lobby, "Home Mission State").text, Does.Contain("스테이지 02를 클리어하면 열립니다"));
+                Assert.That(controller.AcademyField.VisibleStageCount, Is.GreaterThanOrEqualTo(2));
 
+                Assert.That(controller.OpenFieldMenu(), Is.True);
                 controller.LobbyHud.ShowTab(LobbyTab.Loadout);
                 Assert.That(TryFindActive(lobby, "Loadout Counts"), Is.Null,
                     "The visible slots carry their own capacity information.");
@@ -315,8 +311,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.HasLoadoutChanges, Is.False);
                 Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null, "The curriculum still waits for the W lane.");
 
-                controller.LobbyHud.ShowTab(LobbyTab.Stages);
-                Assert.That(ActiveLabel(lobby, "Stage State 2").text, Is.EqualTo("도전 가능"));
+                Assert.That(controller.CloseFieldMenu(), Is.True);
                 Assert.That(controller.Campaign.CanStartStage(2), Is.True);
                 Assert.That(controller.StartCampaignStage(2), Is.True);
                 duel = controller.Session;
@@ -338,6 +333,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 DuelPrototypeController controller = scope.Controller;
                 scope.ContinueFrom(PrologueMissions.Count + 1, 2);
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.OpenNextMission(), Is.True);
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(6));
                 Assert.That(Label(controller.BriefingHud.Root, "Briefing Chapter").text, Is.EqualTo("가르침  ·  임무 6 / 9"));
@@ -377,6 +374,20 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.CanStep, Is.False, "Mission 6 has not opened any step.");
                 Assert.That(controller.TryStep(LegacyStepAction.Dodge, out _), Is.False);
                 Assert.That(duel.StepAttemptsThisTurn, Is.Zero);
+
+                scope.SetGuide(null);
+                scope.WinToSettled();
+                if (controller.IsPlayingScene) Assert.That(controller.SkipScene(), Is.True);
+                Assert.That(controller.IsShowingResult, Is.True);
+                Assert.That(controller.Campaign.StageLimit, Is.EqualTo(5));
+                Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(5));
+                Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
+                    Does.Contain("학원에 전투 03~05의 상대가 나타났습니다."));
+                Assert.That(controller.AdvanceFromBattleResult(), Is.True);
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.Campaign.CanStartStage(3), Is.True);
+                Assert.That(controller.Campaign.CanStartStage(5), Is.True,
+                    "Finishing the lesson reveals the whole academy encounter group.");
             }
         }
 
@@ -388,11 +399,14 @@ namespace TurnLimbo.Presentation.Tests
             {
                 DuelPrototypeController controller = scope.Controller;
                 scope.ContinueFrom(PrologueMissions.Count + 2, 3);
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.OpenNextMission(), Is.True);
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(7));
                 Assert.That(controller.Campaign.Features, Is.EqualTo(QAndE | CombatFeature.Breath),
                     "Stages have what missions 5 and 6 opened.");
-                Assert.That(controller.Campaign.StageLimit, Is.EqualTo(3));
+                Assert.That(controller.Campaign.StageLimit, Is.EqualTo(5),
+                    "The second field group opens together while its lessons still follow story order.");
                 scope.StartBriefedMission();
                 Assert.That(controller.ActiveMission.Number, Is.EqualTo(7));
                 LegacyQueuedDuel duel = controller.Session;
@@ -440,8 +454,10 @@ namespace TurnLimbo.Presentation.Tests
                     "The defeat after 이아's 수훈 completes the 서막 and is saved before the outro.");
                 if (controller.IsPlayingScene) Assert.That(controller.SkipScene(), Is.True, "The outro plays first.");
                 Assert.That(controller.IsShowingResult, Is.False, "No result screen for the forced loss.");
-                Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.OpenFieldMenu(), Is.True);
                 Assert.That(TryFindActive(controller.LobbyHud.Root, "Tab Curriculum"), Is.Null);
+                Assert.That(controller.CloseFieldMenu(), Is.True);
             }
         }
 
@@ -454,13 +470,17 @@ namespace TurnLimbo.Presentation.Tests
                 DuelPrototypeController controller = scope.Controller;
                 scope.ContinueFrom(PrologueMissions.Count + 3, 4);
                 Assert.That(scope.TitleSummary, Does.Not.Contain("커리큘럼"), "With W still closed the title leaves it out.");
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.OpenNextMission(), Is.True);
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.BriefingHud.Mission.Number, Is.EqualTo(8));
                 Assert.That(Label(controller.BriefingHud.Root, "Objectives Text").text, Does.Contain("완료하면 W열과 커리큘럼이 열린다"));
                 Assert.That(controller.Campaign.IsCurriculumOpen, Is.False);
                 Assert.That(controller.LeaveBriefing(), Is.True);
                 GameObject lobby = controller.LobbyHud.Root;
+                Assert.That(controller.OpenFieldMenu(), Is.True);
                 Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null);
+                Assert.That(controller.CloseFieldMenu(), Is.True);
                 Assert.That(controller.OpenNextMission(), Is.True);
                 scope.StartBriefedMission();
                 Assert.That(controller.Session.Features.HasLane(1), Is.True, "Mission 8 teaches the W lane.");
@@ -478,13 +498,12 @@ namespace TurnLimbo.Presentation.Tests
                     Does.Contain(StoryMissions.Get(8).UnlockText).And.Contain("커리큘럼도 열렸습니다"));
                 Assert.That(Named(controller.ResultHud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.True);
                 Assert.That(controller.AdvanceFromBattleResult(), Is.True);
-                Assert.That(controller.IsInLobby, Is.True, "Mission 9 waits for stage 5.");
+                Assert.That(controller.IsInAcademyField, Is.True, "Mission 9 waits for stage 5.");
 
+                Assert.That(controller.OpenFieldMenu(), Is.True);
                 Assert.That(ActiveButton(lobby, "Tab Curriculum").interactable, Is.True, "The tab is there now…");
-                Assert.That(ActiveButton(lobby, "Home Open Curriculum").interactable, Is.True, "…with its Home link…");
-                Assert.That(ActiveLabel(lobby, "Header Curriculum").text, Is.EqualTo("커리큘럼  선택 안 함"), "…and its progress line.");
-                Assert.That(ActiveLabel(lobby, "Home Mission Title").text, Is.EqualTo("가르침  ·  임무 9  ·  ???"));
-                ActiveButton(lobby, "Home Open Curriculum").onClick.Invoke();
+                Assert.That(TryFindActive(lobby, "Tab Stages"), Is.Null, "Field battles are selected on the map.");
+                ActiveButton(lobby, "Tab Curriculum").onClick.Invoke();
                 Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
                 Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
                 Assert.That(scope.Load().Campaign.CurriculumActive, Is.EqualTo("horizontal-cut"), "The choice is saved.");
@@ -492,6 +511,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryFindActive(lobby, "Loadout Counts"), Is.Null);
                 Assert.That(SlotX(lobby, "Q", 1), Is.LessThan(SlotX(lobby, "W", 1)));
                 Assert.That(SlotX(lobby, "W", 1), Is.LessThan(SlotX(lobby, "E", 1)));
+                Assert.That(controller.CloseFieldMenu(), Is.True);
 
                 Assert.That(controller.StartCampaignStage(5), Is.True);
                 scope.WinToSettled();
@@ -549,6 +569,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.RestartJourney();
                 Assert.That(controller.Campaign.Features, Is.EqualTo(CombatFeature.All), "Direct use never applies the story's locks.");
                 Assert.That(controller.Campaign.StageLimit, Is.EqualTo(int.MaxValue));
+                Assert.That(controller.IsInAcademyField, Is.True);
                 Assert.That(controller.LobbyHud.NextMission.Number, Is.EqualTo(5), "The lobby still lists the next mission.");
                 Assert.That(controller.LobbyHud.IsNextMissionAvailable, Is.False);
                 Assert.That(controller.StartCampaignStage(1), Is.True);
@@ -558,8 +579,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsNextMissionAvailable, Is.True);
                 Assert.That(controller.Campaign.IsStageWaitingForMission(2), Is.False);
                 Assert.That(controller.Campaign.CanStartStage(2), Is.True, "Outside a title session no stage waits for a mission.");
-                controller.LobbyHud.ShowTab(LobbyTab.Stages);
-                Assert.That(ActiveLabel(controller.LobbyHud.Root, "Stage State 2").text, Is.EqualTo("도전 가능"));
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.AcademyField.VisibleStageCount, Is.GreaterThanOrEqualTo(2));
                 Assert.That(controller.StartCampaignStage(2), Is.True);
                 Assert.That(controller.Session.Features, Is.EqualTo(CombatFeature.All));
                 Assert.That(controller.AutoSaveEnabled, Is.False);

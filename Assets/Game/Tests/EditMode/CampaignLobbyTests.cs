@@ -10,15 +10,16 @@ namespace TurnLimbo.Core.Tests
     public sealed class CampaignLobbyTests
     {
         [Test]
-        public void NewJourney_StartsInLobbyWithOnlyFirstStageUnlockedAndOriginalEquippedOrder()
+        public void NewJourney_StartsInLobbyWithTheFirstTwoStagesUnlockedAndOriginalEquippedOrder()
         {
             var run = new CampaignRun();
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Lobby));
-            Assert.That(run.HighestUnlockedStage, Is.EqualTo(1));
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(2));
             Assert.That(run.ClearedStageCount, Is.Zero);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.CanStartStage(1), Is.True);
-            Assert.That(run.CanStartStage(2), Is.False);
+            Assert.That(run.CanStartStage(2), Is.True);
+            Assert.That(run.CanStartStage(3), Is.False);
             CollectionAssert.AreEqual(new[] { 1, 2, 7 }, EquippedIds(run, 0));
             CollectionAssert.AreEqual(new[] { 3, 4, 8 }, EquippedIds(run, 1));
             CollectionAssert.AreEqual(new[] { 5, 6, 9 }, EquippedIds(run, 2));
@@ -32,7 +33,7 @@ namespace TurnLimbo.Core.Tests
         public void InvalidOrLockedStagesAndInvalidLanes_AreRejectedWithoutMutation()
         {
             var run = new CampaignRun();
-            foreach (int number in new[] { -1, 0, 2, 8, 9, int.MaxValue })
+            foreach (int number in new[] { -1, 0, 3, 8, 9, int.MaxValue })
             {
                 Assert.That(run.CanStartStage(number), Is.False);
                 Assert.That(run.TryStartStage(number), Is.False);
@@ -95,7 +96,30 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.LastReward, Is.EqualTo(70));
             Assert.That(run.Currency, Is.EqualTo(160));
             Assert.That(run.ClearedStageCount, Is.EqualTo(2));
-            Assert.That(run.HighestUnlockedStage, Is.EqualTo(3));
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void StageGroups_OpenOnlyAfterEveryFightInThePreviousGroupEvenOutOfOrder()
+        {
+            var run = new CampaignRun();
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(2));
+            WinStage(run, 2);
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(2));
+            Assert.That(run.CanStartStage(3), Is.False);
+            WinStage(run, 1);
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(5));
+            Assert.That(run.CanStartStage(3), Is.True);
+            Assert.That(run.CanStartStage(4), Is.True);
+            Assert.That(run.CanStartStage(5), Is.True);
+            Assert.That(run.CanStartStage(6), Is.False);
+            WinStage(run, 5);
+            WinStage(run, 3);
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(5));
+            WinStage(run, 4);
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(8));
+            for (int stage = 6; stage <= 8; stage++)
+                Assert.That(run.CanStartStage(stage), Is.True, "Stage " + stage);
         }
 
         [Test]
@@ -281,7 +305,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Currency, Is.Zero);
             Assert.That(run.LastReward, Is.Zero);
             Assert.That(run.ClearedStageCount, Is.Zero);
-            Assert.That(run.HighestUnlockedStage, Is.EqualTo(1));
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(2));
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);

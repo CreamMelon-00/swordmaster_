@@ -20,7 +20,7 @@ namespace TurnLimbo.Presentation.Tests
         private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
 
         [UnityTest]
-        public IEnumerator CampaignVictory_ShowsPaidResult_BlocksActions_AndAdvancesOnlyToUnlockedStage()
+        public IEnumerator CampaignVictory_ShowsPaidResult_BlocksActions_AndReturnsToStageSelection()
         {
             yield return null;
             using (var scope = new FlowScope())
@@ -42,7 +42,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.Reward, Is.EqualTo(60));
                 Assert.That(controller.Result.Currency, Is.EqualTo(60));
                 Assert.That(controller.Result.FirstClear, Is.True);
-                Assert.That(controller.Result.UnlockedStageNumber, Is.EqualTo(2));
+                Assert.That(controller.Result.UnlockedStageNumber, Is.Zero,
+                    "The first two academy opponents are already available as a group.");
                 Assert.That(controller.Result.CanAdvance, Is.True);
                 Assert.That(controller.Result.CompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"));
                 Assert.That(controller.Result.ActiveCurriculumNode, Is.Null);
@@ -64,12 +65,17 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11), "…nor grant a skill twice.");
 
                 Assert.That(controller.AdvanceFromBattleResult(), Is.True);
-                Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
-                Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Battle));
-                Assert.That(controller.CanChoose, Is.True);
+                Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));
+                Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Lobby));
+                Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(controller.CanChoose, Is.False);
                 Assert.That(controller.IsShowingResult, Is.False);
                 Assert.That(controller.Result, Is.Null);
                 Assert.That(controller.ResultHud.IsVisible, Is.False);
+                Assert.That(controller.StartCampaignStage(2), Is.True,
+                    "After returning, the player chooses the second available opponent.");
+                Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
+                Assert.That(controller.CanChoose, Is.True);
                 Assert.That(controller.AdvanceFromBattleResult(), Is.False);
             }
         }
@@ -453,10 +459,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result, Is.Null);
                 Assert.That(controller.ResultHud.IsVisible, Is.False, "No defeat result: the outro comes straight on.");
                 if (controller.IsPlayingScene) Assert.That(controller.SkipScene(), Is.True, "Skipping the outro…");
-                Assert.That(controller.IsInLobby, Is.True, "…goes where the old win's 여정 계속 went: the lobby.");
+                Assert.That(controller.IsInAcademyField, Is.True, "…enters the academy field after the 서막.");
                 Assert.That(controller.IsInBriefing, Is.False);
                 Assert.That(controller.IsMission, Is.False);
-                Assert.That(controller.LobbyHud.IsVisible, Is.True);
+                Assert.That(controller.LobbyHud.IsVisible, Is.False);
+                Assert.That(controller.AcademyField.VisibleStageCount, Is.GreaterThanOrEqualTo(1));
                 Assert.That(controller.BriefingHud.IsVisible, Is.False);
                 Assert.That(controller.StartMission(), Is.False);
                 Assert.That(controller.Campaign.Phase, Is.EqualTo(CampaignPhase.Lobby));
@@ -464,6 +471,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.LobbyHud.NextMission.Number, Is.EqualTo(PrologueMissions.Count + 1));
                 Assert.That(controller.OpenNextMission(), Is.False);
                 Assert.That(controller.IsInLobby, Is.True);
+                Assert.That(controller.OpenFieldMenu(), Is.True);
+                Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Loadout));
+                Assert.That(controller.CloseFieldMenu(), Is.True);
+                Assert.That(controller.IsInAcademyField, Is.True);
             }
         }
 

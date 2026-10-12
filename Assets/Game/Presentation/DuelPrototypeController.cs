@@ -46,6 +46,7 @@ namespace TurnLimbo.Presentation
         private DialoguePortraitCatalog activeDialoguePortraitCatalog;
         private CampaignRun campaign;
         private CampaignLobbyHud lobbyHud;
+        private AcademyFieldView academyField;
         private BattleResultHud resultHud;
         private DuelPauseHud pauseHud;
         private MissionCoachHud coachHud;
@@ -58,6 +59,7 @@ namespace TurnLimbo.Presentation
         private GameSaveStore saveStore;
         private BattleResult battleResult;
         private PrologueRun prologue;
+        private string pendingAcademyNotice;
         // The opening-arc mission being fought, its coach, and whether its briefing is on screen.
         private PrologueMission mission;
         private MissionGuide guide;
@@ -148,6 +150,7 @@ namespace TurnLimbo.Presentation
         public LegacyQueuedDuel Session => session;
         public CampaignRun Campaign => campaign;
         public CampaignLobbyHud LobbyHud => lobbyHud;
+        public AcademyFieldView AcademyField => academyField;
         public BattleResultHud ResultHud => resultHud;
         public DuelPauseHud PauseHud => pauseHud;
         public bool IsPaused => pauseHud != null && pauseHud.IsVisible;
@@ -231,6 +234,7 @@ namespace TurnLimbo.Presentation
             viewPhase == ViewPhase.Outcome && !IsShowingResult;
         public bool IsInLobby => !IsInOnlineVersus && !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
             !IsMission && !showingBriefing && !showingTitle && campaign.Phase == CampaignPhase.Lobby;
+        public bool IsInAcademyField => IsInLobby && academyField != null && academyField.IsVisible;
         public DuelPresentationSettings PresentationSettings => presentationSettings;
         public LegacyArenaView ArenaView => arena;
         public LegacyCombatHud Hud => hud;
@@ -349,6 +353,9 @@ namespace TurnLimbo.Presentation
                 (id, lane, slot) => PlaceLoadoutSkill(id, lane, slot),
                 () => SaveLoadout(), () => ResetLoadout(), () => OpenNextMission(), lobbyRoomSprite,
                 () => StartTraining());
+            academyField = new AcademyFieldView(transform, art, arena,
+                stage => StartCampaignStage(stage), () => OpenNextMission(),
+                () => StartTraining(), () => OpenFieldMenu());
             resultHud = new BattleResultHud(transform, art, () => DismissBattleResult(),
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
             pauseHud = new DuelPauseHud(transform, art, () => ResumeBattle(),
@@ -488,6 +495,15 @@ namespace TurnLimbo.Presentation
             {
                 if (keyboard != null && keyboard.enterKey.wasPressedThisFrame) StartMission();
                 else if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) LeaveBriefing();
+                return;
+            }
+            if (IsInAcademyField)
+            {
+                if (lobbyHud.IsVisible)
+                {
+                    if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) CloseFieldMenu();
+                }
+                else academyField.Tick(realDelta, keyboard, Mouse.current);
                 return;
             }
             if (IsInLobby)
@@ -1147,6 +1163,7 @@ namespace TurnLimbo.Presentation
         /// The opening arc's progress is kept.</summary>
         public void RestartJourney()
         {
+            academyField?.ResetExploration();
             CloseDialogue();
             ClearMissionState();
             campaign.Reset();
@@ -1163,6 +1180,8 @@ namespace TurnLimbo.Presentation
 
         private void StartNewGame(bool playOpening)
         {
+            academyField?.ResetExploration();
+            pendingAcademyNotice = null;
             CloseDialogue();
             ClearMissionState();
             campaign.Reset();
@@ -1203,6 +1222,8 @@ namespace TurnLimbo.Presentation
         /// save). Auto-saving stays off until 이어하기 or 새 게임 is chosen.</summary>
         public void ShowTitle()
         {
+            academyField?.ResetExploration();
+            pendingAcademyNotice = null;
             onlineVersus?.Stop();
             localVersus?.Stop();
             ClearBattleScreens();
@@ -1259,6 +1280,7 @@ namespace TurnLimbo.Presentation
                 }
                 else CompleteOpeningAndShowBriefing();
             }
+            else if (prologue.IsArcComplete) ShowLobby();
             else ShowBriefing();
             return true;
         }
@@ -1720,7 +1742,7 @@ namespace TurnLimbo.Presentation
             story.TryRestore(save.PrologueCleared);
             string curriculum = CampaignRun.OpensCurriculum(story.UnlockedFeatures)
                 ? $"커리큘럼 {save.Campaign.CurriculumCompleted.Count} / {campaign.Curriculum.Tree.Nodes.Count}  ·  " : string.Empty;
-            return $"로비  ·  스테이지 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  " +
+            return $"도미니코 학원  ·  전투 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  " +
                 curriculum + $"임무 완료 {save.PrologueCleared} / {StoryMissions.Count}";
         }
 
@@ -1881,7 +1903,7 @@ namespace TurnLimbo.Presentation
         public void ContinueCampaign()
         {
             if (IsShowingResult) DismissBattleResult();
-            else if (IsInLobby) StartCampaignStage(lobbyHud.SelectedStageNumber);
+            else if (IsInLobby && !IsInAcademyField) StartCampaignStage(lobbyHud.SelectedStageNumber);
         }
 
         public bool AdvanceGuide()
@@ -1907,7 +1929,7 @@ namespace TurnLimbo.Presentation
         public bool DismissBattleResult()
         {
             if (!IsShowingResult) return false;
-            if (battleResult.IsMission) ShowBriefing();
+            if (battleResult.IsMission && battleResult.StageNumber <= PrologueMissions.Count) ShowBriefing();
             else ShowLobby();
             return true;
         }
@@ -1943,15 +1965,15 @@ namespace TurnLimbo.Presentation
         public bool AdvanceFromBattleResult()
         {
             if (!IsShowingResult || !battleResult.CanAdvance) return false;
-            // The next mission starts from its briefing; after the last one the lobby opens.
-            if (battleResult.IsMission)
+            // The opening arc still advances from briefing to briefing. Later missions and freely chosen
+            // encounters return to the academy, where the player picks what to do next.
+            if (battleResult.IsMission && battleResult.StageNumber < PrologueMissions.Count)
             {
                 ShowBriefing();
                 return true;
             }
-            int number = battleResult.StageNumber + 1;
             ShowLobby();
-            return StartCampaignStage(number);
+            return true;
         }
 
         public bool StartCampaignStage(int stageNumber)
@@ -2177,20 +2199,20 @@ namespace TurnLimbo.Presentation
                 campaign.StageNumber, campaign.CurrentStage.Name,
                 campaign.LastReward, campaign.Currency, session.RoundNumber,
                 session.Player.Health, session.Enemy.Health, firstClear && victory,
-                campaign.HighestUnlockedStage > unlockedBefore ? campaign.HighestUnlockedStage : 0,
-                victory && campaign.StageNumber < campaign.StageCount &&
-                campaign.StageNumber + 1 <= campaign.HighestUnlockedStage && campaign.StageNumber + 1 <= campaign.StageLimit,
+                campaign.HighestUnlockedStage > unlockedBefore &&
+                campaign.StageLimit >= campaign.HighestUnlockedStage ? campaign.HighestUnlockedStage : 0,
+                victory,
                 campaign.LastCompletedCurriculumNode, curriculumOpen ? campaign.Curriculum.Active : null,
                 curriculumOpen ? campaign.Curriculum.ActiveBattles : 0, curriculumOpen && campaign.Curriculum.IsFinished,
                 curriculumOpen,
                 firstClear && victory && campaign.CurrentStage.FirstClearSkillId != 0
                     ? LegacySkillDefinitions.Skill(campaign.CurrentStage.FirstClearSkillId).Name : null);
             EndDuelPresentation();
-            // Clearing the stage a lobby mission waited for brings that mission; the next stage waits for it.
+            // A newly available lesson is now collected at the academy notice board.
             PrologueMission arrived = victory && prologue.IsArcComplete && IsNextMissionAvailable &&
                 campaign.StageNumber == prologue.CurrentMission.RequiredClearedStage ? prologue.CurrentMission : null;
             battleResult = result;
-            resultHud.Show(result, null, arrived != null ? $"새 임무 '{arrived.Title}' 도착 · 로비에서 브리핑을 여세요." : null);
+            resultHud.Show(result, null, arrived != null ? $"새 임무 '{arrived.Title}' 도착 · 학원 게시판에서 확인하세요." : null);
         }
 
         private void FinishTraining()
@@ -2217,6 +2239,7 @@ namespace TurnLimbo.Presentation
             // The final fall hands over in black and white; the outro then regains its colour.
             float fromGrey = forcedLoss && finale.EndsInGrey ? presentationSettings.FinalFallColourReturnSeconds : 0f;
             guide?.Finish();
+            int stageLimitBefore = campaign.StageLimit;
             bool firstWin = prologue.TryComplete(mission.Number, session.Outcome, missionEmpowered);
             if (firstWin) SyncStoryProgression();
             if (firstWin || skillExperienceDirty) AutoSave();
@@ -2229,7 +2252,7 @@ namespace TurnLimbo.Presentation
                 // No result says that the 서막 is over and what it opened, as the old win's did: the lobby the story
                 // reaches next says it, the first time only (replays and 이어하기 do not).
                 if (firstWin && lost.Number == PrologueMissions.Count)
-                    lobbyHud.SetArrivalNotice(BattleResultHud.PrologueCompleteNotice(campaign.IsCurriculumOpen));
+                    pendingAcademyNotice = BattleResultHud.PrologueCompleteNotice(campaign.IsCurriculumOpen);
                 EndDuelPresentation();
                 if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura, fromGrey))
                     ShowBriefing();
@@ -2243,8 +2266,18 @@ namespace TurnLimbo.Presentation
             // then where the story goes next.
             string unlockNotice = firstWin && !string.IsNullOrEmpty(mission.UnlockText)
                 ? mission.UnlockText + (prologue.IsComplete ? string.Empty
-                    : IsNextMissionAvailable ? "\n다음 임무가 열렸습니다." : "\n다음 스테이지를 깨면 다음 임무가 열립니다.")
+                    : IsNextMissionAvailable ? "\n다음 임무가 열렸습니다. 학원 게시판에서 확인하세요."
+                    : "\n학원에서 필요한 전투를 마치면 다음 임무가 열립니다.")
                 : null;
+            if (firstWin && campaign.StageLimit > stageLimitBefore &&
+                campaign.HighestUnlockedStage > stageLimitBefore && mission.Number > PrologueMissions.Count)
+            {
+                int firstStage = stageLimitBefore + 1;
+                int lastStage = System.Math.Min(campaign.HighestUnlockedStage, campaign.StageLimit);
+                string groupNotice = $"학원에 전투 {firstStage:00}~{lastStage:00}의 상대가 나타났습니다.";
+                unlockNotice = string.IsNullOrEmpty(mission.UnlockText)
+                    ? groupNotice : mission.UnlockText + "\n" + groupNotice;
+            }
             EndDuelPresentation();
             if (victory && PlayMissionScene(mission, mission.OutroCutscene, mission.OutroDialogue,
                 () => ShowResult(result, unlockNotice))) return;
@@ -2273,8 +2306,8 @@ namespace TurnLimbo.Presentation
         private void ShowResult(BattleResult result, string unlockNotice = null)
         {
             battleResult = result;
-            // A mission's exits reach the lobby when no mission is playable right now (the next waits for a stage).
-            resultHud.Show(result, result.IsMission && !IsNextMissionAvailable, unlockNotice);
+            // Post-prologue missions return to the field even when another mission is ready.
+            resultHud.Show(result, result.IsMission && (prologue.IsArcComplete || !IsNextMissionAvailable), unlockNotice);
         }
 
         private void BeginMissionBattle(int number, bool carryIntroPositions = false)
@@ -2325,15 +2358,44 @@ namespace TurnLimbo.Presentation
         {
             ClearBattleScreens();
             SyncStoryProgression();
-            // Lobby missions appear on the lobby once the 서막 is over and their stage is cleared.
             PrologueMission next = prologue.IsArcComplete ? prologue.CurrentMission : null;
             lobbyHud.SetNextMission(next, next != null && IsNextMissionAvailable);
-            lobbyHud.Show(campaign);
+            if (prologue.IsArcComplete)
+            {
+                lobbyHud.SetFieldMenuMode(true);
+                lobbyHud.Hide();
+                string storyStatus = next == null ? "스토리 게시판 · 현재 임무 완료"
+                    : $"스토리 게시판 · 전투 {next.RequiredClearedStage:00} 후 새 임무";
+                academyField.Show(campaign, next != null && IsNextMissionAvailable,
+                    campaign.IsTrainingUnlocked, storyStatus, pendingAcademyNotice);
+                pendingAcademyNotice = null;
+            }
+            else
+            {
+                lobbyHud.SetFieldMenuMode(false);
+                lobbyHud.Show(campaign);
+            }
+        }
+
+        public bool OpenFieldMenu()
+        {
+            if (!IsInAcademyField || academyField.IsTransitioning || lobbyHud.IsVisible) return false;
+            lobbyHud.ShowFieldMenu(campaign);
+            return true;
+        }
+
+        public bool CloseFieldMenu()
+        {
+            if (!IsInAcademyField || !lobbyHud.IsVisible) return false;
+            lobbyHud.Hide();
+            academyField.Resume();
+            return true;
         }
 
         /// <summary>Leaves every duel, result, coach and dialogue screen, ready for the lobby or a briefing.</summary>
         private void ClearBattleScreens()
         {
+            academyField?.Hide();
             pauseHud.Hide();
             StopCutscene();
             showingTitle = false;
@@ -2376,6 +2438,7 @@ namespace TurnLimbo.Presentation
 
         private void ResetBattlePresentation(float? playerOpeningX = null, float? enemyOpeningX = null)
         {
+            academyField?.Hide();
             pauseHud.Hide();
             skillExperienceDirty = false;
             skillLevelUpCue.Reset();
@@ -2644,6 +2707,7 @@ namespace TurnLimbo.Presentation
             titleHud?.Dispose();
             loadingHud?.Dispose();
             lobbyHud?.Dispose();
+            academyField?.Dispose();
             stepHud?.Dispose();
             stepAudio?.Dispose();
             resistanceFeedback?.Dispose();

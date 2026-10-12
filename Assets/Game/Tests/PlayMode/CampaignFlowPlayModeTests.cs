@@ -32,7 +32,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.HasRequiredArt, Is.True);
                 Assert.That(controller.Hud.Root.activeSelf, Is.False);
-                Assert.That(controller.StartCampaignStage(2), Is.False);
+                Assert.That(controller.StartCampaignStage(3), Is.False,
+                    "The next group stays closed until both opening opponents are cleared.");
                 Assert.That(controller.QueueLane(0), Is.False);
                 Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
                 Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home));

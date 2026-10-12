@@ -152,7 +152,8 @@ namespace TurnLimbo.Core.Tests
             for (int index = 0; index < LobbyMissions.Count; index++)
             {
                 int stage = index + 1;
-                Assert.That(story.StageLimit, Is.EqualTo(stage), "Only up to the stage the next mission waits for.");
+                Assert.That(story.StageLimit, Is.EqualTo(stage <= 2 ? 2 : 5),
+                    "The story opens the whole current group until its last mission is won.");
                 Assert.That(story.CanPlayCurrent(isCleared), Is.False, "The mission waits for its stage.");
                 cleared[stage] = true;
                 Assert.That(story.CanPlayCurrent(isCleared), Is.True);
@@ -173,7 +174,7 @@ namespace TurnLimbo.Core.Tests
             var run = new CampaignRun();
             Assert.That(run.Features, Is.EqualTo(CombatFeature.All));
             Assert.That(run.StageLimit, Is.EqualTo(int.MaxValue));
-            run.SetProgression(CombatFeature.LaneQ | CombatFeature.LaneE, 1);
+            run.SetProgression(CombatFeature.LaneQ | CombatFeature.LaneE, 2);
             Assert.That(run.IsLaneOpen(1), Is.False);
             Assert.That(run.TryStartStage(1), Is.True);
             LegacyQueuedDuel duel = run.CreateDuel(1);
@@ -183,10 +184,16 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(run.ReturnToLobby(), Is.True);
             Assert.That(run.HighestUnlockedStage, Is.EqualTo(2));
-            Assert.That(run.CanStartStage(2), Is.False, "Stage 2 waits for its mission.");
-            Assert.That(run.IsStageWaitingForMission(2), Is.True);
-            Assert.That(run.IsStageWaitingForMission(1), Is.False);
+            Assert.That(run.CanStartStage(2), Is.True, "Both fights in the first group are available.");
+            Assert.That(run.IsStageWaitingForMission(2), Is.False);
             Assert.That(run.IsStageWaitingForMission(3), Is.False, "A locked stage is not waiting for a mission yet.");
+            Assert.That(run.TryStartStage(2), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.HighestUnlockedStage, Is.EqualTo(5));
+            Assert.That(run.CanStartStage(3), Is.False, "The next group waits until the first group's story missions are won.");
+            Assert.That(run.IsStageWaitingForMission(3), Is.True);
+            Assert.That(run.IsStageWaitingForMission(5), Is.True);
 
             int wSkill = run.GetEquippedLane(1)[0].SkillId;
             Assert.That(run.TryUnequipSkill(wSkill), Is.False, "Closed lanes stay complete for the day they open.");

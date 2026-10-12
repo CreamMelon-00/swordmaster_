@@ -380,7 +380,7 @@ namespace TurnLimbo.Runtime.Campaign
             {
                 clearedStages[StageNumber - 1] = true;
                 ClearedStageCount++;
-                HighestUnlockedStage = Math.Max(HighestUnlockedStage, Math.Min(StageNumber + 1, StageCount));
+                HighestUnlockedStage = UnlockedGroupEnd();
                 if (stageSkillRewardId != 0) GrantSkill(stageSkillRewardId);
             }
             Phase = StageNumber == StageCount ? CampaignPhase.Completed : CampaignPhase.Maintenance;
@@ -478,7 +478,7 @@ namespace TurnLimbo.Runtime.Campaign
             StageNumber = 1;
             Currency = LastReward = 0;
             Array.Clear(clearedStages, 0, clearedStages.Length);
-            HighestUnlockedStage = 1;
+            HighestUnlockedStage = 2;
             ClearedStageCount = 0;
             TrainingVictoryCount = 0;
             trainingBattle = false;
@@ -533,13 +533,9 @@ namespace TurnLimbo.Runtime.Campaign
             }
             ResetLoadoutDraft();
             Array.Clear(clearedStages, 0, clearedStages.Length);
-            HighestUnlockedStage = 1;
             foreach (int number in save.ClearedStages)
-            {
                 clearedStages[number - 1] = true;
-                // A first clear opens the next stage, exactly as TryCompleteBattle does.
-                HighestUnlockedStage = Math.Max(HighestUnlockedStage, Math.Min(number + 1, StageCount));
-            }
+            HighestUnlockedStage = UnlockedGroupEnd();
             ClearedStageCount = save.ClearedStages.Count;
             TrainingVictoryCount = save.TrainingVictoryCount;
             trainingBattle = false;
@@ -662,6 +658,16 @@ namespace TurnLimbo.Runtime.Campaign
 
         private bool CanEditLoadout => Phase == CampaignPhase.Lobby || Phase == CampaignPhase.Maintenance;
         private bool IsValidStage(int number) => number >= 1 && number <= StageCount;
+
+        // Fights open as 1-2, 3-5, then 6-8. Story missions apply the separate StageLimit gate.
+        private int UnlockedGroupEnd()
+        {
+            for (int number = 1; number <= 2; number++)
+                if (!clearedStages[number - 1]) return 2;
+            for (int number = 3; number <= 5; number++)
+                if (!clearedStages[number - 1]) return 5;
+            return StageCount;
+        }
 
         private bool CanEnterStage(int number)
         {

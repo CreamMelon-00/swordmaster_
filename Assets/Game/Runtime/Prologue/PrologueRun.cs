@@ -59,15 +59,17 @@ namespace TurnLimbo.Runtime.Prologue
             return current != null && (current.RequiredClearedStage == 0 || isStageCleared(current.RequiredClearedStage));
         }
 
-        /// <summary>The highest stage the story allows: 0 during the 서막, then the stage the next unwon mission waits
-        /// for (the stages after it wait for that mission), or every stage once the chain is won.</summary>
+        /// <summary>The highest stage the story allows: 0 during the 서막, 2 while missions 5-6 remain,
+        /// 5 while missions 7-9 remain, then every stage. Combat clears still gate each next group.</summary>
         public int StageLimit
         {
             get
             {
                 if (!IsArcComplete) return 0;
                 PrologueMission current = CurrentMission;
-                return current == null ? int.MaxValue : current.RequiredClearedStage;
+                if (current == null) return int.MaxValue;
+                int required = current.RequiredClearedStage;
+                return required <= 2 ? 2 : required <= 5 ? 5 : Math.Max(8, required);
             }
         }
         /// <summary>The next mission to play, or null once the arc is complete.</summary>

@@ -258,6 +258,7 @@ namespace TurnLimbo.Presentation.Tests
                     controller.ShowTitle();
                     Assert.That(controller.ContinueGame(), Is.True);
                     Assert.That(controller.IsInLobby, Is.True);
+                    Assert.That(controller.IsInAcademyField, Is.True);
                     Assert.That(controller.ReplayStoryCutscene(DuelPrototypeController.OpeningCutscene), Is.True);
 
                     var heard = new List<string>();
@@ -274,6 +275,7 @@ namespace TurnLimbo.Presentation.Tests
                     }
 
                     Assert.That(controller.IsInLobby, Is.True);
+                    Assert.That(controller.IsInAcademyField, Is.True, "Replay returns to the academy field.");
                     Assert.That(heard.Count, Is.GreaterThan(7));
                     Assert.That(heard[0], Does.StartWith("이룰 수 없는 꿈"));
                     Assert.That(heard[6], Is.EqualTo("…"), "Replay interrupts after the first six lines.");
@@ -384,7 +386,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.ShowTitle();
                 Assert.That(controller.TitleHud.CanContinue, Is.True);
                 Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text,
-                    Does.Contain("로비").And.Contain("2 / 8").And.Contain("커리큘럼 1 / 10"));
+                    Does.Contain("도미니코 학원").And.Contain("2 / 8").And.Contain("커리큘럼 1 / 10"));
 
                 var keyboard = InputSystem.AddDevice<Keyboard>();
                 controller.enabled = true;
@@ -393,7 +395,8 @@ namespace TurnLimbo.Presentation.Tests
                 Release(keyboard.enterKey);
                 yield return null;
                 controller.enabled = false;
-                Assert.That(controller.IsInLobby, Is.True, "Enter continues, and a finished arc resumes in the lobby.");
+                Assert.That(controller.IsInAcademyField, Is.True, "Enter resumes a finished arc in the academy field.");
+                Assert.That(controller.LobbyHud.IsVisible, Is.False);
                 Assert.That(controller.AutoSaveEnabled, Is.True);
                 Assert.That(controller.Prologue.IsComplete, Is.True);
                 Assert.That(controller.StoryProgressionEnabled, Is.True);
@@ -401,12 +404,15 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.StageLimit, Is.EqualTo(int.MaxValue), "No stage waits for a mission any more.");
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(campaign.Currency));
                 Assert.That(controller.Campaign.IsStageCleared(2), Is.True);
-                Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(3));
+                Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(5));
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
                 Assert.That(controller.Campaign.OwnedSkills.Any(skill => skill.SkillId == 14), Is.True,
                     "Owned skills follow from the completed nodes.");
 
+                Assert.That(controller.OpenFieldMenu(), Is.True);
+                controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
                 Assert.That(controller.SelectCurriculumNode("diagonal-cut"), Is.True);
+                Assert.That(controller.CloseFieldMenu(), Is.True);
                 GameSave afterSelect = scope.Load();
                 Assert.That(afterSelect.Campaign.CurriculumActive, Is.EqualTo("diagonal-cut"), "Choosing a node is saved.");
                 Assert.That(afterSelect.Campaign.CurriculumBattles, Is.Zero);

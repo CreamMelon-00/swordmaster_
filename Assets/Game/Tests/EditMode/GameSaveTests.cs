@@ -37,7 +37,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Fingerprint(target, persistentOnly: true), Is.EqualTo(Fingerprint(source, persistentOnly: true)));
             Assert.That(target.Phase, Is.EqualTo(CampaignPhase.Lobby));
             Assert.That(target.HasLoadoutChanges, Is.False, "The saved loadout becomes the draft.");
-            Assert.That(target.HighestUnlockedStage, Is.EqualTo(3));
+            Assert.That(target.HighestUnlockedStage, Is.EqualTo(5));
             CollectionAssert.AreEqual(new[] { "breathing", "horizontal-cut", "diagonal-cut" }, target.Curriculum.Completed);
             Assert.That(target.Curriculum.Active.Id, Is.EqualTo("advance"));
             Assert.That(target.Curriculum.ActiveBattles, Is.Zero);
@@ -177,14 +177,17 @@ namespace TurnLimbo.Core.Tests
             Assert.That(restored.TryRestore(parsed.Campaign, out error), Is.True, error);
             Assert.That(restored.TrainingVictoryCount, Is.EqualTo(1));
             Assert.That(restored.TrainingDummyHealth, Is.EqualTo(100));
-            Assert.That(restored.HighestUnlockedStage, Is.EqualTo(3));
+            Assert.That(restored.HighestUnlockedStage, Is.EqualTo(5));
             Assert.That(restored.Curriculum.ActiveBattles, Is.Zero);
             Assert.That(GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), restored)), Is.EqualTo(text));
         }
 
-        [TestCase(new int[0], 1)]
+        [TestCase(new int[0], 2)]
         [TestCase(new[] { 1 }, 2)]
-        [TestCase(new[] { 1, 2 }, 3)]
+        [TestCase(new[] { 2 }, 2)]
+        [TestCase(new[] { 1, 2 }, 5)]
+        [TestCase(new[] { 1, 2, 5 }, 5)]
+        [TestCase(new[] { 1, 2, 3, 4, 5 }, 8)]
         [TestCase(new[] { 1, 2, 3, 4, 5, 6, 7, 8 }, 8)]
         public void Restore_DerivesUnlockedStagesFromClearsLikeFirstClearsDo(int[] cleared, int highest)
         {

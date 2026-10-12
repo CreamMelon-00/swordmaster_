@@ -14,7 +14,7 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class LobbyStoryLauncherPlayModeTests
     {
         [UnityTest]
-        public IEnumerator Launcher_IsSingleAndVisibleOnlyOnLobbyHome()
+        public IEnumerator Launcher_IsSingleAndVisibleInTheFieldMenu()
         {
             yield return null;
             DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
@@ -23,11 +23,16 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(launcher, Is.Not.Null);
             Assert.That(Object.FindObjectsByType<LobbyStoryLauncher>(FindObjectsInactive.Include).Length, Is.EqualTo(1));
 
+            int originalCleared = controller.Prologue.ClearedCount;
             try
             {
                 controller.CloseDialogue();
+                Assert.That(controller.Prologue.TryRestore(PrologueMissions.Count), Is.True);
                 controller.ReturnToLobby();
-                controller.LobbyHud.ShowTab(LobbyTab.Home);
+                yield return null;
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(launcher.IsVisible, Is.False);
+                Assert.That(controller.OpenFieldMenu(), Is.True);
                 launcher.RefreshAvailability();
                 yield return null;
 
@@ -37,25 +42,28 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(launcher.StoryButton.GetComponentInChildren<Text>().text, Does.Contain("다시보기"));
                 Assert.That(launcher.StoryButton.navigation.mode, Is.EqualTo(Navigation.Mode.None));
                 Assert.That(launcher.Root.transform.parent, Is.SameAs(controller.LobbyHud.Root.transform));
+                Canvas.ForceUpdateCanvases();
+                Rect replayEntry = ScreenBounds(launcher.Root.GetComponent<RectTransform>());
+                Assert.That(replayEntry.Overlaps(ScreenBounds(FindRect(controller.LobbyHud.Root, "Field Menu Close"))), Is.False,
+                    "The replay entry leaves room for the field menu close button.");
+                Assert.That(replayEntry.Overlaps(ScreenBounds(FindRect(controller.LobbyHud.Root, "Field Menu Header"))), Is.False);
 
-                LobbyTab[] hiddenTabs = { LobbyTab.Stages, LobbyTab.Loadout, LobbyTab.Curriculum };
-                for (int index = 0; index < hiddenTabs.Length; index++)
+                foreach (LobbyTab tab in new[] { LobbyTab.Loadout, LobbyTab.Curriculum })
                 {
-                    controller.LobbyHud.ShowTab(hiddenTabs[index]);
+                    controller.LobbyHud.ShowTab(tab);
                     yield return null;
-                    Assert.That(launcher.IsVisible, Is.False,
-                        $"Story entry must be hidden on {hiddenTabs[index]}.");
+                    Assert.That(launcher.IsVisible, Is.True,
+                        $"Story replay stays available on {tab} in the field menu.");
                 }
-
-                controller.LobbyHud.ShowTab(LobbyTab.Home);
+                Assert.That(controller.CloseFieldMenu(), Is.True);
                 yield return null;
-                Assert.That(launcher.IsVisible, Is.True);
+                Assert.That(launcher.IsVisible, Is.False);
             }
             finally
             {
                 controller.CloseDialogue();
+                controller.Prologue.TryRestore(originalCleared);
                 controller.ReturnToLobby();
-                controller.LobbyHud.ShowTab(LobbyTab.Home);
             }
         }
 
@@ -71,6 +79,7 @@ namespace TurnLimbo.Presentation.Tests
             int originalWidth = Screen.width;
             int originalHeight = Screen.height;
             bool originalFullScreen = Screen.fullScreen;
+            int originalCleared = controller.Prologue.ClearedCount;
             LobbyTab originalTab = controller.LobbyHud.CurrentTab;
             PrologueMission originalMission = controller.LobbyHud.NextMission;
             bool originalMissionAvailable = controller.LobbyHud.IsNextMissionAvailable;
@@ -79,6 +88,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 controller.CloseDialogue();
+                Assert.That(controller.Prologue.TryRestore(0), Is.True);
                 controller.ReturnToLobby();
                 foreach (var resolution in new[] { new Vector2Int(1600, 900), new Vector2Int(1280, 960) })
                 {
@@ -129,7 +139,9 @@ namespace TurnLimbo.Presentation.Tests
                 launcher.CloseReplayList();
                 Screen.SetResolution(originalWidth, originalHeight, originalFullScreen);
                 controller.Campaign.SetProgression(originalFeatures, originalStageLimit);
+                controller.Prologue.TryRestore(originalCleared);
                 controller.LobbyHud.SetNextMission(originalMission, originalMissionAvailable);
+                controller.ReturnToLobby();
                 controller.LobbyHud.ShowTab(originalTab);
             }
             yield return null;
@@ -149,9 +161,9 @@ namespace TurnLimbo.Presentation.Tests
             {
                 controller.StopCutscene();
                 controller.CloseDialogue();
+                Assert.That(controller.Prologue.TryRestore(2), Is.True);
                 controller.ReturnToLobby();
                 controller.LobbyHud.ShowTab(LobbyTab.Home);
-                Assert.That(controller.Prologue.TryRestore(2), Is.True);
                 launcher.RefreshAvailability();
                 yield return null;
 
@@ -204,8 +216,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.CloseDialogue();
                 controller.Prologue.TryRestore(originalCleared);
                 controller.ReturnToLobby();
-                controller.LobbyHud.ShowTab(LobbyTab.Stages);
-                controller.LobbyHud.ShowTab(LobbyTab.Home);
+                if (!controller.IsInAcademyField) controller.LobbyHud.ShowTab(LobbyTab.Home);
                 launcher.RefreshAvailability();
             }
         }
@@ -229,14 +240,16 @@ namespace TurnLimbo.Presentation.Tests
             {
                 controller.StopCutscene();
                 controller.CloseDialogue();
+                Assert.That(controller.Prologue.TryRestore(PrologueMissions.Count), Is.True);
                 controller.ReturnToLobby();
-                controller.LobbyHud.ShowTab(LobbyTab.Home);
-                Assert.That(controller.Prologue.TryRestore(4), Is.True);
+                Assert.That(controller.IsInAcademyField, Is.True);
                 launcher.RefreshAvailability();
                 yield return null;
 
                 foreach (string resourcePath in new[] { "Cutscene/opening", "Cutscene/mission-04-outro" })
                 {
+                    Assert.That(controller.OpenFieldMenu(), Is.True);
+                    yield return null;
                     launcher.StoryButton.onClick.Invoke();
                     yield return null;
                     Assert.That(launcher.IsReplayListOpen, Is.True);
@@ -256,9 +269,9 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(controller.SkipCutscene(), Is.True);
                     yield return null;
                     Assert.That(controller.IsPlayingCutscene, Is.False);
-                    Assert.That(controller.IsInLobby, Is.True);
-                    Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Home));
-                    Assert.That(launcher.IsVisible, Is.True);
+                    Assert.That(controller.IsInAcademyField, Is.True);
+                    Assert.That(controller.LobbyHud.IsVisible, Is.False);
+                    Assert.That(launcher.IsVisible, Is.False);
                     Assert.That(launcher.StoryButton.interactable, Is.True);
                     Assert.That(controller.Prologue.ClearedCount, Is.EqualTo(4));
                     Assert.That(controller.Campaign.StageNumber, Is.EqualTo(stage));
@@ -275,7 +288,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.CloseDialogue();
                 controller.Prologue.TryRestore(originalCleared);
                 controller.ReturnToLobby();
-                controller.LobbyHud.ShowTab(LobbyTab.Home);
+                if (!controller.IsInAcademyField) controller.LobbyHud.ShowTab(LobbyTab.Home);
                 launcher.RefreshAvailability();
             }
         }

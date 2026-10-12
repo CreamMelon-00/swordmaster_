@@ -43,7 +43,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("가로베기 완료"));
                 Assert.That(Label(hud.Root, "Result Curriculum Detail").text, Does.Contain("가로베기").And.Contain("편성"),
                     "A completed node names the skill it granted.");
-                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("첫 클리어").And.Contain("02 개방"));
+                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("첫 클리어").And.Contain("02까지"));
+                Assert.That(Caption(hud.Root, "Result Next Stage"), Is.EqualTo("학원으로"));
+                Assert.That(Button(hud.Root, "Result Lobby").gameObject.activeSelf, Is.False);
                 hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
                     60, 120, 3, 71, 0, true, 2, true, firstClearSkillName: "탐색"),
                     storyNotice: "새 임무 도착");
@@ -93,6 +95,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(hud.Root, "Result Rounds").text, Is.EqualTo("5 / 5"));
                 Assert.That(Label(hud.Root, "Result Enemy HP").text, Is.EqualTo("12 / 50"));
                 Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("가한 피해 38"));
+                Assert.That(Caption(hud.Root, "Result Lobby"), Is.EqualTo("학원으로"));
                 Assert.That(Named(hud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.False);
                 Assert.That(Button(hud.Root, "Result Next Stage").gameObject.activeSelf, Is.False);
                 Assert.That(Caption(hud.Root, "Result Retry"), Is.EqualTo("재도전"));
@@ -122,6 +125,7 @@ namespace TurnLimbo.Presentation.Tests
                     CampaignCurriculum.Default.Find("breathing")));
                 Assert.That(Label(hud.Root, "Result Heading").text, Is.EqualTo("패배"));
                 Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("편성").And.Not.Contain("개방!"));
+                Assert.That(Caption(hud.Root, "Result Lobby"), Is.EqualTo("학원으로"));
                 Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("호흡 완료"),
                     "A defeat still finishes a battle, so it can complete the node in progress.");
                 Assert.That(Label(hud.Root, "Result Curriculum Detail").text, Does.Contain("호흡"));
@@ -159,17 +163,16 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Button(hud.Root, "Result Next Stage").gameObject.activeSelf, Is.False);
                 hud.Show(new BattleResult(DuelMatchOutcome.EnemyVictory, true, PrologueMissions.Count, "마지막 결투",
                     0, 87, 2, 0, 20, false, 0, false), missionExitsToLobby: true);
-                Assert.That(Caption(hud.Root, "Result Lobby"), Is.EqualTo("로비로"), "A replay after the arc exits to the lobby.");
-                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("로비로"));
+                Assert.That(Caption(hud.Root, "Result Lobby"), Is.EqualTo("여정으로"), "The last 서막 mission continues to the academy.");
+                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("학원으로"));
                 hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, true, PrologueMissions.Count, "마지막 결투",
                     0, 87, 5, 40, 0, false, 0, true));
                 Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("편성").And.Contain("커리큘럼"));
-                Assert.That(Caption(hud.Root, "Result Next Stage"), Is.EqualTo("여정 계속"), "The last mission opens the lobby.");
+                Assert.That(Caption(hud.Root, "Result Next Stage"), Is.EqualTo("여정 계속"), "The last mission opens the academy.");
                 hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 60, 60, 2, 80, 0, true, 2, true));
-                Assert.That(Button(hud.Root, "Result Lobby").gameObject.activeSelf, Is.True);
-                Assert.That(Caption(hud.Root, "Result Lobby"), Is.EqualTo("로비로"));
+                Assert.That(Button(hud.Root, "Result Lobby").gameObject.activeSelf, Is.False);
+                Assert.That(Caption(hud.Root, "Result Next Stage"), Is.EqualTo("학원으로"));
                 Assert.That(Named(hud.Root, "Result Lobby").GetComponent<RectTransform>().anchoredPosition.x, Is.EqualTo(-262f));
-                Assert.That(Caption(hud.Root, "Result Next Stage"), Is.EqualTo("다음 스테이지"));
                 var backdrop = Named(hud.Root, "Result Backdrop").GetComponent<Image>();
                 Assert.That(backdrop.raycastTarget, Is.True, "Result backdrop must block clicks reaching battle controls.");
             }
@@ -196,7 +199,7 @@ namespace TurnLimbo.Presentation.Tests
                     "Before mission 8 the result has no curriculum row.");
                 foreach (Text text in hud.Root.GetComponentsInChildren<Text>())
                     Assert.That(text.text, Does.Not.Contain("커리큘럼"), text.name);
-                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("첫 클리어").And.Contain("02 개방"));
+                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("첫 클리어").And.Contain("02까지"));
                 // The card closes up by the row: half from above, half from below.
                 Assert.That(Size(hud.Root, "Result Card Border"), Is.EqualTo(new Vector2(844f, 540f)));
                 Assert.That(Size(hud.Root, "Result Card"), Is.EqualTo(new Vector2(840f, 536f)));
@@ -212,7 +215,7 @@ namespace TurnLimbo.Presentation.Tests
                 // The 서막's last win no longer promises the curriculum.
                 hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, true, PrologueMissions.Count, "떠돌이 기사",
                     0, 0, 5, 40, 0, false, 0, true, curriculumOpen: false));
-                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("편성과 스테이지").And.Not.Contain("커리큘럼"));
+                Assert.That(Label(hud.Root, "Result Notice").text, Does.Contain("도미니코 학원").And.Not.Contain("커리큘럼"));
                 Assert.That(Named(hud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.False);
                 Assert.That(Position(hud.Root, "Result Next Stage").y, Is.EqualTo(-198f));
 

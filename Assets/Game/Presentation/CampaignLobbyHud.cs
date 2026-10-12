@@ -39,12 +39,13 @@ namespace TurnLimbo.Presentation
         private CampaignLoadoutHud loadoutHud;
         private CampaignCurriculumHud curriculumHud;
         private readonly RectTransform root, dynamicRoot;
+        private readonly Image roomBackground, bedroomShade;
         private readonly LobbyScreenTransition screenTransition;
         private RectTransform pageRoot;
         private readonly Sprite roomSprite;
         private readonly bool assetsAvailable;
         private CampaignRun currentRun;
-        private bool disposed, resetArmed, awaitingStageOutcome;
+        private bool disposed, resetArmed, awaitingStageOutcome, fieldMenuMode;
         // The header note after a stage battle: its outcome and any curriculum node it completed. Or a one-time arrival
         // note (the 서막's end: what it opened), which may run to two lines.
         private string outcomeBanner;
@@ -73,6 +74,7 @@ namespace TurnLimbo.Presentation
         public bool HasRequiredAssets => assetsAvailable;
         public int SelectedStageNumber => selectedStageNumber;
         public LobbyTab CurrentTab => currentTab;
+        public bool IsFieldMenuMode => fieldMenuMode;
         public RectTransform CurrentPage => pageRoot;
         public bool IsTransitioning => !disposed && screenTransition.IsTransitioning;
 
@@ -115,6 +117,7 @@ namespace TurnLimbo.Presentation
             screenTransition = root.gameObject.AddComponent<LobbyScreenTransition>();
 
             var room = Image("Bedroom Background", root, roomSprite, Vector2.zero, new Vector2(1920f, 1080f));
+            roomBackground = room;
             room.preserveAspect = false;
             var fitter = room.gameObject.AddComponent<AspectRatioFitter>();
             fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
@@ -123,6 +126,7 @@ namespace TurnLimbo.Presentation
             Color shadeColor = DuelVisualTheme.Track;
             shadeColor.a = .16f;
             var shade = Panel("Bedroom Shade", root, Vector2.zero, Vector2.zero, shadeColor);
+            bedroomShade = shade;
             Stretch(shade.rectTransform);
             dynamicRoot = Rect("Lobby Dynamic UI", root, Vector2.zero, Vector2.zero);
             Stretch(dynamicRoot);
@@ -195,11 +199,35 @@ namespace TurnLimbo.Presentation
         public PrologueMission NextMission => nextMission;
         public bool IsNextMissionAvailable => nextMissionAvailable;
 
+        /// <summary>Use the existing preparation pages as an overlay over the explorable field.</summary>
+        public void SetFieldMenuMode(bool enabled)
+        {
+            if (disposed || fieldMenuMode == enabled) return;
+            fieldMenuMode = enabled;
+            roomBackground.gameObject.SetActive(!enabled);
+            bedroomShade.color = enabled ? new Color(.03f, .02f, .015f, .68f)
+                : new Color(DuelVisualTheme.Track.r, DuelVisualTheme.Track.g, DuelVisualTheme.Track.b, .16f);
+            bedroomShade.raycastTarget = enabled;
+            if (enabled && (currentTab == LobbyTab.Home || currentTab == LobbyTab.Stages ||
+                            currentTab == LobbyTab.Curriculum && currentRun != null && !currentRun.IsCurriculumOpen))
+                currentTab = LobbyTab.Loadout;
+            else if (!enabled) currentTab = LobbyTab.Home;
+            if (IsVisible && currentRun != null) Rebuild();
+        }
+
+        public void ShowFieldMenu(CampaignRun run)
+        {
+            SetFieldMenuMode(true);
+            Show(run);
+        }
+
         public void ShowTab(LobbyTab tab)
         {
             if (disposed) throw new ObjectDisposedException(nameof(CampaignLobbyHud));
-            // A closed curriculum has no page; asking for it shows Home.
-            if (tab == LobbyTab.Curriculum && currentRun != null && !currentRun.IsCurriculumOpen) tab = LobbyTab.Home;
+            if (fieldMenuMode && (tab == LobbyTab.Home || tab == LobbyTab.Stages)) tab = LobbyTab.Loadout;
+            // A closed curriculum has no page; return to the current mode's default page.
+            if (tab == LobbyTab.Curriculum && currentRun != null && !currentRun.IsCurriculumOpen)
+                tab = fieldMenuMode ? LobbyTab.Loadout : LobbyTab.Home;
             ClearSelection();
             bool changed = currentTab != tab;
             int direction = tab.CompareTo(currentTab);
@@ -220,7 +248,7 @@ namespace TurnLimbo.Presentation
             curriculumHud?.Dispose();
             curriculumHud = null;
             curriculumState.Reset();
-            currentTab = LobbyTab.Home;
+            currentTab = fieldMenuMode ? LobbyTab.Loadout : LobbyTab.Home;
             if (IsVisible && currentRun != null && currentRun.Phase != CampaignPhase.Battle) Rebuild();
         }
 
@@ -264,7 +292,10 @@ namespace TurnLimbo.Presentation
         {
             if (currentRun == null) return;
             // The tab may have been chosen for another run, or before this one's curriculum closed.
-            if (currentTab == LobbyTab.Curriculum && !currentRun.IsCurriculumOpen) currentTab = LobbyTab.Home;
+            if (fieldMenuMode && (currentTab == LobbyTab.Home || currentTab == LobbyTab.Stages))
+                currentTab = LobbyTab.Loadout;
+            if (currentTab == LobbyTab.Curriculum && !currentRun.IsCurriculumOpen)
+                currentTab = fieldMenuMode ? LobbyTab.Loadout : LobbyTab.Home;
             ClearDynamicRoot();
             BuildHeader(currentRun);
             pageRoot = Rect("Lobby Page", dynamicRoot, Vector2.zero, Vector2.zero);
@@ -295,6 +326,26 @@ namespace TurnLimbo.Presentation
 
         private void BuildHeader(CampaignRun run)
         {
+            if (fieldMenuMode)
+            {
+                var fieldHeader = Panel("Field Menu Header", dynamicRoot, Vector2.zero, new Vector2(820f, 82f), Header);
+                fieldHeader.rectTransform.anchorMin = fieldHeader.rectTransform.anchorMax = new Vector2(0f, 1f);
+                fieldHeader.rectTransform.pivot = new Vector2(0f, 1f);
+                fieldHeader.rectTransform.anchoredPosition = new Vector2(24f, -18f);
+                DuelVisualTheme.DressPanel(fieldHeader);
+                Label("Field Menu Title", fieldHeader.transform, "준비", new Vector2(-320f, 0f),
+                    new Vector2(180f, 38f), 28);
+                BuildTabButton(fieldHeader.transform, LobbyTab.Loadout, "편성", -54f);
+                if (run.IsCurriculumOpen)
+                    BuildTabButton(fieldHeader.transform, LobbyTab.Curriculum, "커리큘럼", 72f);
+
+                Button close = Button("Field Menu Close", dynamicRoot, "닫기  [Esc]", Vector2.zero,
+                    new Vector2(180f, 52f), true, Hide);
+                RectTransform closeRect = close.GetComponent<RectTransform>();
+                closeRect.anchorMin = closeRect.anchorMax = closeRect.pivot = new Vector2(1f, 1f);
+                closeRect.anchoredPosition = new Vector2(-24f, -18f);
+                return;
+            }
             var header = Panel("Lobby Header", dynamicRoot, Vector2.zero, new Vector2(820f, 82f), Header);
             header.rectTransform.anchorMin = header.rectTransform.anchorMax = new Vector2(0f, 1f);
             header.rectTransform.pivot = new Vector2(0f, 1f);

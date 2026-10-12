@@ -1,0 +1,12 @@
+Authored layer canvas: 4096x724 (logical 1024x181, exact 4x)
+Layer order: far-mist, far-trees, belt-mid, near
+All alpha values: 0 or 255
+Door center: x=352px
+Door leaves: x=232..472px (240px wide)
+Stone arch: x=184..520px (336px), exactly reused from corridor
+Door arch crown: y=88px, threshold: y=436..496px
+School wall extends to about x=880px; forest path continues right.
+forest-far-mist: 64 opaque colors, alpha bounds (0, 0, 4096, 724)
+forest-far-trees: 64 opaque colors, alpha bounds (0, 0, 4096, 488)
+forest-belt-mid: 63 opaque colors, alpha bounds (0, 0, 4096, 724)
+forest-near: 52 opaque colors, alpha bounds (0, 576, 4096, 724)

@@ -39,6 +39,7 @@ namespace TurnLimbo.Presentation
         private bool initialized;
         private bool storyReady;
         private bool wasHomeEligible;
+        private bool entryUsesFieldLayout;
         private string availabilityMessage = string.Empty;
 
         public GameObject Root => root == null ? null : root.gameObject;
@@ -389,6 +390,14 @@ namespace TurnLimbo.Presentation
         private void RefreshVisibility(bool force)
         {
             if (root == null) return;
+            bool fieldMenu = controller != null && controller.LobbyHud != null && controller.LobbyHud.IsFieldMenuMode;
+            if (entryUsesFieldLayout != fieldMenu)
+            {
+                entryUsesFieldLayout = fieldMenu;
+                root.anchoredPosition = fieldMenu ? new Vector2(-220f, -18f) : new Vector2(-24f, -112f);
+                root.sizeDelta = fieldMenu ? new Vector2(190f, 52f) : new Vector2(280f, 64f);
+                if (caption != null) caption.fontSize = fieldMenu ? 19 : 23;
+            }
             bool visible = ShouldShow();
             if (visible && !wasHomeEligible) RefreshAvailability();
             wasHomeEligible = visible;
@@ -398,6 +407,7 @@ namespace TurnLimbo.Presentation
 
         private bool ShouldShow()
             => controller != null && controller.IsInLobby && controller.LobbyHud != null &&
-               controller.LobbyHud.IsVisible && controller.LobbyHud.CurrentTab == LobbyTab.Home;
+               controller.LobbyHud.IsVisible &&
+               (controller.LobbyHud.IsFieldMenuMode || controller.LobbyHud.CurrentTab == LobbyTab.Home);
     }
 }

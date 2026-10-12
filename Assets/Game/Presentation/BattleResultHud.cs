@@ -135,11 +135,13 @@ namespace TurnLimbo.Presentation
                 : hasStory ? FirstLine(BuildNotice(result, toLobby)) + "\n" + storyNotice
                 : BuildNotice(result, toLobby);
             retryCaption.text = "재도전";
-            lobbyCaption.text = result.IsMission && !toLobby ? "브리핑으로" : "로비로";
-            nextCaption.text = !result.IsMission ? "다음 스테이지" : toLobby ? "여정 계속" : "다음 임무";
+            lobbyCaption.text = result.IsMission && !toLobby ? "브리핑으로"
+                : result.IsMission && result.StageNumber <= PrologueMissions.Count ? "여정으로" : "학원으로";
+            nextCaption.text = !result.IsMission ? "학원으로"
+                : toLobby ? result.StageNumber <= PrologueMissions.Count ? "여정 계속" : "학원으로" : "다음 임무";
             retryButton.interactable = result.CanRetry;
             // After a mission victory the briefing exit would duplicate 다음 임무, so only retry and next remain.
-            bool showLobby = !(result.IsMission && result.CanAdvance);
+            bool showLobby = !result.CanAdvance;
             lobbyButton.gameObject.SetActive(showLobby);
             nextButton.gameObject.SetActive(result.CanAdvance);
             // A single forward action leads the eye. On defeat, retry takes that place.
@@ -173,7 +175,7 @@ namespace TurnLimbo.Presentation
                 ? $"가한 피해 {damage}\n다음 허수아비 체력 {nextTargetHealth}"
                 : $"5턴 동안 가한 피해 {damage}";
             retryCaption.text = result.Victory ? "다음 수련" : "재도전";
-            lobbyCaption.text = "로비로";
+            lobbyCaption.text = "학원으로";
             lobbyButton.gameObject.SetActive(true);
             retryButton.interactable = true;
             nextButton.gameObject.SetActive(false);
@@ -271,28 +273,28 @@ namespace TurnLimbo.Presentation
         /// that mission ends in a forced loss with no result, the lobby it leads to says it the first time
         /// (<see cref="CampaignLobbyHud.SetArrivalNotice"/>).</summary>
         public static string PrologueCompleteNotice(bool curriculumOpen) => curriculumOpen
-            ? "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 커리큘럼이 열립니다."
-            : "「깨어남」의 임무를 모두 마쳤습니다.\n이제 편성과 스테이지가 열립니다.";
+            ? "「깨어남」의 임무를 모두 마쳤습니다.\n도미니코 학원을 탐색하며 편성과 커리큘럼을 이용할 수 있습니다."
+            : "「깨어남」의 임무를 모두 마쳤습니다.\n도미니코 학원을 탐색하며 편성을 바꿀 수 있습니다.";
 
         private static string BuildNotice(BattleResult result, bool toLobby)
         {
             if (result.IsMission)
                 return !result.Victory
-                    ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 로비로 돌아갈 수 있습니다."
+                    ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 학원으로 돌아갈 수 있습니다."
                         : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
                     : result.StageNumber == PrologueMissions.Count ? PrologueCompleteNotice(result.CurriculumOpen)
-                    : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n여정을 계속하면 로비로 돌아갑니다."
+                    : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n학원에서 다음 행선지를 골라보세요."
                         : "임무를 완료했습니다.\n다음 임무로 넘어갈 수 있습니다."
-                    : toLobby ? "「깨어남」은 이미 마쳤습니다.\n여정을 계속하면 로비로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
+                    : toLobby ? "「깨어남」은 이미 마쳤습니다.\n여정을 계속하면 학원으로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
             if (!result.Victory)
                 return result.Outcome == DuelMatchOutcome.Draw ? "승부가 나지 않았습니다. 재도전하거나 기술 편성을 바꿔보세요."
-                    : "로비에서 편성을 바꾸거나 다시 도전해보세요.";
+                    : "학원 메뉴에서 편성을 바꾸거나 다시 도전해보세요.";
             string clear = result.FirstClear
                 ? string.IsNullOrEmpty(result.FirstClearSkillName) ? "첫 클리어!"
                     : $"첫 클리어! 새 기술 '{result.FirstClearSkillName}' 획득"
                 : "다시 클리어했습니다.";
-            return result.UnlockedStageNumber > 0 ? clear + $"\n스테이지 {result.UnlockedStageNumber:00} 개방!"
-                : clear + (result.CanAdvance ? "\n다음 스테이지에 도전할 수 있습니다." : "\n마지막 스테이지까지 마쳤습니다.");
+            return result.UnlockedStageNumber > 0 ? clear + $"\n새 전투 묶음 개방! ({result.UnlockedStageNumber:00}까지)"
+                : clear + "\n학원으로 돌아가 다음 상대를 골라보세요.";
         }
 
         /// <summary>Stage battles count toward the curriculum whatever the outcome; opening-arc missions do not.</summary>
@@ -339,7 +341,7 @@ namespace TurnLimbo.Presentation
             {
                 curriculum.text = "진행 없음";
                 curriculum.color = Muted;
-                curriculumDetail.text = "로비의 커리큘럼에서 과정을 고르면\n전투마다 진행됩니다.";
+                curriculumDetail.text = "학원 메뉴의 커리큘럼에서 과정을 고르면\n전투마다 진행됩니다.";
             }
         }
 

@@ -15,6 +15,47 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class CampaignLobbyHudPlayModeTests
     {
         [UnityTest]
+        public IEnumerator FieldMenu_OnlyShowsPreparationOverTheField_AndCloses()
+        {
+            yield return null;
+            var parent = new GameObject("Field Menu Test");
+            using (var hud = CreateHud(parent))
+            {
+                var run = new CampaignRun();
+                hud.Show(run);
+                Image room = FindImage(hud, "Bedroom Background");
+                Image shade = FindImage(hud, "Bedroom Shade");
+
+                hud.ShowFieldMenu(run);
+                Assert.That(hud.IsVisible, Is.True);
+                Assert.That(hud.IsFieldMenuMode, Is.True);
+                Assert.That(room.gameObject.activeSelf, Is.False);
+                Assert.That(shade.color.a, Is.GreaterThan(.6f));
+                Assert.That(shade.raycastTarget, Is.True);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Loadout));
+                Assert.That(TryFindButton(hud, "Tab Home"), Is.Null);
+                Assert.That(TryFindButton(hud, "Tab Stages"), Is.Null);
+                Assert.That(FindButton(hud, "Tab Loadout"), Is.Not.Null);
+                Assert.That(FindButton(hud, "Tab Curriculum"), Is.Not.Null);
+                hud.ShowTab(LobbyTab.Stages);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Loadout));
+                hud.ShowTab(LobbyTab.Curriculum);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
+
+                FindButton(hud, "Field Menu Close").onClick.Invoke();
+                Assert.That(hud.IsVisible, Is.False);
+                hud.ShowFieldMenu(run);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
+                hud.SetFieldMenuMode(false);
+                Assert.That(room.gameObject.activeSelf, Is.True);
+                Assert.That(shade.raycastTarget, Is.False);
+                Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Home));
+                Assert.That(FindButton(hud, "Tab Stages"), Is.Not.Null);
+            }
+            Object.Destroy(parent);
+        }
+
+        [UnityTest]
         public IEnumerator Home_UsesCompleteRoomBackgroundAndOverlayContract()
         {
             yield return null;
