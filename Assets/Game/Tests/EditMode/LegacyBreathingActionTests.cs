@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
@@ -332,6 +333,103 @@ namespace TurnLimbo.Core.Tests
             Assert.Throws<InvalidOperationException>(() => duel.ResolveNextSlot());
             Assert.That(duel.TryQueueBreath(), Is.False);
             Assert.That(duel.BreathsQueuedThisTurn, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void AutoBreath_FollowsItsSkillOncePerTurn_SoATurnHoldsAtMostFourBreaths()
+        {
+            KeywordSheet.WithKeywords(() =>
+            {
+                LegacyQueuedDuel duel = KeywordLinkTests.Duel(KeywordSheet.AutoBreathGuard);
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                CollectionAssert.AreEqual(new[] { 907, -1 }, Ids(duel.PlayerQueue));
+                Assert.That(duel.PlayerQueue[1], Is.SameAs(LegacyCommonActions.Breathe));
+                Assert.That(duel.BreathsQueuedThisTurn, Is.Zero, "The hand's breaths are untouched…");
+                Assert.That(duel.BreathsRemainingThisTurn, Is.EqualTo(3));
+                Assert.That(duel.Act, Is.EqualTo(9), "…and the breath costs nothing.");
+                Assert.That(duel.ReserveEffectsUsedThisTurn, Is.EqualTo(LegacyReserveEffect.Breath));
+                Assert.That((duel.AutoBreathSlotIndex, duel.LastQueuedSlotIndex), Is.EqualTo((1, 0)));
+
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                CollectionAssert.AreEqual(new[] { 907, -1, 907 }, Ids(duel.PlayerQueue), "Once per turn.");
+                Assert.That((duel.AutoBreathSlotIndex, duel.LastQueuedSlotIndex), Is.EqualTo((1, 2)));
+                for (int count = 0; count < LegacyQueuedDuel.MaximumBreathsPerTurn; count++) Assert.That(duel.TryQueueBreath(), Is.True);
+                Assert.That(duel.TryQueueBreath(), Is.False);
+                Assert.That(duel.PlayerQueue.Count(skill => skill.IsWait),
+                    Is.EqualTo(LegacyQueuedDuel.MaximumBreathsPerTurn + LegacyQueuedDuel.MaximumAutoBreathsPerTurn).And.EqualTo(4));
+
+                ResolveTurn(duel);
+                Assert.That(duel.ReserveEffectsUsedThisTurn, Is.EqualTo(LegacyReserveEffect.Breath), "Kept until the next turn.");
+                duel.BeginNextTurn();
+                Assert.That(duel.ReserveEffectsUsedThisTurn, Is.EqualTo(LegacyReserveEffect.None));
+                Assert.That((duel.AutoBreathSlotIndex, duel.LastQueuedSlotIndex), Is.EqualTo((-1, -1)));
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                CollectionAssert.AreEqual(new[] { 907, -1 }, Ids(duel.PlayerQueue), "A new turn, a new breath.");
+                duel.Reset();
+                Assert.That(duel.ReserveEffectsUsedThisTurn, Is.EqualTo(LegacyReserveEffect.None));
+            });
+        }
+
+        [Test]
+        public void AutoBreath_StaysWhenItsSkillIsReturned_AndReservingItAgainAddsNoOther()
+        {
+            KeywordSheet.WithKeywords(() =>
+            {
+                LegacyQueuedDuel duel = KeywordLinkTests.Duel(KeywordSheet.CycleQ, KeywordSheet.AutoBreathGuard, KeywordSheet.Returner);
+                Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
+                CollectionAssert.AreEqual(new[] { 901, 907, -1 }, Ids(duel.PlayerQueue));
+                Assert.That(duel.TryQueueLane(1), Is.True);
+                CollectionAssert.AreEqual(new[] { -1, 909 }, Ids(duel.PlayerQueue), "Breaths stay when skills are returned.");
+                Assert.That(duel.AutoBreathSlotIndex, Is.Zero, "The automatic breath moved down with the queue.");
+                Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
+                CollectionAssert.AreEqual(new[] { -1, 909, 901, 907 }, Ids(duel.PlayerQueue), "No second automatic breath this turn.");
+            });
+        }
+
+        [Test]
+        public void AutoBreath_NeedsBreathingOpen_AndTheForecastsFindTheSkillNotTheBreath()
+        {
+            KeywordSheet.WithKeywords(() =>
+            {
+                LegacySkill guard = KeywordSheet.Skill(KeywordSheet.AutoBreathGuard);
+                var closed = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { guard }, Array.Empty<LegacySkill>(), new[] { 0 },
+                    features: CombatFeature.All & ~CombatFeature.Breath);
+                Assert.That(closed.TryQueueLane(0), Is.True);
+                CollectionAssert.AreEqual(new[] { 907 }, Ids(closed.PlayerQueue), "A duel without 숨고르기 adds none.");
+                Assert.That(closed.ReserveEffectsUsedThisTurn, Is.EqualTo(LegacyReserveEffect.None));
+
+                var duel = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { guard, Attack(700, 9, cost: 1) },
+                    new[] { Attack(701, 4), Attack(702, 4) }, new[] { 2 }, 3, playerActGainBonus: 5);
+                LegacySlotForecast ifQueued = duel.ForecastIfQueued(0);
+                Assert.That(ifQueued.SlotIndex, Is.Zero);
+                Assert.That(ifQueued.PlayerSkill.Id, Is.EqualTo(907), "Not the breath that comes after it.");
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                Assert.That(duel.ForecastIfQueued(0).SlotIndex, Is.EqualTo(2), "The next skill goes after the breath.");
+                IReadOnlyList<LegacySlotForecast> turn = duel.ForecastTurn();
+                Assert.That(turn.Count, Is.EqualTo(2));
+                Assert.That(turn[1].PlayerSkill, Is.SameAs(LegacyCommonActions.Breathe));
+                Assert.That(turn[1].PlayerHealthDamage, Is.EqualTo(4), "The breath takes the attack without a guard.");
+                Assert.That(duel.PlayerMeshIfQueued(0).SlotIndex, Is.EqualTo(2));
+
+                // Versus: the same, and one action passes the reservation turn once.
+                LegacySkill[] skills = { guard };
+                var match = new LocalVersusMatch(skills, skills);
+                Assert.That(match.ForecastIfQueued(0, 0).SlotIndex, Is.Zero);
+                Assert.That(match.TryQueueLane(0, 0), Is.True);
+                CollectionAssert.AreEqual(new[] { 907, -1 }, Ids(match.Left.Queue));
+                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That((match.Left.BreathsQueuedThisTurn, match.Left.ReserveEffectsUsedThisTurn, match.Left.AutoBreathSlotIndex),
+                    Is.EqualTo((0, LegacyReserveEffect.Breath, 1)));
+                Assert.That(new LocalVersusPerspective(match, 0).AutoBreathSlotIndex, Is.EqualTo(1));
+                Assert.That(match.TryPass(1) && match.TryQueueLane(0, 0), Is.True);
+                CollectionAssert.AreEqual(new[] { 907, -1, 907 }, Ids(match.Left.Queue));
+                Assert.That(match.TryQueueBreath(0), Is.False, "Right holds the reservation turn now.");
+                Assert.That(match.TryPass(1) && match.TryPass(0), Is.True);
+                while (!match.IsTurnResolved) match.ResolveNextSlot();
+                match.BeginNextTurn();
+                Assert.That(match.Left.ReserveEffectsUsedThisTurn, Is.EqualTo(LegacyReserveEffect.None));
+                Assert.That(match.Left.AutoBreathSlotIndex, Is.EqualTo(-1));
+            });
         }
 
         private static LegacySkill Attack(int id, int power, int hits = 1, int cost = 0)

@@ -347,12 +347,21 @@ namespace TurnLimbo.Core.Tests
             => $"{slot.SlotIndex}:{slot.LeftSkill?.Id}/{slot.RightSkill?.Id} hp {slot.LeftHealthDamage}/{slot.RightHealthDamage} " +
                 $"res {slot.LeftResistanceDamage}/{slot.RightResistanceDamage} {slot.Outcome}";
 
-        private static string Snapshot(LegacyQueuedDuel duel)
+        /// <summary>Everything a planning duel shows, the 순환 count of every cycling skill of the installed sheet and the
+        /// once-per-turn 예약 효과 included, so a forecast that leaked into the duel would show here.</summary>
+        internal static string Snapshot(LegacyQueuedDuel duel)
             => $"{duel.Phase} r{duel.RoundNumber} act {duel.Act}+{duel.NextActGain} q[{Ids(duel.PlayerQueue)}] e[{Ids(duel.EnemyQueue)}] " +
                 $"lanes[{Ids(duel.GetLane(0))}|{Ids(duel.GetLane(1))}|{Ids(duel.GetLane(2))}] " +
                 $"p {duel.Player.Health}/{duel.Player.Resistance} e {duel.Enemy.Health}/{duel.Enemy.Resistance} " +
                 $"counters {duel.PlayerCountersRemaining}/{duel.EnemyCountersRemaining} breaths {duel.BreathsRemainingThisTurn} " +
-                $"cycle {duel.CycleUses(46)} threshold {duel.EnemyHealthThresholdReached} {duel.Outcome}";
+                $"cycle {Cycles(duel.CycleUses)} reserve {duel.ReserveEffectsUsedThisTurn} auto {duel.AutoBreathSlotIndex} " +
+                $"time +{duel.NextPlanningSeconds}/+{duel.PlanningSecondsBonus} " +
+                $"threshold {duel.EnemyHealthThresholdReached} {duel.Outcome}";
+
+        // Every cycling skill's count (all of them, so a leak into any one shows), as id:count.
+        private static string Cycles(Func<int, int> uses)
+            => string.Join(",", LegacySkillDefinitions.All.Where(definition => definition.Effect.HasCycle)
+                .Select(definition => definition.Skill.Id + ":" + uses(definition.Skill.Id)));
 
         private static string Snapshot(LocalVersusMatch match)
             => $"{match.Phase} r{match.RoundNumber} planner {match.CurrentPlanner} passes {match.ConsecutivePasses} " +
@@ -361,7 +370,9 @@ namespace TurnLimbo.Core.Tests
         private static string Fighter(LocalVersusFighter fighter)
             => $"act {fighter.Act}+{fighter.NextActGain} q[{Ids(fighter.Queue)}] " +
                 $"lanes[{Ids(fighter.GetLane(0))}|{Ids(fighter.GetLane(1))}|{Ids(fighter.GetLane(2))}] " +
-                $"{fighter.State.Health}/{fighter.State.Resistance} breaths {fighter.BreathsRemainingThisTurn}";
+                $"{fighter.State.Health}/{fighter.State.Resistance} breaths {fighter.BreathsRemainingThisTurn} " +
+                $"cycle {Cycles(fighter.CycleUses)} reserve {fighter.ReserveEffectsUsedThisTurn} auto {fighter.AutoBreathSlotIndex} " +
+                $"time +{fighter.NextPlanningSeconds}/+{fighter.PlanningSecondsBonus}";
 
         private static string Ids(IReadOnlyList<LegacySkill> skills) => string.Join(",", skills.Select(skill => skill.Id));
     }

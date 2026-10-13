@@ -646,7 +646,7 @@ namespace TurnLimbo.Presentation
         private void BuildCurriculum(CampaignRun run)
         {
             RectTransform panel = TabPanel("Curriculum Panel", "커리큘럼",
-                "과정을 골라 진행하면 전투를 마칠 때마다 쌓이고, 완료하면 기술을 얻습니다.");
+                "과정을 골라 진행하면 전투를 마칠 때마다 쌓이고, 완료하면 기술과 능력치를 얻습니다.");
             curriculumHud = new CampaignCurriculumHud(panel, art, run,
                 id =>
                 {

@@ -175,28 +175,32 @@ namespace TurnLimbo.Core.Tests
         public void RecoveryFeedback_UsesActualCappedRoundedRestoration(int maximum, int missing,
             bool activated, int remaining)
         {
-            LegacySkill recovery = Guard(19, 100);
-            LegacySkill[] player = missing == 0 ? new[] { recovery } : new[] { Skill(100, 1), recovery };
-            LegacySkill[] enemy = missing == 0 ? new[] { Guard(900, 100) }
-                : new[] { Skill(900, missing), Guard(901, 100) };
-            var duel = Duel(player, enemy, player.Length, playerResistance: maximum);
-            Queue(duel, player.Length);
-            duel.Commit();
-            if (missing > 0) duel.ResolveNextSlot();
+            // Plain 저항 회복: 르프리즈 as it was before 2026-10-13 (PlainRecoverySheet).
+            PlainRecoverySheet.Run(() =>
+            {
+                LegacySkill recovery = Guard(19, 100);
+                LegacySkill[] player = missing == 0 ? new[] { recovery } : new[] { Skill(100, 1), recovery };
+                LegacySkill[] enemy = missing == 0 ? new[] { Guard(900, 100) }
+                    : new[] { Skill(900, missing), Guard(901, 100) };
+                var duel = Duel(player, enemy, player.Length, playerResistance: maximum);
+                Queue(duel, player.Length);
+                duel.Commit();
+                if (missing > 0) duel.ResolveNextSlot();
 
-            Assert.That(LegacySkillConditions.HasSelfCondition(recovery), Is.True);
-            Assert.That(LegacySkillConditions.MatchesSelfCondition(recovery, duel.Player), Is.EqualTo(activated));
-            LegacyCurrentSlot slot = duel.BeginNextSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(remaining));
-            Assert.That(slot.PlayerFeedback.ConditionMet, Is.EqualTo(activated));
-            Assert.That(slot.PlayerFeedback.EffectActivated, Is.EqualTo(activated));
-            Assert.That(slot.PlayerFeedback.ActGainGranted, Is.Zero);
-            Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(remaining - (maximum - missing)));
-            Assert.That(slot.PlayerFeedback.OpponentResistanceReduced, Is.Zero);
-            Assert.That(slot.PlayerFeedback.HasBeneficialBuff, Is.False, "Instant restoration is not a carried combat buff.");
-            duel.ResolveNextHit();
-            Assert.That(slot.PlayerFeedback.ConditionMet, Is.EqualTo(activated));
-            Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(remaining - (maximum - missing)));
+                Assert.That(LegacySkillConditions.HasSelfCondition(recovery), Is.True);
+                Assert.That(LegacySkillConditions.MatchesSelfCondition(recovery, duel.Player), Is.EqualTo(activated));
+                LegacyCurrentSlot slot = duel.BeginNextSlot();
+                Assert.That(duel.Player.Resistance, Is.EqualTo(remaining));
+                Assert.That(slot.PlayerFeedback.ConditionMet, Is.EqualTo(activated));
+                Assert.That(slot.PlayerFeedback.EffectActivated, Is.EqualTo(activated));
+                Assert.That(slot.PlayerFeedback.ActGainGranted, Is.Zero);
+                Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(remaining - (maximum - missing)));
+                Assert.That(slot.PlayerFeedback.OpponentResistanceReduced, Is.Zero);
+                Assert.That(slot.PlayerFeedback.HasBeneficialBuff, Is.False, "Instant restoration is not a carried combat buff.");
+                duel.ResolveNextHit();
+                Assert.That(slot.PlayerFeedback.ConditionMet, Is.EqualTo(activated));
+                Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(remaining - (maximum - missing)));
+            });
         }
 
         [Test]

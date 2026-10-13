@@ -120,7 +120,10 @@ namespace TurnLimbo.Presentation
         public bool Queued(LegacyQueuedDuel duel)
         {
             if (disposed || duel == null || duel.Phase != LegacyDuelPhase.Planning || duel.PlayerQueue.Count < 2) return false;
-            LegacyMeshSlot mesh = duel.PlayerMesh(duel.PlayerQueue.Count - 1);
+            // The queue's last entry, or the skill just before the automatic 숨고르기 (예약 효과 숨고르기 +1) it brought.
+            int last = duel.PlayerQueue.Count - 1;
+            int slot = last == duel.AutoBreathSlotIndex && duel.LastQueuedSlotIndex == last - 1 ? last - 1 : last;
+            LegacyMeshSlot mesh = duel.PlayerMesh(slot);
             if (!mesh.MeshesWithPrevious) return false;
             DuelPresentationSettings tuning = settings();
             PlaySound(mesh.ChainLength, tuning.MeshSoundVolume);

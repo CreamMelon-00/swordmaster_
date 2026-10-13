@@ -518,7 +518,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.CompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"), "Stage battles count now.");
                 Assert.That(controller.Campaign.OwnedSkills.Any(owned => owned.SkillId == 14), Is.True);
                 controller.ShowTitle();
-                Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text, Does.Contain("커리큘럼 1 / 10"));
+                Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text, Does.Contain($"커리큘럼 1 / {CampaignCurriculum.Default.Nodes.Count}"));
             }
         }
 

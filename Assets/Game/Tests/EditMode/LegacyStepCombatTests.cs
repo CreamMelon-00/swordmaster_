@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
@@ -505,6 +507,82 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.StepAttemptsThisTurn, Is.Zero);
             duel.Reset();
             Assert.That(duel.StepSuccessStreak, Is.Zero);
+        }
+
+        [Test]
+        public void AutoDodge_DodgesTheSlotsAttack_IsNoStepAttempt_AndIgnoresTheDodgeKey()
+        {
+            KeywordSheet.WithKeywords(() =>
+            {
+                var duel = Duel(new[] { KeywordSheet.Skill(KeywordSheet.Dodger) }, new[] { Attack(701, 12, 3) });
+                Assert.That(duel.TryQueueLane(2), Is.True);
+                Assert.That(duel.Act, Is.EqualTo(2));
+                IReadOnlyList<LegacySlotForecast> forecast = duel.ForecastTurn();
+                Assert.That(forecast[0].PlayerHealthDamage + forecast[0].PlayerResistanceDamage, Is.Zero, "The forecast sees the dodge.");
+                duel.Commit();
+                LegacyCurrentSlot slot = duel.BeginNextSlot();
+                Assert.That((slot.AutoDodge, slot.DodgeSucceeded, slot.DodgeAttempted), Is.EqualTo((true, true, true)));
+                Assert.That(duel.TryStep(LegacyStepAction.Dodge, true, out bool success), Is.False, "The dodge key is ignored…");
+                Assert.That(success, Is.False);
+                Assert.That(duel.StepAttemptsThisTurn, Is.Zero, "…and nothing counts as a step.");
+                Assert.That(duel.UsedStepThisTurn, Is.False);
+                for (int hitIndex = 0; hitIndex < 3; hitIndex++)
+                {
+                    LegacyHitResult hit = duel.ResolveNextHit();
+                    Assert.That(hit.PlayerDodged, Is.True);
+                    Assert.That(hit.PlayerHealthDamage + hit.PlayerResistanceDamage + hit.PlayerDisplayedDamage + hit.PlayerPushPower, Is.Zero);
+                }
+                LegacySlotResult result = duel.CompleteCurrentSlot();
+                Assert.That(result.EnemyResistanceDamage, Is.EqualTo(7), "The player's own attack lands as a clash.");
+                Assert.That(duel.StepSuccessStreak, Is.Zero, "No streak either.");
+                duel.BeginNextTurn();
+                Assert.That(duel.Act, Is.EqualTo(5), "The full natural 3 ACT: no step cost.");
+            });
+        }
+
+        [Test]
+        public void AutoDodge_KeepsPressure_AlsoDodgesACounter_AndWorksInAMeshedSlot()
+        {
+            KeywordSheet.WithKeywords(() =>
+            {
+                LegacySkill dodger = KeywordSheet.Skill(KeywordSheet.Dodger);
+                var pressing = Duel(new[] { dodger }, new[] { Attack(701, 12) });
+                Assert.That(pressing.TryQueueLane(2), Is.True);
+                pressing.Commit();
+                pressing.BeginNextSlot();
+                AssertStep(pressing, LegacyStepAction.Pressure, true, true);
+                Assert.That(pressing.StepAttemptsThisTurn, Is.EqualTo(1), "Pressure is still a step.");
+                LegacySlotResult pressed = pressing.ResolveNextSlot();
+                Assert.That(pressed.PlayerHealthDamage + pressed.PlayerResistanceDamage, Is.Zero);
+                Assert.That(pressed.EnemyHealthDamage, Is.EqualTo(7), "Pressure adds the rolled power on top of the clash.");
+
+                // The enemy's counter fills the empty enemy slot and is dodged as well.
+                var countered = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { dodger }, Array.Empty<LegacySkill>(), new[] { 0 }, 42,
+                    enemyCounter: new LegacyCounter(Attack(702, 20)));
+                Assert.That(countered.TryQueueLane(2), Is.True);
+                countered.Commit();
+                LegacyCurrentSlot counterSlot = countered.BeginNextSlot();
+                Assert.That(counterSlot.EnemyCountered && counterSlot.DodgeSucceeded, Is.True);
+                Assert.That(countered.ResolveNextSlot().PlayerHealthDamage, Is.Zero);
+
+                // Against a guard nothing is dodged, and the dodge key stays ignored for the slot.
+                var guarded = Duel(new[] { dodger }, new[] { Guard(703, 3) });
+                Assert.That(guarded.TryQueueLane(2), Is.True);
+                guarded.Commit();
+                LegacyCurrentSlot guardSlot = guarded.BeginNextSlot();
+                Assert.That((guardSlot.AutoDodge, guardSlot.DodgeSucceeded), Is.EqualTo((true, false)));
+                Assert.That(guarded.TryStep(LegacyStepAction.Dodge, true, out _), Is.False);
+
+                // A meshed slot dodges too: 맞물림 holds back the keys, not the effect.
+                var meshed = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { Attack(704, 3), dodger },
+                    new[] { Attack(705, 9), Attack(706, 9) }, new[] { 2 }, 42);
+                Assert.That(meshed.TryQueueLane(0) && meshed.TryQueueLane(2), Is.True);
+                meshed.Commit();
+                meshed.ResolveNextSlot();
+                meshed.BeginNextSlot();
+                Assert.That(meshed.IsCurrentSlotMeshed && meshed.CurrentSlot.DodgeSucceeded, Is.True);
+                Assert.That(meshed.ResolveNextSlot().PlayerResistanceDamage, Is.Zero);
+            });
         }
 
         private static LegacyQueuedDuel Duel(LegacySkill[] player, LegacySkill[] enemy,

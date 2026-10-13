@@ -38,10 +38,11 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 // Authored expectations, not values copied from the view model.
-                int[] ids = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19, 21, 32, 42 };
-                int[] costs = { 1, 1, 2, 3, 1, 2, 1, 2, 1, 1, 1, 1, 1, 4, 2, 2, 3, 2, 1 };
-                string[] powers = { "3–4", "6–7", "15–18", "23–27", "4–6", "9–12", "5–8", "13–16", "4–6", "2–3", "4–8", "5–9", "6–8", "18–42", "9–12", "7–11", "22–28", "11–15", "4–8" };
-                int[] hits = { 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1 };
+                int[] ids = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19, 21, 32, 42, 51, 52, 53, 54, 55, 56 };
+                int[] costs = { 1, 1, 2, 3, 1, 2, 1, 2, 1, 1, 1, 1, 1, 4, 1, 2, 3, 1, 1, 3, 1, 1, 2, 2, 3 };
+                string[] powers = { "3–4", "6–7", "15–18", "23–27", "4–6", "9–12", "5–8", "13–16", "4–6", "2–3", "4–8", "5–9", "4–5", "18–42", "4–6", "7–11", "16–20", "6–9", "4–8",
+                    "14–18", "2–4", "5–7", "6–8", "5–7", "15–19" };
+                int[] hits = { 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
                 for (int index = 0; index < ids.Length; index++)
                 {
                     LegacySkill skill = Skill(ids[index]);
@@ -58,7 +59,7 @@ namespace TurnLimbo.Presentation.Tests
                         {
                             AssertNoPowerSplittingExplanation(fixture.View.EffectText.text, skill.Name + " skill card");
                             AssertNoPowerSplittingExplanation(CampaignSkillText.Effect(skill), skill.Name + " lobby effect");
-                            if (ids[index] == 2 || ids[index] == 15)
+                            if (ids[index] == 2)
                                 Assert.That(fixture.View.EffectText.text, Is.EqualTo("추가 효과 없음"),
                                     "An ordinary multi-hit skill has no extra effect paragraph: " + skill.Name);
                         }
@@ -293,7 +294,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var run = new CampaignRun();
                 float fixedHeight = fixture.View.Height;
-                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(26));
+                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(39), "Every row of the shipped sheet, 일회성 59 included.");
                 foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 {
                     foreach (bool enemy in new[] { false, true })
@@ -500,12 +501,12 @@ namespace TurnLimbo.Presentation.Tests
 
                 lobby.ShowTab(LobbyTab.Curriculum);
                 yield return null;
-                Click(lobby.Root, "Curriculum Node one-stroke");
+                Click(lobby.Root, "Curriculum Node estocada");
                 detail = Named(lobby.Root, "Curriculum Selected Detail").gameObject;
-                Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("알티바호"));
-                Assert.That(Label(detail, "ACT Value").text, Does.Contain("4"));
-                Assert.That(Label(detail, "Curriculum Detail Values").text, Does.Contain("18–42"));
-                Assert.That(Keywords(detail), Does.Contain("위력 편차"));
+                Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("에스토카다"));
+                Assert.That(Label(detail, "ACT Value").text, Does.Contain("3"));
+                Assert.That(Label(detail, "Curriculum Detail Values").text, Does.Contain("14–18"));
+                Assert.That(Keywords(detail), Does.Contain("감소마다 +5"));
                 // Each node shows the skill it grants: 준비 10, 플레슈 12, 르프리즈 19, 쿠페 42.
                 foreach (string id in new[] { "preparation", "advance", "fighting-spirit", "quick-draw" })
                 {
@@ -520,7 +521,7 @@ namespace TurnLimbo.Presentation.Tests
                 Click(lobby.Root, "Curriculum Node suppleness");
                 Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("유연함"));
                 Assert.That(Label(detail, "Power Label").text, Is.Empty);
-                Assert.That(Keywords(detail), Does.Contain("수치 방어"));
+                Assert.That(Keywords(detail), Does.Contain("반환"), "Its queue removal owns the first badge.");
                 Assert.That(run.Curriculum.Active, Is.Null, "Choosing information must not start a curriculum node.");
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));

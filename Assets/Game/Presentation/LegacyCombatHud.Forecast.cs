@@ -27,11 +27,13 @@ namespace TurnLimbo.Presentation
         private static readonly Color FavourableInk = new Color32(36, 89, 75, 255), UnfavourableInk = new Color32(116, 61, 45, 255);
         private readonly List<LegacySlotForecast> turnForecast = new List<LegacySlotForecast>();
         private readonly List<int> forecastVerdicts = new List<int>();
+        // The enemy's queued attacks the player's skill in their slot will dodge by itself (자동 회피), as forecast.
+        private readonly List<int> forecastDodged = new List<int>();
         private readonly List<LegacySkill> forecastPlayerQueue = new List<LegacySkill>(), forecastEnemyQueue = new List<LegacySkill>();
         private readonly LegacySkill[] forecastFronts = new LegacySkill[3];
         private ILegacyDuelView forecastSession;
         private LegacyDuelPhase forecastPhase;
-        private int forecastRound = -1, forecastAct = -1, forecastVersion;
+        private int forecastRound = -1, forecastAct = -1, forecastVersion, forecastCycles;
         private int forecastPlayerHealth, forecastPlayerResistance, forecastEnemyHealth, forecastEnemyResistance;
         private LegacySkill heldForecastSkill;
         private int heldForecastVersion = -1;
@@ -47,6 +49,10 @@ namespace TurnLimbo.Presentation
 
         /// <summary>The turn as last forecast for the shown duel (empty outside planning or while switched off).</summary>
         public IReadOnlyList<LegacySlotForecast> SlotForecast => turnForecast;
+
+        /// <summary>Whether the enemy's queued card <paramref name="queueIndex"/> is struck through: the forecast has the player's
+        /// skill in its slot dodge it by itself (사용 효과 자동 회피).</summary>
+        public bool IsEnemyCardDodged(int queueIndex) => !disposed && enemyQueue.IsDodged(queueIndex);
 
         /// <summary>The verdict the player's queued card <paramref name="queueIndex"/> shows, or null while it shows none.</summary>
         public LegacyForecastVerdict? GetForecastVerdict(int queueIndex) => disposed ? null : playerQueue.GetForecastVerdict(queueIndex);
@@ -94,6 +100,7 @@ namespace TurnLimbo.Presentation
         private void UpdateSlotForecast(ILegacyDuelView session, bool planning)
         {
             forecastVerdicts.Clear();
+            forecastDodged.Clear();
             if (planning && SlotForecastEnabled)
             {
                 EnsureForecast(session);
@@ -101,19 +108,28 @@ namespace TurnLimbo.Presentation
                 {
                     LegacySlotForecast forecast = slot < turnForecast.Count ? turnForecast[slot] : null;
                     forecastVerdicts.Add(forecast != null && forecast.Reached ? (int)Judge(forecast) : -1);
+                    // 자동 회피: the enemy's attack in that slot is struck through on its card.
+                    if (forecast != null && forecast.Reached && forecast.EnemySkill?.Kind == LegacySkillKind.Attack &&
+                        slot < session.EnemyQueue.Count && session.EnemyQueue[slot]?.Id == forecast.EnemySkill.Id &&
+                        LegacySkillDefinitions.Find(forecast.PlayerSkill)?.Effect.AutoDodge == true)
+                        forecastDodged.Add(slot);
                 }
             }
             playerQueue.SetForecastVerdicts(forecastVerdicts);
+            enemyQueue.SetDodgedSlots(forecastDodged);
         }
 
-        // Forecasts the turn again when anything it reads has changed: the queues, ACT, the lanes' fronts, the fighters or
-        // the turn. A changed forecast also lets the held skill's be asked again.
+        // Forecasts the turn again when anything it reads has changed: the queues, ACT, the lanes' fronts, the fighters, the
+        // 순환 counts and once-per-turn 예약 효과 (CycleSignature), or the turn. A changed forecast also lets the held skill's be
+        // asked again.
         private void EnsureForecast(ILegacyDuelView session)
         {
+            int cycles = CycleSignature(session);
             bool changed = !ReferenceEquals(forecastSession, session) || forecastPhase != session.Phase ||
                 forecastRound != session.RoundNumber || forecastAct != session.Act ||
                 forecastPlayerHealth != session.Player.Health || forecastPlayerResistance != session.Player.Resistance ||
                 forecastEnemyHealth != session.Enemy.Health || forecastEnemyResistance != session.Enemy.Resistance ||
+                forecastCycles != cycles ||
                 !SameSkills(forecastPlayerQueue, session.PlayerQueue) || !SameSkills(forecastEnemyQueue, session.EnemyQueue);
             for (int lane = 0; lane < forecastFronts.Length; lane++)
             {
@@ -131,6 +147,7 @@ namespace TurnLimbo.Presentation
             forecastPlayerResistance = session.Player.Resistance;
             forecastEnemyHealth = session.Enemy.Health;
             forecastEnemyResistance = session.Enemy.Resistance;
+            forecastCycles = cycles;
             Remember(forecastPlayerQueue, session.PlayerQueue);
             Remember(forecastEnemyQueue, session.EnemyQueue);
             forecastVersion++;
@@ -209,6 +226,27 @@ namespace TurnLimbo.Presentation
             heldForecastVersion = -1;
             playerForecastNote.gameObject.SetActive(false);
             enemyForecastNote.gameObject.SetActive(false);
+        }
+
+        // The 순환 counts of every skill the forecast can meet (the lanes and both queues, each side its own) and the
+        // once-per-turn 예약 효과 used, folded into one number: 순환 +1 and the 순환 power bonus read them.
+        private static int CycleSignature(ILegacyDuelView session)
+        {
+            unchecked
+            {
+                int signature = 17 + (int)session.ReserveEffectsUsedThisTurn;
+                for (int lane = 0; lane < 3; lane++)
+                {
+                    IReadOnlyList<LegacySkill> skills = session.GetLane(lane);
+                    for (int index = 0; index < skills.Count; index++)
+                        signature = signature * 31 + session.CycleUses(skills[index].Id);
+                }
+                IReadOnlyList<LegacySkill> queue = session.PlayerQueue;
+                for (int index = 0; index < queue.Count; index++) signature = signature * 31 + session.CycleUses(queue[index].Id);
+                queue = session.EnemyQueue;
+                for (int index = 0; index < queue.Count; index++) signature = signature * 31 + session.EnemyCycleUses(queue[index].Id);
+                return signature;
+            }
         }
 
         private static bool SameSkills(List<LegacySkill> remembered, IReadOnlyList<LegacySkill> current)

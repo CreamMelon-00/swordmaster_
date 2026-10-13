@@ -199,8 +199,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool IsResolved => HitsResolved >= HitCount;
         public bool DodgeSucceeded { get; internal set; }
         public bool PressureSucceeded { get; internal set; }
-        /// <summary>Any dodge input during this slot before its first hit, successful or not.</summary>
+        /// <summary>Any dodge input during this slot before its first hit, successful or not, or the player's skill
+        /// dodging by itself (<see cref="AutoDodge"/>).</summary>
         public bool DodgeAttempted { get; internal set; }
+        /// <summary>The player's skill in this slot dodges by itself (사용 효과 자동 회피): an opposing attack, a counter
+        /// included, is dodged from the start (<see cref="DodgeSucceeded"/>), and the dodge key is ignored for the slot
+        /// (pressure still works). It is not a step: no attempt is counted and the next turn's ACT is untouched.</summary>
+        public bool AutoDodge { get; internal set; }
         /// <summary>The player's counter answering this one-sided attack. It becomes <see cref="PlayerSkill"/>
         /// at the first hit unless a dodge is attempted first.</summary>
         public LegacySkill PendingPlayerCounter { get; internal set; }
@@ -211,6 +216,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// (<see cref="LegacyMeshSlot.BonusPercent"/>, beside <see cref="LegacySkillFeedback.PowerBuffPercent"/>) and the
         /// slot takes no steps. A counter in an empty slot never meshes.</summary>
         public LegacyMeshSlot PlayerMesh { get; internal set; }
+        /// <summary>The 순환 count the player's queued skill read as this slot started (its power bonus); 0 when it does
+        /// not cycle (<see cref="LegacyQueuedDuel.CycleUsesAtSlot"/>).</summary>
+        public int PlayerCycleUses { get; internal set; }
+        /// <summary>The next turn's planning seconds the player's queued skill added as this slot started (사용 효과 앞 X마다 다음
+        /// 턴 제한시간), after the turn's cap; 0 for none (<see cref="LegacyQueuedDuel.NextPlanningSeconds"/>).</summary>
+        public int PlanningSecondsGained { get; internal set; }
         public LegacySkillFeedback PlayerFeedback { get; internal set; } = LegacySkillFeedback.None;
         public LegacySkillFeedback EnemyFeedback { get; internal set; } = LegacySkillFeedback.None;
         internal int PlayerPower { get; set; }

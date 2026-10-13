@@ -31,6 +31,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
         void EffectivePowerRange(LegacySkill skill, out int min, out int max);
         /// <summary>The player's uses of a cycling skill so far.</summary>
         int CycleUses(int skillId);
+        /// <summary>The 순환 count the player's skill in a queue slot reads as that slot starts: its uses so far, the commit's
+        /// 순환 +1 and the earlier copies in the queue, within the cap; 0 for a slot without a cycling skill
+        /// (<see cref="LegacyKeywordLinks.PlannedCycleUses"/>). Two copies of one skill show their own counts.</summary>
+        int CycleUsesAtSlot(int slotIndex);
+        /// <summary>The same for the enemy's queue; 0 where the enemy never cycles.</summary>
+        int EnemyCycleUsesAtSlot(int slotIndex);
+        /// <summary>The once-per-turn 예약 효과 the player has used this turn (<see cref="LegacyReserveEffect"/>).</summary>
+        LegacyReserveEffect ReserveEffectsUsedThisTurn { get; }
+        /// <summary>The player's slot holding this turn's automatic 숨고르기 (예약 효과 숨고르기 +1), or -1.</summary>
+        int AutoBreathSlotIndex { get; }
+        /// <summary>The enemy's slot holding its automatic 숨고르기 this turn, or -1: a versus opponent's; the campaign's enemy
+        /// never has one (the sheet keeps 예약 효과 off enemy rows).</summary>
+        int EnemyAutoBreathSlotIndex { get; }
         /// <summary>The enemy's side of the same, for its skills' explanation (Tab): its uses of a cycling skill so far, the
         /// ACT its next use costs and that use's power range before buffs and hit division. A duel whose enemy never cycles
         /// reads 0 and the skill's own cost and range.</summary>

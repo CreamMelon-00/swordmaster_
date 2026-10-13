@@ -94,16 +94,9 @@ namespace TurnLimbo.Core.Tests
         public void ActFourSkill_UsesTwoClashesPerLevel()
         {
             // 알티바호 is the only 4-ACT skill (5 ACT before the 2026-10-12 lane rebalance); no sheet skill costs 5 now.
-            var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.True);
-            Assert.That(run.TryStartNextStage(), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("one-stroke"), Is.True);
-            Assert.That(run.TryStartNextStage(), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            // It is stage 7's first-clear reward since the keyword curriculum (2026-10-13).
+            var run = NewBattleRun();
+            ReachMaintenance(run, 7);
             CampaignOwnedSkill owned = run.GetOwnedSkill(16);
             Assert.That(owned, Is.Not.Null);
             Assert.That(owned.Skill.Cost, Is.EqualTo(4));
@@ -159,7 +152,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Curriculum.IsCompleted("horizontal-cut"), Is.True, "A lost battle still counts.");
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.False);
             Assert.That(run.TryStartNextStage(), Is.False);
-            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.False);
+            Assert.That(run.TrySelectCurriculumNode("preparation"), Is.False);
             Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.RetryCurrentStage(), Is.True);
             Assert.That(run.RetryCurrentStage(), Is.False);
@@ -363,6 +356,38 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void SeventhStageFirstClear_GrantsAltibajoOnce_AndOlderSavesReceiveIt()
+        {
+            var run = NewBattleRun();
+            Assert.That(run.GetStage(7).FirstClearSkillId, Is.EqualTo(16));
+            Assert.That(run.GetStage(8).FirstClearSkillId, Is.Zero);
+            Assert.That(run.Curriculum.Tree.FindGranting(16), Is.Null, "No curriculum node grants it any more.");
+            ReachMaintenance(run, 6);
+            Assert.That(Owned(run, 16), Is.Null);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
+            Assert.That(Owned(run, 16), Is.Null, "Only a victory clears the stage.");
+            Assert.That(run.RetryCurrentStage(), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            CampaignOwnedSkill awarded = Owned(run, 16);
+            Assert.That(awarded?.Skill.Name, Is.EqualTo("알티바호"));
+            Assert.That(awarded.Skill.LaneIndex, Is.EqualTo(1));
+            Assert.That(run.IsSkillEquipped(16), Is.False);
+            int ownedCount = run.OwnedSkills.Count;
+            Assert.That(run.TryStartStage(7), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(ownedCount), "Replaying stage 7 gives no duplicate.");
+
+            // A save that cleared stage 7 before the stage gave it (the old tree's one-stroke node did) receives it.
+            var olderSave = new CampaignSave(500, new[] { 1, 2, 3, 4, 5, 6, 7 }, new string[0], null, 0,
+                new IEnumerable<int>[] { new[] { 1, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
+            var olderRun = new CampaignRun();
+            Assert.That(olderRun.TryRestore(olderSave, out string error), Is.True, error);
+            Assert.That(Owned(olderRun, 16)?.Skill.Name, Is.EqualTo("알티바호"));
+            Assert.That(olderRun.IsSkillEquipped(16), Is.False);
+        }
+
+        [Test]
         public void RestoreOlderSaveWithStageThreeCleared_GrantsItsNewReward()
         {
             // Older saves list cleared stages and the equipped lanes, but never serialize skill ownership.
@@ -433,7 +458,7 @@ namespace TurnLimbo.Core.Tests
             run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory);
             Assert.That(Owned(run, 14), Is.Not.Null);
             run.ReturnToLobby();
-            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("preparation"), Is.True);
             run.Reset();
 
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Lobby));
@@ -445,7 +470,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
             Assert.That(run.Curriculum.Active, Is.Null);
             Assert.That(run.LastCompletedCurriculumNode, Is.Null);
-            Assert.That(run.Curriculum.GetState("diagonal-cut"), Is.EqualTo(CurriculumNodeState.Locked));
+            Assert.That(run.Curriculum.GetState("preparation"), Is.EqualTo(CurriculumNodeState.Locked));
             Assert.That(run.CreateDuel().Enemy.Health, Is.EqualTo(80));
         }
 

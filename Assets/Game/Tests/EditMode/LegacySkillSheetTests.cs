@@ -15,7 +15,8 @@ namespace TurnLimbo.Core.Tests
     {
         // Sheet rows of the shipped table as written: the header is row 1, then ids in table order.
         private const int Row1 = 2, Row2 = 3, Row5 = 6, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row19 = 19, Row42 = 20, Row43 = 21,
-            Row44 = 22, Row45 = 23, Row46 = 24, Row500 = 29, Row501 = 30, Row502 = 31;
+            Row44 = 22, Row45 = 23, Row46 = 24, Row59 = 37,
+            Row500 = 38, Row501 = 39, Row502 = 40;
 
         /// <summary>The shipped table as the writer lays it out, one string array per sheet row.</summary>
         private static List<string[]> Rows()
@@ -96,8 +97,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(csv[0], Is.EqualTo('\ufeff'), "Excel needs the mark to read Korean.");
             Assert.That(csv, Does.Not.Contain("\r"));
             Assert.That(csv.Substring(1, csv.IndexOf('\n') - 1), Is.EqualTo(string.Join(",", LegacySkillSheet.Headers)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(45));
-            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(45));
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(47));
+            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(47));
+            Assert.That(LegacySkillSheet.Headers.Skip(45), Is.EqualTo(new[] { "예약 효과", "사용 효과" }), "The phrase columns come last.");
         }
 
         [Test]
@@ -168,7 +170,7 @@ namespace TurnLimbo.Core.Tests
             rows.Insert(3, new[] { "  " });
             rows.Insert(4, Enumerable.Repeat(" ", width).ToArray());
             LegacySkillTable table = Parse(rows);
-            Assert.That(table.All.Count, Is.EqualTo(30));
+            Assert.That(table.All.Count, Is.EqualTo(Rows().Count - 1), "Every technique row, none of the blank or comment ones.");
             Assert.That(table.All[0].Skill.Id, Is.EqualTo(1));
 
             Set(rows, 2, Column.Cost, "1.5");
@@ -188,7 +190,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.Id, "0", "1 이상의 정수")]
         [TestCase(Column.Id, "", "비어 있습니다")]
         [TestCase(Column.Name, " ", "비어 있습니다")]
-        [TestCase(Column.Group, "기본", "시작, 획득, 적 중 하나")]
+        [TestCase(Column.Group, "기본", "시작, 획득, 적, 일회성 중 하나")]
         [TestCase(Column.Lane, "R", "Q, W, E 중 하나")]
         [TestCase(Column.Kind, "베기", "공격, 방어 중 하나")]
         [TestCase(Column.Kind, "대기", "공용 행동")]
@@ -213,7 +215,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.HighPower, "maybe", "O, ○, TRUE, 1, 예, Y")]
         [TestCase(Column.ShortLabel, "", "비어 있습니다")]
         [TestCase(Column.Detail, "", "비어 있습니다")]
-        [TestCase(Column.InfoMainSymbol, "별", "비워 두거나 ACT, 검, 방어, 타수, 회복, 후속, 감소, 편차, 순환 중 하나")]
+        [TestCase(Column.InfoMainSymbol, "별", "비워 두거나 ACT, 검, 방어, 타수, 회복, 후속, 감소, 편차, 순환, 일회, 시간 중 하나")]
         [TestCase(Column.InfoSecondaryTone, "빨강", "비워 두거나 기본, 회복, 후속, 감소, 고화력, 연타, 편차, 방어, 순환 중 하나")]
         public void BadCell_NamesItsRowColumnAndValue(string header, string value, string expected)
         {
@@ -329,8 +331,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Problem(rows), Is.EqualTo($"{Row17}행 (ID 17) '고화력'과(와) '위력 편차'은(는) 공격에만 붙일 수 있습니다."));
 
             rows = Rows();
-            Set(rows, 17, Column.InfoSecondaryTone, "방어");
-            Assert.That(Problem(rows), Is.EqualTo($"{Row17}행 (ID 17) 배지 칸을 하나라도 쓰면 '배지 주 문구'과(와) '배지 요약'을(를) 모두 적어야 합니다."));
+            Set(rows, 2, Column.InfoSecondaryTone, "방어");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row2}행 (ID 2) 배지 칸을 하나라도 쓰면 '배지 주 문구'과(와) '배지 요약'을(를) 모두 적어야 합니다."));
 
             rows = Rows();
             Set(rows, 7, Column.InfoDescription, "");
@@ -380,13 +382,29 @@ namespace TurnLimbo.Core.Tests
             Set(rows, 45, Column.QueueRemovalMode, "");
             Assert.That(Problem(rows), Is.EqualTo($"{Row45}행 (ID 45) '후속 위력 배율 상한'을(를) 쓰려면 '앞 기술 처리'을(를) 지정해야 합니다."));
 
+            // An attack may remove earlier skills (R1), but not with an opponent condition: 쿠페 is gated on a guard.
             rows = Rows();
             Set(rows, 42, Column.QueueRemovalMode, "취소");
-            Assert.That(Problem(rows), Is.EqualTo($"{Row42}행 (ID 42) '앞 기술 처리'은(는) 방어 기술에만 쓸 수 있습니다."));
+            Assert.That(Problem(rows), Is.EqualTo($"{Row42}행 (ID 42) '앞 기술 처리'을(를) 쓰는 기술에는 상대 조건('상대 속성 조건', " +
+                "'상대 종류 조건', '상대 상태 조건')을 붙일 수 없습니다. 앞 기술을 거두면 같은 칸의 상대가 바뀝니다."));
+            Set(rows, 42, Column.OpponentKind, "");
+            Set(rows, 42, Column.ResistanceReduction, "");
+            LegacySkillEffect attackRemover = Parse(rows).Find(42).Effect;
+            Assert.That(attackRemover.QueueRemovalMode, Is.EqualTo(LegacyQueueRemovalMode.Cancel), "Without the condition the attack reads.");
 
             rows = Rows();
-            Set(rows, 501, Column.QueueRemovalMode, "반환");
-            Assert.That(Problem(rows), Is.EqualTo($"{Row501}행 (ID 501) '구분'이(가) '적'인 기술은 '앞 기술 처리'을(를) 쓸 수 없습니다. 적은 기술을 대기열에 직접 장착하지 않습니다."));
+            Set(rows, 1, Column.QueueRemovalMode, "반환");
+            Set(rows, 1, Column.QueuePowerMultiplierCap, "2");
+            Assert.That(Parse(rows).Find(1).Effect.QueuePowerMultiplierCap, Is.EqualTo(2), "베기 may return and arm a ×2.");
+            Set(rows, 1, Column.OpponentState, "체력 30% 이하");
+            Set(rows, 1, Column.ConditionalDamage, "150%");
+            Assert.That(Problem(rows), Does.StartWith($"{Row1}행 (ID 1) '앞 기술 처리'을(를) 쓰는 기술에는 상대 조건("),
+                "A state condition counts too.");
+
+            // 라우다레: an enemy row without an opponent condition, so only the enemy rule speaks.
+            rows = Rows();
+            Set(rows, 500, Column.QueueRemovalMode, "반환");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row500}행 (ID 500) '구분'이(가) '적'인 기술은 '앞 기술 처리'을(를) 쓸 수 없습니다. 적은 기술을 대기열에 직접 장착하지 않습니다."));
         }
 
         [Test]
@@ -491,19 +509,19 @@ namespace TurnLimbo.Core.Tests
         [TestCase("체력 99% 이하", LegacyOpponentState.HealthAtMost, 99)]
         public void OpponentState_ReadsTheBrokenAndHealthForms_AndWritesThemOneWay(string cell, LegacyOpponentState state, int percent)
         {
-            // 르프리즈's recovery, gated.
+            // 르프리즈's recovery, gated (the shipped row is gated on 붕괴).
             List<string[]> rows = Rows();
             Set(rows, 19, Column.OpponentState, cell);
             LegacySkillTable table = Parse(rows);
             LegacySkillEffect effect = table.Find(19).Effect;
             Assert.That((effect.OpponentState, effect.OpponentHealthPercent), Is.EqualTo((state, percent)));
-            Assert.That(effect.ResistanceRecoveryPercent, Is.EqualTo(10));
+            Assert.That(effect.ResistanceRecoveryPercent, Is.EqualTo(20));
             string written = RowOf(CsvTable.Read(LegacySkillSheet.Write(table)).Select(r => r.Fields.ToArray()).ToList(), 19)
                 [Index(Column.OpponentState)];
             Assert.That(written, Is.EqualTo(state == LegacyOpponentState.Broken ? "붕괴" : $"체력 {percent}% 이하"));
             Assert.That(LegacySkillLabels.OpponentState(state, percent), Is.EqualTo(written));
             Assert.That(LegacySkillSheet.Describe(LegacySkillDefinitions.Table, table).Lines,
-                Is.EqualTo(new[] { "변경: 19 르프리즈 — 상대 상태 조건" }));
+                Is.EqualTo(state == LegacyOpponentState.Broken ? new string[0] : new[] { "변경: 19 르프리즈 — 상대 상태 조건" }));
             Assert.That(LegacySkillSheet.Describe(table, Parse(CsvTable.Read(LegacySkillSheet.Write(table))
                 .Select(r => r.Fields.ToArray()).ToList())).HasChanges, Is.False, "Any spelling reads back the same.");
         }
@@ -599,6 +617,248 @@ namespace TurnLimbo.Core.Tests
             Set(rows, 17, Column.OpponentState, "체력 40% 이하");
             Set(rows, 17, Column.ResistanceRecovery, "20%");
             Assert.That(Parse(rows).Find(17).Effect, Is.Not.SameAs(LegacySkillEffect.None));
+        }
+
+        [Test]
+        public void PhraseColumns_ReadEachPhraseWithAnySpacing_AndWriteItOneWay()
+        {
+            var cases = new[]
+            {
+                (Column.ReserveEffect, "순환 +1", "순환 +1"),
+                (Column.ReserveEffect, " 순환+1 ", "순환 +1"),
+                (Column.ReserveEffect, "숨고르기 +1", "숨고르기 +1"),
+                (Column.ReserveEffect, "숨고르기  + 1", "숨고르기 +1"),
+                (Column.UseEffect, "앞 숨고르기마다 위력 +4 (최대 4)", "앞 숨고르기마다 위력 +4 (최대 4)"),
+                (Column.UseEffect, "앞순환기술마다위력+1(최대1)", "앞 순환 기술마다 위력 +1 (최대 1)"),
+                (Column.UseEffect, "앞 저항 감소 기술 마다 위력 + 10 ( 최대 3 )", "앞 저항 감소 기술마다 위력 +10 (최대 3)"),
+                (Column.UseEffect, "자동 회피", "자동 회피"),
+                (Column.UseEffect, "자동회피", "자동 회피"),
+                (Column.ReserveEffect, "일회성 59 ×3", "일회성 59 ×3"),
+                (Column.ReserveEffect, "일회성59x1", "일회성 59 ×1"),
+                (Column.ReserveEffect, " 일회성 59 * 2 ", "일회성 59 ×2"),
+                (Column.ReserveEffect, "제한시간 -4초", "제한시간 -4초"),
+                (Column.ReserveEffect, "제한 시간-1초", "제한시간 -1초"),
+                (Column.UseEffect, "앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)", "앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)"),
+                (Column.UseEffect, "앞숨고르기마다다음턴제한시간+1초(최대1)", "앞 숨고르기마다 다음 턴 제한시간 +1초 (최대 1)"),
+            };
+            foreach (var (column, cell, written) in cases)
+            {
+                // 깊은 찌르기: an attack with no effect of its own.
+                List<string[]> rows = Rows();
+                Set(rows, 3, column, cell);
+                LegacySkillTable table = Parse(rows);
+                Assert.That(table.Find(3).Effect, Is.Not.SameAs(LegacySkillEffect.None), cell);
+                List<string[]> rewritten = CsvTable.Read(LegacySkillSheet.Write(table)).Select(r => r.Fields.ToArray()).ToList();
+                Assert.That(RowOf(rewritten, 3)[Index(column)], Is.EqualTo(written), cell);
+                Assert.That(Dump(Parse(rewritten).Find(3)), Is.EqualTo(Dump(table.Find(3))), cell);
+                Assert.That(LegacySkillSheet.Describe(LegacySkillDefinitions.Table, table).Lines,
+                    Is.EqualTo(new[] { "변경: 3 깊은 찌르기 — " + column }), cell);
+            }
+            List<string[]> shipped = Rows();
+            foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
+                if (!definition.Effect.HasReserveEffect && !definition.Effect.HasUseEffect)
+                    Assert.That(RowOf(shipped, definition.Skill.Id)[Index(Column.ReserveEffect)] +
+                        RowOf(shipped, definition.Skill.Id)[Index(Column.UseEffect)], Is.Empty, "A row without them leaves both blank.");
+        }
+
+        [Test]
+        public void PhraseColumns_SetTheirEffectFieldsAndRoles()
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 3, Column.UseEffect, "앞 숨고르기마다 위력 +4 (최대 4)");
+            Set(rows, 4, Column.UseEffect, "앞 저항 감소 기술마다 위력 +5 (최대 3)");
+            Set(rows, 16, Column.UseEffect, "앞 순환 기술마다 위력 +2 (최대 2)");
+            Set(rows, 2, Column.UseEffect, "자동 회피");
+            Set(rows, 14, Column.ReserveEffect, "순환 +1");
+            Set(rows, 17, Column.ReserveEffect, "숨고르기 +1");
+            LegacySkillTable table = Parse(rows);
+            LegacySkillEffect breaths = table.Find(3).Effect, reductions = table.Find(4).Effect, cycles = table.Find(16).Effect;
+            Assert.That((breaths.AheadPowerTarget, breaths.AheadPowerPerUnit, breaths.AheadPowerMax),
+                Is.EqualTo((LegacyAheadTarget.Breath, 4, 4)));
+            Assert.That((reductions.AheadPowerTarget, reductions.AheadPowerPerUnit, reductions.AheadPowerMax),
+                Is.EqualTo((LegacyAheadTarget.ResistanceReduction, 5, 3)));
+            Assert.That(cycles.AheadPowerTarget, Is.EqualTo(LegacyAheadTarget.CycleSkill));
+            Assert.That(breaths.Roles, Is.EqualTo(LegacySkillRole.AheadPower));
+            Assert.That(breaths.HasUseEffect && !breaths.HasReserveEffect && !breaths.AutoDodge, Is.True);
+            Assert.That(table.Find(2).Effect.AutoDodge && table.Find(2).Effect.Roles == LegacySkillRole.AutoDodge, Is.True);
+            Assert.That(table.Find(14).Effect.ReserveCycleFeed && table.Find(14).Effect.Roles == LegacySkillRole.CycleFeed, Is.True);
+            Assert.That(table.Find(17).Effect.ReserveBreath && table.Find(17).Effect.Roles == LegacySkillRole.AutoBreath, Is.True);
+            Assert.That(table.Find(17).Effect.HasReserveEffect && !table.Find(17).Effect.HasUseEffect, Is.True);
+        }
+
+        [TestCase(Column.ReserveEffect, "순환 +2")]
+        [TestCase(Column.ReserveEffect, "숨고르기")]
+        [TestCase(Column.ReserveEffect, "자동 회피")]
+        [TestCase(Column.ReserveEffect, "순환 +1, 숨고르기 +1")]
+        [TestCase(Column.UseEffect, "순환 +1")]
+        [TestCase(Column.UseEffect, "앞 숨고르기마다 위력 +0 (최대 4)")]
+        [TestCase(Column.UseEffect, "앞 숨고르기마다 위력 +11 (최대 4)")]
+        [TestCase(Column.UseEffect, "앞 숨고르기마다 위력 +4 (최대 0)")]
+        [TestCase(Column.UseEffect, "앞 숨고르기마다 위력 +4 (최대 5)")]
+        [TestCase(Column.UseEffect, "앞 숨고르기마다 위력 +4")]
+        [TestCase(Column.UseEffect, "앞 숨고르기마다 위력 -4 (최대 4)")]
+        [TestCase(Column.UseEffect, "앞 회피마다 위력 +4 (최대 4)")]
+        [TestCase(Column.UseEffect, "뒤 숨고르기마다 위력 +4 (최대 4)")]
+        [TestCase(Column.UseEffect, "자동 회피, 앞 숨고르기마다 위력 +4 (최대 4)")]
+        [TestCase(Column.ReserveEffect, "일회성 59")]
+        [TestCase(Column.ReserveEffect, "일회성 59 ×0")]
+        [TestCase(Column.ReserveEffect, "일회성 59 ×4")]
+        [TestCase(Column.ReserveEffect, "일회성 갈아내기 ×3")]
+        [TestCase(Column.ReserveEffect, "제한시간 -0초")]
+        [TestCase(Column.ReserveEffect, "제한시간 -6초")]
+        [TestCase(Column.ReserveEffect, "제한시간 -4")]
+        [TestCase(Column.UseEffect, "제한시간 -4초")]
+        [TestCase(Column.UseEffect, "앞 순환 기술마다 다음 턴 제한시간 +4초 (최대 3)")]
+        [TestCase(Column.UseEffect, "앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 4)")]
+        [TestCase(Column.UseEffect, "앞 순환 기술마다 다음 턴 제한시간 +0초 (최대 3)")]
+        [TestCase(Column.UseEffect, "앞 순환 기술마다 다음 턴 제한시간 +2 (최대 3)")]
+        public void PhraseColumns_RefuseOtherPhrases_NamingTheOnesTheyRead(string column, string cell)
+        {
+            const int row3 = 4;
+            List<string[]> rows = Rows();
+            Set(rows, 3, column, cell);
+            string allowed = column == Column.ReserveEffect
+                ? "비워 두거나 순환 +1, 숨고르기 +1, 일회성 <ID> ×N(<ID>는 구분이 일회성인 행, N은 1~3의 정수, 예: 일회성 59 ×3), " +
+                    "제한시간 -N초(N은 1~5의 정수, 예: 제한시간 -4초)"
+                : "비워 두거나 앞 <대상>마다 위력 +N (최대 M)(<대상>은 숨고르기, 순환 기술, 저항 감소 기술, N은 1~10, M은 1~4의 정수, " +
+                    "예: 앞 숨고르기마다 위력 +4 (최대 4)), 앞 <대상>마다 다음 턴 제한시간 +N초 (최대 M)(N은 1~3, M은 1~3의 정수, " +
+                    "예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), 자동 회피";
+            Assert.That(Problem(rows), Is.EqualTo($"{row3}행 '{column}': '{cell}'은(는) 쓸 수 없습니다. {allowed} 중 하나를 적으세요."));
+        }
+
+        [TestCase("제한시간 +4초")]
+        [TestCase("제한시간+1초")]
+        public void ReserveEffect_RefusesTimeGainedAtReservation_WithItsReason(string cell)
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 3, Column.ReserveEffect, cell);
+            Assert.That(Problem(rows), Is.EqualTo($"4행 '예약 효과': '{cell}'은(는) 쓸 수 없습니다. " +
+                "예약 때 시간을 늘리는 효과는 반환으로 되풀이할 수 있어 쓰지 않습니다. 시간을 늘리려면 '사용 효과'에 " +
+                "앞 <대상>마다 다음 턴 제한시간 +N초 (최대 M)을(를) 쓰세요. '예약 효과'의 제한시간은(는) -N초(N은 1~5의 정수)만 적을 수 있습니다."));
+        }
+
+        [Test]
+        public void TemporaryPhrases_SetTheirEffectFieldsAndRoles()
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 3, Column.ReserveEffect, "일회성 59 ×2");
+            Set(rows, 4, Column.ReserveEffect, "제한시간 -3초");
+            Set(rows, 16, Column.UseEffect, "앞 저항 감소 기술마다 다음 턴 제한시간 +3초 (최대 2)");
+            LegacySkillTable table = Parse(rows);
+            LegacySkillEffect spawn = table.Find(3).Effect, cost = table.Find(4).Effect, time = table.Find(16).Effect;
+            Assert.That((spawn.ReserveTemporarySkillId, spawn.ReserveTemporaryCount), Is.EqualTo((59, 2)));
+            Assert.That(spawn.Roles, Is.EqualTo(LegacySkillRole.TemporarySpawn));
+            Assert.That(spawn.HasReserveEffect && spawn.HasReserveGain && !spawn.HasUseEffect, Is.True);
+            Assert.That(cost.ReservePlanningSecondsCost, Is.EqualTo(3));
+            Assert.That(cost.Roles, Is.EqualTo(LegacySkillRole.PlanningTimeCost));
+            Assert.That(cost.HasReserveEffect && !cost.HasReserveGain, Is.True, "A time cost is a reserve effect, never a gain.");
+            Assert.That((time.AheadTimeTarget, time.AheadTimePerUnit, time.AheadTimeMax),
+                Is.EqualTo((LegacyAheadTarget.ResistanceReduction, 3, 2)));
+            Assert.That(time.Roles & LegacySkillRole.NextTurnTime, Is.EqualTo(LegacySkillRole.NextTurnTime));
+            Assert.That(time.HasUseEffect && !time.HasAheadPower, Is.True);
+        }
+
+        [Test]
+        public void TemporaryRows_StayOutOfEveryOtherSet_AndRoundTripTheirGroup()
+        {
+            List<string[]> rows = Rows();
+            Assert.That(RowOf(rows, 59)[Index(Column.Group)], Is.EqualTo(LegacySkillSheet.TemporaryGroup));
+            LegacySkillTable table = Parse(rows);
+            LegacySkillDefinition grind = table.Find(59);
+            Assert.That(table.GroupOf(grind), Is.EqualTo(LegacySkillGroup.Temporary));
+            Assert.That(table.IsTemporary(grind) && !table.IsEnemy(grind) && !table.IsStarting(grind), Is.True);
+            Assert.That(table.TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59 }));
+            Assert.That(table.EnemySkills.Concat(table.AcquisitionSkills).Concat(table.InitialSkills).Any(s => s.Id == 59), Is.False,
+                "Not an enemy row (the prologue would find it there), never owned, equipped or granted.");
+            Assert.That(table.IsTemporary(table.Find(58)) || table.IsTemporary(null), Is.False);
+
+            // Written back as 일회성, read back the same: never as 적, whose rules would then refuse its 순환.
+            string csv = LegacySkillSheet.Write(table);
+            List<string[]> rewritten = CsvTable.Read(csv).Select(r => r.Fields.ToArray()).ToList();
+            Assert.That(RowOf(rewritten, 59)[Index(Column.Group)], Is.EqualTo("일회성"));
+            LegacySkillTable reread = LegacySkillSheet.Parse("again", csv);
+            Assert.That(reread.GroupOf(reread.Find(59)), Is.EqualTo(LegacySkillGroup.Temporary));
+            Assert.That(Dump(reread.Find(59)), Is.EqualTo(Dump(grind)));
+            Assert.That(LegacySkillDefinitions.TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59 }));
+            Assert.That(LegacySkillDefinitions.IsTemporary(LegacySkillDefinitions.Skill(59)), Is.True);
+            Assert.That(LegacySkillDefinitions.IsTemporary(LegacySkillDefinitions.Skill(58)), Is.False);
+            Assert.That(LegacySkillDefinitions.IsTemporary(LegacyCommonActions.Breathe), Is.False);
+
+            // Any lane, as many as wanted; the three-per-lane rule counts starting rows only.
+            string[] another = RowOf(rows, 59).ToArray();
+            another[Index(Column.Id)] = "60";
+            another[Index(Column.Lane)] = "E";
+            rows.Add(another);
+            Assert.That(Parse(rows).TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59, 60 }));
+        }
+
+        [Test]
+        public void TemporaryRules_TheTargetMustBeATemporaryRow_AndATemporaryRowSetsNothing()
+        {
+            // Rule 4: 일회성 <ID> names a 일회성 row, checked once every row is read.
+            List<string[]> rows = Rows();
+            Set(rows, 3, Column.ReserveEffect, "일회성 14 ×3");
+            Assert.That(Problem(rows), Is.EqualTo("4행 (ID 3) '예약 효과' '일회성 14 ×3': ID 14 행의 '구분'이(가) '일회성'이(가) 아닙니다. " +
+                "일회성으로 세울 기술은 '구분'을(를) '일회성'(으)로 적은 행이어야 합니다."));
+            Set(rows, 3, Column.ReserveEffect, "일회성 999 ×1");
+            Assert.That(Problem(rows), Is.EqualTo("4행 (ID 3) '예약 효과' '일회성 999 ×1': ID 999 행이 없습니다(또는 그 행에 문제가 있습니다). " +
+                "'구분'이(가) '일회성'인 행의 ID를 적으세요."));
+            Set(rows, 3, Column.ReserveEffect, "일회성 500 ×1");
+            Assert.That(Problem(rows), Does.Contain("ID 500 행의 '구분'이(가) '일회성'이(가) 아닙니다."), "Nor an enemy row.");
+
+            // Rule 2: a 일회성 row writes neither phrase column, so a 생성 never begets another. The row with the problem is
+            // not read, so 숫돌's phrase then names a row the sheet lacks too.
+            rows = Rows();
+            Set(rows, 59, Column.ReserveEffect, "일회성 59 ×1");
+            IReadOnlyList<string> problems = Problems(rows);
+            Assert.That(problems.First(), Is.EqualTo($"{Row59}행 (ID 59) '구분'이(가) '일회성'인 기술은 '예약 효과'을(를) 쓸 수 없습니다. " +
+                "한 번 쓰고 사라지는 기술이 다시 무언가를 세우거나 더하면 되풀이할 수 있습니다."));
+            Assert.That(problems.Skip(1).Single(), Does.StartWith("36행 (ID 58) '예약 효과' '일회성 59 ×3': ID 59 행이 없습니다"));
+            rows = Rows();
+            Set(rows, 59, Column.UseEffect, "앞 숨고르기마다 위력 +1 (최대 1)");
+            Assert.That(Problems(rows).First(), Is.EqualTo($"{Row59}행 (ID 59) '구분'이(가) '일회성'인 기술은 '사용 효과'을(를) 쓸 수 없습니다. " +
+                "한 번 쓰고 사라지는 기술은 앞 기술을 세거나 저절로 피하지 않습니다."));
+
+            // Its 순환 is the player's, unlike an enemy row's.
+            Assert.That(Parse(Rows()).Find(59).Effect.HasCycle, Is.True);
+        }
+
+        [Test]
+        public void PhraseRules_EnemyRowsRemoversAndGuardsRefuseWhatTheyCannotHonour()
+        {
+            // Enemies never reserve skills nor count a queue of their own.
+            List<string[]> rows = Rows();
+            Set(rows, 500, Column.ReserveEffect, "숨고르기 +1");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row500}행 (ID 500) '구분'이(가) '적'인 기술은 '예약 효과'을(를) 쓸 수 없습니다. " +
+                "적은 기술을 대기열에 직접 예약하지 않습니다."));
+            rows = Rows();
+            Set(rows, 502, Column.UseEffect, "자동 회피");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row502}행 (ID 502) '구분'이(가) '적'인 기술은 '사용 효과'을(를) 쓸 수 없습니다. " +
+                "적의 기술은 앞 기술을 세거나 저절로 피하지 않습니다."));
+
+            // A remover adds nothing as it is reserved, but may count what is ahead of it, and pays a time cost every time.
+            foreach (string phrase in new[] { "순환 +1", "숨고르기 +1", "일회성 59 ×3" })
+            {
+                rows = Rows();
+                Set(rows, 45, Column.ReserveEffect, phrase);
+                Assert.That(Problem(rows), Is.EqualTo($"{Row45}행 (ID 45) '앞 기술 처리'을(를) 쓰는 기술은 '예약 효과' '{phrase}'을(를) " +
+                    "쓸 수 없습니다. 앞 기술을 거두고 다시 예약해 같은 효과를 되풀이할 수 있습니다."));
+            }
+            rows = Rows();
+            Set(rows, 45, Column.UseEffect, "앞 숨고르기마다 위력 +1 (최대 4)");
+            Assert.That(Parse(rows).Find(45).Effect.AheadPowerTarget, Is.EqualTo(LegacyAheadTarget.Breath));
+            Set(rows, 45, Column.ReserveEffect, "제한시간 -2초");
+            Assert.That(Parse(rows).Find(45).Effect.ReservePlanningSecondsCost, Is.EqualTo(2));
+            Assert.That(LegacySkillDefinitions.Find(56).Effect.ReservePlanningSecondsCost, Is.EqualTo(4), "두블레 pays 4 seconds.");
+
+            // 자동 회피 dodges with an attack; a guard may still count ahead.
+            rows = Rows();
+            Set(rows, 7, Column.UseEffect, "자동 회피");
+            Assert.That(Problem(rows), Is.EqualTo($"{Row7}행 (ID 7) '사용 효과' '자동 회피'은(는) 공격 기술에만 쓸 수 있습니다."));
+            Set(rows, 7, Column.UseEffect, "앞 숨고르기마다 위력 +2 (최대 2)");
+            Assert.That(Parse(rows).Find(7).Effect.AheadPowerPerUnit, Is.EqualTo(2));
+            Set(rows, 7, Column.ReserveEffect, "숨고르기 +1");
+            Assert.That(Parse(rows).Find(7).Effect.ReserveBreath, Is.True, "A row may write both columns.");
         }
 
         [Test]
@@ -714,7 +974,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(changes.Changed, Is.EqualTo(1));
             Assert.That(changes.Reordered, Is.False, "12 is new, so the others keep their order.");
             Assert.That(changes.HasChanges, Is.True);
-            Assert.That(changes.Summary, Is.EqualTo("추가 1 · 삭제 1 · 변경 1 (기술 30개)"));
+            Assert.That(changes.Summary, Is.EqualTo($"추가 1 · 삭제 1 · 변경 1 (기술 {current.All.Count}개)"));
         }
 
         [Test]
@@ -724,7 +984,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillSheetChanges same = LegacySkillSheet.Describe(current, Parse(Rows()));
             Assert.That(same.HasChanges, Is.False);
             Assert.That(same.Lines, Is.Empty);
-            Assert.That(same.Summary, Is.EqualTo("바뀐 내용이 없습니다 (기술 30개)."));
+            Assert.That(same.Summary, Is.EqualTo($"바뀐 내용이 없습니다 (기술 {current.All.Count}개)."));
 
             List<string[]> rows = Rows();
             string[] guard = RowOf(rows, 7);
@@ -736,7 +996,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(moved.Summary, Does.Contain("순서 변경"));
 
             LegacySkillSheetChanges fresh = LegacySkillSheet.Describe(null, current);
-            Assert.That(fresh.Added, Is.EqualTo(30));
+            Assert.That(fresh.Added, Is.EqualTo(current.All.Count));
             Assert.That(fresh.Lines[0], Is.EqualTo("추가: 1 베기"));
             Assert.That(fresh.Reordered, Is.False);
         }

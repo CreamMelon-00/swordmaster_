@@ -269,25 +269,25 @@ namespace TurnLimbo.Core.Tests
             Assert.That(played.TryStartStage(1), Is.True);
             Assert.That(played.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(played.ReturnToLobby(), Is.True);
-            Assert.That(played.TrySelectCurriculumNode("diagonal-cut"), Is.True);
+            Assert.That(played.TrySelectCurriculumNode("preparation"), Is.True);
             CampaignSave save = played.CaptureSave();
             Assert.That(run.TryRestore(save, out string error), Is.True, error);
             Assert.That(run.IsCurriculumOpen, Is.False, "A restore leaves the story's features alone.");
             CollectionAssert.AreEqual(new[] { "horizontal-cut" }, run.Curriculum.Completed, "The saved progress is kept…");
-            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"));
+            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("preparation"));
             Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 14), Is.True, "…with the skill it already granted.");
             Assert.That(run.TrySelectCurriculumNode("advance"), Is.False);
             Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
             Assert.That(run.LastCompletedCurriculumNode, Is.Null);
-            Assert.That(run.Curriculum.IsCompleted("diagonal-cut"), Is.False, "The node in progress waits, untouched.");
+            Assert.That(run.Curriculum.IsCompleted("preparation"), Is.False, "The node in progress waits, untouched.");
             Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
-            Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 15), Is.False);
+            Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 10), Is.False);
             Assert.That(run.ReturnToLobby(), Is.True);
             CampaignSave again = run.CaptureSave();
             CollectionAssert.AreEqual(save.CurriculumCompleted, again.CurriculumCompleted, "Saving keeps it as it was.");
-            Assert.That(again.CurriculumActive, Is.EqualTo("diagonal-cut"));
+            Assert.That(again.CurriculumActive, Is.EqualTo("preparation"));
             Assert.That(again.CurriculumBattles, Is.Zero);
 
             // Mission 8's W lane opens it, and the waiting node counts from the next battle.
@@ -295,8 +295,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.IsCurriculumOpen, Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("diagonal-cut"));
-            Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 15), Is.True);
+            Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("preparation"));
+            Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 10), Is.True);
             Assert.That(run.ReturnToLobby(), Is.True);
             Assert.That(run.TrySelectCurriculumNode("advance"), Is.True);
             Assert.That(run.TryResetCurriculum(), Is.True);

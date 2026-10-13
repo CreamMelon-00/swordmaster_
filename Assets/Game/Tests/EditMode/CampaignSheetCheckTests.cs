@@ -93,6 +93,35 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void TemporaryRowGrantedByANodeOrAStage_IsAProblem_AndOneNothingSetsIsAWarning()
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 14, Column.Group, LegacySkillSheet.TemporaryGroup);
+            Set(rows, 44, Column.Group, LegacySkillSheet.TemporaryGroup);
+            LegacySkillTable table = Parse(rows);
+            Assert.That(CampaignSheetCheck.Problems(table), Is.EqualTo(new[]
+            {
+                "ID 14 가로베기의 '구분'이(가) '일회성'입니다. 커리큘럼 과정 'horizontal-cut'이(가) 주는 기술이라 '획득'이어야 합니다 " +
+                "(일회성 기술은 다른 기술이 한 턴 동안만 세우며, 플레이어가 얻거나 편성하지 않습니다).",
+                "ID 44 몰아치기의 '구분'이(가) '일회성'입니다. 스테이지 2 첫 클리어 보상이라 '획득'이어야 합니다.",
+            }));
+            Assert.That(CampaignSheetCheck.Warnings(table).Select(warning => warning.Substring(0, warning.IndexOf(':'))),
+                Is.EqualTo(new[] { "ID 14 가로베기", "ID 44 몰아치기" }), "Nothing sets either one.");
+
+            // 58 숫돌 sets 59 갈아내기; without its phrase 59 never reaches a battle.
+            rows = Rows();
+            Set(rows, 58, Column.ReserveEffect, "");
+            LegacySkillTable unset = Parse(rows);
+            Assert.That(CampaignSheetCheck.Problems(unset), Is.Empty);
+            Assert.That(CampaignSheetCheck.Warnings(unset), Is.EqualTo(new[]
+            {
+                "ID 59 갈아내기: '구분'이(가) '일회성'이지만 '예약 효과'에 '일회성 59 ×N'을(를) 적은 기술이 없어 전투에 나오지 않습니다. " +
+                "이 기술을 세울 기술의 행에 그 구절을 적으세요.",
+            }));
+            Assert.That(CampaignSheetCheck.Warnings(LegacySkillDefinitions.Table), Is.Empty, "The shipped 59 is set by 58.");
+        }
+
+        [Test]
         public void FieldPickupSkillMissingStartingOrEnemy_IsAProblem_AndNeverAWarning()
         {
             List<string[]> rows = Rows();
@@ -173,6 +202,36 @@ namespace TurnLimbo.Core.Tests
             {
                 LegacySkillDefinitions.Install(null);
             }
+        }
+
+        [Test]
+        public void Altibajo_IsStageSevensReward_SoItsRowMustStayAnAcquisitionRow()
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 16, Column.Group, LegacySkillSheet.EnemyGroup);
+            Assert.That(CampaignSheetCheck.Problems(Parse(rows)), Is.EqualTo(new[]
+            {
+                "ID 16 알티바호의 '구분'이(가) '적'입니다. 스테이지 7 첫 클리어 보상이라 '획득'이어야 합니다.",
+            }));
+            rows.Remove(RowOf(rows, 16));
+            Assert.That(CampaignSheetCheck.Problems(Parse(rows)).Single(),
+                Does.StartWith("ID 16 기술이 시트에 없습니다. 스테이지 7 첫 클리어 보상이므로"));
+        }
+
+        [Test]
+        public void KeywordCurriculumRows_AreGrantedByTheirNodes()
+        {
+            // 51-58 came with the keyword curriculum (2026-10-13); renumbering one leaves its node granting nothing. 59 is the
+            // 일회성 row 58 sets, never a node's.
+            foreach (int id in new[] { 51, 52, 53, 54, 55, 56, 57, 58 })
+                Assert.That(CampaignCurriculum.Default.FindGranting(id), Is.Not.Null, "ID " + id);
+            Assert.That(CampaignCurriculum.Default.FindGranting(59), Is.Null);
+            List<string[]> rows = Rows();
+            Set(rows, 54, Column.Id, "60");
+            LegacySkillTable table = Parse(rows);
+            Assert.That(CampaignSheetCheck.Problems(table).Single(),
+                Does.StartWith("ID 54 기술이 시트에 없습니다. 커리큘럼 과정 'esquive'이(가) 이 기술을 주므로"));
+            Assert.That(CampaignSheetCheck.Warnings(table).Single(), Does.StartWith("ID 60 에스키브: "));
         }
 
         [Test]
@@ -271,7 +330,9 @@ namespace TurnLimbo.Core.Tests
                 var run = new CampaignRun();
                 Assert.That(run.TrySelectCurriculumNode("horizontal-cut") && run.TryStartStage(1), Is.True);
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.TrySelectCurriculumNode("diagonal-cut") && run.TryStartNextStage(), Is.True);
+                Assert.That(run.TrySelectCurriculumNode("preparation") && run.TryStartNextStage(), Is.True);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.TrySelectCurriculumNode("advance") && run.TryStartNextStage(), Is.True);
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
                 Assert.That(run.TrySelectCurriculumNode("quick-draw") && run.TryStartNextStage(), Is.True);
                 int currency = run.Currency;
@@ -283,11 +344,11 @@ namespace TurnLimbo.Core.Tests
                     Assert.That(error.Message, Does.Contain("ID 42 기술이 없습니다"));
                     Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Battle));
                     Assert.That(run.LastOutcome, Is.Null);
-                    Assert.That(run.Curriculum.Completed, Is.EqualTo(new[] { "horizontal-cut", "diagonal-cut" }));
+                    Assert.That(run.Curriculum.Completed, Is.EqualTo(new[] { "horizontal-cut", "preparation", "advance" }));
                     Assert.That(run.Curriculum.Active.Id, Is.EqualTo("quick-draw"));
                     Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
                     Assert.That(run.Currency, Is.EqualTo(currency));
-                    Assert.That(run.IsStageCleared(3), Is.False);
+                    Assert.That(run.IsStageCleared(4), Is.False);
                 }
                 Assert.That(run.TryAbandonBattle(), Is.True, "The run itself is still whole.");
             }

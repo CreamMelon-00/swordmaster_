@@ -247,7 +247,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("preparation"), Is.True);
             Assert.That(run.TryStartStage(2), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.False);
             Assert.That(run.TryUnequipSkill(1), Is.False);
@@ -255,11 +255,11 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TrySelectCurriculumNode("advance"), Is.False);
             Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.ReturnToLobby(), Is.False);
-            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"));
+            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("preparation"));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
             CollectionAssert.AreEqual(new[] { 1, 2, 14 }, EquippedIds(run, 0));
             Assert.That(run.TryAbandonBattle(), Is.True);
-            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"), "An abandoned battle does not count.");
+            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("preparation"), "An abandoned battle does not count.");
             Assert.That(run.TryUnequipSkill(14), Is.True);
             Assert.That(run.TryEquipSkill(7), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
@@ -295,7 +295,7 @@ namespace TurnLimbo.Core.Tests
             WinStage(run, 1);
             WinStage(run, 2);
             run.ReturnToLobby();
-            run.TrySelectCurriculumNode("diagonal-cut");
+            run.TrySelectCurriculumNode("preparation");
             run.TryUnequipSkill(7);
             run.TryEquipSkill(14);
             run.TryMoveEquippedSkill(14, -1);

@@ -193,8 +193,10 @@ namespace TurnLimbo.Presentation
             => disposed ? null : (playerSide ? playerQueue : enemyQueue).GetAnchor(queueIndex);
 
         /// <summary>Lets cancelled reservations tumble out from their last visible slots. Gameplay has already
-        /// removed them; these non-interactive cards only bridge the queue's immediate visual refresh.</summary>
-        public void PlayQueueCancellation(IReadOnlyList<LegacySkill> queuedBefore)
+        /// removed them; these non-interactive cards only bridge the queue's immediate visual refresh. Returned ones
+        /// (<paramref name="mode"/> 반환, their ACT refunded) wear 반환's green ring, cancelled ones the danger ring.</summary>
+        public void PlayQueueCancellation(IReadOnlyList<LegacySkill> queuedBefore,
+            LegacyQueueRemovalMode mode = LegacyQueueRemovalMode.Cancel)
         {
             if (disposed || queuedBefore == null) return;
             for (int index = 0; index < queuedBefore.Count; index++)
@@ -207,8 +209,9 @@ namespace TurnLimbo.Presentation
                 if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(queueCancellationLayer,
                     screen, null, out Vector2 start)) continue;
 
-                var card = Panel("Cancelled Skill", queueCancellationLayer, start, Vector2.one * QueueCardSize,
-                    Card, DuelVisualTheme.Danger);
+                var card = Panel(mode == LegacyQueueRemovalMode.Return ? "Returned Skill" : "Cancelled Skill",
+                    queueCancellationLayer, start, Vector2.one * QueueCardSize, Card,
+                    mode == LegacyQueueRemovalMode.Return ? DuelVisualTheme.Health : DuelVisualTheme.Danger);
                 var icon = Image("Icon", card.transform, iconFor(skill.IconId), Vector2.zero, Vector2.one * 48f);
                 icon.preserveAspect = true;
                 var group = card.gameObject.AddComponent<CanvasGroup>();
@@ -330,6 +333,8 @@ namespace TurnLimbo.Presentation
             logButton.onClick.AddListener(() => { ToggleLog(); ClearSelection(logButton.gameObject); });
             // The lanes' gears turn up out of the dock's bottom edge; the ACT track runs along its top.
             BuildSkillGears(controls, white, queue);
+            BuildLanePreviews();
+            BuildTemporaryMarks();
             var breathe = Panel("BreathButton", controls, new Vector2(360, -4), new Vector2(136, 112), Card);
             var breathIcon = Image("Icon", breathe.transform, art.GetSkillIcon(LegacyCommonActions.Breathe.IconId),
                 new Vector2(-42, 17), Vector2.one * 36);
@@ -351,6 +356,7 @@ namespace TurnLimbo.Presentation
             breathNote = note.rectTransform;
             breathButton = AddButton(breathe);
             breathButton.onClick.AddListener(QueueBreathFromButton);
+            BuildAutoBreathCount(breathe.transform);
             // 넘기기 mirrors 숨고르기 on the other side of the lanes.
             var cycle = Panel("CycleButton", controls, new Vector2(-360, -4), new Vector2(136, 112), Card);
             Text("Label", cycle.transform, new Vector2(0, 27), new Vector2(124, 22), 17, TextAnchor.MiddleCenter).text = "넘기기";
@@ -460,6 +466,7 @@ namespace TurnLimbo.Presentation
             playerExplanationHint.text = "키를 놓으면 닫기"; playerExplanationHint.color = DuelVisualTheme.Ink;
             FitExplanationLabel(playerExplanationHint, ExplanationType(11));
             BuildMeshNote(explain);
+            BuildKeywordNote(explain);
             var enemyExplanationImage = Panel("Enemy Skill Explain", root, new Vector2(-480, 160), new Vector2(460, 368), DuelVisualTheme.Paper);
             Dress(enemyExplanationImage);
             enemyExplanation = enemyExplanationImage.rectTransform;
@@ -627,17 +634,21 @@ namespace TurnLimbo.Presentation
             laneCycleAffordable = affordable;
         }
 
-        /// <summary>넘기기 just spent planning time: a short '-N초' rises off the timer.</summary>
+        /// <summary>넘기기 (or a reservation's 제한시간 cost) just spent planning time: a short '-N초' rises off the timer.</summary>
         public void ShowTimeSpent(float seconds)
         {
             if (disposed || seconds <= 0f) return;
             timeSpent.text = "-" + seconds.ToString("0.#") + "초";
+            timeSpentInk = DuelVisualTheme.Danger;
             timeSpentRemaining = TimeSpentDuration;
             AdvanceTimeSpent(0f);
         }
 
-        /// <summary>Whether the '-N초' from the last 넘기기 is still on screen.</summary>
+        /// <summary>Whether the '-N초' from the last 넘기기 (or the turn's '+N초') is still on screen.</summary>
         public bool IsShowingTimeSpent => timeSpentRemaining > 0f;
+
+        /// <summary>The rising time text ('-1초', '+4초') while it shows, or null.</summary>
+        public string TimeSpentText => disposed || timeSpentRemaining <= 0f ? null : timeSpent.text;
 
         private static string CycleCostText(float seconds) => seconds > 0f ? seconds.ToString("0.#") + "초 소모" : "무료";
 
@@ -652,7 +663,7 @@ namespace TurnLimbo.Presentation
             if (!visible) return;
             float t = 1f - timeSpentRemaining / TimeSpentDuration;
             timeSpent.rectTransform.anchoredPosition = TimeSpentHome + new Vector2(0f, 12f * t);
-            Color color = timeSpent.color;
+            Color color = timeSpentInk;
             color.a = 1f - t * t;
             timeSpent.color = color;
         }
@@ -805,19 +816,21 @@ namespace TurnLimbo.Presentation
                 {
                     laneAffordable[lane] = false;
                     cycleMarks[lane].gameObject.SetActive(false);
+                    HideLanePreview(lane);
+                    HideLaneTemporaryMarks(lane);
                     continue;
                 }
                 var current = sequence[0];
                 int currentCost = session.EffectiveCost(current);
-                laneAffordable[lane] = session.Act >= currentCost;
                 if (shownSkills[lane] != current.Id || skillNames[lane].text != current.Name)
                 {
                     shownSkills[lane] = current.Id;
                     skillNames[lane].text = current.Name;
                 }
                 gears[lane].Role.SetSkill(current);
-                string costText = currentCost + " ACT";
-                if (costs[lane].text != costText) costs[lane].text = costText;
+                // The cost (with a reservation's planning time while the clock runs) and the 일회성 tags; a lane greys when
+                // either ACT or the clock cannot pay.
+                laneAffordable[lane] = UpdateLaneTemporaryAndTime(lane, sequence, currentCost, session.Act >= currentCost);
                 LegacySkillEffect effect = LegacySkillDefinitions.Find(current)?.Effect;
                 bool hasCycle = effect?.HasCycle == true;
                 cycleMarks[lane].gameObject.SetActive(hasCycle);
@@ -826,13 +839,17 @@ namespace TurnLimbo.Presentation
                     string countText = "순환 " + session.CycleUses(current.Id) + "/" + effect.CycleMaxCount;
                     if (cycleCounts[lane].text != countText) cycleCounts[lane].text = countText;
                 }
+                // What reserving it now would do, for a skill whose effect reads the queue.
+                UpdateLanePreview(lane, session, current, hasCycle);
                 FollowLaneOrder(lane, sequence, laneAffordable[lane]);
             }
             UpdateIdlerPresence();
             AdvanceLaneTurns(actualDelta);
             AdvanceTimeSpent(actualDelta);
+            AdvanceLanePops(actualDelta);
             AdvanceHoldCancel(actualDelta);
             UpdateBreathCount();
+            UpdateAutoBreathCount();
             ApplyInputAvailability();
             if (slotAnimation) slotElapsed += delta;
             float activeScale = ActiveIconScale();
@@ -873,6 +890,7 @@ namespace TurnLimbo.Presentation
         public void BeginTurn()
         {
             ClearHoldCancel();
+            ForgetUsedTemporarySkills();
             targetTransition = transition = 0;
             cinematic = cinematicFrom = cinematicTarget = 0;
             cinematicElapsed = .3f;
@@ -1027,9 +1045,10 @@ namespace TurnLimbo.Presentation
                 playerExplanationIcon.sprite = iconFor(skill.IconId);
                 SetPlayerInfoSkill(skill, owned);
                 UpdateMeshNote(skill);
+                UpdateKeywordNote(skill);
                 UpdatePlayerForecastNote(skill);
                 LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
-                    PlayerExplanationScale, playerMeshNote, playerForecastNote);
+                    PlayerExplanationScale, playerMeshNote, playerForecastNote, playerKeywordNote);
             }
             else if (enemy)
             {
@@ -1048,9 +1067,9 @@ namespace TurnLimbo.Presentation
                 SetPlayerInfoSkill(skill, owned);
                 // 맞물림's note and the 예상 line follow the queue, ACT and 넘기기 while the skill is held; the card grows only
                 // when a row comes or goes.
-                if (UpdateMeshNote(skill) | UpdatePlayerForecastNote(skill))
+                if (UpdateMeshNote(skill) | UpdateKeywordNote(skill) | UpdatePlayerForecastNote(skill))
                     LayoutExplanation(playerExplanation, playerExplanationIcon, playerName, playerStyle, playerInfo, playerExplanationHint,
-                        PlayerExplanationScale, playerMeshNote, playerForecastNote);
+                        PlayerExplanationScale, playerMeshNote, playerForecastNote, playerKeywordNote);
             }
             // Clamp after content sizing, including repeated holds at a moving screen edge.
             Vector2 desired = root.rect.size / 2 + new Vector2(-480, 160);
@@ -1173,13 +1192,16 @@ namespace TurnLimbo.Presentation
 
         /// <param name="note">The held explanation's 맞물림 row over the hint (<see cref="MeshNoteText"/>), taking room only while
         /// it shows.</param>
-        /// <param name="forecast">The 예상 row (<see cref="ForecastNote"/>) over that, likewise.</param>
+        /// <param name="forecast">The 예상 row (<see cref="ForecastNote"/>) over those, likewise.</param>
+        /// <param name="keyword">The keyword row (<see cref="KeywordNote"/>) between the 맞물림 row and the 예상 row, likewise.</param>
         private static void LayoutExplanation(RectTransform panel, Image icon, Text name, SkillLaneBadge style, SkillInfoView info, Text hint,
-            float scale, RectTransform note = null, RectTransform forecast = null)
+            float scale, RectTransform note = null, RectTransform forecast = null, RectTransform keyword = null)
         {
             bool noted = note != null && note.gameObject.activeSelf;
             bool forecasted = forecast != null && forecast.gameObject.activeSelf;
-            float height = (90f + 36f + (noted ? MeshNoteRow : 0f) + (forecasted ? ForecastNoteRow : 0f)) * scale + info.Height;
+            bool keyed = keyword != null && keyword.gameObject.activeSelf;
+            float height = (90f + 36f + (noted ? MeshNoteRow : 0f) + (keyed ? KeywordNoteRow : 0f) +
+                (forecasted ? ForecastNoteRow : 0f)) * scale + info.Height;
             panel.sizeDelta = new Vector2(panel.sizeDelta.x, height);
             float top = height / 2f;
             icon.rectTransform.anchoredPosition = new Vector2(-146f * scale, top - 50f * scale);
@@ -1190,8 +1212,11 @@ namespace TurnLimbo.Presentation
             info.PlaceTop(top - 90f * scale);
             hint.rectTransform.anchoredPosition = new Vector2(0f, -top + 16f * scale);
             if (note != null) note.anchoredPosition = new Vector2(0f, -top + (16f + MeshNoteRow) * scale);
+            if (keyword != null)
+                keyword.anchoredPosition = new Vector2(0f, -top + (16f + (noted ? MeshNoteRow : 0f) + KeywordNoteRow) * scale);
             if (forecast != null)
-                forecast.anchoredPosition = new Vector2(0f, -top + (16f + (noted ? MeshNoteRow : 0f) + ForecastNoteRow) * scale);
+                forecast.anchoredPosition = new Vector2(0f, -top + (16f + (noted ? MeshNoteRow : 0f) + (keyed ? KeywordNoteRow : 0f) +
+                    ForecastNoteRow) * scale);
         }
 
         private static void FitExplanationLabel(Text label, int minSize)
@@ -1358,6 +1383,8 @@ namespace TurnLimbo.Presentation
             // The next duel may open other lanes, so a skill explained again is shown afresh (its badge may change).
             explainedPlayer = explainedEnemy = null;
             ResetMeshNote();
+            ResetKeywordNote();
+            ResetTemporaryMarks();
             ResetForecast();
             lastPlanning = false;
             inputsHeld = false;
@@ -2019,6 +2046,13 @@ namespace TurnLimbo.Presentation
             private readonly List<Text> queuePowerSourceLabels = new List<Text>(), queuePowerTargetLabels = new List<Text>();
             private readonly List<RectTransform> cycleMarks = new List<RectTransform>();
             private readonly List<Text> cycleLabels = new List<Text>();
+            // Each card's keyword mark (예약 효과·사용 효과, LegacyKeywordPreview.QueueMark) and what it should show.
+            private readonly List<RectTransform> keywordMarks = new List<RectTransform>();
+            private readonly List<Text> keywordLabels = new List<Text>();
+            private readonly List<LegacyKeywordMark> keywordMarkValues = new List<LegacyKeywordMark>();
+            // The enemy's row only: a strike across each card the player's skill will dodge by itself, and those slots.
+            private readonly List<GameObject> dodgeStrikes = new List<GameObject>();
+            private readonly List<int> dodgedSlots = new List<int>();
             private int queuePowerSourceSlot = -1, queuePowerTargetSlot = -1, queuePowerRemovedCount, queuePowerMultiplier = 1;
             private int shownQueuePowerSourceSlot = -1, shownQueuePowerTargetSlot = -1, shownQueuePowerRemovedCount = -1, shownQueuePowerMultiplier = -1;
             private LegacyQueueRemovalMode queuePowerRemovalMode, shownQueuePowerRemovalMode;
@@ -2051,17 +2085,22 @@ namespace TurnLimbo.Presentation
                     counterMarks.Add(CreateCounterMark(item));
                     if (meshGear != null) AddMeshMark(item);
                     if (player) AddQueuePowerMarks(item);
+                    AddKeywordMark(item);
+                    if (!player) AddDodgeStrike(item);
                     AddCycleMark(item);
                     if (player) AddForecastMark(item);
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
                 visibleItems.Clear();
+                keywordMarkValues.Clear();
                 for (int i = 0; i < icons.Count; i++)
                 {
                     var item = icons[i].transform.parent.GetComponent<RectTransform>();
                     bool visible = i < queue.Count && i >= consumed;
                     item.gameObject.SetActive(visible);
+                    keywordMarkValues.Add(visible ? LegacyKeywordPreview.QueueMark(cycleSession, player, i, !resolving)
+                        : LegacyKeywordMark.None);
                     if (!visible) { feedback[i].Clear(); continue; }
                     icons[i].sprite = iconFor(queue[i].IconId);
                     frames[i].color = schoolsNamed && !queue[i].IsWait ? SkillLaneStyle.Edge(queue[i].LaneIndex) : Border;
@@ -2074,16 +2113,25 @@ namespace TurnLimbo.Presentation
                     cycleMarks[i].gameObject.SetActive(cycle);
                     if (cycle)
                     {
-                        int uses = cycleSession == null ? 0
-                            : player ? cycleSession.CycleUses(queue[i].Id) : cycleSession.EnemyCycleUses(queue[i].Id);
-                        string count = uses + "/" + effect.CycleMaxCount;
+                        // The count this slot reads as it starts: two copies of one skill show their own, and 순환 +1
+                        // already counts while planning, written as its rise (1→2/2), or 최대 at the cap.
+                        string count = LegacyKeywordPreview.CycleCount(cycleSession, player, i, !resolving,
+                            out bool raised, out bool capped) ?? "0/" + effect.CycleMaxCount;
                         if (cycleLabels[i].text != count) cycleLabels[i].text = count;
+                        cycleLabels[i].color = capped ? DuelVisualTheme.Muted : raised ? CycleRaisedInk : Foreground;
+                        cycleMarks[i].sizeDelta = new Vector2(raised ? 50f : 36f, 20f);
+                        cycleLabels[i].rectTransform.sizeDelta = new Vector2(raised ? 48f : 32f, 18f);
+                        cycleMarks[i].Find("Cycle Mark Inset").GetComponent<RectTransform>().sizeDelta =
+                            new Vector2(raised ? 48f : 34f, 18f);
                     }
                 }
                 for (int i = 0; i < counterMarks.Count; i++)
                     counterMarks[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && counterSlots.Contains(i));
+                for (int i = 0; i < dodgeStrikes.Count; i++)
+                    dodgeStrikes[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && dodgedSlots.Contains(i));
                 UpdateMeshMarks();
                 UpdateQueuePowerMarks();
+                UpdateKeywordMarks();
                 UpdateForecastMarks();
                 Layout(Pitch);
                 UpdateFeedback();
@@ -2312,6 +2360,92 @@ namespace TurnLimbo.Presentation
                 cycleLabels.Add(label);
             }
 
+            /// <summary>The enemy's slots the player's skill will dodge by itself (자동 회피), struck through.</summary>
+            public void SetDodgedSlots(List<int> slots)
+            {
+                dodgedSlots.Clear();
+                dodgedSlots.AddRange(slots);
+            }
+
+            public bool IsDodged(int index)
+                => index >= 0 && index < dodgeStrikes.Count && dodgeStrikes[index].activeInHierarchy;
+
+            // A pale bar across the card, corner to corner: its attack will not land.
+            private void AddDodgeStrike(RectTransform item)
+            {
+                var strike = Image("Dodged Strike", item, white, Vector2.zero, new Vector2(78f, 4f),
+                    new Color(Foreground.r, Foreground.g, Foreground.b, .85f));
+                strike.rectTransform.localRotation = Quaternion.Euler(0f, 0f, -40f);
+                strike.gameObject.SetActive(false);
+                dodgeStrikes.Add(strike.gameObject);
+            }
+
+            // 순환 +1's rise on a card's count: 순환's teal, lightened.
+            private static readonly Color CycleRaisedInk = new Color32(150, 222, 204, 255);
+
+            public string GetKeywordMarkLabel(int index)
+                => index >= 0 && index < keywordMarks.Count && keywordMarks[index].gameObject.activeInHierarchy
+                    ? keywordLabels[index].text : null;
+
+            public string GetCycleCountLabel(int index)
+                => index >= 0 && index < cycleMarks.Count && cycleMarks[index].gameObject.activeInHierarchy
+                    ? cycleLabels[index].text : null;
+
+            // The keyword mark rides over the card where the 취소/반환 tabs do; a card shows at most one tab up there (a
+            // 취소/반환 one first) and 맞물림's under it, so never more than two marks.
+            private void AddKeywordMark(RectTransform item)
+            {
+                var badge = Image("Queue Keyword Mark", item, white, new Vector2(0f, 52f), new Vector2(68f, 20f), Accent);
+                Image("Queue Keyword Mark Inset", badge.transform, white, Vector2.zero, new Vector2(66f, 18f), DuelVisualTheme.Ink);
+                var label = Rect("Label", badge.transform, Vector2.zero, new Vector2(64f, 18f), Vector2.one * .5f)
+                    .gameObject.AddComponent<Text>();
+                label.font = font;
+                label.fontSize = 14;
+                label.alignment = TextAnchor.MiddleCenter;
+                label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                label.verticalOverflow = VerticalWrapMode.Truncate;
+                label.resizeTextForBestFit = true;
+                label.resizeTextMinSize = 10;
+                label.resizeTextMaxSize = 14;
+                label.supportRichText = false;
+                label.raycastTarget = false;
+                label.color = Foreground;
+                badge.gameObject.SetActive(false);
+                keywordMarks.Add(badge.rectTransform);
+                keywordLabels.Add(label);
+            }
+
+            private void UpdateKeywordMarks()
+            {
+                for (int index = 0; index < keywordMarks.Count; index++)
+                {
+                    LegacyKeywordMark mark = index < keywordMarkValues.Count ? keywordMarkValues[index] : LegacyKeywordMark.None;
+                    bool taken = index < queuePowerSourceMarks.Count && (queuePowerSourceMarks[index].gameObject.activeSelf ||
+                        queuePowerTargetMarks[index].gameObject.activeSelf);
+                    bool shown = !mark.IsEmpty && !taken;
+                    if (keywordMarks[index].gameObject.activeSelf != shown) keywordMarks[index].gameObject.SetActive(shown);
+                    if (!shown) continue;
+                    if (keywordLabels[index].text != mark.Text) keywordLabels[index].text = mark.Text;
+                    keywordLabels[index].color = mark.Spent ? DuelVisualTheme.Muted : Foreground;
+                    keywordMarks[index].GetComponent<Image>().color = KeywordRim(mark.Kind);
+                }
+            }
+
+            // The mark's rim in its keyword's colour (the badges' paper): 숨고르기's recovery, 순환's, 회피's guard, 일회성's
+            // multi-hit, 제한시간's variance; a count-ahead power payoff keeps the brass of the 취소/반환 tabs' place.
+            private static Color KeywordRim(LegacyKeywordMarkKind kind)
+            {
+                switch (kind)
+                {
+                    case LegacyKeywordMarkKind.AutoBreath: return SkillToneStyle.Paper(LegacySkillTone.Recovery);
+                    case LegacyKeywordMarkKind.CycleFeed: return SkillToneStyle.Paper(LegacySkillTone.Cycle);
+                    case LegacyKeywordMarkKind.AutoDodge: return SkillToneStyle.Paper(LegacySkillTone.Defence);
+                    case LegacyKeywordMarkKind.Temporary: return SkillToneStyle.Paper(LegacySkillTone.MultiHit);
+                    case LegacyKeywordMarkKind.AheadTime: return SkillToneStyle.Paper(LegacySkillTone.Variance);
+                    default: return Accent;
+                }
+            }
+
             // Tabs rise over the counter mark, leaving the card art and the mesh mark readable.
             private void AddQueuePowerMarks(RectTransform item)
             {
@@ -2410,6 +2544,10 @@ namespace TurnLimbo.Presentation
                 foreach (var mark in queuePowerSourceMarks) mark.gameObject.SetActive(false);
                 foreach (var mark in queuePowerTargetMarks) mark.gameObject.SetActive(false);
                 foreach (var mark in cycleMarks) mark.gameObject.SetActive(false);
+                foreach (var mark in keywordMarks) mark.gameObject.SetActive(false);
+                keywordMarkValues.Clear();
+                foreach (var strike in dodgeStrikes) strike.SetActive(false);
+                dodgedSlots.Clear();
                 forecastVerdicts.Clear();
                 foreach (var mark in forecastMarks) mark.gameObject.SetActive(false);
                 meshBonus.Clear();

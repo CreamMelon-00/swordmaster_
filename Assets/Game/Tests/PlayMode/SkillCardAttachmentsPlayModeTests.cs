@@ -251,11 +251,11 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 lobby.ShowTab(LobbyTab.Curriculum);
                 yield return null;
-                Click(lobby.Root, "Curriculum Node one-stroke");
+                Click(lobby.Root, "Curriculum Node doublet");
                 detail = Named(lobby.Root, "Curriculum Selected Detail").gameObject;
-                Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("참격"));
-                Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("4"));
-                Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo("18–42"));
+                Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("관통"));
+                Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("3"));
+                Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo("15–19"));
                 Click(lobby.Root, "Curriculum Node fighting-spirit");
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("방어"));
                 Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("2"));

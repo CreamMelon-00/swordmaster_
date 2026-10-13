@@ -16,7 +16,7 @@ namespace TurnLimbo.Runtime.Save
     public sealed class GameSave
     {
         /// <summary>Version 2 saves include curriculum progress; optional lines added since (training wins, skill
-        /// experience, field pickups) keep older v2 files readable.</summary>
+        /// experience, field pickups, the curriculum tree version) keep older v2 files readable.</summary>
         public const int CurrentVersion = 2;
 
         public GameSave(int prologueCleared, CampaignSave campaign,

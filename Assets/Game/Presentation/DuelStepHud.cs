@@ -34,7 +34,7 @@ namespace TurnLimbo.Presentation
         private int shownAttempts = -1;
         private bool shownMissed;
         private CombatFeature shownFeatures = CombatFeature.All;
-        private bool shownMeshed;
+        private bool shownMeshed, shownAutoDodge;
         private int successStreak;
         private int brokenStreak;
         private int resultStreak;
@@ -80,7 +80,7 @@ namespace TurnLimbo.Presentation
             resultBurst = Rect("Step Result Burst", root, Vector2.zero, Vector2.one * 280f)
                 .gameObject.AddComponent<DuelStepResultBurst>();
             resultBurst.raycastTarget = false;
-            dodge = BuildCue("Dodge Cue", "A  회피", true);
+            dodge = BuildCue("Dodge Cue", DodgeKeyLabel, true);
             pressure = BuildCue("Pressure Cue", "D  압박", false);
             comboRoot = Rect("Step Combo", root, Vector2.zero, new Vector2(132f, 62f));
             comboTitle = Label("Step Combo Title", comboRoot, new Vector2(0f, 17f), new Vector2(132f, 20f));
@@ -93,6 +93,8 @@ namespace TurnLimbo.Presentation
             Reset();
         }
 
+        private const string DodgeKeyLabel = "A  회피";
+
         public void BindActor(Camera camera, Transform player)
         {
             actorCamera = camera;
@@ -103,6 +105,15 @@ namespace TurnLimbo.Presentation
         /// <summary>The key hint while a meshed slot plays with both steps open (맞물림, <c>Docs/Meshing.md</c>): its A
         /// and D are ignored. <see cref="MeshedHintFor"/> names only the steps the duel has opened.</summary>
         public const string MeshedHint = "맞물린 기술 · 회피·압박 없음";
+
+        /// <summary>The dodge cue's label in a slot whose skill dodges by itself (사용 효과 자동 회피): A does nothing there.</summary>
+        public const string AutoDodgeLabel = "자동 회피";
+
+        /// <summary>The key hint in a slot whose skill dodges by itself: A is not taken (the skill dodges), D still is
+        /// while 압박 is open; a meshed slot takes no step at all.</summary>
+        public static string AutoDodgeHintFor(CombatFeature features, bool meshed)
+            => meshed ? "맞물린 기술 · " + AutoDodgeLabel
+                : features.AllowsStep(LegacyStepAction.Pressure) ? AutoDodgeLabel + " · D 압박" : AutoDodgeLabel;
 
         /// <summary>The key hint for the steps a duel has opened (missions open 회피 before 압박).</summary>
         public static string KeyHintFor(CombatFeature features)
@@ -124,6 +135,9 @@ namespace TurnLimbo.Presentation
         /// <param name="meshed">The slot is meshed (<see cref="LegacyQueuedDuel.IsCurrentSlotMeshed"/>): it takes no steps, so
         /// it shows no rings and the hint says so (<see cref="MeshedHintFor"/>, naming only the open steps);
         /// <see cref="DuelMeshCues"/> flashes its gears at the first hit instead.</param>
+        /// <remarks>A slot whose skill dodges by itself (<see cref="LegacyCurrentSlot.AutoDodge"/>) shows
+        /// <see cref="AutoDodgeLabel"/> in A's place over a full ring with no timing band, against an attack; D's ring is
+        /// unchanged, and the hint reads <see cref="AutoDodgeHintFor"/>.</remarks>
         public void Refresh(bool visible, LegacyCurrentSlot slot, float progress, bool timingWindow,
             float windowFraction, bool usedStep, int attemptsThisTurn = 0, bool missedThisTurn = false,
             CombatFeature features = CombatFeature.All, int streakThisTurn = -1, bool meshed = false)
@@ -154,22 +168,30 @@ namespace TurnLimbo.Presentation
             }
             // A meshed slot's gears take the place of its steps: no ring waits for its first hit.
             bool pending = slot != null && slot.HitsResolved == 0 && !meshed;
+            bool autoDodge = slot != null && slot.AutoDodge;
             bool anchored = TryProjectActor(out Vector2 center, out float targetRadius);
-            UpdateCue(dodge, pending && features.AllowsStep(LegacyStepAction.Dodge) && slot.EnemySkill?.Kind == LegacySkillKind.Attack,
-                slot?.DodgeSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
+            string dodgeLabel = autoDodge ? AutoDodgeLabel : DodgeKeyLabel;
+            if (dodge.Key.text != dodgeLabel) dodge.Key.text = dodgeLabel;
+            // An automatic dodge has nothing to time: its ring stands full, with no band to hit.
+            UpdateCue(dodge, pending && (autoDodge || features.AllowsStep(LegacyStepAction.Dodge)) &&
+                slot.EnemySkill?.Kind == LegacySkillKind.Attack,
+                autoDodge || slot?.DodgeSucceeded == true, progress, timingWindow && !autoDodge, autoDodge ? 0f : windowFraction,
+                anchored, center, targetRadius);
             // A pending counter can already be backed by pressure before it strikes.
             LegacySkill own = slot?.PlayerSkill ?? slot?.PendingPlayerCounter;
             UpdateCue(pressure, pending && features.AllowsStep(LegacyStepAction.Pressure) && own != null && !own.IsWait,
                 slot?.PressureSucceeded == true, progress, timingWindow, windowFraction, anchored, center, targetRadius);
             UpdateResult(anchored, center, targetRadius);
             int attempts = Math.Max(attemptsThisTurn, usedStep ? 1 : 0);
-            if (attempts != shownAttempts || missedThisTurn != shownMissed || features != shownFeatures || meshed != shownMeshed)
+            if (attempts != shownAttempts || missedThisTurn != shownMissed || features != shownFeatures || meshed != shownMeshed ||
+                autoDodge != shownAutoDodge)
             {
                 shownAttempts = attempts;
                 shownMissed = missedThisTurn;
                 shownFeatures = features;
                 shownMeshed = meshed;
-                string hint = meshed ? MeshedHintFor(features) : KeyHintFor(features);
+                shownAutoDodge = autoDodge;
+                string hint = autoDodge ? AutoDodgeHintFor(features, meshed) : meshed ? MeshedHintFor(features) : KeyHintFor(features);
                 recovery.text = attempts == 0 ? hint
                     : hint + "  ·  이번 턴 " + attempts + "회 · 스텝 사용: 다음 턴 ACT 자연 회복 +1";
                 recovery.color = missedThisTurn ? DuelVisualTheme.Danger : DuelVisualTheme.Foreground;
@@ -249,7 +271,8 @@ namespace TurnLimbo.Presentation
             shownAttempts = -1;
             shownMissed = false;
             shownFeatures = CombatFeature.All;
-            shownMeshed = false;
+            shownMeshed = shownAutoDodge = false;
+            dodge.Key.text = DodgeKeyLabel;
             timingVisible = false;
             HideCue(dodge);
             HideCue(pressure);

@@ -25,6 +25,8 @@ namespace TurnLimbo.Presentation
     /// because of what its screen showed.</para></summary>
     public sealed class LocalVersusController : IDisposable
     {
+        /// <summary>A turn's clock for each player: 20 seconds, plus what that player's skills earned last turn (제한시간), at
+        /// most <see cref="LegacyPlanningClock.VersusCeilingSeconds"/>.</summary>
         public const float PlanningSeconds = 20f;
         /// <summary>After this many turns without a winner the match is a draw.</summary>
         public const int RoundLimit = 20;
@@ -47,6 +49,11 @@ namespace TurnLimbo.Presentation
         private readonly DuelStartCard startCard;
         private readonly DuelFinale finale;
         private readonly DuelSkillActivationCue activationCue;
+        // The removal mode of the reservation whose cancelled cards tumble out (CancelledQueue), and the 순환 +1 cues read
+        // before the action that may commit the turn (CaptureFeedCues).
+        private LegacyQueueRemovalMode cancelledMode = LegacyQueueRemovalMode.Cancel;
+        private string ownFeedCue, opponentFeedCue;
+        private LegacySkill ownFeeder, opponentFeeder;
         private readonly DuelResistanceFeedback resistanceFeedback;
         private readonly DuelBreakImpactCue breakImpactCue;
         private readonly DuelLaneHolds holds = new DuelLaneHolds();
@@ -55,6 +62,16 @@ namespace TurnLimbo.Presentation
         private readonly AudioClip criticalSound;
         private readonly GameObject audioRoot;
         private readonly float[] clocks = new float[2];
+        // Each clock's start this turn (the bar and the time pressure measure against it), and the one shown.
+        private readonly float[] turnClocks = { PlanningSeconds, PlanningSeconds };
+        private float shownTurnClock = PlanningSeconds;
+        // What the last applied action cost its player's clock (a reservation's 제한시간), and whether 일회성 had been set
+        // this turn before it, for the viewer's own presentation.
+        private float lastActionSeconds;
+        private bool temporaryUsedBefore;
+        // The seconds the viewer's skills earned this turn's clock (제한시간), shown as '+N초' off the timer once the timer
+        // shows the viewer's own clock (the opponent may hold the turn's first reservation).
+        private float pendingTimeGained;
         private LocalVersusMatch match;
         private LocalVersusPerspective view;
         private LegacySkill[] leftSkills, rightSkills;
@@ -112,8 +129,14 @@ namespace TurnLimbo.Presentation
         public LegacySkill ExplainedSkill => holds.ExplainedSkill;
         public float LeftClock => clocks[0];
         public float RightClock => clocks[1];
-        /// <summary>What the duel HUD's timer shows: the current planner's clock (out of <see cref="PlanningSeconds"/>).</summary>
+        /// <summary>What the duel HUD's timer shows: the current planner's clock (out of that clock's
+        /// <see cref="ShownTurnClock"/>).</summary>
         public float ShownClock => shownClock;
+        /// <summary>The shown clock's start this turn: <see cref="PlanningSeconds"/> plus what the player's skills earned
+        /// last turn (사용 효과 앞 X마다 다음 턴 제한시간), at most <see cref="LegacyPlanningClock.VersusCeilingSeconds"/>.</summary>
+        public float ShownTurnClock => shownTurnClock;
+        /// <summary>A player's clock start this turn (0 = Left, 1 = Right).</summary>
+        public float TurnClock(int player) => turnClocks[player];
         public float HitStopTimeRemaining => hitStopRemaining;
         /// <summary>The stage plate's words: the match and its turn limit.</summary>
         public static string StageText => MatchTitle + "  ·  최대 " + RoundLimit + "턴";
@@ -214,8 +237,10 @@ namespace TurnLimbo.Presentation
             {
                 // Ask the host only for what it would take. On the guest's own turn its copy of the match is the host's, so
                 // a command the copy refuses (a lane ACT cannot pay, a fourth 숨고르기, 넘기기 with nothing to turn) does
-                // nothing here, as on the host and in single play, rather than holding the dock for a round trip.
-                if (!CanApplyMatchAction(onlineLocalPlayer, action, lane)) return false;
+                // nothing here, as on the host and in single play, rather than holding the dock for a round trip. Its clocks
+                // are the host's too (synchronised), so a reservation its clock cannot pay for is not sent either.
+                if (!CanApplyMatchAction(onlineLocalPlayer, action, lane) || !CanAffordAction(onlineLocalPlayer, action, lane))
+                    return false;
                 pendingOnlineRequest = true;
                 requestOnlineAction?.Invoke(action, lane);
                 RefreshHud(0f, 0f);
@@ -223,8 +248,12 @@ namespace TurnLimbo.Presentation
             }
             int player = match.CurrentPlanner;
             int round = match.RoundNumber;
+            if (!CanAffordAction(player, action, lane)) return false;
             LegacySkill[] cancelled = CancelledQueue(player, action, lane);
+            CaptureFeedCues();
+            float seconds = ReservationSeconds(player, action, lane);
             if (!ApplyMatchAction(player, action, lane)) return false;
+            SpendClock(player, seconds);
             AfterAction(player, action, lane, cancelled);
             OnlineActionApplied?.Invoke(player, action, lane, round);
             return true;
@@ -236,7 +265,12 @@ namespace TurnLimbo.Presentation
             if (!active || !onlineHost ||
                 match.Phase != LegacyDuelPhase.Planning || match.CurrentPlanner != 1 || match.RoundNumber != round)
                 return false;
+            // The host's clocks decide: a reservation the guest's clock cannot pay for is refused.
+            if (!CanAffordAction(1, action, lane)) return false;
+            CaptureFeedCues();
+            float seconds = ReservationSeconds(1, action, lane);
             if (!ApplyMatchAction(1, action, lane)) return false;
+            SpendClock(1, seconds);
             AfterAction(1, action, lane, null);
             OnlineActionApplied?.Invoke(1, action, lane, round);
             return true;
@@ -249,6 +283,9 @@ namespace TurnLimbo.Presentation
                 match.CurrentPlanner != player || match.RoundNumber != round)
                 return false;
             LegacySkill[] cancelled = CancelledQueue(player, action, lane);
+            CaptureFeedCues();
+            // The host already took the time; its clocks come with this command (SyncOnlineClocks). Only shown here.
+            lastActionSeconds = ReservationSeconds(player, action, lane);
             if (!ApplyMatchAction(player, action, lane)) return false;
             if (player == onlineLocalPlayer) pendingOnlineRequest = false;
             AfterAction(player, action, lane, cancelled);
@@ -264,8 +301,9 @@ namespace TurnLimbo.Presentation
         public void SyncOnlineClocks(float left, float right)
         {
             if (!active || onlineHost || match == null) return;
-            clocks[0] = Mathf.Clamp(left, 0f, PlanningSeconds);
-            clocks[1] = Mathf.Clamp(right, 0f, PlanningSeconds);
+            // A turn's clock may start above 20 seconds (제한시간), never above the versus ceiling.
+            clocks[0] = Mathf.Clamp(left, 0f, LegacyPlanningClock.VersusCeilingSeconds);
+            clocks[1] = Mathf.Clamp(right, 0f, LegacyPlanningClock.VersusCeilingSeconds);
             RefreshHud(0f, 0f);
         }
 
@@ -279,6 +317,24 @@ namespace TurnLimbo.Presentation
                 case OnlineVersusAction.Pass: return match.TryPass(player);
                 default: return false;
             }
+        }
+
+        // 예약 효과 제한시간 -n초: what reserving the lane's front skill costs its player's clock (0 for anything else).
+        private float ReservationSeconds(int player, OnlineVersusAction action, int lane)
+        {
+            if (action != OnlineVersusAction.QueueLane || lane < 0 || lane > 2 || match == null) return 0f;
+            IReadOnlyList<LegacySkill> skills = match.GetFighter(player).GetLane(lane);
+            return skills.Count == 0 ? 0f : LegacyPlanningClock.ReservationSeconds(skills[0]);
+        }
+
+        // Whether the player's clock can pay for the command (versus clocks always run).
+        private bool CanAffordAction(int player, OnlineVersusAction action, int lane)
+            => LegacyPlanningClock.CanAfford(clocks[player], ReservationSeconds(player, action, lane), true);
+
+        private void SpendClock(int player, float seconds)
+        {
+            lastActionSeconds = seconds;
+            clocks[player] = LegacyPlanningClock.Spend(clocks[player], seconds, true);
         }
 
         // ApplyMatchAction's check alone: whether the match would take the command now. A pass always would on the
@@ -362,9 +418,10 @@ namespace TurnLimbo.Presentation
             bool planning = IsPlanningShown;
             float clock = planning ? clocks[match.CurrentPlanner] : shownClock;
             arena.SetPlanningState(Mathf.Min(10f, clock), inspecting);
-            // The running clock's last share pushes the camera in a touch, whoever's clock it is.
+            // The running clock's last share pushes the camera in a touch, whoever's clock it is, against that clock's own
+            // start this turn.
             arena.SetTimePressure(planning
-                ? LegacyTimePressure.Target(clock, PlanningSeconds, settings.TimePressureShare) : 0f);
+                ? LegacyTimePressure.Target(clock, turnClocks[match.CurrentPlanner], settings.TimePressureShare) : 0f);
             arena.Tick(delta, realDelta);
             phaseTime += delta;
             switch (viewPhase)
@@ -418,7 +475,7 @@ namespace TurnLimbo.Presentation
             pendingOnlineRequest = false;
             active = true;
             ResetClocks();
-            shownClock = PlanningSeconds;
+            shownClock = shownTurnClock = PlanningSeconds;
             effects.Stop();
             ClearCues();
             finale.Clear();
@@ -455,10 +512,15 @@ namespace TurnLimbo.Presentation
             return copy;
         }
 
+        // Each player's clock for the new turn: 20 seconds and what that player's skills earned last turn, up to 30.
         private void ResetClocks()
         {
-            clocks[0] = PlanningSeconds;
-            clocks[1] = PlanningSeconds;
+            pendingTimeGained = 0f;
+            for (int player = 0; player < clocks.Length; player++)
+            {
+                int bonus = match != null ? match.GetFighter(player).PlanningSecondsBonus : 0;
+                clocks[player] = turnClocks[player] = LegacyPlanningClock.VersusTurnStart(PlanningSeconds, bonus);
+            }
         }
 
         // A planning turn is on screen, someone holds it, and the start card is gone.
@@ -524,6 +586,9 @@ namespace TurnLimbo.Presentation
             clocks[planner] = Mathf.Max(0f, clocks[planner] - realDelta);
             if (clocks[planner] > 0f || !onlineHost) return false;
             int round = match.RoundNumber;
+            // A pass that runs out the clock may be the one that commits the turn: read its 순환 +1 cues first, like every
+            // other action.
+            CaptureFeedCues();
             if (!match.TryPass(planner)) return false;
             AfterAction(planner, OnlineVersusAction.Pass, -1, null);
             OnlineActionApplied?.Invoke(planner, OnlineVersusAction.Pass, -1, round);
@@ -578,16 +643,18 @@ namespace TurnLimbo.Presentation
             if (keyboard.eKey.isPressed) holds.Consume(2);
         }
 
-        // The viewer's queue before a lane skill that cancels it, so its cards can tumble out (the campaign's QueueLane).
+        // The viewer's queue before a lane skill that cancels or returns it, so its cards can tumble out (the campaign's QueueLane).
         private LegacySkill[] CancelledQueue(int player, OnlineVersusAction action, int lane)
         {
             if (action != OnlineVersusAction.QueueLane || view == null || !view.IsPlayerSide(player) || lane < 0 || lane > 2)
                 return null;
             LocalVersusFighter fighter = match.GetFighter(player);
             IReadOnlyList<LegacySkill> laneSkills = fighter.GetLane(lane);
-            if (laneSkills.Count == 0 || fighter.Queue.Count == 0 ||
-                LegacySkillDefinitions.Find(laneSkills[0])?.Effect?.QueueRemovalMode != LegacyQueueRemovalMode.Cancel)
+            LegacyQueueRemovalMode removal = laneSkills.Count == 0 ? LegacyQueueRemovalMode.None
+                : LegacySkillDefinitions.Find(laneSkills[0])?.Effect?.QueueRemovalMode ?? LegacyQueueRemovalMode.None;
+            if (fighter.Queue.Count == 0 || removal == LegacyQueueRemovalMode.None)
                 return null;
+            cancelledMode = removal;
             var queued = new LegacySkill[fighter.Queue.Count];
             for (int index = 0; index < queued.Length; index++) queued[index] = fighter.Queue[index];
             return queued;
@@ -606,10 +673,22 @@ namespace TurnLimbo.Presentation
             switch (action)
             {
                 case OnlineVersusAction.QueueLane:
-                    if (cancelled != null) battleHud.PlayQueueCancellation(cancelled);
+                    if (cancelled != null) battleHud.PlayQueueCancellation(cancelled, cancelledMode);
                     battleHud.ClearHoldCancel();
                     // The lane's gear turns a slot: the queued skill to the upper right, the next one up into the window.
                     battleHud.PlayLaneTurn(lane);
+                    // 예약 효과: the time it cost, and the 일회성 copies it set. The timer has already turned to the opponent's
+                    // clock, so the '-4초' rises over the reserved lane's window (its cost read '3 ACT · 4초').
+                    if (lastActionSeconds > 0f) battleHud.ShowLaneTimeSpent(lane, lastActionSeconds);
+                    LocalVersusFighter self = view.Me;
+                    if (!temporaryUsedBefore && (self.ReserveEffectsUsedThisTurn & LegacyReserveEffect.Temporary) != 0 &&
+                        self.LastQueuedSlotIndex >= 0 && self.LastQueuedSlotIndex < self.Queue.Count)
+                    {
+                        LegacySkill reserved = self.Queue[self.LastQueuedSlotIndex];
+                        LegacySkill spawned = LegacyKeywordLinks.TemporarySpawn(reserved, out int copies);
+                        if (spawned != null) battleHud.ShowLanePop(spawned.LaneIndex, "+" + copies, true);
+                        activationCue.ShowKeyword(true, reserved, LegacyKeywordPreview.TemporarySpawnCue(reserved));
+                    }
                     PlaySelection();
                     break;
                 case OnlineVersusAction.Cycle:
@@ -627,6 +706,19 @@ namespace TurnLimbo.Presentation
                     break;
             }
             holds.DropExplanation();
+        }
+
+        // 순환 +1 rises as the turn commits, inside the action that commits it (the second pass in a row): what it raises on
+        // each side is read before every action and said once the resolution begins.
+        private void CaptureFeedCues()
+        {
+            lastActionSeconds = 0f;
+            if (view == null || match == null || match.Phase != LegacyDuelPhase.Planning) return;
+            temporaryUsedBefore = (view.Me.ReserveEffectsUsedThisTurn & LegacyReserveEffect.Temporary) != 0;
+            ownFeedCue = LegacyKeywordPreview.CycleFeedCue(view.PlayerQueue, view.CycleUses);
+            ownFeeder = LegacyKeywordPreview.FirstCycleFeeder(view.PlayerQueue);
+            opponentFeedCue = LegacyKeywordPreview.CycleFeedCue(view.EnemyQueue, view.EnemyCycleUses);
+            opponentFeeder = LegacyKeywordPreview.FirstCycleFeeder(view.EnemyQueue);
         }
 
         private void PlaySelection()
@@ -650,8 +742,13 @@ namespace TurnLimbo.Presentation
                 {
                     arena.BeginApproach();
                     SetViewPhase(ViewPhase.Approaching);
+                    activationCue.Reset();
+                    activationCue.ShowKeyword(true, ownFeeder, ownFeedCue);
+                    activationCue.ShowKeyword(false, opponentFeeder, opponentFeedCue);
                 }
                 else EndRound();
+                ownFeedCue = opponentFeedCue = null;
+                ownFeeder = opponentFeeder = null;
             }
             RefreshHud(0f, 0f);
         }
@@ -712,13 +809,23 @@ namespace TurnLimbo.Presentation
             battleHud.SetCurrentSkills(slot.PlayerSkill, slot.EnemySkill, slotDuration);
             activationCue.Reset();
             battleHud.SetSkillFeedback(slot);
-            activationCue.Show(true, slot.PlayerSkill, slot.PlayerFeedback);
-            activationCue.Show(false, slot.EnemySkill, slot.EnemyFeedback);
+            // A count-ahead payoff's bonus (power, next turn's time) joins its slot's cue, on either side.
+            activationCue.Show(true, slot.PlayerSkill, slot.PlayerFeedback, KeywordCue(view.PlayerQueue, slot.SlotIndex,
+                view.ForPlayer(slot.Source.LeftPlanningSecondsGained, slot.Source.RightPlanningSecondsGained)));
+            activationCue.Show(false, slot.EnemySkill, slot.EnemyFeedback, KeywordCue(view.EnemyQueue, slot.SlotIndex,
+                view.ForEnemy(slot.Source.LeftPlanningSecondsGained, slot.Source.RightPlanningSecondsGained)));
             // The actual capped change of the slot's opening effects (recovery, direct loss), never a hit's.
             resistanceFeedback.Show(true, view.Player.Resistance - playerResistanceBefore);
             resistanceFeedback.Show(false, view.Enemy.Resistance - enemyResistanceBefore);
             AnnounceBreaks(playerWasBroken, enemyWasBroken);
             SetViewPhase(ViewPhase.PlayingSlot);
+        }
+
+        private static string KeywordCue(IReadOnlyList<LegacySkill> queue, int slotIndex, int secondsGained)
+        {
+            string power = LegacyKeywordPreview.AheadPowerCue(queue, slotIndex);
+            string time = LegacyKeywordPreview.AheadTimeCue(secondsGained);
+            return power == null ? time : time == null ? power : power + " · " + time;
         }
 
         private void PlaySlot(float delta)
@@ -856,6 +963,7 @@ namespace TurnLimbo.Presentation
         {
             int playerResistanceBefore = view.Player.Resistance;
             int enemyResistanceBefore = view.Enemy.Resistance;
+            int[] temporaryBefore = LegacyKeywordPreview.TemporaryCounts(view);
             match.BeginNextTurn();
             ResetClocks();
             holds.Clear(battleHud);
@@ -864,6 +972,11 @@ namespace TurnLimbo.Presentation
             arena.BeginTurn();
             battleHud.BeginTurn();
             activationCue.Reset();
+            // 제한시간: the viewer's own clock starts later by what its skills earned last turn. Its '+N초' waits until the
+            // timer shows that clock (RefreshHud).
+            pendingTimeGained = Mathf.Max(0f, turnClocks[onlineLocalPlayer] - PlanningSeconds);
+            for (int lane = 0; lane < temporaryBefore.Length; lane++)
+                if (temporaryBefore[lane] > 0) battleHud.ShowLanePop(lane, LegacyKeywordPreview.TemporaryExpired, false);
             // The automatic refill, a full turn after the one in which resistance broke.
             if (view.Player.Resistance > playerResistanceBefore)
                 battleHud.ShowRecoveryCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
@@ -896,15 +1009,26 @@ namespace TurnLimbo.Presentation
         {
             if (match == null || view == null) return;
             bool planning = IsPlanningShown;
-            if (planning) shownClock = clocks[match.CurrentPlanner];
+            if (planning)
+            {
+                shownClock = clocks[match.CurrentPlanner];
+                shownTurnClock = turnClocks[match.CurrentPlanner];
+                // The time the viewer's skills earned rises off the timer only over the viewer's own clock.
+                if (pendingTimeGained > 0f && match.CurrentPlanner == onlineLocalPlayer)
+                {
+                    battleHud.ShowTimeGained(pendingTimeGained);
+                    pendingTimeGained = 0f;
+                }
+            }
             // Only the viewer's own turn takes input: the opponent's turn, a request waiting for the host and the exit
             // question hold the dock.
             battleHud.SetInputsHeld(!view.IsMyTurn || pendingOnlineRequest || hud.IsExitConfirming);
-            // 넘기기 is free in versus.
+            // 넘기기 is free in versus; a reservation's 제한시간 is paid from the viewer's own clock, which always runs.
             battleHud.SetLaneCycleCost(0f, true);
+            battleHud.SetReservationClock(clocks[view.LocalPlayer], true);
             arena.SetResistanceBroken(view.Player.IsResistanceBroken, view.Enemy.IsResistanceBroken);
             battleHud.Refresh(view, shownClock, IsResolving, highlightedSlot, arena.ArenaCamera,
-                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta, PlanningSeconds);
+                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta, shownTurnClock);
             resistanceFeedback.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
             // Reproject after the arena's pose and camera update without advancing the cue a second time.

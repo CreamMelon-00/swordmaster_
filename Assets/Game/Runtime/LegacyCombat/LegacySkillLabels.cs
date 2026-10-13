@@ -8,7 +8,42 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// enum's English name (any case) so a designer may type either.</summary>
     public static class LegacySkillLabels
     {
+        /// <summary>예약 효과 phrases (<see cref="LegacySkillEffect.ReserveCycleFeed"/>, <see cref="LegacySkillEffect.ReserveBreath"/>).</summary>
+        public const string CycleFeedPhrase = "순환 +1", AutoBreathPhrase = "숨고르기 +1";
+        /// <summary>사용 효과 phrase for <see cref="LegacySkillEffect.AutoDodge"/>.</summary>
+        public const string AutoDodgePhrase = "자동 회피";
+        /// <summary>The range of n in 사용 효과 <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c>.</summary>
+        public const int MinimumAheadPowerPerUnit = 1, MaximumAheadPowerPerUnit = 10;
+        /// <summary>The range of m in the same phrase.</summary>
+        public const int MinimumAheadCount = 1, MaximumAheadCount = 4;
+        /// <summary>예약 효과 <c>일회성 &lt;ID&gt; ×n</c>'s first word (<see cref="LegacySkillEffect.ReserveTemporarySkillId"/>) and the
+        /// range of n.</summary>
+        public const string TemporaryPhrase = "일회성";
+        public const int MinimumTemporaryCount = 1, MaximumTemporaryCount = 3;
+        /// <summary>예약 효과 <c>제한시간 -n초</c>'s first word (<see cref="LegacySkillEffect.ReservePlanningSecondsCost"/>) and the
+        /// range of n.</summary>
+        public const string PlanningTimePhrase = "제한시간";
+        public const int MinimumReserveSecondsCost = 1, MaximumReserveSecondsCost = 5;
+        /// <summary>The ranges of n and m in 사용 효과 <c>앞 &lt;대상&gt;마다 다음 턴 제한시간 +n초 (최대 m)</c>.</summary>
+        public const int MinimumAheadSeconds = 1, MaximumAheadSeconds = 3;
+        public const int MinimumAheadTimeCount = 1, MaximumAheadTimeCount = 3;
         private const string BrokenState = "붕괴", HealthState = "체력", AtMost = "이하";
+        // 앞 <대상>마다 위력 +n (최대 m), spaces optional between the parts (inside the target's name too); ASCII digits only.
+        private static readonly Regex AheadPowerPattern = new Regex(
+            @"^앞\s*(숨고르기|순환\s*기술|저항\s*감소\s*기술)\s*마다\s*위력\s*\+\s*([0-9]{1,3})\s*\(\s*최대\s*([0-9]{1,3})\s*\)$",
+            RegexOptions.CultureInvariant);
+        // 앞 <대상>마다 다음 턴 제한시간 +n초 (최대 m), spaces optional between the parts.
+        private static readonly Regex AheadTimePattern = new Regex(
+            @"^앞\s*(숨고르기|순환\s*기술|저항\s*감소\s*기술)\s*마다\s*다음\s*턴\s*제한\s*시간\s*\+\s*([0-9]{1,3})\s*초\s*\(\s*최대\s*([0-9]{1,3})\s*\)$",
+            RegexOptions.CultureInvariant);
+        // 일회성 <ID> ×n: × (U+00D7), or x / X / * as typed on a keyboard.
+        private static readonly Regex TemporaryPattern = new Regex(
+            @"^일회성\s*([0-9]{1,4})\s*[×xX*]\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
+        // 제한시간 -n초 (a cost) and 제한시간 +n초 (a gain at reservation, which the sheet refuses with its own message).
+        private static readonly Regex ReserveTimePattern = new Regex(
+            @"^제한\s*시간\s*([-+−])\s*([0-9]{1,3})\s*초$", RegexOptions.CultureInvariant);
+        private static readonly LegacyAheadTarget[] aheadTargets =
+            { LegacyAheadTarget.Breath, LegacyAheadTarget.CycleSkill, LegacyAheadTarget.ResistanceReduction };
         // 체력 N% 이하, spaces optional between the parts; ASCII digits only (a leading zero still reads).
         private static readonly Regex HealthPattern = new Regex(@"^체력\s*([0-9]{1,3})\s*%\s*이하$", RegexOptions.CultureInvariant);
         private static readonly LegacySkillProperty[] properties =
@@ -18,7 +53,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             LegacySkillSymbol.Act, LegacySkillSymbol.Sword, LegacySkillSymbol.Guard, LegacySkillSymbol.Hits,
             LegacySkillSymbol.Recovery, LegacySkillSymbol.Followup, LegacySkillSymbol.Reduction, LegacySkillSymbol.Variance,
-            LegacySkillSymbol.Cycle,
+            LegacySkillSymbol.Cycle, LegacySkillSymbol.OneShot, LegacySkillSymbol.Time,
         };
         private static readonly LegacySkillTone[] tones =
         {
@@ -61,6 +96,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 case LegacySkillSymbol.Followup: return "후속";
                 case LegacySkillSymbol.Reduction: return "감소";
                 case LegacySkillSymbol.Cycle: return "순환";
+                case LegacySkillSymbol.OneShot: return "일회";
+                case LegacySkillSymbol.Time: return "시간";
                 default: return "편차";
             }
         }
@@ -113,6 +150,149 @@ namespace TurnLimbo.Runtime.LegacyCombat
             healthPercent = percent;
             return true;
         }
+
+        /// <summary>What a 사용 효과 counts, as its phrase names it: 숨고르기, 순환 기술, 저항 감소 기술; empty for none.</summary>
+        public static string AheadTarget(LegacyAheadTarget target)
+        {
+            switch (target)
+            {
+                case LegacyAheadTarget.Breath: return "숨고르기";
+                case LegacyAheadTarget.CycleSkill: return "순환 기술";
+                case LegacyAheadTarget.ResistanceReduction: return "저항 감소 기술";
+                default: return string.Empty;
+            }
+        }
+
+        /// <summary>A row's 예약 효과 as the sheet writes it (<see cref="CycleFeedPhrase"/>, <see cref="AutoBreathPhrase"/>,
+        /// <c>일회성 59 ×3</c>, <c>제한시간 -4초</c>), or empty for none.</summary>
+        public static string ReserveEffect(LegacySkillEffect effect)
+        {
+            if (effect == null) return string.Empty;
+            if (effect.ReserveCycleFeed) return CycleFeedPhrase;
+            if (effect.ReserveBreath) return AutoBreathPhrase;
+            if (effect.HasTemporarySpawn)
+                return TemporaryPhrase + " " + effect.ReserveTemporarySkillId.ToString(CultureInfo.InvariantCulture) + " ×" +
+                    effect.ReserveTemporaryCount.ToString(CultureInfo.InvariantCulture);
+            if (effect.ReservePlanningSecondsCost > 0)
+                return PlanningTimePhrase + " -" + effect.ReservePlanningSecondsCost.ToString(CultureInfo.InvariantCulture) + "초";
+            return string.Empty;
+        }
+
+        /// <summary>A row's 사용 효과 as the sheet writes it: <c>앞 숨고르기마다 위력 +4 (최대 4)</c>,
+        /// <c>앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)</c>, <see cref="AutoDodgePhrase"/>, or empty for none.</summary>
+        public static string UseEffect(LegacySkillEffect effect)
+        {
+            if (effect == null) return string.Empty;
+            if (effect.HasAheadPower)
+                return "앞 " + AheadTarget(effect.AheadPowerTarget) + "마다 위력 +" +
+                    effect.AheadPowerPerUnit.ToString(CultureInfo.InvariantCulture) + " (최대 " +
+                    effect.AheadPowerMax.ToString(CultureInfo.InvariantCulture) + ")";
+            if (effect.HasAheadTime)
+                return "앞 " + AheadTarget(effect.AheadTimeTarget) + "마다 다음 턴 " + PlanningTimePhrase + " +" +
+                    effect.AheadTimePerUnit.ToString(CultureInfo.InvariantCulture) + "초 (최대 " +
+                    effect.AheadTimeMax.ToString(CultureInfo.InvariantCulture) + ")";
+            if (effect.AutoDodge) return AutoDodgePhrase;
+            return string.Empty;
+        }
+
+        /// <summary>Reads one 예약 효과 phrase into <paramref name="effect"/>: <see cref="CycleFeedPhrase"/>,
+        /// <see cref="AutoBreathPhrase"/>, <c>일회성 &lt;ID&gt; ×n</c> (n 1-3; x or * for ×) or <c>제한시간 -n초</c> (n 1-5); spaces
+        /// are optional (<c>순환+1</c>). Whether the id names a 일회성 row is the sheet's check once every row is read. False, with
+        /// nothing set, for blank or anything else.</summary>
+        internal static bool TryReadReserveEffect(string text, LegacySkillEffect effect)
+        {
+            string trimmed = text?.Trim() ?? string.Empty;
+            string compact = Compact(trimmed);
+            if (compact == Compact(CycleFeedPhrase))
+            {
+                effect.ReserveCycleFeed = true;
+                return true;
+            }
+            if (compact == Compact(AutoBreathPhrase))
+            {
+                effect.ReserveBreath = true;
+                return true;
+            }
+            Match temporary = TemporaryPattern.Match(trimmed);
+            if (temporary.Success)
+            {
+                if (!int.TryParse(temporary.Groups[1].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int id) ||
+                    !int.TryParse(temporary.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int count) ||
+                    id < 1 || count < MinimumTemporaryCount || count > MaximumTemporaryCount)
+                    return false;
+                effect.ReserveTemporarySkillId = id;
+                effect.ReserveTemporaryCount = count;
+                return true;
+            }
+            Match time = ReserveTimePattern.Match(trimmed);
+            if (!time.Success || time.Groups[1].Value == "+" ||
+                !int.TryParse(time.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int seconds) ||
+                seconds < MinimumReserveSecondsCost || seconds > MaximumReserveSecondsCost)
+                return false;
+            effect.ReservePlanningSecondsCost = seconds;
+            return true;
+        }
+
+        /// <summary>Whether <paramref name="text"/> reads as <c>제한시간 +n초</c>: time gained as a skill is reserved, which no row
+        /// may write (a remover's 반환 and 넘기기 would repeat it).</summary>
+        internal static bool IsReserveTimeGain(string text)
+        {
+            Match time = ReserveTimePattern.Match(text?.Trim() ?? string.Empty);
+            return time.Success && time.Groups[1].Value == "+";
+        }
+
+        /// <summary>Reads one 사용 효과 phrase into <paramref name="effect"/>: <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c> (n 1-10,
+        /// m 1-4), <c>앞 &lt;대상&gt;마다 다음 턴 제한시간 +n초 (최대 m)</c> (n 1-3, m 1-3), or <see cref="AutoDodgePhrase"/>; spaces
+        /// between the parts are optional. False, with nothing set, for blank or anything else.</summary>
+        internal static bool TryReadUseEffect(string text, LegacySkillEffect effect)
+        {
+            string trimmed = text?.Trim() ?? string.Empty;
+            if (Compact(trimmed) == Compact(AutoDodgePhrase))
+            {
+                effect.AutoDodge = true;
+                return true;
+            }
+            if (TryReadAhead(AheadPowerPattern, trimmed, MinimumAheadPowerPerUnit, MaximumAheadPowerPerUnit,
+                MinimumAheadCount, MaximumAheadCount, out LegacyAheadTarget target, out int perUnit, out int max))
+            {
+                effect.AheadPowerTarget = target;
+                effect.AheadPowerPerUnit = perUnit;
+                effect.AheadPowerMax = max;
+                return true;
+            }
+            if (TryReadAhead(AheadTimePattern, trimmed, MinimumAheadSeconds, MaximumAheadSeconds,
+                MinimumAheadTimeCount, MaximumAheadTimeCount, out target, out perUnit, out max))
+            {
+                effect.AheadTimeTarget = target;
+                effect.AheadTimePerUnit = perUnit;
+                effect.AheadTimeMax = max;
+                return true;
+            }
+            return false;
+        }
+
+        private static bool TryReadAhead(Regex pattern, string text, int minimumPerUnit, int maximumPerUnit, int minimumCount,
+            int maximumCount, out LegacyAheadTarget target, out int perUnit, out int max)
+        {
+            target = LegacyAheadTarget.None;
+            perUnit = max = 0;
+            Match match = pattern.Match(text);
+            if (!match.Success ||
+                !int.TryParse(match.Groups[2].Value, NumberStyles.None, CultureInfo.InvariantCulture, out perUnit) ||
+                !int.TryParse(match.Groups[3].Value, NumberStyles.None, CultureInfo.InvariantCulture, out max) ||
+                perUnit < minimumPerUnit || perUnit > maximumPerUnit || max < minimumCount || max > maximumCount)
+                return false;
+            string name = Compact(match.Groups[1].Value);
+            foreach (LegacyAheadTarget candidate in aheadTargets)
+                if (Compact(AheadTarget(candidate)) == name)
+                {
+                    target = candidate;
+                    return true;
+                }
+            return false;
+        }
+
+        private static string Compact(string text) => Regex.Replace(text ?? string.Empty, @"\s+", string.Empty);
 
         /// <summary>Reads a label or an English enum name. <see cref="LegacySkillProperty.None"/> reads too; the sheet
         /// rejects it for techniques.</summary>

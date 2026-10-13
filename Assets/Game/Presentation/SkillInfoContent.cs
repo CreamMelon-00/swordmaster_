@@ -28,20 +28,27 @@ namespace TurnLimbo.Presentation
                     enemy && info.EnemySecondary != null ? info.EnemySecondary : info.Secondary, info.SecondarySymbol,
                     info.SecondaryTone, info.Description)
                 : Generic(skill);
-            // Shared effect keywords take precedence over authored copy. If a skill has both,
-            // queue removal owns the first badge and cycle the second.
+            // Shared effect keywords take precedence over authored copy: queue removal first, then cycle. An authored
+            // first badge naming an effect that reads the queue (예약 효과, 사용 효과: 숨고르기 +1, 앞 순환 +1, 일회성, 자동 회피,
+            // 다음 턴 제한시간, …) comes next, so a forced keyword pushes it to the second badge instead of hiding it; the
+            // authored second badge only fills what is left. A reservation's time cost alone is no such keyword: 두블레's
+            // first badge is its 반환.
             LegacyQueueRemovalMode removal = definition?.Effect.QueueRemovalMode ?? LegacyQueueRemovalMode.None;
             bool hasCycle = definition?.Effect.HasCycle == true;
+            bool keyword = info != null && (definition.Effect.HasReserveGain || definition.Effect.HasUseEffect);
+            string keptText = keyword ? content.Main : content.Secondary;
+            LegacySkillSymbol keptSymbol = keyword ? content.MainSymbol : content.SecondarySymbol;
+            LegacySkillTone keptTone = keyword ? content.MainTone : content.SecondaryTone;
             if (removal != LegacyQueueRemovalMode.None)
                 content = new SkillInfoContent(removal == LegacyQueueRemovalMode.Cancel ? "취소" : "반환",
                     removal == LegacyQueueRemovalMode.Cancel ? LegacySkillSymbol.Reduction : LegacySkillSymbol.Recovery,
                     removal == LegacyQueueRemovalMode.Cancel ? LegacySkillTone.Reduction : LegacySkillTone.Recovery,
-                    hasCycle ? "순환" : content.Secondary,
-                    hasCycle ? LegacySkillSymbol.Cycle : content.SecondarySymbol,
-                    hasCycle ? LegacySkillTone.Cycle : content.SecondaryTone, content.Description);
+                    hasCycle ? "순환" : keptText,
+                    hasCycle ? LegacySkillSymbol.Cycle : keptSymbol,
+                    hasCycle ? LegacySkillTone.Cycle : keptTone, content.Description);
             else if (hasCycle)
                 content = new SkillInfoContent("순환", LegacySkillSymbol.Cycle, LegacySkillTone.Cycle,
-                    content.Secondary, content.SecondarySymbol, content.SecondaryTone, content.Description);
+                    keptText, keptSymbol, keptTone, content.Description);
             if (enemy && (LegacySkillRoles.Get(skill) & LegacySkillRole.ActRecovery) != 0)
                 content = new SkillInfoContent(content.Main, content.MainSymbol, content.MainTone, content.Secondary,
                     content.SecondarySymbol, content.SecondaryTone, PlayerOnlyActDescription(content.Description));

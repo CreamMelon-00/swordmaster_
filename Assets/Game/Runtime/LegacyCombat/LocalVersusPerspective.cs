@@ -107,6 +107,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyEffectiveCost(LegacySkill skill) => Opponent.EffectiveCost(skill);
         public void EnemyEffectivePowerRange(LegacySkill skill, out int min, out int max)
             => Opponent.EffectivePowerRange(skill, out min, out max);
+        public int CycleUsesAtSlot(int slotIndex) => Match.CycleUsesAtSlot(LocalPlayer, slotIndex);
+        public int EnemyCycleUsesAtSlot(int slotIndex) => Match.CycleUsesAtSlot(OpponentPlayer, slotIndex);
+        public LegacyReserveEffect ReserveEffectsUsedThisTurn => Me.ReserveEffectsUsedThisTurn;
+        public int AutoBreathSlotIndex => Me.AutoBreathSlotIndex;
+        public int EnemyAutoBreathSlotIndex => Opponent.AutoBreathSlotIndex;
 
         // Versus has no 반격.
         public LegacyCounter PlayerCounter => null;

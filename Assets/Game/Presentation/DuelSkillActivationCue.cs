@@ -7,8 +7,10 @@ using Object = UnityEngine.Object;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>A brief, side-specific announcement for a condition that actually matched during a slot. The player side is
-    /// the viewer's own fighter, the other is worded as the opponent's (상대 …), in versus as in the campaign's battles.</summary>
+    /// <summary>A brief, side-specific announcement for a condition that actually matched during a slot, or a keyword effect
+    /// that read the queue (<see cref="ShowKeyword"/>: 순환 +1 as the turn is committed, a count-ahead payoff's bonus and
+    /// 자동 회피 as their slot starts, <see cref="LegacyKeywordPreview"/> has the words). The player side is the viewer's own
+    /// fighter, the other is worded as the opponent's (상대 …), in versus as in the campaign's battles.</summary>
     public sealed class DuelSkillActivationCue : IDisposable
     {
         private const float Duration = 1.05f;
@@ -17,6 +19,8 @@ namespace TurnLimbo.Presentation
         private static readonly Color ActInk = new Color32(132, 239, 215, 255);
         private static readonly Color RecoveryInk = new Color32(168, 224, 159, 255);
         private static readonly Color PowerInk = new Color32(231, 207, 246, 255);
+        // The keyword cues' ink: 순환's teal, lightened for the battlefield.
+        private static readonly Color KeywordInk = new Color32(150, 222, 204, 255);
         private static readonly Color DangerFlash = new Color32(255, 96, 82, 255);
         private readonly RectTransform root;
         private readonly Canvas canvas;
@@ -37,18 +41,22 @@ namespace TurnLimbo.Presentation
             enemy = CreateView("Enemy Skill Activation Cue", false, font);
         }
 
-        /// <summary>Uses the immutable applied-effect snapshot; enemy guards can warn of a matched response without claiming ACT.</summary>
-        public bool Show(bool playerSide, LegacySkill skill, LegacySkillFeedback feedback)
+        /// <summary>Uses the immutable applied-effect snapshot; enemy guards can warn of a matched response without claiming ACT.
+        /// <paramref name="keywordDetail"/> (a keyword effect of the same slot, <see cref="LegacyKeywordPreview"/>) joins the
+        /// effect's words, or is shown alone (<see cref="ShowKeyword"/>) when no condition matched.</summary>
+        public bool Show(bool playerSide, LegacySkill skill, LegacySkillFeedback feedback, string keywordDetail = null)
         {
-            if (disposed || skill == null || feedback == null || !feedback.ConditionMet)
-                return false;
+            if (disposed || skill == null) return false;
+            if (feedback == null || !feedback.ConditionMet)
+                return !string.IsNullOrEmpty(keywordDetail) && ShowKeyword(playerSide, skill, keywordDetail);
 
             // The matching guard is still a readable threat when the enemy has no ACT pool.
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             bool enemyGuardResponse = !playerSide && !feedback.EffectActivated &&
                 skill.Kind == LegacySkillKind.Defence && effect != null &&
                 effect.HasOpponentCondition && effect.ActGain > 0;
-            if (!feedback.EffectActivated && !enemyGuardResponse) return false;
+            if (!feedback.EffectActivated && !enemyGuardResponse)
+                return !string.IsNullOrEmpty(keywordDetail) && ShowKeyword(playerSide, skill, keywordDetail);
 
             string detail = enemyGuardResponse ? "내 공격을 읽음" : string.Empty;
             Color tint = playerSide ? ActInk : DuelVisualTheme.Danger;
@@ -84,7 +92,9 @@ namespace TurnLimbo.Presentation
                 detail = Join(detail, "뒤 " + feedback.GrantedBuffSlots + "칸 피해 -" + feedback.GrantedProtectionBuffPercent + "%");
             else if (feedback.GrantedProtectionBuffPercent < 0)
                 detail = Join(detail, "다음 칸 받는 피해 +" + -feedback.GrantedProtectionBuffPercent + "%");
-            if (string.IsNullOrEmpty(detail)) return false;
+            if (string.IsNullOrEmpty(detail))
+                return !string.IsNullOrEmpty(keywordDetail) && ShowKeyword(playerSide, skill, keywordDetail);
+            detail = Join(detail, keywordDetail);
 
             CueView view = playerSide ? player : enemy;
             view.Title.text = (playerSide ? string.Empty : "상대 ") + skill.Name +
@@ -108,6 +118,36 @@ namespace TurnLimbo.Presentation
             view.Burst.gameObject.SetActive(false);
             return true;
         }
+
+        /// <summary>A keyword effect's cue on its own: <c>카덴스 발동!</c> over <c>순환 +1 · 사선베기·급소 찌르기</c>, in 순환's ink
+        /// on the player's side (the danger ink on the opponent's). False when there is nothing to say.</summary>
+        public bool ShowKeyword(bool playerSide, LegacySkill skill, string detail)
+        {
+            if (disposed || skill == null || string.IsNullOrEmpty(detail)) return false;
+            CueView view = playerSide ? player : enemy;
+            Color tint = playerSide ? KeywordInk : DuelVisualTheme.Danger;
+            view.Title.text = (playerSide ? string.Empty : "상대 ") + skill.Name + " 발동!";
+            view.Detail.text = detail;
+            view.Title.color = tint;
+            view.Stripe.color = tint;
+            view.Outline.effectColor = tint;
+            view.Tint = tint;
+            view.BurstStyle = playerSide ? DuelSkillBurstStyle.Shield : DuelSkillBurstStyle.Danger;
+            view.Elapsed = 0f;
+            view.Root.anchoredPosition = new Vector2(playerSide ? 24f : -24f, -156f);
+            view.Root.localScale = Vector3.one * 1.04f;
+            view.Group.alpha = 1f;
+            view.Root.gameObject.SetActive(true);
+            view.Root.SetAsLastSibling();
+            view.Burst.Configure(playerSide ? tint : DangerFlash, view.BurstStyle, 0f);
+            view.Burst.gameObject.SetActive(false);
+            return true;
+        }
+
+        /// <summary>The cue's words now on <paramref name="playerSide"/>'s side (title, detail), or nulls while it is hidden.</summary>
+        public string ShownTitle(bool playerSide) => Shown(playerSide) ? (playerSide ? player : enemy).Title.text : null;
+        public string ShownDetail(bool playerSide) => Shown(playerSide) ? (playerSide ? player : enemy).Detail.text : null;
+        private bool Shown(bool playerSide) => !disposed && (playerSide ? player : enemy).Root.gameObject.activeSelf;
 
         public void Tick(float realDelta, Camera arenaCamera = null, Transform playerActor = null,
             Transform enemyActor = null)

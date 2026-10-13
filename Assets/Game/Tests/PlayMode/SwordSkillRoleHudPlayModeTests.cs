@@ -61,7 +61,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var run = new CampaignRun();
                 // The acquired skills reach the loadout through the curriculum.
-                foreach (string node in new[] { "horizontal-cut", "breathing", "suppleness" }) Learn(run, node);
+                foreach (string node in new[] { "horizontal-cut", "preparation", "advance", "suppleness", "breathing" }) Learn(run, node);
                 hud = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
                 hud.Show(run);
                 hud.ShowTab(LobbyTab.Loadout);

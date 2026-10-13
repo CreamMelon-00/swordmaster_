@@ -18,9 +18,9 @@ namespace TurnLimbo.Presentation
         /// <summary>넘기기 spends this much planning time while the planning timer runs (it is free while the clock is
         /// held: untimed missions and coached beats).</summary>
         public const float LaneCycleTimeCost = 1f;
-        /// <summary>A paid 넘기기 must leave at least this much planning time, so it never runs the clock out (and
-        /// auto-commits the turn) before the player can use the skill it brought forward.</summary>
-        public const float LaneCycleMinimumTimeLeft = .5f;
+        /// <summary>A paid 넘기기 (or a reservation's 제한시간 cost) must leave at least this much planning time, so it never
+        /// runs the clock out (and auto-commits the turn) before the player can use the skill it brought forward.</summary>
+        public const float LaneCycleMinimumTimeLeft = LegacyPlanningClock.MinimumTimeLeft;
         private const float OriginalClipDuration = 1f / 6f;
         private const float OriginalAttackEventTime = 1f / 12f;
         public const float TurnCleanupDelay = 0.12f;
@@ -60,6 +60,12 @@ namespace TurnLimbo.Presentation
         private BattleResult battleResult;
         private PrologueRun prologue;
         private string pendingAcademyNotice;
+        // The lane whose selection sound comes with the field's notice (a curriculum completion's skill), or -1.
+        private int pendingAcademySoundLane = -1;
+        /// <summary>The field's arrival notice after 이어하기 emptied a curriculum made with an older tree
+        /// (<see cref="CampaignRun.RestoreDroppedCurriculum"/>).</summary>
+        internal const string CurriculumResetNotice =
+            "커리큘럼이 새로 짜여 처음부터 고릅니다.\n이야기·스테이지 기록과 주운 기술은 그대로입니다.";
         // The opening-arc mission being fought, its coach, and whether its briefing is on screen.
         private PrologueMission mission;
         private MissionGuide guide;
@@ -141,6 +147,12 @@ namespace TurnLimbo.Presentation
         private float betweenSlotsDuration;
         private float hitStopRemaining;
         private float planningDuration = PlanningDuration;
+        // This turn's own start time: the duration plus what the last turn's skills earned (제한시간), within +10 s. The bar
+        // and the time pressure measure against it.
+        private float turnPlanningDuration = PlanningDuration;
+        // Whether the clock ran on the turn last committed: only then do the seconds its skills earn start the next turn
+        // later (a held clock neither pays nor gains, even when the next turn's clock runs).
+        private bool committedTurnClockRan;
         private float planningTime;
         private int highlightedSlot;
         private int inspectingEnemy;
@@ -245,6 +257,9 @@ namespace TurnLimbo.Presentation
         public int EnemyHealth => session.Enemy.Health;
         public DuelMatchOutcome Outcome => session.Outcome;
         public float TurnTimeRemaining => planningTime;
+        /// <summary>The planning clock this turn started at: the stage's duration plus the seconds the last turn's skills earned
+        /// (사용 효과 앞 X마다 다음 턴 제한시간), at most <see cref="LegacyPlanningClock.MaximumBonusSeconds"/> more.</summary>
+        public float TurnPlanningDuration => turnPlanningDuration;
         public bool IsBetweenSlots => viewPhase == ViewPhase.BetweenSlots;
         public float HitStopTimeRemaining => hitStopRemaining;
         public float ActiveSlotPlaybackSpeed => slotPlaybackSpeed;
@@ -302,7 +317,15 @@ namespace TurnLimbo.Presentation
         /// <summary>What 넘기기 costs right now: the planning time it spends, or 0 while the clock is held.</summary>
         public float LaneCycleCost => PlanningTimerRuns ? LaneCycleTimeCost : 0f;
         /// <summary>Whether enough planning time is left to pay for 넘기기.</summary>
-        public bool CanAffordLaneCycle => LaneCycleCost <= 0f || planningTime - LaneCycleCost >= LaneCycleMinimumTimeLeft;
+        public bool CanAffordLaneCycle => LegacyPlanningClock.CanAfford(planningTime, LaneCycleTimeCost, PlanningTimerRuns);
+        /// <summary>The planning time reserving the front skill of <paramref name="lane"/> costs right now (its 예약 효과
+        /// 제한시간 -n초), or 0 while the clock is held or for a skill without one.</summary>
+        public float ReservationTimeCost(int lane)
+        {
+            if (!PlanningTimerRuns || session == null || lane < 0 || lane > 2) return 0f;
+            System.Collections.Generic.IReadOnlyList<LegacySkill> skills = session.GetLane(lane);
+            return skills.Count == 0 ? 0f : LegacyPlanningClock.ReservationSeconds(skills[0]);
+        }
 
         private void Awake()
         {
@@ -586,7 +609,7 @@ namespace TurnLimbo.Presentation
             arena.SetPlanningState(planningTime, IsInspecting, CanChoose && Encounter == EncounterKind.Battle);
             // The running clock's last share pushes the camera in a touch (not untimed, not while a coached beat holds it).
             arena.SetTimePressure(CanChoose && PlanningTimerRuns
-                ? LegacyTimePressure.Target(planningTime, CurrentPlanningDuration, presentationSettings.TimePressureShare) : 0f);
+                ? LegacyTimePressure.Target(planningTime, turnPlanningDuration, presentationSettings.TimePressureShare) : 0f);
             arena.Tick(delta, realDelta);
             phaseTime += delta;
             switch (viewPhase)
@@ -736,6 +759,13 @@ namespace TurnLimbo.Presentation
             LegacySkill playerAction = slot.PlayerSkill ?? slot.PendingPlayerCounter;
             slotStartDeferred = slot.PendingPlayerCounter != null;
             arena.BeginSlot(playerAction, slot.EnemySkill);
+            // 자동 회피: the skill steps back from the attack by itself as the slot starts, with the dodge's sound but none of a
+            // timed step's slow motion; A is not taken in this slot (D still is).
+            if (slot.AutoDodge && slot.DodgeSucceeded)
+            {
+                arena.PerformStep(LegacyStepAction.Dodge, true, session.StepSuccessStreak, cinematic: false);
+                stepAudio.Play(LegacyStepAction.Dodge, true, presentationSettings.StepSoundVolume);
+            }
             // One of 이아's 수훈 techniques opens with its cut-in; the slot's clock waits for it (HoldBattle).
             if (missionEmpowered) empowermentCues.TryBeginCutIn(mission.Empowerment, slot.EnemySkill);
             hud.SetCurrentSkills(playerAction, slot.EnemySkill, slotDuration + slotAnticipationDuration);
@@ -755,8 +785,21 @@ namespace TurnLimbo.Presentation
 
         private void ShowSkillActivationCues(LegacyCurrentSlot slot)
         {
-            skillActivationCue.Show(true, slot.PlayerSkill, slot.PlayerFeedback);
+            skillActivationCue.Show(true, slot.PlayerSkill, slot.PlayerFeedback, KeywordCue(slot));
             skillActivationCue.Show(false, slot.EnemySkill, slot.EnemyFeedback);
+        }
+
+        // The player's slot's keyword effects as it starts: a count-ahead payoff's bonus, next turn's time (only when the
+        // clock ran on the turn being resolved: a held clock gains nothing), an automatic dodge.
+        private string KeywordCue(LegacyCurrentSlot slot)
+        {
+            var words = new System.Collections.Generic.List<string>(3);
+            string ahead = LegacyKeywordPreview.AheadPowerCue(session.PlayerQueue, slot.SlotIndex);
+            if (ahead != null) words.Add(ahead);
+            string time = committedTurnClockRan ? LegacyKeywordPreview.AheadTimeCue(slot.PlanningSecondsGained) : null;
+            if (time != null) words.Add(time);
+            if (slot.AutoDodge && slot.DodgeSucceeded) words.Add(LegacyKeywordPreview.AutoDodgeCue);
+            return words.Count == 0 ? null : string.Join(" · ", words);
         }
 
         private void UpdateSlot(float delta)
@@ -947,15 +990,25 @@ namespace TurnLimbo.Presentation
         {
             int playerResistanceBefore = session.Player.Resistance;
             int enemyResistanceBefore = session.Enemy.Resistance;
+            int[] temporaryBefore = LegacyKeywordPreview.TemporaryCounts(session);
             session.BeginNextTurn();
             ClearHeldKeys();
-            planningTime = CurrentPlanningDuration;
+            // 제한시간: the last turn's skills may have earned this turn more time, but only if that turn's clock ran (a
+            // coached or untimed turn earns nothing, even for a timed turn after it). A held clock now shows no gain.
+            turnPlanningDuration = LegacyPlanningClock.CampaignTurnStart(CurrentPlanningDuration,
+                committedTurnClockRan ? session.PlanningSecondsBonus : 0);
+            planningTime = turnPlanningDuration;
             highlightedSlot = -1;
             inspectingEnemy = 0;
             laneHolds.DropExplanation();
             arena.BeginTurn();
             hud.BeginTurn();
             skillActivationCue.Reset();
+            float gained = turnPlanningDuration - CurrentPlanningDuration;
+            if (PlanningTimerRuns && gained > 0f) hud.ShowTimeGained(gained);
+            // The 일회성 copies left in a lane went with the turn.
+            for (int lane = 0; lane < temporaryBefore.Length; lane++)
+                if (temporaryBefore[lane] > 0) hud.ShowLanePop(lane, LegacyKeywordPreview.TemporaryExpired, false);
             // The automatic refill, a full turn after the one in which resistance broke.
             if (session.Player.Resistance > playerResistanceBefore)
                 hud.ShowRecoveryCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
@@ -1060,18 +1113,39 @@ namespace TurnLimbo.Presentation
         {
             if (!CanChoose || IsInspecting || lane < 0 || lane > 2 ||
                 guide != null && !guide.AllowsQueue(lane)) return false;
-            // The duel removes cancelled reservations immediately. Keep their old order just long enough for the
+            // The duel removes cancelled or returned reservations immediately. Keep their old order just long enough for the
             // HUD to let the cards tumble out before its normal queue refresh reuses those card objects.
             LegacySkill[] cancelledQueue = null;
             var laneSkills = session.GetLane(lane);
-            if (laneSkills.Count > 0 && LegacySkillDefinitions.Find(laneSkills[0])?.Effect?.QueueRemovalMode ==
-                LegacyQueueRemovalMode.Cancel && session.PlayerQueue.Count > 0)
+            LegacyQueueRemovalMode removal = laneSkills.Count > 0
+                ? LegacySkillDefinitions.Find(laneSkills[0])?.Effect?.QueueRemovalMode ?? LegacyQueueRemovalMode.None
+                : LegacyQueueRemovalMode.None;
+            if (removal != LegacyQueueRemovalMode.None && session.PlayerQueue.Count > 0)
             {
                 cancelledQueue = new LegacySkill[session.PlayerQueue.Count];
                 for (int index = 0; index < cancelledQueue.Length; index++) cancelledQueue[index] = session.PlayerQueue[index];
             }
+            // 예약 효과 제한시간 -n초: paid as the skill is reserved, refused when the running clock cannot spare n + 0.5 s.
+            float timeCost = ReservationTimeCost(lane);
+            if (!LegacyPlanningClock.CanAfford(planningTime, timeCost, PlanningTimerRuns)) return false;
+            LegacySkill reserved = laneSkills.Count > 0 ? laneSkills[0] : null;
+            bool temporaryBefore = (session.ReserveEffectsUsedThisTurn & LegacyReserveEffect.Temporary) != 0;
             if (!session.TryQueueLane(lane)) return false;
-            if (cancelledQueue != null) hud.PlayQueueCancellation(cancelledQueue);
+            if (timeCost > 0f)
+            {
+                planningTime = LegacyPlanningClock.Spend(planningTime, timeCost, PlanningTimerRuns);
+                hud.ShowTimeSpent(timeCost);
+                // 전투: bullet time lets go for a moment, as for 넘기기.
+                arena.BreakBulletTime();
+            }
+            // 예약 효과 일회성: its copies came to the front of their lane.
+            if (!temporaryBefore && (session.ReserveEffectsUsedThisTurn & LegacyReserveEffect.Temporary) != 0)
+            {
+                LegacySkill spawned = LegacyKeywordLinks.TemporarySpawn(reserved, out int copies);
+                if (spawned != null) hud.ShowLanePop(spawned.LaneIndex, "+" + copies, true);
+                skillActivationCue.ShowKeyword(true, reserved, LegacyKeywordPreview.TemporarySpawnCue(reserved));
+            }
+            if (cancelledQueue != null) hud.PlayQueueCancellation(cancelledQueue, removal);
             hud.ClearHoldCancel();
             guide?.NotifyQueued(lane);
             // The lane's gear turns a slot: the queued skill to the upper right, the next one up into the window.
@@ -1139,7 +1213,14 @@ namespace TurnLimbo.Presentation
             laneHolds.DropExplanation();
             guideInspectionRemaining = 0f;
             hud.HideExplanation();
+            // Before the guide moves on: the seconds this turn's skills earn count only if this turn's clock ran.
+            committedTurnClockRan = PlanningTimerRuns;
+            // 순환 +1 rises as the turn is committed: read what it raises first, and say so.
+            string feed = LegacyKeywordPreview.CycleFeedCue(session.PlayerQueue, session.CycleUses);
+            LegacySkill feeder = LegacyKeywordPreview.FirstCycleFeeder(session.PlayerQueue);
             session.Commit();
+            skillActivationCue.Reset();
+            if (feed != null) skillActivationCue.ShowKeyword(true, feeder, feed);
             hud.EndTurn();
             arena.BeginApproach();
             highlightedSlot = -1;
@@ -1182,6 +1263,7 @@ namespace TurnLimbo.Presentation
         {
             academyField?.ResetExploration();
             pendingAcademyNotice = null;
+            pendingAcademySoundLane = -1;
             CloseDialogue();
             ClearMissionState();
             campaign.Reset();
@@ -1224,6 +1306,7 @@ namespace TurnLimbo.Presentation
         {
             academyField?.ResetExploration();
             pendingAcademyNotice = null;
+            pendingAcademySoundLane = -1;
             onlineVersus?.Stop();
             localVersus?.Stop();
             ClearBattleScreens();
@@ -1264,6 +1347,13 @@ namespace TurnLimbo.Presentation
             StartCardsEnabled = true;
             openingChoice = save.OpeningChoice;
             openingCompleted = save.OpeningCompleted;
+            if (campaign.RestoreDroppedCurriculum)
+            {
+                // The save's curriculum belonged to an older tree. Saving now records the current tree version, so the
+                // field's arrival notice says it once.
+                AutoSave();
+                pendingAcademyNotice = CurriculumResetNotice;
+            }
             dialogueHud.MaskElisaName = openingChoice == OpeningVoiceChoice.Leave;
             SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
@@ -1740,8 +1830,10 @@ namespace TurnLimbo.Presentation
             // 이어하기 follows the story, so the curriculum counts only once the saved missions have opened it.
             var story = new PrologueRun();
             story.TryRestore(save.PrologueCleared);
+            // Read through the tree version as loading will, so an older tree's progress shows as the 0 it becomes.
+            int completed = save.Campaign.ForCurriculumTree(CampaignCurriculum.TreeVersion, out _).CurriculumCompleted.Count;
             string curriculum = CampaignRun.OpensCurriculum(story.UnlockedFeatures)
-                ? $"커리큘럼 {save.Campaign.CurriculumCompleted.Count} / {campaign.Curriculum.Tree.Nodes.Count}  ·  " : string.Empty;
+                ? $"커리큘럼 {completed} / {campaign.Curriculum.Tree.Nodes.Count}  ·  " : string.Empty;
             return $"도미니코 학원  ·  전투 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  " +
                 curriculum + $"임무 완료 {save.PrologueCleared} / {StoryMissions.Count}";
         }
@@ -2195,6 +2287,11 @@ namespace TurnLimbo.Presentation
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
             // A closed curriculum counted nothing; any progress an older save holds stays out of the result too.
             bool curriculumOpen = campaign.IsCurriculumOpen;
+            // What a completion opened, and whether it finished the trunk or a school (과정 수료).
+            CurriculumNode completedNode = curriculumOpen ? campaign.LastCompletedCurriculumNode : null;
+            System.Collections.Generic.IReadOnlyList<CurriculumNode> openedNodes =
+                completedNode != null ? campaign.Curriculum.OpenedBy(completedNode.Id) : null;
+            bool finishedCourse = completedNode != null && campaign.Curriculum.Tree.EndsBranch(completedNode.Id);
             var result = new BattleResult(session.Outcome, false,
                 campaign.StageNumber, campaign.CurrentStage.Name,
                 campaign.LastReward, campaign.Currency, session.RoundNumber,
@@ -2206,7 +2303,19 @@ namespace TurnLimbo.Presentation
                 curriculumOpen ? campaign.Curriculum.ActiveBattles : 0, curriculumOpen && campaign.Curriculum.IsFinished,
                 curriculumOpen,
                 firstClear && victory && campaign.CurrentStage.FirstClearSkillId != 0
-                    ? LegacySkillDefinitions.Skill(campaign.CurrentStage.FirstClearSkillId).Name : null);
+                    ? LegacySkillDefinitions.Skill(campaign.CurrentStage.FirstClearSkillId).Name : null,
+                openedCurriculumNodes: openedNodes, completedCurriculumCourse: finishedCourse);
+            if (completedNode != null)
+            {
+                // The field says it again as the player arrives, with the skill's lane sound (the lobby banner never shows
+                // after the 서막).
+                int grantedId = completedNode.SkillIds.Count > 0 ? completedNode.SkillIds[0] : 0;
+                LegacySkill granted = grantedId == 0 ? null
+                    : campaign.GetOwnedSkill(grantedId)?.Skill ?? LegacySkillDefinitions.Find(grantedId)?.Skill;
+                pendingAcademyNotice = AcademyFieldView.CurriculumNotice(completedNode, granted,
+                    granted != null && campaign.IsLaneOpen(granted.LaneIndex), finishedCourse);
+                pendingAcademySoundLane = granted?.LaneIndex ?? -1;
+            }
             EndDuelPresentation();
             // A newly available lesson is now collected at the academy notice board.
             PrologueMission arrived = victory && prologue.IsArcComplete && IsNextMissionAvailable &&
@@ -2252,7 +2361,10 @@ namespace TurnLimbo.Presentation
                 // No result says that the 서막 is over and what it opened, as the old win's did: the lobby the story
                 // reaches next says it, the first time only (replays and 이어하기 do not).
                 if (firstWin && lost.Number == PrologueMissions.Count)
+                {
                     pendingAcademyNotice = BattleResultHud.PrologueCompleteNotice(campaign.IsCurriculumOpen);
+                    pendingAcademySoundLane = -1;
+                }
                 EndDuelPresentation();
                 if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura, fromGrey))
                     ShowBriefing();
@@ -2368,7 +2480,14 @@ namespace TurnLimbo.Presentation
                     : $"스토리 게시판 · 전투 {next.RequiredClearedStage:00} 후 새 임무";
                 academyField.Show(campaign, next != null && IsNextMissionAvailable,
                     campaign.IsTrainingUnlocked, storyStatus, pendingAcademyNotice);
+                // A curriculum completion's notice comes with its skill's lane sound, as a field pickup's does.
+                if (pendingAcademyNotice != null && pendingAcademySoundLane >= 0)
+                {
+                    effectsSource.pitch = 1f;
+                    art.PlaySelection(effectsSource, pendingAcademySoundLane);
+                }
                 pendingAcademyNotice = null;
+                pendingAcademySoundLane = -1;
             }
             else
             {
@@ -2491,7 +2610,9 @@ namespace TurnLimbo.Presentation
             slotAnticipationDuration = slotStepWindow = 0f;
             slotPlaybackSpeed = 1f;
             planningDuration = PlanningDuration + (IsMission ? 0 : campaign.CurriculumStats.PlanningSeconds);
-            planningTime = CurrentPlanningDuration;
+            committedTurnClockRan = false;
+            turnPlanningDuration = LegacyPlanningClock.CampaignTurnStart(CurrentPlanningDuration, session.PlanningSecondsBonus);
+            planningTime = turnPlanningDuration;
             highlightedSlot = -1;
             inspectingEnemy = 0;
             laneHolds.DropExplanation();
@@ -2664,8 +2785,9 @@ namespace TurnLimbo.Presentation
             // Every frame, after this frame's poses: the outline follows the actor's current sprite.
             arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
             hud.SetLaneCycleCost(LaneCycleCost, CanAffordLaneCycle);
+            hud.SetReservationClock(planningTime, PlanningTimerRuns);
             hud.Refresh(session, planningTime, IsResolving, highlightedSlot, arena.ArenaCamera,
-                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta, CurrentPlanningDuration);
+                arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta, turnPlanningDuration);
             // On real time, over the head HUDs as just laid out.
             barks.Tick(realDelta);
             gearShimmer.Tick(realDelta);

@@ -56,7 +56,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 Assert.That(controller.QueueLane(0), Is.False);
                 Assert.That(controller.StartCampaignStage(2), Is.False);
-                Assert.That(controller.SelectCurriculumNode("diagonal-cut"), Is.False, "The result blocks the curriculum.");
+                Assert.That(controller.SelectCurriculumNode("preparation"), Is.False, "The result blocks the curriculum.");
                 Assert.That(controller.StartMission(), Is.False);
                 scope.Advance(5f);
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Result frames cannot pay a second reward.");

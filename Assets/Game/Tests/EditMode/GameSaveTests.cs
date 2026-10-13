@@ -25,8 +25,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(source.HasLoadoutChanges, Is.True);
 
             string text = GameSaveCodec.Serialize(GameSave.Capture(prologue, source));
-            StringAssert.Contains("\ncurriculum-done breathing horizontal-cut diagonal-cut\n", text, "Completion order is kept.");
-            StringAssert.Contains("\ncurriculum-active advance 0\n", text);
+            StringAssert.Contains($"\ncurriculum-tree {CampaignCurriculum.TreeVersion}\n", text, "The tree version is always written.");
+            StringAssert.Contains("\ncurriculum-done horizontal-cut preparation advance\n", text, "Completion order is kept.");
+            StringAssert.Contains("\ncurriculum-active quick-draw 0\n", text);
             StringAssert.DoesNotContain("\nskill ", text, "Owned skills follow from the completed nodes.");
             Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
             var targetPrologue = new PrologueRun();
@@ -38,11 +39,12 @@ namespace TurnLimbo.Core.Tests
             Assert.That(target.Phase, Is.EqualTo(CampaignPhase.Lobby));
             Assert.That(target.HasLoadoutChanges, Is.False, "The saved loadout becomes the draft.");
             Assert.That(target.HighestUnlockedStage, Is.EqualTo(5));
-            CollectionAssert.AreEqual(new[] { "breathing", "horizontal-cut", "diagonal-cut" }, target.Curriculum.Completed);
-            Assert.That(target.Curriculum.Active.Id, Is.EqualTo("advance"));
+            CollectionAssert.AreEqual(new[] { "horizontal-cut", "preparation", "advance" }, target.Curriculum.Completed);
+            Assert.That(target.Curriculum.Active.Id, Is.EqualTo("quick-draw"));
             Assert.That(target.Curriculum.ActiveBattles, Is.Zero);
             Assert.That(target.LastCompletedCurriculumNode, Is.Null, "A loaded game has no last battle.");
-            CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 17, 14, 15, 43, 44 },
+            Assert.That(target.RestoreDroppedCurriculum, Is.False, "A save of the current tree keeps its curriculum.");
+            CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 10, 12, 43, 44 },
                 target.OwnedSkills.Select(owned => owned.SkillId),
                 "Owned skills follow completed nodes and first-clear stage rewards, regardless of grant order.");
             Assert.That(target.CanStartStage(3), Is.True);
@@ -53,8 +55,8 @@ namespace TurnLimbo.Core.Tests
             // The restored node in progress keeps counting battles.
             Assert.That(target.TryStartStage(1), Is.True);
             Assert.That(target.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
-            Assert.That(target.Curriculum.IsCompleted("advance"), Is.True);
-            Assert.That(target.OwnedSkills.Any(owned => owned.SkillId == 12), Is.True);
+            Assert.That(target.Curriculum.IsCompleted("quick-draw"), Is.True);
+            Assert.That(target.OwnedSkills.Any(owned => owned.SkillId == 42), Is.True);
         }
 
         [TestCase(OpeningVoiceChoice.Leave)]
@@ -130,7 +132,10 @@ namespace TurnLimbo.Core.Tests
             Assert.That(campaign.OwnedSkills.Select(entry => entry.SkillId), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(campaign.GetEquippedLane(0)[1].Skill.Name, Is.EqualTo("연속 베기"),
                 "A pre-redesign ID now reads its current definition without changing the saved lane.");
-            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign)), Is.EqualTo(olderSave));
+            Assert.That(campaign.RestoreDroppedCurriculum, Is.False, "It had no curriculum progress to drop, so no notice.");
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign)),
+                Is.EqualTo(olderSave.Replace("cleared\n", $"cleared\ncurriculum-tree {CampaignCurriculum.TreeVersion}\n")),
+                "Saving again only adds the tree version line.");
             Assert.That(campaign.TrainingVictoryCount, Is.Zero, "The optional field is absent in older saves.");
             Assert.That(campaign.OwnedSkills.All(entry => entry.Experience == 0), Is.True,
                 "The optional experience records are absent in older saves.");
@@ -261,20 +266,22 @@ namespace TurnLimbo.Core.Tests
                 ["stage 9"] = Save(2, With(valid, cleared: new[] { 9 })),
                 ["duplicate clear"] = Save(2, With(valid, cleared: new[] { 1, 1 })),
                 ["unknown node"] = Save(2, With(valid, done: done.Append("no-such-node"))),
-                ["node done twice"] = Save(2, With(valid, done: done.Append("breathing"))),
-                ["node before its prerequisite"] = Save(2, With(valid, done: new[] { "breathing", "diagonal-cut", "horizontal-cut" })),
-                ["node before either opener"] = Save(2, With(valid, done: new[] { "breathing", "horizontal-cut", "preparation", "diagonal-cut" })),
-                ["both exclusive nodes done"] = Save(2, With(valid, done: done.Concat(new[] { "one-stroke", "quick-draw" }))),
+                ["node done twice"] = Save(2, With(valid, done: done.Append("horizontal-cut"))),
+                ["node before its prerequisite"] = Save(2, With(valid, done: new[] { "horizontal-cut", "advance", "preparation" })),
+                ["capstone before either twist"] = Save(2, With(valid, done: done.Concat(new[] { "quick-draw", "estocada" }))),
+                ["bridge after one of its two twists"] = Save(2, With(valid,
+                    done: done.Concat(new[] { "quick-draw", "esquive", "battement" }))),
+                ["node of the removed one-stroke"] = Save(2, With(valid, done: done.Append("one-stroke"))),
                 ["unknown node in progress"] = Save(2, With(valid, active: "no-such-node")),
                 ["locked node in progress"] = Save(2, With(valid, active: "vital-thrust")),
-                ["excluded node in progress"] = Save(2, With(valid, done: done.Append("one-stroke"), active: "quick-draw")),
-                ["completed node in progress"] = Save(2, With(valid, active: "breathing")),
+                ["completed node in progress"] = Save(2, With(valid, active: "horizontal-cut")),
                 ["negative battles"] = Save(2, With(valid, battles: -1)),
                 ["battles past the node"] = Save(2, With(valid, battles: 1)),
                 ["battles without a node"] = Save(2, new CampaignSave(valid.Currency, valid.ClearedStages,
                     valid.CurriculumCompleted, null, 1, valid.Loadout)),
-                ["skill of an uncompleted node"] = Save(2, With(valid, done: new[] { "breathing" })),
-                ["skill of the node in progress"] = Save(2, With(valid, loadout: SwapFirst(lanes, 2, 12))),
+                ["skill of an uncompleted node"] = Save(2, With(valid, loadout: SwapFirst(lanes, 0, 15))),
+                ["skill of the node in progress"] = Save(2, With(valid, loadout: SwapFirst(lanes, 0, 42))),
+                ["stage 7 reward before stage 7"] = Save(2, With(valid, loadout: SwapFirst(lanes, 1, 16))),
                 ["unknown skill"] = Save(2, With(valid, loadout: SwapFirst(lanes, 0, 9999))),
                 ["two lanes"] = Save(2, With(valid, loadout: lanes.Take(2))),
                 ["short lane"] = Save(2, With(valid, loadout: new[] { lanes[0].Take(2).ToList(), lanes[1], lanes[2] })),
@@ -350,6 +357,11 @@ namespace TurnLimbo.Core.Tests
                 ["skill experience extra count"] = valid + "skill-xp 1 2 3\n",
                 ["skill experience not a number"] = valid + "skill-xp 1 many\n",
                 ["repeated field-pickups"] = valid + "field-pickups forest-pierce\nfield-pickups forest-finisher\n",
+                ["repeated curriculum-tree"] = valid + "curriculum-tree 2\n",
+                ["curriculum-tree zero"] = valid.Replace("curriculum-tree 2", "curriculum-tree 0"),
+                ["curriculum-tree not a number"] = valid.Replace("curriculum-tree 2", "curriculum-tree two"),
+                ["curriculum-tree pair"] = valid.Replace("curriculum-tree 2", "curriculum-tree 2 3"),
+                ["bare curriculum-tree"] = valid.Replace("curriculum-tree 2", "curriculum-tree"),
                 ["not a number"] = valid.Replace("currency 0", "currency many"),
                 ["prologue pair"] = valid.Replace("prologue 0", "prologue 0 1"),
             };
@@ -384,11 +396,11 @@ namespace TurnLimbo.Core.Tests
             Assert.That(parsed.Campaign.CurriculumActive, Is.Null, "An empty curriculum-active line means no node in progress.");
             Assert.That(parsed.Campaign.CurriculumBattles, Is.Zero);
 
-            string progressed = valid.Replace("curriculum-done\n", "curriculum-done  advance   breathing \n")
-                .Replace("curriculum-active\n", "curriculum-active vital-thrust 0\n");
+            string progressed = valid.Replace("curriculum-done\n", "curriculum-done  horizontal-cut   preparation \n")
+                .Replace("curriculum-active\n", "curriculum-active advance 0\n");
             Assert.That(GameSaveCodec.TryParse(progressed, out parsed, out error), Is.True, error);
-            CollectionAssert.AreEqual(new[] { "advance", "breathing" }, parsed.Campaign.CurriculumCompleted);
-            Assert.That(parsed.Campaign.CurriculumActive, Is.EqualTo("vital-thrust"));
+            CollectionAssert.AreEqual(new[] { "horizontal-cut", "preparation" }, parsed.Campaign.CurriculumCompleted);
+            Assert.That(parsed.Campaign.CurriculumActive, Is.EqualTo("advance"));
             Assert.That(parsed.Campaign.CurriculumBattles, Is.Zero);
             Assert.That(parsed.Validate(out error), Is.True, error);
 
@@ -417,6 +429,133 @@ namespace TurnLimbo.Core.Tests
             Assert.That(valid, Does.StartWith(GameSaveCodec.Header + " " + GameSave.CurrentVersion + "\n"));
         }
 
+        /// <summary>A save from before the keyword curriculum (2026-10-13): no curriculum-tree line, so tree version 1.
+        /// It completed the old roots advance and breathing and the old one-stroke, has vital-thrust in progress, equips the
+        /// old curriculum's 호흡 (17) and 알티바호 (16), has cleared stage 7, took a field pickup and trained four skills.</summary>
+        private const string OlderTreeSave = "turn-limbo-save 2\nprologue 4\ncurrency 480\ncleared 1 2 3 4 5 6 7\n" +
+            "curriculum-done advance breathing horizontal-cut diagonal-cut one-stroke\ncurriculum-active vital-thrust 0\n" +
+            "field-pickups forest-pierce\n" +
+            "lane 0 1 17 7\nlane 1 16 47 8\nlane 2 5 12 9\n" +
+            "skill-xp 1 4\nskill-xp 12 2\nskill-xp 16 3\nskill-xp 17 6\nskill-xp 47 1\n";
+
+        [Test]
+        public void SaveOfAnOlderTree_KeepsEverythingButItsCurriculum_AndSaysSoOnce()
+        {
+            Assert.That(GameSaveCodec.TryParse(OlderTreeSave, out GameSave parsed, out string error), Is.True, error);
+            Assert.That(parsed.Campaign.CurriculumTreeVersion, Is.EqualTo(1), "No line reads as the tree before versions.");
+            var prologue = new PrologueRun();
+            var campaign = new CampaignRun();
+            Assert.That(parsed.TryApply(prologue, campaign, out error), Is.True, error);
+            Assert.That(campaign.RestoreDroppedCurriculum, Is.True, "Progress was dropped, so the field says so once.");
+
+            Assert.That(campaign.Curriculum.Completed, Is.Empty);
+            Assert.That(campaign.Curriculum.Active, Is.Null);
+            Assert.That(campaign.Curriculum.ActiveBattles, Is.Zero);
+            Assert.That(prologue.ClearedCount, Is.EqualTo(4), "The story is kept…");
+            Assert.That(campaign.Currency, Is.EqualTo(480));
+            Assert.That(campaign.ClearedStageCount, Is.EqualTo(7), "…and the stages…");
+            CollectionAssert.AreEqual(new[] { "forest-pierce" }, campaign.CollectedFieldPickups, "…and the pickups.");
+            CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 43, 44, 45, 46, 16, 47 },
+                campaign.OwnedSkills.Select(owned => owned.SkillId), "Stage 7 now grants 16; the old curriculum's skills are gone.");
+            CollectionAssert.AreEqual(new[] { 1, 7, 2 }, campaign.GetEquippedLane(0).Select(owned => owned.SkillId),
+                "호흡 leaves its lane and the lane's next starting skill fills the gap.");
+            CollectionAssert.AreEqual(new[] { 16, 47, 8 }, campaign.GetEquippedLane(1).Select(owned => owned.SkillId),
+                "Stage and field skills stay where they were.");
+            CollectionAssert.AreEqual(new[] { 5, 9, 6 }, campaign.GetEquippedLane(2).Select(owned => owned.SkillId));
+            Assert.That(campaign.GetOwnedSkill(1).Experience, Is.EqualTo(4));
+            Assert.That(campaign.GetOwnedSkill(16).Experience, Is.EqualTo(3));
+            Assert.That(campaign.GetOwnedSkill(47).Experience, Is.EqualTo(1));
+            Assert.That(campaign.GetOwnedSkill(17), Is.Null, "Its experience went with it.");
+            Assert.That(campaign.Curriculum.GetState("horizontal-cut"), Is.EqualTo(CurriculumNodeState.Available));
+
+            // The next save records the current tree, so loading it again keeps the (new) curriculum and says nothing.
+            Assert.That(campaign.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            string saved = GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign));
+            StringAssert.Contains($"\ncurriculum-tree {CampaignCurriculum.TreeVersion}\n", saved);
+            StringAssert.DoesNotContain("skill-xp 17 ", saved);
+            Assert.That(GameSaveCodec.TryParse(saved, out GameSave again, out error), Is.True, error);
+            var reloaded = new CampaignRun();
+            Assert.That(again.TryApply(new PrologueRun(), reloaded, out error), Is.True, error);
+            Assert.That(reloaded.RestoreDroppedCurriculum, Is.False);
+            Assert.That(reloaded.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
+            reloaded.Reset();
+            Assert.That(reloaded.RestoreDroppedCurriculum, Is.False);
+        }
+
+        [Test]
+        public void SaveOfAnOlderTree_WithOnlyANodeInProgress_StillCountsAsDroppedProgress()
+        {
+            string onlyActive = OlderTreeSave
+                .Replace("curriculum-done advance breathing horizontal-cut diagonal-cut one-stroke\n", "curriculum-done\n")
+                .Replace("lane 0 1 17 7\n", "lane 0 1 2 7\n").Replace("skill-xp 17 6\n", string.Empty);
+            Assert.That(GameSaveCodec.TryParse(onlyActive, out GameSave parsed, out string error), Is.True, error);
+            CampaignSave reset = parsed.Campaign.ForCurriculumTree(CampaignCurriculum.TreeVersion, out bool dropped);
+            Assert.That(dropped, Is.True);
+            Assert.That(reset.CurriculumActive, Is.Null);
+            var campaign = new CampaignRun();
+            Assert.That(campaign.TryRestore(parsed.Campaign, out error), Is.True, error);
+            Assert.That(campaign.RestoreDroppedCurriculum, Is.True);
+        }
+
+        [Test]
+        public void ForCurriculumTree_ReturnsTheSameSaveForItsVersion_AndAnEmptyCurriculumForAnother()
+        {
+            CampaignSave current = PlayedCampaign().CaptureSave();
+            Assert.That(current.CurriculumTreeVersion, Is.EqualTo(CampaignCurriculum.TreeVersion));
+            Assert.That(current.ForCurriculumTree(CampaignCurriculum.TreeVersion, out bool dropped), Is.SameAs(current));
+            Assert.That(dropped, Is.False);
+
+            CampaignSave other = current.ForCurriculumTree(CampaignCurriculum.TreeVersion + 1, out dropped);
+            Assert.That(dropped, Is.True);
+            Assert.That(other.CurriculumTreeVersion, Is.EqualTo(CampaignCurriculum.TreeVersion + 1));
+            Assert.That(other.CurriculumCompleted, Is.Empty);
+            Assert.That(other.CurriculumActive, Is.Null);
+            Assert.That(other.CurriculumBattles, Is.Zero);
+            Assert.That((other.Currency, other.TrainingVictoryCount), Is.EqualTo((current.Currency, current.TrainingVictoryCount)));
+            CollectionAssert.AreEqual(current.ClearedStages, other.ClearedStages);
+            CollectionAssert.AreEqual(current.FieldPickups, other.FieldPickups);
+            CollectionAssert.AreEqual(current.SkillExperience, other.SkillExperience);
+            for (int lane = 0; lane < 3; lane++) CollectionAssert.AreEqual(current.Loadout[lane], other.Loadout[lane]);
+
+            CampaignSave fresh = new CampaignRun().CaptureSave().ForCurriculumTree(1, out dropped);
+            Assert.That(dropped, Is.False, "No progress, nothing to tell.");
+            Assert.That(fresh.CurriculumTreeVersion, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SaveOfTheCurrentTree_KeepsTheStrictCurriculumRules_WhileAnyOtherVersionIsReset()
+        {
+            string valid = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), new CampaignRun()));
+            string broken = valid.Replace("curriculum-done\n", "curriculum-done advance\n");
+            Assert.That(GameSaveCodec.TryParse(broken, out GameSave parsed, out string error), Is.True, error);
+            Assert.That(parsed.Validate(out error), Is.False, "Real damage in a current save still shows.");
+            StringAssert.Contains("advance", error);
+
+            foreach (string version in new[] { "1", "3" })
+            {
+                string marked = broken.Replace($"curriculum-tree {CampaignCurriculum.TreeVersion}", "curriculum-tree " + version);
+                Assert.That(GameSaveCodec.TryParse(marked, out parsed, out error), Is.True, error);
+                var campaign = new CampaignRun();
+                Assert.That(parsed.TryApply(new PrologueRun(), campaign, out error), Is.True, version + ": " + error);
+                Assert.That(campaign.RestoreDroppedCurriculum, Is.True, version);
+                Assert.That(campaign.Curriculum.CompletedCount, Is.Zero, version);
+            }
+        }
+
+        [Test]
+        public void TitleSummaryCount_ReadsTheSaveAsLoadingWill()
+        {
+            // DuelPrototypeController.DescribeSave counts through ForCurriculumTree, so 이어하기 shows what loading gives.
+            foreach (string text in new[] { OlderTreeSave, GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), PlayedCampaign())) })
+            {
+                Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+                int shown = parsed.Campaign.ForCurriculumTree(CampaignCurriculum.TreeVersion, out _).CurriculumCompleted.Count;
+                var campaign = new CampaignRun();
+                Assert.That(parsed.TryApply(new PrologueRun(), campaign, out error), Is.True, error);
+                Assert.That(shown, Is.EqualTo(campaign.Curriculum.CompletedCount));
+            }
+        }
+
         [Test]
         public void PrologueRun_RestoresOnlyCountsInsideTheArc()
         {
@@ -433,22 +572,22 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.IsComplete, Is.True, "A rejected count changes nothing.");
         }
 
-        /// <summary>Two cleared stages; breathing, horizontal-cut and diagonal-cut completed in that order (the last one
-        /// with a lost battle); the granted skill 14 placed in its lane and saved; advance in progress.</summary>
+        /// <summary>Two cleared stages; horizontal-cut, preparation and advance completed in that order (the last one
+        /// with a lost battle); the granted skill 14 placed in its lane and saved; quick-draw in progress.</summary>
         private static CampaignRun PlayedCampaign()
         {
             var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("breathing"), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("preparation"), Is.True);
             Assert.That(run.TryStartNextStage(), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("advance"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
             Assert.That(run.ReturnToLobby(), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("advance"), Is.True);
+            Assert.That(run.TrySelectCurriculumNode("quick-draw"), Is.True);
             Assert.That(run.TryPlaceLoadoutSkill(14, 0, 0), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
             return run;

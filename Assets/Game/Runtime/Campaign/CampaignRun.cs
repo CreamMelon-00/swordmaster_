@@ -511,6 +511,7 @@ namespace TurnLimbo.Runtime.Campaign
             collectedFieldPickups.Clear();
             LastCompletedCurriculumNode = null;
             LastOutcome = null;
+            RestoreDroppedCurriculum = false;
             StageNumber = 1;
             Currency = LastReward = 0;
             Array.Clear(clearedStages, 0, clearedStages.Length);
@@ -543,14 +544,23 @@ namespace TurnLimbo.Runtime.Campaign
                 loadout, TrainingVictoryCount, skillExperience, collectedFieldPickups);
         }
 
+        /// <summary>Whether the last successful <see cref="TryRestore"/> dropped curriculum progress that was made with
+        /// another version of the default tree (<see cref="CampaignSave.ForCurriculumTree"/>), so the player should be told
+        /// once. False after a restore that kept or had no progress, and after <see cref="Reset"/>.</summary>
+        public bool RestoreDroppedCurriculum { get; private set; }
+
         /// <summary>Replaces this run with a saved state, back in the lobby with the saved loadout as the draft.
-        /// The whole save is checked first; when it breaks a rule nothing changes and <paramref name="error"/> says why.
-        /// Curriculum progress is restored whether or not the curriculum is open (an older save may hold some before
+        /// A save made with another curriculum tree version is first normalized (<see cref="NormalizeSave"/>): its
+        /// curriculum is emptied, its lanes lose the techniques only the curriculum granted and its experience records lose
+        /// theirs. The whole save is then checked; when it breaks a rule nothing changes and <paramref name="error"/> says
+        /// why. Curriculum progress is restored whether or not the curriculum is open (an older save may hold some before
         /// mission 8); a closed curriculum keeps it untouched until it opens.</summary>
         public bool TryRestore(CampaignSave save, out string error)
         {
+            save = NormalizeSave(save, out bool droppedCurriculum);
             error = ValidateSave(save);
             if (error != null) return false;
+            RestoreDroppedCurriculum = droppedCurriculum;
 
             curriculum.Restore(save.CurriculumCompleted, save.CurriculumActive, save.CurriculumBattles);
             LastCompletedCurriculumNode = null;
@@ -586,6 +596,52 @@ namespace TurnLimbo.Runtime.Campaign
             LastReward = 0;
             Phase = CampaignPhase.Lobby;
             return true;
+        }
+
+        /// <summary>A save of the current curriculum tree version as it is. Any other version gets its curriculum
+        /// emptied (<see cref="CampaignSave.ForCurriculumTree"/>), which can leave techniques it granted in the lanes and in
+        /// the experience records: a lane drops each technique the save no longer owns and takes the lane's starting
+        /// techniques in sheet order, as many as it dropped, and an experience record of a technique no longer owned goes.
+        /// What is owned is the starting techniques, the cleared stages' first-clear rewards and the field pickups taken,
+        /// so a save that had cleared stage 7 keeps 16 알티바호. Everything else is left for the strict check that follows,
+        /// so real damage still shows.</summary>
+        private static CampaignSave NormalizeSave(CampaignSave save, out bool droppedCurriculum)
+        {
+            droppedCurriculum = false;
+            if (save == null || save.CurriculumTreeVersion == CampaignCurriculum.TreeVersion) return save;
+            CampaignSave reset = save.ForCurriculumTree(CampaignCurriculum.TreeVersion, out droppedCurriculum);
+            var owned = new HashSet<int>();
+            foreach (LegacySkill skill in LegacyInitialSkills.All) owned.Add(skill.Id);
+            foreach (int number in reset.ClearedStages)
+                if (number >= 1 && number <= stages.Length && stages[number - 1].FirstClearSkillId != 0)
+                    owned.Add(stages[number - 1].FirstClearSkillId);
+            foreach (string id in reset.FieldPickups)
+            {
+                CampaignFieldPickup pickup = CampaignFieldPickups.Find(id);
+                if (pickup != null) owned.Add(pickup.SkillId);
+            }
+            var lanes = new List<List<int>>();
+            for (int lane = 0; lane < reset.Loadout.Count; lane++)
+            {
+                var kept = new List<int>();
+                foreach (int id in reset.Loadout[lane])
+                    if (owned.Contains(id)) kept.Add(id);
+                int dropped = reset.Loadout[lane].Count - kept.Count;
+                foreach (LegacySkill skill in LegacyInitialSkills.All)
+                {
+                    if (dropped == 0) break;
+                    if (skill.LaneIndex != lane || kept.Contains(skill.Id)) continue;
+                    kept.Add(skill.Id);
+                    dropped--;
+                }
+                lanes.Add(kept);
+            }
+            var experience = new List<KeyValuePair<int, int>>();
+            foreach (KeyValuePair<int, int> entry in reset.SkillExperience)
+                if (owned.Contains(entry.Key)) experience.Add(entry);
+            return new CampaignSave(reset.Currency, reset.ClearedStages, reset.CurriculumCompleted, reset.CurriculumActive,
+                reset.CurriculumBattles, lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups,
+                reset.CurriculumTreeVersion);
         }
 
         private string ValidateSave(CampaignSave save)
@@ -794,7 +850,7 @@ namespace TurnLimbo.Runtime.Campaign
             EnemyResistance = 15 + 3 * (number - 1);
             EnemyPowerBonus = number - 1;
             Reward = 60 + 10 * (number - 1);
-            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 5 ? 46 : 0;
+            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 5 ? 46 : number == 7 ? 16 : 0;
             // Placeholder counters until enemy archetypes exist: a guard (막기, 7) that taxes a
             // one-sided attack from stage five, then a strong thrust (정교한 찌르기, 4) from stage seven.
             enemyCounterSkillId = number >= 7 ? 4 : number >= 5 ? 7 : 0;

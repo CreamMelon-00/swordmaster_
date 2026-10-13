@@ -250,7 +250,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(plainHeight, Is.LessThan(580f), "The detail should not keep the 644px card it is built with.");
                 Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.False);
                 AssertCurriculumSections(detail);
-                foreach (string id in new[] { "horizontal-cut", "one-stroke", "quick-draw", "advance", "preparation", "fighting-spirit" })
+                foreach (string id in new[] { "horizontal-cut", "battement", "quick-draw", "advance", "preparation", "fighting-spirit" })
                 {
                     Click(lobby.Root, "Curriculum Node " + id);
                     Canvas.ForceUpdateCanvases();
@@ -264,11 +264,10 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.EqualTo(node.ExclusiveWith.Count > 0));
                     AssertCurriculumSections(detail);
                 }
-                // 호흡 and 유연함 share the plain guard copy, so the exclusive pair is the only difference.
+                // No node of the keyword curriculum (2026-10-13) closes another, so the exclusivity line stays hidden.
                 Click(lobby.Root, "Curriculum Node suppleness");
                 Canvas.ForceUpdateCanvases();
-                Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.True);
-                Assert.That(Label(detail, "Curriculum Exclusive").text, Does.Contain("르프리즈"));
+                Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.False);
                 Assert.That(border.rect.height, Is.EqualTo(plainHeight).Within(.1f), "The exclusivity line has reserved space in every card.");
                 Assert.That(Bounds(border, border.parent).yMax, Is.EqualTo(top).Within(.1f));
                 AssertCurriculumSections(detail);

@@ -86,7 +86,9 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void RenamedSheetRows_ReachTheCoachTheBriefingAndTheCurriculum()
         {
-            CurriculumNode oneStroke = CampaignCurriculum.Default.Find("one-stroke");
+            // The default tree's descriptions name no other technique now, so a node of a supplied tree carries the token.
+            var oneStroke = new CurriculumNode("one-stroke", null, CurriculumBranch.Collapse, 0f, 0, new[] { 16 },
+                description: "위력이 크게 흔들리는 단 한 번의 일격입니다. {기술:42:와} 함께 고를 수 없습니다.");
             CurriculumNode quickDraw = CampaignCurriculum.Default.Find("quick-draw");
             PrologueMission mission = StoryMissions.Get(3);
             IReadOnlyList<MissionGuideBeat> beats = mission.CreateGuide().Beats;
@@ -132,13 +134,13 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void CurriculumNode_WithoutATitleUsesItsOnlySkillsName()
         {
-            var node = new CurriculumNode("a", null, CurriculumBranch.Slash, 0f, 0, new[] { 12 },
+            var node = new CurriculumNode("a", null, CurriculumBranch.Circulation, 0f, 0, new[] { 12 },
                 description: "{기술:19:와} 함께 고를 수 없습니다.");
             Assert.That(node.Title, Is.EqualTo("플레슈"));
             Assert.That(node.Description, Is.EqualTo("르프리즈와 함께 고를 수 없습니다."));
-            Assert.That(new CurriculumNode("b", "{기술:7} 수련", CurriculumBranch.Guard, 0f, 0, new[] { 7, 8 }).Title,
+            Assert.That(new CurriculumNode("b", "{기술:7} 수련", CurriculumBranch.Retraction, 0f, 0, new[] { 7, 8 }).Title,
                 Is.EqualTo("막기 수련"), "A written title may use tokens too.");
-            Assert.That(new CurriculumNode("c", null, CurriculumBranch.Guard, 0f, 0, new[] { 999 }).Title, Is.EqualTo("{기술:999?}"));
+            Assert.That(new CurriculumNode("c", null, CurriculumBranch.Retraction, 0f, 0, new[] { 999 }).Title, Is.EqualTo("{기술:999?}"));
         }
 
         private static void AssertFormatted(string text, string label)

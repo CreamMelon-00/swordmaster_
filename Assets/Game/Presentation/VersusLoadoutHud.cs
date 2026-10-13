@@ -279,7 +279,8 @@ namespace TurnLimbo.Presentation
         private void BuildAvailableCards()
         {
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills) AddAvailableCard(skill);
-            foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills) AddAvailableCard(skill);
+            foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills)
+                if (!VersusLoadout.IsExcluded(skill.Id)) AddAvailableCard(skill);
         }
 
         private void AddAvailableCard(LegacySkill skill)
@@ -348,7 +349,7 @@ namespace TurnLimbo.Presentation
 
         private static LegacySkill FindAvailable(int id)
         {
-            if (id == 0) return null;
+            if (id == 0 || VersusLoadout.IsExcluded(id)) return null;
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills)
                 if (skill.Id == id) return skill;
             foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills)

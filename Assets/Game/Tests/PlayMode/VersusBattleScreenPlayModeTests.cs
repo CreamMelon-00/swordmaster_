@@ -150,6 +150,55 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator Clocks_PayAReservationsTime_StartLaterByWhatTheTurnEarned_AndStayUnderThirtySeconds()
+        {
+            yield return null;
+            using (var scope = new VersusScope())
+            {
+                LocalVersusController versus = scope.Versus;
+                // The host: Q = 사선베기 잔걸음, W = 두블레 (제한시간 -4초).
+                LegacySkill[] host = { LegacySkillDefinitions.Skill(15), LegacySkillDefinitions.Skill(57), LegacySkillDefinitions.Skill(56) };
+                scope.StartHost(host, LegacyInitialSkills.All);
+                LocalVersusMatch match = versus.Match;
+                versus.Tick(0f, null);
+                Assert.That(versus.BattleHud.GetLaneCostLabel(1), Is.EqualTo("3 ACT · 4초"), "Versus clocks always run.");
+                versus.Tick(16f, null);
+                Assert.That(versus.LeftClock, Is.EqualTo(Seconds - 16f).Within(1e-3f));
+                Assert.That(versus.TryQueueLane(1), Is.False, "4 seconds left cannot pay 4 and keep half a second.");
+                Assert.That(versus.TryQueueLane(0), Is.True);
+                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
+                Assert.That(versus.TryQueueLane(0), Is.True, "잔걸음 behind 사선베기: +2 seconds next turn.");
+                Assert.That(versus.LeftClock, Is.EqualTo(Seconds - 16f).Within(1e-3f), "Neither costs time.");
+                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
+                Assert.That(versus.TryPass(), Is.True);
+                Assert.That(scope.TickUntil(() => match.RoundNumber == 2 && !versus.IsResolving), Is.True);
+                Assert.That(match.Left.PlanningSecondsBonus, Is.EqualTo(2));
+                Assert.That(versus.LeftClock, Is.EqualTo(Seconds + 2f), "The host's clock starts 2 seconds later…");
+                Assert.That(versus.TurnClock(0), Is.EqualTo(Seconds + 2f), "…and its bar measures against that start.");
+                Assert.That(versus.RightClock, Is.EqualTo(Seconds), "Only the user's own clock moves.");
+                Assert.That(match.CurrentPlanner, Is.EqualTo(1), "The guest opens round 2.");
+                Assert.That(versus.BattleHud.TimeSpentText, Is.Null,
+                    "The timer shows the guest's clock, so the host's '+2초' waits for its own.");
+
+                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 2), Is.True);
+                Assert.That(versus.BattleHud.TimeSpentText, Is.EqualTo("+2초"), "…and rises off the timer once it shows the host's.");
+                Assert.That(versus.TryQueueLane(1), Is.True);
+                Assert.That(versus.LeftClock, Is.EqualTo(Seconds + 2f - 4f).Within(1e-3f), "The host takes the time as it applies.");
+                Assert.That(versus.BattleHud.GetLanePop(1), Is.EqualTo("-4초"),
+                    "The timer has turned to the guest's clock, so the cost rises over the reserved lane instead.");
+            }
+
+            using (var scope = new VersusScope())
+            {
+                LocalVersusController versus = scope.Versus;
+                scope.StartGuest(LegacyInitialSkills.All, LegacyInitialSkills.All, opening: 1);
+                versus.SyncOnlineClocks(29f, 45f);
+                Assert.That((versus.LeftClock, versus.RightClock), Is.EqualTo((29f, LegacyPlanningClock.VersusCeilingSeconds)),
+                    "The guest follows the host's clocks up to 30 seconds.");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Guest_NeverAsksTheHostForACommandItsOwnMatchRefuses()
         {
             yield return null;

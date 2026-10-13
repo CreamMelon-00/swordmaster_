@@ -24,11 +24,11 @@ namespace TurnLimbo.Runtime.Campaign
         /// <summary>What the game cannot run with, one Korean line each; empty when the sheet fits the code.
         /// <list type="bullet">
         /// <item>A technique a <see cref="CampaignCurriculum.Default"/> node grants is missing (completing the node would
-        /// stop the battle's end), is a 시작 row (the node would grant nothing; the curriculum gives 획득 rows) or is an
-        /// 적 row (the player would own an enemy-only technique).</item>
-        /// <item>A first-clear stage reward is missing or is a 시작 or 적 row.</item>
+        /// stop the battle's end), is a 시작 row (the node would grant nothing; the curriculum gives 획득 rows), an 적 row (the
+        /// player would own an enemy-only technique) or a 일회성 row (one another skill sets in a lane for a turn).</item>
+        /// <item>A first-clear stage reward is missing or is a 시작, 적 or 일회성 row.</item>
         /// <item>A technique a <see cref="CampaignFieldPickups"/> pickup grants is missing (taking it would stop the game) or
-        /// is a 시작 or 적 row.</item>
+        /// is a 시작, 적 or 일회성 row.</item>
         /// <item>An id of <see cref="CodeSkillIds"/> is missing.</item>
         /// </list></summary>
         public static IReadOnlyList<string> Problems(LegacySkillTable table)
@@ -51,6 +51,10 @@ namespace TurnLimbo.Runtime.Campaign
                         problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.EnemyGroup}'입니다. " +
                             $"커리큘럼 과정 '{node.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
                             "(적 기술은 플레이어가 얻거나 편성하지 않습니다).");
+                    else if (table.IsTemporary(definition))
+                        problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.TemporaryGroup}'입니다. " +
+                            $"커리큘럼 과정 '{node.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
+                            "(일회성 기술은 다른 기술이 한 턴 동안만 세우며, 플레이어가 얻거나 편성하지 않습니다).");
                     reported.Add(id);
                 }
             foreach (CampaignStage stage in CampaignRun.StageDefinitions)
@@ -65,6 +69,9 @@ namespace TurnLimbo.Runtime.Campaign
                         $"스테이지 {stage.Number} 첫 클리어 보상이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다.");
                 else if (table.IsEnemy(definition))
                     problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.EnemyGroup}'입니다. " +
+                        $"스테이지 {stage.Number} 첫 클리어 보상이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다.");
+                else if (table.IsTemporary(definition))
+                    problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.TemporaryGroup}'입니다. " +
                         $"스테이지 {stage.Number} 첫 클리어 보상이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다.");
                 reported.Add(id);
             }
@@ -83,6 +90,10 @@ namespace TurnLimbo.Runtime.Campaign
                     problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.EnemyGroup}'입니다. " +
                         $"필드 습득물 '{pickup.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
                         "(적 기술은 플레이어가 얻거나 편성하지 않습니다).");
+                else if (table.IsTemporary(definition))
+                    problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.TemporaryGroup}'입니다. " +
+                        $"필드 습득물 '{pickup.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
+                        "(일회성 기술은 플레이어가 얻거나 편성하지 않습니다).");
                 reported.Add(id);
             }
             foreach (int id in CodeSkillIds)
@@ -93,8 +104,8 @@ namespace TurnLimbo.Runtime.Campaign
         }
 
         /// <summary>What still runs but is probably unintended, one Korean line each: a 획득 row no stage, curriculum node or
-        /// field pickup grants, which the game never hands out. A programmer adds the grant after the designer adds the row, so
-        /// this never blocks.</summary>
+        /// field pickup grants, which the game never hands out, and a 일회성 row no row's 예약 효과 <c>일회성 &lt;ID&gt; ×n</c> sets,
+        /// which never reaches a battle. A programmer adds the grant after the designer adds the row, so this never blocks.</summary>
         public static IReadOnlyList<string> Warnings(LegacySkillTable table)
         {
             if (table == null) throw new ArgumentNullException(nameof(table));
@@ -105,6 +116,14 @@ namespace TurnLimbo.Runtime.Campaign
                     warnings.Add($"ID {skill.Id} {skill.Name}: '{Column.Group}'이(가) '{LegacySkillSheet.AcquisitionGroup}'이지만 " +
                         "이 기술을 주는 커리큘럼 과정이나 필드 습득물이 없어 게임에서 얻을 수 없습니다. " +
                         "프로그래머가 CampaignCurriculum.cs에 과정을, 또는 CampaignFieldPickups.cs에 습득물을 넣어야 합니다.");
+            var spawned = new HashSet<int>();
+            foreach (LegacySkillDefinition definition in table.All)
+                if (definition.Effect.HasTemporarySpawn) spawned.Add(definition.Effect.ReserveTemporarySkillId);
+            foreach (LegacySkill skill in table.TemporarySkills)
+                if (!spawned.Contains(skill.Id))
+                    warnings.Add($"ID {skill.Id} {skill.Name}: '{Column.Group}'이(가) '{LegacySkillSheet.TemporaryGroup}'이지만 " +
+                        $"'{Column.ReserveEffect}'에 '{LegacySkillLabels.TemporaryPhrase} {skill.Id} ×N'을(를) 적은 기술이 없어 " +
+                        "전투에 나오지 않습니다. 이 기술을 세울 기술의 행에 그 구절을 적으세요.");
             return warnings.AsReadOnly();
         }
 

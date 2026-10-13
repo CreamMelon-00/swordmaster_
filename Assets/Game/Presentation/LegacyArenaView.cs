@@ -640,7 +640,9 @@ namespace TurnLimbo.Presentation
         /// <summary>Presentation only: the session/controller owns timing and step effects.</summary>
         /// <param name="successStreak">Consecutive successes this turn including this one; a longer
         /// streak deepens and lengthens the success slow motion (up to <see cref="MaximumSlowStreak"/>).</param>
-        public void PerformStep(LegacyStepAction action, bool success = false, int successStreak = 1)
+        /// <param name="cinematic">False for a skill's automatic dodge (사용 효과 자동 회피): the same step back and afterimages,
+        /// without the step's focus or slow motion, which belong to a timed step.</param>
+        public void PerformStep(LegacyStepAction action, bool success = false, int successStreak = 1, bool cinematic = true)
         {
             if (disposed || !resolving || approaching || returning ||
                 (action != LegacyStepAction.Dodge && action != LegacyStepAction.Pressure)) return;
@@ -661,7 +663,7 @@ namespace TurnLimbo.Presentation
                 pressureAttackTrail = true;
                 pressureTrailSampleTime = 0f;
             }
-            PresentStepFeedback(action, success, successStreak);
+            if (cinematic) PresentStepFeedback(action, success, successStreak);
         }
 
         public const int MaximumSlowStreak = 5;

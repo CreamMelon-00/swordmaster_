@@ -21,6 +21,9 @@ namespace TurnLimbo.Presentation
         // card closes up around it, half from above and half from below.
         private const float CurriculumRowHeight = 114f, NoticeY = -161f, ActionY = -255f;
         private readonly RectTransform cardBorder, cardSurface, curriculumPanel;
+        // A completed node's skill: its icon on its lane's dye at the row's left, and the row's stripe in that dye.
+        private readonly Image curriculumAccent, curriculumIconFrame, curriculumIcon;
+        private static readonly Vector2 CurriculumLabelHome = new Vector2(-210f, -14f), CurriculumLabelBesideIcon = new Vector2(-176f, -14f);
         private readonly RectTransform[] upperRows;
         private readonly float[] upperRowY;
         private float actionY = ActionY;
@@ -86,14 +89,20 @@ namespace TurnLimbo.Presentation
             var progress = Panel("Result Curriculum Panel", card.transform, new Vector2(0f, -61f),
                 new Vector2(736f, 104f), Raised);
             curriculumPanel = progress.rectTransform;
-            Panel("Result Curriculum Accent", progress.transform, new Vector2(-366f, 0f),
+            curriculumAccent = Panel("Result Curriculum Accent", progress.transform, new Vector2(-366f, 0f),
                 new Vector2(4f, 104f), Accent);
+            curriculumIconFrame = Panel("Result Curriculum Icon Frame", progress.transform, new Vector2(-322f, -8f),
+                new Vector2(60f, 60f), Accent);
+            Panel("Result Curriculum Icon Surface", curriculumIconFrame.transform, Vector2.zero, new Vector2(54f, 54f), Surface);
+            curriculumIcon = Panel("Result Curriculum Icon", curriculumIconFrame.transform, Vector2.zero, new Vector2(48f, 48f), Color.white);
+            curriculumIcon.preserveAspect = true;
+            curriculumIconFrame.gameObject.SetActive(false);
             Label("Result Curriculum Heading", progress.transform, new Vector2(-210f, 27f), new Vector2(300f, 28f), 18, Muted).text = "커리큘럼";
             curriculum = Label("Result Curriculum", progress.transform, new Vector2(-210f, -14f), new Vector2(300f, 48f), 30, Gold);
             curriculum.resizeTextForBestFit = true;
             curriculum.resizeTextMinSize = 20;
             curriculum.resizeTextMaxSize = 30;
-            curriculumDetail = Label("Result Curriculum Detail", progress.transform, new Vector2(170f, 0f), new Vector2(360f, 72f), 19);
+            curriculumDetail = Label("Result Curriculum Detail", progress.transform, new Vector2(170f, 0f), new Vector2(360f, 88f), 19);
             curriculumDetail.resizeTextForBestFit = true;
             curriculumDetail.resizeTextMinSize = 14;
             curriculumDetail.resizeTextMaxSize = 19;
@@ -206,6 +215,7 @@ namespace TurnLimbo.Presentation
             enemyHealth.text = Mathf.Max(0, opponentHealth).ToString();
             LayoutCurriculumRow(false);
             curriculum.text = curriculumDetail.text = string.Empty;
+            ShowCurriculumSkill(null);
             notice.text = VersusNotice;
             lobbyCaption.text = VersusExitCaption;
             lobbyButton.gameObject.SetActive(true);
@@ -301,6 +311,8 @@ namespace TurnLimbo.Presentation
         private void ShowCurriculum(BattleResult result)
         {
             CurriculumNode completed = result.CompletedCurriculumNode, active = result.ActiveCurriculumNode;
+            ShowCurriculumSkill(result.CurriculumOpen && !result.IsMission && completed != null && completed.SkillIds.Count > 0
+                ? LegacySkillDefinitions.Find(completed.SkillIds[0])?.Skill : null);
             if (!result.CurriculumOpen)
             {
                 // The row is hidden (LayoutCurriculumRow); nothing in it is left to name the curriculum either.
@@ -317,13 +329,13 @@ namespace TurnLimbo.Presentation
             }
             if (completed != null)
             {
-                curriculum.text = completed.Title + " 완료";
+                curriculum.text = CompletionTitle(completed, result.CompletedCurriculumCourse);
                 curriculum.color = Gold;
                 string stats = StatRewardText(completed.StatReward);
-                curriculumDetail.text = completed.SkillIds.Count == 0
+                curriculumDetail.text = (completed.SkillIds.Count == 0
                     ? "능력치 증가\n" + stats
                     : completed.StatReward.IsEmpty ? "새 기술  " + SkillNames(completed) + "\n편성에서 장착할 수 있습니다."
-                        : "새 기술  " + SkillNames(completed) + "\n" + stats;
+                        : "새 기술  " + SkillNames(completed) + "\n" + stats) + OpenedLine(result.OpenedCurriculumNodes);
             }
             else if (active != null)
             {
@@ -343,6 +355,40 @@ namespace TurnLimbo.Presentation
                 curriculum.color = Muted;
                 curriculumDetail.text = "학원 메뉴의 커리큘럼에서 과정을 고르면\n전투마다 진행됩니다.";
             }
+        }
+
+        /// <summary>The row's title for a completed node: <c>가로베기 완료</c>, or when it ends the trunk or a school
+        /// <c>기초 과정 수료</c>, <c>붕괴 과정 수료</c>.</summary>
+        public static string CompletionTitle(CurriculumNode node, bool course)
+            => course ? CampaignCurriculumHud.BranchName(node.Branch) + " 과정 수료" : node.Title + " 완료";
+
+        /// <summary>The detail's last line naming what the completion opened (<c>새로 열린 과정: 사선베기 · 쿠페 · 유연함</c>),
+        /// with its line break; empty when it opened nothing.</summary>
+        public static string OpenedLine(System.Collections.Generic.IReadOnlyList<CurriculumNode> opened)
+        {
+            if (opened == null || opened.Count == 0) return string.Empty;
+            var titles = new string[opened.Count];
+            for (int index = 0; index < titles.Length; index++) titles[index] = opened[index].Title;
+            return "\n새로 열린 과정: " + string.Join(" · ", titles);
+        }
+
+        // A completed node's skill at the row's left on its lane's dye (the stripe takes the dye too); none puts the
+        // row back as it was.
+        private void ShowCurriculumSkill(LegacySkill skill)
+        {
+            bool shown = skill != null;
+            curriculumIconFrame.gameObject.SetActive(shown);
+            curriculumAccent.color = shown ? SkillLaneStyle.Edge(skill.LaneIndex) : Accent;
+            curriculum.rectTransform.anchoredPosition = shown ? CurriculumLabelBesideIcon : CurriculumLabelHome;
+            curriculum.rectTransform.sizeDelta = new Vector2(shown ? 232f : 300f, 48f);
+            if (!shown)
+            {
+                curriculumIcon.sprite = null;
+                return;
+            }
+            curriculumIconFrame.color = SkillLaneStyle.Edge(skill.LaneIndex);
+            curriculumIcon.sprite = art.GetSkillIcon(skill.IconId);
+            curriculumIcon.enabled = curriculumIcon.sprite != null;
         }
 
         private static string SkillNames(CurriculumNode node)

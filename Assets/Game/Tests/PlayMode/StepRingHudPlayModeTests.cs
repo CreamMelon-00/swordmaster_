@@ -579,6 +579,37 @@ namespace TurnLimbo.Presentation.Tests
             return alpha;
         }
 
+        [UnityTest]
+        public IEnumerator AutoDodgeSlot_ShowsItsNoticeInAsPlaceOverAFullRing_AndKeepsPressure()
+        {
+            yield return null;
+            using (var fixture = new RingFixture())
+            {
+                // 54 에스키브 (사용 효과 자동 회피) against an attack.
+                var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000, new[] { LegacySkillDefinitions.Skill(54) },
+                    new[] { Skill(201, 1, false) }, new[] { 1 }, 1, playerActGainBonus: 7);
+                Assert.That(duel.TryQueueLane(2), Is.True);
+                duel.Commit();
+                LegacyCurrentSlot slot = duel.BeginNextSlot();
+                Assert.That(slot.AutoDodge && slot.DodgeSucceeded, Is.True);
+                fixture.Refresh(slot, .4f, true, windowFraction: .25f);
+                Text a = fixture.Cue("Dodge Cue").Find("Step Key").GetComponent<Text>();
+                Assert.That(a.text, Is.EqualTo(DuelStepHud.AutoDodgeLabel), "The notice takes A's place.");
+                Assert.That(fixture.Hud.DodgeRing.Progress, Is.EqualTo(1f), "Nothing to time: the ring stands full.");
+                Assert.That(fixture.Hud.DodgeRing.IsTimingWindow, Is.False);
+                Assert.That(fixture.Hud.DodgeRing.HasSuccessBand, Is.False);
+                Assert.That(fixture.Cue("Dodge Cue").Find("Success Window Marker").gameObject.activeSelf, Is.False);
+                Assert.That(fixture.Hud.PressureRing.IsTimingWindow, Is.True, "D keeps its ring.");
+                Assert.That(fixture.Hud.PressureRing.HasSuccessBand, Is.True);
+                Text hint = fixture.Hud.Root.transform.Find("ACT Recovery Notice").GetComponent<Text>();
+                Assert.That(hint.text, Is.EqualTo("자동 회피 · D 압박"));
+
+                fixture.Refresh(CreateDuel().CurrentSlot, .4f, false);
+                Assert.That(a.text, Is.EqualTo("A  회피"), "A plain slot puts the key back.");
+                Assert.That(hint.text, Is.EqualTo(DuelStepHud.KeyHint));
+            }
+        }
+
         private static LegacyQueuedDuel CreateDuel(int hits = 1, bool playerGuard = false,
             bool enemyGuard = false, bool queuePlayer = true, int enemyActions = 1)
         {

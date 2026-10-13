@@ -20,13 +20,22 @@ namespace TurnLimbo.Core.Tests
         [TestCase(10, LegacySkillRole.ResistanceOnClash | LegacySkillRole.FollowupPower, "다음 칸 강화")]
         [TestCase(12, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.ActRecovery | LegacySkillRole.Vulnerability, "무리한 돌진")]
         [TestCase(14, LegacySkillRole.ResistanceOnClash, "단타")]
-        [TestCase(15, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit, "연타")]
+        [TestCase(15, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.Cycle, "순환 연타")]
         [TestCase(16, LegacySkillRole.ResistanceOnClash | LegacySkillRole.VariablePower, "변동 한방")]
-        [TestCase(17, LegacySkillRole.None, "방어")]
-        [TestCase(19, LegacySkillRole.ResistanceRecovery, "저항 회복")]
-        [TestCase(21, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower, "고화력")]
-        [TestCase(32, LegacySkillRole.None, "방어")]
+        [TestCase(17, LegacySkillRole.AutoBreath, "방어·자동 숨")]
+        [TestCase(19, LegacySkillRole.ResistanceRecovery, "붕괴 중 저항 회복")]
+        [TestCase(21, LegacySkillRole.ResistanceOnClash | LegacySkillRole.Cycle, "순환 관통")]
+        [TestCase(32, LegacySkillRole.QueueReturn, "반환 방어")]
         [TestCase(42, LegacySkillRole.ResistanceOnClash | LegacySkillRole.DirectResistanceDamage, "방어 대응·저항 감소")]
+        [TestCase(51, LegacySkillRole.ResistanceOnClash | LegacySkillRole.AheadPower, "감소 거둠")]
+        [TestCase(52, LegacySkillRole.ResistanceOnClash | LegacySkillRole.DirectResistanceDamage | LegacySkillRole.Cycle, "순환·공격 대응")]
+        [TestCase(53, LegacySkillRole.ResistanceOnClash | LegacySkillRole.CycleFeed, "앞 순환 +1")]
+        [TestCase(54, LegacySkillRole.ResistanceOnClash | LegacySkillRole.AutoDodge, "자동 회피")]
+        [TestCase(55, LegacySkillRole.ResistanceOnClash | LegacySkillRole.AheadPower, "숨 거둠")]
+        [TestCase(56, LegacySkillRole.ResistanceOnClash | LegacySkillRole.QueueReturn | LegacySkillRole.PlanningTimeCost, "반환·배율")]
+        [TestCase(57, LegacySkillRole.ResistanceOnClash | LegacySkillRole.NextTurnTime, "순환·시간")]
+        [TestCase(58, LegacySkillRole.TemporarySpawn, "일회성 생성")]
+        [TestCase(59, LegacySkillRole.ResistanceOnClash | LegacySkillRole.Cycle, "일회성 순환")]
         [TestCase(500, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.HighPower | LegacySkillRole.OpponentBreak, "붕괴 연타")]
         [TestCase(501, LegacySkillRole.ResistanceRecovery, "조건부 저항 회복")]
         [TestCase(502, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower | LegacySkillRole.ConditionalDamage, "마무리 일격")]
@@ -100,7 +109,7 @@ namespace TurnLimbo.Core.Tests
             StringAssert.Contains("받는 피해 배율 +50%", advance);
 
             string fightingSpirit = LegacySkillRoles.GetDetail(FindSkill(19));
-            StringAssert.Contains("기술 시작 시 최대 저항의 10%", fightingSpirit);
+            StringAssert.Contains("기술 시작에 상대가 붕괴 상태이면 최대 저항의 20%", fightingSpirit);
             StringAssert.Contains("최대치까지", fightingSpirit);
             StringAssert.DoesNotContain("피해 -30%", fightingSpirit);
 
@@ -194,6 +203,7 @@ namespace TurnLimbo.Core.Tests
             foreach (LegacySkill skill in LegacyInitialSkills.All) if (skill.Id == id) return skill;
             foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills) if (skill.Id == id) return skill;
             foreach (LegacySkill skill in LegacySkillDefinitions.EnemySkills) if (skill.Id == id) return skill;
+            foreach (LegacySkill skill in LegacySkillDefinitions.TemporarySkills) if (skill.Id == id) return skill;
             Assert.Fail("Missing supported skill " + id);
             return null;
         }

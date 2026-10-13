@@ -67,5 +67,24 @@ namespace TurnLimbo.Core.Tests
             Assert.That(loadout.ToSkills()[3].Id, Is.EqualTo(acquired.Id));
             Assert.That(loadout.ExportIds(), Is.EqualTo(valid));
         }
+
+        [Test]
+        public void Esquive_StaysOutOfTheVersusPool_WhileTheCampaignKeepsIt()
+        {
+            // 에스키브 dodges a whole slot by itself; in versus the later reserver of a slot sees the other's technique there.
+            Assert.That(VersusLoadout.ExcludedSkillIds, Is.EqualTo(new[] { 54 }));
+            Assert.That(VersusLoadout.IsExcluded(54), Is.True);
+            Assert.That(VersusLoadout.IsExcluded(53), Is.False);
+            Assert.That(LegacySkillDefinitions.AcquisitionSkills.Any(skill => skill.Id == 54), Is.True, "It is still a 획득 row.");
+            var loadout = new VersusLoadout();
+            int[] original = loadout.ExportIds();
+            Assert.That(loadout.TryPlaceSkill(54, 2, 0), Is.False);
+            int[] withEsquive = (int[])original.Clone();
+            withEsquive[6] = 54;
+            Assert.That(loadout.TryImportIds(withEsquive), Is.False, "A peer cannot send it either.");
+            Assert.That(loadout.ExportIds(), Is.EqualTo(original));
+            Assert.That(loadout.TryPlaceSkill(55, 2, 0), Is.True, "The other new E techniques are in the pool.");
+            Assert.That(loadout.TryPlaceSkill(53, 2, 1), Is.True);
+        }
     }
 }

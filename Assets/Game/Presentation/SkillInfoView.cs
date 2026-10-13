@@ -455,6 +455,19 @@ namespace TurnLimbo.Presentation
                 case LegacySkillSymbol.Variance:
                     Line(vh, -.32f, -.3f, -.32f, .05f); Line(vh, 0, -.3f, 0, .35f);
                     Line(vh, .32f, -.3f, .32f, -.1f); break;
+                // 일회: a card drawn in dashes, there for one use.
+                case LegacySkillSymbol.OneShot:
+                    Line(vh, -.26f, .38f, -.06f, .38f); Line(vh, .08f, .38f, .26f, .38f);
+                    Line(vh, .26f, .26f, .26f, .06f); Line(vh, .26f, -.08f, .26f, -.26f);
+                    Line(vh, .26f, -.38f, .06f, -.38f); Line(vh, -.08f, -.38f, -.26f, -.38f);
+                    Line(vh, -.26f, -.26f, -.26f, -.06f); Line(vh, -.26f, .08f, -.26f, .26f); break;
+                // 시간: a clock face (an octagon) and its two hands.
+                case LegacySkillSymbol.Time:
+                    Line(vh, -.15f, .37f, .15f, .37f); Line(vh, .15f, .37f, .37f, .15f);
+                    Line(vh, .37f, .15f, .37f, -.15f); Line(vh, .37f, -.15f, .15f, -.37f);
+                    Line(vh, .15f, -.37f, -.15f, -.37f); Line(vh, -.15f, -.37f, -.37f, -.15f);
+                    Line(vh, -.37f, -.15f, -.37f, .15f); Line(vh, -.37f, .15f, -.15f, .37f);
+                    Line(vh, 0, 0, 0, .24f); Line(vh, 0, 0, .17f, -.1f); break;
             }
         }
 

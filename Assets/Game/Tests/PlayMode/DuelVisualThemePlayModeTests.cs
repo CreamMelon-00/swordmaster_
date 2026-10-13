@@ -222,11 +222,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(exclusive, Is.Not.Null);
                 Assert.That(exclusive.gameObject.activeSelf, Is.False,
                     "A node without a paired choice collapses the exclusive line instead of reserving blank paper.");
-                Find<Button>(fixture.Lobby.Root, "Curriculum Node one-stroke").onClick.Invoke();
+                Find<Button>(fixture.Lobby.Root, "Curriculum Node battement").onClick.Invoke();
                 AssertPaperDetails(curriculumPaper, curriculumTexts);
-                Assert.That(exclusive.gameObject.activeSelf, Is.True);
-                Assert.That(Find<Text>(curriculumPaper.gameObject, "Curriculum Exclusive").text, Is.Not.Empty,
-                    "A paired node names the choice it closes.");
+                Assert.That(exclusive.gameObject.activeSelf, Is.False,
+                    "No node of the keyword curriculum closes another, the bridge included.");
 
                 LegacyCombatHud combat = fixture.Combat();
                 combat.ShowExplanation(fixture.Run.OwnedSkills[0].Skill, false);

@@ -386,7 +386,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.ShowTitle();
                 Assert.That(controller.TitleHud.CanContinue, Is.True);
                 Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text,
-                    Does.Contain("도미니코 학원").And.Contain("2 / 8").And.Contain("커리큘럼 1 / 10"));
+                    Does.Contain("도미니코 학원").And.Contain("2 / 8").And.Contain($"커리큘럼 1 / {CampaignCurriculum.Default.Nodes.Count}"));
 
                 var keyboard = InputSystem.AddDevice<Keyboard>();
                 controller.enabled = true;
@@ -411,10 +411,10 @@ namespace TurnLimbo.Presentation.Tests
 
                 Assert.That(controller.OpenFieldMenu(), Is.True);
                 controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
-                Assert.That(controller.SelectCurriculumNode("diagonal-cut"), Is.True);
+                Assert.That(controller.SelectCurriculumNode("preparation"), Is.True);
                 Assert.That(controller.CloseFieldMenu(), Is.True);
                 GameSave afterSelect = scope.Load();
-                Assert.That(afterSelect.Campaign.CurriculumActive, Is.EqualTo("diagonal-cut"), "Choosing a node is saved.");
+                Assert.That(afterSelect.Campaign.CurriculumActive, Is.EqualTo("preparation"), "Choosing a node is saved.");
                 Assert.That(afterSelect.Campaign.CurriculumBattles, Is.Zero);
                 Assert.That(afterSelect.Campaign.CurriculumCompleted, Is.EqualTo(new[] { "horizontal-cut" }));
 
@@ -424,13 +424,13 @@ namespace TurnLimbo.Presentation.Tests
                 GameSave afterBattle = scope.Load();
                 Assert.That(afterBattle.Campaign.ClearedStages, Does.Contain(3), "A settled stage result is saved.");
                 Assert.That(afterBattle.Campaign.Currency, Is.EqualTo(controller.Campaign.Currency));
-                Assert.That(afterBattle.Campaign.CurriculumCompleted, Is.EqualTo(new[] { "horizontal-cut", "diagonal-cut" }),
+                Assert.That(afterBattle.Campaign.CurriculumCompleted, Is.EqualTo(new[] { "horizontal-cut", "preparation" }),
                     "The node the battle completed is saved.");
                 Assert.That(afterBattle.Campaign.CurriculumActive, Is.Null);
                 var restored = new CampaignRun();
                 Assert.That(restored.TryRestore(afterBattle.Campaign, out error), Is.True, error);
-                Assert.That(restored.OwnedSkills.Any(skill => skill.SkillId == 15), Is.True, "…and so is the skill it granted.");
-                Assert.That(restored.TryPlaceLoadoutSkill(15, 0, 2), Is.True, "The granted skill can be placed after loading.");
+                Assert.That(restored.OwnedSkills.Any(skill => skill.SkillId == 10), Is.True, "…and so is the skill it granted.");
+                Assert.That(restored.TryPlaceLoadoutSkill(10, 0, 2), Is.True, "The granted skill can be placed after loading.");
 
                 Assert.That(controller.DismissBattleResult(), Is.True);
                 controller.RestartJourney();

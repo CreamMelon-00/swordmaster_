@@ -6,7 +6,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
 {
     public sealed class LegacyQueuedDuel : ILegacyDuelView
     {
+        /// <summary>숨고르기 the player may reserve by hand each turn.</summary>
         public const int MaximumBreathsPerTurn = 3;
+        /// <summary>숨고르기 a skill's 예약 효과 숨고르기 +1 may add each turn, beside the hand's; so a turn holds at most
+        /// <see cref="MaximumBreathsPerTurn"/> + this many breaths.</summary>
+        public const int MaximumAutoBreathsPerTurn = 1;
         private const int BaseActGain = 3;
         private const int MaximumAct = 10;
         private readonly LegacySkill[] initialPlayerSkills;
@@ -200,6 +204,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             StepSuccessStreak = source.StepSuccessStreak;
             StepMissedThisTurn = source.StepMissedThisTurn;
             BreathsQueuedThisTurn = source.BreathsQueuedThisTurn;
+            ReserveEffectsUsedThisTurn = source.ReserveEffectsUsedThisTurn;
+            NextPlanningSeconds = source.NextPlanningSeconds;
+            PlanningSecondsBonus = source.PlanningSecondsBonus;
+            AutoBreathSlotIndex = source.AutoBreathSlotIndex;
+            LastQueuedSlotIndex = source.LastQueuedSlotIndex;
             LaneCyclesThisTurn = source.LaneCyclesThisTurn;
             LastResolvedSlot = source.LastResolvedSlot;
             PlayerCountersRemaining = source.PlayerCountersRemaining;
@@ -217,8 +226,24 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int NextActGain { get; private set; }
         public int PlayerBaseActGain => playerBaseActGain;
         public int PlayerMaximumAct => playerMaximumAct;
-        /// <summary>Uses begun in this duel, capped by the skill sheet limit.</summary>
+        /// <summary>Uses begun in this duel (and 순환 +1 gained), capped by the skill sheet limit.</summary>
         public int CycleUses(int skillId) => cycleUses.TryGetValue(skillId, out int uses) ? uses : 0;
+        /// <summary>The 순환 count the player's skill in <paramref name="slotIndex"/> reads as its slot starts (its power bonus
+        /// and the count its card shows): while planning, today's count plus the commit's 순환 +1 plus one per earlier copy in
+        /// the queue, within the cap; while resolving, the count the current slot read as it started and, for later slots, the
+        /// count now plus one per earlier copy not yet cast. 0 for a slot without a cycling skill.</summary>
+        public int CycleUsesAtSlot(int slotIndex)
+        {
+            IReadOnlyList<LegacySkill> queue = QueueForForecast(true);
+            if (slotIndex < 0 || slotIndex >= queue.Count) return 0;
+            int usesNow = CycleUses(queue[slotIndex].Id);
+            if (Phase == LegacyDuelPhase.Planning) return LegacyKeywordLinks.PlannedCycleUses(queue, slotIndex, usesNow);
+            if (CurrentSlot != null && CurrentSlot.SlotIndex == slotIndex) return CurrentSlot.PlayerCycleUses;
+            return LegacyKeywordLinks.UpcomingCycleUses(queue, slotIndex, CurrentSlot != null ? CurrentSlot.SlotIndex + 1 : nextSlot,
+                usesNow);
+        }
+        int ILegacyDuelView.EnemyCycleUsesAtSlot(int slotIndex) => 0;
+        int ILegacyDuelView.EnemyAutoBreathSlotIndex => -1;
         /// <summary>ACT paid if this skill is reserved now. Existing reservations do not count as uses.</summary>
         public int EffectiveCost(LegacySkill skill)
         {
@@ -258,7 +283,23 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Whether any step missed this turn, for the miss feedback. Any accepted step attempt, successful
         /// or not, limits the next turn's natural ACT recovery to 1.</summary>
         public bool StepMissedThisTurn { get; private set; }
+        /// <summary>숨고르기 reserved by hand this turn; an automatic one (예약 효과 숨고르기 +1) does not count.</summary>
         public int BreathsQueuedThisTurn { get; private set; }
+        /// <summary>The once-per-turn 예약 효과 already used this turn (<see cref="LegacyReserveEffect"/>).</summary>
+        public LegacyReserveEffect ReserveEffectsUsedThisTurn { get; private set; }
+        /// <summary>Planning seconds this turn's skills have earned for the next turn so far (사용 효과 앞 X마다 다음 턴
+        /// 제한시간), at most <see cref="LegacyPlanningClock.MaximumBonusSeconds"/>. It becomes
+        /// <see cref="PlanningSecondsBonus"/> as the next planning turn begins.</summary>
+        public int NextPlanningSeconds { get; private set; }
+        /// <summary>Planning seconds the last turn's skills earned for this turn: the screens start this turn's clock that much
+        /// later (<see cref="LegacyPlanningClock.CampaignTurnStart"/>). A battle whose clock is held ignores it.</summary>
+        public int PlanningSecondsBonus { get; private set; }
+        /// <summary>The player's slot holding this turn's automatic 숨고르기 (예약 효과 숨고르기 +1), or -1. It moves down
+        /// when a later skill takes earlier ones off the queue; the breath itself always stays.</summary>
+        public int AutoBreathSlotIndex { get; private set; } = -1;
+        /// <summary>The slot of the skill the player last reserved from a lane this turn, or -1: the queue's last entry,
+        /// or the one before an automatic 숨고르기 that came with it.</summary>
+        public int LastQueuedSlotIndex { get; private set; } = -1;
         /// <summary>넘기기 presses that turned the lanes this planning turn.</summary>
         public int LaneCyclesThisTurn { get; private set; }
         public int BreathsRemainingThisTurn => MaximumBreathsPerTurn - BreathsQueuedThisTurn;
@@ -404,8 +445,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (Phase != LegacyDuelPhase.Planning) return null;
             var copy = new LegacyQueuedDuel(this);
+            // Not the queue's last entry: an automatic 숨고르기 may follow the skill.
             if (!copy.TryQueueLane(laneIndex)) return null;
-            int slotIndex = copy.playerQueue.Count - 1;
+            int slotIndex = copy.LastQueuedSlotIndex;
             var slots = new List<LegacySlotForecast>();
             copy.ResolveForecast(slots);
             return slotIndex < slots.Count ? slots[slotIndex] : null;
@@ -425,11 +467,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     continue;
                 }
                 bool playerWhole = !Player.IsResistanceBroken, enemyWhole = !Enemy.IsResistanceBroken;
+                int secondsBefore = NextPlanningSeconds;
                 LegacySlotResult result = ResolveNextSlot();
                 slots.Add(new LegacySlotForecast(result.SlotIndex, result.PlayerSkill, result.EnemySkill,
                     result.PlayerHealthDamage, result.EnemyHealthDamage,
                     result.PlayerResistanceDamage, result.EnemyResistanceDamage,
-                    playerWhole && Player.IsResistanceBroken, enemyWhole && Enemy.IsResistanceBroken, result.Outcome));
+                    playerWhole && Player.IsResistanceBroken, enemyWhole && Enemy.IsResistanceBroken, result.Outcome,
+                    nextTurnSeconds: NextPlanningSeconds - secondsBefore));
             }
         }
 
@@ -498,20 +542,37 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     if (removalMode == LegacyQueueRemovalMode.Return) returnedAct += playerQueueActCosts[i];
                     playerQueue.RemoveAt(i);
                     playerQueueActCosts.RemoveAt(i);
+                    // Breaths stay, so the automatic one moves down with them.
+                    if (i < AutoBreathSlotIndex) AutoBreathSlotIndex--;
                 }
             }
             Act = Math.Min(playerMaximumAct, Act - paidCost + returnedAct);
             playerQueue.Add(skill);
             playerQueueActCosts.Add(paidCost);
+            LastQueuedSlotIndex = playerQueue.Count - 1;
             lane.RemoveAt(0);
-            lane.Add(skill);
+            // A 일회성 skill is used up: it never goes round to the back of its lane.
+            if (!LegacySkillDefinitions.IsTemporary(skill)) lane.Add(skill);
             if (removalMode != LegacyQueueRemovalMode.None)
             {
                 // A later remover also removes the former source, so only its own removed count can arm a boost.
                 queuePowerMultiplierCap = effect?.QueuePowerMultiplierCap ?? 0;
-                queuePowerSourceSlotIndex = queuePowerMultiplierCap > 0 ? playerQueue.Count - 1 : -1;
+                queuePowerSourceSlotIndex = queuePowerMultiplierCap > 0 ? LastQueuedSlotIndex : -1;
                 queuePowerRemovedSkillCount = queuePowerMultiplierCap > 0 ? removedSkills : 0;
             }
+            // 예약 효과 숨고르기 +1: a free breath right after the skill, once per turn (the sheet keeps it off removers).
+            if (effect != null && effect.ReserveBreath && Features.Has(CombatFeature.Breath) &&
+                (ReserveEffectsUsedThisTurn & LegacyReserveEffect.Breath) == 0)
+            {
+                playerQueue.Add(LegacyCommonActions.Breathe);
+                playerQueueActCosts.Add(0);
+                AutoBreathSlotIndex = playerQueue.Count - 1;
+                ReserveEffectsUsedThisTurn |= LegacyReserveEffect.Breath;
+            }
+            // 예약 효과 일회성 <ID> ×n: its copies at the front of that row's lane, once per turn (none for a closed lane).
+            LegacyReserveEffect used = ReserveEffectsUsedThisTurn;
+            LegacyKeywordLinks.SpawnTemporary(skill, lanes, open => Features.HasLane(open), ref used);
+            ReserveEffectsUsedThisTurn = used;
             return true;
         }
 
@@ -550,6 +611,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Phase != LegacyDuelPhase.Planning) throw new InvalidOperationException("Only a planning turn can be committed.");
             committedPlayerQueue = playerQueue.ToArray();
             committedEnemyQueue = enemyQueue.ToArray();
+            // 순환 +1 counts from the committed queue only, so a feeder or target taken off before now gives or gets nothing.
+            LegacyKeywordLinks.ApplyCycleFeed(committedPlayerQueue, cycleUses);
             nextSlot = 0;
             slotCount = Math.Max(committedPlayerQueue.Length, committedEnemyQueue.Length);
             Phase = LegacyDuelPhase.Resolving;
@@ -569,6 +632,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (!Features.AllowsStep(action)) return false;
             // Nor is a step in a meshed slot (맞물림): its gears take the place of steps, so the input is ignored.
             if (IsCurrentSlotMeshed) return false;
+            // Nor a dodge where the player's skill already dodges by itself (자동 회피); pressure still goes.
+            if (action == LegacyStepAction.Dodge && CurrentSlot != null && CurrentSlot.AutoDodge) return false;
 
             // Every attempt, including gaps between skills and repeated inputs, narrows the
             // next window and limits the next turn's natural ACT recovery to 1. A miss
@@ -640,8 +705,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             double enemyAttackMultiplier = AttackMultiplier(enemyBuffs, 0, out int enemyPowerBuffPercent);
             double playerReceivedMultiplier = ReceivedMultiplier(playerBuffs, out int playerProtectionBuffPercent);
             double enemyReceivedMultiplier = ReceivedMultiplier(enemyBuffs, out int enemyProtectionBuffPercent);
+            // 사용 효과 앞 X마다 위력 adds into the roll beside 순환, for the queue's first copy of the skill.
             int playerPower = RollPower(playerSkill, playerAttackMultiplier, out int playerTotalPower,
-                CyclePowerBonus(playerSkill));
+                checked(CyclePowerBonus(playerSkill) + LegacyKeywordLinks.AheadPowerBonus(committedPlayerQueue, nextSlot, playerSkill)));
+            int playerCycleUses = CycleUsesRead(playerSkill);
             RecordCycleUse(playerSkill);
             int enemyPower = RollPower(enemySkill, enemyAttackMultiplier, out _);
 
@@ -650,6 +717,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 playerReceivedMultiplier, enemyReceivedMultiplier, Player, Enemy);
             CurrentSlot.EnemyCountered = enemyCounters;
             CurrentSlot.PlayerMesh = playerMesh;
+            CurrentSlot.PlayerCycleUses = playerCycleUses;
+            // 사용 효과 앞 X마다 다음 턴 제한시간: the queued skill's first copy adds to the next turn's clock.
+            int nextSeconds = NextPlanningSeconds;
+            CurrentSlot.PlanningSecondsGained = LegacyPlanningClock.AddBonus(ref nextSeconds,
+                LegacyKeywordLinks.AheadTimeBonus(committedPlayerQueue, nextSlot, playerSkill));
+            NextPlanningSeconds = nextSeconds;
+            // 사용 효과 자동 회피: the same slot's attack, a counter filling it included, misses entirely. Not a step attempt.
+            if (LegacySkillDefinitions.Find(playerSkill)?.Effect.AutoDodge == true)
+            {
+                CurrentSlot.AutoDodge = true;
+                if (IsAttack(enemySkill)) CurrentSlot.DodgeSucceeded = CurrentSlot.DodgeAttempted = true;
+            }
             if (pendingCounter != null)
             {
                 CurrentSlot.PendingPlayerCounter = pendingCounter;
@@ -683,8 +762,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // hits will also reach health, since the multiplier has nothing else to multiply.
             slot.PlayerFeedback = slot.PlayerFeedback.WithConditionalDamage(
                 ArmedConditionalDamage(slot.PlayerSkill, slot.EnemySkill, slot.PlayerPower, slot.EnemyPower, Enemy));
-            slot.EnemyFeedback = slot.EnemyFeedback.WithConditionalDamage(
-                ArmedConditionalDamage(slot.EnemySkill, slot.PlayerSkill, slot.EnemyPower, slot.PlayerPower, Player));
+            // An automatic dodge (자동 회피) is known from the start: the dodged hits carry nothing.
+            slot.EnemyFeedback = slot.EnemyFeedback.WithConditionalDamage(slot.AutoDodge && slot.DodgeSucceeded ? 0
+                : ArmedConditionalDamage(slot.EnemySkill, slot.PlayerSkill, slot.EnemyPower, slot.PlayerPower, Player));
         }
 
         /// <summary>The 조건 피해 배율 a slot's hits carry from its start: the condition holds against <paramref name="target"/>
@@ -842,6 +922,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             RoundNumber = 1;
             Act = 0;
             NextActGain = playerBaseActGain;
+            NextPlanningSeconds = 0;
             // Attempts in the abandoned match must not cost the new match its opening ACT.
             StepMissedThisTurn = false;
             StepAttemptsThisTurn = StepSuccessStreak = 0;
@@ -851,6 +932,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private void StartPlanningTurn()
         {
+            // 일회성 copies last one turn: whatever is left in a lane goes before anything else of the new turn.
+            LegacyKeywordLinks.ClearTemporary(lanes);
+            PlanningSecondsBonus = NextPlanningSeconds;
+            NextPlanningSeconds = 0;
             // NextActGain includes natural recovery and skill-granted bonuses. Steps reduce
             // only the natural portion, once per turn regardless of how many were attempted.
             int naturalActGain = UsedStepThisTurn ? 1 : playerBaseActGain;
@@ -859,6 +944,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             StepAttemptsThisTurn = StepSuccessStreak = 0;
             StepMissedThisTurn = false;
             BreathsQueuedThisTurn = 0;
+            ReserveEffectsUsedThisTurn = LegacyReserveEffect.None;
+            AutoBreathSlotIndex = LastQueuedSlotIndex = -1;
             LaneCyclesThisTurn = 0;
             PlayerCountersRemaining = PlayerCounter?.UsesPerTurn ?? 0;
             EnemyCountersRemaining = EnemyCounter?.UsesPerTurn ?? 0;
@@ -902,6 +989,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return effect != null && effect.HasCycle
                 ? checked(CycleUses(skill.Id) * effect.CyclePowerPerUse) : 0;
         }
+
+        // The 순환 count a cast reads (its power bonus), before the cast records its use; 0 for a skill that does not cycle.
+        private int CycleUsesRead(LegacySkill skill)
+            => skill != null && !skill.IsWait && LegacySkillDefinitions.Find(skill)?.Effect.HasCycle == true ? CycleUses(skill.Id) : 0;
 
         private void RecordCycleUse(LegacySkill skill)
         {

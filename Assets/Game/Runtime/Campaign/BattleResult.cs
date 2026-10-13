@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using TurnLimbo.Runtime.Combat;
 
 namespace TurnLimbo.Runtime.Campaign
@@ -15,12 +16,17 @@ namespace TurnLimbo.Runtime.Campaign
         /// <param name="curriculumOpen">Whether the curriculum exists for the player yet (see
         /// <see cref="CampaignRun.IsCurriculumOpen"/>). A closed one is never shown and reports no progress.</param>
         /// <param name="firstClearSkillName">The technique awarded by this stage's first clear, if any.</param>
+        /// <param name="openedCurriculumNodes">The nodes <paramref name="completedCurriculumNode"/> opened
+        /// (<see cref="CurriculumProgress.OpenedBy"/>); empty without a completed node.</param>
+        /// <param name="completedCurriculumCourse">Whether <paramref name="completedCurriculumNode"/> ends its branch
+        /// (<see cref="CurriculumTree.EndsBranch"/>): the trunk or a school is finished (과정 수료).</param>
         public BattleResult(DuelMatchOutcome outcome, bool isMission, int stageNumber, string stageName,
             int reward, int currency, int roundNumber, int playerHealth, int enemyHealth,
             bool firstClear, int unlockedStageNumber, bool canAdvance,
             CurriculumNode completedCurriculumNode = null, CurriculumNode activeCurriculumNode = null, int activeCurriculumBattles = 0,
             bool curriculumFinished = false, bool curriculumOpen = true, string firstClearSkillName = null,
-            bool isTraining = false)
+            bool isTraining = false, IReadOnlyList<CurriculumNode> openedCurriculumNodes = null,
+            bool completedCurriculumCourse = false)
         {
             if (outcome != DuelMatchOutcome.PlayerVictory && outcome != DuelMatchOutcome.EnemyVictory
                 && outcome != DuelMatchOutcome.Draw) throw new ArgumentOutOfRangeException(nameof(outcome));
@@ -52,6 +58,8 @@ namespace TurnLimbo.Runtime.Campaign
                 throw new ArgumentException("Training results cannot award or advance campaign progress.", nameof(isTraining));
             if (!curriculumOpen && (completedCurriculumNode != null || activeCurriculumNode != null || curriculumFinished))
                 throw new ArgumentException("A closed curriculum has no progress to report.", nameof(curriculumOpen));
+            if (completedCurriculumNode == null && (openedCurriculumNodes?.Count > 0 || completedCurriculumCourse))
+                throw new ArgumentException("Only a completed node can open others or finish a course.", nameof(openedCurriculumNodes));
             if (activeCurriculumNode == null ? activeCurriculumBattles != 0
                     : activeCurriculumBattles < 0 || activeCurriculumBattles >= activeCurriculumNode.Battles)
                 throw new ArgumentOutOfRangeException(nameof(activeCurriculumBattles));
@@ -75,6 +83,8 @@ namespace TurnLimbo.Runtime.Campaign
             CurriculumFinished = curriculumFinished;
             CurriculumOpen = curriculumOpen;
             FirstClearSkillName = firstClearSkillName;
+            OpenedCurriculumNodes = new List<CurriculumNode>(openedCurriculumNodes ?? Array.Empty<CurriculumNode>()).AsReadOnly();
+            CompletedCurriculumCourse = completedCurriculumCourse;
         }
 
         public DuelMatchOutcome Outcome { get; }
@@ -93,6 +103,10 @@ namespace TurnLimbo.Runtime.Campaign
         public bool CanAdvance { get; }
         public CurriculumNode CompletedCurriculumNode { get; }
         public CurriculumNode ActiveCurriculumNode { get; }
+        /// <summary>The nodes this battle's completion opened, in tree order (새로 열린 과정).</summary>
+        public IReadOnlyList<CurriculumNode> OpenedCurriculumNodes { get; }
+        /// <summary>The completed node finished the trunk or a school (과정 수료).</summary>
+        public bool CompletedCurriculumCourse { get; }
         public int ActiveCurriculumBattles { get; }
         public bool CurriculumFinished { get; }
         /// <summary>Whether the curriculum was open when the battle ended; the result says nothing about it otherwise.</summary>

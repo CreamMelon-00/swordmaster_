@@ -10,7 +10,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const int SlotsPerLane = 3;
         public const int SkillCount = LaneCount * SlotsPerLane;
 
+        private static readonly int[] excludedSkillIds = { 54 };
         private readonly int[] ids = new int[SkillCount];
+
+        /// <summary>획득 techniques kept out of versus while the campaign keeps them. 54 에스키브 dodges every attack of its
+        /// slot by itself, and in versus the later reserver of a slot sees the other's technique there, so it would erase
+        /// any visible big attack for 2 ACT (Docs/Versus.md).</summary>
+        public static IReadOnlyList<int> ExcludedSkillIds { get; } = Array.AsReadOnly(excludedSkillIds);
+
+        /// <summary>Whether a 시작 or 획득 technique is kept out of the versus pool (<see cref="ExcludedSkillIds"/>).</summary>
+        public static bool IsExcluded(int skillId) => Array.IndexOf(excludedSkillIds, skillId) >= 0;
 
         public VersusLoadout() { Reset(); }
 
@@ -64,7 +73,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Independent Q1–Q3, W1–W3, E1–E3 snapshot for lobby messages.</summary>
         public int[] ExportIds() => (int[])ids.Clone();
 
-        /// <summary>Rejects a malformed or enemy-only roster without changing the previous one.</summary>
+        /// <summary>Rejects a malformed, enemy-only or excluded roster without changing the previous one.</summary>
         public bool TryImportIds(IReadOnlyList<int> incoming)
         {
             if (incoming == null || incoming.Count != SkillCount) return false;
@@ -91,6 +100,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private static bool TryFindAvailable(int id, out LegacySkill skill)
         {
+            skill = null;
+            if (IsExcluded(id)) return false;
             foreach (LegacySkill candidate in LegacySkillDefinitions.InitialSkills)
                 if (candidate.Id == id) { skill = candidate; return true; }
             foreach (LegacySkill candidate in LegacySkillDefinitions.AcquisitionSkills)

@@ -82,16 +82,16 @@ namespace TurnLimbo.Presentation.Tests
                 var controller = scope.Controller;
                 scope.WinStage();
                 controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
-                FindActive<Button>(controller.LobbyHud.Root, "Curriculum Node advance").onClick.Invoke();
+                FindActive<Button>(controller.LobbyHud.Root, "Curriculum Node horizontal-cut").onClick.Invoke();
                 Assert.That(controller.Campaign.Curriculum.Active, Is.Null, "A node click only selects it for viewing.");
-                Assert.That(FindActive<Text>(controller.LobbyHud.Root, "Curriculum Detail Name").text, Is.EqualTo("플레슈"));
+                Assert.That(FindActive<Text>(controller.LobbyHud.Root, "Curriculum Detail Name").text, Is.EqualTo("가로베기"));
 
                 Button primary = FindActive<Button>(controller.LobbyHud.Root, "Curriculum Primary Action");
                 Assert.That(primary.interactable, Is.True);
                 EventSystem.current.SetSelectedGameObject(primary.gameObject);
                 primary.onClick.Invoke();
                 Assert.That(EventSystem.current.currentSelectedGameObject, Is.Null);
-                Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("advance"));
+                Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
                 Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
                 Assert.That(FindActive<Button>(controller.LobbyHud.Root, "Curriculum Primary Action").interactable, Is.False,
                     "The node in progress cannot be chosen again.");
@@ -108,7 +108,7 @@ namespace TurnLimbo.Presentation.Tests
                     "The second stage fields the cadet shown in its lobby preview.");
                 Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.StartWith("cadet-b-"),
                     "The entrance may still be showing Cadet B walking when this frame is checked.");
-                Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("advance"));
+                Assert.That(controller.Campaign.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
                 Assert.That(controller.Campaign.Curriculum.ActiveBattles, Is.Zero);
                 Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
                 Release(keyboard.enterKey);
@@ -117,7 +117,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.CanChoose, Is.True);
                 controller.enabled = false;
                 scope.WinStage();
-                Assert.That(controller.Campaign.Curriculum.IsCompleted("advance"), Is.True);
+                Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
                 Assert.That(controller.Campaign.Curriculum.Active, Is.Null);
                 Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(12), "The finished battle grants the skill once.");
             }
@@ -249,6 +249,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.CompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"),
                     "A defeat still counts as a finished battle.");
                 Assert.That(controller.Result.ActiveCurriculumNode, Is.Null);
+                Assert.That(controller.Result.OpenedCurriculumNodes.Count, Is.EqualTo(1), "It opened the trunk's next step.");
+                Assert.That(controller.Result.OpenedCurriculumNodes[0].Id, Is.EqualTo("preparation"));
+                Assert.That(controller.Result.CompletedCurriculumCourse, Is.False);
                 Assert.That(FindActive<Text>(controller.ResultHud.Root, "Result Curriculum").text, Is.EqualTo("가로베기 완료"));
                 Assert.That(FindActive<Text>(controller.ResultHud.Root, "Result Curriculum Detail").text, Does.Contain("가로베기"));
                 Assert.That(controller.Campaign.ClearedStageCount, Is.Zero);
@@ -303,13 +306,13 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     scope.WinStage();
                     Assert.That(controller.Campaign.StageNumber, Is.EqualTo(stage));
-                    if (stage == 1) Assert.That(controller.SelectCurriculumNode("breathing"), Is.True);
+                    if (stage == 1) Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
                     if (stage < 8) Assert.That(controller.StartCampaignStage(stage + 1), Is.True);
                 }
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(8));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(760));
-                Assert.That(controller.Campaign.Curriculum.IsCompleted("breathing"), Is.True);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(14));
+                Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(15), "Nine starting, five stage rewards (7 gives 알티바호), 가로베기.");
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(8));
                 controller.RestartJourney();

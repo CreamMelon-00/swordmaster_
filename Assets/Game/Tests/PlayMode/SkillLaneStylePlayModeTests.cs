@@ -243,10 +243,10 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 Assert.That(shown.Count, Is.EqualTo(run.Curriculum.Tree.Nodes.Count), "Every skill-granting curriculum node is shown.");
                 // The school follows the granted skill's lane, not the curriculum branch it is taught in.
-                Click(lobby.Root, "Curriculum Node one-stroke");
+                Click(lobby.Root, "Curriculum Node vital-thrust");
                 Assert.That(Label(detail, "Curriculum Detail Heading").text, Is.EqualTo("강공 검술"));
                 Assert.That(Label(detail, "Style Key").text, Is.EqualTo("W"));
-                Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("참격"));
+                Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("관통"));
                 Click(lobby.Root, "Curriculum Node breathing");
                 Assert.That(Label(detail, "Curriculum Detail Heading").text, Is.EqualTo("정공 검술"));
                 Assert.That(Label(detail, "Style Key").text, Is.EqualTo("Q"));

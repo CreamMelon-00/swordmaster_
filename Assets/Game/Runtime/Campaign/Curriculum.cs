@@ -4,8 +4,10 @@ using TurnLimbo.Runtime.LegacyCombat;
 
 namespace TurnLimbo.Runtime.Campaign
 {
-    /// <summary>The school a curriculum node belongs to; used for grouping and labels.</summary>
-    public enum CurriculumBranch { Slash, Pierce, Guard }
+    /// <summary>The part of the tree a node belongs to; used for grouping and labels. <see cref="Foundation"/> is the
+    /// trunk every school opens from; <see cref="Circulation"/>, <see cref="Collapse"/> and <see cref="Retraction"/> are
+    /// the three keyword schools (순환, 붕괴, 판짜기); a <see cref="Bridge"/> node joins two neighbouring schools.</summary>
+    public enum CurriculumBranch { Foundation, Circulation, Collapse, Retraction, Bridge }
 
     public enum CurriculumNodeState
     {
@@ -160,6 +162,25 @@ namespace TurnLimbo.Runtime.Campaign
 
         public bool AreExclusive(string a, string b) => a != null && exclusive.TryGetValue(a, out HashSet<string> set) && set.Contains(b);
 
+        /// <summary>Whether the node closes its part of the tree: a trunk or school node (not a bridge) that no other node
+        /// of its own branch requires. The trunk's last step and each school's capstone (정수) end their branches.</summary>
+        public bool EndsBranch(string id)
+        {
+            CurriculumNode node = Find(id);
+            if (node == null || node.Branch == CurriculumBranch.Bridge) return false;
+            foreach (CurriculumNode other in nodes)
+                if (other.Branch == node.Branch && !ReferenceEquals(other, node) &&
+                    (Contains(other.RequiresAll, id) || Contains(other.RequiresAny, id))) return false;
+            return true;
+        }
+
+        /// <summary>Whether the node is a school's capstone (정수): the end of one of the three schools.</summary>
+        public bool IsCapstone(string id)
+        {
+            CurriculumNode node = Find(id);
+            return node != null && node.Branch != CurriculumBranch.Foundation && EndsBranch(id);
+        }
+
         /// <summary>The node that grants the skill, or null for starting skills.</summary>
         public CurriculumNode FindGranting(int skillId)
         {
@@ -167,6 +188,13 @@ namespace TurnLimbo.Runtime.Campaign
                 foreach (int granted in node.SkillIds)
                     if (granted == skillId) return node;
             return null;
+        }
+
+        private static bool Contains(IReadOnlyList<string> ids, string id)
+        {
+            foreach (string candidate in ids)
+                if (string.Equals(candidate, id, StringComparison.Ordinal)) return true;
+            return false;
         }
 
         private static IEnumerable<string> Concat(IEnumerable<string> a, IEnumerable<string> b)
@@ -212,6 +240,34 @@ namespace TurnLimbo.Runtime.Campaign
 
         /// <summary>No node in progress and none left to start: the curriculum is done until a reset.</summary>
         public bool IsFinished => Active == null && !HasSelectableNode;
+
+        /// <summary>The nodes that completing <paramref name="id"/> opened: those that can be chosen now (or are in
+        /// progress) and whose prerequisites hold only thanks to it, every "all" one naming it or no other "any" one
+        /// completed. Empty when <paramref name="id"/> is not completed. The tree's "새" tag and the result's
+        /// <c>새로 열린 과정</c> read it for the last completed node, so nothing is stored.</summary>
+        public IReadOnlyList<CurriculumNode> OpenedBy(string id)
+        {
+            var opened = new List<CurriculumNode>();
+            if (!IsCompleted(id)) return opened;
+            foreach (CurriculumNode node in Tree.Nodes)
+            {
+                CurriculumNodeState state = GetState(node.Id);
+                if (state != CurriculumNodeState.Available && state != CurriculumNodeState.Active) continue;
+                bool needsAll = false, anyNamed = false, anyOther = false;
+                foreach (string required in node.RequiresAll)
+                    if (string.Equals(required, id, StringComparison.Ordinal)) needsAll = true;
+                foreach (string any in node.RequiresAny)
+                {
+                    if (string.Equals(any, id, StringComparison.Ordinal)) anyNamed = true;
+                    else if (IsCompleted(any)) anyOther = true;
+                }
+                if (needsAll || anyNamed && !anyOther) opened.Add(node);
+            }
+            return opened;
+        }
+
+        /// <summary>The last completed node, or null.</summary>
+        public CurriculumNode LastCompleted => completed.Count == 0 ? null : Tree.Find(completed[completed.Count - 1]);
 
         public bool IsExcluded(string id)
         {

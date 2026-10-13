@@ -26,6 +26,20 @@ namespace TurnLimbo.Runtime.LegacyCombat
         QueueReturn = 1 << 14,
         /// <summary>The skill grows in power and ACT cost each time it is used in a battle.</summary>
         Cycle = 1 << 15,
+        /// <summary>예약 효과 순환 +1: raises the 순환 count of the cycling skills reserved ahead of it.</summary>
+        CycleFeed = 1 << 16,
+        /// <summary>예약 효과 숨고르기 +1: reserves a 숨고르기 right after itself, once per turn.</summary>
+        AutoBreath = 1 << 17,
+        /// <summary>사용 효과 앞 X마다 위력: gains power per breath or kind of skill reserved ahead of it.</summary>
+        AheadPower = 1 << 18,
+        /// <summary>사용 효과 자동 회피: dodges the same slot's opposing attack without a step.</summary>
+        AutoDodge = 1 << 19,
+        /// <summary>예약 효과 일회성: sets copies of a 일회성 skill at the front of a lane, once per turn.</summary>
+        TemporarySpawn = 1 << 20,
+        /// <summary>예약 효과 제한시간 -n초: reserving it spends planning time while the clock runs.</summary>
+        PlanningTimeCost = 1 << 21,
+        /// <summary>사용 효과 앞 X마다 다음 턴 제한시간: adds next turn's planning time per breath or kind ahead of it.</summary>
+        NextTurnTime = 1 << 22,
     }
 
     /// <summary>Presentation metadata for implemented rules, never a new combat authority.</summary>

@@ -442,14 +442,21 @@ namespace TurnLimbo.Presentation
             int turns = LegacySkillGear.TurnsBetween(gear.ShownOrder, laneOrder, pending);
             if (turns != pending)
             {
+                // An order that changed length (일회성 copies coming, used or going) is shown at once, without a turn.
                 if (pending > 0) gear.Settle();
                 if (turns > 0) StartTurn(gear, turns, false);
             }
+            // A 일회성 skill reserved from the front leaves its lane instead of going round to the back, so the used socket
+            // remembers it; a real turn or a new turn's clearing forgets it.
+            if (FrontLeft(gear.ShownOrder, laneOrder))
+                gear.UsedSkill = LegacySkillDefinitions.Find(gear.ShownOrder[0])?.Skill;
+            else if (turns > 0 || laneOrder.Count < gear.ShownOrder.Count) gear.UsedSkill = null;
             gear.ShownOrder.Clear();
             gear.ShownOrder.AddRange(laneOrder);
             for (int index = 0; index < gear.Icons.Length; index++)
             {
-                LegacySkill skill = sequence[LegacySkillGear.SkillIndex(index - 2, sequence.Count)];
+                LegacySkill skill = index == 1 && gear.UsedSkill != null ? gear.UsedSkill
+                    : sequence[LegacySkillGear.SkillIndex(index - 2, sequence.Count)];
                 if (gear.ShownIcons[index] == skill.IconId) continue;
                 gear.ShownIcons[index] = skill.IconId;
                 gear.Icons[index].sprite = HudIcon(skill.IconId);
@@ -461,8 +468,18 @@ namespace TurnLimbo.Presentation
             }
         }
 
+        // Whether `current` is `previous` without its front (one skill reserved and gone: a 일회성 one).
+        private static bool FrontLeft(List<int> previous, List<int> current)
+        {
+            if (previous.Count != current.Count + 1) return false;
+            for (int index = 0; index < current.Count; index++)
+                if (current[index] != previous[index + 1]) return false;
+            return true;
+        }
+
         private static void ForgetLaneOrder(SkillGear gear)
         {
+            gear.UsedSkill = null;
             gear.ShownOrder.Clear();
             gear.PendingTurns = 0;
             gear.Settle();
@@ -659,6 +676,8 @@ namespace TurnLimbo.Presentation
             // The window's, the used slot's, the next slot's, the wheel's and the spent slot's.
             public readonly CanvasGroup[] Groups = new CanvasGroup[5];
             public readonly List<int> ShownOrder = new List<int>();
+            /// <summary>The 일회성 skill just reserved from this lane, which the used socket shows in place of the lane's last.</summary>
+            public LegacySkill UsedSkill;
             public int PendingTurns;
             public float TurnFrom, TurnElapsed, TurnSeconds, TurnBounce, WheelRest, MeshPhase;
             public bool Shift, Present, Affordable = true, Dirty = true;

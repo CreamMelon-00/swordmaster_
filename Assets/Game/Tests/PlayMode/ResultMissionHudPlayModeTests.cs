@@ -63,7 +63,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(hud.Root, "Result Notice").text, Does.Not.Contain("개방!"));
                 Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("사선베기  0/1"));
                 Assert.That(Label(hud.Root, "Result Curriculum Detail").text, Does.Contain("진행 중"));
-                var statNode = new CurriculumNode("stat-result", "지구력 훈련", CurriculumBranch.Guard,
+                var statNode = new CurriculumNode("stat-result", "지구력 훈련", CurriculumBranch.Retraction,
                     0f, 0, new int[0], statReward: new CurriculumStatReward(health: 5, actGain: 1));
                 hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, false, 2, "이끼 낀 오솔길",
                     70, 220, 3, 80, 0, false, 0, true, completedCurriculumNode: statNode));
@@ -75,6 +75,47 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodeCount));
                 Assert.That(hud.Root.GetComponent<Canvas>().sortingOrder, Is.EqualTo(400));
                 Assert.That(hud.Root.GetComponent<CanvasScaler>().referenceResolution, Is.EqualTo(new Vector2(1920f, 1080f)));
+            }
+            finally { hud?.Dispose(); Object.Destroy(parent); }
+        }
+
+        [UnityTest]
+        public IEnumerator ResultModal_ACompletionShowsItsSkillOnItsLaneDye_TheCourseItFinished_AndWhatItOpened()
+        {
+            yield return null;
+            var parent = new GameObject("Result Completion View Test");
+            BattleResultHud hud = null;
+            try
+            {
+                hud = new BattleResultHud(parent.transform, new LegacyDuelArt(), null, null, null);
+                int nodeCount = hud.Root.GetComponentsInChildren<Transform>(true).Length;
+                CurriculumTree tree = CampaignCurriculum.Default;
+                var opened = new[] { tree.Find("quick-draw"), tree.Find("diagonal-cut"), tree.Find("suppleness") };
+                hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 30, 30, 3, 90, 0, false, 0, true,
+                    tree.Find("advance"), openedCurriculumNodes: opened, completedCurriculumCourse: true));
+                Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("기초 과정 수료"), "The trunk's end finishes 기초.");
+                Assert.That(Label(hud.Root, "Result Curriculum Detail").text,
+                    Does.Contain("플레슈").And.EndWith("새로 열린 과정: 쿠페 · 사선베기 · 유연함"));
+                Transform frame = Named(hud.Root, "Result Curriculum Icon Frame");
+                LegacySkill advance = LegacySkillDefinitions.Skill(12);
+                Assert.That(frame.gameObject.activeSelf, Is.True, "A completed node shows its skill.");
+                Assert.That(frame.GetComponent<Image>().color, Is.EqualTo(SkillLaneStyle.Edge(advance.LaneIndex)), "On its lane's dye.");
+                Assert.That(Named(frame.gameObject, "Result Curriculum Icon").GetComponent<Image>().sprite, Is.Not.Null);
+                Assert.That(Named(hud.Root, "Result Curriculum Accent").GetComponent<Image>().color,
+                    Is.EqualTo(SkillLaneStyle.Edge(advance.LaneIndex)));
+
+                hud.Show(new BattleResult(DuelMatchOutcome.EnemyVictory, false, 1, "숲길 입구", 0, 30, 3, 0, 20, false, 0, false,
+                    tree.Find("estocada"), completedCurriculumCourse: true));
+                Assert.That(Label(hud.Root, "Result Curriculum").text, Is.EqualTo("붕괴 과정 수료"));
+                Assert.That(Label(hud.Root, "Result Curriculum Detail").text, Does.Not.Contain("새로 열린 과정"),
+                    "A capstone opens nothing more.");
+
+                hud.Show(new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 30, 30, 3, 90, 0, false, 0, true,
+                    null, tree.Find("diagonal-cut"), 0));
+                Assert.That(frame.gameObject.activeSelf, Is.False, "Progress alone shows no skill.");
+                Assert.That(Named(hud.Root, "Result Curriculum Accent").GetComponent<Image>().color, Is.EqualTo(DuelVisualTheme.Accent));
+                Assert.That(hud.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodeCount),
+                    "Showing a completion adds nothing to the card.");
             }
             finally { hud?.Dispose(); Object.Destroy(parent); }
         }

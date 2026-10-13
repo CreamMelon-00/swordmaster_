@@ -112,6 +112,107 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [Test]
+        public void Reservation_PaysItsTimeCost_IsRefusedShortOfIt_AndEarnedSecondsStartTheNextTurnLater()
+        {
+            using (var scope = new CycleScope())
+            {
+                // Q = 사선베기 잔걸음, W = 두블레 숫돌, E = 기세 꺾기: real sheet rows.
+                scope.UseSheetSession(15, 57, 56, 58, 5);
+                DuelPrototypeController controller = scope.Controller;
+                LegacyQueuedDuel duel = controller.Session;
+                scope.Advance(0f);
+                Assert.That(controller.TurnPlanningDuration, Is.EqualTo(10f));
+                Assert.That(controller.ReservationTimeCost(1), Is.EqualTo(4f), "두블레's 예약 효과 제한시간 -4초.");
+                Assert.That(controller.ReservationTimeCost(0), Is.Zero);
+                Assert.That(controller.Hud.GetLaneCostLabel(1), Is.EqualTo("3 ACT · 4초"));
+                Assert.That(controller.Hud.GetLaneCostLabel(0), Is.EqualTo("1 ACT"));
+
+                scope.Advance(5.6f);
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(4.4f).Within(1e-3f));
+                scope.Advance(0f);
+                Assert.That(Named(controller.Hud.Root.transform, "Current W").GetComponent<Button>().interactable, Is.False,
+                    "The lane greys while the clock cannot spare 4.5 seconds.");
+                Assert.That(controller.QueueLane(1), Is.False, "Refused below n + 0.5 seconds.");
+                Assert.That(duel.PlayerQueue, Is.Empty);
+
+                // 사선베기 then 잔걸음: one 순환 kind ahead earns the next turn 2 seconds.
+                Assert.That(controller.QueueLane(0) && controller.QueueLane(0), Is.True);
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(4.4f).Within(1e-3f), "Neither costs time.");
+                controller.CommitTurn();
+                scope.Until(() => controller.CanChoose);
+                Assert.That(duel.PlanningSecondsBonus, Is.EqualTo(2));
+                Assert.That(controller.TurnPlanningDuration, Is.EqualTo(12f), "10 seconds and the 2 earned.");
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(12f).Within(1e-3f));
+                Assert.That(controller.Hud.TimeSpentText, Is.EqualTo("+2초"));
+
+                Assert.That(controller.QueueLane(1), Is.True);
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(8f).Within(1e-3f), "두블레 spends its 4 seconds.");
+                Assert.That(controller.Hud.TimeSpentText, Is.EqualTo("-4초"));
+                Assert.That(duel.PlayerQueue.Select(skill => skill.Id), Is.EqualTo(new[] { 56 }));
+            }
+        }
+
+        [Test]
+        public void Whetstone_SetsItsCopiesAtOnce_AndTheGearTagsAndRemembersThem()
+        {
+            using (var scope = new CycleScope())
+            {
+                scope.UseSheetSession(14, 58, 5);
+                DuelPrototypeController controller = scope.Controller;
+                LegacyQueuedDuel duel = controller.Session;
+                LegacyCombatHud hud = controller.Hud;
+                scope.Advance(0f);
+                Assert.That(hud.IsLaneTemporaryTagShown(0), Is.False);
+                Assert.That(controller.QueueLane(1), Is.True);
+                Assert.That(duel.GetLane(0).Select(skill => skill.Id), Is.EqualTo(new[] { 59, 59, 59, 14 }));
+                scope.Advance(0f);
+                Assert.That(hud.IsLaneTemporaryTagShown(0), Is.True, "갈아내기 wears its 1회 tag in the window.");
+                Assert.That(hud.GetLanePop(0), Is.EqualTo("+3"));
+                Assert.That(hud.IsLaneTurning(0), Is.False, "The copies arrive without turning the gear.");
+                Assert.That(controller.QueueLane(0), Is.True);
+                scope.Advance(0f);
+                Assert.That(hud.IsLaneTurning(0), Is.False, "Using one up swaps at once too.");
+                Assert.That(hud.GetUsedSocketOverride(0)?.Id, Is.EqualTo(59), "The used socket shows the 갈아내기 just reserved.");
+                Assert.That(hud.GetKeywordMarkLabel(true, 1), Is.EqualTo("1회"));
+                controller.CommitTurn();
+                scope.Until(() => controller.CanChoose);
+                Assert.That(duel.GetLane(0).Select(skill => skill.Id), Is.EqualTo(new[] { 14 }));
+                Assert.That(hud.GetLanePop(0), Is.EqualTo("소멸"), "The two left went with the turn.");
+                Assert.That(hud.GetUsedSocketOverride(0), Is.Null);
+                Assert.That(hud.IsLaneTemporaryTagShown(0), Is.False);
+            }
+        }
+
+        [Test]
+        public void Whetstone_TheLastCopyLeftAtALanesFront_GoesWithTheTurnWithoutShowingAsReserved()
+        {
+            using (var scope = new CycleScope())
+            {
+                scope.UseSheetSession(14, 58, 5);
+                DuelPrototypeController controller = scope.Controller;
+                LegacyQueuedDuel duel = controller.Session;
+                LegacyCombatHud hud = controller.Hud;
+                scope.Advance(0f);
+                // 숫돌, then two of its three 갈아내기: one copy is left at the lane's front.
+                Assert.That(controller.QueueLane(1), Is.True);
+                scope.Advance(0f);
+                Assert.That(controller.QueueLane(0), Is.True);
+                scope.Advance(0f);
+                Assert.That(controller.QueueLane(0), Is.True);
+                scope.Advance(0f);
+                Assert.That(duel.GetLane(0).Select(skill => skill.Id), Is.EqualTo(new[] { 59, 14 }));
+                Assert.That(hud.GetUsedSocketOverride(0)?.Id, Is.EqualTo(59));
+                controller.CommitTurn();
+                scope.Until(() => controller.CanChoose);
+                scope.Advance(0f);
+                Assert.That(duel.GetLane(0).Select(skill => skill.Id), Is.EqualTo(new[] { 14 }));
+                Assert.That(hud.GetUsedSocketOverride(0), Is.Null,
+                    "The copy the new turn cleared was never reserved: the used socket shows the lane's last skill again.");
+                Assert.That(hud.IsLaneTurning(0), Is.False);
+            }
+        }
+
         [UnityTest]
         public IEnumerator LaneKeyHeldThroughShift_DoesNotQueueTheSkillThatCameForward()
         {
@@ -333,6 +434,16 @@ namespace TurnLimbo.Presentation.Tests
                     new[] { Skill(101, "하나", 0), Skill(102, "둘", 0), Skill(104, "넷", 0), Skill(103, "셋", 1),
                         Skill(106, "여섯", 1), Skill(105, "다섯", 2) },
                     new[] { Skill(201, "적", 0) }, new[] { 1 }, 1, features: features));
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+            }
+
+            /// <summary>A free duel of the sheet's own rows (each in its own lane, in the order given), with 10 ACT a turn.</summary>
+            public void UseSheetSession(params int[] ids)
+            {
+                Set("mission", null);
+                Set("guide", null);
+                Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000, ids.Select(LegacySkillDefinitions.Skill).ToArray(),
+                    new[] { Skill(201, "적", 0) }, new[] { 1 }, 1, playerActGainBonus: 7));
                 typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
             }
 

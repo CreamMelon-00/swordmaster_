@@ -16,8 +16,10 @@ namespace TurnLimbo.Core.Tests
         public void Table_SplitsIntoStartingCurriculumAndEnemySkills()
         {
             IReadOnlyList<LegacySkillDefinition> all = LegacySkillDefinitions.All;
-            Assert.That(all.Select(d => d.Skill).ToArray(), Is.EqualTo(LegacyInitialSkills.All
-                .Concat(CampaignSkillCatalog.AcquisitionSkills).Concat(LegacySkillDefinitions.EnemySkills).ToArray()));
+            // Sheet order puts the 일회성 rows (59) before the enemy's; every row is in exactly one set.
+            Assert.That(all.Select(d => d.Skill).ToArray(), Is.EquivalentTo(LegacyInitialSkills.All
+                .Concat(CampaignSkillCatalog.AcquisitionSkills).Concat(LegacySkillDefinitions.EnemySkills)
+                .Concat(LegacySkillDefinitions.TemporarySkills).ToArray()));
             // The curriculum may grow; the starting set stays at nine.
             Assert.That(LegacyInitialSkills.All.Count, Is.EqualTo(9));
             Assert.That(CampaignSkillCatalog.AcquisitionSkills.Count, Is.GreaterThan(0));
@@ -285,22 +287,112 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ShippedSheet_HoldsTheThirtyTechniquesInTableOrder()
+        public void ShippedSheet_HoldsItsTechniquesInTableOrder()
         {
             string path = Path.Combine(Environment.CurrentDirectory, LegacySkillDefinitions.SheetAssetPath);
             byte[] bytes = File.ReadAllBytes(path);
             Assert.That(bytes.Take(3).ToArray(), Is.EqualTo(new byte[] { 0xEF, 0xBB, 0xBF }), "UTF-8 with a byte order mark, for Excel.");
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
             Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[]
-                { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 500, 501, 502 }));
+                { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+                    51, 52, 53, 54, 55, 56, 57, 58, 59, 500, 501, 502 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id),
-                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50 }));
+                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58 }));
             Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
+            Assert.That(table.TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
                 "The runtime reads the same file.");
             Assert.That(LegacySkillDefinitions.Table.SheetId, Is.EqualTo(LegacySkillDefinitions.SheetAssetPath));
             Assert.That(LegacySkillDefinitions.SheetAssetPath, Is.EqualTo("Assets/Game/Resources/" + LegacySkillDefinitions.SheetResourcePath + ".csv"));
+        }
+
+        /// <summary>The keyword curriculum's rows (2026-10-13): 51-59 are new (59 갈아내기 is the 일회성 row 58 숫돌 sets), 15, 17,
+        /// 19, 21 and 32 revised with their ID, name, lane, kind and property kept. Every number here is the author's to tune
+        /// in the sheet.</summary>
+        [TestCase(51, "에스토카다", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 14, 18, 1, 6)]
+        [TestCase(52, "바트망", 0, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 2, 4, 1, 5)]
+        [TestCase(53, "카덴스", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 5, 7, 1, 2)]
+        [TestCase(54, "에스키브", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 6, 8, 1, 7)]
+        [TestCase(55, "콩트르탕", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 5, 7, 1, 13)]
+        [TestCase(56, "두블레", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 15, 19, 1, 8)]
+        [TestCase(57, "잔걸음", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 5, 7, 1, 1)]
+        [TestCase(58, "숫돌", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 12)]
+        [TestCase(59, "갈아내기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 2, 4, 1, 10)]
+        [TestCase(15, "사선베기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 4, 5, 2, 11)]
+        [TestCase(17, "호흡", 0, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 13)]
+        [TestCase(19, "르프리즈", 2, LegacySkillKind.Defence, LegacySkillProperty.Defence, 2, 7, 11, 1, 13)]
+        [TestCase(21, "급소 찌르기", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 16, 20, 1, 14)]
+        [TestCase(32, "유연함", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 6, 9, 1, 15)]
+        public void KeywordCurriculumRows_HoldTheirSheetValues(int id, string name, int lane, LegacySkillKind kind,
+            LegacySkillProperty property, int cost, int minPower, int maxPower, int hits, int icon)
+        {
+            LegacySkill skill = LegacySkillDefinitions.Skill(id);
+            Assert.That((skill.Name, skill.LaneIndex, skill.Kind, skill.Property, skill.Cost, skill.MinPower, skill.MaxPower,
+                skill.AttackCount, skill.IconId), Is.EqualTo((name, lane, kind, property, cost, minPower, maxPower, hits, icon)));
+            LegacySkillDefinition definition = LegacySkillDefinitions.Find(id);
+            Assert.That(LegacySkillDefinitions.Table.GroupOf(definition),
+                Is.EqualTo(id == 59 ? LegacySkillGroup.Temporary : LegacySkillGroup.Acquisition));
+            Assert.That(definition.HighPower || definition.VariablePower, Is.False, "급소 찌르기 lost its 고화력 tag.");
+            Assert.That(definition.Text.Effect, Is.Not.Null.And.Not.Empty, "Every new and revised row has its 로비 효과.");
+            Assert.That(definition.Text.Purpose, Is.Not.Null.And.Not.Empty);
+            Assert.That(definition.Text.Info, Is.Not.Null, "and its badges.");
+            Assert.That(skill.Description, Does.Contain(minPower + "~" + maxPower), "설명 states the new range.");
+            if (kind == LegacySkillKind.Attack)
+                Assert.That(definition.Text.Detail, Does.EndWith("상대 공격과 대결: 저항 피해 / 방어·빈 행동: 체력 피해 (방어 수치 차감)"));
+            LegacySkillEffect effect = definition.Effect;
+            switch (id)
+            {
+                case 51:
+                    Assert.That((effect.AheadPowerTarget, effect.AheadPowerPerUnit, effect.AheadPowerMax),
+                        Is.EqualTo((LegacyAheadTarget.ResistanceReduction, 5, 3)));
+                    break;
+                case 52:
+                    Assert.That((effect.OpponentResistanceReduction, effect.OpponentKind), Is.EqualTo((5, (LegacySkillKind?)LegacySkillKind.Attack)));
+                    Assert.That((effect.CyclePowerPerUse, effect.CycleCostPerUse, effect.CycleMaxCount), Is.EqualTo((2, 0, 2)));
+                    break;
+                case 53:
+                    Assert.That(effect.ReserveCycleFeed, Is.True);
+                    break;
+                case 54:
+                    Assert.That(effect.AutoDodge, Is.True);
+                    break;
+                case 55:
+                    Assert.That((effect.AheadPowerTarget, effect.AheadPowerPerUnit, effect.AheadPowerMax),
+                        Is.EqualTo((LegacyAheadTarget.Breath, 4, 4)));
+                    break;
+                case 56:
+                    Assert.That((effect.QueueRemovalMode, effect.QueuePowerMultiplierCap), Is.EqualTo((LegacyQueueRemovalMode.Return, 2)));
+                    Assert.That(effect.ReservePlanningSecondsCost, Is.EqualTo(4));
+                    Assert.That(skill.Description, Does.EndWith("예약 시 제한시간 4초 소모"));
+                    break;
+                case 57:
+                    Assert.That((effect.AheadTimeTarget, effect.AheadTimePerUnit, effect.AheadTimeMax),
+                        Is.EqualTo((LegacyAheadTarget.CycleSkill, 2, 3)));
+                    break;
+                case 58:
+                    Assert.That((effect.ReserveTemporarySkillId, effect.ReserveTemporaryCount), Is.EqualTo((59, 3)));
+                    break;
+                case 59:
+                    Assert.That((effect.CyclePowerPerUse, effect.CycleCostPerUse, effect.CycleMaxCount), Is.EqualTo((3, 0, 2)));
+                    Assert.That(effect.HasReserveEffect || effect.HasUseEffect, Is.False);
+                    break;
+                case 15:
+                    Assert.That((effect.CyclePowerPerUse, effect.CycleCostPerUse, effect.CycleMaxCount), Is.EqualTo((2, 0, 2)));
+                    break;
+                case 17:
+                    Assert.That(effect.ReserveBreath, Is.True);
+                    break;
+                case 19:
+                    Assert.That((effect.ResistanceRecoveryPercent, effect.OpponentState), Is.EqualTo((20, LegacyOpponentState.Broken)));
+                    break;
+                case 21:
+                    Assert.That((effect.CyclePowerPerUse, effect.CycleCostPerUse, effect.CycleMaxCount), Is.EqualTo((5, 0, 2)));
+                    break;
+                case 32:
+                    Assert.That((effect.QueueRemovalMode, effect.QueuePowerMultiplierCap), Is.EqualTo((LegacyQueueRemovalMode.Return, 0)));
+                    break;
+            }
         }
 
         [Test]

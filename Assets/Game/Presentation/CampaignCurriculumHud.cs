@@ -9,13 +9,48 @@ using UnityEngine.UI;
 namespace TurnLimbo.Presentation
 {
     /// <summary>The curriculum page: a HOI4 focus-style tree on the left, the selected node on the right.
-    /// Clicking a node only selects it; one explicit button makes it the node in progress. CampaignRun owns the rules.</summary>
+    /// Clicking a node only selects it; one explicit button makes it the node in progress. CampaignRun owns the rules.
+    /// The tree scrolls vertically inside its frame (<c>Curriculum Viewport</c>, a <see cref="ScrollRect"/> taking the wheel,
+    /// a drag anywhere on it, cards included, and a thin bar): the trunk on top, then the three schools, each on a band of its
+    /// keyword's colour with its name at the band's upper left (the trunk and the bridges have neither). A bridge card sits
+    /// on the line between two bands over a plate of both colours and carries a <c>다리</c> tag; a school's capstone carries
+    /// <c>정수</c> and an ornate rim, and a gold border once completed, when its school's name turns its keyword's colour. The
+    /// nodes the last completion opened carry <c>새</c> until they are looked at. A page opened with an empty view state (the
+    /// first time, or after the lobby's view was reset) scrolls to the node in progress, else a new node, else the first one
+    /// available, and shows it; a page rebuilt with the state of the last one keeps its selection and where it was
+    /// (<see cref="ViewState.TreeScroll"/>, across tabs and battles too). Selecting a card scrolls it into view.</summary>
     public sealed class CampaignCurriculumHud : IDisposable
     {
         public sealed class ViewState
         {
             public string SelectedNodeId { get; internal set; }
-            public void Reset() => SelectedNodeId = null;
+            /// <summary>The tree's scroll position (its content's anchored position) as the page last left it, so a rebuild
+            /// (진행, 초기화) stays put. Null until a page has been built, and after <see cref="Reset"/> or
+            /// <see cref="Reopen"/>: the next page then scrolls to its focus.</summary>
+            public Vector2? TreeScroll { get; internal set; }
+            /// <summary>The completion the "새" tags below belong to (the last completed node's id).</summary>
+            internal string NewTagsFrom { get; set; }
+            /// <summary>The "새" nodes the player has looked at; they lose the tag.</summary>
+            internal HashSet<string> SeenNewTags { get; } = new HashSet<string>(StringComparer.Ordinal);
+            /// <summary>How often the page was opened afresh: a page built before the last <see cref="Reopen"/> keeps its
+            /// scroll to itself when it goes.</summary>
+            internal int Openings { get; private set; }
+
+            public void Reset()
+            {
+                Reopen();
+                NewTagsFrom = null;
+                SeenNewTags.Clear();
+            }
+
+            /// <summary>Lets the next page open afresh: the selection and the scroll go, so it focuses again, but the "새"
+            /// tags already looked at stay cleared. A page still open keeps its scroll to itself when it goes.</summary>
+            public void Reopen()
+            {
+                SelectedNodeId = null;
+                TreeScroll = null;
+                Openings++;
+            }
         }
 
         private sealed class NodeCard
@@ -23,15 +58,35 @@ namespace TurnLimbo.Presentation
             public CurriculumNode Node;
             public Button Button;
             public Image Background, Icon, Marker;
-            public Text Title, Status;
+            public Text Title, Status, Tag;
+            /// <summary>A completed capstone's gold border; null on other cards.</summary>
+            public GameObject Seal;
+            public bool Capstone, Bridge;
             /// <summary>The granted skill's core mechanic (<see cref="SkillRolePip"/>); null for a node that grants none.</summary>
             public SkillRolePip Role;
         }
 
         public const float NodeWidth = 116f, NodeHeight = 100f;
+        /// <summary>The scrolling content's width; its height follows the tree's rows (<see cref="ContentHeightFor"/>).</summary>
+        public const float ContentWidth = 760f;
+        /// <summary>The extra room under the trunk, where the schools fork and their names sit on their bands.</summary>
+        public const float ForkGap = 32f;
+        /// <summary>The first row of the schools: rows from here on sit <see cref="ForkGap"/> lower.</summary>
+        public const int ForkRow = 3;
+        /// <summary>How far a selected card is kept from the window's edge when it is scrolled into view.</summary>
+        public const float FocusMargin = 16f;
+        /// <summary>The window's inset from the frame's top and bottom (the brass rim stays clear of scrolling cards).</summary>
+        public const float ViewportInset = 8f;
+        /// <summary>The card tags: a node the last completion opened, a bridge between two schools, a school's capstone.</summary>
+        public const string NewTag = "새", BridgeTag = "다리", CapstoneTag = "정수";
         private const float TreeWidth = 760f, TreeHeight = 544f, ColumnWidth = 123f, RowHeight = 168f;
+        private const float FirstRowCentre = 124f, ContentFoot = 34f, BandLeft = 8f, BandHeadRoom = 40f, BandFoot = 12f;
+        private const float BandAlpha = .13f, BridgeAlpha = .85f, BridgePad = 4f, SealWidth = 3f;
         private static readonly Vector2 TreeCenter = new Vector2(-216f, -53f);
-        private readonly RectTransform root, tree, detailFrame, detailSurface, detailRule;
+        private readonly RectTransform root, tree, viewport, content, detailFrame, detailSurface, detailRule;
+        private readonly ScrollRect scroll;
+        private readonly Dictionary<CurriculumBranch, Text> headings = new Dictionary<CurriculumBranch, Text>();
+        private readonly HashSet<string> newNodes = new HashSet<string>(StringComparer.Ordinal);
         private readonly LegacyDuelArt art;
         private readonly CampaignRun run;
         private readonly Action<string> select;
@@ -42,6 +97,7 @@ namespace TurnLimbo.Presentation
         private readonly Image detailIcon;
         private readonly Button primaryAction, resetButton;
         private readonly List<NodeCard> cards = new List<NodeCard>();
+        private readonly int opening;
         private bool disposed, resetArmed;
         private static Color Border => DuelVisualTheme.Border;
         private static Color Accent => DuelVisualTheme.Accent;
@@ -51,6 +107,23 @@ namespace TurnLimbo.Presentation
         public GameObject Root => root.gameObject;
         public ViewState State { get; }
         public bool IsResetArmed => !disposed && resetArmed;
+        /// <summary>The tree's scroll view (on its frame): vertical only, clamped, no inertia.</summary>
+        public ScrollRect TreeScroll => scroll;
+        /// <summary>How far the tree is scrolled down now (0 at its top).</summary>
+        public float ScrollOffset => disposed ? 0f : content.anchoredPosition.y;
+        /// <summary>The farthest the tree scrolls: its content's height less its window's.</summary>
+        public float MaximumScroll => disposed ? 0f : Mathf.Max(0f, content.sizeDelta.y - viewport.rect.height);
+        /// <summary>Whether the node carries the "새" tag now.</summary>
+        public bool IsNew(string id) => !disposed && newNodes.Contains(id);
+
+        /// <summary>Whether the node's whole card shows in the tree's window now.</summary>
+        public bool IsNodeInView(string id)
+        {
+            CurriculumNode node = run.Curriculum.Tree.Find(id);
+            if (disposed || node == null) return false;
+            float centre = -NodePosition(node).y - ScrollOffset;
+            return centre - NodeHeight * .5f >= -.5f && centre + NodeHeight * .5f <= viewport.rect.height + .5f;
+        }
 
         public CampaignCurriculumHud(RectTransform parent, LegacyDuelArt art, CampaignRun run,
             Action<string> select, Action reset, ViewState state = null)
@@ -61,6 +134,7 @@ namespace TurnLimbo.Presentation
             this.select = select;
             this.reset = reset;
             State = state ?? new ViewState();
+            opening = State.Openings;
             root = Rect("Curriculum Content", parent, Vector2.zero, Vector2.zero);
             Stretch(root);
 
@@ -74,7 +148,34 @@ namespace TurnLimbo.Presentation
             var treeFrame = Panel("Curriculum Tree", root, TreeCenter, new Vector2(TreeWidth, TreeHeight), DuelVisualTheme.Track);
             DuelVisualTheme.DressPanel(treeFrame);
             tree = treeFrame.rectTransform;
-            BuildBranchHeadings();
+            // The window clips the scrolling content and takes the wheel and drags where no card is; cards pass drags on
+            // (a button handles no drag), so dragging on a card scrolls too.
+            var window = Panel("Curriculum Viewport", tree, Vector2.zero, Vector2.zero, Color.clear);
+            window.raycastTarget = true;
+            viewport = window.rectTransform;
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.offsetMin = new Vector2(0f, ViewportInset);
+            viewport.offsetMax = new Vector2(0f, -ViewportInset);
+            var mask = window.gameObject.AddComponent<RectMask2D>();
+            mask.softness = new Vector2Int(0, 24);
+            content = Rect("Curriculum Tree Content", viewport, Vector2.zero,
+                new Vector2(ContentWidth, ContentHeightFor(run.Curriculum.Tree)));
+            content.anchorMin = content.anchorMax = content.pivot = new Vector2(0f, 1f);
+            content.anchoredPosition = Vector2.zero;
+            scroll = treeFrame.gameObject.AddComponent<ScrollRect>();
+            scroll.viewport = viewport;
+            scroll.content = content;
+            scroll.horizontal = false;
+            scroll.vertical = true;
+            scroll.movementType = ScrollRect.MovementType.Clamped;
+            scroll.inertia = false;
+            scroll.scrollSensitivity = 40f;
+            scroll.verticalScrollbar = BuildScrollbar();
+            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
+            // Back to front: the bands and their names, the bridges' plates, the links, the cards.
+            BuildBands();
+            BuildBridgePlates();
             BuildConnectors();
             foreach (CurriculumNode node in run.Curriculum.Tree.Nodes) AddCard(node);
 
@@ -88,8 +189,9 @@ namespace TurnLimbo.Presentation
             detailIcon.preserveAspect = true;
             detailName = Label("Curriculum Detail Name", detail.transform, Vector2.zero, new Vector2(162f, 36f), 24);
             Fit(detailName, 17, 24);
-            purpose = Label("Curriculum Detail Purpose", detail.transform, Vector2.zero, new Vector2(162f, 26f), 17);
-            Fit(purpose, 13, 17);
+            // Wider than the name: a bridge's line names both its schools.
+            purpose = Label("Curriculum Detail Purpose", detail.transform, Vector2.zero, new Vector2(240f, 26f), 17);
+            Fit(purpose, 11, 17);
             detailInfo = new SkillInfoView(detail.transform, art.UIFont, new Vector2(0f, 64f), 334f, "Curriculum");
             detailRule = Panel("Curriculum Detail Rule", detail.transform, Vector2.zero, new Vector2(334f, 2f), Border).rectTransform;
             requirement = Label("Curriculum Requirement", detail.transform, Vector2.zero, new Vector2(334f, 26f), 17);
@@ -104,26 +206,75 @@ namespace TurnLimbo.Presentation
                 new Vector2(334f, 50f), PerformSelect, true);
             actionCaption = primaryAction.GetComponentInChildren<Text>();
             Refresh();
+            // A rebuild stays where the page was; a page opened afresh scrolls to what matters now.
+            if (State.TreeScroll.HasValue) ScrollTo(State.TreeScroll.Value.y);
+            else Focus(FocusNodeId() ?? State.SelectedNodeId, true);
+            State.TreeScroll = content.anchoredPosition;
         }
 
-        /// <summary>Position of a node card inside the tree frame.</summary>
+        /// <summary>A node card's centre in the scrolling content, from the content's upper left corner (x right, y up):
+        /// columns 123 apart, rows 168 apart, and the schools' rows (<see cref="ForkRow"/> on) a further
+        /// <see cref="ForkGap"/> down. The trunk's column 2.5 sits in the middle (x 377).</summary>
         public static Vector2 NodePosition(CurriculumNode node)
-            => new Vector2(-TreeWidth * .5f + ColumnWidth * .5f + 8f + node.Column * ColumnWidth,
-                TreeHeight * .5f - 40f - NodeHeight * .5f - 34f - node.Row * RowHeight);
+            => new Vector2(BandLeft + ColumnWidth * .5f + node.Column * ColumnWidth, -RowCentre(node.Row));
+
+        /// <summary>The content height a tree needs: its last row's cards and a foot under them, never less than the window
+        /// (the frame less its insets). The six rows of the default tree make 1080.</summary>
+        public static float ContentHeightFor(CurriculumTree source)
+        {
+            int last = 0;
+            if (source != null) foreach (CurriculumNode node in source.Nodes) last = Math.Max(last, node.Row);
+            return Mathf.Max(TreeHeight - 2f * ViewportInset, RowCentre(last) + NodeHeight * .5f + ContentFoot);
+        }
+
+        private static float RowCentre(int row) => FirstRowCentre + RowHeight * row + (row >= ForkRow ? ForkGap : 0f);
 
         public void SelectNode(string id)
         {
             if (disposed || run.Curriculum.Tree.Find(id) == null) return;
             State.SelectedNodeId = id;
+            // Looking at a new node clears its tag.
+            if (newNodes.Contains(id)) State.SeenNewTags.Add(id);
+            Focus(id, false);
             Refresh();
+        }
+
+        /// <summary>Scrolls the tree so the node's card shows: centred (<paramref name="centre"/>), or just inside the window's
+        /// nearer edge when part of it lies outside (otherwise nothing moves).</summary>
+        private void Focus(string id, bool centre)
+        {
+            CurriculumNode node = run.Curriculum.Tree.Find(id);
+            if (node == null) return;
+            float middle = -NodePosition(node).y, view = viewport.rect.height, offset = ScrollOffset;
+            if (centre) offset = middle - view * .5f;
+            else if (middle - NodeHeight * .5f - FocusMargin < offset) offset = middle - NodeHeight * .5f - FocusMargin;
+            else if (middle + NodeHeight * .5f + FocusMargin > offset + view) offset = middle + NodeHeight * .5f + FocusMargin - view;
+            ScrollTo(offset);
+        }
+
+        private void ScrollTo(float offset)
+        {
+            scroll.StopMovement();
+            content.anchoredPosition = new Vector2(0f, Mathf.Clamp(offset, 0f, MaximumScroll));
+        }
+
+        /// <summary>Where a page opened afresh looks first: the node in progress, else the first new one, else the first
+        /// available one; null when there is none.</summary>
+        private string FocusNodeId()
+        {
+            CurriculumProgress curriculum = run.Curriculum;
+            if (curriculum.Active != null) return curriculum.Active.Id;
+            foreach (CurriculumNode node in curriculum.Tree.Nodes) if (newNodes.Contains(node.Id)) return node.Id;
+            return FirstAvailable();
         }
 
         public void Refresh()
         {
             if (disposed) return;
             CurriculumProgress curriculum = run.Curriculum;
+            UpdateNewNodes(curriculum);
             if (curriculum.Tree.Find(State.SelectedNodeId) == null)
-                State.SelectedNodeId = curriculum.Active?.Id ?? FirstAvailable() ?? curriculum.Tree.Nodes[0].Id;
+                State.SelectedNodeId = FocusNodeId() ?? curriculum.Tree.Nodes[0].Id;
             status.text = curriculum.Active != null
                 ? $"진행 중  {curriculum.Active.Title}  {curriculum.ActiveBattles}/{curriculum.Active.Battles}"
                 : curriculum.IsFinished ? "모든 과정을 마쳤습니다 · 초기화하면 다른 길을 고를 수 있습니다"
@@ -136,6 +287,9 @@ namespace TurnLimbo.Presentation
             resetCaption.text = resetArmed ? "한 번 더 누르면 초기화" : "커리큘럼 초기화";
             resetCaption.color = canReset ? Foreground : Muted;
             foreach (NodeCard card in cards) RefreshCard(card, curriculum);
+            // A finished school's name takes its keyword's colour.
+            foreach (KeyValuePair<CurriculumBranch, Text> heading in headings)
+                heading.Value.color = IsSchoolFinished(heading.Key) ? SkillToneStyle.Paper(BranchTone(heading.Key)) : Muted;
             RefreshDetail(curriculum);
         }
 
@@ -148,18 +302,163 @@ namespace TurnLimbo.Presentation
             return null;
         }
 
-        private void BuildBranchHeadings()
+        // The nodes the last completion opened that can still be chosen, less those the player has looked at. Nothing is
+        // saved: the last completed node says it all.
+        private void UpdateNewNodes(CurriculumProgress curriculum)
         {
-            var columns = new Dictionary<CurriculumBranch, (float min, float max)>();
-            foreach (CurriculumNode node in run.Curriculum.Tree.Nodes)
-                columns[node.Branch] = columns.TryGetValue(node.Branch, out var range)
-                    ? (Mathf.Min(range.min, node.Column), Mathf.Max(range.max, node.Column)) : (node.Column, node.Column);
-            foreach (KeyValuePair<CurriculumBranch, (float min, float max)> entry in columns)
+            newNodes.Clear();
+            CurriculumNode last = curriculum.LastCompleted;
+            if (State.NewTagsFrom != last?.Id)
             {
-                float x = -TreeWidth * .5f + ColumnWidth * .5f + 8f + (entry.Value.min + entry.Value.max) * .5f * ColumnWidth;
-                Label("Branch " + entry.Key, tree, new Vector2(x, TreeHeight * .5f - 26f), new Vector2(240f, 30f), 20,
-                    DuelVisualTheme.Paper, TextAnchor.MiddleCenter).text = BranchName(entry.Key);
+                State.NewTagsFrom = last?.Id;
+                State.SeenNewTags.Clear();
             }
+            if (last == null) return;
+            foreach (CurriculumNode node in curriculum.OpenedBy(last.Id))
+                if (curriculum.GetState(node.Id) == CurriculumNodeState.Available && !State.SeenNewTags.Contains(node.Id))
+                    newNodes.Add(node.Id);
+        }
+
+        // A school is finished once its capstone (정수) is.
+        private bool IsSchoolFinished(CurriculumBranch branch)
+        {
+            CurriculumTree source = run.Curriculum.Tree;
+            foreach (CurriculumNode node in source.Nodes)
+                if (node.Branch == branch && source.IsCapstone(node.Id) && run.Curriculum.IsCompleted(node.Id)) return true;
+            return false;
+        }
+
+        /// <summary>A school's keyword colour (its band, and its name once finished): 순환's, 붕괴's (the 고화력 tone) and
+        /// 판짜기's (the 후속 tone). The trunk and the bridges have none.</summary>
+        public static LegacySkillTone BranchTone(CurriculumBranch branch)
+        {
+            switch (branch)
+            {
+                case CurriculumBranch.Circulation: return LegacySkillTone.Cycle;
+                case CurriculumBranch.Collapse: return LegacySkillTone.HighPower;
+                case CurriculumBranch.Retraction: return LegacySkillTone.Followup;
+                default: return LegacySkillTone.Neutral;
+            }
+        }
+
+        private static bool IsSchool(CurriculumBranch branch)
+            => branch != CurriculumBranch.Foundation && branch != CurriculumBranch.Bridge;
+
+        /// <summary>Each school's band under its nodes, from the column its first node starts in to the one its last ends in
+        /// (a column a later phase fills is drawn already), from just above its first row to just under its last, in its
+        /// keyword's colour; and its name at the band's upper left, in the fork's extra room, clear of the links coming in.
+        /// The trunk and the bridges get neither: a bridge's card carries its tag and its plate instead.</summary>
+        private void BuildBands()
+        {
+            var spans = new Dictionary<CurriculumBranch, (float left, float right, int top, int bottom)>();
+            var order = new List<CurriculumBranch>();
+            foreach (CurriculumNode node in run.Curriculum.Tree.Nodes)
+            {
+                if (!IsSchool(node.Branch)) continue;
+                if (!spans.TryGetValue(node.Branch, out var span))
+                {
+                    order.Add(node.Branch);
+                    span = (node.Column, node.Column, node.Row, node.Row);
+                }
+                spans[node.Branch] = (Mathf.Min(span.left, node.Column), Mathf.Max(span.right, node.Column),
+                    Math.Min(span.top, node.Row), Math.Max(span.bottom, node.Row));
+            }
+            foreach (CurriculumBranch branch in order)
+            {
+                var span = spans[branch];
+                BandBounds(span.left, span.right, span.top, span.bottom, out float left, out float right, out float top, out float bottom);
+                Color tint = SkillToneStyle.Paper(BranchTone(branch));
+                tint.a = BandAlpha;
+                Pin(Panel("Band " + branch, content, new Vector2((left + right) * .5f, (top + bottom) * .5f),
+                    new Vector2(right - left, top - bottom), tint).rectTransform);
+            }
+            foreach (CurriculumBranch branch in order)
+            {
+                var span = spans[branch];
+                BandBounds(span.left, span.right, span.top, span.bottom, out float left, out _, out float top, out _);
+                Text heading = Label("Branch " + branch, content, new Vector2(left + 8f + 50f, top - 4f - 15f),
+                    new Vector2(100f, 30f), 18, Muted);
+                Pin(heading.rectTransform);
+                heading.text = BranchName(branch);
+                headings[branch] = heading;
+            }
+        }
+
+        private static void BandBounds(float firstColumn, float lastColumn, int firstRow, int lastRow,
+            out float left, out float right, out float top, out float bottom)
+        {
+            left = BandLeft + ColumnWidth * Mathf.Floor(firstColumn);
+            right = BandLeft + ColumnWidth * (Mathf.Ceil(lastColumn) + 1f);
+            top = -RowCentre(firstRow) + NodeHeight * .5f + BandHeadRoom;
+            bottom = -RowCentre(lastRow) - NodeHeight * .5f - BandFoot;
+        }
+
+        /// <summary>The two schools a bridge joins, the left one first: its prerequisites' schools by column. False for a
+        /// node that is not a bridge (or names no school).</summary>
+        public static bool TryGetBridgedBranches(CurriculumTree source, CurriculumNode node, out CurriculumBranch left,
+            out CurriculumBranch right)
+        {
+            left = right = CurriculumBranch.Bridge;
+            if (source == null || node == null || node.Branch != CurriculumBranch.Bridge) return false;
+            float leftColumn = float.MaxValue, rightColumn = float.MinValue;
+            foreach (string id in Concat(node.RequiresAll, node.RequiresAny))
+            {
+                CurriculumNode parent = source.Find(id);
+                if (parent == null || !IsSchool(parent.Branch)) continue;
+                if (parent.Column < leftColumn) { leftColumn = parent.Column; left = parent.Branch; }
+                if (parent.Column > rightColumn) { rightColumn = parent.Column; right = parent.Branch; }
+            }
+            return left != CurriculumBranch.Bridge;
+        }
+
+        // Under each bridge card, a plate a little larger than the card in its two schools' colours, half and half.
+        private void BuildBridgePlates()
+        {
+            CurriculumTree source = run.Curriculum.Tree;
+            float width = NodeWidth + 2f * BridgePad, height = NodeHeight + 2f * BridgePad;
+            foreach (CurriculumNode node in source.Nodes)
+            {
+                if (!TryGetBridgedBranches(source, node, out CurriculumBranch left, out CurriculumBranch right)) continue;
+                var plate = Rect("Bridge Plate " + node.Id, content, NodePosition(node), new Vector2(width, height));
+                Pin(plate);
+                Color leftColor = SkillToneStyle.Paper(BranchTone(left)), rightColor = SkillToneStyle.Paper(BranchTone(right));
+                leftColor.a = rightColor.a = BridgeAlpha;
+                Panel("Bridge Plate Left", plate, new Vector2(-width * .25f, 0f), new Vector2(width * .5f, height), leftColor);
+                Panel("Bridge Plate Right", plate, new Vector2(width * .25f, 0f), new Vector2(width * .5f, height), rightColor);
+            }
+        }
+
+        // A thin bar on the frame's right edge, inside its rim (the combat log's, narrower).
+        private Scrollbar BuildScrollbar()
+        {
+            var track = Panel("Curriculum Scrollbar", tree, Vector2.zero, Vector2.zero, DuelVisualTheme.RaisedSurface);
+            track.raycastTarget = true;
+            RectTransform rect = track.rectTransform;
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(1f, .5f);
+            rect.sizeDelta = new Vector2(6f, -2f * (ViewportInset + 8f));
+            rect.anchoredPosition = new Vector2(-7f, 0f);
+            var handle = Panel("Handle", rect, Vector2.zero, Vector2.zero, Border);
+            handle.raycastTarget = true;
+            handle.rectTransform.anchorMin = Vector2.zero;
+            handle.rectTransform.anchorMax = Vector2.one;
+            handle.rectTransform.sizeDelta = Vector2.zero;
+            var bar = track.gameObject.AddComponent<Scrollbar>();
+            bar.handleRect = handle.rectTransform;
+            bar.targetGraphic = handle;
+            bar.direction = Scrollbar.Direction.BottomToTop;
+            bar.navigation = new Navigation { mode = Navigation.Mode.None };
+            return bar;
+        }
+
+        // Content children are placed from the content's upper left.
+        private static void Pin(RectTransform rect) => rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+
+        private static IEnumerable<string> Concat(IEnumerable<string> a, IEnumerable<string> b)
+        {
+            foreach (string value in a) yield return value;
+            foreach (string value in b) yield return value;
         }
 
         /// <summary>Right-angled connectors from each prerequisite's bottom to the node's top, like a focus tree.
@@ -191,14 +490,36 @@ namespace TurnLimbo.Presentation
         }
 
         private void Line(string name, Vector2 position, Vector2 size, Color color)
-            => Panel(name, tree, position, size, color);
+            => Pin(Panel(name, content, position, size, color).rectTransform);
 
         private void AddCard(CurriculumNode node)
         {
-            var card = new NodeCard { Node = node };
-            card.Button = ActionButton("Curriculum Node " + node.Id, tree, null, NodePosition(node),
+            CurriculumTree source = run.Curriculum.Tree;
+            var card = new NodeCard
+            {
+                Node = node,
+                Capstone = source.IsCapstone(node.Id),
+                Bridge = TryGetBridgedBranches(source, node, out _, out _),
+            };
+            card.Button = ActionButton("Curriculum Node " + node.Id, content, null, NodePosition(node),
                 new Vector2(NodeWidth, NodeHeight), () => SelectNode(node.Id));
+            Pin((RectTransform)card.Button.transform);
             card.Background = card.Button.GetComponent<Image>();
+            // A capstone wears the ornate rim; completed, a gold border over it too.
+            if (card.Capstone)
+            {
+                DuelVisualTheme.DressPanel(card.Background);
+                card.Seal = Rect("Capstone Seal", card.Button.transform, Vector2.zero, new Vector2(NodeWidth, NodeHeight)).gameObject;
+                Panel("Seal Top", card.Seal.transform, new Vector2(0f, (NodeHeight - SealWidth) * .5f),
+                    new Vector2(NodeWidth, SealWidth), Accent);
+                Panel("Seal Bottom", card.Seal.transform, new Vector2(0f, -(NodeHeight - SealWidth) * .5f),
+                    new Vector2(NodeWidth, SealWidth), Accent);
+                Panel("Seal Left", card.Seal.transform, new Vector2(-(NodeWidth - SealWidth) * .5f, 0f),
+                    new Vector2(SealWidth, NodeHeight), Accent);
+                Panel("Seal Right", card.Seal.transform, new Vector2((NodeWidth - SealWidth) * .5f, 0f),
+                    new Vector2(SealWidth, NodeHeight), Accent);
+                card.Seal.SetActive(false);
+            }
             card.Marker = Panel("Selected Marker", card.Button.transform, new Vector2(0f, NodeHeight * .5f - 3f),
                 new Vector2(NodeWidth, 6f), Accent);
             card.Icon = Panel("Node Icon", card.Button.transform, new Vector2(-30f, 22f), Vector2.one * 40f, Color.white);
@@ -221,9 +542,13 @@ namespace TurnLimbo.Presentation
                 Fit(rewardLabel, 11, 15);
                 rewardLabel.text = "능력치";
             }
-            if (node.ExclusiveWith.Count > 0 || HasExclusivePartner(node))
+            bool paired = node.ExclusiveWith.Count > 0 || HasExclusivePartner(node);
+            if (paired)
                 Label("Node Exclusive", card.Button.transform, new Vector2(38f, 8f), new Vector2(40f, 20f), 13,
                     DuelVisualTheme.Danger, TextAnchor.MiddleCenter).text = "택1";
+            // 새, 다리 or 정수, in the 택1 tag's place (beside it on a card that has both).
+            card.Tag = Label("Node Tag", card.Button.transform, new Vector2(paired ? -4f : 38f, 8f), new Vector2(40f, 20f), 13,
+                Accent, TextAnchor.MiddleCenter);
             card.Title = Label("Node Title", card.Button.transform, new Vector2(0f, -14f), new Vector2(NodeWidth - 10f, 26f), 17,
                 Foreground, TextAnchor.MiddleCenter);
             Fit(card.Title, 12, 17);
@@ -257,6 +582,11 @@ namespace TurnLimbo.Presentation
             card.Status.text = StateText(state, card.Node, curriculum);
             card.Status.color = state == CurriculumNodeState.Active || state == CurriculumNodeState.Completed ? Accent
                 : state == CurriculumNodeState.Excluded ? DuelVisualTheme.Danger : Muted;
+            bool isNew = newNodes.Contains(card.Node.Id);
+            card.Tag.text = isNew ? NewTag : card.Bridge ? BridgeTag : card.Capstone ? CapstoneTag : string.Empty;
+            card.Tag.color = isNew ? Accent : card.Bridge ? Foreground : DuelVisualTheme.Paper;
+            card.Tag.fontStyle = isNew ? FontStyle.Bold : FontStyle.Normal;
+            card.Seal?.SetActive(state == CurriculumNodeState.Completed);
         }
 
         private static string StateText(CurriculumNodeState state, CurriculumNode node, CurriculumProgress curriculum)
@@ -296,7 +626,7 @@ namespace TurnLimbo.Presentation
                 detailInfo.SetEmptyMessage(rewardText);
             }
             detailName.text = DisplayTitle(node, state);
-            purpose.text = $"{BranchName(node.Branch)} 과정  ·  전투 {node.Battles}회";
+            purpose.text = PurposeText(curriculum.Tree, node);
             requirement.text = RequirementText(node, curriculum.Tree);
             // Lanes open through story missions; a skill of a closed lane is owned but waits to fight.
             if (skill != null && !run.IsLaneOpen(skill.LaneIndex))
@@ -337,7 +667,7 @@ namespace TurnLimbo.Presentation
             detailStyle.Root.anchoredPosition = new Vector2(-18f, top - 18f);
             detailIcon.rectTransform.anchoredPosition = new Vector2(-105f, top - 62f);
             detailName.rectTransform.anchoredPosition = new Vector2(20f, top - 49f);
-            purpose.rectTransform.anchoredPosition = new Vector2(20f, top - 78f);
+            purpose.rectTransform.anchoredPosition = new Vector2(59f, top - 78f);
             detailInfo.PlaceTop(top - 104f);
             float cursor = top - 104f - detailInfo.Height - 8f;
             detailRule.anchoredPosition = new Vector2(0f, cursor - 1f);
@@ -349,6 +679,18 @@ namespace TurnLimbo.Presentation
             availability.rectTransform.anchoredPosition = new Vector2(0f, cursor - 22f);
             cursor -= 52f;
             primaryAction.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, cursor - 25f);
+        }
+
+        /// <summary>The detail's purpose line: <c>순환 과정  ·  전투 1회</c>, a capstone's <c>순환 과정 정수  ·  전투 1회</c>, a
+        /// bridge's <c>다리 과정  ·  붕괴 × 순환  ·  전투 1회</c>.</summary>
+        public static string PurposeText(CurriculumTree source, CurriculumNode node)
+        {
+            string battles = $"전투 {node.Battles}회";
+            if (TryGetBridgedBranches(source, node, out CurriculumBranch left, out CurriculumBranch right))
+                return $"{BranchName(node.Branch)} 과정  ·  {BranchName(left)} × {BranchName(right)}  ·  {battles}";
+            return source != null && source.IsCapstone(node.Id)
+                ? $"{BranchName(node.Branch)} 과정 {CapstoneTag}  ·  {battles}"
+                : $"{BranchName(node.Branch)} 과정  ·  {battles}";
         }
 
         private static string RequirementText(CurriculumNode node, CurriculumTree tree)
@@ -385,7 +727,16 @@ namespace TurnLimbo.Presentation
         }
 
         public static string BranchName(CurriculumBranch branch)
-            => branch == CurriculumBranch.Slash ? "참격" : branch == CurriculumBranch.Pierce ? "관통" : "수비";
+        {
+            switch (branch)
+            {
+                case CurriculumBranch.Foundation: return "기초";
+                case CurriculumBranch.Circulation: return "순환";
+                case CurriculumBranch.Collapse: return "붕괴";
+                case CurriculumBranch.Retraction: return "판짜기";
+                default: return "다리";
+            }
+        }
 
         // Any sheet row, as CampaignRun grants it, so a node whose technique became a starting one still shows it.
         private static LegacySkill GrantedSkill(CurriculumNode node)
@@ -427,6 +778,8 @@ namespace TurnLimbo.Presentation
         public void Dispose()
         {
             if (disposed) return;
+            // Unless the page was opened afresh since this one was built: the next one focuses again.
+            if (State.Openings == opening) State.TreeScroll = content.anchoredPosition;
             disposed = true;
             foreach (Button button in root.GetComponentsInChildren<Button>(true)) button.onClick.RemoveAllListeners();
             root.gameObject.SetActive(false);

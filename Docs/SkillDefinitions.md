@@ -1,10 +1,10 @@
 # 기술 정의 표
 
-2026-09-29 도입. 기술 ID 분기가 5개 파일(시작 효과, 조건 판정, 역할, 로비 설명, 상세 배지)에 흩어져 있던 것을 표 하나로 모았습니다. 당시 게임 동작과 문구는 유지했습니다. 2026-10-02부터 표의 데이터는 C# 배열이 아니라 기술 시트(CSV)에 있습니다(`SkillSheet.md`). 이때 기술 네 개의 이름을 바꿨습니다(일도양단 → 알티바호, 전진 → 플레슈, 투지 → 르프리즈, 발검 → 쿠페). 2026-10-03 기본 9종의 역할과 수치·조건을 다시 설계했습니다(`StarterSkillDesign.md`). 2026-10-06 적만 쓰는 `적` 행과 시작 효과 `상대 붕괴`를 더하고, 서막 4 임무 이아의 수훈 기술 라우다레(500)를 넣었습니다. 같은 날 상대의 상태를 보는 `상대 상태 조건`과 타격마다 붙는 `조건 피해 배율`을 더하고, 라우다레에 이어 쓰는 베네디체레(501)·프레디카레(502)를 넣었습니다. 2026-10-12 열 정체성(Q 정공·W 강공·E 기교)에 맞춰 기술 15종의 숫자와 문구를 고쳤습니다(`SkillBalance.md`). 정의의 모양, 시트의 열, 검사 규칙은 그대로입니다.
+2026-09-29 도입. 기술 ID 분기가 5개 파일(시작 효과, 조건 판정, 역할, 로비 설명, 상세 배지)에 흩어져 있던 것을 표 하나로 모았습니다. 당시 게임 동작과 문구는 유지했습니다. 2026-10-02부터 표의 데이터는 C# 배열이 아니라 기술 시트(CSV)에 있습니다(`SkillSheet.md`). 이때 기술 네 개의 이름을 바꿨습니다(일도양단 → 알티바호, 전진 → 플레슈, 투지 → 르프리즈, 발검 → 쿠페). 2026-10-03 기본 9종의 역할과 수치·조건을 다시 설계했습니다(`StarterSkillDesign.md`). 2026-10-06 적만 쓰는 `적` 행과 시작 효과 `상대 붕괴`를 더하고, 서막 4 임무 이아의 수훈 기술 라우다레(500)를 넣었습니다. 같은 날 상대의 상태를 보는 `상대 상태 조건`과 타격마다 붙는 `조건 피해 배율`을 더하고, 라우다레에 이어 쓰는 베네디체레(501)·프레디카레(502)를 넣었습니다. 2026-10-12 열 정체성(Q 정공·W 강공·E 기교)에 맞춰 기술 15종의 숫자와 문구를 고쳤습니다(`SkillBalance.md`). 정의의 모양, 시트의 열, 검사 규칙은 그대로입니다. 2026-10-13 키워드 커리큘럼(`Curriculum.md`)을 위해 문구형 열 `예약 효과`·`사용 효과`(시트 47열)를 더하고, 새 기술 6종(51 에스토카다, 52 바트망, 53 카덴스, 54 에스키브, 55 콩트르탕, 56 두블레)을 넣고, 5종(15 사선베기, 17 호흡, 19 르프리즈, 21 급소 찌르기, 32 유연함)을 고쳤습니다. 효과의 뜻은 `SkillSheet.md`의 '예약 효과와 사용 효과'에 있습니다.
 
 ## 어디에 있나
 
-기술 24종(플레이어 21종, 적 3종)의 데이터는 기술 시트 `Assets/Game/Resources/Skills/skills.csv`에 있습니다. 시트의 열, 값, 검사 규칙과 편집 방법(Excel, 구글 시트, `Turn Limbo/기술 시트` 창)은 `SkillSheet.md`에 있습니다. 코드에는 정의의 모양과 시트를 읽는 규칙만 남았습니다.
+기술 36종(플레이어 33종, 적 3종)의 데이터는 기술 시트 `Assets/Game/Resources/Skills/skills.csv`에 있습니다. 시트의 열, 값, 검사 규칙과 편집 방법(Excel, 구글 시트, `Turn Limbo/기술 시트` 창)은 `SkillSheet.md`에 있습니다. 코드에는 정의의 모양과 시트를 읽는 규칙만 남았습니다.
 
 `Assets/Game/Runtime/LegacyCombat/LegacySkillDefinitions.cs`의 정의 하나는 시트의 한 행이고, 다음을 가집니다.
 
@@ -19,7 +19,7 @@
 
 표에 없는 기술(서막 임무의 연습 기술 등)의 짧은 이름과 전투 상세는 종류와 타수로 만든 기본 문구를 씁니다. 모든 기술의 공통 피해 문구(`LegacySkillRoles.AttackDamageDetail`)는 이런 기술을 위해 코드에 남아 있고, 시트의 전투 상세에는 그 문구를 풀어 적었습니다.
 
-시트의 `구분`(`LegacySkillGroup`)이 목록을 나눕니다. `시작` 행 9개가 시작 기술(`LegacySkillDefinitions.InitialSkills`, `LegacyInitialSkills.All`)이고, `획득` 행(지금 18개)이 커리큘럼, 스테이지 첫 승리와 학원 필드의 습득물로 얻는 기술(`AcquisitionSkills`, `CampaignSkillCatalog.AcquisitionSkills`)입니다. `적` 행(지금 라우다레 500, 베네디체레 501, 프레디카레 502)은 적만 쓰는 기술(`EnemySkills`)입니다. 시작·획득 목록, 편성, 커리큘럼, 저장된 편성 어디에도 들어가지 않고, 이야기 적의 대본이 ID로 씁니다(`PrologueMissions`의 이아 수훈 대본). 모두 시트의 행 순서를 따르고, 시작 기술의 열 안 순서가 기본 편성 순서입니다. 그 밖의 모든 코드는 기술을 **ID로** 찾습니다(`LegacySkillDefinitions.Skill(id)`, `Find(id)`). 행 순서를 바꿔도 적 행동, 임무, 반격기가 바뀌지 않습니다. 어느 과정이 어느 기술을 주는지는 `CampaignCurriculum.cs`에(`Curriculum.md`), 필드에 어떤 기술이 떨어져 있는지는 `CampaignFieldPickups.cs`에 있습니다(`SkillSheet.md`의 '필드 습득물').
+시트의 `구분`(`LegacySkillGroup`)이 목록을 나눕니다. `시작` 행 9개가 시작 기술(`LegacySkillDefinitions.InitialSkills`, `LegacyInitialSkills.All`)이고, `획득` 행(지금 26개)이 커리큘럼, 스테이지 첫 승리와 학원 필드의 습득물로 얻는 기술(`AcquisitionSkills`, `CampaignSkillCatalog.AcquisitionSkills`)입니다. `적` 행(지금 라우다레 500, 베네디체레 501, 프레디카레 502)은 적만 쓰는 기술(`EnemySkills`)입니다. `일회성` 행(2026-10-13, 지금 갈아내기 59)은 다른 기술의 `예약 효과` `일회성 <ID> ×N`이 한 턴 동안 열 맨 앞에 세우는 기술(`TemporarySkills`, `LegacySkillDefinitions.IsTemporary`)이고, 시작·획득·적 목록 어디에도 들어가지 않습니다(`SkillSheet.md`의 '일회성'). 시작·획득 목록, 편성, 커리큘럼, 저장된 편성 어디에도 들어가지 않고, 이야기 적의 대본이 ID로 씁니다(`PrologueMissions`의 이아 수훈 대본). 모두 시트의 행 순서를 따르고, 시작 기술의 열 안 순서가 기본 편성 순서입니다. 그 밖의 모든 코드는 기술을 **ID로** 찾습니다(`LegacySkillDefinitions.Skill(id)`, `Find(id)`). 행 순서를 바꿔도 적 행동, 임무, 반격기가 바뀌지 않습니다. 어느 과정이 어느 기술을 주는지는 `CampaignCurriculum.cs`에(`Curriculum.md`), 필드에 어떤 기술이 떨어져 있는지는 `CampaignFieldPickups.cs`에 있습니다(`SkillSheet.md`의 '필드 습득물').
 
 기술 이름은 시트에만 있습니다. 임무 안내·목표와 커리큘럼 설명은 이름 대신 `{기술:ID}`, `{기술:ID:을}` 토큰을 쓰고(`LegacySkillNames`, 조사는 `KoreanParticle`), 커리큘럼 과정 이름은 그 과정이 주는 기술의 이름입니다. 모두 읽을 때 지금 시트로 바꿉니다.
 
@@ -62,6 +62,10 @@
 - 붕괴 대상 추가 피해 → `BrokenTargetDamage`
 - 상대 붕괴 → `OpponentBreak`
 - 조건 피해 배율 → `ConditionalDamage`
+- 앞 기술 처리 취소/반환 → `QueueCancel` / `QueueReturn`
+- 순환 → `Cycle`
+- 예약 효과 `순환 +1` → `CycleFeed`, `숨고르기 +1` → `AutoBreath`
+- 사용 효과 `앞 <대상>마다 위력 +n (최대 m)` → `AheadPower`, `자동 회피` → `AutoDodge`
 
 공격이면 여기에 `ResistanceOnClash`가 붙고, 2타 이상이면 `MultiHit`, 태그에 따라 `HighPower`·`VariablePower`도 붙습니다. 조건 미리보기(`LegacySkillConditions`)도 같은 조건 데이터를 읽습니다. 상대 상태 조건은 `HasOpponentStateCondition`과 `MatchesOpponentState(기술, 자신, 상대)`(지금 상대가 그 상태이고 걸린 효과가 실제로 작동할 때: 배율이 있거나, 저항 회복이 회복할 수 있을 때)로 봅니다. 이 순서로 처리할 수 없는 조합은 표가 거부하므로 미리보기와 전투 판정이 어긋나지 않습니다.
 

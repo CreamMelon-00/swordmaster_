@@ -33,7 +33,13 @@ namespace TurnLimbo.Core.Tests
             Assert.That((finisher.OpponentState, finisher.OpponentHealthPercent, finisher.ResistanceRecoveryPercent,
                 finisher.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 0, 200)));
             Assert.That(LegacySkillConditions.HasOpponentStateCondition(Skill(Finisher)), Is.True);
-            foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All.Where(d => d.Skill.Id < Benedicere && d.Skill.Id != Finisher))
+            // 르프리즈 since the keyword curriculum (2026-10-13): 베네디체레's pair at 20%.
+            LegacySkillEffect reprise = LegacySkillDefinitions.Find(Reprise).Effect;
+            Assert.That((reprise.OpponentState, reprise.OpponentHealthPercent, reprise.ResistanceRecoveryPercent,
+                reprise.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.Broken, 0, 20, 0)));
+            Assert.That(LegacySkillConditions.HasOpponentStateCondition(Skill(Reprise)), Is.True);
+            foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All.Where(d =>
+                d.Skill.Id < Benedicere && d.Skill.Id != Finisher && d.Skill.Id != Reprise))
             {
                 Assert.That(definition.Effect.HasOpponentStateCondition, Is.False, "skill " + definition.Skill.Id);
                 Assert.That(definition.Effect.ConditionalDamagePercent, Is.Zero, "skill " + definition.Skill.Id);
@@ -82,16 +88,44 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void Reprise_RecoversAFifth_OnlyWhileTheOpponentIsBroken()
+        {
+            // As 베네디체레's test, from the enemy's side: 라우다레 breaks the player while the player's slash wears the enemy's
+            // resistance to 30, then the enemy's 르프리즈 restores a fifth of 50.
+            LegacyQueuedDuel broken = AfterFirstSlot(new[] { Skill(Laudare), Skill(Reprise) }, Probe(900, 20));
+            Assert.That(broken.Player.IsResistanceBroken, Is.True);
+            Assert.That(broken.Enemy.Resistance, Is.EqualTo(30));
+            Assert.That(LegacySkillConditions.MatchesOpponentState(Skill(Reprise), broken.Enemy, broken.Player), Is.True);
+            LegacyCurrentSlot recovery = broken.BeginNextSlot();
+            Assert.That(recovery.EnemyFeedback.ResistanceRestored, Is.EqualTo(10));
+            Assert.That(recovery.EnemyFeedback.ConditionMet && recovery.EnemyFeedback.EffectActivated, Is.True);
+            Assert.That(broken.Enemy.Resistance, Is.EqualTo(40));
+
+            // A whole player: 르프리즈 is only a guard.
+            LegacyQueuedDuel whole = AfterFirstSlot(new[] { Probe(901, 20), Skill(Reprise) }, Probe(900, 20));
+            Assert.That(whole.Player.IsResistanceBroken, Is.False);
+            Assert.That(LegacySkillConditions.MatchesOpponentState(Skill(Reprise), whole.Enemy, whole.Player), Is.False);
+            LegacyCurrentSlot unmatched = whole.BeginNextSlot();
+            Assert.That(unmatched.EnemyFeedback.ResistanceRestored, Is.Zero);
+            Assert.That(unmatched.EnemyFeedback.ConditionMet || unmatched.EnemyFeedback.EffectActivated, Is.False);
+            Assert.That(whole.Enemy.Resistance, Is.EqualTo(30));
+        }
+
+        [Test]
         public void Benedicere_ChecksThePlayer_AfterThePlayersOwnInitialEffects()
         {
-            // Slot 1: the broken player's 르프리즈 restores 5 first, so 베네디체레 then meets a whole player.
-            LegacyQueuedDuel duel = AfterFirstSlot(new[] { Skill(Laudare), Skill(Benedicere) }, Probe(900, 20), Lane0(Skill(Reprise)));
-            Assert.That(duel.Player.IsResistanceBroken, Is.True);
-            LegacyCurrentSlot slot = duel.BeginNextSlot();
-            Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(5));
-            Assert.That(slot.EnemyFeedback.ResistanceRestored, Is.Zero);
-            Assert.That(slot.EnemyFeedback.ConditionMet, Is.False);
-            Assert.That(duel.Enemy.Resistance, Is.EqualTo(30));
+            // Slot 1: the broken player's plain 10% recovery (르프리즈 before 2026-10-13) restores 5 first, so 베네디체레 then
+            // meets a whole player.
+            Installed(PlainReprise(Rows()), () =>
+            {
+                LegacyQueuedDuel duel = AfterFirstSlot(new[] { Skill(Laudare), Skill(Benedicere) }, Probe(900, 20), Lane0(Skill(Reprise)));
+                Assert.That(duel.Player.IsResistanceBroken, Is.True);
+                LegacyCurrentSlot slot = duel.BeginNextSlot();
+                Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(5));
+                Assert.That(slot.EnemyFeedback.ResistanceRestored, Is.Zero);
+                Assert.That(slot.EnemyFeedback.ConditionMet, Is.False);
+                Assert.That(duel.Enemy.Resistance, Is.EqualTo(30));
+            });
         }
 
         [TestCase(300, true)]
@@ -244,11 +278,11 @@ namespace TurnLimbo.Core.Tests
         public void ThePlayersMultiplier_IsArmedOnlyIfItStillHolds_AfterTheEnemysInitialEffects()
         {
             // 프레디카레 made to double on a broken target, used by the player against an enemy broken in slot 0.
-            List<string[]> rows = Rows();
+            List<string[]> rows = PlainReprise(Rows());
             Set(rows, Praedicare, Column.OpponentState, "붕괴");
             Installed(rows, () =>
             {
-                // The enemy's 르프리즈 restores 5 at the slot's start, so the strike meets a whole enemy.
+                // The enemy's plain 르프리즈 restores 5 at the slot's start, so the strike meets a whole enemy.
                 LegacyQueuedDuel recovered = AfterFirstSlot(new[] { Probe(900, 1), Skill(Reprise) }, Probe(901, 50), Skill(Praedicare));
                 Assert.That(recovered.Enemy.IsResistanceBroken, Is.True);
                 LegacyCurrentSlot slot = recovered.BeginNextSlot();
@@ -306,6 +340,15 @@ namespace TurnLimbo.Core.Tests
 
         private static List<string[]> Rows()
             => CsvTable.Read(LegacySkillSheet.Write(LegacySkillDefinitions.Table)).Select(record => record.Fields.ToArray()).ToList();
+
+        /// <summary>르프리즈 as it was before the keyword curriculum (2026-10-13): 10% of the maximum at the start with no
+        /// condition. No shipped row recovers unconditionally now.</summary>
+        private static List<string[]> PlainReprise(List<string[]> rows)
+        {
+            Set(rows, Reprise, Column.ResistanceRecovery, "10%");
+            Set(rows, Reprise, Column.OpponentState, string.Empty);
+            return rows;
+        }
 
         private static void Set(List<string[]> rows, int id, string header, string value)
             => rows.Single(row => row[0] == id.ToString())[LegacySkillSheet.Headers.ToList().IndexOf(header)] = value;

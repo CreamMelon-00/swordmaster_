@@ -10,7 +10,9 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "순환", "취소", "반환", "붕괴", "맞물림" };
+        private static readonly string[] Terms = { "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간" };
+        // The popup's size before its scale: room for the longest meaning (제한시간's, about six lines) at the smallest type.
+        private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
 
         private RectTransform card, canvasRect, popup, divider;
         private Canvas canvas;
@@ -89,7 +91,8 @@ namespace TurnLimbo.Presentation
             switch (term)
             {
                 case "순환":
-                    explanation = "같은 전투에서 이 기술을 시전할 때마다 횟수가 1씩 증가합니다.";
+                    explanation = "같은 전투에서 이 기술을 시전할 때마다, 또는 다른 기술이 올려 줄 때 횟수가 1씩 증가합니다. " +
+                        "횟수는 전투 내내 남고 상한에서 멈춥니다.";
                     return true;
                 case "취소":
                     explanation = "예약된 기술이 대기열에서 빠집니다. 그 기술에 쓴 ACT는 돌려받지 못합니다.";
@@ -102,6 +105,22 @@ namespace TurnLimbo.Presentation
                     return true;
                 case "맞물림":
                     explanation = "서로 다른 검술의 기술을 연달아 예약하면, 연결된 기술 수 × 10%만큼 위력이 증가합니다.";
+                    return true;
+                case "숨고르기":
+                    explanation = "ACT 0으로 한 칸을 비우는 행동입니다. 손으로 한 턴 3번, 기술이 1번 더 넣습니다. " +
+                        "취소·반환에도 남고, 맞물림을 끊습니다.";
+                    return true;
+                case "회피":
+                    explanation = "그 칸의 상대 공격을 모두 피합니다. 스텝으로 피하면 다음 턴 ACT가 줄지만, " +
+                        "기술의 자동 회피는 줄지 않습니다.";
+                    return true;
+                case "일회성":
+                    explanation = "열 맨 앞에 잠깐 생기는 기술입니다. 예약하거나 턴이 끝나면 사라집니다. " +
+                        "순환 횟수는 전투 내내 남습니다.";
+                    return true;
+                case "제한시간":
+                    explanation = "턴마다 계획할 수 있는 시간, 곧 상대가 내게 닿기까지의 시간입니다. 내가 빨라지거나 상대가 " +
+                        "느려지면 늘고, 내가 느려지거나 상대가 빨라지면 줄어듭니다. 시간이 멈춘 전투에서는 변하지 않습니다.";
                     return true;
                 default:
                     explanation = null;
@@ -221,7 +240,7 @@ namespace TurnLimbo.Presentation
             popup.SetParent(canvasRect, false);
             popup.anchorMin = popup.anchorMax = new Vector2(.5f, .5f);
             popup.pivot = new Vector2(0f, 1f);
-            popup.sizeDelta = new Vector2(300f, 142f) * scale;
+            popup.sizeDelta = new Vector2(PopupWidth, PopupHeight) * scale;
             Image paper = panel.GetComponent<Image>();
             paper.color = DuelVisualTheme.Paper;
             paper.raycastTarget = false;
@@ -246,7 +265,7 @@ namespace TurnLimbo.Presentation
             line.color = DuelVisualTheme.Border;
             line.raycastTarget = false;
             description = PopupText("Keyword Meaning", font, new Vector2(15f, -56f) * scale,
-                new Vector2(270f, 70f) * scale, Mathf.RoundToInt(16f * scale));
+                new Vector2(270f, MeaningHeight) * scale, Mathf.RoundToInt(16f * scale));
             description.resizeTextForBestFit = true;
             description.resizeTextMinSize = Mathf.RoundToInt(14f * scale);
             description.resizeTextMaxSize = Mathf.RoundToInt(16f * scale);
@@ -290,8 +309,8 @@ namespace TurnLimbo.Presentation
             Vector3 lower = canvasRect.InverseTransformPoint(cardCorners[0]);
             Vector3 upper = canvasRect.InverseTransformPoint(cardCorners[2]);
             Rect screen = canvasRect.rect;
-            float width = Mathf.Min(300f * scale, Mathf.Max(80f, screen.width - 16f));
-            float height = Mathf.Min(142f * scale, Mathf.Max(80f, screen.height - 16f));
+            float width = Mathf.Min(PopupWidth * scale, Mathf.Max(80f, screen.width - 16f));
+            float height = Mathf.Min(PopupHeight * scale, Mathf.Max(80f, screen.height - 16f));
             popup.sizeDelta = new Vector2(width, height);
             float textWidth = Mathf.Max(60f, width - 30f * scale);
             heading.rectTransform.sizeDelta = new Vector2(textWidth, heading.rectTransform.sizeDelta.y);

@@ -331,11 +331,11 @@ namespace TurnLimbo.Presentation.Tests
                 AssertNoDamageRouting(loadout);
                 AssertReadableBadge(Named(loadout, "Keyword 1"), Label(loadout, "Keyword 1 Text").color, 3);
                 fixture.Hud.ShowTab(LobbyTab.Curriculum);
-                fixture.Click("Curriculum Node one-stroke");
+                fixture.Click("Curriculum Node estocada");
                 GameObject curriculum = Named(fixture.Hud.Root, "Curriculum Selected Detail").gameObject;
-                Assert.That(Label(curriculum, "Keyword 1 Text").text, Does.Contain("위력 편차"));
+                Assert.That(Label(curriculum, "Keyword 1 Text").text, Does.Contain("감소마다 +5"));
                 AssertNoDamageRouting(curriculum);
-                AssertReadableBadge(Named(curriculum, "Keyword 1"), Label(curriculum, "Keyword 1 Text").color, 16);
+                AssertReadableBadge(Named(curriculum, "Keyword 1"), Label(curriculum, "Keyword 1 Text").color, 51);
 
                 using (var combat = new LegacyCombatHud(fixture.Parent.transform, new LegacyDuelArt(), null, null, null))
                 {

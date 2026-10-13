@@ -12,7 +12,8 @@ namespace TurnLimbo.Runtime.Save
     /// prologue 4
     /// currency 120
     /// cleared 1 2
-    /// curriculum-done horizontal-cut diagonal-cut
+    /// curriculum-tree 2
+    /// curriculum-done horizontal-cut preparation
     /// curriculum-active advance 0
     /// field-pickups forest-pierce
     /// lane 0 14 2 7
@@ -23,7 +24,10 @@ namespace TurnLimbo.Runtime.Save
     /// once per lane. Optional <c>training-wins N</c> records successful dummy fights; optional repeated
     /// <c>skill-xp ID XP</c> lines record nonzero cumulative clashes; an optional <c>field-pickups</c> line lists the
     /// field pickups taken in order. Their absence means zero or none, keeping earlier version 2 saves readable (a build
-    /// from before a key still rejects a file that has it). Owned skills are not stored: they follow from the completed
+    /// from before a key still rejects a file that has it). <c>curriculum-tree N</c> records the version of the default
+    /// curriculum tree the progress was made with (<see cref="CampaignCurriculum.TreeVersion"/>); it is always written now,
+    /// a file without it reads 1, and a version other than the current one empties the curriculum when the save is
+    /// loaded (<see cref="CampaignSave.ForCurriculumTree"/>). Owned skills are not stored: they follow from the completed
     /// nodes, the cleared stages and the pickups taken.
     /// Parsing is strict: unknown keys, missing or repeated keys and other versions are rejected. Game rules are
     /// checked later by <see cref="GameSave.TryApply"/>.</summary>
@@ -49,6 +53,7 @@ namespace TurnLimbo.Runtime.Save
             text.Append("cleared");
             foreach (int number in campaign.ClearedStages) text.Append(' ').Append(number);
             text.Append('\n');
+            text.Append("curriculum-tree ").Append(campaign.CurriculumTreeVersion).Append('\n');
             text.Append("curriculum-done");
             foreach (string id in campaign.CurriculumCompleted) text.Append(' ').Append(id);
             text.Append('\n');
@@ -86,7 +91,8 @@ namespace TurnLimbo.Runtime.Save
             string[] lines = source.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
             if (lines.Length > 0 && lines[0].Length > 0 && lines[0][0] == '﻿') lines[0] = lines[0].Substring(1);
 
-            int? prologue = null, currency = null, trainingWins = null, openingChoice = null, openingPending = null;
+            int? prologue = null, currency = null, trainingWins = null, openingChoice = null, openingPending = null,
+                curriculumTree = null;
             List<int> cleared = null;
             List<string> curriculumDone = null;
             List<string> fieldPickups = null;
@@ -166,6 +172,12 @@ namespace TurnLimbo.Runtime.Save
                         if (values.Length != 1) return Fail(out error, lineNumber, "training-wins에는 값이 하나만 필요합니다.");
                         trainingWins = values[0];
                         break;
+                    case "curriculum-tree":
+                        if (curriculumTree.HasValue) return Fail(out error, lineNumber, "curriculum-tree가 두 번 있습니다.");
+                        if (values.Length != 1 || values[0] < 1)
+                            return Fail(out error, lineNumber, "curriculum-tree에는 1 이상의 버전 하나가 필요합니다.");
+                        curriculumTree = values[0];
+                        break;
                     case "cleared":
                         if (cleared != null) return Fail(out error, lineNumber, "cleared가 두 번 있습니다.");
                         cleared = new List<int>(values);
@@ -195,7 +207,7 @@ namespace TurnLimbo.Runtime.Save
 
             save = new GameSave(prologue.Value,
                 new CampaignSave(currency.Value, cleared, curriculumDone, curriculumActive, curriculumBattles, lanes,
-                    trainingWins ?? 0, skillExperience, fieldPickups),
+                    trainingWins ?? 0, skillExperience, fieldPickups, curriculumTree ?? 1),
                 (OpeningVoiceChoice)(openingChoice ?? 0), !openingPending.HasValue);
             error = null;
             return true;

@@ -21,7 +21,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public LegacySlotForecast(int slotIndex, LegacySkill playerSkill, LegacySkill enemySkill,
             int playerHealthDamage, int enemyHealthDamage, int playerResistanceDamage, int enemyResistanceDamage,
-            bool playerBroken, bool enemyBroken, DuelMatchOutcome outcome, bool reached = true)
+            bool playerBroken, bool enemyBroken, DuelMatchOutcome outcome, bool reached = true, int nextTurnSeconds = 0)
         {
             if (slotIndex < 0) throw new ArgumentOutOfRangeException(nameof(slotIndex));
             SlotIndex = slotIndex;
@@ -35,6 +35,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyBroken = enemyBroken;
             Outcome = outcome;
             Reached = reached;
+            NextTurnSeconds = Math.Max(0, nextTurnSeconds);
         }
 
         /// <summary>A slot the turn never reaches: the fight ended in an earlier slot.</summary>
@@ -56,6 +57,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The duel's outcome after this slot (<see cref="DuelMatchOutcome.InProgress"/> while it goes on).</summary>
         public DuelMatchOutcome Outcome { get; }
         public bool Reached { get; }
+        /// <summary>Planning seconds the player's skill in this slot adds to the next turn (사용 효과 앞 X마다 다음 턴 제한시간,
+        /// within the turn's cap); 0 for none. A battle whose clock is held gains nothing from it.</summary>
+        public int NextTurnSeconds { get; }
 
         /// <summary>The power a forecast rolls for a range: its average, a half rounded up (3–4 rolls 4, 15–18 rolls 17).</summary>
         public static int AveragePower(int minPower, int maxPower)
@@ -94,7 +98,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             => verdict == LegacyForecastVerdict.Favourable ? "유리" : verdict == LegacyForecastVerdict.Unfavourable ? "불리" : "비슷";
 
         /// <summary>The one-line expectation the duel HUD shows: <c>예상: 상대 저항 -12 · 내 저항 -6</c>. The enemy's losses come
-        /// first (health, then resistance with <c>(붕괴)</c> when it breaks), then the player's, then the fight's end.</summary>
+        /// first (health, then resistance with <c>(붕괴)</c> when it breaks), then the player's, then
+        /// <c>다음 턴 제한시간 +N초</c> (<see cref="NextTurnSeconds"/>), then the fight's end.</summary>
         public string Summary
         {
             get
@@ -103,6 +108,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 var parts = new List<string>(5);
                 AddSide(parts, "상대", EnemyHealthDamage, EnemyResistanceDamage, EnemyBroken);
                 AddSide(parts, "내", PlayerHealthDamage, PlayerResistanceDamage, PlayerBroken);
+                if (NextTurnSeconds > 0) parts.Add(NextTurnTimeText(NextTurnSeconds));
                 if (Outcome == DuelMatchOutcome.PlayerVictory) parts.Add("승리");
                 else if (Outcome == DuelMatchOutcome.EnemyVictory) parts.Add("패배");
                 else if (Outcome == DuelMatchOutcome.Draw) parts.Add("무승부");
@@ -111,6 +117,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         public const string SummaryPrefix = "예상: ";
+
+        /// <summary>The words for next turn's planning seconds: <c>다음 턴 제한시간 +4초</c>.</summary>
+        public static string NextTurnTimeText(int seconds) => "다음 턴 제한시간 +" + seconds + "초";
         /// <summary>The line for a slot the turn never reaches.</summary>
         public const string UnreachedSummary = SummaryPrefix + "앞 칸에서 결판";
 

@@ -1,8 +1,11 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Sheets;
 
 namespace TurnLimbo.Core.Tests
 {
@@ -33,10 +36,10 @@ namespace TurnLimbo.Core.Tests
             }
         }
 
-        [TestCase(10, "advance vital-thrust preparation")]
-        [TestCase(12, "advance")]
-        [TestCase(19, "breathing fighting-spirit")]
-        [TestCase(42, "horizontal-cut diagonal-cut quick-draw")]
+        [TestCase(10, "horizontal-cut preparation")]
+        [TestCase(12, "horizontal-cut preparation advance")]
+        [TestCase(19, "horizontal-cut preparation advance quick-draw fighting-spirit")]
+        [TestCase(42, "horizontal-cut preparation advance quick-draw")]
         public void CurriculumGrantAndEquip_UseOwnedCopyWithImportedStatsAndLane(int id, string path)
         {
             var run = new CampaignRun();
@@ -291,101 +294,119 @@ namespace TurnLimbo.Core.Tests
         [TestCase(55, 6)]
         public void FightingSpirit_RecoversRoundedMaximumResistanceBeforeHits(int maxResistance, int restored)
         {
-            var duel = Duel(new[] { Attack(100, 1), Imported(19, 100) },
-                new[] { Attack(900, 10), Guard(901, 1) }, new[] { 2 }, playerResistance: maxResistance);
-            Queue(duel, 0, 2);
-            duel.Commit();
-            duel.ResolveNextSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(maxResistance - 10));
+            PlainRecoverySheet.Run(() =>
+            {
+                var duel = Duel(new[] { Attack(100, 1), Imported(19, 100) },
+                    new[] { Attack(900, 10), Guard(901, 1) }, new[] { 2 }, playerResistance: maxResistance);
+                Queue(duel, 0, 2);
+                duel.Commit();
+                duel.ResolveNextSlot();
+                Assert.That(duel.Player.Resistance, Is.EqualTo(maxResistance - 10));
 
-            LegacyCurrentSlot slot = duel.BeginNextSlot();
-            Assert.That(slot.HitsResolved, Is.Zero);
-            Assert.That(duel.Player.Resistance, Is.EqualTo(maxResistance - 10 + restored));
-            while (!slot.IsResolved) duel.ResolveNextHit();
-            LegacySlotResult result = duel.CompleteCurrentSlot();
-            Assert.That(result.PlayerResistanceDamage, Is.EqualTo(-restored), "Slot deltas include the restoration.");
+                LegacyCurrentSlot slot = duel.BeginNextSlot();
+                Assert.That(slot.HitsResolved, Is.Zero);
+                Assert.That(duel.Player.Resistance, Is.EqualTo(maxResistance - 10 + restored));
+                while (!slot.IsResolved) duel.ResolveNextHit();
+                LegacySlotResult result = duel.CompleteCurrentSlot();
+                Assert.That(result.PlayerResistanceDamage, Is.EqualTo(-restored), "Slot deltas include the restoration.");
+            });
         }
 
         [TestCase(0)]
         [TestCase(50)]
         public void FightingSpirit_CannotExceedMaximumOrInventResistanceWhenMaximumIsZero(int resistance)
         {
-            var duel = Duel(new[] { Imported(19, 100) }, new[] { Guard(900, 1) },
-                new[] { 1 }, playerResistance: resistance);
-            Queue(duel, 0);
-            duel.Commit();
-            duel.BeginNextSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(resistance));
-            duel.ResolveNextHit();
-            Assert.That(duel.CompleteCurrentSlot().PlayerResistanceDamage, Is.Zero);
+            PlainRecoverySheet.Run(() =>
+            {
+                var duel = Duel(new[] { Imported(19, 100) }, new[] { Guard(900, 1) },
+                    new[] { 1 }, playerResistance: resistance);
+                Queue(duel, 0);
+                duel.Commit();
+                duel.BeginNextSlot();
+                Assert.That(duel.Player.Resistance, Is.EqualTo(resistance));
+                duel.ResolveNextHit();
+                Assert.That(duel.CompleteCurrentSlot().PlayerResistanceDamage, Is.Zero);
+            });
         }
 
         [Test]
         public void FightingSpirit_CapsRestorationWhenLessThanTenPercentIsMissing()
         {
-            var duel = Duel(new[] { Attack(100, 1), Imported(19, 100) },
-                new[] { Attack(900, 2), Guard(901, 1) }, new[] { 2 }, playerResistance: 50);
-            Queue(duel, 0, 2);
-            duel.Commit();
-            duel.ResolveNextSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(48));
+            PlainRecoverySheet.Run(() =>
+            {
+                var duel = Duel(new[] { Attack(100, 1), Imported(19, 100) },
+                    new[] { Attack(900, 2), Guard(901, 1) }, new[] { 2 }, playerResistance: 50);
+                Queue(duel, 0, 2);
+                duel.Commit();
+                duel.ResolveNextSlot();
+                Assert.That(duel.Player.Resistance, Is.EqualTo(48));
 
-            LegacySlotResult restored = duel.ResolveNextSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(50));
-            Assert.That(restored.PlayerResistanceDamage, Is.EqualTo(-2));
+                LegacySlotResult restored = duel.ResolveNextSlot();
+                Assert.That(duel.Player.Resistance, Is.EqualTo(50));
+                Assert.That(restored.PlayerResistanceDamage, Is.EqualTo(-2));
+            });
         }
 
         [Test]
         public void FightingSpirit_RestorationHappensOnceBeforeOpposingMultipleHits()
         {
-            var duel = Duel(new[] { Attack(100, 1), Imported(19, 0) },
-                new[] { Attack(900, 10), Attack(901, 12, hits: 3) }, new[] { 2 }, playerResistance: 50);
-            Queue(duel, 0, 2);
-            duel.Commit();
-            duel.ResolveNextSlot();
-            duel.BeginNextSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(45));
+            PlainRecoverySheet.Run(() =>
+            {
+                var duel = Duel(new[] { Attack(100, 1), Imported(19, 0) },
+                    new[] { Attack(900, 10), Attack(901, 12, hits: 3) }, new[] { 2 }, playerResistance: 50);
+                Queue(duel, 0, 2);
+                duel.Commit();
+                duel.ResolveNextSlot();
+                duel.BeginNextSlot();
+                Assert.That(duel.Player.Resistance, Is.EqualTo(45));
 
-            for (int hit = 0; hit < 3; hit++)
-                Assert.That(duel.ResolveNextHit().PlayerResistanceDamage, Is.Zero, "A guard takes HP damage, not resistance hits.");
-            LegacySlotResult result = duel.CompleteCurrentSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(45));
-            Assert.That(result.PlayerResistanceDamage, Is.EqualTo(-5));
-            Assert.That(result.PlayerHealthDamage, Is.EqualTo(12));
+                for (int hit = 0; hit < 3; hit++)
+                    Assert.That(duel.ResolveNextHit().PlayerResistanceDamage, Is.Zero, "A guard takes HP damage, not resistance hits.");
+                LegacySlotResult result = duel.CompleteCurrentSlot();
+                Assert.That(duel.Player.Resistance, Is.EqualTo(45));
+                Assert.That(result.PlayerResistanceDamage, Is.EqualTo(-5));
+                Assert.That(result.PlayerHealthDamage, Is.EqualTo(12));
+            });
         }
 
         [Test]
         public void FightingSpirit_DoesNotCancelAlreadyPendingAutomaticResistanceRecovery()
         {
-            var duel = Duel(new[] { Attack(100, 1), Imported(19, 100, lane: 1) },
-                new[] { Attack(900, 60), Guard(901, 1), Guard(902, 1) }, new[] { 1, 1, 1 }, playerResistance: 50);
-            Queue(duel, 0);
-            ResolveTurn(duel);
-            Assert.That(duel.Player.Resistance, Is.Zero);
-            duel.BeginNextTurn();
-            Assert.That(duel.Player.Resistance, Is.Zero);
+            PlainRecoverySheet.Run(() =>
+            {
+                var duel = Duel(new[] { Attack(100, 1), Imported(19, 100, lane: 1) },
+                    new[] { Attack(900, 60), Guard(901, 1), Guard(902, 1) }, new[] { 1, 1, 1 }, playerResistance: 50);
+                Queue(duel, 0);
+                ResolveTurn(duel);
+                Assert.That(duel.Player.Resistance, Is.Zero);
+                duel.BeginNextTurn();
+                Assert.That(duel.Player.Resistance, Is.Zero);
 
-            Queue(duel, 1);
-            ResolveTurn(duel);
-            Assert.That(duel.Player.Resistance, Is.EqualTo(5));
-            duel.BeginNextTurn();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(50));
+                Queue(duel, 1);
+                ResolveTurn(duel);
+                Assert.That(duel.Player.Resistance, Is.EqualTo(5));
+                duel.BeginNextTurn();
+                Assert.That(duel.Player.Resistance, Is.EqualTo(50));
+            });
         }
 
         [Test]
         public void FightingSpirit_AlsoRestoresEnemyResistance()
         {
-            var duel = Duel(new[] { Attack(100, 10), Guard(101, 100) },
-                new[] { Attack(900, 1), Imported(19, 1) }, new[] { 2 }, enemyResistance: 50);
-            Queue(duel, 0, 2);
-            duel.Commit();
-            duel.ResolveNextSlot();
-            Assert.That(duel.Enemy.Resistance, Is.EqualTo(40));
-            duel.BeginNextSlot();
-            Assert.That(duel.Enemy.Resistance, Is.EqualTo(45));
-            Assert.That(duel.NextActGain, Is.EqualTo(3));
-            duel.ResolveNextHit();
-            Assert.That(duel.CompleteCurrentSlot().EnemyResistanceDamage, Is.EqualTo(-5));
+            PlainRecoverySheet.Run(() =>
+            {
+                var duel = Duel(new[] { Attack(100, 10), Guard(101, 100) },
+                    new[] { Attack(900, 1), Imported(19, 1) }, new[] { 2 }, enemyResistance: 50);
+                Queue(duel, 0, 2);
+                duel.Commit();
+                duel.ResolveNextSlot();
+                Assert.That(duel.Enemy.Resistance, Is.EqualTo(40));
+                duel.BeginNextSlot();
+                Assert.That(duel.Enemy.Resistance, Is.EqualTo(45));
+                Assert.That(duel.NextActGain, Is.EqualTo(3));
+                duel.ResolveNextHit();
+                Assert.That(duel.CompleteCurrentSlot().EnemyResistanceDamage, Is.EqualTo(-5));
+            });
         }
 
         [TestCase(5, 0)]
@@ -588,6 +609,32 @@ namespace TurnLimbo.Core.Tests
         {
             duel.Commit();
             while (!duel.IsTurnResolved && !duel.IsFinished) duel.ResolveNextSlot();
+        }
+    }
+
+    /// <summary>The shipped sheet with 르프리즈 (19) as it was before the keyword curriculum (2026-10-13): 10% of the maximum
+    /// resistance at the start, with no condition. The tests of plain 저항 회복 run on it; no shipped row recovers without a
+    /// condition now (르프리즈 needs a broken opponent, OpponentStateConditionTests).</summary>
+    internal static class PlainRecoverySheet
+    {
+        public static void Run(Action body)
+        {
+            List<string[]> rows = CsvTable.Read(LegacySkillSheet.Write(LegacySkillDefinitions.Table))
+                .Select(record => record.Fields.ToArray()).ToList();
+            List<string> headers = LegacySkillSheet.Headers.ToList();
+            string[] reprise = rows.Single(row => row[0] == "19");
+            reprise[headers.IndexOf(LegacySkillSheet.Column.ResistanceRecovery)] = "10%";
+            reprise[headers.IndexOf(LegacySkillSheet.Column.OpponentState)] = string.Empty;
+            string sheet = CsvTable.Write(rows);
+            try
+            {
+                LegacySkillDefinitions.Install(() => sheet);
+                body();
+            }
+            finally
+            {
+                LegacySkillDefinitions.Install(null);
+            }
         }
     }
 }

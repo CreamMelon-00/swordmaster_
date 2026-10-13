@@ -6,8 +6,9 @@ using TurnLimbo.Runtime.Sheets;
 
 namespace TurnLimbo.Runtime.LegacyCombat
 {
-    /// <summary>Semantic pictogram for a skill keyword; presentation draws it.</summary>
-    public enum LegacySkillSymbol { Act, Sword, Guard, Hits, Recovery, Followup, Reduction, Variance, Cycle }
+    /// <summary>Semantic pictogram for a skill keyword; presentation draws it. <see cref="OneShot"/> (일회, a dashed card) is
+    /// 일회성's and <see cref="Time"/> (시간, a clock) 제한시간's.</summary>
+    public enum LegacySkillSymbol { Act, Sword, Guard, Hits, Recovery, Followup, Reduction, Variance, Cycle, OneShot, Time }
 
     /// <summary>Semantic tone for a skill keyword; presentation colours it.</summary>
     public enum LegacySkillTone { Neutral, Recovery, Followup, Reduction, HighPower, MultiHit, Variance, Defence, Cycle }
@@ -27,6 +28,21 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
     /// <summary>How a queue skill removes earlier reservations. Cancel keeps their ACT spent; Return refunds it.</summary>
     public enum LegacyQueueRemovalMode { None, Cancel, Return }
+
+    /// <summary>What a 사용 효과 <c>앞 &lt;대상&gt;마다 …</c> counts among the entries reserved ahead of its skill in this turn's
+    /// queue (<see cref="LegacyKeywordLinks.CountAhead"/>). Targets are roles, never skill ids, so a new skill with the role
+    /// counts without touching the sheet.</summary>
+    public enum LegacyAheadTarget
+    {
+        None,
+        /// <summary>숨고르기: every breath ahead, by hand or automatic, counted by entry.</summary>
+        Breath,
+        /// <summary>순환 기술: skills with 순환 (<see cref="LegacySkillRole.Cycle"/>), counted by kind (two copies count once).</summary>
+        CycleSkill,
+        /// <summary>저항 감소 기술: skills with 저항 감소 (<see cref="LegacySkillRole.DirectResistanceDamage"/>), counted by kind,
+        /// whether or not their opponent condition will hold.</summary>
+        ResistanceReduction,
+    }
 
     /// <summary>A skill's effects. Initial effects apply once when its slot starts, in this order:
     /// resistance recovery (if the opponent state condition holds), then (if the opponent condition holds) direct
@@ -82,6 +98,54 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Maximum previous uses counted for this skill; zero means it has no Cycle effect.</summary>
         public int CycleMaxCount { get; internal set; }
         public bool HasCycle => CycleMaxCount > 0;
+        /// <summary>예약 효과 <c>순환 +1</c>: when the turn is committed, the first copy of this skill in the committed queue
+        /// raises by one the 순환 count of every kind of cycling skill reserved ahead of it, each up to its cap
+        /// (<see cref="LegacyKeywordLinks.ApplyCycleFeed"/>). A source or target taken off the queue before the commit gives
+        /// or gets nothing.</summary>
+        public bool ReserveCycleFeed { get; internal set; }
+        /// <summary>예약 효과 <c>숨고르기 +1</c>: reserving this skill also reserves one 숨고르기 right after it, without using
+        /// a hand breath; once per turn (<see cref="LegacyReserveEffect.Breath"/>). The breath stays when the skill is later
+        /// cancelled or returned, as every breath does.</summary>
+        public bool ReserveBreath { get; internal set; }
+        /// <summary>사용 효과 <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c>: what is counted ahead of this skill in the committed
+        /// queue; <see cref="LegacyAheadTarget.None"/> for no such effect.</summary>
+        public LegacyAheadTarget AheadPowerTarget { get; internal set; }
+        /// <summary>Base power added per counted entry (n, 1-10). Added with the 순환 bonus, before buffs, 맞물림 and
+        /// multipliers; only the first copy of this skill in the queue gains it.</summary>
+        public int AheadPowerPerUnit { get; internal set; }
+        /// <summary>The most entries counted (m, 1-4).</summary>
+        public int AheadPowerMax { get; internal set; }
+        /// <summary>사용 효과 <c>자동 회피</c>: in this skill's slot every hit of the opponent's attack (a counter filling the
+        /// slot included) is dodged. Not a step: it costs no ACT, never narrows a step window, and the slot ignores the dodge
+        /// key. Attacks only.</summary>
+        public bool AutoDodge { get; internal set; }
+        /// <summary>예약 효과 <c>일회성 &lt;ID&gt; ×n</c>: the 일회성 row whose copies reserving this skill sets at the front of that
+        /// row's lane, once per turn (<see cref="LegacyReserveEffect.Temporary"/>); 0 for none. The copies stay when this skill
+        /// is later cancelled or returned, and every one left goes as the next planning turn begins.</summary>
+        public int ReserveTemporarySkillId { get; internal set; }
+        /// <summary>How many copies (n, 1-3).</summary>
+        public int ReserveTemporaryCount { get; internal set; }
+        /// <summary>예약 효과 <c>제한시간 -n초</c>: the planning seconds reserving this skill spends while the clock runs, every
+        /// time (a cost, never refunded); 0 for none. The rules leave the clock to the screens
+        /// (<see cref="LegacyPlanningClock"/>).</summary>
+        public int ReservePlanningSecondsCost { get; internal set; }
+        /// <summary>사용 효과 <c>앞 &lt;대상&gt;마다 다음 턴 제한시간 +n초 (최대 m)</c>: what is counted ahead of this skill in the
+        /// committed queue; <see cref="LegacyAheadTarget.None"/> for no such effect. Only the queue's first copy gains.</summary>
+        public LegacyAheadTarget AheadTimeTarget { get; internal set; }
+        /// <summary>Next turn's planning seconds per counted entry (n, 1-3).</summary>
+        public int AheadTimePerUnit { get; internal set; }
+        /// <summary>The most entries counted (m, 1-3).</summary>
+        public int AheadTimeMax { get; internal set; }
+        public bool HasAheadPower => AheadPowerTarget != LegacyAheadTarget.None;
+        public bool HasAheadTime => AheadTimeTarget != LegacyAheadTarget.None;
+        public bool HasTemporarySpawn => ReserveTemporarySkillId > 0;
+        /// <summary>Whether the row writes its 예약 효과 cell.</summary>
+        public bool HasReserveEffect => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn || ReservePlanningSecondsCost > 0;
+        /// <summary>A 예약 효과 that adds something as the skill is reserved (순환 +1, 숨고르기 +1, 일회성), as opposed to the
+        /// time cost; a remover may not carry one, since taking its own work back and reserving again would repeat it.</summary>
+        public bool HasReserveGain => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn;
+        /// <summary>Whether the row writes its 사용 효과 cell.</summary>
+        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge;
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
         public bool HasOpponentStateCondition => OpponentState != LegacyOpponentState.None;
@@ -119,6 +183,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (QueueRemovalMode == LegacyQueueRemovalMode.Cancel) roles |= LegacySkillRole.QueueCancel;
                 if (QueueRemovalMode == LegacyQueueRemovalMode.Return) roles |= LegacySkillRole.QueueReturn;
                 if (HasCycle) roles |= LegacySkillRole.Cycle;
+                if (ReserveCycleFeed) roles |= LegacySkillRole.CycleFeed;
+                if (ReserveBreath) roles |= LegacySkillRole.AutoBreath;
+                if (HasAheadPower) roles |= LegacySkillRole.AheadPower;
+                if (AutoDodge) roles |= LegacySkillRole.AutoDodge;
+                if (HasTemporarySpawn) roles |= LegacySkillRole.TemporarySpawn;
+                if (ReservePlanningSecondsCost > 0) roles |= LegacySkillRole.PlanningTimeCost;
+                if (HasAheadTime) roles |= LegacySkillRole.NextTurnTime;
                 return roles;
             }
         }
@@ -206,6 +277,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The enemy-only techniques (적 rows), such as 이아's 라우다레 in the 서막's last mission. The player never
         /// owns, equips or learns them; enemies name them by id.</summary>
         public static IReadOnlyList<LegacySkill> EnemySkills => Table.EnemySkills;
+        /// <summary>The 일회성 rows, such as 갈아내기: a skill's 예약 효과 sets their copies at the front of a lane for one turn.
+        /// The player never owns, equips or learns them, and they never reach the versus pool or the curriculum.</summary>
+        public static IReadOnlyList<LegacySkill> TemporarySkills => Table.TemporarySkills;
+
+        /// <summary>Whether <paramref name="skill"/> is a 일회성 row's (by id): used once and gone, never sent to the back of
+        /// its lane. False for breathing and unknown skills.</summary>
+        public static bool IsTemporary(LegacySkill skill)
+            => skill != null && !skill.IsWait && Table.IsTemporary(Table.Find(skill.Id));
 
         /// <summary>The loaded table. The first access reads the sheet; a sheet with problems throws its
         /// <see cref="SkillSheetException"/> on every access until <see cref="Install"/> or <see cref="Reload"/>.
