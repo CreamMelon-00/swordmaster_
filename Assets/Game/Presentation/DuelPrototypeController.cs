@@ -2499,6 +2499,7 @@ namespace TurnLimbo.Presentation
         public bool OpenFieldMenu()
         {
             if (!IsInAcademyField || academyField.IsTransitioning || lobbyHud.IsVisible) return false;
+            academyField.PauseMovement();
             lobbyHud.ShowFieldMenu(campaign);
             return true;
         }

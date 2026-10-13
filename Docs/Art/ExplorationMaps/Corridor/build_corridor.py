@@ -52,11 +52,11 @@ def arch_top(x: int, center: int, half_width: int, crown: int, spring: int) -> i
 
 def draw_end_wall(interior: Image.Image, palette: set[tuple[int, ...]]) -> None:
     p = lambda target: color_from_palette(palette, target)
-    stone = p("D4A873")
-    stone_mid = p("D1A26C")
-    stone_light = p("DCB27C")
+    stone = p("C3925C")
+    stone_mid = p("C9965E")
+    stone_light = p("D6A162")
     stone_sun = p("F1BB6B")
-    stone_shade = p("C3965C")
+    stone_shade = p("B48553")
     stone_deep = p("AB7C4C")
     grout = p("966A41")
     wood_dark = p("54321C")
@@ -68,105 +68,112 @@ def draw_end_wall(interior: Image.Image, palette: set[tuple[int, ...]]) -> None:
     shadow = p("4F301C")
     d = ImageDraw.Draw(interior)
 
-    # Continue the existing floor from the precise source column where the
-    # last full window bay ends. This gives a continuous tile rhythm.
-    src = Image.open(SOURCE / "corridor-interior.png").convert("RGBA")
+    # Continue the source floor at its exact crop boundary. The exit has a
+    # solid wall rather than another window, so remove the extra projected
+    # window shapes while retaining the approved marble grain and grout.
+    src = Image.open(SOURCE / "corridor-interior.png").convert("RGBA").resize((543, H), Image.Resampling.NEAREST)
+    floor_colors = (p("D4A873"), p("D8AD79"), p("DCB27C"), p("DBAD73"))
+    neutral = set(src.crop((300, 150, 543, H)).get_flattened_data())
+    def ambient_floor(c, x, y):
+        if c in neutral and c[0] < 235:
+            return c
+        # Palette mapping preserves connected source grain; it does not
+        # introduce new point noise along the fading window projection.
+        return floor_colors[(c[0] + 2 * c[1] + c[2]) % len(floor_colors)]
     for y in range(108, H):
         for x in range(763, W):
-            interior.putpixel((x, y), src.getpixel(((244 + x - 763) * SCALE, y * SCALE)))
+            c = src.getpixel((244 + x - 763, y))
+            interior.putpixel((x, y), ambient_floor(c, x, y))
+        # End the missing next-window projection along a clean diagonal,
+        # consistent with sunlight falling down-left from the actual windows.
+        for x in range(max(726, 750 - (y - 108) // 2), 763):
+            c = interior.getpixel((x, y))
+            interior.putpixel((x, y), ambient_floor(c, x, y))
 
-    # Hand drawn terminus wall: quiet ashlar, with a broad arch/alcove in its
-    # own bay. Its first visible window finishes more than 600 px earlier.
+    # A single quiet terminal bay begins after the last complete existing
+    # pilaster. Reuse its architecture rather than adding a second wide pier.
     for y in range(108):
-        for x in range(763, W):
+        for x in range(750, W):
             grain = hnoise(x // 3, y // 2)
             if y < 7:
                 tone = stone_shade if grain % 7 else stone_mid
-            elif y < 88:
-                tone = stone
-                if grain % 13 == 0:
-                    tone = stone_mid
-                elif grain % 19 == 0:
-                    tone = stone_light
-            elif y < 92:
+            elif y < 85:
+                # Sample real limestone grain from the quiet source wall,
+                # with deterministic patch offsets to prevent visible tiling.
+                patch = hnoise(x // 9, y // 7, 24)
+                donor_x = 111 + ((x + patch) % 15)
+                donor_y = 16 + ((y + patch // 15) % 8)
+                tone = src.getpixel((donor_x, donor_y))
+                if tone[0] < 160 or tone[1] > 169:
+                    tone = stone
+                # Soft indirect daylight remains strongest beside the last
+                # window, then settles across the uninterrupted solid wall.
+                if x < 785 and y > 58 and (x + y) < 849:
+                    tone = p("D39C5C") if grain % 4 else p("D6A162")
+            elif y < 89:
                 tone = stone_shade
             else:
                 tone = stone_mid if grain % 8 else stone_shade
             interior.putpixel((x, y), tone)
 
     # Limestone courses and inset walnut lower panels.
-    rectangle(d, (806, 5, 1023, 6), stone_deep)
-    rectangle(d, (807, 7, 1023, 9), stone_light)
-    rectangle(d, (806, 85, 1023, 86), stone_light)
-    rectangle(d, (806, 87, 1023, 88), stone_deep)
+    rectangle(d, (750, 5, 1023, 6), stone_deep)
+    rectangle(d, (750, 7, 1023, 8), stone_light)
+    rectangle(d, (750, 85, 1023, 86), stone_light)
+    rectangle(d, (750, 87, 1023, 88), stone_deep)
     for y, offset in ((20, 0), (53, 25), (78, 0)):
-        for x in range(807, 1024):
+        for x in range(751, 1000):
             if x < 884 or x > 976:
-                if hnoise(x // 4, y) % 5 != 0:
+                if hnoise(x // 6, y) % 5 != 0:
                     interior.putpixel((x, y), stone_shade)
-        for x in range(807 + offset, 1024, 74):
+        for x in range(767 + offset, 1024, 64):
             for yy in range(max(10, y - 25), y):
                 if x < 884 or x > 976:
                     interior.putpixel((x, yy), stone_shade)
 
-    rectangle(d, (805, 98, 884, 106), wood_dark)
-    rectangle(d, (810, 100, 876, 104), wood_mid)
-    rectangle(d, (814, 101, 872, 103), wood)
-    rectangle(d, (977, 98, 1015, 106), wood_dark)
-    rectangle(d, (981, 100, 1011, 104), wood_mid)
-    rectangle(d, (985, 101, 1007, 103), wood)
-    rectangle(d, (802, 106, 1023, 108), grout)
-    rectangle(d, (803, 108, 1023, 109), stone_light)
+    # The wainscot stays at the same height as all seven window bays. Small
+    # wood variations and bevels avoid a thin, detached rectangular strip.
+    for xl, xr in ((750, 885), (975, 1001)):
+        rectangle(d, (xl, 89, xr, 106), wood_dark)
+        rectangle(d, (xl + 2, 90, xr - 2, 91), wood_mid)
+        rectangle(d, (xl + 3, 92, xr - 3, 104), wood)
+        for yy in range(92, 105):
+            for xx in range(xl + 3, xr - 2):
+                grain = hnoise(xx // 3, yy // 2, 4)
+                if grain % 7 == 0:
+                    interior.putpixel((xx, yy), wood_mid)
+                elif grain % 11 == 0:
+                    interior.putpixel((xx, yy), wood_light)
+        rectangle(d, (xl + 6, 94, xr - 6, 102), wood_dark)
+        rectangle(d, (xl + 8, 95, xr - 8, 101), wood)
+        rectangle(d, (xl + 8, 95, xr - 9, 95), wood_mid)
+        rectangle(d, (xl + 2, 105, xr - 2, 105), wood_mid)
+    rectangle(d, (750, 107, 1023, 108), grout)
 
-    # Pilaster hiding the architectural transition from the last window bay.
-    # The source bay begins its next window at this edge. This darker return
-    # face covers the entire next-window sliver and wood sill before the wide
-    # terminal pier turns into the new end wall.
-    rectangle(d, (750, 0, 765, 3), stone_shade)
-    rectangle(d, (751, 4, 765, 6), stone_light)
-    rectangle(d, (750, 7, 766, 96), stone_mid)
-    rectangle(d, (750, 8, 752, 96), stone_deep)
-    rectangle(d, (753, 8, 763, 96), stone)
-    rectangle(d, (763, 8, 765, 96), stone_light)
-    rectangle(d, (750, 95, 766, 98), stone_shade)
-    rectangle(d, (748, 99, 767, 108), stone_mid)
-    rectangle(d, (749, 106, 768, 109), stone_deep)
-    rectangle(d, (756, 0, 807, 2), stone_shade)
-    rectangle(d, (759, 3, 805, 5), stone_light)
-    rectangle(d, (764, 6, 803, 96), stone)
-    rectangle(d, (764, 8, 766, 96), stone_deep)
-    rectangle(d, (767, 8, 769, 96), stone_shade)
-    rectangle(d, (799, 8, 801, 96), stone_light)
-    rectangle(d, (766, 38, 801, 39), stone_shade)
-    rectangle(d, (765, 94, 804, 97), stone_shade)
-    rectangle(d, (761, 98, 806, 107), stone_mid)
-    rectangle(d, (762, 106, 807, 109), stone_deep)
-    rectangle(d, (760, 109, 809, 110), stone_light)
+    # Carry the last source pilaster all the way to its natural right edge.
+    # It is the sole separator between the last window and the door bay.
+    interior.paste(src.crop((207, 0, 231, 109)), (726, 0))
 
     # Carry the existing gas-lamp silhouette into this terminal bay. Copy
     # only its dark metal and luminous glass pixels, never a hard rectangle
     # of the source wall, so the new masonry remains continuous.
-    sx = 844
+    sx = 827
     for yy in range(42, 61):
         width = max(0, 10 - abs(yy - 51))
         for xx in range(sx - width, sx + width + 1):
-            if 806 <= xx < 884:
-                interior.putpixel((xx, yy), stone_light if yy < 53 else stone)
+            if 750 <= xx < 884:
+                interior.putpixel((xx, yy), stone_mid if yy < 53 else stone)
     for sy in range(25, 66):
         for source_x in range(108, 127):
-            color = src.getpixel((source_x * SCALE, sy * SCALE))
+            color = src.getpixel((source_x, sy))
             r, g, b, _ = color
             metal = r <= 185 and g <= 132 and b <= 85
             flame = r >= 249 and g >= 197 and b >= 100
             if (metal or flame) and abs(source_x - 117) < 10:
                 interior.putpixel((sx + source_x - 117, sy), color)
 
-    # A second terminal buttress closes the 3-screen map at the right edge.
-    rectangle(d, (1009, 0, 1023, 106), stone_mid)
-    rectangle(d, (1010, 0, 1012, 106), stone_deep)
-    rectangle(d, (1013, 0, 1015, 106), stone_shade)
-    rectangle(d, (1017, 0, 1020, 106), stone_light)
-    rectangle(d, (1007, 95, 1023, 110), stone_shade)
+    # The native textured final pier closes the finite drawing at the edge.
+    interior.paste(src.crop((519, 0, 543, 109)), (1000, 0))
 
     # Broad recessed stone arch. Crown at y=22 logical (88 export px);
     # walnut doors are 60 logical px = 240 output px wide.
@@ -234,14 +241,16 @@ def draw_end_wall(interior: Image.Image, palette: set[tuple[int, ...]]) -> None:
         rectangle(d, (901, yy, 902, yy), gold)
         rectangle(d, (958, yy, 959, yy), gold)
 
-    # Faceted stone sill over the belt floor, usable contact area at y=122.
-    rectangle(d, (894, 109, 966, 111), stone_deep)
-    rectangle(d, (891, 112, 969, 115), stone_light)
-    rectangle(d, (888, 116, 972, 118), stone_mid)
-    rectangle(d, (888, 119, 972, 120), stone_shade)
-    rectangle(d, (892, 121, 968, 122), grout)
-    rectangle(d, (897, 123, 963, 124), stone_light)
-    # The joint ends at the wooden base; the light threshold stays continuous.
+    # A shallow, textured indoor threshold sits directly on the marble.
+    # There is no exterior stair or matching doorway geometry to impose.
+    rectangle(d, (894, 109, 966, 110), stone_light)
+    rectangle(d, (891, 111, 969, 112), p("D4A873"))
+    rectangle(d, (892, 113, 968, 113), stone_shade)
+    for xx in range(892, 969):
+        if hnoise(xx // 3, 112, 12) % 3 == 0:
+            interior.putpixel((xx, 111), p("DCB27C"))
+        if hnoise(xx // 4, 114, 12) % 4 != 0:
+            interior.putpixel((xx, 114), p("D1A26C"))
 
 
 def draw_left_cap(interior: Image.Image, palette: set[tuple[int, ...]]) -> None:
@@ -288,6 +297,7 @@ def main() -> None:
     composite = Image.alpha_composite(Image.alpha_composite(enlarged["corridor-far"], enlarged["corridor-near"]), enlarged["corridor-interior"])
     composite.save(PREVIEW / "corridor-composite.png")
     composite.resize((W, H), Image.Resampling.NEAREST).save(PREVIEW / "corridor-logical-1x.png")
+    composite.crop((2720, 0, W * SCALE, H * SCALE)).save(PREVIEW / "corridor-exit-detail.png")
 
     # The old 64-color, binary-alpha, 4x-grid contract is preserved per layer.
     for name, image in enlarged.items():
@@ -301,7 +311,7 @@ def main() -> None:
         "PASS: 3 authored 4096x724 layers and 3 padded 4096x916 runtime layers.\n"
         "PASS: exact 4x grid; binary alpha; each layer at most 64 opaque palette colors.\n"
         "PASS: runtime y=160..883 exactly equals authored image, top=160 and bottom=32.\n"
-        "Door: authored x=3600..3840, arch x=3552..3888, center x=3720; threshold y=432..499.\n"
+        "Door: authored x=3600..3840, arch x=3552..3888, center x=3720; shallow threshold y=436..459.\n"
         "Floor/wall seam y=432; finite left and right caps; last full window ends before x=3000.\n",
         encoding="utf-8",
     )

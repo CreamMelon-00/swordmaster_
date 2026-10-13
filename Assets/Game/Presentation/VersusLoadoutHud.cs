@@ -20,6 +20,7 @@ namespace TurnLimbo.Presentation
             public Image Image, Icon;
             public Text Name;
             public SkillRolePip Role;
+            public VersusLoadoutCardDrag Drag;
         }
 
         private readonly LegacyDuelArt art;
@@ -30,6 +31,7 @@ namespace TurnLimbo.Presentation
         private readonly Image[,] slotIcons = new Image[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
         private readonly Text[,] slotNames = new Text[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
         private readonly Image[,] slotTargets = new Image[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
+        private readonly VersusLoadoutCardDrag[,] slotDrags = new VersusLoadoutCardDrag[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
         // Each slot's skill's core mechanic at its icon's upper right (as the campaign loadout's).
         private readonly SkillRolePip[,] slotRoles = new SkillRolePip[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
         private readonly List<SkillCard> availableCards = new List<SkillCard>();
@@ -40,6 +42,8 @@ namespace TurnLimbo.Presentation
         private readonly Button resetButton;
         private readonly VersusLoadout loadout;
         private int selectedId;
+        private int draggedSkillId, draggedLane = -1, dragPointerId;
+        private RectTransform dragGhost;
         private int[] openingIds;
         private bool disposed;
 
@@ -48,6 +52,7 @@ namespace TurnLimbo.Presentation
         public Button ConfirmButton { get; }
         public Button CancelButton { get; }
         public VersusLoadout Loadout => loadout;
+        public bool IsDragging => draggedSkillId != 0;
 
         public VersusLoadoutHud(Transform parent, LegacyDuelArt art, VersusLoadout loadout,
             Action confirm = null, Action cancel = null, Action changed = null)
@@ -91,7 +96,7 @@ namespace TurnLimbo.Presentation
                 new Vector2(1220f, 56f), 43, DuelVisualTheme.Foreground, TextAnchor.MiddleCenter);
             Label("Versus Loadout Subheading", paper.transform, new Vector2(0f, 334f),
                 new Vector2(1190f, 34f), 20, DuelVisualTheme.Muted, TextAnchor.MiddleCenter).text =
-                "Q · W · E 각 3칸의 기술을 선택하세요. 고른 기술을 같은 열의 칸에 배치할 수 있습니다.";
+                "Q · W · E 각 3칸을 편성하세요. 클릭: 정보 · 드래그: 배치";
 
             const float firstX = -572f, pitch = 258f;
             string[] lanes = { "Q", "W", "E" };
@@ -114,6 +119,8 @@ namespace TurnLimbo.Presentation
                         paper.transform, null, new Vector2(x, y), new Vector2(238f, 80f),
                         () => ClickSlot(selectedLane, selectedSlot));
                     slotButtons[lane, slot] = button;
+                    slotDrags[lane, slot] = button.gameObject.AddComponent<VersusLoadoutCardDrag>();
+                    button.gameObject.AddComponent<VersusLoadoutSlotDrop>().Configure(this, lane, slot);
                     Label("Slot Order", button.transform, new Vector2(-105f, 26f), new Vector2(24f, 18f),
                         15, DuelVisualTheme.Muted, TextAnchor.MiddleCenter).text = (slot + 1).ToString();
                     var icon = Panel("Slot Icon", button.transform, new Vector2(-72f, -4f),
@@ -193,6 +200,7 @@ namespace TurnLimbo.Presentation
         public void Show(string heading = "대전 기술 편성", string confirmCaption = "편성 완료")
         {
             if (disposed) return;
+            CancelDrag();
             openingIds = loadout.ExportIds();
             selectedId = 0;
             this.heading.text = heading ?? "대전 기술 편성";
@@ -204,6 +212,7 @@ namespace TurnLimbo.Presentation
         public void Hide()
         {
             if (disposed) return;
+            CancelDrag();
             root.gameObject.SetActive(false);
             ClearSelection();
         }
@@ -235,12 +244,13 @@ namespace TurnLimbo.Presentation
             LegacySkill selected = FindAvailable(selectedId);
             if (selected == null) selectedId = 0;
             selected = FindAvailable(selectedId);
-            int laneToPlace = selected?.LaneIndex ?? -1;
+            int laneToPlace = IsDragging ? draggedLane : -1;
 
             for (int lane = 0; lane < VersusLoadout.LaneCount; lane++)
                 for (int slot = 0; slot < VersusLoadout.SlotsPerLane; slot++)
                 {
                     LegacySkill skill = loadout.GetSkill(lane, slot);
+                    slotDrags[lane, slot].Configure(this, skill.Id, lane);
                     slotIcons[lane, slot].sprite = art.GetSkillIcon(skill.IconId);
                     slotIcons[lane, slot].enabled = slotIcons[lane, slot].sprite != null;
                     slotRoles[lane, slot].SetSkill(skill);
@@ -248,7 +258,7 @@ namespace TurnLimbo.Presentation
                     slotButtons[lane, slot].GetComponent<Image>().color =
                         selectedId == skill.Id ? DuelVisualTheme.Selected : DuelVisualTheme.Card;
                     slotTargets[lane, slot].gameObject.SetActive(laneToPlace == lane &&
-                        selectedId != skill.Id);
+                        draggedSkillId != skill.Id);
                 }
 
             int available = 0;
@@ -263,8 +273,8 @@ namespace TurnLimbo.Presentation
                 available++;
             }
             availableContent.sizeDelta = new Vector2(Mathf.Max(1380f, available * 204f), 138f);
-            hint.text = selected == null ? "기술을 선택한 다음 같은 열의 칸을 누르세요."
-                : (new[] { "Q", "W", "E" })[selected.LaneIndex] + " 열의 칸을 눌러 배치 · 같은 열 안에서는 순서를 바꿀 수 있습니다.";
+            hint.text = laneToPlace < 0 ? "기술을 같은 열의 칸으로 드래그하세요."
+                : (new[] { "Q", "W", "E" })[laneToPlace] + " 칸에 놓아 배치";
             detailIcon.enabled = selected != null && art.GetSkillIcon(selected.IconId) != null;
             detailIcon.sprite = selected == null ? null : art.GetSkillIcon(selected.IconId);
             detailName.text = selected?.Name ?? "기술을 선택하세요";
@@ -308,6 +318,8 @@ namespace TurnLimbo.Presentation
             Label("Available Lane", card.Button.transform, new Vector2(53f, -46f),
                 new Vector2(64f, 20f), 14, SkillLaneStyle.Edge(skill.LaneIndex),
                 TextAnchor.MiddleRight).text = (new[] { "Q", "W", "E" })[skill.LaneIndex];
+            card.Drag = card.Button.gameObject.AddComponent<VersusLoadoutCardDrag>();
+            card.Drag.Configure(this, skill.Id, skill.LaneIndex);
             availableCards.Add(card);
         }
 
@@ -321,25 +333,75 @@ namespace TurnLimbo.Presentation
         private void ClickSlot(int lane, int slot)
         {
             if (!IsVisible) return;
-            LegacySkill selected = FindAvailable(selectedId);
-            if (selected == null || selected.LaneIndex != lane)
+            selectedId = loadout.GetSkillId(lane, slot);
+            Refresh();
+        }
+
+        internal bool BeginDrag(int skillId, int lane, PointerEventData pointer)
+        {
+            LegacySkill skill = FindAvailable(skillId);
+            if (!IsVisible || !root.gameObject.activeInHierarchy || pointer == null ||
+                pointer.button != PointerEventData.InputButton.Left || skill == null || skill.LaneIndex != lane)
+                return false;
+            CancelDrag();
+            selectedId = draggedSkillId = skillId;
+            draggedLane = lane;
+            dragPointerId = pointer.pointerId;
+            Refresh();
+            dragGhost = Rect("Versus Loadout Drag Ghost", root, Vector2.zero, new Vector2(76f, 76f));
+            var image = dragGhost.gameObject.AddComponent<Image>();
+            image.sprite = art.GetSkillIcon(skill.IconId);
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            var group = dragGhost.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = .88f;
+            group.interactable = group.blocksRaycasts = false;
+            UpdateDrag(pointer);
+            return true;
+        }
+
+        internal void UpdateDrag(PointerEventData pointer)
+        {
+            if (disposed || dragGhost == null || pointer == null || pointer.pointerId != dragPointerId) return;
+            if (RectTransformUtility.ScreenPointToLocalPointInRectangle(root, pointer.position,
+                pointer.pressEventCamera, out Vector2 point)) dragGhost.anchoredPosition = point;
+        }
+
+        internal void Drop(int lane, int slot, PointerEventData pointer)
+        {
+            if (!IsVisible || !IsDragging || pointer == null || pointer.pointerDrag == null ||
+                pointer.pointerId != dragPointerId || pointer.button != PointerEventData.InputButton.Left) return;
+            var source = pointer.pointerDrag.GetComponent<VersusLoadoutCardDrag>();
+            if (source == null || source.Owner != this) return;
+            int id = draggedSkillId;
+            bool compatible = lane == draggedLane && slot >= 0 && slot < VersusLoadout.SlotsPerLane;
+            CancelDrag();
+            if (!compatible) return;
+            int[] before = loadout.ExportIds();
+            if (!loadout.TryPlaceSkill(id, lane, slot)) return;
+            selectedId = id;
+            Refresh();
+            if (!Equal(before, loadout.ExportIds())) changed?.Invoke();
+        }
+
+        internal void CancelDrag()
+        {
+            bool wasDragging = IsDragging;
+            draggedSkillId = 0;
+            draggedLane = -1;
+            if (dragGhost != null)
             {
-                selectedId = loadout.GetSkillId(lane, slot);
-                Refresh();
-                return;
+                dragGhost.gameObject.SetActive(false);
+                Destroy(dragGhost.gameObject);
             }
-            int before = loadout.GetSkillId(lane, slot);
-            if (loadout.TryPlaceSkill(selectedId, lane, slot) && before != selectedId)
-            {
-                changed?.Invoke();
-                Refresh();
-            }
-            else if (before == selectedId) Refresh();
+            dragGhost = null;
+            if (wasDragging && !disposed) Refresh();
         }
 
         private void ResetClicked()
         {
             if (!IsVisible) return;
+            CancelDrag();
             int[] before = loadout.ExportIds();
             loadout.Reset();
             if (!Equal(before, loadout.ExportIds())) changed?.Invoke();
@@ -368,6 +430,8 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             disposed = true;
+            CancelDrag();
+            root.gameObject.SetActive(false);
             foreach (Button button in root.GetComponentsInChildren<Button>(true))
                 button.onClick.RemoveAllListeners();
             Destroy(root.gameObject);
@@ -455,5 +519,33 @@ namespace TurnLimbo.Presentation
             if (Application.isPlaying) UnityEngine.Object.Destroy(target);
             else UnityEngine.Object.DestroyImmediate(target);
         }
+    }
+
+    /// <summary>Each card owns its pointer drag; drops are validated by its preparation view.</summary>
+    public sealed class VersusLoadoutCardDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
+    {
+        private int skillId, lane;
+        private bool dragging;
+        internal VersusLoadoutHud Owner { get; private set; }
+        internal void Configure(VersusLoadoutHud owner, int id, int laneIndex)
+        { Owner = owner; skillId = id; lane = laneIndex; }
+        public void OnBeginDrag(PointerEventData eventData)
+        {
+            if (eventData == null || eventData.button != PointerEventData.InputButton.Left) return;
+            eventData.eligibleForClick = false;
+            dragging = Owner != null && Owner.BeginDrag(skillId, lane, eventData);
+        }
+        public void OnDrag(PointerEventData eventData) { if (dragging) Owner?.UpdateDrag(eventData); }
+        public void OnEndDrag(PointerEventData eventData) { if (dragging) Owner?.CancelDrag(); dragging = false; }
+        private void OnDisable() { if (dragging) Owner?.CancelDrag(); dragging = false; }
+    }
+
+    public sealed class VersusLoadoutSlotDrop : MonoBehaviour, IDropHandler
+    {
+        private VersusLoadoutHud owner;
+        private int lane, slot;
+        internal void Configure(VersusLoadoutHud view, int laneIndex, int slotIndex)
+        { owner = view; lane = laneIndex; slot = slotIndex; }
+        public void OnDrop(PointerEventData eventData) => owner?.Drop(lane, slot, eventData);
     }
 }

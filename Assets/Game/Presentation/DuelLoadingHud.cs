@@ -71,7 +71,7 @@ namespace TurnLimbo.Presentation
             root.sizeDelta = Vector2.zero;
             Canvas canvas = GetComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.pixelPerfect = false;
+            canvas.pixelPerfect = true;
             canvas.sortingOrder = 1000;
             CanvasScaler scaler = GetComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;

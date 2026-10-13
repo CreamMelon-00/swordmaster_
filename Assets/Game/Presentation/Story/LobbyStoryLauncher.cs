@@ -26,7 +26,6 @@ namespace TurnLimbo.Presentation
     [RequireComponent(typeof(DuelPrototypeController))]
     public sealed class LobbyStoryLauncher : MonoBehaviour
     {
-        private const string FontResourcePath = "LegacyDuel/Font/neodgm";
         private const int LastAuthoredMission = 4;
 
         private readonly List<StoryReplayEntry> availableScenes = new List<StoryReplayEntry>();
@@ -60,7 +59,7 @@ namespace TurnLimbo.Presentation
                 return;
             }
 
-            font = Resources.Load<Font>(FontResourcePath);
+            font = PixelFontRendering.LoadUiFont();
             CreateView();
             RefreshVisibility(true);
         }

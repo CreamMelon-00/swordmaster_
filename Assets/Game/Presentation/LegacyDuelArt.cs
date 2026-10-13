@@ -48,7 +48,7 @@ namespace TurnLimbo.Presentation
         {
             background = Resources.Load<Texture2D>(ResourceRoot + "Background/pa_background_-_school_in_game");
             backgroundSprite = Resources.Load<Sprite>(ResourceRoot + "Background/pa_background_-_school_in_game");
-            UIFont = Resources.Load<Font>(ResourceRoot + "Font/neodgm");
+            UIFont = PixelFontRendering.LoadUiFont();
             playerFrames = LoadActor("Player", "pa_player_idle-Sheet", "pa_player_slash-Sheet",
                 "pa_player_sting1-Sheet", "pa_player_nike-Sheet", "pa_player_g-Sheet");
             enemyFrames = LoadActor("Enemy0", "pa_enemy_1_i-Sheet", "pa_enemy_1_s-Sheet",

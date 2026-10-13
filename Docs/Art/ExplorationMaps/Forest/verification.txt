@@ -1,12 +1,17 @@
-Authored layer canvas: 4096x724 (logical 1024x181, exact 4x)
-Layer order: far-mist, far-trees, belt-mid, near
-All alpha values: 0 or 255
-Door center: x=352px
-Door leaves: x=232..472px (240px wide)
-Stone arch: x=184..520px (336px), exactly reused from corridor
-Door arch crown: y=88px, threshold: y=436..496px
-School wall extends to about x=880px; forest path continues right.
-forest-far-mist: 64 opaque colors, alpha bounds (0, 0, 4096, 724)
-forest-far-trees: 64 opaque colors, alpha bounds (0, 0, 4096, 488)
-forest-belt-mid: 63 opaque colors, alpha bounds (0, 0, 4096, 724)
-forest-near: 52 opaque colors, alpha bounds (0, 576, 4096, 724)
+Creative reference: Concepts/distant-school-entrance-v3.png
+Concept SHA256: 8eac5aeb21a8ad728de0598fabf79ae6cd0c1c8a0c499f890b536e367c4c84f0
+Authored canvas:4096x724; logical grid:1024x181; exact 4x output
+Near school facade and copied corridor door removed
+Distant school and entrance: fixed belt-mid; existing broad lower path and near bushes preserved
+School palette: reserved slate roof, warm stone, window shadow and light tones
+Irregular joining boundary:x=1244..1344px
+Existing forest pixels beyond x=1360 preserved exactly
+Existing lower path at y>=412 and whole near/far layers preserved exactly
+Return path opening:approximately x=260..570; interaction reference x=352,y=488
+Existing right end fence preserved at x~3740..4096
+forest-far-mist:64 opaque colors; alpha[255]; exact grid and unchanged tail PASS
+forest-far-trees:64 opaque colors; alpha[0, 255]; exact grid and unchanged tail PASS
+forest-belt-mid:64 opaque colors; alpha[0, 255]; exact grid and unchanged tail PASS
+forest-near:52 opaque colors; alpha[0, 255]; exact grid and unchanged tail PASS
+Composite coverage:all pixels opaque PASS
+Aseprite master: four layers at (0,0), exported pixels exactly equal Source PNGs PASS

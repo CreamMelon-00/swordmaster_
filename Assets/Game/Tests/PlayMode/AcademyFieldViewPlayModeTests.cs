@@ -187,7 +187,7 @@ namespace TurnLimbo.Presentation.Tests
                 var keyboard = InputSystem.AddDevice<Keyboard>();
                 Vector2 startingPoint = field.PlayerPosition;
                 Press(keyboard.dKey);
-                for (int step = 0; step < 10; step++) TickInput(field, keyboard, .1f);
+                for (int step = 0; step < 6; step++) TickInput(field, keyboard, .1f);
                 ReleaseInput(keyboard.dKey);
                 Assert.That(field.PlayerPosition.x, Is.GreaterThan(startingPoint.x + 3f));
                 Press(keyboard.spaceKey);
@@ -198,6 +198,218 @@ namespace TurnLimbo.Presentation.Tests
                 TickInput(field, keyboard, .016f);
                 Assert.That(menusOpened, Is.EqualTo(1));
                 ReleaseInput(keyboard.escapeKey);
+            }
+            finally
+            {
+                field.Dispose();
+                arena.Dispose();
+                art.Dispose();
+                Object.Destroy(host);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ShiftRunsAtOneAndAHalfWalkSpeed_WithEitherShiftKey_AndNormalizedDiagonals()
+        {
+            yield return null;
+            var host = new GameObject("Academy Field Run Input Test");
+            var art = new LegacyDuelArt();
+            LegacyArenaView arena = LegacyArenaView.Create(host.transform, art);
+            var field = new AcademyFieldView(host.transform, art, arena, _ => { }, () => { }, () => { }, () => { });
+            try
+            {
+                field.Show(new CampaignRun(), false, false);
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                Press(keyboard.dKey);
+                Vector2 before = field.PlayerPosition;
+                TickInput(field, keyboard, .1f);
+                float walkingDistance = Vector2.Distance(before, field.PlayerPosition);
+                Assert.That(walkingDistance, Is.EqualTo(.6f).Within(.001f), "The quicker base walk covers six units per second.");
+                Assert.That(field.IsRunning, Is.False);
+                Assert.That(field.RunningAfterimageCount, Is.Zero);
+
+                Press(keyboard.leftShiftKey);
+                before = field.PlayerPosition;
+                TickInput(field, keyboard, .1f);
+                float runningDistance = Vector2.Distance(before, field.PlayerPosition);
+                Assert.That(runningDistance / walkingDistance, Is.EqualTo(1.5f).Within(.001f));
+                Assert.That(field.IsRunning, Is.True);
+
+                ReleaseInput(keyboard.leftShiftKey);
+                before = field.PlayerPosition;
+                TickInput(field, keyboard, .1f);
+                Assert.That(Vector2.Distance(before, field.PlayerPosition), Is.EqualTo(walkingDistance).Within(.001f),
+                    "Releasing Shift restores the walking speed immediately.");
+                Assert.That(field.IsRunning, Is.False);
+
+                Press(keyboard.rightShiftKey);
+                before = field.PlayerPosition;
+                TickInput(field, keyboard, .1f);
+                Assert.That(Vector2.Distance(before, field.PlayerPosition), Is.EqualTo(runningDistance).Within(.001f),
+                    "The right Shift key also runs.");
+                Assert.That(field.IsRunning, Is.True);
+
+                Press(keyboard.wKey);
+                before = field.PlayerPosition;
+                TickInput(field, keyboard, .1f);
+                Vector2 diagonal = field.PlayerPosition - before;
+                Assert.That(diagonal.x, Is.GreaterThan(0f));
+                Assert.That(diagonal.y, Is.GreaterThan(0f));
+                Assert.That(diagonal.magnitude, Is.EqualTo(runningDistance).Within(.001f),
+                    "Running diagonally has the same speed as running horizontally.");
+                ReleaseInput(keyboard.wKey);
+                ReleaseInput(keyboard.rightShiftKey);
+                ReleaseInput(keyboard.dKey);
+            }
+            finally
+            {
+                field.Dispose();
+                arena.Dispose();
+                art.Dispose();
+                Object.Destroy(host);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RunningTrail_RequiresActualMovement_AndFadesAfterStoppingOrWalking()
+        {
+            yield return null;
+            var host = new GameObject("Academy Field Running Trail Test");
+            var art = new LegacyDuelArt();
+            LegacyArenaView arena = LegacyArenaView.Create(host.transform, art);
+            var field = new AcademyFieldView(host.transform, art, arena, _ => { }, () => { }, () => { }, () => { });
+            try
+            {
+                field.Show(new CampaignRun(), false, false);
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                Press(keyboard.leftShiftKey);
+                Advance(field, keyboard, .5f);
+                Assert.That(field.IsRunning, Is.False, "Holding Shift while standing still is not running.");
+                Assert.That(field.RunningAfterimageCount, Is.Zero);
+
+                Press(keyboard.dKey);
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.IsRunning, Is.True);
+                Assert.That(field.RunningAfterimageCount, Is.GreaterThan(0), "Running leaves a visible trail.");
+                ReleaseInput(keyboard.dKey);
+                Advance(field, keyboard, .3f);
+                Assert.That(field.IsRunning, Is.False);
+                Assert.That(field.RunningAfterimageCount, Is.Zero, "The brief trail fades out after stopping.");
+
+                Press(keyboard.dKey);
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.RunningAfterimageCount, Is.GreaterThan(0));
+                ReleaseInput(keyboard.leftShiftKey);
+                Advance(field, keyboard, .3f);
+                Assert.That(field.IsRunning, Is.False);
+                Assert.That(field.RunningAfterimageCount, Is.Zero, "Walking does not keep emitting the trail.");
+
+                ReleaseInput(keyboard.dKey);
+                Press(keyboard.leftShiftKey);
+                InputSystem.Update();
+                Press(keyboard.wKey);
+                for (int step = 0; step < 4; step++) TickInput(field, keyboard, .025f);
+                Transform fieldRoot = field.FieldCamera.transform.parent;
+                SpriteRenderer elisa = Find(fieldRoot, "Elisa").GetComponent<SpriteRenderer>();
+                SpriteRenderer[] visibleTrail = Find(fieldRoot, "Duel Field Running Afterimages")
+                    .GetComponentsInChildren<SpriteRenderer>();
+                Assert.That(visibleTrail.Length, Is.GreaterThan(0));
+                foreach (SpriteRenderer ghost in visibleTrail)
+                    Assert.That(ghost.sortingOrder, Is.LessThan(elisa.sortingOrder),
+                        "Older silhouettes stay behind Elisa as upward movement lowers her depth order.");
+                ReleaseInput(keyboard.wKey);
+                Advance(field, keyboard, .3f);
+                Assert.That(field.RunningAfterimageCount, Is.Zero);
+
+                Press(keyboard.dKey);
+                Advance(field, keyboard, 15f);
+                Vector2 boundaryPosition = field.PlayerPosition;
+                Advance(field, keyboard, .5f);
+                Assert.That(field.PlayerPosition, Is.EqualTo(boundaryPosition), "Elisa has reached the map's walking boundary.");
+                Assert.That(field.IsRunning, Is.False, "Pushing into a boundary is not movement.");
+                Assert.That(field.RunningAfterimageCount, Is.Zero, "No trail is emitted while standing against the boundary.");
+                ReleaseInput(keyboard.dKey);
+                ReleaseInput(keyboard.leftShiftKey);
+            }
+            finally
+            {
+                field.Dispose();
+                arena.Dispose();
+                art.Dispose();
+                Object.Destroy(host);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RunningTrail_ClearsImmediatelyWhenOpeningMenus_Hiding_Resetting_OrChangingMaps()
+        {
+            yield return null;
+            var host = new GameObject("Academy Field Running Lifecycle Test");
+            var art = new LegacyDuelArt();
+            LegacyArenaView arena = LegacyArenaView.Create(host.transform, art);
+            int menusOpened = 0;
+            var field = new AcademyFieldView(host.transform, art, arena, _ => { }, () => { }, () => { }, () => menusOpened++);
+            try
+            {
+                var campaign = new CampaignRun();
+                field.Show(campaign, false, false);
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                Press(keyboard.dKey);
+                InputSystem.Update();
+                Press(keyboard.leftShiftKey);
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.RunningAfterimageCount, Is.GreaterThan(0));
+                Press(keyboard.escapeKey);
+                TickInput(field, keyboard, .016f);
+                Assert.That(menusOpened, Is.EqualTo(1));
+                Assert.That(field.IsRunning, Is.False);
+                Assert.That(field.RunningAfterimageCount, Is.Zero, "ESC clears the trail before the field stops ticking behind the menu.");
+                ReleaseInput(keyboard.escapeKey);
+
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.RunningAfterimageCount, Is.GreaterThan(0));
+                field.Hide();
+                Assert.That(field.IsRunning, Is.False);
+                Assert.That(field.RunningAfterimageCount, Is.Zero);
+                Vector2 hiddenPosition = field.PlayerPosition;
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.PlayerPosition, Is.EqualTo(hiddenPosition), "Hidden fields cannot move or emit trails.");
+                Assert.That(field.RunningAfterimageCount, Is.Zero);
+
+                field.Show(campaign, false, false);
+                Assert.That(field.RunningAfterimageCount, Is.Zero);
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.RunningAfterimageCount, Is.GreaterThan(0));
+                field.Show(campaign, false, false);
+                Assert.That(field.IsRunning, Is.False);
+                Assert.That(field.RunningAfterimageCount, Is.Zero, "Re-entering the field cannot revive an old trail.");
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.RunningAfterimageCount, Is.GreaterThan(0));
+                field.ResetExploration();
+                Assert.That(field.IsRunning, Is.False);
+                Assert.That(field.RunningAfterimageCount, Is.Zero);
+                ReleaseInput(keyboard.dKey);
+                ReleaseInput(keyboard.leftShiftKey);
+
+                field.Show(campaign, false, false);
+                WalkTo(field, keyboard, field.PortalPosition);
+                Press(keyboard.aKey);
+                InputSystem.Update();
+                Press(keyboard.rightShiftKey);
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.RunningAfterimageCount, Is.GreaterThan(0));
+                ReleaseInput(keyboard.aKey);
+                Press(keyboard.spaceKey);
+                TickInput(field, keyboard, .016f);
+                Assert.That(field.IsTransitioning, Is.True);
+                Assert.That(field.IsRunning, Is.False);
+                Assert.That(field.RunningAfterimageCount, Is.Zero, "The fade starts without ghosts from the departing map.");
+                ReleaseInput(keyboard.spaceKey);
+                Press(keyboard.dKey);
+                TickInput(field, keyboard, .1f);
+                Assert.That(field.RunningAfterimageCount, Is.Zero, "Holding run during a transition emits no ghosts.");
+                ReleaseInput(keyboard.dKey);
+                ReleaseInput(keyboard.rightShiftKey);
             }
             finally
             {
@@ -350,14 +562,14 @@ namespace TurnLimbo.Presentation.Tests
             // Travel through the same public input path as a player, including the camera and walk bounds.
             var vertical = destination.y > field.PlayerPosition.y ? keyboard.wKey : keyboard.sKey;
             Press(vertical);
-            for (int step = 0; step < 40 && Mathf.Abs(destination.y - field.PlayerPosition.y) > .25f; step++)
-                Advance(field, keyboard, .1f);
+            for (int step = 0; step < 100 && Mathf.Abs(destination.y - field.PlayerPosition.y) > .25f; step++)
+                TickInput(field, keyboard, .04f);
             ReleaseInput(vertical);
             Assert.That(Mathf.Abs(destination.y - field.PlayerPosition.y), Is.LessThanOrEqualTo(.25f), "The door must be reachable in the walking belt.");
             var horizontal = destination.x > field.PlayerPosition.x ? keyboard.dKey : keyboard.aKey;
             Press(horizontal);
-            for (int step = 0; step < 200 && Mathf.Abs(destination.x - field.PlayerPosition.x) > .25f; step++)
-                Advance(field, keyboard, .1f);
+            for (int step = 0; step < 400 && Mathf.Abs(destination.x - field.PlayerPosition.x) > .25f; step++)
+                TickInput(field, keyboard, .04f);
             ReleaseInput(horizontal);
             Assert.That(Mathf.Abs(destination.x - field.PlayerPosition.x), Is.LessThanOrEqualTo(.25f), "The painted doorway must be reachable before the map boundary.");
         }

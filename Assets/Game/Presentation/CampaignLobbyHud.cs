@@ -619,7 +619,7 @@ namespace TurnLimbo.Presentation
 
         private void BuildLoadout(CampaignRun run)
         {
-            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성", "보유 기술을 골라 강조된 칸을 누르세요.");
+            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성", "기술을 같은 열의 칸으로 드래그하세요.");
             loadoutHud = new CampaignLoadoutHud(panel, art, run,
                 (id, lane, slot) =>
                 {

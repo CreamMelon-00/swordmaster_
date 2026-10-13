@@ -74,7 +74,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(FindTextUnder(hud.Root.transform, "Loadout Selected Detail", "Loadout Detail Role").text,
                     Does.Contain("조건부 ACT"));
                 string loadoutGuide = FindTextUnder(hud.Root.transform, "Loadout Panel", "Tab Subtitle").text;
-                Assert.That(loadoutGuide, Is.EqualTo("보유 기술을 골라 강조된 칸을 누르세요."));
+                Assert.That(loadoutGuide, Is.EqualTo("기술을 같은 열의 칸으로 드래그하세요."));
                 Assert.That(loadoutGuide, Does.Not.Contain("공격끼리 대결할 때만 저항 피해"));
                 AssertPureRole(hud.Root.transform, 14, "단타");
                 AssertPureRole(hud.Root.transform, 17, "방어");

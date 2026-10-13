@@ -183,7 +183,7 @@ namespace TurnLimbo.Presentation
                 {
                     CampaignOwnedSkill owned = run.GetLoadoutSlot(lane, slot);
                     Card card = slots[lane, slot];
-                    bool target = lane == placementLane;
+                    bool target = lane == placementLane && owned?.SkillId != draggedSkillId;
                     card.SkillId = owned?.SkillId ?? 0;
                     card.Drag.Configure(this, card.SkillId, lane, slot);
                     card.Icon.enabled = owned != null;
@@ -206,8 +206,8 @@ namespace TurnLimbo.Presentation
                     ? Color.Lerp(Selected, Accent, .18f) : CardColor;
             }
             ownedEmpty.gameObject.SetActive(ownedCards.Count == 0);
-            placementHint.text = placementLane >= 0 && draggedSkillId == 0
-                ? LaneNames[placementLane] + " 칸을 눌러 배치" : string.Empty;
+            placementHint.text = placementLane >= 0
+                ? LaneNames[placementLane] + " 칸에 놓아 배치" : "클릭: 정보 · 드래그: 배치";
             RefreshDetail();
             bool hasEmptySlot = false;
             foreach (int lane in openLanes)
@@ -221,10 +221,7 @@ namespace TurnLimbo.Presentation
 
         private int PlacementLane()
         {
-            if (draggedSkillId != 0) return draggedLane;
-            if (State.SelectedSlot >= 0 || run.IsSkillInLoadout(State.SelectedSkillId)) return -1;
-            CampaignOwnedSkill selected = FindOwned(State.SelectedSkillId);
-            return selected != null && run.IsLaneOpen(selected.Skill.LaneIndex) ? selected.Skill.LaneIndex : -1;
+            return draggedSkillId != 0 ? draggedLane : -1;
         }
 
         private bool OwnedCardsMatchDraft()
@@ -355,13 +352,6 @@ namespace TurnLimbo.Presentation
         private void ClickSlot(int lane, int slot)
         {
             if (disposed) return;
-            CampaignOwnedSkill selected = FindOwned(State.SelectedSkillId);
-            if (selected != null && State.SelectedSlot < 0 && !run.IsSkillInLoadout(selected.SkillId) &&
-                selected.Skill.LaneIndex == lane)
-            {
-                PlaceSelected(selected.SkillId, lane, slot);
-                return;
-            }
             State.ActiveLane = lane;
             State.SelectedSlot = slot;
             State.SelectedSkillId = run.GetLoadoutSlot(lane, slot)?.SkillId ?? 0;
@@ -402,7 +392,8 @@ namespace TurnLimbo.Presentation
 
         internal bool BeginDrag(int skillId, int lane, int slot, PointerEventData pointer)
         {
-            if (disposed || !root.gameObject.activeInHierarchy || FindOwned(skillId) == null || lane < 0 || lane > 2 ||
+            if (pointer == null || pointer.button != PointerEventData.InputButton.Left ||
+                disposed || !root.gameObject.activeInHierarchy || FindOwned(skillId) == null || lane < 0 || lane > 2 ||
                 !run.IsLaneOpen(lane)) return false;
             CancelDrag();
             State.ActiveLane = lane;
@@ -434,7 +425,8 @@ namespace TurnLimbo.Presentation
 
         internal void Drop(int lane, int slot, PointerEventData pointer)
         {
-            if (disposed || !IsDragging || pointer.pointerDrag == null) return;
+            if (disposed || !IsDragging || pointer == null || pointer.button != PointerEventData.InputButton.Left ||
+                pointer.pointerDrag == null) return;
             var source = pointer.pointerDrag.GetComponent<CampaignLoadoutCardDrag>();
             if (source == null || source.Owner != this || lane != draggedLane) return;
             int id = draggedSkillId;

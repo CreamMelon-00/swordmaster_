@@ -21,7 +21,11 @@ namespace TurnLimbo.Presentation
         private const float StartingX = -29f;
         private const float TopBound = -0.55f;
         private const float BottomBound = -2.3f;
-        private const float WalkSpeed = 4.5f;
+        private const float WalkSpeed = 6f;
+        private const float RunMultiplier = 1.5f;
+        private const float RunAfterimageInterval = .06f;
+        private const float RunAfterimageLifetime = .18f;
+        private static readonly Color RunAfterimageTint = new Color(1f, 1f, 1f, .22f);
         private const float InteractionRange = 2.8f;
         private const float CameraSize = 6f;
         private const float TransitionHalfDuration = .24f;
@@ -64,6 +68,7 @@ namespace TurnLimbo.Presentation
         private readonly Camera camera;
         private readonly ExplorationFieldBackdrop backdrop;
         private readonly SpriteRenderer player;
+        private readonly DuelStepAfterimages runAfterimages;
         private readonly Transform playerGround;
         private readonly MobStudentAnimationSet playerAnimations;
         private readonly EnemyStudentAnimationSet cadetA;
@@ -97,6 +102,7 @@ namespace TurnLimbo.Presentation
         private string storyStatus;
         private float animationTime;
         private float moveTime;
+        private float runAfterimageRemaining;
         private float arrivalRemaining;
         private float flourishRemaining;
         private float transitionElapsed;
@@ -108,6 +114,8 @@ namespace TurnLimbo.Presentation
         public bool IsVisible => !disposed && root.activeSelf;
         public ExplorationFieldMap CurrentMap => backdrop.CurrentMap;
         public bool IsTransitioning { get; private set; }
+        public bool IsRunning { get; private set; }
+        public int RunningAfterimageCount => runAfterimages.ActiveCount;
         public Camera FieldCamera => camera;
         public Vector2 PlayerPosition => playerGround.localPosition;
         public Vector2 PortalPosition => portal.Root.localPosition;
@@ -185,6 +193,8 @@ namespace TurnLimbo.Presentation
             playerGround = Child("Elisa Ground", root.transform);
             player = Sprite("Elisa", playerGround, playerAnimations.GetIdleUpper(0f), 35, arena.SpriteMaterial);
             CreateShadow(playerGround, arena.SpriteMaterial);
+            runAfterimages = new DuelStepAfterimages(root.transform, arena.SpriteMaterial, FieldLayer,
+                false, 5, "Field Running");
 
             uiRoot = Rect("Academy Field HUD", parent);
             var canvas = uiRoot.gameObject.AddComponent<Canvas>();
@@ -205,9 +215,9 @@ namespace TurnLimbo.Presentation
             arrivalText.alignment = TextAnchor.UpperRight;
             arrivalText.horizontalOverflow = HorizontalWrapMode.Wrap;
             arrivalText.gameObject.SetActive(false);
-            Text controls = Label("Field Controls", uiRoot, "WASD 이동   ·   Space / 클릭 상호작용   ·   Esc 메뉴", 18, Ink);
+            Text controls = Label("Field Controls", uiRoot, "WASD 이동 · Shift 달리기 · Space / 클릭 상호작용 · Esc 메뉴", 18, Ink);
             Anchor(controls.rectTransform, new Vector2(0f, 0f), new Vector2(0f, 0f),
-                new Vector2(660f, 36f), new Vector2(32f, 30f));
+                new Vector2(830f, 36f), new Vector2(32f, 30f));
             controls.alignment = TextAnchor.MiddleLeft;
             prompt = Label("Field Interaction Hint", uiRoot, string.Empty, 22, Brass);
             Anchor(prompt.rectTransform, new Vector2(.5f, 0f), new Vector2(.5f, 0f),
@@ -261,6 +271,7 @@ namespace TurnLimbo.Presentation
             }
             player.flipX = !facingRight;
             animationTime = moveTime = 0f;
+            PauseMovement();
             // The board stays in the school even when its next mission is waiting for a battle.
             storyBoard.CanInteract = storyAvailable;
             storyBoard.Name = "스토리 게시판";
@@ -315,6 +326,7 @@ namespace TurnLimbo.Presentation
         public void Hide()
         {
             if (disposed) return;
+            PauseMovement();
             IsTransitioning = false;
             transitionElapsed = 0f;
             transitionDim.gameObject.SetActive(false);
@@ -324,11 +336,23 @@ namespace TurnLimbo.Presentation
             uiRoot.gameObject.SetActive(false);
         }
 
+        /// <summary>Stop the pose and clear temporary trails before a menu or another screen takes input.</summary>
+        public void PauseMovement()
+        {
+            if (disposed) return;
+            IsRunning = false;
+            runAfterimageRemaining = 0f;
+            runAfterimages.Reset();
+            player.sprite = playerAnimations.GetIdleUpper(animationTime);
+            player.transform.localPosition = Vector3.zero;
+        }
+
         /// <summary>Call only while the field is accepting input. Menus, dialogue and combat own their own keys.</summary>
         public void Tick(float realDelta, Keyboard keyboard, Mouse mouse)
         {
             if (!IsVisible || run == null) return;
             float dt = Mathf.Clamp(realDelta, 0f, .1f);
+            runAfterimages.Tick(dt);
             if (IsTransitioning)
             {
                 TickTransition(dt);
@@ -350,6 +374,7 @@ namespace TurnLimbo.Presentation
             animationTime += dt;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
             {
+                PauseMovement();
                 onMenu?.Invoke();
                 return;
             }
@@ -363,9 +388,13 @@ namespace TurnLimbo.Presentation
                 if (keyboard.wKey.isPressed) motion.y += 1f;
             }
             if (motion.sqrMagnitude > 1f) motion.Normalize();
+            IsRunning = false;
             if (motion.sqrMagnitude > .001f)
             {
-                Vector3 position = playerGround.localPosition + (Vector3)(motion * WalkSpeed * dt);
+                bool shiftHeld = keyboard != null && (keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed);
+                Vector3 previous = playerGround.localPosition;
+                float speed = WalkSpeed * (shiftHeld ? RunMultiplier : 1f);
+                Vector3 position = previous + (Vector3)(motion * speed * dt);
                 Rect bounds = backdrop.MapBounds;
                 // The forest's end fence occupies the last part of the path rather than the canvas edge.
                 float rightBound = CurrentMap == ExplorationFieldMap.Forest
@@ -373,9 +402,10 @@ namespace TurnLimbo.Presentation
                 position.x = Mathf.Clamp(position.x, bounds.xMin + 1.5f, rightBound);
                 position.y = Mathf.Clamp(position.y, BottomBound, TopBound);
                 playerGround.localPosition = position;
+                IsRunning = shiftHeld && (position - previous).sqrMagnitude > .000001f;
                 if (motion.x < -.01f) facingRight = false;
                 else if (motion.x > .01f) facingRight = true;
-                moveTime += dt;
+                moveTime += dt * (shiftHeld ? RunMultiplier : 1f);
                 player.sprite = playerAnimations.GetMove();
                 player.transform.localPosition = new Vector3(0f, Mathf.Sin(moveTime * 13f) * .04f, 0f);
             }
@@ -386,6 +416,19 @@ namespace TurnLimbo.Presentation
             }
             player.flipX = !facingRight;
             player.sortingOrder = SortAt(playerGround.position.y);
+            if (IsRunning)
+            {
+                runAfterimageRemaining -= dt;
+                if (runAfterimageRemaining <= 0f)
+                {
+                    // Keep every trail behind Elisa even when she moves upward and her depth order decreases.
+                    float highestGroundY = root.transform.TransformPoint(new Vector3(0f, TopBound, 0f)).y;
+                    runAfterimages.Emit(player, RunAfterimageTint, RunAfterimageLifetime, Vector3.zero, 0f,
+                        0f, SortAt(highestGroundY) - 1);
+                    runAfterimageRemaining = RunAfterimageInterval;
+                }
+            }
+            else runAfterimageRemaining = 0f;
 
             UpdateCamera(dt);
             trainingDummy.Renderer.sprite = dummyAnimations.GetIdle(animationTime);
@@ -428,6 +471,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             Hide();
             disposed = true;
+            runAfterimages.Dispose();
             cadetA.Dispose();
             cadetB.Dispose();
             Destroy(root);
@@ -778,12 +822,11 @@ namespace TurnLimbo.Presentation
 
         private void BeginTransition()
         {
+            PauseMovement();
             IsTransitioning = true;
             transitionElapsed = 0f;
             transitionDim.color = Color.clear;
             transitionDim.gameObject.SetActive(true);
-            player.sprite = playerAnimations.GetIdleUpper(animationTime);
-            player.transform.localPosition = Vector3.zero;
             prompt.text = string.Empty;
         }
 

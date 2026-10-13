@@ -37,3 +37,4 @@ if ($LASTEXITCODE -ne 0) { throw "Forest Aseprite master verification failed: $L
 Wait-ForAsepriteFiles @($names | ForEach-Object { Join-Path $scriptRoot "Preview/aseprite-check-$_.png" })
 & $python -c "from PIL import Image; from pathlib import Path; p=Path(r'$scriptRoot'); names=['forest-far-mist','forest-far-trees','forest-belt-mid','forest-near']; [(lambda a,b,n: (_ for _ in ()).throw(AssertionError(n)) if a.tobytes()!=b.tobytes() else None)(Image.open(p/'Source'/f'{n}.png').convert('RGBA'),Image.open(p/'Preview'/f'aseprite-check-{n}.png').convert('RGBA'),n) for n in names]; [(p/'Preview'/f'aseprite-check-{n}.png').unlink() for n in names]"
 if ($LASTEXITCODE -ne 0) { throw "Forest Aseprite cel export differs from source PNG: $LASTEXITCODE" }
+Add-Content -LiteralPath (Join-Path $scriptRoot 'verification.txt') -Value 'Aseprite master: four layers at (0,0), exported pixels exactly equal Source PNGs PASS' -Encoding utf8NoBOM
