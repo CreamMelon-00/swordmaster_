@@ -19,7 +19,7 @@
 
 표에 없는 기술(서막 임무의 연습 기술 등)의 짧은 이름과 전투 상세는 종류와 타수로 만든 기본 문구를 씁니다. 모든 기술의 공통 피해 문구(`LegacySkillRoles.AttackDamageDetail`)는 이런 기술을 위해 코드에 남아 있고, 시트의 전투 상세에는 그 문구를 풀어 적었습니다.
 
-시트의 `구분`(`LegacySkillGroup`)이 목록을 나눕니다. `시작` 행 9개가 시작 기술(`LegacySkillDefinitions.InitialSkills`, `LegacyInitialSkills.All`)이고, `획득` 행 12개가 커리큘럼과 스테이지 첫 승리로 얻는 기술(`AcquisitionSkills`, `CampaignSkillCatalog.AcquisitionSkills`)입니다. `적` 행(지금 라우다레 500, 베네디체레 501, 프레디카레 502)은 적만 쓰는 기술(`EnemySkills`)입니다. 시작·획득 목록, 편성, 커리큘럼, 저장된 편성 어디에도 들어가지 않고, 이야기 적의 대본이 ID로 씁니다(`PrologueMissions`의 이아 수훈 대본). 모두 시트의 행 순서를 따르고, 시작 기술의 열 안 순서가 기본 편성 순서입니다. 그 밖의 모든 코드는 기술을 **ID로** 찾습니다(`LegacySkillDefinitions.Skill(id)`, `Find(id)`). 행 순서를 바꿔도 적 행동, 임무, 반격기가 바뀌지 않습니다. 어느 과정이 어느 기술을 주는지는 `CampaignCurriculum.cs`에 있습니다(`Curriculum.md`).
+시트의 `구분`(`LegacySkillGroup`)이 목록을 나눕니다. `시작` 행 9개가 시작 기술(`LegacySkillDefinitions.InitialSkills`, `LegacyInitialSkills.All`)이고, `획득` 행(지금 18개)이 커리큘럼, 스테이지 첫 승리와 학원 필드의 습득물로 얻는 기술(`AcquisitionSkills`, `CampaignSkillCatalog.AcquisitionSkills`)입니다. `적` 행(지금 라우다레 500, 베네디체레 501, 프레디카레 502)은 적만 쓰는 기술(`EnemySkills`)입니다. 시작·획득 목록, 편성, 커리큘럼, 저장된 편성 어디에도 들어가지 않고, 이야기 적의 대본이 ID로 씁니다(`PrologueMissions`의 이아 수훈 대본). 모두 시트의 행 순서를 따르고, 시작 기술의 열 안 순서가 기본 편성 순서입니다. 그 밖의 모든 코드는 기술을 **ID로** 찾습니다(`LegacySkillDefinitions.Skill(id)`, `Find(id)`). 행 순서를 바꿔도 적 행동, 임무, 반격기가 바뀌지 않습니다. 어느 과정이 어느 기술을 주는지는 `CampaignCurriculum.cs`에(`Curriculum.md`), 필드에 어떤 기술이 떨어져 있는지는 `CampaignFieldPickups.cs`에 있습니다(`SkillSheet.md`의 '필드 습득물').
 
 기술 이름은 시트에만 있습니다. 임무 안내·목표와 커리큘럼 설명은 이름 대신 `{기술:ID}`, `{기술:ID:을}` 토큰을 쓰고(`LegacySkillNames`, 조사는 `KoreanParticle`), 커리큘럼 과정 이름은 그 과정이 주는 기술의 이름입니다. 모두 읽을 때 지금 시트로 바꿉니다.
 
@@ -31,7 +31,7 @@
 - 원본을 설치하지 않은 편집 모드·테스트와 가져오기 감시, `기술 시트` 창은 시트 파일을 `SheetFile.ReadAllText`로 읽습니다. 다른 프로그램의 쓰기를 허용하고 읽으므로 Excel이 파일을 열어 두어도 읽힙니다(`File.ReadAllText`는 이때 공유 위반으로 실패합니다).
 - 읽기에 실패하면 그 예외를 기억해 두고 `Install`이나 `Reload` 전까지 접근할 때마다 다시 던집니다. 파일을 열지 못한 경우(`IOException`, `UnauthorizedAccessException`)만은 기억하지 않고 다음 접근에서 다시 읽습니다. 다른 프로그램이 파일을 닫기만 하면 Unity가 다시 가져오지 않기 때문입니다.
 - `Skill(id)`는 시트에 없는 ID에 `InvalidOperationException`(ID와 시트 경로를 적은 한국어 메시지)을 던집니다. `Find(id)`는 null을 돌려줍니다.
-- 시트 규칙을 지켜도 코드가 기대하는 기술이 빠질 수 있습니다. `CampaignSheetCheck`(Runtime `Campaign`)가 읽은 표를 코드와 대조합니다. 문제(`Problems`)는 커리큘럼 과정이나 스테이지 첫 승리가 주는 기술이 없거나 `시작`·`적`인 경우, 코드가 쓰는 ID(`CodeSkillIds`, 1~9와 500~502)가 없는 경우입니다. 경고(`Warnings`)는 주는 과정이 없는 `획득` 기술입니다(`적` 행은 경고하지 않습니다). `SkillSheetLoader`, `SkillSheetImportWatcher`, `기술 시트` 창의 `CSV 검사`가 결과를 보여 주고, 받아오기는 문제가 있으면 덮어쓰지 않습니다. 표는 그대로 읽히고, 빠진 기술은 처음 쓰는 곳에서 `Skill(id)`의 오류로 멈춥니다. `CampaignRun.TryCompleteBattle`은 이번 전투로 끝나는 과정의 기술을 아무것도 바꾸기 전에 찾으므로, 그 오류로 멈춰도 전투가 반쯤 반영되지 않습니다.
+- 시트 규칙을 지켜도 코드가 기대하는 기술이 빠질 수 있습니다. `CampaignSheetCheck`(Runtime `Campaign`)가 읽은 표를 코드와 대조합니다. 문제(`Problems`)는 커리큘럼 과정, 스테이지 첫 승리나 필드 습득물이 주는 기술이 없거나 `시작`·`적`인 경우, 코드가 쓰는 ID(`CodeSkillIds`, 1~9와 500~502)가 없는 경우입니다. 경고(`Warnings`)는 주는 과정·스테이지 보상·필드 습득물이 없는 `획득` 기술입니다(`적` 행은 경고하지 않습니다). `SkillSheetLoader`, `SkillSheetImportWatcher`, `기술 시트` 창의 `CSV 검사`가 결과를 보여 주고, 받아오기는 문제가 있으면 덮어쓰지 않습니다. 표는 그대로 읽히고, 빠진 기술은 처음 쓰는 곳에서 `Skill(id)`의 오류로 멈춥니다. `CampaignRun.TryCompleteBattle`은 이번 전투로 끝나는 과정의 기술을 아무것도 바꾸기 전에 찾으므로, 그 오류로 멈춰도 전투가 반쯤 반영되지 않습니다.
 
 ## 시작 효과
 
@@ -101,7 +101,7 @@
 ## 새 기술 추가
 
 1. **시트에 행 추가:** 새 ID로 `획득` 행을 넣고 필수 칸과 효과 칸을 적습니다(`SkillSheet.md`). 받아오기나 `CSV 검사`로 문제가 없는지 확인합니다.
-2. **커리큘럼 과정:** `CampaignCurriculum.Default`에 그 기술을 주는 과정을 넣어야 로비에서 얻을 수 있습니다. 그 전까지 `CampaignSheetCheck`가 경고합니다. 과정이 주는 기술은 `획득` 행이어야 합니다. 한 기술은 한 과정만 줄 수 있습니다. 기술 하나를 주는 과정은 제목을 null로 두면 기술 이름을 제목으로 씁니다. `CurriculumTests`가 획득 기술마다 정확히 한 과정이 주는지와 과정 수(지금 10)를 검사하므로 과정 수 단언도 함께 고칩니다. 보유 목록은 얻은 순서, 트리는 과정의 `Column`/`Row`를 따릅니다.
+2. **커리큘럼 과정:** `CampaignCurriculum.Default`에 그 기술을 주는 과정을 넣어야 로비에서 얻을 수 있습니다(스테이지 첫 승리 보상이나 필드 습득물(`CampaignFieldPickups`)로 주는 기술은 과정이 없어도 됩니다. `CurriculumTests`는 그 기술들을 빼고 검사합니다). 그 전까지 `CampaignSheetCheck`가 경고합니다. 과정이 주는 기술은 `획득` 행이어야 합니다. 한 기술은 한 과정만 줄 수 있습니다. 기술 하나를 주는 과정은 제목을 null로 두면 기술 이름을 제목으로 씁니다. `CurriculumTests`가 획득 기술마다 정확히 한 과정이 주는지와 과정 수(지금 10)를 검사하므로 과정 수 단언도 함께 고칩니다. 보유 목록은 얻은 순서, 트리는 과정의 `Column`/`Row`를 따릅니다.
 3. **시작 기술:** 시작 기술은 열마다 3개씩 9개로 고정입니다. 편성 저장도 열마다 정확히 3개를 요구합니다. 새로 넣으려면 같은 열의 기존 하나를 바꿔야 합니다. 코드는 기술을 ID로 쓰므로, 바꾸는 기술의 ID를 쓰는 곳을 함께 확인합니다.
    - 적 행동(`CampaignRun`의 기본 순환 1~6(1·2단계), `CampaignEnemyRhythms`의 리듬 대본 1~9(3~8단계))
    - 적 반격기(6, 7)

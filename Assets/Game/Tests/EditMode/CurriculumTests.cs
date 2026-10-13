@@ -115,8 +115,11 @@ namespace TurnLimbo.Core.Tests
             var campaign = new CampaignRun();
             var stageRewards = Enumerable.Range(1, campaign.StageCount)
                 .Select(stage => campaign.GetStage(stage).FirstClearSkillId).Where(id => id != 0).ToArray();
-            CollectionAssert.AreEquivalent(CampaignSkillCatalog.AcquisitionSkills.Select(skill => skill.Id).Except(stageRewards), granted);
+            int[] fieldPickups = CampaignFieldPickups.All.Select(pickup => pickup.SkillId).ToArray();
+            CollectionAssert.AreEquivalent(CampaignSkillCatalog.AcquisitionSkills.Select(skill => skill.Id).Except(stageRewards).Except(fieldPickups), granted);
             foreach (int id in stageRewards) Assert.That(tree.FindGranting(id), Is.Null, "Stage rewards are not curriculum rewards.");
+            foreach (int id in fieldPickups) Assert.That(tree.FindGranting(id), Is.Null, "Field pickups are not curriculum rewards.");
+            CollectionAssert.IsEmpty(fieldPickups.Intersect(stageRewards), "Field pickups are not stage rewards.");
             foreach (LegacySkill skill in LegacyInitialSkills.All)
                 Assert.That(tree.FindGranting(skill.Id), Is.Null, "Starting skills are never granted.");
             Assert.That(campaign.Curriculum.Tree, Is.SameAs(tree));

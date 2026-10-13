@@ -1,6 +1,11 @@
 using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
+using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Prologue;
+using TurnLimbo.Runtime.Save;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
@@ -202,6 +207,135 @@ namespace TurnLimbo.Presentation.Tests
                 Object.Destroy(host);
             }
         }
+
+        // TEMPORARY field pickup test (Docs/FieldPickups.md).
+        [UnityTest]
+        public IEnumerator ForestPickups_FloatWithTheirIcons_PromptNearby_TakeOnce_AndStayGoneAfterReload()
+        {
+            yield return null;
+            var host = new GameObject("Academy Field Pickup Test");
+            var art = new LegacyDuelArt();
+            LegacyArenaView arena = LegacyArenaView.Create(host.transform, art);
+            var campaign = new CampaignRun();
+            var taken = new List<string>();
+            // Takes the pickup through the run like the controller's CollectFieldPickup.
+            var field = new AcademyFieldView(host.transform, art, arena,
+                _ => Assert.Fail("A pickup must not start a stage."),
+                () => Assert.Fail("A pickup must not open the story board."),
+                () => Assert.Fail("A pickup must not start training."), () => { },
+                id => { taken.Add(id); campaign.TryCollectFieldPickup(id); });
+            try
+            {
+                field.Show(campaign, false, false);
+                Assert.That(field.VisiblePickupCount, Is.Zero, "The pickups lie in the forest, not in the corridor.");
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                EnterForest(field, keyboard);
+
+                IReadOnlyList<CampaignFieldPickup> forest = CampaignFieldPickups.In(CampaignFieldArea.Forest);
+                Assert.That(forest.Count, Is.EqualTo(4));
+                Assert.That(field.VisiblePickupCount, Is.EqualTo(forest.Count));
+                Transform fieldRoot = field.FieldCamera.transform.parent;
+                foreach (CampaignFieldPickup each in forest)
+                {
+                    Assert.That(field.IsPickupVisible(each.Id), Is.True, each.Id);
+                    Assert.That(field.PickupPosition(each.Id), Is.EqualTo(new Vector2(each.X, each.Y)), each.Id);
+                    Assert.That(Vector2.Distance(field.PickupPosition(each.Id), field.PlayerPosition), Is.GreaterThan(2.8f),
+                        "No pickup lies within reach of the door Elisa arrives at.");
+                    SpriteRenderer eachIcon = PickupPart(fieldRoot, each.Id, "Pickup Icon");
+                    Assert.That(eachIcon.sprite, Is.Not.Null.And.SameAs(art.GetSkillIcon(LegacySkillDefinitions.Skill(each.SkillId).IconId)),
+                        "Each pickup shows its technique's skill icon.");
+                }
+
+                CampaignFieldPickup pierce = CampaignFieldPickups.Find("forest-pierce");
+                LegacySkill skill = LegacySkillDefinitions.Skill(pierce.SkillId);
+                SpriteRenderer icon = PickupPart(fieldRoot, pierce.Id, "Pickup Icon");
+                SpriteRenderer halo = PickupPart(fieldRoot, pierce.Id, "Pickup Halo");
+                Assert.That(halo.sortingOrder, Is.EqualTo(icon.sortingOrder - 1), "The icon draws over its own halo.");
+                Assert.That(field.InteractionPrompt, Does.Not.Contain(skill.Name), "Far from it, the pickup asks nothing.");
+                float lowest = float.MaxValue, highest = float.MinValue;
+                for (int frame = 0; frame < 15; frame++)
+                {
+                    TickInput(field, keyboard, .1f);
+                    lowest = Mathf.Min(lowest, icon.transform.localPosition.y);
+                    highest = Mathf.Max(highest, icon.transform.localPosition.y);
+                }
+                Assert.That(highest - lowest, Is.GreaterThan(.05f), "The icon bobs.");
+                Assert.That(lowest, Is.GreaterThan(MobStudentAnimationSet.GroundOffset + .6f), "…floating above the ground line.");
+                Assert.That(halo.color.a, Is.GreaterThan(0f), "…in a visible halo.");
+
+                int equipped = campaign.EquippedSkillCount;
+                WalkTo(field, keyboard, field.PickupPosition(pierce.Id));
+                Assert.That(field.InteractionPrompt, Is.EqualTo("Space · " + skill.Name + " 습득"),
+                    "Beside a pickup the field's own interaction prompt offers it.");
+                Press(keyboard.spaceKey);
+                TickInput(field, keyboard, .016f);
+                ReleaseInput(keyboard.spaceKey);
+                Assert.That(taken, Is.EqualTo(new[] { pierce.Id }));
+                Assert.That(campaign.GetOwnedSkill(pierce.SkillId), Is.Not.Null, "Taking it grants its technique.");
+                Assert.That(campaign.EquippedSkillCount, Is.EqualTo(equipped), "…without equipping it.");
+                Assert.That(field.IsPickupVisible(pierce.Id), Is.False, "A taken pickup leaves the field.");
+                Assert.That(field.VisiblePickupCount, Is.EqualTo(forest.Count - 1));
+                Assert.That(field.InteractionPrompt, Does.Not.Contain(skill.Name));
+
+                Press(keyboard.spaceKey);
+                TickInput(field, keyboard, .016f);
+                ReleaseInput(keyboard.spaceKey);
+                Assert.That(field.TryInteractNearest(), Is.False);
+                Assert.That(taken.Count, Is.EqualTo(1), "A taken pickup cannot be taken again.");
+                Assert.That(campaign.OwnedSkills.Count(owned => owned.SkillId == pierce.SkillId), Is.EqualTo(1));
+
+                // Reload: through the save text, into a fresh run, and a fresh walk from the academy entrance.
+                string saved = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), campaign));
+                Assert.That(GameSaveCodec.TryParse(saved, out GameSave loaded, out string error), Is.True, error);
+                var reloaded = new CampaignRun();
+                Assert.That(reloaded.TryRestore(loaded.Campaign, out error), Is.True, error);
+                campaign = reloaded;
+                field.ResetExploration();
+                field.Show(reloaded, false, false);
+                EnterForest(field, keyboard);
+                Assert.That(field.IsPickupVisible(pierce.Id), Is.False, "A taken pickup stays gone after loading the save.");
+                Assert.That(field.VisiblePickupCount, Is.EqualTo(forest.Count - 1), "The others still lie there.");
+                Assert.That(reloaded.GetOwnedSkill(pierce.SkillId), Is.Not.Null);
+                WalkTo(field, keyboard, field.PickupPosition(pierce.Id));
+                Assert.That(field.InteractionPrompt, Does.Not.Contain(skill.Name));
+                Assert.That(field.TryInteractNearest(), Is.False);
+                Assert.That(taken.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                field.Dispose();
+                arena.Dispose();
+                art.Dispose();
+                Object.Destroy(host);
+            }
+        }
+
+        // TEMPORARY field pickup test (Docs/FieldPickups.md).
+        [Test]
+        public void PickupNotice_NamesTheLaneOnlyWhileItIsOpen()
+        {
+            LegacySkill pierce = LegacySkillDefinitions.Skill(CampaignFieldPickups.Find("forest-pierce").SkillId);
+            Assert.That(pierce.LaneIndex, Is.EqualTo(1));
+            Assert.That(AcademyFieldView.PickupNotice(pierce, true, true),
+                Is.EqualTo($"새 기술 · {pierce.Name}(W 강공)\nEsc 메뉴의 편성에서 장착할 수 있습니다."));
+            string closed = AcademyFieldView.PickupNotice(pierce, true, false);
+            Assert.That(closed, Is.EqualTo($"새 기술 · {pierce.Name}\n이 기술의 열이 열리면 편성할 수 있습니다."));
+            Assert.That(closed, Does.Not.Contain("W").And.Not.Contain("강공"), "A closed lane is never named.");
+            Assert.That(AcademyFieldView.PickupNotice(pierce, false, true), Is.EqualTo($"{pierce.Name} · 이미 익힌 기술입니다."));
+        }
+
+        private void EnterForest(AcademyFieldView field, Keyboard keyboard)
+        {
+            WalkTo(field, keyboard, field.PortalPosition);
+            Press(keyboard.spaceKey);
+            TickInput(field, keyboard, .016f);
+            ReleaseInput(keyboard.spaceKey);
+            Advance(field, keyboard, 1f);
+            Assert.That(field.CurrentMap, Is.EqualTo(ExplorationFieldMap.Forest));
+        }
+
+        private static SpriteRenderer PickupPart(Transform fieldRoot, string pickupId, string part)
+            => Find(Find(fieldRoot, "Field Pickup " + pickupId), part).GetComponent<SpriteRenderer>();
 
         private static Transform Find(Transform root, string name)
         {

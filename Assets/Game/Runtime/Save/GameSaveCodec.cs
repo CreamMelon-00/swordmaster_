@@ -14,14 +14,17 @@ namespace TurnLimbo.Runtime.Save
     /// cleared 1 2
     /// curriculum-done horizontal-cut diagonal-cut
     /// curriculum-active advance 0
+    /// field-pickups forest-pierce
     /// lane 0 14 2 7
     /// skill-xp 14 3
     /// </code>
     /// <c>curriculum-done</c> lists completed node ids in order; <c>curriculum-active</c> is the node in progress and its
     /// counted battles, or nothing after the key when no node is in progress; <c>lane</c> (index, three ids) appears
     /// once per lane. Optional <c>training-wins N</c> records successful dummy fights; optional repeated
-    /// <c>skill-xp ID XP</c> lines record nonzero cumulative clashes. Their absence means zero, keeping earlier
-    /// version 2 saves readable. Owned skills are not stored: they follow from the completed nodes.
+    /// <c>skill-xp ID XP</c> lines record nonzero cumulative clashes; an optional <c>field-pickups</c> line lists the
+    /// field pickups taken in order. Their absence means zero or none, keeping earlier version 2 saves readable (a build
+    /// from before a key still rejects a file that has it). Owned skills are not stored: they follow from the completed
+    /// nodes, the cleared stages and the pickups taken.
     /// Parsing is strict: unknown keys, missing or repeated keys and other versions are rejected. Game rules are
     /// checked later by <see cref="GameSave.TryApply"/>.</summary>
     public static class GameSaveCodec
@@ -53,6 +56,13 @@ namespace TurnLimbo.Runtime.Save
             if (campaign.CurriculumActive != null)
                 text.Append(' ').Append(campaign.CurriculumActive).Append(' ').Append(campaign.CurriculumBattles);
             text.Append('\n');
+            // Absent while none is taken, so existing version 2 files round-trip byte for byte.
+            if (campaign.FieldPickups.Count > 0)
+            {
+                text.Append("field-pickups");
+                foreach (string id in campaign.FieldPickups) text.Append(' ').Append(id);
+                text.Append('\n');
+            }
             for (int lane = 0; lane < campaign.Loadout.Count; lane++)
             {
                 text.Append("lane ").Append(lane);
@@ -79,6 +89,7 @@ namespace TurnLimbo.Runtime.Save
             int? prologue = null, currency = null, trainingWins = null, openingChoice = null, openingPending = null;
             List<int> cleared = null;
             List<string> curriculumDone = null;
+            List<string> fieldPickups = null;
             bool curriculumActiveRead = false;
             string curriculumActive = null;
             int curriculumBattles = 0;
@@ -102,11 +113,17 @@ namespace TurnLimbo.Runtime.Save
                     headerRead = true;
                     continue;
                 }
-                // Curriculum lines carry node ids; every other key is numbers only.
+                // Curriculum and field-pickup lines carry ids; every other key is numbers only.
                 if (parts[0] == "curriculum-done")
                 {
                     if (curriculumDone != null) return Fail(out error, lineNumber, "curriculum-done이 두 번 있습니다.");
                     curriculumDone = new List<string>(parts).GetRange(1, parts.Length - 1);
+                    continue;
+                }
+                if (parts[0] == "field-pickups")
+                {
+                    if (fieldPickups != null) return Fail(out error, lineNumber, "field-pickups가 두 번 있습니다.");
+                    fieldPickups = new List<string>(parts).GetRange(1, parts.Length - 1);
                     continue;
                 }
                 if (parts[0] == "curriculum-active")
@@ -178,7 +195,7 @@ namespace TurnLimbo.Runtime.Save
 
             save = new GameSave(prologue.Value,
                 new CampaignSave(currency.Value, cleared, curriculumDone, curriculumActive, curriculumBattles, lanes,
-                    trainingWins ?? 0, skillExperience),
+                    trainingWins ?? 0, skillExperience, fieldPickups),
                 (OpeningVoiceChoice)(openingChoice ?? 0), !openingPending.HasValue);
             error = null;
             return true;

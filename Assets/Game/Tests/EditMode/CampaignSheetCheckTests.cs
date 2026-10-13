@@ -52,8 +52,8 @@ namespace TurnLimbo.Core.Tests
             }));
             Assert.That(CampaignSheetCheck.Warnings(table), Is.EqualTo(new[]
             {
-                "ID 7 막기: '구분'이(가) '획득'이지만 이 기술을 주는 커리큘럼 과정이 없어 게임에서 얻을 수 없습니다. " +
-                "프로그래머가 CampaignCurriculum.cs에 과정을 넣어야 합니다.",
+                "ID 7 막기: '구분'이(가) '획득'이지만 이 기술을 주는 커리큘럼 과정이나 필드 습득물이 없어 게임에서 얻을 수 없습니다. " +
+                "프로그래머가 CampaignCurriculum.cs에 과정을, 또는 CampaignFieldPickups.cs에 습득물을 넣어야 합니다.",
             }));
         }
 
@@ -61,16 +61,16 @@ namespace TurnLimbo.Core.Tests
         public void CurriculumSkillRenumberedOrDeleted_IsAProblem()
         {
             List<string[]> rows = Rows();
-            Set(rows, 42, Column.Id, "47");
+            Set(rows, 42, Column.Id, "60");
             LegacySkillTable renumbered = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(renumbered), Is.EqualTo(new[]
             {
                 "ID 42 기술이 시트에 없습니다. 커리큘럼 과정 'quick-draw'이(가) 이 기술을 주므로 그 과정을 마치는 전투가 끝날 때 " +
                 "게임이 멈춥니다. ID를 바꾸거나 행을 지우지 마세요.",
             }));
-            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 47 쿠페: "));
+            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 60 쿠페: "));
 
-            rows.Remove(RowOf(rows, 47));
+            rows.Remove(RowOf(rows, 60));
             LegacySkillTable deleted = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(deleted).Single(), Does.StartWith("ID 42 기술이 시트에 없습니다."));
             Assert.That(CampaignSheetCheck.Warnings(deleted), Is.Empty);
@@ -90,6 +90,37 @@ namespace TurnLimbo.Core.Tests
                 "ID 44 몰아치기의 '구분'이(가) '적'입니다. 스테이지 2 첫 클리어 보상이라 '획득'이어야 합니다.",
             }));
             Assert.That(CampaignSheetCheck.Warnings(table), Is.Empty, "No node grants 500, and it needs none.");
+        }
+
+        [Test]
+        public void FieldPickupSkillMissingStartingOrEnemy_IsAProblem_AndNeverAWarning()
+        {
+            List<string[]> rows = Rows();
+            rows.Remove(RowOf(rows, 47));
+            Set(rows, 48, Column.Group, LegacySkillSheet.EnemyGroup);
+            // 비껴서기 becomes a starting E skill and 쳐내기 a 획득 one, so E still has three starting skills.
+            Set(rows, 49, Column.Group, LegacySkillSheet.StartingGroup);
+            Set(rows, 9, Column.Group, LegacySkillSheet.AcquisitionGroup);
+            LegacySkillTable table = Parse(rows);
+            Assert.That(CampaignSheetCheck.Problems(table), Is.EqualTo(new[]
+            {
+                "ID 47 기술이 시트에 없습니다. 필드 습득물 'forest-pierce'이(가) 이 기술을 주므로 그것을 주울 때 게임이 멈춥니다. " +
+                "ID를 바꾸거나 행을 지우지 마세요.",
+                "ID 48 받아치기의 '구분'이(가) '적'입니다. 필드 습득물 'forest-strike-back'이(가) 주는 기술이라 '획득'이어야 합니다 " +
+                "(적 기술은 플레이어가 얻거나 편성하지 않습니다).",
+                "ID 49 비껴서기의 '구분'이(가) '시작'입니다. 필드 습득물 'forest-sidestep'이(가) 주는 기술이라 '획득'이어야 합니다 " +
+                "(시작 기술이면 주워도 새로 얻는 기술이 없습니다).",
+            }));
+            Assert.That(CampaignSheetCheck.Warnings(table).Single(), Does.StartWith("ID 9 쳐내기: "),
+                "Only the row nothing grants; the field's rows are granted.");
+
+            // A 획득 row the field grants needs no curriculum node.
+            List<string[]> shipped = Rows();
+            Assert.That(CampaignSheetCheck.Warnings(Parse(shipped)), Is.Empty);
+            Set(shipped, 50, Column.Id, "60");
+            LegacySkillTable renumbered = Parse(shipped);
+            Assert.That(CampaignSheetCheck.Problems(renumbered).Single(), Does.StartWith("ID 50 기술이 시트에 없습니다. 필드 습득물 'forest-finisher'"));
+            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 60 끝내기: "));
         }
 
         [TestCase(500)]

@@ -164,6 +164,53 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void FieldPickups_RoundTripInVersionTwo_AndOlderSavesHaveNone()
+        {
+            var source = new CampaignRun();
+            Assert.That(source.TryCollectFieldPickup("forest-finisher") && source.TryCollectFieldPickup("forest-pierce"), Is.True);
+            Assert.That(source.TryPlaceLoadoutSkill(50, 2, 0) && source.TrySaveLoadout(), Is.True);
+            Assert.That(source.TryGainClashExperience(source.GetOwnedSkill(50).Skill, LegacySkillDefinitions.Skill(1)), Is.True);
+
+            string text = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), source));
+            StringAssert.Contains("\ncurriculum-active\nfield-pickups forest-finisher forest-pierce\nlane 0 ", text,
+                "The pickups taken, in order, after the curriculum lines.");
+            StringAssert.Contains("\nlane 2 50 6 9\n", text);
+            StringAssert.Contains("\nskill-xp 50 1\n", text);
+            StringAssert.StartsWith("turn-limbo-save 2\n", text, "An optional line keeps version 2.");
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            CollectionAssert.AreEqual(new[] { "forest-finisher", "forest-pierce" }, parsed.Campaign.FieldPickups);
+            var restored = new CampaignRun();
+            Assert.That(parsed.TryApply(new PrologueRun(), restored, out error), Is.True, error);
+            Assert.That(Fingerprint(restored, persistentOnly: true), Is.EqualTo(Fingerprint(source, persistentOnly: true)));
+            CollectionAssert.AreEqual(new[] { "forest-finisher", "forest-pierce" }, restored.CollectedFieldPickups);
+            Assert.That(restored.GetOwnedSkill(47), Is.Not.Null);
+            Assert.That(restored.GetOwnedSkill(50).Experience, Is.EqualTo(1));
+            Assert.That(restored.GetEquippedLane(2)[0].SkillId, Is.EqualTo(50));
+            Assert.That(restored.CanCollectFieldPickup("forest-finisher"), Is.False, "A loaded pickup stays taken.");
+            Assert.That(restored.CanCollectFieldPickup("forest-sidestep"), Is.True);
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), restored)), Is.EqualTo(text));
+
+            // A save from before the field has no line: nothing taken, and it saves back unchanged.
+            string older = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), PlayedCampaign()));
+            StringAssert.DoesNotContain("field-pickups", older);
+            Assert.That(GameSaveCodec.TryParse(older, out parsed, out error), Is.True, error);
+            Assert.That(parsed.Campaign.FieldPickups, Is.Empty);
+            var olderRun = new CampaignRun();
+            Assert.That(parsed.TryApply(new PrologueRun(), olderRun, out error), Is.True, error);
+            Assert.That(olderRun.CollectedFieldPickups, Is.Empty);
+            Assert.That(olderRun.OwnedSkills.Any(owned => CampaignFieldPickups.FindGranting(owned.SkillId) != null), Is.False);
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), olderRun)), Is.EqualTo(older));
+
+            // The format only reads ids; whether they name a pickup is a rule checked on apply. A bare key is none.
+            Assert.That(GameSaveCodec.TryParse(older.Replace("curriculum-active", "field-pickups\ncurriculum-active"),
+                out parsed, out error), Is.True, error);
+            Assert.That(parsed.Campaign.FieldPickups, Is.Empty);
+            Assert.That(GameSaveCodec.TryParse(older + "field-pickups no-such-pickup\n", out parsed, out error), Is.True, error);
+            Assert.That(parsed.Validate(out error), Is.False);
+            StringAssert.Contains("no-such-pickup", error);
+        }
+
+        [Test]
         public void TrainingVictories_RoundTripInVersionTwoWithoutChangingStageOrCurriculum()
         {
             CampaignRun source = PlayedCampaign();
@@ -242,6 +289,11 @@ namespace TurnLimbo.Core.Tests
                     skillXp: new[] { new KeyValuePair<int, int>(1, -1) })),
                 ["experience past level three"] = Save(2, With(valid,
                     skillXp: new[] { new KeyValuePair<int, int>(1, 31) })),
+                ["unknown field pickup"] = Save(2, With(valid, pickups: new[] { "no-such-pickup" })),
+                ["field pickup taken twice"] = Save(2, With(valid, pickups: new[] { "forest-pierce", "forest-pierce" })),
+                ["field skill not picked up"] = Save(2, With(valid, loadout: SwapFirst(lanes, 1, 47))),
+                ["experience for a field skill not picked up"] = Save(2, With(valid,
+                    skillXp: new[] { new KeyValuePair<int, int>(47, 1) })),
                 ["arc below zero"] = Save(-1, valid),
                 ["story past the end"] = Save(StoryMissions.Count + 1, valid),
                 ["mission completed before the opening"] = new GameSave(1, valid, OpeningVoiceChoice.Leave, false),
@@ -297,6 +349,7 @@ namespace TurnLimbo.Core.Tests
                 ["skill experience missing count"] = valid + "skill-xp 1\n",
                 ["skill experience extra count"] = valid + "skill-xp 1 2 3\n",
                 ["skill experience not a number"] = valid + "skill-xp 1 many\n",
+                ["repeated field-pickups"] = valid + "field-pickups forest-pierce\nfield-pickups forest-finisher\n",
                 ["not a number"] = valid.Replace("currency 0", "currency many"),
                 ["prologue pair"] = valid.Replace("prologue 0", "prologue 0 1"),
             };
@@ -406,10 +459,10 @@ namespace TurnLimbo.Core.Tests
         private static CampaignSave With(CampaignSave basis, int? currency = null, IEnumerable<int> cleared = null,
             IEnumerable<string> done = null, string active = null, int? battles = null,
             IEnumerable<IEnumerable<int>> loadout = null, int? trainingWins = null,
-            IEnumerable<KeyValuePair<int, int>> skillXp = null)
+            IEnumerable<KeyValuePair<int, int>> skillXp = null, IEnumerable<string> pickups = null)
             => new CampaignSave(currency ?? basis.Currency, cleared ?? basis.ClearedStages, done ?? basis.CurriculumCompleted,
                 active ?? basis.CurriculumActive, battles ?? basis.CurriculumBattles, loadout ?? basis.Loadout,
-                trainingWins ?? basis.TrainingVictoryCount, skillXp ?? basis.SkillExperience);
+                trainingWins ?? basis.TrainingVictoryCount, skillXp ?? basis.SkillExperience, pickups ?? basis.FieldPickups);
 
         private static IEnumerable<IEnumerable<int>> SwapFirst(List<List<int>> lanes, int lane, int id)
             => lanes.Select((ids, index) => index == lane ? new[] { id }.Concat(ids.Skip(1)).ToList() : ids);
@@ -426,7 +479,8 @@ namespace TurnLimbo.Core.Tests
                 .Append('|').Append(run.TrainingVictoryCount);
             for (int stage = 1; stage <= run.StageCount; stage++) value.Append(run.IsStageCleared(stage) ? 'c' : '-');
             value.Append(";c").Append(string.Join(",", run.Curriculum.Completed))
-                .Append(";a").Append(run.Curriculum.Active?.Id ?? "-").Append(':').Append(run.Curriculum.ActiveBattles);
+                .Append(";a").Append(run.Curriculum.Active?.Id ?? "-").Append(':').Append(run.Curriculum.ActiveBattles)
+                .Append(";f").Append(string.Join(",", run.CollectedFieldPickups));
             // The save stores completed nodes and cleared stages, not the battle order that interleaved their grants.
             foreach (CampaignOwnedSkill owned in run.OwnedSkills.OrderBy(entry => entry.SkillId))
                 value.Append(";o").Append(owned.SkillId).Append(':').Append(owned.Experience);

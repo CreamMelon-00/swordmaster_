@@ -442,6 +442,51 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        // TEMPORARY field pickup test (Docs/FieldPickups.md).
+        [UnityTest]
+        public IEnumerator FieldPickup_IsSavedAtOnce_KeepsAClosedLaneUnnamed_AndStaysTakenAfterContinue()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                var prologue = new PrologueRun();
+                Assert.That(prologue.TryRestore(PrologueMissions.Count), Is.True);
+                Assert.That(scope.Store.TrySave(GameSave.Capture(prologue, new CampaignRun()), out string error), Is.True, error);
+                controller.ShowTitle();
+                Assert.That(controller.ContinueGame(), Is.True);
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.Campaign.IsLaneOpen(1), Is.False, "Right after the 서막 only Q is open.");
+
+                CampaignFieldPickup pierce = CampaignFieldPickups.Find("forest-pierce");
+                LegacySkill skill = LegacySkillDefinitions.Skill(pierce.SkillId);
+                Assert.That(skill.LaneIndex, Is.EqualTo(1));
+                int equipped = controller.Campaign.EquippedSkillCount;
+                Assert.That(controller.CollectFieldPickup(pierce.Id), Is.True);
+                Assert.That(controller.Campaign.GetOwnedSkill(pierce.SkillId), Is.Not.Null, "The technique is owned at once.");
+                Assert.That(controller.Campaign.EquippedSkillCount, Is.EqualTo(equipped), "…and never equipped by itself.");
+                Assert.That(controller.AcademyField.ArrivalNotice, Does.StartWith("새 기술 · " + skill.Name)
+                    .And.Contain("열이 열리면").And.Not.Contain("강공").And.Not.Contain("W"),
+                    "The field names the technique but not its closed lane.");
+                Assert.That(scope.Load().Campaign.FieldPickups, Is.EqualTo(new[] { pierce.Id }), "Taking a pickup is saved at once.");
+                Assert.That(controller.CollectFieldPickup(pierce.Id), Is.False, "Each pickup is taken once.");
+                Assert.That(controller.Campaign.OwnedSkills.Count(owned => owned.SkillId == pierce.SkillId), Is.EqualTo(1));
+
+                Assert.That(controller.OpenFieldMenu(), Is.True);
+                Assert.That(controller.CollectFieldPickup("forest-sidestep"), Is.False, "Not while the menu covers the field.");
+                Assert.That(controller.CloseFieldMenu(), Is.True);
+
+                controller.ShowTitle();
+                Assert.That(controller.ContinueGame(), Is.True);
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.Campaign.IsFieldPickupCollected(pierce.Id), Is.True, "The taken pickup stays taken after 이어하기.");
+                Assert.That(controller.Campaign.GetOwnedSkill(pierce.SkillId), Is.Not.Null, "…and its technique stays owned.");
+                Assert.That(controller.CollectFieldPickup(pierce.Id), Is.False);
+                Assert.That(controller.CollectFieldPickup("forest-sidestep"), Is.True, "Pickups not taken yet still lie there.");
+                Assert.That(scope.Load().Campaign.FieldPickups, Is.EqualTo(new[] { pierce.Id, "forest-sidestep" }));
+            }
+        }
+
         [UnityTest]
         public IEnumerator MissionVictory_IsSaved_AndContinueResumesAtTheNextBriefing()
         {

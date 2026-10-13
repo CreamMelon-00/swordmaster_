@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using TurnLimbo.Runtime.Campaign;
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -24,11 +25,23 @@ namespace TurnLimbo.Presentation
         private const float InteractionRange = 2.8f;
         private const float CameraSize = 6f;
         private const float TransitionHalfDuration = .24f;
+        // TEMPORARY field pickup test (Docs/FieldPickups.md): a technique lying in the field is its skill icon floating
+        // over a small shadow, in a soft pale-brass halo. Heights are measured up from the ground line the actors stand on.
+        private const float PickupIconSize = 1.1f;
+        private const float PickupFloatHeight = 1.3f;
+        private const float PickupBob = .09f;
+        private const float PickupLabelHeight = 2.3f;
+        private const float PickupHaloSize = 2.3f;
+        private const float PickupShadowWidth = .9f;
+        private const float PickupShadowHeight = .27f;
+        private const float PickupFlourishDuration = .45f;
+        // Brass itself is the forest path's own colour and vanishes on it; the glow is the same hue, paler, like lamplight.
+        private static readonly Color PickupLight = new Color(1f, .93f, .67f, 1f);
         private static readonly Color Paper = new Color(.25f, .19f, .13f, 1f);
         private static readonly Color Brass = new Color(.77f, .61f, .35f, 1f);
         private static readonly Color Ink = new Color(.95f, .89f, .74f, 1f);
 
-        private enum TargetKind { Stage, Story, Training, Portal }
+        private enum TargetKind { Stage, Story, Training, Portal, Pickup }
 
         private sealed class Target
         {
@@ -39,6 +52,12 @@ namespace TurnLimbo.Presentation
             public Text Label;
             public string Name;
             public bool CanInteract;
+            // TEMPORARY field pickup test only (Kind == Pickup): the saved pickup id and its glow pieces.
+            public string PickupId;
+            public SpriteRenderer Halo;
+            public SpriteRenderer GroundGlow;
+            public SpriteRenderer Shadow;
+            public float Phase;
         }
 
         private readonly GameObject root;
@@ -59,18 +78,27 @@ namespace TurnLimbo.Presentation
         private readonly Target trainingDummy;
         private readonly Target portal;
         private readonly List<Target> stageTargets = new List<Target>();
+        private readonly List<Target> pickupTargets = new List<Target>();
         private readonly Action<int> onStage;
         private readonly Action onStory;
         private readonly Action onTraining;
         private readonly Action onMenu;
+        private readonly Action<string> onPickup;
+        private readonly LegacyDuelArt art;
         private readonly Font font;
         private readonly Sprite white;
         private readonly Material spriteMaterial;
+        private readonly Texture2D glowTexture;
+        private readonly Sprite glowSprite;
+        private readonly Transform pickupFlourish;
+        private readonly SpriteRenderer flourishIcon;
+        private readonly SpriteRenderer flourishHalo;
         private CampaignRun run;
         private string storyStatus;
         private float animationTime;
         private float moveTime;
         private float arrivalRemaining;
+        private float flourishRemaining;
         private float transitionElapsed;
         private bool hasEntered;
         private bool trainingAvailable;
@@ -92,8 +120,32 @@ namespace TurnLimbo.Presentation
             throw new ArgumentOutOfRangeException(nameof(stageNumber));
         }
 
+        /// <summary>The bottom prompt as shown now: <c>Space · …</c> for the nearest target, a locked reason, or empty.</summary>
+        public string InteractionPrompt => prompt.text;
+        /// <summary>The top-right notice while it is on screen, else empty.</summary>
+        public string ArrivalNotice => arrivalRemaining > 0f ? arrivalText.text : string.Empty;
+        /// <summary>TEMPORARY field pickup test: the pickups drawn on the current map (the ones the run has not taken).</summary>
+        public int VisiblePickupCount { get; private set; }
+        /// <summary>TEMPORARY field pickup test: whether this pickup lies on the visible map, not yet taken.</summary>
+        public bool IsPickupVisible(string pickupId)
+        {
+            Target target = FindPickupTarget(pickupId);
+            return IsVisible && target != null && target.Root.gameObject.activeSelf;
+        }
+        /// <summary>TEMPORARY field pickup test: where the pickup lies, in the walker's ground coordinates.</summary>
+        public Vector2 PickupPosition(string pickupId)
+        {
+            Target target = FindPickupTarget(pickupId);
+            if (target == null) throw new ArgumentOutOfRangeException(nameof(pickupId));
+            return target.Root.localPosition;
+        }
+
+        /// <param name="onPickup">TEMPORARY field pickup test (Docs/FieldPickups.md): Space or a click beside a technique
+        /// lying in the field passes its pickup id (<see cref="CampaignFieldPickups"/>). The callback takes it through the
+        /// run (<see cref="CampaignRun.TryCollectFieldPickup(string, out CampaignOwnedSkill)"/>); the field then hides
+        /// every pickup the run has taken.</param>
         public AcademyFieldView(Transform parent, LegacyDuelArt art, LegacyArenaView arena,
-            Action<int> onStage, Action onStory, Action onTraining, Action onMenu)
+            Action<int> onStage, Action onStory, Action onTraining, Action onMenu, Action<string> onPickup = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             if (art == null) throw new ArgumentNullException(nameof(art));
@@ -102,6 +154,8 @@ namespace TurnLimbo.Presentation
             this.onStory = onStory;
             this.onTraining = onTraining;
             this.onMenu = onMenu;
+            this.onPickup = onPickup;
+            this.art = art;
             font = art.UIFont;
             white = Resources.Load<Sprite>("LegacyHud/white");
             spriteMaterial = arena.SpriteMaterial;
@@ -163,6 +217,15 @@ namespace TurnLimbo.Presentation
             storyBoard = CreateBoard(arena.SpriteMaterial);
             trainingDummy = CreateTrainingDummy(arena.SpriteMaterial);
             portal = CreatePortal(arena.SpriteMaterial);
+            // TEMPORARY field pickup test: one soft radial falloff, tinted brass, lights every pickup.
+            glowSprite = CreateGlowSprite(out glowTexture);
+            for (int index = 0; index < CampaignFieldPickups.All.Count; index++)
+                pickupTargets.Add(CreatePickup(CampaignFieldPickups.All[index], index, arena.SpriteMaterial));
+            pickupFlourish = Child("Field Pickup Flourish", root.transform);
+            flourishHalo = Sprite("Flourish Halo", pickupFlourish, glowSprite, 0, arena.SpriteMaterial);
+            flourishHalo.transform.localPosition = new Vector3(0f, 0f, .01f);
+            flourishIcon = Sprite("Flourish Icon", pickupFlourish, null, 0, arena.SpriteMaterial);
+            pickupFlourish.gameObject.SetActive(false);
             RectTransform fade = Rect("Field Map Transition", uiRoot);
             // A nested canvas keeps the fade above labels created later when more fights unlock.
             var fadeCanvas = fade.gameObject.AddComponent<Canvas>();
@@ -203,6 +266,8 @@ namespace TurnLimbo.Presentation
             storyBoard.Name = "스토리 게시판";
             this.trainingAvailable = trainingAvailable;
             trainingDummy.CanInteract = trainingAvailable && run.CanStartTraining;
+            // The sheet can be reloaded between visits; names and icons follow its current rows.
+            foreach (Target target in pickupTargets) RefreshPickupArt(target);
             PositionStages();
             ApplyMap();
             UpdateCamera(0f, true);
@@ -243,6 +308,7 @@ namespace TurnLimbo.Presentation
             foreach (Target target in stageTargets)
                 if (target.Root.gameObject.activeSelf) target.CanInteract = run.CanStartStage(target.StageNumber);
             trainingDummy.CanInteract = trainingDummy.Root.gameObject.activeSelf && run.CanStartTraining;
+            RefreshPickups();
             UpdateLabels();
         }
 
@@ -252,6 +318,7 @@ namespace TurnLimbo.Presentation
             IsTransitioning = false;
             transitionElapsed = 0f;
             transitionDim.gameObject.SetActive(false);
+            StopPickupFlourish();
             prompt.text = string.Empty;
             root.SetActive(false);
             uiRoot.gameObject.SetActive(false);
@@ -270,6 +337,8 @@ namespace TurnLimbo.Presentation
             foreach (Target target in stageTargets)
                 if (target.Root.gameObject.activeSelf) target.CanInteract = run.CanStartStage(target.StageNumber);
             trainingDummy.CanInteract = trainingDummy.Root.gameObject.activeSelf && run.CanStartTraining;
+            RefreshPickups();
+            TickPickupFlourish(dt);
             if (arrivalRemaining > 0f)
             {
                 arrivalRemaining = Mathf.Max(0f, arrivalRemaining - dt);
@@ -328,7 +397,9 @@ namespace TurnLimbo.Presentation
             }
 
             Target nearest = FindNearest();
+            AnimatePickups(nearest);
             prompt.text = nearest == null ? string.Empty
+                : nearest.Kind == TargetKind.Pickup ? nearest.CanInteract ? "Space · " + nearest.Name + " 습득" : string.Empty
                 : nearest.CanInteract ? "Space · " + nearest.Name
                 : nearest.Kind == TargetKind.Story ? storyStatus
                 : run.HasLoadoutChanges ? "편성 변경을 먼저 저장하세요"
@@ -361,6 +432,22 @@ namespace TurnLimbo.Presentation
             cadetB.Dispose();
             Destroy(root);
             Destroy(uiRoot.gameObject);
+            Destroy(glowSprite);
+            Destroy(glowTexture);
+        }
+
+        /// <summary>TEMPORARY field pickup test: the field notice for a technique just taken. It names the technique's
+        /// lane only while that lane is open; a closed lane stays unnamed (StoryUnlocks.md: locked things do not show
+        /// themselves).</summary>
+        /// <param name="newlyOwned">False when the run already owned the technique, so the pickup granted nothing new.</param>
+        public static string PickupNotice(LegacySkill skill, bool newlyOwned, bool laneOpen)
+        {
+            if (skill == null) throw new ArgumentNullException(nameof(skill));
+            if (!newlyOwned) return $"{skill.Name} · 이미 익힌 기술입니다.";
+            return laneOpen
+                ? $"새 기술 · {skill.Name}({SkillLaneStyle.Key(skill.LaneIndex)} {SkillLaneStyle.Name(skill.LaneIndex)})\n" +
+                  "Esc 메뉴의 편성에서 장착할 수 있습니다."
+                : $"새 기술 · {skill.Name}\n이 기술의 열이 열리면 편성할 수 있습니다.";
         }
 
         private void PositionStages()
@@ -473,6 +560,174 @@ namespace TurnLimbo.Presentation
             };
         }
 
+        // ---- TEMPORARY field pickup test (Docs/FieldPickups.md) ------------------------------------------------------
+        // Placeholder look and flow for techniques lying in the field, until the field gets its real interactables.
+        // Where they lie is Runtime data (CampaignFieldPickups); whether one is taken is the run's (and the save's).
+
+        private Target CreatePickup(CampaignFieldPickup pickup, int index, Material material)
+        {
+            Transform ground = Child("Field Pickup " + pickup.Id, root.transform);
+            ground.localPosition = new Vector3(pickup.X, pickup.Y, 0f);
+            float groundLine = MobStudentAnimationSet.GroundOffset;
+            int order = SortAt(pickup.Y);
+            SpriteRenderer shadow = CreateShadow(ground, material, PickupShadowWidth, PickupShadowHeight, .27f);
+            // A flattened pool of light on the path, just above the shadows (order 5) and below every standing sprite.
+            SpriteRenderer pool = Sprite("Pickup Ground Glow", ground, glowSprite, 6, material);
+            pool.transform.localPosition = new Vector3(0f, groundLine, .02f);
+            pool.transform.localScale = new Vector3(1.9f, .55f, 1f);
+            pool.color = WithAlpha(PickupLight, .36f);
+            // The halo shares the walkers' depth sort: one step under the icon, at a slightly farther z, so the icon
+            // always draws over its own halo and Elisa passes in front of or behind both like any actor.
+            SpriteRenderer halo = Sprite("Pickup Halo", ground, glowSprite, order - 1, material);
+            halo.transform.localPosition = new Vector3(0f, groundLine + PickupFloatHeight, .01f);
+            halo.transform.localScale = Vector3.one * PickupHaloSize;
+            // Tick animates both; these are the resting values for frames drawn before it runs (e.g. during a door fade).
+            halo.color = WithAlpha(PickupLight, .53f);
+            SpriteRenderer icon = Sprite("Pickup Icon", ground, null, order, material);
+            icon.transform.localPosition = new Vector3(0f, groundLine + PickupFloatHeight, 0f);
+            var target = new Target
+            {
+                Kind = TargetKind.Pickup, PickupId = pickup.Id, Root = ground, Renderer = icon,
+                Label = FloatingLabel("Field Pickup Label " + pickup.Id), Halo = halo, GroundGlow = pool,
+                Shadow = shadow, Phase = index * 1.7f
+            };
+            RefreshPickupArt(target);
+            ground.gameObject.SetActive(false);
+            return target;
+        }
+
+        /// <summary>The technique's current sheet name and its skill icon (the sheet's 아이콘 column).</summary>
+        private void RefreshPickupArt(Target target)
+        {
+            CampaignFieldPickup pickup = CampaignFieldPickups.Find(target.PickupId);
+            LegacySkill skill = pickup == null ? null : LegacySkillDefinitions.Find(pickup.SkillId)?.Skill;
+            target.Name = skill != null ? skill.Name : "기술";
+            target.Label.text = target.Name;
+            target.Renderer.sprite = skill != null ? art.GetSkillIcon(skill.IconId) : null;
+            Size(target.Renderer, PickupIconSize, PickupIconSize);
+        }
+
+        /// <summary>Shows the current map's pickups the run has not taken, and only those.</summary>
+        private void RefreshPickups()
+        {
+            CampaignFieldArea area = AreaOf(CurrentMap);
+            VisiblePickupCount = 0;
+            foreach (Target target in pickupTargets)
+            {
+                CampaignFieldPickup pickup = CampaignFieldPickups.Find(target.PickupId);
+                bool visible = run != null && pickup != null && pickup.Area == area &&
+                    !run.IsFieldPickupCollected(target.PickupId);
+                if (target.Root.gameObject.activeSelf != visible) target.Root.gameObject.SetActive(visible);
+                target.CanInteract = visible && run.CanCollectFieldPickup(target.PickupId);
+                if (visible) VisiblePickupCount++;
+            }
+        }
+
+        /// <summary>Each icon bobs on its own phase while its halo breathes; the nearest one glows brighter.</summary>
+        private void AnimatePickups(Target nearest)
+        {
+            float iconY = MobStudentAnimationSet.GroundOffset + PickupFloatHeight;
+            foreach (Target target in pickupTargets)
+            {
+                if (!target.Root.gameObject.activeSelf) continue;
+                float lift = Mathf.Sin(animationTime * 2.4f + target.Phase) * PickupBob;
+                float pulse = .5f + .5f * Mathf.Sin(animationTime * 3.1f + target.Phase * 1.3f);
+                bool near = target == nearest;
+                target.Renderer.transform.localPosition = new Vector3(0f, iconY + lift, 0f);
+                target.Halo.transform.localPosition = new Vector3(0f, iconY + lift, .01f);
+                target.Halo.transform.localScale = Vector3.one * (PickupHaloSize * (1f + .05f * pulse));
+                target.Halo.color = WithAlpha(PickupLight, (near ? .64f : .46f) + .14f * pulse);
+                target.GroundGlow.color = WithAlpha(PickupLight, (near ? .44f : .32f) + .08f * pulse);
+                // The contact shadow tightens a little as the icon rises.
+                float shadowScale = 1f - lift * 1.2f;
+                target.Shadow.transform.localScale =
+                    new Vector3(PickupShadowWidth * shadowScale, PickupShadowHeight * shadowScale, 1f);
+            }
+        }
+
+        private Target FindPickupTarget(string pickupId)
+        {
+            foreach (Target target in pickupTargets)
+                if (target.PickupId == pickupId) return target;
+            return null;
+        }
+
+        /// <summary>A copy of the taken icon rises and fades inside a widening halo.</summary>
+        private void PlayPickupFlourish(Target target)
+        {
+            pickupFlourish.localPosition = target.Root.localPosition +
+                new Vector3(0f, MobStudentAnimationSet.GroundOffset + PickupFloatHeight, 0f);
+            flourishIcon.sprite = target.Renderer.sprite;
+            flourishIcon.transform.localScale = target.Renderer.transform.localScale;
+            // In front of everything standing on the path, still behind the forest's foreground bushes (100).
+            flourishIcon.sortingOrder = 60;
+            flourishHalo.sortingOrder = 59;
+            flourishRemaining = PickupFlourishDuration;
+            pickupFlourish.gameObject.SetActive(true);
+            TickPickupFlourish(0f);
+        }
+
+        private void TickPickupFlourish(float dt)
+        {
+            if (flourishRemaining <= 0f) return;
+            flourishRemaining = Mathf.Max(0f, flourishRemaining - dt);
+            float t = 1f - flourishRemaining / PickupFlourishDuration;
+            float eased = 1f - (1f - t) * (1f - t);
+            flourishIcon.transform.localPosition = new Vector3(0f, .6f * eased, 0f);
+            flourishIcon.color = WithAlpha(Color.white, 1f - t);
+            flourishHalo.transform.localScale = Vector3.one * Mathf.Lerp(PickupHaloSize, PickupHaloSize * 1.8f, eased);
+            flourishHalo.color = WithAlpha(PickupLight, .75f * (1f - t));
+            if (flourishRemaining <= 0f) pickupFlourish.gameObject.SetActive(false);
+        }
+
+        private void StopPickupFlourish()
+        {
+            flourishRemaining = 0f;
+            pickupFlourish.gameObject.SetActive(false);
+        }
+
+        private static CampaignFieldArea AreaOf(ExplorationFieldMap map)
+            => map == ExplorationFieldMap.Forest ? CampaignFieldArea.Forest : CampaignFieldArea.Corridor;
+
+        private static Color WithAlpha(Color color, float alpha)
+        {
+            color.a = Mathf.Clamp01(alpha);
+            return color;
+        }
+
+        /// <summary>A white radial falloff (opaque centre, smoothstep to a clear rim) for tinted glows, one world unit
+        /// wide.</summary>
+        private static Sprite CreateGlowSprite(out Texture2D texture)
+        {
+            const int size = 64;
+            var pixels = new Color[size * size];
+            float centre = (size - 1) * .5f;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    float dx = x - centre, dy = y - centre;
+                    float falloff = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy) / centre);
+                    pixels[y * size + x] = new Color(1f, 1f, 1f, falloff * falloff * (3f - 2f * falloff));
+                }
+            }
+            texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+            {
+                name = "Field Pickup Glow",
+                filterMode = FilterMode.Bilinear,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+            texture.SetPixels(pixels);
+            texture.Apply(false, true);
+            Sprite sprite = UnityEngine.Sprite.Create(texture, new Rect(0, 0, size, size), Vector2.one * .5f,
+                size, 0, SpriteMeshType.FullRect);
+            sprite.name = "Field Pickup Glow";
+            sprite.hideFlags = HideFlags.HideAndDontSave;
+            return sprite;
+        }
+        // ---- end of the temporary field pickup test ---------------------------------------------------------------
+
         private void ApplyMap()
         {
             bool corridor = CurrentMap == ExplorationFieldMap.Corridor;
@@ -491,6 +746,8 @@ namespace TurnLimbo.Presentation
             portal.Root.localPosition = door;
             portal.Name = corridor ? "숲으로 나가기" : "학원으로 들어가기";
             portal.Label.text = portal.Name;
+            StopPickupFlourish();
+            RefreshPickups();
             prompt.text = string.Empty;
         }
 
@@ -556,6 +813,7 @@ namespace TurnLimbo.Presentation
             Consider(trainingDummy, ref best, ref bestDistance);
             Consider(portal, ref best, ref bestDistance);
             foreach (Target target in stageTargets) Consider(target, ref best, ref bestDistance);
+            foreach (Target target in pickupTargets) Consider(target, ref best, ref bestDistance);
             return best;
         }
 
@@ -581,6 +839,7 @@ namespace TurnLimbo.Presentation
             ConsiderHit(trainingDummy, world, ref best, ref bestDistance);
             ConsiderHit(portal, world, ref best, ref bestDistance);
             foreach (Target target in stageTargets) ConsiderHit(target, world, ref best, ref bestDistance);
+            foreach (Target target in pickupTargets) ConsiderHit(target, world, ref best, ref bestDistance);
             return best;
         }
 
@@ -611,8 +870,21 @@ namespace TurnLimbo.Presentation
                 case TargetKind.Story: onStory?.Invoke(); break;
                 case TargetKind.Training: onTraining?.Invoke(); break;
                 case TargetKind.Portal: BeginTransition(); break;
+                case TargetKind.Pickup: CollectPickup(target); break;
             }
             return true;
+        }
+
+        /// <summary>TEMPORARY field pickup test: the owner takes the pickup through the run; once the run has it, it
+        /// leaves the map with a short rising flash.</summary>
+        private void CollectPickup(Target target)
+        {
+            onPickup?.Invoke(target.PickupId);
+            if (disposed || run == null || !run.IsFieldPickupCollected(target.PickupId)) return;
+            PlayPickupFlourish(target);
+            RefreshPickups();
+            prompt.text = string.Empty;
+            UpdateLabels();
         }
 
         private void UpdateLabels(Target nearest = null)
@@ -621,6 +893,7 @@ namespace TurnLimbo.Presentation
             UpdateLabel(trainingDummy, nearest);
             UpdateLabel(portal, nearest);
             foreach (Target target in stageTargets) UpdateLabel(target, nearest);
+            foreach (Target target in pickupTargets) UpdateLabel(target, nearest);
         }
 
         private void UpdateLabel(Target target, Target nearest)
@@ -633,6 +906,8 @@ namespace TurnLimbo.Presentation
             Vector3 world = target.Kind == TargetKind.Story
                 ? target.Root.position + new Vector3(0f, .3f, 0f)
                 : target.Kind == TargetKind.Portal ? target.Root.position + new Vector3(0f, 4.2f, 0f)
+                : target.Kind == TargetKind.Pickup
+                    ? target.Root.position + new Vector3(0f, MobStudentAnimationSet.GroundOffset + PickupLabelHeight, 0f)
                 : target.Root.position + new Vector3(0f, 2.45f, 0f);
             Vector3 viewport = camera.WorldToViewportPoint(world);
             bool visible = viewport.z > 0f && viewport.x > -.04f && viewport.x < 1.04f &&
@@ -659,14 +934,16 @@ namespace TurnLimbo.Presentation
             return text;
         }
 
-        private void CreateShadow(Transform ground, Material material)
+        private SpriteRenderer CreateShadow(Transform ground, Material material,
+            float width = 2.2f, float height = .7f, float alpha = .34f)
         {
             Sprite[] shadows = Resources.LoadAll<Sprite>("LegacyArena/Shadow/Circle");
-            if (shadows.Length == 0) return;
-            SpriteRenderer shadow = Sprite("Ground Shadow", ground, shadows[0], 5, material);
-            shadow.color = new Color(.14f, .11f, .08f, .34f);
+            // Without the art the renderer stays empty, so callers can still size and tint it.
+            SpriteRenderer shadow = Sprite("Ground Shadow", ground, shadows.Length > 0 ? shadows[0] : null, 5, material);
+            shadow.color = new Color(.14f, .11f, .08f, alpha);
             shadow.transform.localPosition = new Vector3(0f, MobStudentAnimationSet.GroundOffset, 0f);
-            shadow.transform.localScale = new Vector3(2.2f, .7f, 1f);
+            shadow.transform.localScale = new Vector3(width, height, 1f);
+            return shadow;
         }
 
         private static int SortAt(float y) => 30 + Mathf.RoundToInt(-y * 3f);
@@ -735,8 +1012,9 @@ namespace TurnLimbo.Presentation
             rect.anchoredPosition = offset;
         }
 
-        private static void Destroy(GameObject obj)
+        private static void Destroy(Object obj)
         {
+            if (obj == null) return;
             if (Application.isPlaying) Object.Destroy(obj);
             else Object.DestroyImmediate(obj);
         }

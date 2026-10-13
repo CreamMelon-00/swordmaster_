@@ -136,6 +136,61 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void FieldPickupSkills_AreAcquisitionRowsWithOneExistingRuleEach()
+        {
+            LegacySkill pierce = LegacySkillDefinitions.Skill(47);
+            Assert.That((pierce.Name, pierce.Cost, pierce.MinPower, pierce.MaxPower, pierce.AttackCount, pierce.LaneIndex),
+                Is.EqualTo(("꿰뚫기", 4, 30, 33, 1, 1)));
+            Assert.That((pierce.Kind, pierce.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Penetrate)));
+            LegacySkillDefinition pierceDefinition = LegacySkillDefinitions.Find(pierce);
+            Assert.That(pierceDefinition.HighPower, Is.True);
+            Assert.That(pierceDefinition.VariablePower, Is.False);
+            Assert.That(pierceDefinition.Effect, Is.SameAs(LegacySkillEffect.None), "A big plain thrust: no effect cell.");
+            Assert.That(pierceDefinition.Text.Info, Is.Null, "W attacks keep the generic 고화력 · 단타 badges.");
+            Assert.That(pierce.MaxPower, Is.LessThan(LegacySkillDefinitions.Skill(16).MaxPower),
+                "Steadier than 알티바호 at the same ACT, never as high.");
+
+            LegacySkill strikeBack = LegacySkillDefinitions.Skill(48);
+            Assert.That((strikeBack.Name, strikeBack.Cost, strikeBack.MinPower, strikeBack.MaxPower, strikeBack.AttackCount, strikeBack.LaneIndex),
+                Is.EqualTo(("받아치기", 1, 5, 7, 1, 2)));
+            Assert.That((strikeBack.Kind, strikeBack.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Hit)));
+            LegacySkillEffect strikeBackEffect = LegacySkillDefinitions.Find(strikeBack).Effect;
+            Assert.That((strikeBackEffect.OpponentProperty, strikeBackEffect.OpponentResistanceReduction, strikeBackEffect.ActGain),
+                Is.EqualTo(((LegacySkillProperty?)LegacySkillProperty.Penetrate, 12, 0)));
+            Assert.That(LegacySkillDefinitions.Find(strikeBack).Text.Info.Main, Is.EqualTo("저항 -12"));
+
+            LegacySkill sidestep = LegacySkillDefinitions.Skill(49);
+            Assert.That((sidestep.Name, sidestep.Cost, sidestep.MinPower, sidestep.MaxPower, sidestep.AttackCount, sidestep.LaneIndex),
+                Is.EqualTo(("비껴서기", 1, 6, 9, 1, 2)));
+            Assert.That((sidestep.Kind, sidestep.Property), Is.EqualTo((LegacySkillKind.Defence, LegacySkillProperty.Defence)));
+            LegacySkillEffect sidestepEffect = LegacySkillDefinitions.Find(sidestep).Effect;
+            Assert.That((sidestepEffect.OpponentProperty, sidestepEffect.ActGain, sidestepEffect.OpponentResistanceReduction),
+                Is.EqualTo(((LegacySkillProperty?)LegacySkillProperty.Slash, 2, 0)));
+            Assert.That(LegacySkillDefinitions.Find(sidestep).Text.Info.Secondary, Is.EqualTo("참격 대응"));
+
+            LegacySkill finisher = LegacySkillDefinitions.Skill(50);
+            Assert.That((finisher.Name, finisher.Cost, finisher.MinPower, finisher.MaxPower, finisher.AttackCount, finisher.LaneIndex),
+                Is.EqualTo(("끝내기", 2, 7, 9, 1, 2)));
+            Assert.That((finisher.Kind, finisher.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Penetrate)));
+            LegacySkillDefinition finisherDefinition = LegacySkillDefinitions.Find(finisher);
+            Assert.That((finisherDefinition.Effect.OpponentState, finisherDefinition.Effect.OpponentHealthPercent,
+                finisherDefinition.Effect.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 200)));
+            Assert.That(finisherDefinition.HighPower, Is.False);
+            Assert.That(finisherDefinition.Text.Info.EnemySecondary, Is.EqualTo("내 체력 30% 이하"));
+
+            foreach (LegacySkill skill in new[] { pierce, strikeBack, sidestep, finisher })
+            {
+                LegacySkillDefinition definition = LegacySkillDefinitions.Find(skill);
+                Assert.That(LegacySkillDefinitions.Table.GroupOf(definition), Is.EqualTo(LegacySkillGroup.Acquisition), skill.Name);
+                Assert.That(skill.IconId, Is.InRange(1, 17), skill.Name + " reuses an existing player icon.");
+                Assert.That(definition.Text.Purpose, Is.Not.Null, skill.Name);
+                Assert.That(definition.Text.Effect, Is.Not.Null, skill.Name);
+                Assert.That(CampaignCurriculum.Default.FindGranting(skill.Id), Is.Null, skill.Name + " is not a curriculum reward.");
+                Assert.That(CampaignFieldPickups.FindGranting(skill.Id), Is.Not.Null, skill.Name + " lies in the field.");
+            }
+        }
+
+        [Test]
         public void Laudare_IsIasEnemyOnlyFiveHitSlashThatBreaksItsTarget()
         {
             LegacySkill laudare = LegacySkillDefinitions.Skill(500);
@@ -230,16 +285,17 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ShippedSheet_HoldsTheTwentySixTechniquesInTableOrder()
+        public void ShippedSheet_HoldsTheThirtyTechniquesInTableOrder()
         {
             string path = Path.Combine(Environment.CurrentDirectory, LegacySkillDefinitions.SheetAssetPath);
             byte[] bytes = File.ReadAllBytes(path);
             Assert.That(bytes.Take(3).ToArray(), Is.EqualTo(new byte[] { 0xEF, 0xBB, 0xBF }), "UTF-8 with a byte order mark, for Excel.");
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
-            Assert.That(table.All.Select(d => d.Skill.Id),
-                Is.EqualTo(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 500, 501, 502 }));
+            Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[]
+                { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 500, 501, 502 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
-            Assert.That(table.AcquisitionSkills.Select(s => s.Id), Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46 }));
+            Assert.That(table.AcquisitionSkills.Select(s => s.Id),
+                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50 }));
             Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
                 "The runtime reads the same file.");
@@ -265,6 +321,10 @@ namespace TurnLimbo.Core.Tests
         [TestCase(43, "탐색")]
         [TestCase(44, "몰아치기")]
         [TestCase(45, "자세 잡기")]
+        [TestCase(47, "꿰뚫기")]
+        [TestCase(48, "받아치기")]
+        [TestCase(49, "비껴서기")]
+        [TestCase(50, "끝내기")]
         public void ShippedSheet_NamesTheTechniques(int id, string name)
         {
             Assert.That(LegacySkillDefinitions.Skill(id).Name, Is.EqualTo(name));

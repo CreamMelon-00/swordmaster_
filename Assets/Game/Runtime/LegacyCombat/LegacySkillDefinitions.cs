@@ -200,7 +200,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The nine starting techniques (시작 rows), three per lane. Their sheet order within a lane is the default
         /// loadout order; everything else names a technique by id.</summary>
         public static IReadOnlyList<LegacySkill> InitialSkills => Table.InitialSkills;
-        /// <summary>The techniques beyond the starting nine (획득 rows); stage first clears and the curriculum grant them.</summary>
+        /// <summary>The techniques beyond the starting nine (획득 rows); stage first clears, the curriculum and the academy
+        /// field's pickups grant them.</summary>
         public static IReadOnlyList<LegacySkill> AcquisitionSkills => Table.AcquisitionSkills;
         /// <summary>The enemy-only techniques (적 rows), such as 이아's 라우다레 in the 서막's last mission. The player never
         /// owns, equips or learns them; enemies name them by id.</summary>

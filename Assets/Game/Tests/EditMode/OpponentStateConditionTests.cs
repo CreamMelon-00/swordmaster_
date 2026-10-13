@@ -15,9 +15,11 @@ namespace TurnLimbo.Core.Tests
     public sealed class OpponentStateConditionTests
     {
         private const int Laudare = 500, Benedicere = 501, Praedicare = 502, Reprise = 19, DiagonalCut = 15;
+        // 끝내기, the player's field-pickup finisher: 프레디카레's condition and multiplier on a 7~9 E thrust.
+        private const int Finisher = 50;
 
         [Test]
-        public void TheMottoRows_HaveTheirStateConditions_AndOthersHaveNone()
+        public void TheMottoRowsAndTheFinisher_HaveTheirStateConditions_AndOthersHaveNone()
         {
             LegacySkillEffect benedicere = LegacySkillDefinitions.Find(Benedicere).Effect;
             Assert.That((benedicere.OpponentState, benedicere.OpponentHealthPercent, benedicere.ResistanceRecoveryPercent,
@@ -27,7 +29,11 @@ namespace TurnLimbo.Core.Tests
                 praedicare.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 0, 200)));
             Assert.That(LegacySkillConditions.HasOpponentStateCondition(Skill(Benedicere)), Is.True);
             Assert.That(LegacySkillConditions.HasOpponentStateCondition(Skill(Praedicare)), Is.True);
-            foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All.Where(d => d.Skill.Id < Benedicere))
+            LegacySkillEffect finisher = LegacySkillDefinitions.Find(Finisher).Effect;
+            Assert.That((finisher.OpponentState, finisher.OpponentHealthPercent, finisher.ResistanceRecoveryPercent,
+                finisher.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 0, 200)));
+            Assert.That(LegacySkillConditions.HasOpponentStateCondition(Skill(Finisher)), Is.True);
+            foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All.Where(d => d.Skill.Id < Benedicere && d.Skill.Id != Finisher))
             {
                 Assert.That(definition.Effect.HasOpponentStateCondition, Is.False, "skill " + definition.Skill.Id);
                 Assert.That(definition.Effect.ConditionalDamagePercent, Is.Zero, "skill " + definition.Skill.Id);

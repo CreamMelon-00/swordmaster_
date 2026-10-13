@@ -26,7 +26,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     {
         /// <summary>시작: the player has it from the start; three per lane are the default loadout.</summary>
         Starting,
-        /// <summary>획득: a curriculum node or a stage's first clear grants it.</summary>
+        /// <summary>획득: a curriculum node, a stage's first clear or a field pickup grants it.</summary>
         Acquisition,
         /// <summary>적: only an enemy uses it (a story enemy's script names it by id). It never reaches the loadout,
         /// the curriculum or the starting set.</summary>
@@ -34,7 +34,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     }
 
     /// <summary>The techniques one sheet defines: every row in sheet order, split into the starting rows (시작), the
-    /// rows the curriculum grants (획득) and the enemy-only rows (적).</summary>
+    /// rows the curriculum, stages and field pickups grant (획득) and the enemy-only rows (적).</summary>
     public sealed class LegacySkillTable
     {
         private readonly Dictionary<int, LegacySkillDefinition> byId = new Dictionary<int, LegacySkillDefinition>();

@@ -4,14 +4,16 @@ using System.Collections.Generic;
 namespace TurnLimbo.Runtime.Campaign
 {
     /// <summary>The persistent part of a <see cref="CampaignRun"/>: currency, cleared stages, curriculum progress,
-    /// training wins, skill experience and the saved loadout. Owned skills follow from the completed curriculum nodes. Battle state, the unsaved loadout
+    /// training wins, skill experience, the field pickups taken and the saved loadout. Owned skills follow from the
+    /// completed curriculum nodes, the cleared stages and the pickups taken. Battle state, the unsaved loadout
     /// draft and lobby selections are not kept. The data is not validated here; <see cref="CampaignRun.TryRestore"/>
     /// checks it against the game's rules.</summary>
     public sealed class CampaignSave
     {
         public CampaignSave(int currency, IEnumerable<int> clearedStages, IEnumerable<string> curriculumCompleted,
             string curriculumActive, int curriculumBattles, IEnumerable<IEnumerable<int>> loadout,
-            int trainingVictoryCount = 0, IEnumerable<KeyValuePair<int, int>> skillExperience = null)
+            int trainingVictoryCount = 0, IEnumerable<KeyValuePair<int, int>> skillExperience = null,
+            IEnumerable<string> fieldPickups = null)
         {
             if (clearedStages == null) throw new ArgumentNullException(nameof(clearedStages));
             if (curriculumCompleted == null) throw new ArgumentNullException(nameof(curriculumCompleted));
@@ -24,6 +26,7 @@ namespace TurnLimbo.Runtime.Campaign
             CurriculumBattles = curriculumBattles;
             SkillExperience = new List<KeyValuePair<int, int>>(skillExperience ??
                 Array.Empty<KeyValuePair<int, int>>()).AsReadOnly();
+            FieldPickups = new List<string>(fieldPickups ?? Array.Empty<string>()).AsReadOnly();
             var lanes = new List<IReadOnlyList<int>>();
             foreach (IEnumerable<int> lane in loadout)
                 lanes.Add(new List<int>(lane ?? throw new ArgumentException("A loadout lane is missing.", nameof(loadout))).AsReadOnly());
@@ -43,6 +46,9 @@ namespace TurnLimbo.Runtime.Campaign
         public int CurriculumBattles { get; }
         /// <summary>Nonzero cumulative clashes per owned skill ID. An absent entry has zero experience.</summary>
         public IReadOnlyList<KeyValuePair<int, int>> SkillExperience { get; }
+        /// <summary>Ids of the field pickups taken (<see cref="CampaignFieldPickups"/>), in the order they were taken;
+        /// omitted in older version 2 saves and then empty.</summary>
+        public IReadOnlyList<string> FieldPickups { get; }
         /// <summary>The saved Q/W/E lanes as skill ids.</summary>
         public IReadOnlyList<IReadOnlyList<int>> Loadout { get; }
     }

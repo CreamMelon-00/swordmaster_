@@ -355,7 +355,7 @@ namespace TurnLimbo.Presentation
                 () => StartTraining());
             academyField = new AcademyFieldView(transform, art, arena,
                 stage => StartCampaignStage(stage), () => OpenNextMission(),
-                () => StartTraining(), () => OpenFieldMenu());
+                () => StartTraining(), () => OpenFieldMenu(), id => CollectFieldPickup(id));
             resultHud = new BattleResultHud(transform, art, () => DismissBattleResult(),
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
             pauseHud = new DuelPauseHud(transform, art, () => ResumeBattle(),
@@ -2389,6 +2389,26 @@ namespace TurnLimbo.Presentation
             if (!IsInAcademyField || !lobbyHud.IsVisible) return false;
             lobbyHud.Hide();
             academyField.Resume();
+            return true;
+        }
+
+        /// <summary>TEMPORARY field pickup test (Docs/FieldPickups.md): takes a technique lying in the academy field, the
+        /// field's Space/click on a pickup. The run owns it from now on (never equipped); it is saved at once, sounds the
+        /// battle's skill-queue cue, and the field's notice names it, with its lane only while that lane is open
+        /// (<see cref="AcademyFieldView.PickupNotice"/>). Only while the field takes input, and once per pickup.</summary>
+        public bool CollectFieldPickup(string pickupId)
+        {
+            if (!IsInAcademyField || lobbyHud.IsVisible || academyField.IsTransitioning) return false;
+            if (!campaign.TryCollectFieldPickup(pickupId, out CampaignOwnedSkill granted)) return false;
+            AutoSave();
+            LegacySkill skill = granted != null ? granted.Skill
+                : LegacySkillDefinitions.Find(CampaignFieldPickups.Find(pickupId).SkillId)?.Skill;
+            if (skill == null) return true;
+            // The battle's queue sound (add_skill_1~3), picked by the technique's lane instead of at random.
+            effectsSource.pitch = 1f;
+            art.PlaySelection(effectsSource, skill.LaneIndex);
+            academyField.SetArrivalNotice(AcademyFieldView.PickupNotice(skill, granted != null,
+                campaign.IsLaneOpen(skill.LaneIndex)));
             return true;
         }
 

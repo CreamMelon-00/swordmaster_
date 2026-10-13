@@ -40,6 +40,8 @@ namespace TurnLimbo.Runtime.Campaign
         {
             new CampaignOwnedSkill[3], new CampaignOwnedSkill[3], new CampaignOwnedSkill[3],
         };
+        // Ids of the field pickups taken, in the order they were taken.
+        private readonly List<string> collectedFieldPickups = new List<string>();
         private bool trainingBattle;
 
         public CampaignRun() : this(CampaignCurriculum.Default) { }
@@ -49,6 +51,7 @@ namespace TurnLimbo.Runtime.Campaign
         {
             curriculum = new CurriculumProgress(curriculumTree);
             OwnedSkills = ownedSkills.AsReadOnly();
+            CollectedFieldPickups = collectedFieldPickups.AsReadOnly();
             equippedLaneViews = new IReadOnlyList<CampaignOwnedSkill>[equippedLanes.Length];
             for (int i = 0; i < equippedLanes.Length; i++) equippedLaneViews[i] = equippedLanes[i].AsReadOnly();
             Reset();
@@ -83,9 +86,40 @@ namespace TurnLimbo.Runtime.Campaign
         public bool CanStartTraining => CanEditLoadout && CanEnterStage(3);
         public int EquippedSkillCount => equippedLanes[0].Count + equippedLanes[1].Count + equippedLanes[2].Count;
         public CampaignStage CurrentStage => stages[StageNumber - 1];
-        /// <summary>Starting skills first, then stage and curriculum skills in the order they were granted.</summary>
+        /// <summary>Starting skills first, then stage, curriculum and field-pickup skills in the order they were granted.</summary>
         public IReadOnlyList<CampaignOwnedSkill> OwnedSkills { get; }
         public CampaignOwnedSkill GetOwnedSkill(int skillId) => FindOwnedSkill(skillId);
+        /// <summary>Ids of the field pickups taken (<see cref="CampaignFieldPickups"/>), in the order they were taken.
+        /// The field hides these.</summary>
+        public IReadOnlyList<string> CollectedFieldPickups { get; }
+
+        public bool IsFieldPickupCollected(string pickupId) => pickupId != null && collectedFieldPickups.Contains(pickupId);
+
+        /// <summary>Whether the pickup can be taken now: a known pickup not taken yet, in the lobby or between battles.
+        /// Lanes and the curriculum do not matter; a technique of a closed lane is owned and waits for its lane.</summary>
+        public bool CanCollectFieldPickup(string pickupId)
+            => CanEditLoadout && CampaignFieldPickups.Find(pickupId) != null && !IsFieldPickupCollected(pickupId);
+
+        /// <summary>Takes a technique lying in the field. It is owned from now on, like a curriculum grant: never
+        /// equipped, kept by a curriculum reset, and saved through the pickup's id. Refused (false, nothing changes) for an
+        /// unknown pickup, one already taken, or during a battle. A pickup whose technique is already owned is still taken
+        /// but grants nothing new (<paramref name="granted"/> is null); the run never owns a technique twice. A technique
+        /// the sheet lacks throws the sheet's Korean error before anything changes.</summary>
+        /// <param name="granted">The newly owned technique, or null.</param>
+        public bool TryCollectFieldPickup(string pickupId, out CampaignOwnedSkill granted)
+        {
+            granted = null;
+            if (!CanCollectFieldPickup(pickupId)) return false;
+            CampaignFieldPickup pickup = CampaignFieldPickups.Find(pickupId);
+            _ = LegacySkillDefinitions.Skill(pickup.SkillId);
+            bool alreadyOwned = FindOwnedSkill(pickup.SkillId) != null;
+            collectedFieldPickups.Add(pickup.Id);
+            GrantSkill(pickup.SkillId);
+            if (!alreadyOwned) granted = FindOwnedSkill(pickup.SkillId);
+            return true;
+        }
+
+        public bool TryCollectFieldPickup(string pickupId) => TryCollectFieldPickup(pickupId, out _);
 
         /// <summary>A real slot clash trains its equipped player skill once, regardless of the number of hits.
         /// Matching the owned instance also excludes sheet and enemy skills that happen to have the same ID.</summary>
@@ -405,14 +439,15 @@ namespace TurnLimbo.Runtime.Campaign
         public bool TrySelectCurriculumNode(string nodeId) => IsCurriculumOpen && CanEditLoadout && curriculum.TrySelect(nodeId);
 
         /// <summary>Clears the whole curriculum (lobby or maintenance, curriculum open): completed nodes, the node in
-        /// progress and every skill they granted. Stage first-clear skills remain owned. Saved lanes that lose a skill
-        /// are refilled with that lane's starting skills.</summary>
+        /// progress and every skill they granted. Stage first-clear skills and field-pickup skills remain owned. Saved
+        /// lanes that lose a skill are refilled with that lane's starting skills.</summary>
         public bool TryResetCurriculum()
         {
             if (!IsCurriculumOpen || !CanEditLoadout || curriculum.CompletedCount == 0 && curriculum.Active == null) return false;
             curriculum.Reset();
             LastCompletedCurriculumNode = null;
-            ownedSkills.RemoveAll(owned => !IsStartingSkill(owned.SkillId) && !IsUnlockedStageSkill(owned.SkillId));
+            ownedSkills.RemoveAll(owned => !IsStartingSkill(owned.SkillId) && !IsUnlockedStageSkill(owned.SkillId) &&
+                !IsCollectedFieldSkill(owned.SkillId));
             RefillLanesWithStartingSkills();
             ResetLoadoutDraft();
             return true;
@@ -473,6 +508,7 @@ namespace TurnLimbo.Runtime.Campaign
             }
             ResetLoadoutDraft();
             curriculum.Reset();
+            collectedFieldPickups.Clear();
             LastCompletedCurriculumNode = null;
             LastOutcome = null;
             StageNumber = 1;
@@ -485,8 +521,8 @@ namespace TurnLimbo.Runtime.Campaign
             Phase = CampaignPhase.Lobby;
         }
 
-        /// <summary>The persistent state. Owned skills follow from the curriculum and stage clears, so only their progress is kept.
-        /// Unsaved loadout edits and the battle in progress are not included.</summary>
+        /// <summary>The persistent state. Owned skills follow from the curriculum, stage clears and field pickups taken, so
+        /// only their progress is kept. Unsaved loadout edits and the battle in progress are not included.</summary>
         public CampaignSave CaptureSave()
         {
             var cleared = new List<int>();
@@ -504,7 +540,7 @@ namespace TurnLimbo.Runtime.Campaign
                     skillExperience.Add(new KeyValuePair<int, int>(owned.SkillId, owned.Experience));
             skillExperience.Sort((left, right) => left.Key.CompareTo(right.Key));
             return new CampaignSave(Currency, cleared, curriculum.Completed, curriculum.Active?.Id, curriculum.ActiveBattles,
-                loadout, TrainingVictoryCount, skillExperience);
+                loadout, TrainingVictoryCount, skillExperience, collectedFieldPickups);
         }
 
         /// <summary>Replaces this run with a saved state, back in the lobby with the saved loadout as the draft.
@@ -524,6 +560,12 @@ namespace TurnLimbo.Runtime.Campaign
             foreach (string id in save.CurriculumCompleted) GrantSkills(curriculum.Tree.Find(id));
             foreach (int number in save.ClearedStages)
                 if (stages[number - 1].FirstClearSkillId != 0) GrantSkill(stages[number - 1].FirstClearSkillId);
+            collectedFieldPickups.Clear();
+            foreach (string id in save.FieldPickups)
+            {
+                collectedFieldPickups.Add(id);
+                GrantSkill(CampaignFieldPickups.Find(id).SkillId);
+            }
             foreach (KeyValuePair<int, int> entry in save.SkillExperience)
                 FindOwnedSkill(entry.Key).RestoreExperience(entry.Value);
             for (int lane = 0; lane < equippedLanes.Length; lane++)
@@ -563,7 +605,8 @@ namespace TurnLimbo.Runtime.Campaign
 
             string curriculumError = curriculum.Validate(save.CurriculumCompleted, save.CurriculumActive, save.CurriculumBattles);
             if (curriculumError != null) return curriculumError;
-            // Owned skills follow completed nodes and first-clear stage rewards; the loadout may only use those.
+            // Owned skills follow completed nodes, first-clear stage rewards and field pickups taken; the loadout and the
+            // experience records may only use those.
             var owned = new Dictionary<int, LegacySkill>();
             foreach (LegacySkill skill in LegacyInitialSkills.All) owned[skill.Id] = skill;
             foreach (string id in save.CurriculumCompleted)
@@ -580,6 +623,16 @@ namespace TurnLimbo.Runtime.Campaign
                 LegacySkill skill = FindSheetSkill(skillId);
                 if (skill == null) return $"스테이지 {number} 첫 클리어 보상 기술 {skillId}이(가) 없습니다.";
                 owned[skillId] = skill;
+            }
+            var collected = new HashSet<string>();
+            foreach (string id in save.FieldPickups)
+            {
+                CampaignFieldPickup pickup = CampaignFieldPickups.Find(id);
+                if (pickup == null) return $"없는 필드 습득물 '{id}'을(를) 주웠다고 되어 있습니다.";
+                if (!collected.Add(id)) return $"필드 습득물 '{id}'이(가) 중복되었습니다.";
+                LegacySkill skill = FindSheetSkill(pickup.SkillId);
+                if (skill == null) return $"필드 습득물 '{id}'이(가) 주는 기술 {pickup.SkillId}이(가) 없습니다.";
+                owned[pickup.SkillId] = skill;
             }
 
             var experienced = new HashSet<int>();
@@ -637,6 +690,13 @@ namespace TurnLimbo.Runtime.Campaign
         {
             for (int i = 0; i < clearedStages.Length; i++)
                 if (clearedStages[i] && stages[i].FirstClearSkillId == skillId) return true;
+            return false;
+        }
+
+        private bool IsCollectedFieldSkill(int skillId)
+        {
+            foreach (string id in collectedFieldPickups)
+                if (CampaignFieldPickups.Find(id)?.SkillId == skillId) return true;
             return false;
         }
 
