@@ -102,7 +102,7 @@ namespace TurnLimbo.Core.Tests
             Queue(duel, W);
             Assert.That(LegacyKeywordPreview.TemporaryCounts(duel), Is.EqualTo(new[] { 3, 0, 0 }));
             Assert.That(LegacyKeywordPreview.LaneLine(duel, whetstone), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn));
-            Assert.That(LegacyKeywordPreview.Note(duel, whetstone), Is.EqualTo("일회성 · 이번 턴 사용함 (한 턴 한 번)"));
+            Assert.That(LegacyKeywordPreview.Note(duel, whetstone), Is.EqualTo("일회성 · 턴당 1회 · 사용함"));
             Queue(duel, Q);
             LegacyKeywordMark mark = LegacyKeywordPreview.QueueMark(duel, true, 1, true);
             Assert.That((mark.Text, mark.Kind, mark.Spent), Is.EqualTo((LegacyKeywordPreview.TemporaryTag,

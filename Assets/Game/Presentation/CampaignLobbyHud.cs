@@ -11,7 +11,8 @@ namespace TurnLimbo.Presentation
     public enum LobbyTab { Home, Stages, Loadout, Curriculum }
 
     /// <summary>Full-screen lobby pages. CampaignRun owns progression; view states survive page changes.
-    /// Until <see cref="CampaignRun.IsCurriculumOpen"/> the curriculum does not exist here: no tab, link or progress line.</summary>
+    /// Until <see cref="CampaignRun.IsCurriculumOpen"/> the curriculum does not exist here: no tab, link, 수련 점수 or points
+    /// line (they bank unseen until then).</summary>
     public sealed class CampaignLobbyHud : IDisposable
     {
         /// <summary>What a lobby mission that cannot be played yet is called: its title stays hidden until then.</summary>
@@ -28,7 +29,7 @@ namespace TurnLimbo.Presentation
         };
         private readonly LegacyDuelArt art;
         private readonly Action<int> unequip, startStage;
-        private readonly Action<string> selectCurriculumNode;
+        private readonly Action<string> learnCurriculumNode;
         private readonly Action<int, int, int> placeLoadoutSkill;
         private readonly Action restartJourney, saveLoadout, resetLoadout, resetCurriculum, openMission, startTraining;
         // The next story mission after the 서막, and whether its stage is cleared so it can be played now.
@@ -46,8 +47,8 @@ namespace TurnLimbo.Presentation
         private readonly bool assetsAvailable;
         private CampaignRun currentRun;
         private bool disposed, resetArmed, awaitingStageOutcome, fieldMenuMode;
-        // The header note after a stage battle: its outcome and any curriculum node it completed. Or a one-time arrival
-        // note (the 서막's end: what it opened), which may run to two lines.
+        // The header note after a stage battle: its outcome. Or a one-time arrival note (the 서막's end: what it opened),
+        // which may run to two lines.
         private string outcomeBanner;
         // An arrival note waiting for the next Show (SetArrivalNotice).
         private string arrivalNotice;
@@ -78,7 +79,7 @@ namespace TurnLimbo.Presentation
         public RectTransform CurrentPage => pageRoot;
         public bool IsTransitioning => !disposed && screenTransition.IsTransitioning;
 
-        public CampaignLobbyHud(Transform parent, LegacyDuelArt art, Action<string> selectCurriculumNode,
+        public CampaignLobbyHud(Transform parent, LegacyDuelArt art, Action<string> learnCurriculumNode,
             Action resetCurriculum, Action<int> equip, Action<int> unequip, Action<int, int> move,
             Action<int> startStage, Action restartJourney,
             Action<int, int, int> placeLoadoutSkill = null, Action saveLoadout = null,
@@ -87,7 +88,7 @@ namespace TurnLimbo.Presentation
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
-            this.selectCurriculumNode = selectCurriculumNode;
+            this.learnCurriculumNode = learnCurriculumNode;
             this.resetCurriculum = resetCurriculum;
             this.unequip = unequip;
             this.startStage = startStage;
@@ -163,9 +164,7 @@ namespace TurnLimbo.Presentation
             selectedStageNumber = Mathf.Clamp(selectedStageNumber, 1, Mathf.Max(1, run.HighestUnlockedStage));
             if (awaitingStageOutcome)
             {
-                string outcome = run.LastOutcome == Runtime.Combat.DuelMatchOutcome.PlayerVictory ? "승리" : "전투 종료";
-                CurriculumNode completed = run.LastCompletedCurriculumNode;
-                outcomeBanner = completed != null ? $"{outcome}  ·  커리큘럼 완료: {completed.Title}" : outcome;
+                outcomeBanner = run.LastOutcome == Runtime.Combat.DuelMatchOutcome.PlayerVictory ? "승리" : "전투 종료";
                 awaitingStageOutcome = false;
             }
             if (arrivalNotice != null)
@@ -194,6 +193,15 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             nextMission = mission;
             nextMissionAvailable = mission != null && available;
+        }
+
+        /// <summary>A node the controller has just learned (its API, which the learn button also reaches): when the
+        /// curriculum page is up, the page the next <see cref="Show"/> builds plays its moment (the card's pulse, the banner).
+        /// Otherwise nothing waits for a later page.</summary>
+        public void PresentCurriculumLearned(string nodeId)
+        {
+            if (disposed || string.IsNullOrEmpty(nodeId) || !IsVisible || currentTab != LobbyTab.Curriculum) return;
+            curriculumState.PendingLearn = nodeId;
         }
 
         public PrologueMission NextMission => nextMission;
@@ -374,13 +382,10 @@ namespace TurnLimbo.Presentation
             bool twoLines = showOutcome && outcomeBanner.IndexOf('\n') >= 0;
             if (run.IsCurriculumOpen)
             {
-                CurriculumNode active = run.Curriculum.Active;
-                bool finished = run.Curriculum.IsFinished;
-                Label("Header Curriculum", status.transform,
-                    active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
-                        : finished ? "커리큘럼  모두 완료" : "커리큘럼  선택 안 함",
+                // The balance, in brass while it buys a node, muted otherwise.
+                Label("Header Curriculum", status.transform, CampaignCurriculumHud.PointsText(run.CurriculumPoints),
                     new Vector2(0f, showOutcome ? twoLines ? 22f : 17f : 0f), new Vector2(402f, 30f), 18,
-                    active != null ? Gold : finished ? Muted : DuelVisualTheme.Danger, TextAnchor.MiddleRight);
+                    run.AffordableCurriculumNodeCount > 0 ? Gold : Muted, TextAnchor.MiddleRight);
             }
             if (showOutcome)
                 Label("Outcome Banner", status.transform, outcomeBanner,
@@ -541,13 +546,14 @@ namespace TurnLimbo.Presentation
             Label("Selected Stage Stats", preview.transform,
                 $"적 체력  {stage.EnemyHealth}     저항  {stage.EnemyResistance}\n위력  +{stage.EnemyPowerBonus}",
                 new Vector2(-192f, -76f), new Vector2(384f, 62f), 22, Foreground);
-            CurriculumNode active = run.Curriculum.Active;
             if (run.IsCurriculumOpen)
+            {
+                // What a win would earn now: battle and victory, and the first clear while the stage is not cleared.
+                int points = run.GetStageVictoryPoints(selectedStageNumber);
                 Label("Selected Stage Curriculum", preview.transform,
-                    active != null ? $"커리큘럼  {active.Title} {run.Curriculum.ActiveBattles}/{active.Battles}"
-                        : run.Curriculum.IsFinished ? "커리큘럼  모든 과정 완료" : "커리큘럼  진행 중인 과정 없음",
-                    new Vector2(-192f, -137f), new Vector2(384f, 34f), 20,
-                    active != null ? Gold : run.Curriculum.IsFinished ? Muted : DuelVisualTheme.Danger);
+                    run.IsStageCleared(selectedStageNumber) ? $"승리 시 수련 점수 +{points}" : $"첫 클리어 수련 점수 +{points}",
+                    new Vector2(-192f, -137f), new Vector2(384f, 34f), 20, Gold);
+            }
             if (stage.FirstClearSkillId != 0)
             {
                 string skillName = LegacySkillDefinitions.Skill(stage.FirstClearSkillId).Name;
@@ -647,12 +653,12 @@ namespace TurnLimbo.Presentation
         private void BuildCurriculum(CampaignRun run)
         {
             RectTransform panel = TabPanel("Curriculum Panel", "커리큘럼",
-                "과정을 골라 진행하면 전투를 마칠 때마다 쌓이고, 완료하면 기술과 능력치를 얻습니다.");
+                "전투로 모은 수련 점수로 과정을 익히면 기술과 능력치를 얻습니다.");
             curriculumHud = new CampaignCurriculumHud(panel, art, run,
                 id =>
                 {
-                    if (selectCurriculumNode != null) selectCurriculumNode.Invoke(id);
-                    else if (run.TrySelectCurriculumNode(id)) Show(run);
+                    if (learnCurriculumNode != null) learnCurriculumNode.Invoke(id);
+                    else if (run.TryLearnCurriculumNode(id)) Show(run);
                 },
                 () =>
                 {

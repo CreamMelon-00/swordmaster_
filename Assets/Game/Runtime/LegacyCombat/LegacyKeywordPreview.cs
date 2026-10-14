@@ -47,8 +47,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// always goes to the queue's end, so counting the queue as it is now is exact.</summary>
     public static class LegacyKeywordPreview
     {
-        /// <summary>A once-per-turn gain this skill's kind already took this turn: its next copy gains nothing.</summary>
-        public const string UsedThisTurn = "(이번 턴 사용함)";
+        /// <summary>A once-per-turn gain this skill's kind already took this turn: its next copy gains nothing. The badge of
+        /// such a skill says <c>턴당 1회</c>, so the HUD uses the same words (the held explanation's row puts its effect first,
+        /// <c>순환 +1 · 턴당 1회 · 사용함</c>).</summary>
+        public const string UsedThisTurn = "턴당 1회 · 사용함";
         /// <summary>The automatic 숨고르기's card tag.</summary>
         public const string AutoBreathTag = "자동";
         /// <summary>자동 회피's card tag and its cue.</summary>
@@ -117,28 +119,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.ReserveCycleFeed)
             {
                 List<LegacySkill> raised = RaisedAhead(queue, slot, view.CycleUses);
-                parts.Add(!first ? "순환 +1 · 이번 턴 사용함 (같은 기술은 한 번)"
+                parts.Add(!first ? Used("순환 +1")
                     : raised.Count == 0 ? "순환 +1 · 앞에 올릴 순환 기술 없음"
                     : "순환 +1 · 지금 예약하면 " + Names(raised) + " 순환 +1");
             }
             if (effect.ReserveBreath && view.Features.Has(CombatFeature.Breath))
-                parts.Add(AutoBreathUsed(view) ? "숨고르기 +1 · 이번 턴 사용함"
+                parts.Add(AutoBreathUsed(view) ? Used("숨고르기 +1")
                     : "숨고르기 +1 · 지금 예약하면 바로 뒤에 숨고르기 (자동 1/1)");
             if (effect.HasAheadPower)
             {
                 string target = LegacySkillLabels.AheadTarget(effect.AheadPowerTarget);
-                parts.Add(!first ? target + "마다 위력 · 이번 턴 사용함 (둘째 장 +0)"
+                parts.Add(!first ? Used(target + "마다 위력")
                     : target + " " + LegacyKeywordLinks.AheadPowerCount(queue, slot, skill) + "/" + effect.AheadPowerMax +
                       " · 지금 예약하면 위력 +" + LegacyKeywordLinks.AheadPowerBonus(queue, slot, skill));
             }
             LegacySkill spawned = LegacyKeywordLinks.TemporarySpawn(skill, out int copies);
             if (spawned != null && view.Features.HasLane(spawned.LaneIndex))
-                parts.Add(TemporaryUsed(view) ? "일회성 · 이번 턴 사용함 (한 턴 한 번)"
+                parts.Add(TemporaryUsed(view) ? Used("일회성")
                     : "일회성 · 지금 예약하면 " + "QWE"[spawned.LaneIndex] + " 열 맨 앞에 " + spawned.Name + " " + copies + "개");
             if (effect.HasAheadTime)
             {
                 string target = LegacySkillLabels.AheadTarget(effect.AheadTimeTarget);
-                parts.Add(!first ? target + "마다 제한시간 · 이번 턴 사용함 (둘째 장 +0초)"
+                parts.Add(!first ? Used(target + "마다 제한시간")
                     : target + " " + LegacyKeywordLinks.AheadTimeCount(queue, slot, skill) + "/" + effect.AheadTimeMax +
                       " · 지금 예약하면 " + NextTurnTime(LegacyKeywordLinks.AheadTimeBonus(queue, slot, skill)));
             }
@@ -279,7 +281,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         /// <summary>A count-ahead payoff's cue as its slot starts: <c>숨고르기 3 · 위력 +12</c>, <c>저항 감소 2종 · 위력 +10</c>,
-        /// <c>순환 기술 2종 · 위력 +6</c>. Null when the skill in that slot gains nothing (none counted, or a second copy).</summary>
+        /// <c>순환 2종 · 위력 +6</c>. Null when the skill in that slot gains nothing (none counted, or a second copy).</summary>
         public static string AheadPowerCue(IReadOnlyList<LegacySkill> queue, int slotIndex)
         {
             if (queue == null || slotIndex < 0 || slotIndex >= queue.Count) return null;
@@ -313,6 +315,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             return raised;
         }
+
+        // The held explanation's row for a once-per-turn gain already taken: its effect, then the lane line's words.
+        private static string Used(string effect) => effect + " · " + UsedThisTurn;
 
         private static bool AutoBreathUsed(ILegacyDuelView view)
             => (view.ReserveEffectsUsedThisTurn & LegacyReserveEffect.Breath) != 0;

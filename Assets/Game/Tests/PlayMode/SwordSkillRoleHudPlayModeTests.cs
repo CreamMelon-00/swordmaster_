@@ -118,13 +118,16 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(LegacySkillRoles.GetDetail(null), Is.Empty);
         }
 
+        // Wins stage one until the 수련 점수 cover the node, then learns it. Ends in the lobby.
         private static void Learn(CampaignRun run, string nodeId)
         {
-            Assert.That(run.TrySelectCurriculumNode(nodeId), Is.True, nodeId);
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.ReturnToLobby(), Is.True);
-            Assert.That(run.Curriculum.IsCompleted(nodeId), Is.True, nodeId);
+            while (!run.IsCurriculumNodeAffordable(nodeId))
+            {
+                Assert.That(run.TryStartStage(1), Is.True);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.ReturnToLobby(), Is.True);
+            }
+            Assert.That(run.TryLearnCurriculumNode(nodeId), Is.True, nodeId);
         }
 
         private static void AssertPureRole(Transform root, int skillId, string role)

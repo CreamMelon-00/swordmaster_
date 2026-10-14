@@ -16,7 +16,7 @@ namespace TurnLimbo.Runtime.Save
     public sealed class GameSave
     {
         /// <summary>Version 2 saves include curriculum progress; optional lines added since (training wins, skill
-        /// experience, field pickups, the curriculum tree version) keep older v2 files readable.</summary>
+        /// experience, field pickups, the curriculum tree version, the 수련 점수 balance) keep older v2 files readable.</summary>
         public const int CurrentVersion = 2;
 
         public GameSave(int prologueCleared, CampaignSave campaign,
@@ -63,7 +63,8 @@ namespace TurnLimbo.Runtime.Save
                 error = "오프닝이 끝나기 전에 서막 임무가 진행된 저장입니다.";
                 return false;
             }
-            if (!campaign.TryRestore(Campaign, out error)) return false;
+            // The story count also credits a save written before 수련 점수 existed (CampaignRun.CurriculumPointsIn).
+            if (!campaign.TryRestore(Campaign, PrologueCleared, out error)) return false;
             prologue.TryRestore(PrologueCleared);
             return true;
         }

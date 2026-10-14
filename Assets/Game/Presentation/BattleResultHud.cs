@@ -21,9 +21,6 @@ namespace TurnLimbo.Presentation
         // card closes up around it, half from above and half from below.
         private const float CurriculumRowHeight = 114f, NoticeY = -161f, ActionY = -255f;
         private readonly RectTransform cardBorder, cardSurface, curriculumPanel;
-        // A completed node's skill: its icon on its lane's dye at the row's left, and the row's stripe in that dye.
-        private readonly Image curriculumAccent, curriculumIconFrame, curriculumIcon;
-        private static readonly Vector2 CurriculumLabelHome = new Vector2(-210f, -14f), CurriculumLabelBesideIcon = new Vector2(-176f, -14f);
         private readonly RectTransform[] upperRows;
         private readonly float[] upperRowY;
         private float actionY = ActionY;
@@ -85,19 +82,13 @@ namespace TurnLimbo.Presentation
                 leftDivider.rectTransform, rightDivider.rectTransform,
             };
             upperRowY = Array.ConvertAll(upperRows, row => row.anchoredPosition.y);
-            // Currency is hidden while it has no use; this panel reports the curriculum instead.
+            // Currency is hidden while it has no use; this panel reports the 수련 점수 instead. Nodes are learned in the
+            // curriculum tab, so the row names no technique (its moment is the tab's).
             var progress = Panel("Result Curriculum Panel", card.transform, new Vector2(0f, -61f),
                 new Vector2(736f, 104f), Raised);
             curriculumPanel = progress.rectTransform;
-            curriculumAccent = Panel("Result Curriculum Accent", progress.transform, new Vector2(-366f, 0f),
-                new Vector2(4f, 104f), Accent);
-            curriculumIconFrame = Panel("Result Curriculum Icon Frame", progress.transform, new Vector2(-322f, -8f),
-                new Vector2(60f, 60f), Accent);
-            Panel("Result Curriculum Icon Surface", curriculumIconFrame.transform, Vector2.zero, new Vector2(54f, 54f), Surface);
-            curriculumIcon = Panel("Result Curriculum Icon", curriculumIconFrame.transform, Vector2.zero, new Vector2(48f, 48f), Color.white);
-            curriculumIcon.preserveAspect = true;
-            curriculumIconFrame.gameObject.SetActive(false);
-            Label("Result Curriculum Heading", progress.transform, new Vector2(-210f, 27f), new Vector2(300f, 28f), 18, Muted).text = "커리큘럼";
+            Panel("Result Curriculum Accent", progress.transform, new Vector2(-366f, 0f), new Vector2(4f, 104f), Accent);
+            Label("Result Curriculum Heading", progress.transform, new Vector2(-210f, 27f), new Vector2(300f, 28f), 18, Muted).text = "수련 점수";
             curriculum = Label("Result Curriculum", progress.transform, new Vector2(-210f, -14f), new Vector2(300f, 48f), 30, Gold);
             curriculum.resizeTextForBestFit = true;
             curriculum.resizeTextMinSize = 20;
@@ -215,7 +206,6 @@ namespace TurnLimbo.Presentation
             enemyHealth.text = Mathf.Max(0, opponentHealth).ToString();
             LayoutCurriculumRow(false);
             curriculum.text = curriculumDetail.text = string.Empty;
-            ShowCurriculumSkill(null);
             notice.text = VersusNotice;
             lobbyCaption.text = VersusExitCaption;
             lobbyButton.gameObject.SetActive(true);
@@ -307,111 +297,33 @@ namespace TurnLimbo.Presentation
                 : clear + "\n학원으로 돌아가 다음 상대를 골라보세요.";
         }
 
-        /// <summary>Stage battles count toward the curriculum whatever the outcome; opening-arc missions do not.</summary>
+        /// <summary>The 수련 점수 this result earned and where the balance stands (Docs/Curriculum.md); the row is hidden while
+        /// the curriculum is closed.</summary>
         private void ShowCurriculum(BattleResult result)
         {
-            CurriculumNode completed = result.CompletedCurriculumNode, active = result.ActiveCurriculumNode;
-            ShowCurriculumSkill(result.CurriculumOpen && !result.IsMission && completed != null && completed.SkillIds.Count > 0
-                ? LegacySkillDefinitions.Find(completed.SkillIds[0])?.Skill : null);
             if (!result.CurriculumOpen)
             {
                 // The row is hidden (LayoutCurriculumRow); nothing in it is left to name the curriculum either.
                 curriculum.text = curriculumDetail.text = string.Empty;
                 return;
             }
-            if (result.IsMission)
-            {
-                bool prologue = result.StageNumber <= PrologueMissions.Count;
-                curriculum.text = prologue ? "깨어남 이후" : "반영 안 됨";
-                curriculum.color = Muted;
-                curriculumDetail.text = prologue ? "「깨어남」의 임무는 커리큘럼에 반영되지 않습니다." : "임무는 커리큘럼에 반영되지 않습니다.";
-                return;
-            }
-            if (completed != null)
-            {
-                curriculum.text = CompletionTitle(completed, result.CompletedCurriculumCourse);
-                curriculum.color = Gold;
-                string stats = StatRewardText(completed.StatReward);
-                curriculumDetail.text = (completed.SkillIds.Count == 0
-                    ? "능력치 증가\n" + stats
-                    : completed.StatReward.IsEmpty ? "새 기술  " + SkillNames(completed) + "\n편성에서 장착할 수 있습니다."
-                        : "새 기술  " + SkillNames(completed) + "\n" + stats) + OpenedLine(result.OpenedCurriculumNodes);
-            }
-            else if (active != null)
-            {
-                curriculum.text = $"{active.Title}  {result.ActiveCurriculumBattles}/{active.Battles}";
-                curriculum.color = Gold;
-                curriculumDetail.text = "진행 중인 과정입니다.";
-            }
-            else if (result.CurriculumFinished)
-            {
-                curriculum.text = "모두 완료";
-                curriculum.color = Muted;
-                curriculumDetail.text = "더 고를 과정이 없습니다.\n초기화하면 다른 길을 고를 수 있습니다.";
-            }
-            else
-            {
-                curriculum.text = "진행 없음";
-                curriculum.color = Muted;
-                curriculumDetail.text = "학원 메뉴의 커리큘럼에서 과정을 고르면\n전투마다 진행됩니다.";
-            }
+            CurriculumPointGain gain = result.CurriculumPoints;
+            curriculum.text = "+" + gain.Total;
+            curriculum.color = gain.IsEmpty ? Muted : Gold;
+            string standing = result.AffordableCurriculumNodes > 0 ? $"익힐 수 있는 과정 {result.AffordableCurriculumNodes}개"
+                : result.CurriculumFinished ? "모든 과정을 익혔습니다" : $"다음 과정까지 {result.CurriculumPointsToNext}점";
+            curriculumDetail.text = (gain.IsEmpty ? string.Empty : PointBreakdown(gain) + "\n") +
+                $"보유 {result.CurriculumBalance}  ·  {standing}";
         }
 
-        /// <summary>The row's title for a completed node: <c>가로베기 완료</c>, or when it ends the trunk or a school
-        /// <c>기초 과정 수료</c>, <c>붕괴 과정 수료</c>.</summary>
-        public static string CompletionTitle(CurriculumNode node, bool course)
-            => course ? CampaignCurriculumHud.BranchName(node.Branch) + " 과정 수료" : node.Title + " 완료";
-
-        /// <summary>The detail's last line naming what the completion opened (<c>새로 열린 과정: 사선베기 · 쿠페 · 유연함</c>),
-        /// with its line break; empty when it opened nothing.</summary>
-        public static string OpenedLine(System.Collections.Generic.IReadOnlyList<CurriculumNode> opened)
+        /// <summary>Where the points came from: <c>전투 +1 · 승리 +1 · 첫 클리어 +2</c>, a story mission's <c>임무 +1</c>.</summary>
+        public static string PointBreakdown(CurriculumPointGain gain)
         {
-            if (opened == null || opened.Count == 0) return string.Empty;
-            var titles = new string[opened.Count];
-            for (int index = 0; index < titles.Length; index++) titles[index] = opened[index].Title;
-            return "\n새로 열린 과정: " + string.Join(" · ", titles);
-        }
-
-        // A completed node's skill at the row's left on its lane's dye (the stripe takes the dye too); none puts the
-        // row back as it was.
-        private void ShowCurriculumSkill(LegacySkill skill)
-        {
-            bool shown = skill != null;
-            curriculumIconFrame.gameObject.SetActive(shown);
-            curriculumAccent.color = shown ? SkillLaneStyle.Edge(skill.LaneIndex) : Accent;
-            curriculum.rectTransform.anchoredPosition = shown ? CurriculumLabelBesideIcon : CurriculumLabelHome;
-            curriculum.rectTransform.sizeDelta = new Vector2(shown ? 232f : 300f, 48f);
-            if (!shown)
-            {
-                curriculumIcon.sprite = null;
-                return;
-            }
-            curriculumIconFrame.color = SkillLaneStyle.Edge(skill.LaneIndex);
-            curriculumIcon.sprite = art.GetSkillIcon(skill.IconId);
-            curriculumIcon.enabled = curriculumIcon.sprite != null;
-        }
-
-        private static string SkillNames(CurriculumNode node)
-        {
-            var names = new System.Collections.Generic.List<string>();
-            foreach (int id in node.SkillIds)
-            {
-                LegacySkill skill = LegacySkillDefinitions.Find(id)?.Skill;
-                // Named with its school, as everywhere a skill is shown: "사선베기(Q 정공)".
-                if (skill != null)
-                    names.Add(skill.Name + "(" + SkillLaneStyle.Key(skill.LaneIndex) + " " + SkillLaneStyle.Name(skill.LaneIndex) + ")");
-            }
-            return names.Count > 0 ? string.Join(", ", names) : "없음";
-        }
-
-        private static string StatRewardText(CurriculumStatReward reward)
-        {
-            var parts = new System.Collections.Generic.List<string>(5);
-            if (reward.Health > 0) parts.Add("최대 체력 +" + reward.Health);
-            if (reward.Resistance > 0) parts.Add("최대 저항 +" + reward.Resistance);
-            if (reward.ActGain > 0) parts.Add("매 턴 ACT 회복 +" + reward.ActGain);
-            if (reward.ActCapacity > 0) parts.Add("ACT 상한 +" + reward.ActCapacity);
-            if (reward.PlanningSeconds > 0) parts.Add("선택 시간 +" + reward.PlanningSeconds + "초");
+            var parts = new System.Collections.Generic.List<string>(4);
+            if (gain.Battle > 0) parts.Add("전투 +" + gain.Battle);
+            if (gain.Victory > 0) parts.Add("승리 +" + gain.Victory);
+            if (gain.FirstClear > 0) parts.Add("첫 클리어 +" + gain.FirstClear);
+            if (gain.Mission > 0) parts.Add("임무 +" + gain.Mission);
             return string.Join(" · ", parts);
         }
 

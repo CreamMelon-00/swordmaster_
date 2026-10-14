@@ -28,18 +28,18 @@ namespace TurnLimbo.Core.Tests
             var run = new CampaignRun(tree);
             Assert.That(run.CurriculumStats.IsEmpty, Is.True);
 
-            Assert.That(run.TrySelectCurriculumNode("conditioning"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("conditioning"), Is.False, "Not on the result screen of a lost battle.");
+            Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("conditioning"), Is.True);
             Assert.That(run.CurriculumStats.Health, Is.EqualTo(20));
             Assert.That(run.CurriculumStats.Resistance, Is.EqualTo(5));
             Assert.That(run.CreateDuel().Player.MaxHealth, Is.EqualTo(120));
             Assert.That(run.CreateDuel().Player.MaxResistance, Is.EqualTo(55));
-            Assert.That(run.ReturnToLobby(), Is.True);
 
-            Assert.That(run.TrySelectCurriculumNode("tempo"), Is.True);
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
+            Earn(run, 1);
+            Assert.That(run.TryLearnCurriculumNode("tempo"), Is.True);
             Assert.That(run.CurriculumStats.ActGain, Is.EqualTo(2));
             Assert.That(run.CurriculumStats.ActCapacity, Is.EqualTo(3));
             Assert.That(run.CurriculumStats.PlanningSeconds, Is.EqualTo(4));
@@ -57,6 +57,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(restored.CreateDuel().Act, Is.EqualTo(5));
             Assert.That(restored.TryResetCurriculum(), Is.True);
             Assert.That(restored.CurriculumStats.IsEmpty, Is.True);
+            Assert.That(restored.CurriculumPoints, Is.EqualTo(2), "Both nodes' costs come back.");
             Assert.That(restored.CreateDuel().Player.MaxHealth, Is.EqualTo(100));
             Assert.That(restored.CreateDuel().Act, Is.EqualTo(3));
         }
@@ -97,7 +98,6 @@ namespace TurnLimbo.Core.Tests
             {
                 Assert.That(node.Title, Is.Not.Empty, node.Id);
                 Assert.That(node.Description, Is.Not.Empty, node.Id);
-                Assert.That(node.Battles, Is.EqualTo(1), node.Id + ": the prototype pace is one battle per node.");
                 Assert.That(node.SkillIds.Count, Is.EqualTo(1), node.Id + ": every node grants one technique and is titled by it.");
                 Assert.That(node.ExclusiveWith, Is.Empty, node.Id + ": no node closes another, so every node can be completed.");
                 foreach (string required in node.RequiresAll.Concat(node.RequiresAny))
@@ -161,7 +161,21 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void States_FollowPrerequisitesTheNodeInProgressAndCompletion()
+        public void DefaultTree_CostsOneForTheTrunkAndIntroductionsTwoForTwistsThreeForCapstonesAndBridges()
+        {
+            CurriculumTree tree = CampaignCurriculum.Default;
+            foreach (CurriculumNode node in tree.Nodes)
+            {
+                int expected = node.Branch == CurriculumBranch.Bridge || tree.IsCapstone(node.Id) ? 3
+                    : node.Branch == CurriculumBranch.Foundation || node.Row == 3 ? 1 : 2;
+                Assert.That(node.Cost, Is.EqualTo(expected), node.Id);
+            }
+            CollectionAssert.AreEqual(new[] { 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3 }, tree.Nodes.Select(node => node.Cost));
+            Assert.That(tree.Nodes.Sum(node => node.Cost), Is.EqualTo(33), "The whole tree costs 33.");
+        }
+
+        [Test]
+        public void States_FollowPrerequisitesAndCompletion()
         {
             var run = new CampaignRun();
             CurriculumProgress curriculum = run.Curriculum;
@@ -171,22 +185,18 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(curriculum.GetState(node.Id),
                     Is.EqualTo(root ? CurriculumNodeState.Available : CurriculumNodeState.Locked), node.Id);
             }
-            Assert.That(curriculum.Active, Is.Null);
             Assert.That(curriculum.CompletedCount, Is.Zero);
+            Assert.That(Enum.GetNames(typeof(CurriculumNodeState)), Is.EqualTo(new[] { "Locked", "Available", "Completed", "Excluded" }),
+                "Affordable is derived from the balance, not a state.");
 
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
-            Assert.That(curriculum.GetState("horizontal-cut"), Is.EqualTo(CurriculumNodeState.Active));
-            Assert.That(curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
-            Assert.That(curriculum.ActiveBattles, Is.Zero);
-            Assert.That(curriculum.GetState("preparation"), Is.EqualTo(CurriculumNodeState.Locked),
-                "A node in progress does not open what follows it.");
-
-            FinishBattle(run, DuelMatchOutcome.PlayerVictory);
+            Assert.That(run.IsCurriculumNodeAffordable("horizontal-cut"), Is.False, "No points yet.");
+            Earn(run, 1);
+            Assert.That(curriculum.GetState("horizontal-cut"), Is.EqualTo(CurriculumNodeState.Available));
+            Assert.That(run.IsCurriculumNodeAffordable("horizontal-cut"), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(curriculum.GetState("horizontal-cut"), Is.EqualTo(CurriculumNodeState.Completed));
             Assert.That(curriculum.GetState("preparation"), Is.EqualTo(CurriculumNodeState.Available));
             Assert.That(curriculum.GetState("advance"), Is.EqualTo(CurriculumNodeState.Locked));
-            Assert.That(curriculum.Active, Is.Null);
-            Assert.That(curriculum.ActiveBattles, Is.Zero);
             Assert.That(curriculum.CompletedCount, Is.EqualTo(1));
             CollectionAssert.AreEqual(new[] { "horizontal-cut" }, curriculum.Completed);
             Assert.Throws<NotSupportedException>(() => ((IList<string>)curriculum.Completed).Add("advance"));
@@ -208,48 +218,57 @@ namespace TurnLimbo.Core.Tests
         [TestCase(CampaignPhase.Battle, false)]
         [TestCase(CampaignPhase.Failed, false)]
         [TestCase(CampaignPhase.Completed, false)]
-        public void Selection_IsOpenOnlyInTheLobbyAndMaintenance(CampaignPhase phase, bool open)
+        public void Learning_IsOpenOnlyInTheLobbyAndBetweenBattles(CampaignPhase phase, bool open)
         {
-            CampaignRun run = RunInPhase(phase);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.EqualTo(open));
-            Assert.That(run.Curriculum.Active?.Id, Is.EqualTo(open ? "horizontal-cut" : null));
-            Assert.That(run.Curriculum.GetState("horizontal-cut"),
-                Is.EqualTo(open ? CurriculumNodeState.Active : CurriculumNodeState.Available));
-        }
-
-        [Test]
-        public void Selection_CanChangeWhileNoBattleHasCountedTowardIt()
-        {
-            // Every default node takes one battle, so a counted battle always completes the node at once;
-            // the node in progress therefore never holds a counted battle that would fix the choice.
             var run = new CampaignRun();
-            Complete(run, "horizontal-cut", "preparation", "advance");
-            Assert.That(run.TrySelectCurriculumNode("quick-draw"), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("quick-draw"), Is.False, "It is already in progress.");
-            Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
-            Assert.That(run.Curriculum.CanSelect("diagonal-cut"), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("diagonal-cut"), Is.True);
-            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"));
-            Assert.That(run.Curriculum.GetState("quick-draw"), Is.EqualTo(CurriculumNodeState.Available));
-
-            FinishBattle(run, DuelMatchOutcome.PlayerVictory);
-            Assert.That(run.Curriculum.IsCompleted("diagonal-cut"), Is.True);
-            Assert.That(run.Curriculum.IsCompleted("quick-draw"), Is.False);
-            Assert.That(run.OwnedSkills.Any(owned => owned.SkillId == 42), Is.False);
+            Earn(run, 1);
+            EnterPhase(run, phase);
+            int points = run.CurriculumPoints;
+            Assert.That(run.CanLearnCurriculumNode("horizontal-cut"), Is.EqualTo(open));
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.EqualTo(open));
+            Assert.That(run.Curriculum.GetState("horizontal-cut"),
+                Is.EqualTo(open ? CurriculumNodeState.Completed : CurriculumNodeState.Available));
+            Assert.That(run.CurriculumPoints, Is.EqualTo(open ? points - 1 : points));
         }
 
         [Test]
-        public void InvalidSelections_ChangeNothing()
+        public void Learning_SpendsTheCostAndCompletesAtOnce_AndShortPointsAreRefused()
+        {
+            var run = new CampaignRun();
+            Complete(run, "horizontal-cut", "preparation", "advance", "quick-draw");
+            Assert.That(run.CurriculumPoints, Is.Zero, "Complete earns exactly what each node costs.");
+            Earn(run, 1);
+            Assert.That(run.Curriculum.GetState("esquive"), Is.EqualTo(CurriculumNodeState.Available));
+            Assert.That(run.Curriculum.Tree.Find("esquive").Cost, Is.EqualTo(2));
+            Assert.That(run.IsCurriculumNodeAffordable("esquive"), Is.False);
+            Assert.That(run.CanLearnCurriculumNode("esquive"), Is.False);
+            Assert.That(run.TryLearnCurriculumNode("esquive"), Is.False, "1 point is short of 2.");
+            Assert.That(run.CurriculumPoints, Is.EqualTo(1), "A refusal spends nothing.");
+            Assert.That(run.TryLearnCurriculumNode("diagonal-cut"), Is.True, "A 1-point node is affordable.");
+            Assert.That(run.CurriculumPoints, Is.Zero);
+
+            Earn(run, 2);
+            Assert.That(run.TryLearnCurriculumNode("esquive"), Is.True);
+            Assert.That(run.CurriculumPoints, Is.Zero);
+            Assert.That(run.Curriculum.IsCompleted("esquive"), Is.True, "Learned at once, no battle needed.");
+            Assert.That(run.Curriculum.LastCompleted.Id, Is.EqualTo("esquive"));
+            Assert.That(run.OwnedSkills.Any(owned => owned.SkillId == 54), Is.True);
+            Assert.That(run.IsSkillEquipped(54), Is.False, "Owned, not equipped.");
+            Assert.That(run.HasLoadoutChanges, Is.False);
+        }
+
+        [Test]
+        public void InvalidLearning_ChangesNothing()
         {
             var run = new CampaignRun();
             Complete(run, "horizontal-cut", "preparation");
-            Assert.That(run.TrySelectCurriculumNode("advance"), Is.True);
-            foreach (string id in new[] { null, "", "no-such-node", "horizontal-cut", "advance", "vital-thrust", "one-stroke" })
+            Earn(run, 10);
+            foreach (string id in new[] { null, "", "no-such-node", "horizontal-cut", "vital-thrust", "estocada", "one-stroke" })
             {
-                Assert.That(run.Curriculum.CanSelect(id), Is.False, id ?? "null");
-                Assert.That(run.TrySelectCurriculumNode(id), Is.False, id ?? "null");
-                Assert.That(run.Curriculum.Active.Id, Is.EqualTo("advance"), id ?? "null");
-                Assert.That(run.Curriculum.ActiveBattles, Is.Zero, id ?? "null");
+                Assert.That(run.CanLearnCurriculumNode(id), Is.False, id ?? "null");
+                Assert.That(run.IsCurriculumNodeAffordable(id), Is.False, id ?? "null");
+                Assert.That(run.TryLearnCurriculumNode(id), Is.False, id ?? "null");
+                Assert.That(run.CurriculumPoints, Is.EqualTo(10), id ?? "null");
             }
             CollectionAssert.AreEqual(new[] { "horizontal-cut", "preparation" }, run.Curriculum.Completed);
             Assert.That(run.Curriculum.IsCompleted(null), Is.False);
@@ -277,29 +296,24 @@ namespace TurnLimbo.Core.Tests
             Assert.That(curriculum.GetState("right"), Is.EqualTo(CurriculumNodeState.Available));
             Assert.That(curriculum.Tree.AreExclusive("right", "left"), Is.True);
 
-            // Choosing one side is not a commitment until it is completed.
-            Assert.That(run.TrySelectCurriculumNode("left"), Is.True);
-            Assert.That(curriculum.GetState("right"), Is.EqualTo(CurriculumNodeState.Available));
-            Assert.That(curriculum.IsExcluded("right"), Is.False);
-            FinishBattle(run, DuelMatchOutcome.PlayerVictory);
+            Earn(run, 2);
+            Assert.That(run.AffordableCurriculumNodeCount, Is.EqualTo(3), "Both sides are affordable until one is learned.");
+            Assert.That(run.TryLearnCurriculumNode("left"), Is.True);
 
             Assert.That(curriculum.GetState("left"), Is.EqualTo(CurriculumNodeState.Completed));
             Assert.That(curriculum.IsExcluded("left"), Is.False);
             Assert.That(curriculum.GetState("right"), Is.EqualTo(CurriculumNodeState.Excluded));
             Assert.That(curriculum.IsExcluded("right"), Is.True);
             Assert.That(curriculum.ArePrerequisitesMet("right"), Is.True, "Only the exclusive pair closes it.");
-            Assert.That(curriculum.CanSelect("right"), Is.False);
-            Assert.That(run.TrySelectCurriculumNode("right"), Is.False);
-            Assert.That(curriculum.Active, Is.Null);
+            Assert.That(run.IsCurriculumNodeAffordable("right"), Is.False, "A closed node is never affordable.");
+            Assert.That(run.TryLearnCurriculumNode("right"), Is.False);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(1));
             Assert.That(curriculum.GetState("other"), Is.EqualTo(CurriculumNodeState.Available), "Other nodes are untouched.");
 
             CampaignSave save = run.CaptureSave();
             Assert.That(new CampaignRun(tree).TryRestore(save, out string error), Is.True, error);
-            var both = new CampaignSave(0, new int[0], new[] { "root", "left", "right" }, null, 0, save.Loadout);
+            var both = new CampaignSave(0, new int[0], new[] { "root", "left", "right" }, 0, save.Loadout);
             Assert.That(new CampaignRun(tree).TryRestore(both, out error), Is.False);
-            StringAssert.Contains("right", error);
-            var excludedActive = new CampaignSave(0, new int[0], new[] { "root", "left" }, "right", 0, save.Loadout);
-            Assert.That(new CampaignRun(tree).TryRestore(excludedActive, out error), Is.False);
             StringAssert.Contains("right", error);
 
             Assert.That(run.TryResetCurriculum(), Is.True);
@@ -368,73 +382,27 @@ namespace TurnLimbo.Core.Tests
             Assert.That(whetstone.OwnedSkills.Any(owned => owned.SkillId == 59), Is.False, "갈아내기 is never owned.");
         }
 
-        [TestCase(DuelMatchOutcome.PlayerVictory)]
-        [TestCase(DuelMatchOutcome.EnemyVictory)]
-        [TestCase(DuelMatchOutcome.Draw)]
-        public void AnyFinishedBattle_CountsTowardTheNodeInProgress(DuelMatchOutcome outcome)
-        {
-            var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
-            Assert.That(run.TryCompleteBattle(outcome), Is.True);
-
-            Assert.That(run.Curriculum.IsCompleted("horizontal-cut"), Is.True);
-            Assert.That(run.Curriculum.Active, Is.Null);
-            Assert.That(run.LastCompletedCurriculumNode, Is.SameAs(run.Curriculum.Tree.Find("horizontal-cut")));
-            Assert.That(run.OwnedSkills.Any(owned => owned.SkillId == 14), Is.True);
-            Assert.That(run.IsStageCleared(1), Is.EqualTo(outcome == DuelMatchOutcome.PlayerVictory), "Only a victory clears the stage.");
-
-            // The note belongs to the battle that completed the node.
-            Assert.That(run.ReturnToLobby(), Is.True);
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
-            Assert.That(run.TryCompleteBattle(outcome), Is.True);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null, "Nothing was in progress.");
-        }
-
         [Test]
-        public void AbandonedOrUnfinishedBattle_DoesNotCount()
-        {
-            var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.InProgress), Is.False);
-            Assert.That(run.TryCompleteBattle((DuelMatchOutcome)999), Is.False);
-            Assert.That(run.TryAbandonBattle(), Is.True);
-            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
-            Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
-            Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
-
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
-            Assert.That(run.Curriculum.IsCompleted("horizontal-cut"), Is.True);
-        }
-
-        [Test]
-        public void BattleWithoutANodeInProgress_ChangesNoCurriculum()
+        public void Battles_NeverCompleteANodeByThemselves()
         {
             var run = new CampaignRun();
             FinishBattle(run, DuelMatchOutcome.PlayerVictory);
             FinishBattle(run, DuelMatchOutcome.EnemyVictory);
-            Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-            Assert.That(run.Curriculum.Active, Is.Null);
-            Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(5));
+            Assert.That(run.Curriculum.CompletedCount, Is.Zero, "Points wait to be spent.");
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "The first stage clear grants 탐색 independently of the curriculum.");
             Assert.That(run.Curriculum.GetState("horizontal-cut"), Is.EqualTo(CurriculumNodeState.Available));
             Assert.That(run.TryResetCurriculum(), Is.False, "There is nothing to reset.");
+            Assert.That(run.CurriculumPoints, Is.EqualTo(5));
         }
 
         [Test]
         public void Completion_GrantsTheCatalogSkillWithoutEquippingIt()
         {
             var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
 
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(11), "The curriculum skill and first-clear skill are separate rewards.");
             CampaignOwnedSkill granted = run.OwnedSkills.Single(owned => owned.SkillId == 14);
@@ -465,13 +433,15 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TrySaveLoadout(), Is.True);
             CollectionAssert.AreEqual(new[] { 14, 15, 10 }, EquippedIds(run, 0));
             CollectionAssert.AreEqual(new[] { 5, 12, 9 }, EquippedIds(run, 2));
-            Assert.That(run.TrySelectCurriculumNode("vital-thrust"), Is.True);
+            Earn(run, 1);
             Assert.That(run.TryUnequipSkill(3), Is.True);
+            Assert.That(run.CurriculumRefund, Is.EqualTo(4), "Four 1-point nodes.");
 
             Assert.That(run.TryResetCurriculum(), Is.True);
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-            Assert.That(run.Curriculum.Active, Is.Null);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
+            Assert.That(run.Curriculum.LastCompleted, Is.Null);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(5), "The spent 4 come back on top of the unspent 1.");
+            Assert.That(run.CurriculumRefund, Is.Zero);
             CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 }, run.OwnedSkills.Select(owned => owned.SkillId));
             CollectionAssert.AreEqual(new[] { 1, 2, 7 }, EquippedIds(run, 0), "An emptied lane gets its starting skills back in order.");
             CollectionAssert.AreEqual(new[] { 3, 4, 8 }, EquippedIds(run, 1));
@@ -486,21 +456,25 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.HasLoadoutChanges, Is.False);
             Assert.That(run.CanStartStage(1), Is.True);
             Assert.That(run.TryResetCurriculum(), Is.False, "Nothing is left to reset.");
+            Assert.That(run.CurriculumPoints, Is.EqualTo(5), "A refused reset refunds nothing.");
 
             Assert.That(run.Curriculum.GetState("horizontal-cut"), Is.EqualTo(CurriculumNodeState.Available));
             Assert.That(run.Curriculum.GetState("preparation"), Is.EqualTo(CurriculumNodeState.Locked));
-            Complete(run, "horizontal-cut");
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True, "The refund buys it again.");
             Assert.That(run.OwnedSkills.Any(owned => owned.SkillId == 14), Is.True, "A reset curriculum can be taken again.");
         }
 
         [Test]
-        public void Reset_ClearsANodeInProgressEvenWithNothingCompleted()
+        public void Reset_NeedsACompletedNode()
         {
             var run = new CampaignRun();
             Assert.That(run.TryResetCurriculum(), Is.False);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Earn(run, 3);
+            Assert.That(run.TryResetCurriculum(), Is.False, "Unspent points alone are nothing to reset.");
+            Assert.That(run.CurriculumPoints, Is.EqualTo(3));
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryResetCurriculum(), Is.True);
-            Assert.That(run.Curriculum.Active, Is.Null);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(3));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
         }
 
@@ -514,21 +488,20 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("preparation"), Is.True);
             EnterPhase(run, phase);
             string[] completed = run.Curriculum.Completed.ToArray();
-            string active = run.Curriculum.Active?.Id;
+            int points = run.CurriculumPoints;
             int owned = run.OwnedSkills.Count;
 
             Assert.That(run.TryResetCurriculum(), Is.False);
             CollectionAssert.AreEqual(completed, run.Curriculum.Completed);
-            Assert.That(run.Curriculum.Active?.Id, Is.EqualTo(active));
+            Assert.That(run.CurriculumPoints, Is.EqualTo(points), "No refund either.");
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(owned));
             CollectionAssert.AreEqual(new[] { 1, 2, 14 }, EquippedIds(run, 0));
             if (phase == CampaignPhase.Battle)
             {
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.Curriculum.IsCompleted("preparation"), Is.True, "The battle still counts afterwards.");
+                Assert.That(run.CurriculumPoints, Is.EqualTo(points + 4), "The battle still earns afterwards.");
             }
         }
 
@@ -558,10 +531,10 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void NodeConstructor_RejectsBadIdsTitlesSkillsAndPace()
+        public void NodeConstructor_RejectsBadIdsTitlesSkillsAndCosts()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() => Node("a", 1, battles: 0));
-            Assert.Throws<ArgumentOutOfRangeException>(() => Node("a", 1, battles: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => Node("a", 1, cost: 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => Node("a", 1, cost: -1));
             Assert.Throws<ArgumentException>(() => Node(null, 1));
             Assert.Throws<ArgumentException>(() => Node(" ", 1));
             Assert.Throws<ArgumentException>(() => Node("two words", 1), "Ids are single words in the save file.");
@@ -573,8 +546,9 @@ namespace TurnLimbo.Core.Tests
             Assert.Throws<ArgumentException>(() => new CurriculumNode("a", null, CurriculumBranch.Retraction, 0f, 0, new int[0]));
             Assert.Throws<ArgumentNullException>(() => new CurriculumNode("a", "A", CurriculumBranch.Retraction, 0f, 0, null));
             Assert.Throws<ArgumentNullException>(() => new CurriculumNode("a", null, CurriculumBranch.Retraction, 0f, 0, null));
-            CurriculumNode slow = Node("a", 1, battles: 3);
-            Assert.That(slow.Battles, Is.EqualTo(3));
+            CurriculumNode slow = Node("a", 1, cost: 3);
+            Assert.That(slow.Cost, Is.EqualTo(3));
+            Assert.That(Node("b", 2).Cost, Is.EqualTo(1), "One point unless told otherwise.");
             Assert.That(slow.Description, Is.Empty);
             Assert.That(slow.RequiresAll, Is.Empty);
             Assert.That(slow.RequiresAny, Is.Empty);
@@ -586,26 +560,28 @@ namespace TurnLimbo.Core.Tests
         {
             var run = new CampaignRun();
             CurriculumTree tree = run.Curriculum.Tree;
-            Assert.That(run.Curriculum.HasSelectableNode, Is.True);
-            Assert.That(run.Curriculum.IsFinished, Is.False, "Nothing is in progress yet, but plenty is left to choose.");
+            Assert.That(run.Curriculum.HasAvailableNode, Is.True);
+            Assert.That(run.Curriculum.IsFinished, Is.False, "Plenty is left to learn.");
             // Tree order lists every prerequisite first.
             Complete(run, tree.Nodes.Take(tree.Nodes.Count - 1).Select(node => node.Id).ToArray());
             Assert.That(run.Curriculum.IsFinished, Is.False);
-            Assert.That(run.TrySelectCurriculumNode(tree.Nodes.Last().Id), Is.True);
-            Assert.That(run.Curriculum.IsFinished, Is.False, "A node in progress is not finished.");
-            FinishBattle(run, DuelMatchOutcome.PlayerVictory);
+            Complete(run, tree.Nodes.Last().Id);
             Assert.That(run.Curriculum.CompletedCount, Is.EqualTo(tree.Nodes.Count), "No exclusive pair closes any node.");
-            Assert.That(run.Curriculum.HasSelectableNode, Is.False);
+            Assert.That(run.Curriculum.HasAvailableNode, Is.False);
             Assert.That(run.Curriculum.IsFinished, Is.True);
+            Assert.That(run.AffordableCurriculumNodeCount, Is.Zero);
+            Assert.That(run.CurriculumPointsToNextNode, Is.Zero, "No next node.");
+            Assert.That(run.CurriculumRefund, Is.EqualTo(33));
             Assert.That(tree.Nodes.All(node => run.Curriculum.GetState(node.Id) == CurriculumNodeState.Completed), Is.True);
             Assert.That(run.CurriculumStats.Health, Is.EqualTo(10), "붕괴 and 순환 capstones.");
             Assert.That(run.CurriculumStats.PlanningSeconds, Is.EqualTo(2), "판짜기 capstone.");
             Assert.That(run.CreateDuel().Player.MaxHealth, Is.EqualTo(110));
-            Assert.That(run.ReturnToLobby(), Is.True);
+            int unspent = run.CurriculumPoints;
             Assert.That(run.TryResetCurriculum(), Is.True);
             Assert.That(run.Curriculum.IsFinished, Is.False);
-            Assert.That(run.Curriculum.HasSelectableNode, Is.True);
+            Assert.That(run.Curriculum.HasAvailableNode, Is.True);
             Assert.That(run.CurriculumStats.IsEmpty, Is.True);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(unspent + 33), "Everything spent comes back.");
         }
 
         [Test]
@@ -630,50 +606,25 @@ namespace TurnLimbo.Core.Tests
             Assert.That(tree.Find("missing"), Is.Null);
         }
 
-        [Test]
-        public void BattleResult_CarriesCurriculumProgressThatMissionsCannotHave()
-        {
-            CurriculumNode done = CampaignCurriculum.Default.Find("horizontal-cut");
-            CurriculumNode next = CampaignCurriculum.Default.Find("diagonal-cut");
-            var result = new BattleResult(DuelMatchOutcome.EnemyVictory, false, 1, "숲길 입구",
-                0, 0, 3, 0, 20, false, 0, false, done, next, 0);
-            Assert.That(result.CompletedCurriculumNode, Is.SameAs(done));
-            Assert.That(result.ActiveCurriculumNode, Is.SameAs(next));
-            Assert.That(result.ActiveCurriculumBattles, Is.Zero);
-
-            var plain = new BattleResult(DuelMatchOutcome.PlayerVictory, true, 2, "맞서는 검",
-                0, 0, 3, 100, 0, false, 0, true);
-            Assert.That(plain.CompletedCurriculumNode, Is.Null);
-            Assert.That(plain.ActiveCurriculumNode, Is.Null);
-            Assert.That(plain.ActiveCurriculumBattles, Is.Zero);
-
-            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, true, 2, "맞서는 검",
-                0, 0, 3, 100, 0, false, 0, true, completedCurriculumNode: done));
-            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, true, 2, "맞서는 검",
-                0, 0, 3, 100, 0, false, 0, true, activeCurriculumNode: next));
-            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, true, 2, "맞서는 검",
-                0, 0, 3, 100, 0, false, 0, true, curriculumFinished: true));
-            Assert.That(plain.CurriculumFinished, Is.False);
-            Assert.That(new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 30, 30, 3, 90, 0, false, 0, true,
-                done, curriculumFinished: true).CurriculumFinished, Is.True);
-            Assert.Throws<ArgumentOutOfRangeException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
-                0, 0, 3, 10, 10, false, 0, false, activeCurriculumBattles: 1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
-                0, 0, 3, 10, 10, false, 0, false, activeCurriculumNode: next, activeCurriculumBattles: -1));
-            Assert.Throws<ArgumentOutOfRangeException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
-                0, 0, 3, 10, 10, false, 0, false, activeCurriculumNode: next, activeCurriculumBattles: next.Battles));
-        }
-
-        /// <summary>Selects each node in turn and finishes one lost battle of stage one for it, so the stages and the
-        /// currency stay as they were. Ends in the lobby.</summary>
+        /// <summary>For each node in turn, earns what is missing of its cost with lost battles of stage one (a point
+        /// each, so the stages and the currency stay as they were) and learns it. Ends in the lobby with no point left
+        /// over from these battles.</summary>
         private static void Complete(CampaignRun run, params string[] nodeIds)
         {
             foreach (string id in nodeIds)
             {
-                Assert.That(run.TrySelectCurriculumNode(id), Is.True, id);
-                FinishBattle(run, DuelMatchOutcome.EnemyVictory);
+                CurriculumNode node = run.Curriculum.Tree.Find(id);
+                Assert.That(node, Is.Not.Null, id);
+                Earn(run, Math.Max(0, node.Cost - run.CurriculumPoints));
+                Assert.That(run.TryLearnCurriculumNode(id), Is.True, id);
                 Assert.That(run.Curriculum.IsCompleted(id), Is.True, id);
             }
+        }
+
+        /// <summary>Earns the points with lost battles of stage one, a point each. Ends in the lobby.</summary>
+        private static void Earn(CampaignRun run, int points)
+        {
+            for (int i = 0; i < points; i++) FinishBattle(run, DuelMatchOutcome.EnemyVictory);
         }
 
         private static void FinishBattle(CampaignRun run, DuelMatchOutcome outcome)
@@ -681,13 +632,6 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(outcome), Is.True);
             Assert.That(run.ReturnToLobby(), Is.True);
-        }
-
-        private static CampaignRun RunInPhase(CampaignPhase phase)
-        {
-            var run = new CampaignRun();
-            EnterPhase(run, phase);
-            return run;
         }
 
         private static void EnterPhase(CampaignRun run, CampaignPhase phase)
@@ -715,8 +659,8 @@ namespace TurnLimbo.Core.Tests
         }
 
         private static CurriculumNode Node(string id, int skill, string[] all = null, string[] any = null,
-            string[] exclusive = null, int battles = 1)
-            => new CurriculumNode(id, id, CurriculumBranch.Circulation, 0f, 0, new[] { skill }, all, any, exclusive, battles);
+            string[] exclusive = null, int cost = 1)
+            => new CurriculumNode(id, id, CurriculumBranch.Circulation, 0f, 0, new[] { skill }, all, any, exclusive, cost);
 
         private static int[] EquippedIds(CampaignRun run, int laneIndex)
             => run.GetEquippedLane(laneIndex).Select(owned => owned.SkillId).ToArray();

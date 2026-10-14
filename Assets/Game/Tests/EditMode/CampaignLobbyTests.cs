@@ -164,14 +164,14 @@ namespace TurnLimbo.Core.Tests
         public void LobbyCurriculum_GrantsOwnedSkillButRequiresRoomAndExplicitEquip()
         {
             var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             WinStage(run, 1);
             run.ReturnToLobby();
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
             Assert.That(run.IsSkillEquipped(14), Is.False);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.TryEquipSkill(14), Is.False);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False, "A completed node is not taken again.");
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.False, "A completed node is not taken again.");
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
@@ -241,25 +241,27 @@ namespace TurnLimbo.Core.Tests
         public void Battle_BlocksCurriculumEquipmentOrderAndLobbyReturnUntilAbandonedOrFinished()
         {
             var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             WinStage(run, 1);
             run.ReturnToLobby();
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("preparation"), Is.True);
+            Assert.That(run.IsCurriculumNodeAffordable("preparation"), Is.True);
+            int points = run.CurriculumPoints;
             Assert.That(run.TryStartStage(2), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.False);
             Assert.That(run.TryUnequipSkill(1), Is.False);
             Assert.That(run.TryMoveEquippedSkill(1, 1), Is.False);
-            Assert.That(run.TrySelectCurriculumNode("advance"), Is.False);
+            Assert.That(run.CanLearnCurriculumNode("preparation"), Is.False);
+            Assert.That(run.TryLearnCurriculumNode("preparation"), Is.False);
             Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.ReturnToLobby(), Is.False);
-            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("preparation"));
+            Assert.That(run.Curriculum.IsCompleted("preparation"), Is.False);
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
             CollectionAssert.AreEqual(new[] { 1, 2, 14 }, EquippedIds(run, 0));
             Assert.That(run.TryAbandonBattle(), Is.True);
-            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("preparation"), "An abandoned battle does not count.");
+            Assert.That(run.CurriculumPoints, Is.EqualTo(points), "An abandoned battle earns nothing.");
             Assert.That(run.TryUnequipSkill(14), Is.True);
             Assert.That(run.TryEquipSkill(7), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);
@@ -284,18 +286,18 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.ClearedStageCount, Is.EqualTo(8));
             Assert.That(run.HighestUnlockedStage, Is.EqualTo(8));
             Assert.That(run.ReturnToLobby(), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True, "The curriculum stays open after the last stage.");
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True, "The curriculum stays open after the last stage.");
         }
 
         [Test]
         public void Reset_ReturnsToFreshLobbyAndDiscardsClearHistoryEquipmentChangesAndCurriculum()
         {
             var run = new CampaignRun();
-            run.TrySelectCurriculumNode("horizontal-cut");
             WinStage(run, 1);
             WinStage(run, 2);
             run.ReturnToLobby();
-            run.TrySelectCurriculumNode("preparation");
+            run.TryLearnCurriculumNode("horizontal-cut");
+            run.TryLearnCurriculumNode("preparation");
             run.TryUnequipSkill(7);
             run.TryEquipSkill(14);
             run.TryMoveEquippedSkill(14, -1);
@@ -309,7 +311,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-            Assert.That(run.Curriculum.Active, Is.Null);
+            Assert.That(run.CurriculumPoints, Is.Zero);
             Assert.That(run.HasLoadoutChanges, Is.False);
             Assert.That(run.CanSaveLoadout, Is.True);
             Assert.That(run.IsSkillEquipped(14), Is.False);

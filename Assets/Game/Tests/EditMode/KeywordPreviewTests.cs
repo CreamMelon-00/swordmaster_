@@ -37,7 +37,7 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(LegacyKeywordPreview.QueueMark(duel, true, 0, true).IsEmpty, Is.True, "A carrier has no mark of its own.");
                 Assert.That(LegacyKeywordPreview.LaneLine(duel, duel.GetLane(E)[0]), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn),
                     "A second copy feeds nothing.");
-                Assert.That(LegacyKeywordPreview.Note(duel, duel.GetLane(E)[0]), Is.EqualTo("순환 +1 · 이번 턴 사용함 (같은 기술은 한 번)"));
+                Assert.That(LegacyKeywordPreview.Note(duel, duel.GetLane(E)[0]), Is.EqualTo("순환 +1 · 턴당 1회 · 사용함"));
                 Assert.That(LegacyKeywordPreview.CycleFeedCue(duel.PlayerQueue, duel.CycleUses), Is.EqualTo("순환 +1 · 시험 901·시험 902"));
                 Assert.That(LegacyKeywordPreview.FirstCycleFeeder(duel.PlayerQueue).Id, Is.EqualTo(KeywordSheet.Feeder));
                 Assert.That((duel.CycleUses(KeywordSheet.CycleQ), duel.CycleUses(KeywordSheet.CycleW)), Is.EqualTo((0, 0)),
@@ -91,7 +91,7 @@ namespace TurnLimbo.Core.Tests
                 Assert.That((mark.Text, mark.Kind, mark.Spent), Is.EqualTo(("숨 +8", LegacyKeywordMarkKind.AheadPower, false)));
                 Assert.That(LegacyKeywordPreview.AheadPowerCue(duel.PlayerQueue, 2), Is.EqualTo("숨고르기 2 · 위력 +8"));
                 Assert.That(LegacyKeywordPreview.LaneLine(duel, duel.GetLane(E)[0]), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn));
-                Assert.That(LegacyKeywordPreview.Note(duel, duel.GetLane(E)[0]), Is.EqualTo("숨고르기마다 위력 · 이번 턴 사용함 (둘째 장 +0)"));
+                Assert.That(LegacyKeywordPreview.Note(duel, duel.GetLane(E)[0]), Is.EqualTo("숨고르기마다 위력 · 턴당 1회 · 사용함"));
 
                 KeywordLinkTests.Queue(duel, E);
                 mark = LegacyKeywordPreview.QueueMark(duel, true, 3, true);
@@ -132,7 +132,7 @@ namespace TurnLimbo.Core.Tests
                 Assert.That((mark.Text, mark.Kind), Is.EqualTo((LegacyKeywordPreview.AutoBreathTag, LegacyKeywordMarkKind.AutoBreath)));
                 Assert.That(LegacyKeywordPreview.QueueMark(duel, true, 0, true).IsEmpty, Is.True, "The tag rides the breath, not the guard.");
                 Assert.That(LegacyKeywordPreview.LaneLine(duel, duel.GetLane(Q)[0]), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn));
-                Assert.That(LegacyKeywordPreview.Note(duel, duel.GetLane(Q)[0]), Is.EqualTo("숨고르기 +1 · 이번 턴 사용함"));
+                Assert.That(LegacyKeywordPreview.Note(duel, duel.GetLane(Q)[0]), Is.EqualTo("숨고르기 +1 · 턴당 1회 · 사용함"));
                 Assert.That(duel.TryQueueBreath(), Is.True);
                 Assert.That(LegacyKeywordPreview.QueueMark(duel, true, 2, true).IsEmpty, Is.True, "A breath by hand is not tagged.");
                 Assert.That(((ILegacyDuelView)duel).EnemyAutoBreathSlotIndex, Is.EqualTo(-1), "The campaign's enemy never has one.");

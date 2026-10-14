@@ -9,14 +9,14 @@ namespace TurnLimbo.Runtime.Campaign
     /// the three keyword schools (순환, 붕괴, 판짜기); a <see cref="Bridge"/> node joins two neighbouring schools.</summary>
     public enum CurriculumBranch { Foundation, Circulation, Collapse, Retraction, Bridge }
 
+    /// <summary>A node's place in the tree. Whether an available node can be paid for now is not a state: it follows
+    /// from the 수련 점수 balance (<see cref="CurriculumProgress.IsAffordable"/>).</summary>
     public enum CurriculumNodeState
     {
         /// <summary>Its prerequisites are not complete yet.</summary>
         Locked,
-        /// <summary>It can be chosen as the node in progress.</summary>
+        /// <summary>Its prerequisites are complete, so it can be learned once the balance covers its cost.</summary>
         Available,
-        /// <summary>It is the node in progress.</summary>
-        Active,
         Completed,
         /// <summary>A mutually exclusive node was completed, so this one is closed until a reset.</summary>
         Excluded,
@@ -54,8 +54,8 @@ namespace TurnLimbo.Runtime.Campaign
                 checked(left.ActCapacity + right.ActCapacity), checked(left.PlanningSeconds + right.PlanningSeconds));
     }
 
-    /// <summary>One curriculum node, like a HOI4 national focus: it takes <see cref="Battles"/> finished battles
-    /// while it is the node in progress, and completing it grants its skills and permanent stat bonuses.</summary>
+    /// <summary>One curriculum node. It is learned at once by spending <see cref="Cost"/> 수련 점수 (earned by battles and
+    /// story missions, <see cref="CurriculumPointRules"/>), which grants its skills and permanent stat bonuses.</summary>
     public sealed class CurriculumNode
     {
         private readonly SkillNameText title, description;
@@ -65,14 +65,14 @@ namespace TurnLimbo.Runtime.Campaign
         /// <param name="description">May hold <see cref="LegacySkillNames"/> tokens, formatted when read.</param>
         public CurriculumNode(string id, string title, CurriculumBranch branch, float column, int row,
             IEnumerable<int> skillIds, IEnumerable<string> requiresAll = null, IEnumerable<string> requiresAny = null,
-            IEnumerable<string> exclusiveWith = null, int battles = 1, string description = null,
+            IEnumerable<string> exclusiveWith = null, int cost = 1, string description = null,
             CurriculumStatReward statReward = default)
         {
             if (string.IsNullOrWhiteSpace(id) || HasWhiteSpace(id))
                 throw new ArgumentException("A curriculum node id must be one word.", nameof(id));
             if (title != null && string.IsNullOrWhiteSpace(title))
                 throw new ArgumentException("A curriculum node needs a title.", nameof(title));
-            if (battles < 1) throw new ArgumentOutOfRangeException(nameof(battles), "A node takes at least one battle.");
+            if (cost < 1) throw new ArgumentOutOfRangeException(nameof(cost), "A node costs at least one point.");
             Id = id;
             Branch = branch;
             Column = column;
@@ -86,7 +86,7 @@ namespace TurnLimbo.Runtime.Campaign
             RequiresAll = new List<string>(requiresAll ?? Array.Empty<string>()).AsReadOnly();
             RequiresAny = new List<string>(requiresAny ?? Array.Empty<string>()).AsReadOnly();
             ExclusiveWith = new List<string>(exclusiveWith ?? Array.Empty<string>()).AsReadOnly();
-            Battles = battles;
+            Cost = cost;
             this.title = new SkillNameText(title ?? LegacySkillNames.Token(SkillIds[0]));
             this.description = new SkillNameText(description);
         }
@@ -116,8 +116,9 @@ namespace TurnLimbo.Runtime.Campaign
         public IReadOnlyList<string> RequiresAny { get; }
         /// <summary>Completing any of these closes this node (and the reverse; the tree makes it symmetric).</summary>
         public IReadOnlyList<string> ExclusiveWith { get; }
-        /// <summary>Finished battles needed while this is the node in progress. Data, so the pace can change later.</summary>
-        public int Battles { get; }
+        /// <summary>The 수련 점수 learning this node spends (1 or more). Data on each node, so the author tunes it per node
+        /// (<see cref="CampaignCurriculum.Default"/>); a curriculum reset gives it back.</summary>
+        public int Cost { get; }
         public string Description => description.Value;
     }
 
@@ -204,8 +205,9 @@ namespace TurnLimbo.Runtime.Campaign
         }
     }
 
-    /// <summary>Progress through a curriculum: completed nodes in order, the one node in progress and the battles
-    /// it has absorbed. The owning <see cref="CampaignRun"/> performs every change so granted skills stay in step.</summary>
+    /// <summary>Progress through a curriculum: the completed nodes in the order they were learned. The 수련 점수 balance
+    /// that pays for them belongs to the owning <see cref="CampaignRun"/>, which performs every change so granted skills
+    /// stay in step; the affordability helpers here take a balance as an argument and change nothing.</summary>
     public sealed class CurriculumProgress
     {
         private readonly List<string> completed = new List<string>();
@@ -220,15 +222,13 @@ namespace TurnLimbo.Runtime.Campaign
         public CurriculumTree Tree { get; }
         /// <summary>Completed node ids in completion order.</summary>
         public IReadOnlyList<string> Completed { get; }
-        public CurriculumNode Active { get; private set; }
-        /// <summary>Finished battles counted toward <see cref="Active"/>.</summary>
-        public int ActiveBattles { get; private set; }
         public int CompletedCount => completed.Count;
 
         public bool IsCompleted(string id) => id != null && completedSet.Contains(id);
 
-        /// <summary>Whether some node can still be started. False once every node is completed or closed.</summary>
-        public bool HasSelectableNode
+        /// <summary>Whether some node can still be learned, whatever the balance. False once every node is completed or
+        /// closed.</summary>
+        public bool HasAvailableNode
         {
             get
             {
@@ -238,21 +238,66 @@ namespace TurnLimbo.Runtime.Campaign
             }
         }
 
-        /// <summary>No node in progress and none left to start: the curriculum is done until a reset.</summary>
-        public bool IsFinished => Active == null && !HasSelectableNode;
+        /// <summary>No node is left to learn: the curriculum is done until a reset.</summary>
+        public bool IsFinished => !HasAvailableNode;
 
-        /// <summary>The nodes that completing <paramref name="id"/> opened: those that can be chosen now (or are in
-        /// progress) and whose prerequisites hold only thanks to it, every "all" one naming it or no other "any" one
-        /// completed. Empty when <paramref name="id"/> is not completed. The tree's "새" tag and the result's
-        /// <c>새로 열린 과정</c> read it for the last completed node, so nothing is stored.</summary>
+        /// <summary>The 수련 점수 spent on the completed nodes: what a curriculum reset gives back.</summary>
+        public int SpentPoints
+        {
+            get
+            {
+                long total = 0;
+                foreach (string id in completed) total += Tree.Find(id)?.Cost ?? 0;
+                return total > int.MaxValue ? int.MaxValue : (int)total;
+            }
+        }
+
+        /// <summary>Whether the node is available and <paramref name="points"/> cover its cost.</summary>
+        public bool IsAffordable(string id, int points)
+        {
+            CurriculumNode node = Tree.Find(id);
+            return node != null && points >= node.Cost && GetState(id) == CurriculumNodeState.Available;
+        }
+
+        /// <summary>How many available nodes <paramref name="points"/> cover, each on its own (익힐 수 있는 과정 k개).</summary>
+        public int AffordableCount(int points)
+        {
+            int count = 0;
+            foreach (CurriculumNode node in Tree.Nodes)
+                if (IsAffordable(node.Id, points)) count++;
+            return count;
+        }
+
+        /// <summary>The points still missing for the cheapest available node (다음 과정까지 m점). Zero when some available
+        /// node is affordable already, and when none is available (<see cref="IsFinished"/>).</summary>
+        public int PointsToNext(int points)
+        {
+            int cheapest = int.MaxValue;
+            foreach (CurriculumNode node in Tree.Nodes)
+                if (node.Cost < cheapest && GetState(node.Id) == CurriculumNodeState.Available) cheapest = node.Cost;
+            return cheapest == int.MaxValue || points >= cheapest ? 0 : cheapest - points;
+        }
+
+        /// <summary>Whether going from <paramref name="before"/> to <paramref name="after"/> points made some available
+        /// node affordable that was not before: its cost is above the old balance and within the new one.</summary>
+        public bool BecameAffordable(int before, int after)
+        {
+            foreach (CurriculumNode node in Tree.Nodes)
+                if (node.Cost > before && node.Cost <= after && GetState(node.Id) == CurriculumNodeState.Available) return true;
+            return false;
+        }
+
+        /// <summary>The nodes that completing <paramref name="id"/> opened: those available now whose prerequisites hold
+        /// only thanks to it, every "all" one naming it or no other "any" one completed. Empty when <paramref name="id"/>
+        /// is not completed. The tree's "새" tag and the learning moment's <c>새로 열린 과정</c> read it for the last
+        /// completed node, so nothing is stored.</summary>
         public IReadOnlyList<CurriculumNode> OpenedBy(string id)
         {
             var opened = new List<CurriculumNode>();
             if (!IsCompleted(id)) return opened;
             foreach (CurriculumNode node in Tree.Nodes)
             {
-                CurriculumNodeState state = GetState(node.Id);
-                if (state != CurriculumNodeState.Available && state != CurriculumNodeState.Active) continue;
+                if (GetState(node.Id) != CurriculumNodeState.Available) continue;
                 bool needsAll = false, anyNamed = false, anyOther = false;
                 foreach (string required in node.RequiresAll)
                     if (string.Equals(required, id, StringComparison.Ordinal)) needsAll = true;
@@ -293,83 +338,42 @@ namespace TurnLimbo.Runtime.Campaign
         {
             if (Tree.Find(id) == null) throw new ArgumentException($"Unknown curriculum node '{id}'.", nameof(id));
             if (IsCompleted(id)) return CurriculumNodeState.Completed;
-            if (Active != null && Active.Id == id) return CurriculumNodeState.Active;
             if (IsExcluded(id)) return CurriculumNodeState.Excluded;
             return ArePrerequisitesMet(id) ? CurriculumNodeState.Available : CurriculumNodeState.Locked;
         }
 
-        /// <summary>Whether the node can become the one in progress. Once a battle has counted toward the node in
-        /// progress it is fixed until it completes, as a started national focus is.</summary>
-        public bool CanSelect(string id)
-            => Tree.Find(id) != null && GetState(id) == CurriculumNodeState.Available && (Active == null || ActiveBattles == 0);
-
-        internal bool TrySelect(string id)
+        /// <summary>Completes a node; the caller has checked that it is available and taken its cost.</summary>
+        internal void Complete(string id)
         {
-            if (!CanSelect(id)) return false;
-            Active = Tree.Find(id);
-            ActiveBattles = 0;
-            return true;
-        }
-
-        /// <summary>The node <see cref="RecordBattle"/> would complete now, or null. Nothing changes.</summary>
-        internal CurriculumNode CompletesNext => Active != null && ActiveBattles + 1 >= Active.Battles ? Active : null;
-
-        /// <summary>Counts one finished battle. Returns the node it completed, or null (also when nothing is in progress).</summary>
-        internal CurriculumNode RecordBattle()
-        {
-            if (Active == null) return null;
-            ActiveBattles++;
-            if (ActiveBattles < Active.Battles) return null;
-            CurriculumNode done = Active;
-            completed.Add(done.Id);
-            completedSet.Add(done.Id);
-            Active = null;
-            ActiveBattles = 0;
-            return done;
+            completed.Add(id);
+            completedSet.Add(id);
         }
 
         internal void Reset()
         {
             completed.Clear();
             completedSet.Clear();
-            Active = null;
-            ActiveBattles = 0;
         }
 
         /// <summary>Checks saved progress against the tree without changing anything. Returns null when it is valid.</summary>
-        internal string Validate(IReadOnlyList<string> completedIds, string activeId, int activeBattles)
+        internal string Validate(IReadOnlyList<string> completedIds)
         {
             var probe = new CurriculumProgress(Tree);
             foreach (string id in completedIds)
             {
-                CurriculumNode node = Tree.Find(id);
-                if (node == null) return $"알 수 없는 커리큘럼 '{id}'이(가) 완료되어 있습니다.";
+                if (Tree.Find(id) == null) return $"알 수 없는 커리큘럼 '{id}'이(가) 완료되어 있습니다.";
                 if (probe.IsCompleted(id)) return $"커리큘럼 '{id}'이(가) 두 번 완료되어 있습니다.";
                 if (!probe.ArePrerequisitesMet(id)) return $"커리큘럼 '{id}'의 선행 과정이 먼저 완료되지 않았습니다.";
                 if (probe.IsExcluded(id)) return $"커리큘럼 '{id}'은(는) 이미 완료한 과정과 함께 고를 수 없습니다.";
-                probe.completed.Add(id);
-                probe.completedSet.Add(id);
+                probe.Complete(id);
             }
-            if (activeId == null) return activeBattles == 0 ? null : "진행 중인 커리큘럼 없이 전투 수가 남아 있습니다.";
-            CurriculumNode active = Tree.Find(activeId);
-            if (active == null) return $"알 수 없는 커리큘럼 '{activeId}'이(가) 진행 중입니다.";
-            if (probe.GetState(activeId) != CurriculumNodeState.Available)
-                return $"커리큘럼 '{activeId}'은(는) 지금 진행할 수 없는 과정입니다.";
-            if (activeBattles < 0 || activeBattles >= active.Battles)
-                return $"커리큘럼 '{activeId}'의 진행 전투 수 {activeBattles}은(는) 0~{active.Battles - 1} 범위 밖입니다.";
             return null;
         }
 
-        internal void Restore(IReadOnlyList<string> completedIds, string activeId, int activeBattles)
+        internal void Restore(IReadOnlyList<string> completedIds)
         {
             Reset();
-            foreach (string id in completedIds)
-            {
-                completed.Add(id);
-                completedSet.Add(id);
-            }
-            Active = Tree.Find(activeId);
-            ActiveBattles = Active == null ? 0 : activeBattles;
+            foreach (string id in completedIds) Complete(id);
         }
     }
 }

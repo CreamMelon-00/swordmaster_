@@ -480,19 +480,16 @@ namespace TurnLimbo.Presentation
             Destroy(glowTexture);
         }
 
-        /// <summary>The field's arrival notice after a battle completed a curriculum node (the field pickup's notice and
-        /// sound are its model): <c>커리큘럼 · 붕괴 과정 수료 · 새 기술 에스토카다(W 기교)</c> over where to equip it, or, for a
-        /// node that grants no skill, that the stats rose. <paramref name="course"/>: the node ends the trunk or a school.</summary>
-        public static string CurriculumNotice(CurriculumNode node, LegacySkill skill, bool laneOpen, bool course)
-        {
-            if (node == null) throw new ArgumentNullException(nameof(node));
-            string head = "커리큘럼 · " + (course ? CampaignCurriculumHud.BranchName(node.Branch) + " 과정 수료" : node.Title + " 완료");
-            if (skill == null) return head + "\n능력치가 올랐습니다.";
-            return laneOpen
-                ? $"{head} · 새 기술 {skill.Name}({SkillLaneStyle.Key(skill.LaneIndex)} {SkillLaneStyle.Name(skill.LaneIndex)})\n" +
-                  "Esc 메뉴의 편성에서 장착할 수 있습니다."
-                : $"{head} · 새 기술 {skill.Name}\n이 기술의 열이 열리면 편성할 수 있습니다.";
-        }
+        /// <summary>The field's arrival notice after a battle whose 수련 점수 newly cover a curriculum node
+        /// (<see cref="BattleResult.CurriculumNewlyAffordable"/>, Docs/Curriculum.md): nodes are learned in
+        /// the Esc menu's curriculum tab.</summary>
+        public const string CurriculumAffordableNotice = "익힐 수 있는 과정이 있습니다 · Esc 메뉴의 커리큘럼";
+
+        /// <summary>The field's arrival notice after the win that opened the curriculum (mission 8's first,
+        /// <see cref="BattleResult.CurriculumJustOpened"/>): the 수련 점수 banked until then, and where to
+        /// spend them.</summary>
+        public static string CurriculumOpenedNotice(int bank)
+            => $"커리큘럼이 열렸습니다 · 모아 둔 수련 점수 {bank}점\nEsc 메뉴의 커리큘럼에서 과정을 익힐 수 있습니다.";
 
         /// <summary>TEMPORARY field pickup test: the field notice for a technique just taken. It names the technique's
         /// lane only while that lane is open; a closed lane stays unnamed (StoryUnlocks.md: locked things do not show

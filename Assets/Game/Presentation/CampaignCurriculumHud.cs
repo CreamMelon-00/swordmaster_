@@ -8,26 +8,33 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>The curriculum page: a HOI4 focus-style tree on the left, the selected node on the right.
-    /// Clicking a node only selects it; one explicit button makes it the node in progress. CampaignRun owns the rules.
+    /// <summary>The curriculum page: a HOI4 focus-style tree on the left, the selected node on the right, and over them a
+    /// row with the reset, the 수련 점수 balance and what it buys. Clicking a node only selects it; one explicit button spends
+    /// its 수련 점수 and learns it at once. CampaignRun owns the rules.
     /// The tree scrolls vertically inside its frame (<c>Curriculum Viewport</c>, a <see cref="ScrollRect"/> taking the wheel,
     /// a drag anywhere on it, cards included, and a thin bar): the trunk on top, then the three schools, each on a band of its
     /// keyword's colour with its name at the band's upper left (the trunk and the bridges have neither). A bridge card sits
     /// on the line between two bands over a plate of both colours and carries a <c>다리</c> tag; a school's capstone carries
     /// <c>정수</c> and an ornate rim, and a gold border once completed, when its school's name turns its keyword's colour. The
     /// nodes the last completion opened carry <c>새</c> until they are looked at. A page opened with an empty view state (the
-    /// first time, or after the lobby's view was reset) scrolls to the node in progress, else a new node, else the first one
-    /// available, and shows it; a page rebuilt with the state of the last one keeps its selection and where it was
-    /// (<see cref="ViewState.TreeScroll"/>, across tabs and battles too). Selecting a card scrolls it into view.</summary>
+    /// first time, or after the lobby's view was reset) scrolls to a new node, else the first affordable one, else the first
+    /// one available, and shows it; a page rebuilt with the state of the last one keeps its selection and where it was
+    /// (<see cref="ViewState.TreeScroll"/>, across tabs and battles too). Selecting a card scrolls it into view.
+    /// Learning a node is its moment: the card swells under a brass flash (<see cref="CurriculumLearnPulse"/>), the banner
+    /// under the tree names the new technique, the course it finished and what it opened, and the page turns to the nodes it
+    /// opened (the lobby plays the lane's sound). Without a moment the banner says how 수련 점수 are earned.</summary>
     public sealed class CampaignCurriculumHud : IDisposable
     {
         public sealed class ViewState
         {
             public string SelectedNodeId { get; internal set; }
             /// <summary>The tree's scroll position (its content's anchored position) as the page last left it, so a rebuild
-            /// (진행, 초기화) stays put. Null until a page has been built, and after <see cref="Reset"/> or
+            /// (익히기, 초기화) stays put. Null until a page has been built, and after <see cref="Reset"/> or
             /// <see cref="Reopen"/>: the next page then scrolls to its focus.</summary>
             public Vector2? TreeScroll { get; internal set; }
+            /// <summary>A node just learned whose moment the next page plays (the lobby rebuilds its page on every change):
+            /// set by the learn button, or by the lobby for a learn it is told of. The page that plays it clears it.</summary>
+            internal string PendingLearn { get; set; }
             /// <summary>The completion the "새" tags below belong to (the last completed node's id).</summary>
             internal string NewTagsFrom { get; set; }
             /// <summary>The "새" nodes the player has looked at; they lose the tag.</summary>
@@ -49,6 +56,7 @@ namespace TurnLimbo.Presentation
             {
                 SelectedNodeId = null;
                 TreeScroll = null;
+                PendingLearn = null;
                 Openings++;
             }
         }
@@ -58,6 +66,8 @@ namespace TurnLimbo.Presentation
             public CurriculumNode Node;
             public Button Button;
             public Image Background, Icon, Marker;
+            /// <summary>The learning moment's brass flash over the card; made the first time it is learned on this page.</summary>
+            public Image Flash;
             public Text Title, Status, Tag;
             /// <summary>A completed capstone's gold border; null on other cards.</summary>
             public GameObject Seal;
@@ -79,19 +89,26 @@ namespace TurnLimbo.Presentation
         public const float ViewportInset = 8f;
         /// <summary>The card tags: a node the last completion opened, a bridge between two schools, a school's capstone.</summary>
         public const string NewTag = "새", BridgeTag = "다리", CapstoneTag = "정수";
-        private const float TreeWidth = 760f, TreeHeight = 544f, ColumnWidth = 123f, RowHeight = 168f;
+        /// <summary>The tree frame's height: the window under the top row, with the banner's room left under it.</summary>
+        public const float TreeHeight = 476f;
+        private const float TreeWidth = 760f, ColumnWidth = 123f, RowHeight = 168f;
         private const float FirstRowCentre = 124f, ContentFoot = 34f, BandLeft = 8f, BandHeadRoom = 40f, BandFoot = 12f;
         private const float BandAlpha = .13f, BridgeAlpha = .85f, BridgePad = 4f, SealWidth = 3f;
-        private static readonly Vector2 TreeCenter = new Vector2(-216f, -53f);
+        private const float BannerHeight = 64f, BannerGap = 8f, TopRowY = 246f;
+        // The frame's top stays under the top row (y 219); the banner sits under its foot.
+        private static readonly Vector2 TreeCenter = new Vector2(-216f, 219f - TreeHeight * .5f);
+        private static readonly Vector2 BannerCenter = new Vector2(TreeCenter.x, TreeCenter.y - TreeHeight * .5f - BannerGap - BannerHeight * .5f);
         private readonly RectTransform root, tree, viewport, content, detailFrame, detailSurface, detailRule;
         private readonly ScrollRect scroll;
         private readonly Dictionary<CurriculumBranch, Text> headings = new Dictionary<CurriculumBranch, Text>();
         private readonly HashSet<string> newNodes = new HashSet<string>(StringComparer.Ordinal);
         private readonly LegacyDuelArt art;
         private readonly CampaignRun run;
-        private readonly Action<string> select;
+        private readonly Action<string> learn;
         private readonly Action reset;
-        private readonly Text status, completedCount, detailName, purpose, requirement, exclusive, availability, actionCaption, resetCaption;
+        private readonly Text points, status, completedCount, detailName, purpose, requirement, exclusive, availability, actionCaption, resetCaption;
+        private readonly Text bannerTitle, bannerDetail;
+        private readonly Image banner, bannerAccent, bannerIconFrame, bannerIcon;
         private readonly SkillLaneBadge detailStyle;
         private readonly SkillInfoView detailInfo;
         private readonly Image detailIcon;
@@ -99,6 +116,8 @@ namespace TurnLimbo.Presentation
         private readonly List<NodeCard> cards = new List<NodeCard>();
         private readonly int opening;
         private bool disposed, resetArmed;
+        // The node whose learning moment this page shows in its banner; null for the resting banner.
+        private string learnedNodeId;
         private static Color Border => DuelVisualTheme.Border;
         private static Color Accent => DuelVisualTheme.Accent;
         private static Color Foreground => DuelVisualTheme.Foreground;
@@ -115,6 +134,8 @@ namespace TurnLimbo.Presentation
         public float MaximumScroll => disposed ? 0f : Mathf.Max(0f, content.sizeDelta.y - viewport.rect.height);
         /// <summary>Whether the node carries the "새" tag now.</summary>
         public bool IsNew(string id) => !disposed && newNodes.Contains(id);
+        /// <summary>The node whose learning moment the banner shows, or null while it says how points are earned.</summary>
+        public string LearnedNodeId => disposed ? null : learnedNodeId;
 
         /// <summary>Whether the node's whole card shows in the tree's window now.</summary>
         public bool IsNodeInView(string id)
@@ -126,24 +147,36 @@ namespace TurnLimbo.Presentation
         }
 
         public CampaignCurriculumHud(RectTransform parent, LegacyDuelArt art, CampaignRun run,
-            Action<string> select, Action reset, ViewState state = null)
+            Action<string> learn, Action reset, ViewState state = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
             this.run = run ?? throw new ArgumentNullException(nameof(run));
-            this.select = select;
+            this.learn = learn;
             this.reset = reset;
             State = state ?? new ViewState();
             opening = State.Openings;
             root = Rect("Curriculum Content", parent, Vector2.zero, Vector2.zero);
             Stretch(root);
 
-            resetButton = ActionButton("Curriculum Reset", root, "커리큘럼 초기화", new Vector2(-487f, 246f),
+            // The top row: the reset, the balance on its plate, what it buys now, and how much is done.
+            resetButton = ActionButton("Curriculum Reset", root, "커리큘럼 초기화", new Vector2(-487f, TopRowY),
                 new Vector2(220f, 42f), ResetClicked);
             resetCaption = resetButton.GetComponentInChildren<Text>();
-            status = Label("Curriculum Status", root, new Vector2(-180f, 246f), new Vector2(360f, 30f), 18, Accent);
-            completedCount = Label("Curriculum Completed Count", root, new Vector2(56f, 246f), new Vector2(216f, 30f),
+            // Armed, it says what the reset gives back on a second line.
+            Fit(resetCaption, 11, 20);
+            var plate = Panel("Curriculum Points Plate", root, new Vector2(-272f, TopRowY), new Vector2(188f, 44f),
+                DuelVisualTheme.RaisedSurface);
+            DuelVisualTheme.Frame(plate);
+            points = Label("Curriculum Points", plate.transform, Vector2.zero, new Vector2(176f, 40f), 24, Foreground,
+                TextAnchor.MiddleCenter);
+            points.fontStyle = FontStyle.Bold;
+            Fit(points, 16, 24);
+            status = Label("Curriculum Status", root, new Vector2(-64f, TopRowY), new Vector2(208f, 44f), 18, Accent);
+            Fit(status, 12, 18);
+            completedCount = Label("Curriculum Completed Count", root, new Vector2(106f, TopRowY), new Vector2(116f, 30f),
                 17, Muted, TextAnchor.MiddleRight);
+            Fit(completedCount, 12, 17);
 
             var treeFrame = Panel("Curriculum Tree", root, TreeCenter, new Vector2(TreeWidth, TreeHeight), DuelVisualTheme.Track);
             DuelVisualTheme.DressPanel(treeFrame);
@@ -179,6 +212,25 @@ namespace TurnLimbo.Presentation
             BuildConnectors();
             foreach (CurriculumNode node in run.Curriculum.Tree.Nodes) AddCard(node);
 
+            // The banner under the tree: a learning moment's technique on its lane's dye (the 2026-10-13 result row's
+            // icon, stripe and wording), or how 수련 점수 are earned.
+            banner = Panel("Curriculum Banner", root, BannerCenter, new Vector2(TreeWidth, BannerHeight), DuelVisualTheme.RaisedSurface);
+            DuelVisualTheme.Frame(banner);
+            bannerAccent = Panel("Curriculum Banner Accent", banner.transform, new Vector2(-TreeWidth * .5f + 2f, 0f),
+                new Vector2(4f, BannerHeight), Border);
+            bannerIconFrame = Panel("Curriculum Banner Icon Frame", banner.transform, new Vector2(-TreeWidth * .5f + 36f, 0f),
+                new Vector2(48f, 48f), Accent);
+            Panel("Curriculum Banner Icon Surface", bannerIconFrame.transform, Vector2.zero, new Vector2(44f, 44f), DuelVisualTheme.Surface);
+            bannerIcon = Panel("Curriculum Banner Icon", bannerIconFrame.transform, Vector2.zero, new Vector2(40f, 40f), Color.white);
+            bannerIcon.preserveAspect = true;
+            bannerTitle = Label("Curriculum Banner Title", banner.transform, Vector2.zero, new Vector2(TreeWidth - 92f, 26f), 19,
+                Accent);
+            Fit(bannerTitle, 13, 19);
+            bannerDetail = Label("Curriculum Banner Detail", banner.transform, Vector2.zero, new Vector2(TreeWidth - 92f, 24f), 16,
+                Foreground);
+            Fit(bannerDetail, 12, 16);
+            ShowRestingBanner();
+
             var detailBorder = Panel("Curriculum Selected Detail", root, new Vector2(423f, -50f), new Vector2(384f, 644f), Border);
             var detail = Panel("Curriculum Detail Surface", detailBorder.transform, Vector2.zero, new Vector2(380f, 640f), DuelVisualTheme.Paper);
             detailFrame = detailBorder.rectTransform;
@@ -202,13 +254,15 @@ namespace TurnLimbo.Presentation
             // Longer explanations shrink to stay within the two lines reserved for them.
             Fit(availability, 12, 17);
             detailName.color = purpose.color = requirement.color = exclusive.color = availability.color = DuelVisualTheme.Ink;
-            primaryAction = ActionButton("Curriculum Primary Action", detail.transform, "이 과정 진행", Vector2.zero,
-                new Vector2(334f, 50f), PerformSelect, true);
+            primaryAction = ActionButton("Curriculum Primary Action", detail.transform, "익히기", Vector2.zero,
+                new Vector2(334f, 50f), PerformLearn, true);
             actionCaption = primaryAction.GetComponentInChildren<Text>();
             Refresh();
             // A rebuild stays where the page was; a page opened afresh scrolls to what matters now.
             if (State.TreeScroll.HasValue) ScrollTo(State.TreeScroll.Value.y);
             else Focus(FocusNodeId() ?? State.SelectedNodeId, true);
+            // A page built for a learn (the lobby rebuilds on every change) plays its moment.
+            TakePendingLearn();
             State.TreeScroll = content.anchoredPosition;
         }
 
@@ -258,13 +312,13 @@ namespace TurnLimbo.Presentation
             content.anchoredPosition = new Vector2(0f, Mathf.Clamp(offset, 0f, MaximumScroll));
         }
 
-        /// <summary>Where a page opened afresh looks first: the node in progress, else the first new one, else the first
-        /// available one; null when there is none.</summary>
+        /// <summary>Where a page opened afresh looks first: the first new node, else the first affordable one, else the
+        /// first available one; null when there is none.</summary>
         private string FocusNodeId()
         {
             CurriculumProgress curriculum = run.Curriculum;
-            if (curriculum.Active != null) return curriculum.Active.Id;
             foreach (CurriculumNode node in curriculum.Tree.Nodes) if (newNodes.Contains(node.Id)) return node.Id;
+            foreach (CurriculumNode node in curriculum.Tree.Nodes) if (run.IsCurriculumNodeAffordable(node.Id)) return node.Id;
             return FirstAvailable();
         }
 
@@ -275,17 +329,20 @@ namespace TurnLimbo.Presentation
             UpdateNewNodes(curriculum);
             if (curriculum.Tree.Find(State.SelectedNodeId) == null)
                 State.SelectedNodeId = FocusNodeId() ?? curriculum.Tree.Nodes[0].Id;
-            status.text = curriculum.Active != null
-                ? $"진행 중  {curriculum.Active.Title}  {curriculum.ActiveBattles}/{curriculum.Active.Battles}"
-                : curriculum.IsFinished ? "모든 과정을 마쳤습니다 · 초기화하면 다른 길을 고를 수 있습니다"
-                : "진행 중인 과정 없음 · 과정을 고르세요";
-            status.color = curriculum.Active != null ? Accent : curriculum.IsFinished ? Muted : DuelVisualTheme.Danger;
+            // The balance stands out, in brass while it buys something.
+            int affordable = run.AffordableCurriculumNodeCount;
+            points.text = PointsText(run.CurriculumPoints);
+            points.color = affordable > 0 ? Accent : Foreground;
+            status.text = StandingText(affordable, curriculum.IsFinished, run.CurriculumPointsToNextNode);
+            status.color = affordable > 0 ? Accent : Muted;
             completedCount.text = $"완료 {curriculum.CompletedCount} / {curriculum.Tree.Nodes.Count}";
-            bool canReset = Editing && (curriculum.CompletedCount > 0 || curriculum.Active != null);
+            bool canReset = Editing && curriculum.CompletedCount > 0;
             if (!canReset) resetArmed = false;
             resetButton.interactable = canReset;
-            resetCaption.text = resetArmed ? "한 번 더 누르면 초기화" : "커리큘럼 초기화";
+            resetCaption.text = resetArmed ? ArmedResetText(run.CurriculumRefund) : "커리큘럼 초기화";
             resetCaption.color = canReset ? Foreground : Muted;
+            // A moment whose node is gone (a reset) gives way to the resting banner.
+            if (learnedNodeId != null && !curriculum.IsCompleted(learnedNodeId)) ShowRestingBanner();
             foreach (NodeCard card in cards) RefreshCard(card, curriculum);
             // A finished school's name takes its keyword's colour.
             foreach (KeyValuePair<CurriculumBranch, Text> heading in headings)
@@ -294,6 +351,62 @@ namespace TurnLimbo.Presentation
         }
 
         private bool Editing => run.Phase == CampaignPhase.Lobby || run.Phase == CampaignPhase.Maintenance;
+
+        /// <summary>The top row's balance: <c>수련 점수 5</c>.</summary>
+        public static string PointsText(int balance) => $"수련 점수 {balance}";
+
+        /// <summary>What the balance buys, beside it: <c>익힐 수 있는 과정 2개</c>, or with nothing affordable
+        /// <c>다음 과정까지 1점</c>, or once nothing is left to learn the reset's offer.</summary>
+        public static string StandingText(int affordable, bool finished, int pointsToNext)
+            => affordable > 0 ? $"익힐 수 있는 과정 {affordable}개"
+                : finished ? "모든 과정을 익혔습니다 · 초기화하면 점수를 돌려받습니다"
+                : $"다음 과정까지 {pointsToNext}점";
+
+        /// <summary>The reset's caption after its first click: a second click resets, and the points it gives back.</summary>
+        public static string ArmedResetText(int refund) => $"한 번 더 누르면 초기화\n쓴 점수 {refund}점을 돌려받습니다";
+
+        /// <summary>A technique as the learning moment names it, with its school: <c>사선베기(Q 정공)</c>.</summary>
+        public static string SkillLabel(LegacySkill skill)
+            => skill == null ? string.Empty
+                : $"{skill.Name}({SkillLaneStyle.Key(skill.LaneIndex)} {SkillLaneStyle.Name(skill.LaneIndex)})";
+
+        /// <summary>The learning moment's headline: <c>새 기술 · 사선베기(Q 정공)</c>; a node that grants no technique names
+        /// its stats (<c>능력치 · 최대 체력 +5</c>).</summary>
+        public static string LearnedHeadline(CurriculumNode node, LegacySkill skill)
+        {
+            if (node == null) throw new ArgumentNullException(nameof(node));
+            return skill != null ? "새 기술 · " + SkillLabel(skill) : "능력치 · " + StatRewardText(node.StatReward);
+        }
+
+        /// <summary>The learning moment's second line: the course it finished (<c>붕괴 과정 수료</c>, for the trunk's end and
+        /// each capstone) with a technique node's stats, then what it opened (<c>새로 열린 과정: 쿠페 · 사선베기 · 유연함</c>).
+        /// With none of these, where the technique goes.</summary>
+        public static string LearnedDetail(CurriculumTree source, CurriculumNode node, LegacySkill skill,
+            IReadOnlyList<CurriculumNode> opened, bool laneOpen)
+        {
+            if (node == null) throw new ArgumentNullException(nameof(node));
+            var parts = new List<string>(3);
+            string stats = skill != null ? StatRewardText(node.StatReward) : string.Empty;
+            if (source != null && source.EndsBranch(node.Id))
+                parts.Add(BranchName(node.Branch) + " 과정 수료" + (stats.Length > 0 ? " · " + stats : string.Empty));
+            else if (stats.Length > 0) parts.Add(stats);
+            if (opened != null && opened.Count > 0)
+            {
+                var titles = new string[opened.Count];
+                for (int index = 0; index < titles.Length; index++) titles[index] = opened[index].Title;
+                parts.Add("새로 열린 과정: " + string.Join(" · ", titles));
+            }
+            if (parts.Count > 0) return string.Join("  ·  ", parts);
+            return skill == null ? "능력치가 올랐습니다."
+                : laneOpen ? "편성에서 장착할 수 있습니다." : "이 기술의 열이 열리면 편성할 수 있습니다.";
+        }
+
+        /// <summary>The resting banner: how 수련 점수 are earned (<see cref="CurriculumPointRules"/>).</summary>
+        public const string RestingBannerTitle = "수련 점수는 전투를 마칠 때마다 쌓입니다.";
+
+        public static string RestingBannerDetail
+            => $"전투 +{CurriculumPointRules.Battle} · 승리 +{CurriculumPointRules.Victory} · " +
+               $"첫 클리어 +{CurriculumPointRules.FirstClear} · 임무 첫 완료 +{CurriculumPointRules.StoryMission}";
 
         private string FirstAvailable()
         {
@@ -570,8 +683,8 @@ namespace TurnLimbo.Presentation
             CurriculumNodeState state = curriculum.GetState(card.Node.Id);
             card.Title.text = DisplayTitle(card.Node, state);
             bool selected = State.SelectedNodeId == card.Node.Id;
-            card.Background.color = state == CurriculumNodeState.Active ? DuelVisualTheme.Selected
-                : state == CurriculumNodeState.Completed ? DuelVisualTheme.RaisedSurface
+            bool affordable = run.IsCurriculumNodeAffordable(card.Node.Id);
+            card.Background.color = state == CurriculumNodeState.Completed ? DuelVisualTheme.RaisedSurface
                 : state == CurriculumNodeState.Available ? DuelVisualTheme.Card
                 : DuelVisualTheme.Track;
             card.Marker.gameObject.SetActive(selected);
@@ -579,9 +692,11 @@ namespace TurnLimbo.Presentation
             card.Title.color = dim ? Muted : Foreground;
             card.Icon.color = dim ? new Color(1f, 1f, 1f, .4f) : Color.white;
             card.Role?.SetAlpha(dim ? .4f : 1f);
-            card.Status.text = StateText(state, card.Node, curriculum);
-            card.Status.color = state == CurriculumNodeState.Active || state == CurriculumNodeState.Completed ? Accent
+            // An available node's cost: brass and bold while the balance covers it, muted until then.
+            card.Status.text = StateText(state, card.Node);
+            card.Status.color = state == CurriculumNodeState.Completed || affordable ? Accent
                 : state == CurriculumNodeState.Excluded ? DuelVisualTheme.Danger : Muted;
+            card.Status.fontStyle = affordable ? FontStyle.Bold : FontStyle.Normal;
             bool isNew = newNodes.Contains(card.Node.Id);
             card.Tag.text = isNew ? NewTag : card.Bridge ? BridgeTag : card.Capstone ? CapstoneTag : string.Empty;
             card.Tag.color = isNew ? Accent : card.Bridge ? Foreground : DuelVisualTheme.Paper;
@@ -589,13 +704,12 @@ namespace TurnLimbo.Presentation
             card.Seal?.SetActive(state == CurriculumNodeState.Completed);
         }
 
-        private static string StateText(CurriculumNodeState state, CurriculumNode node, CurriculumProgress curriculum)
+        private static string StateText(CurriculumNodeState state, CurriculumNode node)
         {
             switch (state)
             {
                 case CurriculumNodeState.Completed: return "완료";
-                case CurriculumNodeState.Active: return $"진행 중 {curriculum.ActiveBattles}/{node.Battles}";
-                case CurriculumNodeState.Available: return $"전투 {node.Battles}회";
+                case CurriculumNodeState.Available: return $"{node.Cost}점";
                 case CurriculumNodeState.Excluded: return "닫힘";
                 default: return "잠김";
             }
@@ -632,25 +746,22 @@ namespace TurnLimbo.Presentation
             if (skill != null && !run.IsLaneOpen(skill.LaneIndex))
                 requirement.text += $"  ·  {SkillLaneStyle.Key(skill.LaneIndex)}열은 임무로 열림";
             exclusive.text = ExclusiveText(node, curriculum.Tree);
-            bool fixedByProgress = curriculum.Active != null && curriculum.ActiveBattles > 0;
+            bool affordable = curriculum.IsAffordable(node.Id, run.CurriculumPoints);
             availability.text = !Editing ? "로비에서 이용할 수 있습니다."
-                : state == CurriculumNodeState.Completed ? skill == null ? "완료했습니다. 능력치 보상이 적용됐습니다."
-                    : rewardText.Length > 0 ? "완료했습니다. 기술은 편성에서 장착하고 능력치 보상은 적용됐습니다."
-                    : "완료했습니다. 얻은 기술은 편성에서 장착하세요."
-                : state == CurriculumNodeState.Active ? $"진행 중 · 전투 {curriculum.ActiveBattles}/{node.Battles}. 전투를 마치면 "
-                    + (skill == null ? "능력치 보상을 얻습니다." : rewardText.Length > 0 ? "기술과 능력치 보상을 얻습니다." : "기술을 얻습니다.")
+                : state == CurriculumNodeState.Completed ? skill == null ? "익혔습니다. 능력치 보상이 적용됐습니다."
+                    : rewardText.Length > 0 ? "익혔습니다. 기술은 편성에서 장착하고 능력치 보상은 적용됐습니다."
+                    : "익혔습니다. 얻은 기술은 편성에서 장착하세요."
                 : state == CurriculumNodeState.Excluded ? "함께 고를 수 없는 과정을 이미 마쳤습니다. 초기화하면 다시 고를 수 있습니다."
-                : state == CurriculumNodeState.Locked ? "선행 과정을 먼저 마치세요."
-                : fixedByProgress ? "진행 중인 과정을 마친 뒤에 고를 수 있습니다."
-                : curriculum.Active != null ? $"진행 중인 {curriculum.Active.Title} 대신 이 과정을 진행합니다."
-                : "진행하면 다음 전투부터 반영됩니다. 승패와 관계없이 전투를 마치면 한 번으로 셉니다.";
-            bool canSelect = Editing && curriculum.CanSelect(node.Id);
-            primaryAction.interactable = canSelect;
+                : state == CurriculumNodeState.Locked ? "선행 과정을 먼저 익히세요."
+                : affordable ? $"수련 점수 {node.Cost}점으로 바로 익힙니다."
+                : "전투를 마칠 때마다 수련 점수가 쌓입니다.";
+            bool canLearn = Editing && run.CanLearnCurriculumNode(node.Id);
+            primaryAction.interactable = canLearn;
             actionCaption.text = state == CurriculumNodeState.Completed ? "완료한 과정"
-                : state == CurriculumNodeState.Active ? "진행 중"
                 : state == CurriculumNodeState.Excluded ? "닫힌 과정"
-                : state == CurriculumNodeState.Locked ? "잠긴 과정" : "이 과정 진행";
-            actionCaption.color = canSelect ? DuelVisualTheme.Ink : Foreground;
+                : state == CurriculumNodeState.Locked ? "잠긴 과정"
+                : affordable ? $"익히기 · {node.Cost}점" : $"점수 부족 · {run.CurriculumPoints}/{node.Cost}";
+            actionCaption.color = canLearn ? DuelVisualTheme.Ink : Foreground;
             LayoutDetail();
         }
 
@@ -681,16 +792,16 @@ namespace TurnLimbo.Presentation
             primaryAction.GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, cursor - 25f);
         }
 
-        /// <summary>The detail's purpose line: <c>순환 과정  ·  전투 1회</c>, a capstone's <c>순환 과정 정수  ·  전투 1회</c>, a
-        /// bridge's <c>다리 과정  ·  붕괴 × 순환  ·  전투 1회</c>.</summary>
+        /// <summary>The detail's purpose line: <c>순환 과정  ·  1점</c>, a capstone's <c>순환 과정 정수  ·  3점</c>, a
+        /// bridge's <c>다리 과정  ·  붕괴 × 순환  ·  3점</c>.</summary>
         public static string PurposeText(CurriculumTree source, CurriculumNode node)
         {
-            string battles = $"전투 {node.Battles}회";
+            string cost = $"{node.Cost}점";
             if (TryGetBridgedBranches(source, node, out CurriculumBranch left, out CurriculumBranch right))
-                return $"{BranchName(node.Branch)} 과정  ·  {BranchName(left)} × {BranchName(right)}  ·  {battles}";
+                return $"{BranchName(node.Branch)} 과정  ·  {BranchName(left)} × {BranchName(right)}  ·  {cost}";
             return source != null && source.IsCapstone(node.Id)
-                ? $"{BranchName(node.Branch)} 과정 {CapstoneTag}  ·  {battles}"
-                : $"{BranchName(node.Branch)} 과정  ·  {battles}";
+                ? $"{BranchName(node.Branch)} 과정 {CapstoneTag}  ·  {cost}"
+                : $"{BranchName(node.Branch)} 과정  ·  {cost}";
         }
 
         private static string RequirementText(CurriculumNode node, CurriculumTree tree)
@@ -722,7 +833,7 @@ namespace TurnLimbo.Presentation
             if (reward.Resistance > 0) parts.Add("최대 저항 +" + reward.Resistance);
             if (reward.ActGain > 0) parts.Add("매 턴 ACT 회복 +" + reward.ActGain);
             if (reward.ActCapacity > 0) parts.Add("ACT 상한 +" + reward.ActCapacity);
-            if (reward.PlanningSeconds > 0) parts.Add("일반 스테이지 선택 시간 +" + reward.PlanningSeconds + "초");
+            if (reward.PlanningSeconds > 0) parts.Add("일반 스테이지 제한시간 +" + reward.PlanningSeconds + "초");
             return string.Join(" · ", parts);
         }
 
@@ -750,14 +861,104 @@ namespace TurnLimbo.Presentation
             return run.GetOwnedSkill(skill.Id)?.Skill.Name ?? node.Title;
         }
 
-        private void PerformSelect()
+        private void PerformLearn()
         {
             if (disposed || !Editing) return;
             string id = State.SelectedNodeId;
-            if (!run.Curriculum.CanSelect(id)) return;
-            if (select != null) select.Invoke(id);
-            else run.TrySelectCurriculumNode(id);
-            if (!disposed) Refresh();
+            if (!run.CanLearnCurriculumNode(id)) return;
+            // The page the learn leaves behind plays the moment: a new one when the callback rebuilt the lobby, else this one.
+            State.PendingLearn = id;
+            if (learn != null) learn.Invoke(id);
+            else run.TryLearnCurriculumNode(id);
+            if (disposed) return;
+            Refresh();
+            TakePendingLearn();
+        }
+
+        // Plays the moment of a learn the view state holds, if that node was indeed the last one learned; clears it either
+        // way, so it plays once.
+        private void TakePendingLearn()
+        {
+            string id = State.PendingLearn;
+            State.PendingLearn = null;
+            CurriculumNode node = run.Curriculum.LastCompleted;
+            if (id == null || node == null || node.Id != id) return;
+            PlayLearnMoment(node);
+        }
+
+        /// <summary>The learning moment: the card pulses under a brass flash, the banner names the technique, the course it
+        /// finished and the nodes it opened, and the page turns to those (the first it can learn now, else the first; looked
+        /// at by focus only, so they keep their 새) and scrolls them into view under the learned card.</summary>
+        private void PlayLearnMoment(CurriculumNode node)
+        {
+            CurriculumProgress curriculum = run.Curriculum;
+            IReadOnlyList<CurriculumNode> opened = curriculum.OpenedBy(node.Id);
+            string next = null;
+            foreach (CurriculumNode candidate in opened)
+                if (run.IsCurriculumNodeAffordable(candidate.Id)) { next = candidate.Id; break; }
+            if (next == null && opened.Count > 0) next = opened[0].Id;
+            if (next != null) State.SelectedNodeId = next;
+            Refresh();
+            Focus(node.Id, false);
+            if (next != null) Focus(next, false);
+            ShowLearnedBanner(node, opened);
+            NodeCard card = cards.Find(candidate => candidate.Node.Id == node.Id);
+            if (card == null) return;
+            if (card.Flash == null)
+            {
+                card.Flash = Panel("Learn Flash", card.Button.transform, Vector2.zero, new Vector2(NodeWidth, NodeHeight), Accent);
+                card.Flash.gameObject.SetActive(false);
+            }
+            card.Flash.transform.SetAsLastSibling();
+            CurriculumLearnPulse pulse = card.Button.GetComponent<CurriculumLearnPulse>();
+            if (pulse == null) pulse = card.Button.gameObject.AddComponent<CurriculumLearnPulse>();
+            pulse.Play(card.Flash);
+        }
+
+        private void ShowLearnedBanner(CurriculumNode node, IReadOnlyList<CurriculumNode> opened)
+        {
+            learnedNodeId = node.Id;
+            LegacySkill granted = GrantedSkill(node);
+            LegacySkill skill = granted == null ? null : run.GetOwnedSkill(granted.Id)?.Skill ?? granted;
+            CurriculumTree source = run.Curriculum.Tree;
+            bool course = source.EndsBranch(node.Id);
+            // A finished course wears the ornate rim, as a capstone card does.
+            DuelVisualTheme.Frame(banner, course);
+            bannerTitle.text = LearnedHeadline(node, skill);
+            bannerTitle.color = Accent;
+            bannerDetail.text = LearnedDetail(source, node, skill, opened, skill != null && run.IsLaneOpen(skill.LaneIndex));
+            bannerDetail.color = Foreground;
+            Color dye = skill != null ? SkillLaneStyle.Edge(skill.LaneIndex) : Accent;
+            bannerAccent.color = dye;
+            bannerIconFrame.color = dye;
+            bannerIcon.sprite = skill != null ? art.GetSkillIcon(skill.IconId) : null;
+            bannerIcon.enabled = bannerIcon.sprite != null;
+            bannerIconFrame.gameObject.SetActive(skill != null);
+            LayoutBanner(skill != null);
+        }
+
+        private void ShowRestingBanner()
+        {
+            learnedNodeId = null;
+            DuelVisualTheme.Frame(banner);
+            bannerTitle.text = RestingBannerTitle;
+            bannerTitle.color = Muted;
+            bannerDetail.text = RestingBannerDetail;
+            bannerDetail.color = Muted;
+            bannerAccent.color = Border;
+            bannerIcon.sprite = null;
+            bannerIconFrame.gameObject.SetActive(false);
+            LayoutBanner(false);
+        }
+
+        // The two lines start beside the icon, or at the banner's left without one.
+        private void LayoutBanner(bool icon)
+        {
+            float left = -TreeWidth * .5f + (icon ? 72f : 20f), width = TreeWidth * .5f - 16f - left;
+            bannerTitle.rectTransform.sizeDelta = new Vector2(width, 26f);
+            bannerTitle.rectTransform.anchoredPosition = new Vector2(left + width * .5f, 13f);
+            bannerDetail.rectTransform.sizeDelta = new Vector2(width, 24f);
+            bannerDetail.rectTransform.anchoredPosition = new Vector2(left + width * .5f, -14f);
         }
 
         private void ResetClicked()
@@ -848,5 +1049,52 @@ namespace TurnLimbo.Presentation
 
         private static void Destroy(GameObject target)
         { if (Application.isPlaying) UnityEngine.Object.Destroy(target); else UnityEngine.Object.DestroyImmediate(target); }
+    }
+
+    /// <summary>The learning moment on a curriculum card (<see cref="CampaignCurriculumHud"/>): the card swells and settles
+    /// while a brass flash over it fades, in unscaled time. Stopping it (or the card going) puts the card back as it was.</summary>
+    [DisallowMultipleComponent]
+    public sealed class CurriculumLearnPulse : MonoBehaviour
+    {
+        public const float Duration = .6f, Swell = .12f, FlashAlpha = .55f;
+        private Image flash;
+        private float elapsed = Duration;
+
+        public bool IsPlaying => elapsed < Duration;
+
+        internal void Play(Image overlay)
+        {
+            flash = overlay;
+            elapsed = 0f;
+            Apply(0f);
+        }
+
+        public void Advance(float unscaledDelta)
+        {
+            if (!IsPlaying || float.IsNaN(unscaledDelta) || unscaledDelta <= 0f) return;
+            elapsed = Mathf.Min(Duration, elapsed + unscaledDelta);
+            Apply(elapsed / Duration);
+        }
+
+        private void Apply(float progress)
+        {
+            // Up and back down once, easing at both ends; the flash only fades.
+            float scale = 1f + Swell * Mathf.Sin(Mathf.PI * progress);
+            transform.localScale = progress >= 1f ? Vector3.one : new Vector3(scale, scale, 1f);
+            if (flash == null) return;
+            Color color = flash.color;
+            color.a = FlashAlpha * (1f - progress);
+            flash.color = color;
+            flash.gameObject.SetActive(progress < 1f);
+        }
+
+        private void Update() => Advance(Time.unscaledDeltaTime);
+
+        private void OnDisable()
+        {
+            if (!IsPlaying) return;
+            elapsed = Duration;
+            Apply(1f);
+        }
     }
 }

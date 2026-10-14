@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
@@ -7,8 +6,8 @@ using TurnLimbo.Runtime.Combat;
 namespace TurnLimbo.Core.Tests
 {
     /// <summary>What the curriculum screens read from the tree and the progress: which nodes end their branch (the trunk's
-    /// last step, each school's capstone), what the last completion opened (the tree's "새" tag, the result's
-    /// <c>새로 열린 과정</c>), and the result snapshot that carries both.</summary>
+    /// last step, each school's capstone) and what the last completion opened (the tree's "새" tag, the learning moment's
+    /// <c>새로 열린 과정</c>).</summary>
     public sealed class CurriculumScreenTests
     {
         [Test]
@@ -49,46 +48,27 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Ids(curriculum.OpenedBy("vital-thrust")), Is.EqualTo(new[] { "battement", "cadence" }));
             Assert.That(curriculum.LastCompleted.Id, Is.EqualTo("vital-thrust"));
 
-            Assert.That(run.TrySelectCurriculumNode("battement"), Is.True);
-            Assert.That(Ids(curriculum.OpenedBy("vital-thrust")), Is.EqualTo(new[] { "battement", "cadence" }),
-                "A node now in progress was still opened by it.");
+            Complete(run, "battement");
+            Assert.That(Ids(curriculum.OpenedBy("vital-thrust")), Is.EqualTo(new[] { "cadence" }),
+                "A node learned since is no longer waiting.");
+            Assert.That(curriculum.LastCompleted.Id, Is.EqualTo("battement"));
             Assert.That(run.TryResetCurriculum(), Is.True);
             Assert.That(curriculum.LastCompleted, Is.Null);
             Assert.That(curriculum.OpenedBy("vital-thrust"), Is.Empty);
         }
 
-        [Test]
-        public void BattleResult_CarriesWhatTheCompletionOpened_AndOnlyACompletionCanOpenOrFinishACourse()
-        {
-            CurriculumTree tree = CampaignCurriculum.Default;
-            CurriculumNode advance = tree.Find("advance");
-            var opened = new[] { tree.Find("quick-draw"), tree.Find("diagonal-cut"), tree.Find("suppleness") };
-            var result = new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 30, 30, 3, 90, 0, false, 0, true,
-                advance, openedCurriculumNodes: opened, completedCurriculumCourse: true);
-            Assert.That(result.OpenedCurriculumNodes, Is.EqualTo(opened));
-            Assert.That(result.CompletedCurriculumCourse, Is.True);
-            opened[0] = null;
-            Assert.That(result.OpenedCurriculumNodes[0], Is.SameAs(tree.Find("quick-draw")), "The snapshot keeps its own list.");
-
-            var plain = new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 30, 30, 3, 90, 0, false, 0, true);
-            Assert.That(plain.OpenedCurriculumNodes, Is.Empty);
-            Assert.That(plain.CompletedCurriculumCourse, Is.False);
-            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
-                30, 30, 3, 90, 0, false, 0, true, openedCurriculumNodes: new[] { advance }));
-            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
-                30, 30, 3, 90, 0, false, 0, true, completedCurriculumCourse: true));
-        }
-
-        // Selects each node in turn and finishes one lost battle of stage one for it. Ends in the lobby.
+        // Earns each node's cost with lost battles of stage one (a point each), then learns it. Ends in the lobby.
         private static void Complete(CampaignRun run, params string[] nodeIds)
         {
             foreach (string id in nodeIds)
             {
-                Assert.That(run.TrySelectCurriculumNode(id), Is.True, id);
-                Assert.That(run.TryStartStage(1), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
-                Assert.That(run.ReturnToLobby(), Is.True);
-                Assert.That(run.Curriculum.IsCompleted(id), Is.True, id);
+                while (!run.IsCurriculumNodeAffordable(id))
+                {
+                    Assert.That(run.TryStartStage(1), Is.True);
+                    Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
+                    Assert.That(run.ReturnToLobby(), Is.True);
+                }
+                Assert.That(run.TryLearnCurriculumNode(id), Is.True, id);
             }
         }
 

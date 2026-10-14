@@ -241,66 +241,96 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ClosedCurriculum_RefusesChoicesAndCountsNoBattle_ButKeepsSavedProgressUntilItOpens()
+        public void ClosedCurriculum_RefusesLearningButBanksPoints_AndKeepsSavedProgressUntilItOpens()
         {
             const CombatFeature beforeW = CombatFeature.All & ~CombatFeature.LaneW & ~CombatFeature.Pressure;
             var run = new CampaignRun();
             run.SetProgression(beforeW, int.MaxValue);
             Assert.That(run.IsCurriculumOpen, Is.False);
-            Assert.That(run.Curriculum.CanSelect("horizontal-cut"), Is.True, "The tree itself is unchanged…");
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False, "…but the run refuses every choice.");
-            Assert.That(run.Curriculum.Active, Is.Null);
             Assert.That(run.TryResetCurriculum(), Is.False);
             int owned = run.OwnedSkills.Count;
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(4), "Points accrue while it is closed: the bank.");
+            Assert.That(run.LastCurriculumPointGain.Total, Is.EqualTo(4));
+            Assert.That(run.CurriculumNewlyAffordable, Is.False, "Nothing about points is said while it is closed.");
+            Assert.That(run.IsCurriculumNodeAffordable("horizontal-cut"), Is.True, "The tree itself is unchanged…");
+            Assert.That(run.CanLearnCurriculumNode("horizontal-cut"), Is.False);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.False, "…but the run refuses every node.");
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-            Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(owned + 1),
-                "The closed curriculum grants nothing, but stage 1 still awards 탐색.");
+            Assert.That(run.OwnedSkills.Count, Is.EqualTo(owned + 1), "Stage 1 still awards 탐색.");
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False, "Not in maintenance either.");
             Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.False, "Not in the lobby either.");
+            Assert.That(run.CurriculumPoints, Is.EqualTo(4));
 
             // An older save may hold progress made before the curriculum waited for mission 8.
             var played = new CampaignRun();
-            Assert.That(played.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(played.TryStartStage(1), Is.True);
             Assert.That(played.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(played.ReturnToLobby(), Is.True);
-            Assert.That(played.TrySelectCurriculumNode("preparation"), Is.True);
+            Assert.That(played.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             CampaignSave save = played.CaptureSave();
             Assert.That(run.TryRestore(save, out string error), Is.True, error);
             Assert.That(run.IsCurriculumOpen, Is.False, "A restore leaves the story's features alone.");
             CollectionAssert.AreEqual(new[] { "horizontal-cut" }, run.Curriculum.Completed, "The saved progress is kept…");
-            Assert.That(run.Curriculum.Active.Id, Is.EqualTo("preparation"));
             Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 14), Is.True, "…with the skill it already granted.");
-            Assert.That(run.TrySelectCurriculumNode("advance"), Is.False);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(3));
+            Assert.That(run.TryLearnCurriculumNode("preparation"), Is.False);
             Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.Draw), Is.True);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
-            Assert.That(run.Curriculum.IsCompleted("preparation"), Is.False, "The node in progress waits, untouched.");
-            Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
-            Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 10), Is.False);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(4), "A draw banks its point.");
             Assert.That(run.ReturnToLobby(), Is.True);
             CampaignSave again = run.CaptureSave();
             CollectionAssert.AreEqual(save.CurriculumCompleted, again.CurriculumCompleted, "Saving keeps it as it was.");
-            Assert.That(again.CurriculumActive, Is.EqualTo("preparation"));
-            Assert.That(again.CurriculumBattles, Is.Zero);
+            Assert.That(again.CurriculumPoints, Is.EqualTo(4));
 
-            // Mission 8's W lane opens it, and the waiting node counts from the next battle.
+            // Mission 8's W lane opens it, and the bank is there to spend at once.
             run.SetProgression(beforeW | CombatFeature.LaneW, int.MaxValue);
             Assert.That(run.IsCurriculumOpen, Is.True);
-            Assert.That(run.TryStartStage(1), Is.True);
-            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("preparation"));
+            Assert.That(run.AffordableCurriculumNodeCount, Is.EqualTo(1));
+            Assert.That(run.TryLearnCurriculumNode("preparation"), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("advance"), Is.True);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(2));
             Assert.That(run.OwnedSkills.Any(skill => skill.SkillId == 10), Is.True);
-            Assert.That(run.ReturnToLobby(), Is.True);
-            Assert.That(run.TrySelectCurriculumNode("advance"), Is.True);
             Assert.That(run.TryResetCurriculum(), Is.True);
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(5), "The reset gives back what the three nodes cost.");
+        }
+
+        [Test]
+        public void StraightStoryRun_BanksTwentyFourPointsByMissionEight_AndAMissionPaysOnlyItsFirstWin()
+        {
+            var story = new PrologueRun();
+            var run = new CampaignRun();
+            void Sync() => run.SetProgression(story.UnlockedFeatures, story.StageLimit);
+            // As the controller does: a story mission's first completion pays its point, a replay nothing.
+            void WinMission(int number)
+            {
+                Assert.That(story.TryComplete(number, DuelMatchOutcome.PlayerVictory), Is.True, "mission " + number);
+                Sync();
+                Assert.That(run.AwardStoryMissionPoints().Mission, Is.EqualTo(CurriculumPointRules.StoryMission));
+                Assert.That(story.TryComplete(number, DuelMatchOutcome.PlayerVictory), Is.False, "A replay moves nothing.");
+            }
+
+            Sync();
+            for (int number = 1; number <= PrologueMissions.Count; number++) WinMission(number);
+            Assert.That(run.CurriculumPoints, Is.EqualTo(4), "The 서막's four missions.");
+            for (int stage = 1; stage <= 4; stage++)
+            {
+                Assert.That(run.IsCurriculumOpen, Is.False);
+                Assert.That(run.TryStartStage(stage), Is.True, "stage " + stage);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.LastCurriculumPointGain.Total, Is.EqualTo(4), "Battle, victory and first clear.");
+                Assert.That(run.ReturnToLobby(), Is.True);
+                WinMission(PrologueMissions.Count + stage);
+            }
+            Assert.That(run.IsCurriculumOpen, Is.True, "Mission 8 opens it.");
+            // 4 (서막) + 4 first clears × 4 + 4 (missions 5-8) = 24 of the tree's 33.
+            Assert.That(run.CurriculumPoints, Is.EqualTo(24));
+            Assert.That(run.Curriculum.Tree.Nodes.Sum(node => node.Cost), Is.EqualTo(33));
+            Assert.That(run.AffordableCurriculumNodeCount, Is.EqualTo(1), "Only the trunk's first node is open yet.");
         }
 
         [Test]

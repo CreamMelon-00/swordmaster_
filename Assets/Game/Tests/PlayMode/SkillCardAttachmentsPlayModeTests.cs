@@ -260,7 +260,6 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("방어"));
                 Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("2"));
                 Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo("7–11"));
-                Assert.That(run.Curriculum.Active, Is.Null, "Reading details never starts a curriculum node.");
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(run.HasLoadoutChanges, Is.False, "Reading details never moves a loadout slot.");

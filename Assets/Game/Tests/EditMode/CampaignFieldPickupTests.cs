@@ -110,9 +110,10 @@ namespace TurnLimbo.Core.Tests
         public void CurriculumReset_KeepsFieldSkills_AndANewJourneyPutsThemBack()
         {
             var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut") && run.TryStartStage(1), Is.True);
+            Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
             Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryCollectFieldPickup(Pierce), Is.True);
             Assert.That(run.TryPlaceLoadoutSkill(47, 1, 0) && run.TryPlaceLoadoutSkill(14, 0, 0) && run.TrySaveLoadout(), Is.True);
 

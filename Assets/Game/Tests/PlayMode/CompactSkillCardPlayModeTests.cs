@@ -276,7 +276,6 @@ namespace TurnLimbo.Presentation.Tests
                 Canvas.ForceUpdateCanvases();
                 Assert.That(border.rect.height, Is.EqualTo(plainHeight).Within(.1f));
                 Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.False);
-                Assert.That(run.Curriculum.Active, Is.Null, "Reading a node never starts it.");
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(run.HasLoadoutChanges, Is.False);
