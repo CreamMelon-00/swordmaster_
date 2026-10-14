@@ -1,0 +1,38 @@
+[
+  {
+    "file": "academy-crest.png",
+    "sha256": "b92be1c11203a2d4638c22e12101730722c5794ab98b558ef91ada3651c896c8",
+    "size": [
+      64,
+      64
+    ],
+    "alpha_extrema": [
+      0,
+      255
+    ]
+  },
+  {
+    "file": "button-frame.png",
+    "sha256": "00d5acdf85146705d94c19be7923fa8e0a25ec6b014882f63e77b1f08d65dce1",
+    "size": [
+      160,
+      48
+    ],
+    "alpha_extrema": [
+      0,
+      255
+    ]
+  },
+  {
+    "file": "panel-frame.png",
+    "sha256": "2ee8c991641ab1b1b01a735263edcfe9349caf58512af9b1615f35885cdae182",
+    "size": [
+      128,
+      96
+    ],
+    "alpha_extrema": [
+      0,
+      255
+    ]
+  }
+]

@@ -1,0 +1,95 @@
+{
+  "version": 2,
+  "created": "2026-10-14",
+  "direction": "Slate-teal academy architecture, restrained warm metal, no corner hardware",
+  "generationsCharged": 50,
+  "palette": [
+    "#0e181e",
+    "#15262e",
+    "#20373e",
+    "#2f5057",
+    "#42666a",
+    "#68898b",
+    "#9bb8b5",
+    "#c4d4ce",
+    "#f3e9d3",
+    "#e0d0ae",
+    "#d8aa6d",
+    "#ac7d50",
+    "#714e38",
+    "#b97761"
+  ],
+  "assets": [
+    {
+      "file": "Assets/Game/Resources/AcademyUI/title-academy.png",
+      "size": [
+        640,
+        360
+      ],
+      "job": "1563bb0f-9472-4dcb-9345-38fa6bb0aecc",
+      "asset": "a51a308e-4364-55ef-901a-ffe4769f86d2",
+      "candidate": 0,
+      "seed": 141041,
+      "charged": 25,
+      "background": "opaque"
+    },
+    {
+      "file": "Assets/Game/Resources/AcademyUI/button-frame.png",
+      "size": [
+        192,
+        64
+      ],
+      "job": "7b4a5682-e852-4b19-9dba-971bfbfdf4e5",
+      "asset": "c29f4e1c-964b-5555-a97e-99de7d161ea7",
+      "candidate": 0,
+      "seed": 141042,
+      "charged": 10,
+      "edit": "33286d78-f5d8-4f99-a817-d741c7fc3a46",
+      "border": [
+        12,
+        12,
+        12,
+        12
+      ],
+      "offsetMin": [
+        -4,
+        0
+      ],
+      "offsetMax": [
+        4,
+        0
+      ]
+    },
+    {
+      "file": "Assets/Game/Resources/AcademyUI/panel-frame.png",
+      "size": [
+        160,
+        128
+      ],
+      "job": "b7ddb1e3-6a79-43b1-91b9-9d0f7b63d73b",
+      "asset": "85b0ab73-2e75-5b07-96be-45cdebf6eef7",
+      "candidate": 3,
+      "seed": 141043,
+      "charged": 15,
+      "edit": "d204cf99-f0b1-46e8-9eb9-b32c5a451bc9",
+      "border": [
+        20,
+        20,
+        20,
+        20
+      ],
+      "offsetMin": [
+        -9,
+        -9
+      ],
+      "offsetMax": [
+        10,
+        10
+      ]
+    }
+  ],
+  "edits": "PixelLab exact colour mask for #f3e9d3, #c4d4ce, #e0d0ae followed by erase brush cleared false checkerboard and cream interiors. No rescaling or generative edit fees.",
+  "validation": "8 real HUD renders plus title callback, confirmation, primary-action, sprite filtering/slicing/raycast and half-width loading mesh checks.",
+  "limits": "Editor previews use sample data. Full Play Mode regression suite not run.",
+  "previous": "Art/PixelLabUI/20261014 holds the first iteration; PreviousApplied preserves the actual superseded sprites."
+}

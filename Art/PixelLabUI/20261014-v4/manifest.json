@@ -1,0 +1,44 @@
+[
+  {
+    "frames": 1,
+    "name": "gauge-bezel",
+    "pick": 0,
+    "id": "9d5e5f2e-68aa-476e-96b0-845e56a8e14a"
+  },
+  {
+    "frames": 1,
+    "name": "menu-plaque",
+    "pick": 0,
+    "id": "28e25f2a-b900-440a-962f-9ffef2a5a0e4"
+  },
+  {
+    "frames": 1,
+    "name": "gear-wheel",
+    "pick": 0,
+    "id": "48c3d089-91c0-440a-9ba3-01130ec85021"
+  },
+  {
+    "frames": 16,
+    "name": "gear-pinion",
+    "pick": 2,
+    "id": "5873f49f-2368-473a-9b6d-73653fbffed1"
+  },
+  {
+    "frames": 16,
+    "name": "gear-clock",
+    "pick": 0,
+    "id": "e10a43ef-a7d4-4e3a-9c7d-ad5ac7abd19d"
+  },
+  {
+    "frames": 9,
+    "name": "Lever",
+    "animation": true,
+    "id": "ce50c86b-cd26-4ab5-b8d0-a33d3c7fbb58"
+  },
+  {
+    "frames": 9,
+    "name": "Valve",
+    "animation": true,
+    "id": "af4277ea-503b-483f-bd08-b5766903fa58"
+  }
+]

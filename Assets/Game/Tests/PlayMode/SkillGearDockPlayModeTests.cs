@@ -82,6 +82,11 @@ namespace TurnLimbo.Presentation.Tests
                 var duel = new LegacyQueuedDuel(100, 50, 1000, 1000, LegacyInitialSkills.All,
                     new[] { LegacySkillDefinitions.Skill(1) }, new[] { 1 }, 3);
                 fixture.Refresh(duel);
+                var housing = fixture.Get<AcademyCommandHousing>("Input/Command Desk Housing");
+                Assert.That(housing.canvasRenderer, Is.Not.Null);
+                Assert.That(housing.canvasRenderer.GetMesh().vertexCount, Is.GreaterThan(4),
+                    "The shared command housing must actually render, rather than leave the controls floating.");
+                Assert.That(housing.raycastTarget, Is.False, "The body cannot cover any control's hit area.");
                 float q = hud.LaneGearRotation(0), w = hud.LaneGearRotation(1), idler = hud.IdlerRotation(0);
                 RectTransform icon = fixture.Get<RectTransform>("Input/Keys/Current Q/Skill Image");
                 Assert.That(duel.TryQueueLane(0), Is.True);
@@ -115,11 +120,19 @@ namespace TurnLimbo.Presentation.Tests
                     LegacySkillGear.IdlerTeeth(LegacySkillGear.GearTeeth(LegacySkillGear.DefaultTeethPerSlot), LegacySkillGear.DefaultRadius,
                         LegacySkillGear.DefaultIdlerRadius, LegacySkillGear.DefaultToothDepth));
                 fixture.Refresh(duel, LegacySkillGear.DefaultShiftSeconds * LegacySkillGear.RatchetTurnShare);
+                var leverMount = fixture.Get<Image>("Input/Keys/CycleButton/Icon");
+                var leverArm = fixture.Get<Image>("Input/Keys/CycleButton/Icon/Moving Part");
+                Assert.That(Quaternion.Angle(Quaternion.identity, leverArm.rectTransform.localRotation), Is.GreaterThan(1f),
+                    "An accepted Shift rotates the same rigid lever arm around its mounting pivot.");
+                Assert.That(leverMount.rectTransform.localRotation, Is.EqualTo(Quaternion.identity), "The mounting remains fixed.");
+                Assert.That(leverArm.sprite, Is.SameAs(Resources.Load<Sprite>("AcademyUI/lever-arm")), "The arm cannot morph between frames.");
                 Assert.That(Turned(hud.LaneGearRotation(1), w), Is.LessThan(-60.5f), "The gears run past the slot at the ratchet's catch…");
                 Assert.That(Turned(hud.IdlerRotation(0), idler + idlerTurn),
                     Is.EqualTo(idlerTurn / LegacySkillGear.SlotDegrees * LegacySkillGear.DefaultRatchetBounce).Within(.05f),
                     "…the idlers the other way, past theirs by the bounce in proportion…");
                 fixture.Refresh(duel, LegacySkillGear.DefaultShiftSeconds);
+                Assert.That(leverArm.rectTransform.localRotation, Is.EqualTo(Quaternion.identity),
+                    "The lever returns to its original resting angle after the stroke.");
                 Assert.That(Turned(hud.LaneGearRotation(1), w), Is.EqualTo(-60f).Within(.01f), "…and spring back onto it.");
                 Assert.That(Turned(hud.LaneGearRotation(0), q), Is.EqualTo(-120f).Within(.01f));
                 Assert.That(Turned(hud.IdlerRotation(0), idler + idlerTurn), Is.EqualTo(0f).Within(.01f), "Idlers turn by whole teeth.");
@@ -303,6 +316,27 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.GearAudio.gameObject, Is.SameAs(hud.Root), "The HUD's own voice.");
                 Assert.That(hud.GearAudio.spatialBlend, Is.Zero);
                 Assert.That(hud.GearAudio.playOnAwake, Is.False);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ImportedGears_AreSharedAndSurviveDisposingAnotherHud()
+        {
+            yield return null;
+            Sprite wheel = AcademyUiSkin.GearWheel, pinion = AcademyUiSkin.GearPinion, clock = AcademyUiSkin.GearClock;
+            using (var first = new HudFixture())
+            using (var second = new HudFixture())
+            {
+                var duel = new LegacyQueuedDuel();
+                first.Refresh(duel); second.Refresh(duel);
+                Assert.That(first.Get<Image>("Input/Keys/Lane Gears/Gear Q/Wheel").sprite, Is.SameAs(wheel));
+                Assert.That(second.Get<Image>("Input/Keys/Lane Gears/Idler 1").sprite, Is.SameAs(pinion));
+                Assert.That(second.Get<Image>("Input/Keys/TimerBG/Timer Gear").sprite, Is.SameAs(clock));
+                first.Hud.Dispose();
+                yield return null;
+                Assert.That(wheel != null && pinion != null && clock != null, Is.True,
+                    "HUD disposal cannot destroy Resources-owned shared gear sprites.");
+                Assert.That(second.Get<Image>("Input/Keys/Lane Gears/Gear Q/Wheel").sprite, Is.SameAs(wheel));
             }
         }
 

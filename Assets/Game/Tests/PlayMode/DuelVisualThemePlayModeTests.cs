@@ -124,7 +124,8 @@ namespace TurnLimbo.Presentation.Tests
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Lobby Status Slip"), DuelVisualTheme.RaisedSurface);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Home Sidebar"), DuelVisualTheme.Surface);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Home Journey"), DuelVisualTheme.RaisedSurface);
-                AssertThemed(Find<Image>(fixture.Lobby.Root, "Home Open Stages"), DuelVisualTheme.Accent);
+                Assert.That(Find<Image>(fixture.Lobby.Root, "Home Open Stages").sprite,
+                    Is.SameAs(AcademyUiSkin.MenuPlaque));
                 AssertDecorationsIgnoreInput(fixture.Lobby.Root);
 
                 fixture.Lobby.ShowTab(LobbyTab.Stages);
@@ -149,9 +150,13 @@ namespace TurnLimbo.Presentation.Tests
                 var attack = Find<Button>(combat.Root, "Current Q");
                 var commit = Find<Button>(combat.Root, "AButton");
                 AssertThemed(attack.transform.Find("Surface").GetComponent<Image>(), DuelVisualTheme.Card);
-                AssertThemed(commit.transform.Find("Surface").GetComponent<Image>(), DuelVisualTheme.RaisedSurface);
                 AssertButtonHasTrim(attack);
-                AssertButtonHasTrim(commit);
+                Assert.That(commit.transform.Find("Surface").gameObject.activeSelf, Is.False,
+                    "The command seal replaces the generic framed button surface.");
+                Assert.That(((Image)commit.targetGraphic).sprite,
+                    Is.SameAs(Resources.Load<Sprite>("AcademyUI/commit-seal")));
+                Assert.That(commit.targetGraphic.raycastTarget, Is.False,
+                    "The illustration receives tint, while the whole control remains the hit target.");
                 AssertDecorationsIgnoreInput(combat.Root);
             }
             yield return null;

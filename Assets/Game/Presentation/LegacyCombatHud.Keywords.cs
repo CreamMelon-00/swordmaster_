@@ -72,7 +72,7 @@ namespace TurnLimbo.Presentation
         // Under 숨고르기's key hint, at its right: the automatic breath a skill in the deck adds this turn.
         private void BuildAutoBreathCount(Transform breathButton)
         {
-            autoBreathCount = Text("Auto Breath", breathButton, new Vector2(38f, -42f), new Vector2(58f, 18f), 12, TextAnchor.MiddleCenter);
+            autoBreathCount = Text("Auto Breath", breathButton, new Vector2(0f, -99f), new Vector2(100f, 18f), 12, TextAnchor.MiddleCenter);
             autoBreathCount.color = KeywordPreviewRim;
             autoBreathCount.supportRichText = false;
             autoBreathCount.gameObject.SetActive(false);

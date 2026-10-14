@@ -351,7 +351,8 @@ namespace TurnLimbo.Presentation
             header.rectTransform.pivot = new Vector2(0f, 1f);
             header.rectTransform.anchoredPosition = new Vector2(24f, -18f);
             DuelVisualTheme.DressPanel(header);
-            Label("Lobby Title", header.transform, "검술 클럽", new Vector2(-320f, 14f), new Vector2(180f, 38f), 28);
+            AcademyUiSkin.AddCrest(header.transform, new Vector2(-360f, 0f), 48f);
+            Label("Lobby Title", header.transform, "기사학교", new Vector2(-320f, 14f), new Vector2(180f, 38f), 28);
             Label("Campaign Progress", header.transform,
                 $"진행 {run.ClearedStageCount}/{run.StageCount} · 개방 {run.HighestUnlockedStage}/{run.StageCount}",
                 new Vector2(-320f, -20f), new Vector2(180f, 24f), 14, Muted);
@@ -684,8 +685,26 @@ namespace TurnLimbo.Presentation
             button.navigation = new Navigation { mode = Navigation.Mode.None };
             ConfigureButtonColors(button, primary);
             button.interactable = enabled;
-            Label("Button Label", image.transform, caption, Vector2.zero, size - new Vector2(10f, 4f),
+            Text captionLabel = Label("Button Label", image.transform, caption, Vector2.zero, size - new Vector2(10f, 4f),
                 primary ? 22 : 17, captionColor ?? (primary && enabled ? DuelVisualTheme.Ink : Foreground), TextAnchor.MiddleCenter);
+            if (name.StartsWith("Home ", StringComparison.Ordinal) && size.x >= 150f)
+            {
+                image.sprite = AcademyUiSkin.MenuPlaque;
+                image.type = UnityEngine.UI.Image.Type.Sliced;
+                image.color = Color.white;
+                Transform trim = image.transform.Find("Brass Trim");
+                if (trim != null) trim.gameObject.SetActive(false);
+                captionLabel.color = Foreground;
+                captionLabel.rectTransform.sizeDelta = size - new Vector2(52f, 4f);
+                captionLabel.resizeTextForBestFit = true;
+                captionLabel.resizeTextMinSize = 14;
+                captionLabel.resizeTextMaxSize = Mathf.Min(20, captionLabel.fontSize);
+                if (size.x < 180f)
+                {
+                    captionLabel.resizeTextMaxSize = 16;
+                    captionLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+                }
+            }
             button.onClick.AddListener(() =>
             {
                 ClearSelection();

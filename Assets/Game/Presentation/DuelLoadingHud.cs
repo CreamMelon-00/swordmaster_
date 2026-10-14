@@ -17,7 +17,7 @@ namespace TurnLimbo.Presentation
         private RectTransform root, gear;
         private Image fill;
         private Text label, percent;
-        private Texture2D gearTexture, steamTexture;
+        private Texture2D steamTexture;
         private Sprite gearSprite, steamSprite;
         private readonly Puff[] puffs = new Puff[PuffCount];
         private float elapsed, duration, rotation;
@@ -80,26 +80,34 @@ namespace TurnLimbo.Presentation
 
             Panel("Loading Backdrop", root, Vector2.zero, Vector2.zero, Backdrop, true);
             RectTransform assembly = Rect("Loading Assembly", root, new Vector2(0f, -14f), new Vector2(720f, 190f));
+            Image housing = Panel("Loading Housing", assembly, Vector2.zero, new Vector2(840f, 270f),
+                DuelVisualTheme.Surface, false);
+            DuelVisualTheme.DressPanel(housing);
+            AcademyUiSkin.AddCrest(assembly, new Vector2(0f, 160f), 64f);
             Text title = MakeText("Loading Title", assembly, font, new Vector2(0f, 67f), new Vector2(620f, 42f), 27,
                 TextAnchor.MiddleCenter, DuelVisualTheme.Foreground);
-            title.text = "기사학교 기계식 전송 장치";
+            title.text = "기사학교";
             label = MakeText("Loading Message", assembly, font, new Vector2(18f, -57f), new Vector2(540f, 30f), 18,
                 TextAnchor.MiddleCenter, DuelVisualTheme.Muted);
 
-            Image track = Panel("Loading Track", assembly, new Vector2(38f, 4f), new Vector2(520f, 12f),
+            Image("Loading Rail", assembly, AcademyUiSkin.GaugeBezel, new Vector2(38f, 4f), new Vector2(544f, 40f), Color.white);
+            Image track = Panel("Loading Track", assembly, new Vector2(38f, 4f), new Vector2(468f, 16f),
                 DuelVisualTheme.Track, false);
-            fill = Panel("Loading Fill", assembly, new Vector2(38f, 4f), new Vector2(520f, 12f),
-                DuelVisualTheme.Accent, false);
+            track.sprite = AcademyUiSkin.GaugeFill;
+            track.color = new Color(.28f, .24f, .18f);
+            fill = Panel("Loading Fill", assembly, new Vector2(38f, 4f), new Vector2(468f, 16f),
+                Color.white, false);
+            // uGUI only generates filled geometry when there is an actual sprite.
+            fill.sprite = AcademyUiSkin.GaugeFill;
             fill.type = UnityEngine.UI.Image.Type.Filled;
             fill.fillMethod = UnityEngine.UI.Image.FillMethod.Horizontal;
             fill.fillOrigin = 0;
-            percent = MakeText("Loading Percent", assembly, font, new Vector2(337f, 4f), new Vector2(72f, 30f), 18,
+            percent = MakeText("Loading Percent", assembly, font, new Vector2(346f, 4f), new Vector2(72f, 30f), 18,
                 TextAnchor.MiddleRight, DuelVisualTheme.Foreground);
 
-            gearTexture = CreateGearTexture();
-            gearSprite = DuelGearShimmer.CreateSprite(gearTexture);
+            gearSprite = AcademyUiSkin.GearClock;
             Image wheel = Image("Loading Gear", assembly, gearSprite, new Vector2(-266f, 4f), Vector2.one * 86f,
-                Color.Lerp(DuelVisualTheme.Border, DuelVisualTheme.Accent, .45f));
+                Color.white);
             gear = wheel.rectTransform;
             Image hub = Panel("Loading Gear Hub", assembly, new Vector2(-266f, 4f), Vector2.one * 21f,
                 DuelVisualTheme.Surface, false);
@@ -121,10 +129,13 @@ namespace TurnLimbo.Presentation
             Finish();
         }
 
-        private void Update()
+        private void Update() => Advance(Time.unscaledDeltaTime);
+
+        /// <summary>Advances presentation without relying on the engine's Play Mode callback, for paused-editor previews.</summary>
+        public void Advance(float unscaledDelta)
         {
             if (!IsVisible) return;
-            float delta = Mathf.Max(0f, Time.unscaledDeltaTime);
+            float delta = Mathf.Max(0f, unscaledDelta);
             elapsed += delta;
             float progress = Progress;
             fill.fillAmount = progress;
@@ -189,8 +200,6 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             disposed = true;
-            DuelGearShimmer.Release(gearSprite);
-            DuelGearShimmer.Release(gearTexture);
             DuelGearShimmer.Release(steamSprite);
             DuelGearShimmer.Release(steamTexture);
             if (gameObject != null)
@@ -200,20 +209,7 @@ namespace TurnLimbo.Presentation
             }
         }
 
-        private static Texture2D CreateGearTexture()
-        {
-            var pixels = new Color32[GearTexels * GearTexels];
-            float texel = 2f / GearTexels;
-            for (int y = 0; y < GearTexels; y++)
-                for (int x = 0; x < GearTexels; x++)
-                {
-                    float coverage = LegacyGearShimmer.GearCoverage((x + .5f) * texel - 1f,
-                        (y + .5f) * texel - 1f, texel, 16, .96f, .79f, .56f, .25f, .1f, 6);
-                    pixels[y * GearTexels + x] = new Color32(255, 255, 255,
-                        (byte)Mathf.RoundToInt(coverage * 255f));
-                }
-            return DuelGearShimmer.CreateTexture("Transition Loading Gear", GearTexels, pixels);
-        }
+
 
         private static Texture2D CreateSteamTexture()
         {

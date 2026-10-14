@@ -65,7 +65,9 @@ namespace TurnLimbo.Presentation
         private readonly Button commitButton;
         private readonly CanvasGroup guideCommitGroup;
         private readonly Outline[] guideLaneFocus = new Outline[3];
+        private AcademyControlAnimation cycleAnimation, breathAnimation;
         private readonly Outline guideCommitFocus;
+        private readonly RectTransform guideCommitRing;
         private readonly RectTransform guideEnemyFocus, guideActFocus;
         private bool missionMode, missionModeInitialized, missionTimed, missionBreath, trainingMode, highlightEnemyQueue;
         private const CombatFeature AllLanes = CombatFeature.LaneQ | CombatFeature.LaneW | CombatFeature.LaneE;
@@ -146,14 +148,14 @@ namespace TurnLimbo.Presentation
         private bool assetsAvailable = true;
         // A compact command desk leaves the arena visible on both sides. Its two end buttons sit on
         // small tabs outside the desk, but remain in the same input group for the planning fade.
-        private const float DockWidth = 980f, DockHeight = 200f, DockBottomInset = 14f;
+        private const float DockWidth = 1240f, DockHeight = 248f, DockBottomInset = 14f;
         private const float EndButtonX = 550f, ToolDividerX = 288f;
         /// <summary>The duel HUD's canvas order: over the arena, under what stands over a battle (versus's overlay at
         /// <see cref="LocalVersusHud.SortingOrder"/>, the bars, the start and result cards).</summary>
         public const int SortingOrder = 100;
         /// <summary>The ACT track's height in the dock ('Input/Keys' space), along its top over the gears; the
         /// <c>n / 10 ACT</c> value sits just above it.</summary>
-        public const float ActTrackY = 60f;
+        public const float ActTrackY = 76f;
         /// <summary>How much larger a held skill's explanation is drawn than the enemy's under Tab (its paper, type and
         /// fittings), so it reads at a glance; it opens above the dock, centred on the held lane.</summary>
         public const float PlayerExplanationScale = 1.25f;
@@ -312,42 +314,44 @@ namespace TurnLimbo.Presentation
 
             var inputImage = Panel("Input", root, new Vector2(0f, DockBottomInset),
                 new Vector2(DockWidth, DockHeight));
-            Dress(inputImage);
+            BuildCommandDesk(inputImage);
             inputPanel = inputImage.rectTransform;
             inputPanel.anchorMin = inputPanel.anchorMax = new Vector2(.5f, 0f);
             inputPanel.pivot = new Vector2(.5f, 0f);
             var controls = Rect("Keys", inputPanel, Vector2.zero, Vector2.zero, Vector2.one * .5f);
             controls.anchorMin = Vector2.zero; controls.anchorMax = Vector2.one;
             inputs = controls.gameObject.AddComponent<CanvasGroup>();
+            Image("Instrument Bed", controls, null, new Vector2(0, 96), new Vector2(468, 56), Track);
+            Image("Instrument Bezel", controls, AcademyUiSkin.GaugeBezel, new Vector2(0, 96), new Vector2(544, 72));
             // Thin metal joins make the log and seal feel attached to the desk, without covering their hit areas.
-            Image("Left Desk Join", controls, white, new Vector2(-503f, -4f), new Vector2(34f, 4f), Border);
-            Image("Right Desk Join", controls, white, new Vector2(503f, -4f), new Vector2(34f, 4f), Border);
+            Text("Desk Heading", controls, new Vector2(-472f, 72f), new Vector2(218f, 24f), 13, TextAnchor.MiddleCenter).text = "전투 준비";
             Color dividerInk = Accent;
             dividerInk.a = .45f;
             // Between the gears' room (±284) and 넘기기/숨고르기 (from ±292).
-            Image("Left Tool Divider", controls, white, new Vector2(-ToolDividerX, -4f), new Vector2(2f, 112f), dividerInk);
-            Image("Right Tool Divider", controls, white, new Vector2(ToolDividerX, -4f), new Vector2(2f, 112f), dividerInk);
-            var logImage = Panel("LogButton", controls, new Vector2(-EndButtonX, -4f), new Vector2(96, 112));
+            Image("Left Tool Divider", controls, white, new Vector2(-ToolDividerX, -4f), new Vector2(1f, 146f), dividerInk);
+            Image("Right Tool Divider", controls, white, new Vector2(ToolDividerX, -4f), new Vector2(1f, 146f), dividerInk);
+            var logImage = Panel("LogButton", controls, new Vector2(-EndButtonX, -16f), new Vector2(96, 132));
             BuildActionIcon(logImage.transform, "combat-log", "기록", "L");
             var logButton = AddButton(logImage);
+            ConfigureCommandControl(logImage, logButton, "HudActions/combat-log", 64f, new Vector2(0f, 16f), logImage.transform.Find("Icon").GetComponent<Image>());
             logButton.onClick.AddListener(() => { ToggleLog(); ClearSelection(logButton.gameObject); });
             // The lanes' gears turn up out of the dock's bottom edge; the ACT track runs along its top.
             BuildSkillGears(controls, white, queue);
             BuildLanePreviews();
             BuildTemporaryMarks();
-            var breathe = Panel("BreathButton", controls, new Vector2(360, -4), new Vector2(136, 112), Card);
+            var breathe = Panel("BreathButton", controls, new Vector2(360, -4), new Vector2(152, 172), Card);
             var breathIcon = Image("Icon", breathe.transform, art.GetSkillIcon(LegacyCommonActions.Breathe.IconId),
-                new Vector2(-42, 17), Vector2.one * 36);
+                new Vector2(0f, 20f), Vector2.one * 96f);
             breathIcon.preserveAspect = true;
-            Text("Label", breathe.transform, new Vector2(22, 27), new Vector2(84, 22), 17,
+            Text("Label", breathe.transform, new Vector2(0, -35), new Vector2(140, 24), 19,
                 TextAnchor.MiddleCenter).text = "숨고르기";
-            var breathCost = Text("ACT Cost", breathe.transform, new Vector2(22, 3), new Vector2(84, 18), 14,
+            var breathCost = Text("ACT Cost", breathe.transform, new Vector2(0, -59), new Vector2(140, 18), 14,
                 TextAnchor.MiddleCenter);
             breathCost.text = "ACT 0"; breathCost.color = MutedText;
-            breathCount = Text("Remaining", breathe.transform, new Vector2(0, -18), new Vector2(124, 18), 14,
+            breathCount = Text("Remaining", breathe.transform, new Vector2(0, -79), new Vector2(140, 18), 14,
                 TextAnchor.MiddleCenter);
             breathCount.color = Foreground;
-            var breathKey = Text("KeyHint", breathe.transform, new Vector2(0, -42), new Vector2(124, 18), 17,
+            var breathKey = Text("KeyHint", breathe.transform, new Vector2(0, 78), new Vector2(140, 22), 17,
                 TextAnchor.MiddleCenter);
             breathKey.text = "S"; breathKey.color = Accent;
             var note = Text("Breath Note", controls, new Vector2(360, -81), new Vector2(200, 28), 12,
@@ -355,45 +359,58 @@ namespace TurnLimbo.Presentation
             note.text = "한 박자 쉬어\n기술 순서 조절"; note.color = MutedText;
             breathNote = note.rectTransform;
             breathButton = AddButton(breathe);
+            ConfigureCommandControl(breathe, breathButton, "AcademyUI/breath-valve", 96f, new Vector2(0f, 20f), breathIcon);
+            breathAnimation = new AcademyControlAnimation(breathIcon, "Valve", .65f);
             breathButton.onClick.AddListener(QueueBreathFromButton);
             BuildAutoBreathCount(breathe.transform);
             // 넘기기 mirrors 숨고르기 on the other side of the lanes.
-            var cycle = Panel("CycleButton", controls, new Vector2(-360, -4), new Vector2(136, 112), Card);
-            Text("Label", cycle.transform, new Vector2(0, 27), new Vector2(124, 22), 17, TextAnchor.MiddleCenter).text = "넘기기";
-            cycleCost = Text("Time Cost", cycle.transform, new Vector2(0, 3), new Vector2(124, 18), 14, TextAnchor.MiddleCenter);
+            var cycle = Panel("CycleButton", controls, new Vector2(-360, -4), new Vector2(152, 172), Card);
+            Text("Label", cycle.transform, new Vector2(0, -35), new Vector2(140, 24), 19, TextAnchor.MiddleCenter).text = "넘기기";
+            cycleCost = Text("Time Cost", cycle.transform, new Vector2(0, -59), new Vector2(140, 18), 14, TextAnchor.MiddleCenter);
             cycleCost.text = CycleCostText(0f); cycleCost.color = MutedText;
-            cycleEffect = Text("Effect", cycle.transform, new Vector2(0, -18), new Vector2(124, 18), 14, TextAnchor.MiddleCenter);
+            cycleEffect = Text("Effect", cycle.transform, new Vector2(0, -79), new Vector2(140, 18), 14, TextAnchor.MiddleCenter);
             cycleEffect.text = CycleEffectText(AllLanes); cycleEffect.color = Foreground;
-            var cycleKey = Text("KeyHint", cycle.transform, new Vector2(0, -42), new Vector2(124, 18), 17, TextAnchor.MiddleCenter);
+            var cycleKey = Text("KeyHint", cycle.transform, new Vector2(0, 78), new Vector2(140, 22), 17, TextAnchor.MiddleCenter);
             cycleKey.text = "Shift"; cycleKey.color = Accent;
             var cycleHint = Text("Cycle Note", controls, new Vector2(-360, -81), new Vector2(200, 28), 12, TextAnchor.MiddleCenter);
             cycleHint.text = "맨 앞 기술을 쓰지 않고\n뒤로 보냄"; cycleHint.color = MutedText;
             cycleNote = cycleHint.rectTransform;
             cycleButton = AddButton(cycle);
+            ConfigureCommandControl(cycle, cycleButton, "AcademyUI/cycle-lever", 96f, new Vector2(0f, 20f));
+            cycleAnimation = new AcademyControlAnimation(cycle.transform.Find("Icon").GetComponent<Image>(), "Lever", .45f);
             cycleButton.onClick.AddListener(CycleFromButton);
-            Image("Act_BG", controls, white, new Vector2(0, ActTrackY), new Vector2(520, 8), Track);
-            actFill = Image("Act_Gauge", controls, white, new Vector2(0, ActTrackY), new Vector2(520, 8), Accent);
+            Image("Act_BG", controls, AcademyUiSkin.GaugeFill, new Vector2(0, ActTrackY), new Vector2(468, 12), new Color(.28f, .24f, .18f));
+            actFill = Image("Act_Gauge", controls, AcademyUiSkin.GaugeFill, new Vector2(0, ActTrackY), new Vector2(468, 12), Color.white);
             Filled(actFill, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
             for (int unit = 1; unit < 10; unit++)
-                Image("ACT Divider " + unit, controls, white, new Vector2(-260 + unit * 52, ActTrackY), new Vector2(2, 8), Surface);
+                Image("ACT Divider " + unit, controls, white, new Vector2(-234 + unit * 46.8f, ActTrackY), new Vector2(2, 12), Surface);
             actText = Text("Act_Value", controls, new Vector2(0, ActTrackY + 20f), new Vector2(160, 22), 22, TextAnchor.MiddleCenter);
             actText.color = Foreground;
             guideActFocus = GuideFocusFrame("Guide ACT Focus", controls, new Vector2(0f, ActTrackY + 11f), new Vector2(540f, 40f));
-            var start = Panel("AButton", controls, new Vector2(EndButtonX, -4f), new Vector2(96, 112), RaisedSurface, Accent);
+            var start = Panel("AButton", controls, new Vector2(EndButtonX, -4f), new Vector2(108, 172), RaisedSurface, Accent);
             BuildActionIcon(start.transform, "confirm-turn", CommitLabel, "Space");
             commitLabel = start.transform.Find("Label").GetComponent<Text>();
             commitButton = AddButton(start, true);
+            ConfigureCommandControl(start, commitButton, "AcademyUI/commit-seal", 96f, new Vector2(0f, 18f), start.transform.Find("Icon").GetComponent<Image>());
+            commitLabel.rectTransform.anchoredPosition = new Vector2(0f, -43f);
+            commitLabel.fontSize = 19;
+            start.transform.Find("KeyHint").GetComponent<RectTransform>().anchoredPosition = new Vector2(0f, -71f);
             guideCommitGroup = start.gameObject.AddComponent<CanvasGroup>();
             guideCommitFocus = AddGuideOutline(start);
+            guideCommitFocus.effectColor = Color.clear;
+            guideCommitRing = Rect("Command Seal Guide Ring", start.transform, new Vector2(0f, 18f),
+                Vector2.one * 104f, Vector2.one * .5f);
+            guideCommitRing.gameObject.AddComponent<AcademySealFocus>().raycastTarget = false;
+            guideCommitRing.gameObject.SetActive(false);
             commitButton.onClick.AddListener(() => { commit?.Invoke(); ClearSelection(commitButton.gameObject); });
             // First laid out for all three lanes; a duel with fewer packs its own.
             LayoutGears(AllLanes, true);
 
             // Keep the planning clock on the command desk: the coach and held skill card occupy the space above it.
             // A thin bar rides its inner top edge, while ACT and seconds share the row directly underneath.
-            timerPanel = Rect("TimerBG", controls, new Vector2(0f, 84f), new Vector2(540f, 32f), Vector2.one * .5f);
-            timerTrack = Image("Timer Track", timerPanel, white, new Vector2(0f, 12f), new Vector2(520f, 6f), Track);
-            timerFill = Image("Timer", timerPanel, white, new Vector2(0f, 12f), new Vector2(520f, 6f), Accent);
+            timerPanel = Rect("TimerBG", controls, new Vector2(0f, 108f), new Vector2(540f, 32f), Vector2.one * .5f);
+            timerTrack = Image("Timer Track", timerPanel, AcademyUiSkin.GaugeFill, new Vector2(0f, 8f), new Vector2(468f, 10f), new Color(.28f, .24f, .18f));
+            timerFill = Image("Timer", timerPanel, AcademyUiSkin.GaugeFill, new Vector2(0f, 8f), new Vector2(468f, 10f), Color.white);
             Filled(timerFill, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
             BuildTimerGear(controls);
             timeText = Text("Time Remaining", timerPanel, new Vector2(190f, -5f), new Vector2(88f, 24f), 22,
@@ -720,6 +737,7 @@ namespace TurnLimbo.Presentation
             int remaining = displayedSession != null ? displayedSession.BreathsRemainingThisTurn
                 : LegacyQueuedDuel.MaximumBreathsPerTurn;
             if (shownBreathsRemaining == remaining) return;
+            if (shownBreathsRemaining >= 0 && remaining < shownBreathsRemaining) breathAnimation?.Play();
             shownBreathsRemaining = remaining;
             breathCount.text = $"남은 {remaining}/{LegacyQueuedDuel.MaximumBreathsPerTurn}";
         }
@@ -730,6 +748,7 @@ namespace TurnLimbo.Presentation
             for (int index = 0; index < guideLaneFocus.Length; index++)
                 guideLaneFocus[index].enabled = index == lane;
             guideCommitFocus.enabled = commit;
+            guideCommitRing.gameObject.SetActive(commit);
             highlightEnemyQueue = enemy;
             UpdateGuideEnemyFocus();
             guideActFocus.gameObject.SetActive(act);
@@ -784,7 +803,7 @@ namespace TurnLimbo.Presentation
             float ratio = Mathf.Clamp01(timeRemaining / Mathf.Max(0.01f, planningDuration));
             timerFill.fillAmount = ratio;
             bool timeLow = ratio <= .3f;
-            timerFill.color = timeLow ? DuelVisualTheme.Danger : Accent;
+            timerFill.color = timeLow ? DuelVisualTheme.Danger : Color.white;
             timeText.color = timeLow ? DuelVisualTheme.Danger : Foreground;
             AdvanceTimerGear(timeRemaining, planningDuration, ratio, planning, actualDelta);
             int seconds = Mathf.CeilToInt(Mathf.Max(0f, timeRemaining));
@@ -845,6 +864,8 @@ namespace TurnLimbo.Presentation
             }
             UpdateIdlerPresence();
             AdvanceLaneTurns(actualDelta);
+            cycleAnimation?.Advance(actualDelta);
+            breathAnimation?.Advance(actualDelta);
             AdvanceTimeSpent(actualDelta);
             AdvanceLanePops(actualDelta);
             AdvanceHoldCancel(actualDelta);
@@ -1389,6 +1410,8 @@ namespace TurnLimbo.Presentation
             lastPlanning = false;
             inputsHeld = false;
             shownBreathsRemaining = -1;
+            cycleAnimation?.Reset();
+            breathAnimation?.Reset();
             UpdateBreathCount();
             ApplyInputAvailability();
             for (int i = 0; i < 3; i++) shownSkills[i] = -1;
@@ -1762,6 +1785,44 @@ namespace TurnLimbo.Presentation
             var inset = size / 2 + Vector2.one * ScreenMargin;
             return new Vector2(Mathf.Clamp(center.x, inset.x, Mathf.Max(inset.x, root.rect.width - inset.x)),
                 Mathf.Clamp(center.y, inset.y, Mathf.Max(inset.y, root.rect.height - inset.y)));
+        }
+
+        private static void BuildCommandDesk(Image panel)
+        {
+            panel.color = Color.clear;
+            panel.transform.Find("Surface").gameObject.SetActive(false);
+            var node = Rect("Command Desk Housing", panel.transform, Vector2.zero, Vector2.zero, Vector2.one * .5f);
+            node.anchorMin = Vector2.zero;
+            node.anchorMax = Vector2.one;
+            node.SetAsFirstSibling();
+            node.gameObject.AddComponent<AcademyCommandHousing>().raycastTarget = false;
+        }
+
+        private void ConfigureCommandControl(Image hitArea, Button button, string resource, float size,
+            Vector2 position, Image icon = null)
+        {
+            Sprite sprite = Resources.Load<Sprite>(resource);
+            assetsAvailable &= sprite != null;
+            hitArea.color = Color.clear;
+            // Transparent rectangular hit regions must stay in the raycaster even though their mesh is invisible.
+            hitArea.canvasRenderer.cullTransparentMesh = false;
+            hitArea.transform.Find("Surface").gameObject.SetActive(false);
+            if (icon == null) icon = Image("Icon", hitArea.transform, sprite, position, Vector2.one * size);
+            else
+            {
+                icon.sprite = sprite;
+                icon.rectTransform.anchoredPosition = position;
+                icon.rectTransform.sizeDelta = Vector2.one * size;
+            }
+            icon.preserveAspect = true;
+            icon.raycastTarget = false;
+            button.targetGraphic = icon;
+            // Tint only the illustrated control. Labels and keys retain their contrast when hovered.
+            ColorBlock colors = button.colors;
+            colors.highlightedColor = new Color(1.12f, 1.08f, 1.02f);
+            colors.pressedColor = new Color(.93f, .89f, .82f);
+            colors.disabledColor = new Color(.78f, .76f, .70f);
+            button.colors = colors;
         }
 
         private void BuildActionIcon(Transform parent, string iconName, string label, string key)

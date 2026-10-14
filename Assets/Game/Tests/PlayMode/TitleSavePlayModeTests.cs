@@ -43,9 +43,9 @@ namespace TurnLimbo.Presentation.Tests
                 Image titleRoom = NamedImage(controller.TitleHud.Root, "Title Background");
                 Image lobbyRoom = NamedImage(controller.LobbyHud.Root, "Bedroom Background");
                 Assert.That(titleRoom.sprite, Is.Not.Null);
-                Assert.That(new[] { "morning", "day", "evening", "night" }, Does.Contain(titleRoom.sprite.name));
-                Assert.That(titleRoom.sprite, Is.SameAs(lobbyRoom.sprite),
-                    "The title and lobby keep the same randomly chosen room.");
+                Assert.That(titleRoom.sprite, Is.SameAs(Resources.Load<Sprite>("AcademyUI/title-academy")),
+                    "The title presents the academy; the lobby remains the player's room.");
+                Assert.That(new[] { "morning", "day", "evening", "night" }, Does.Contain(lobbyRoom.sprite.name));
                 Assert.That(controller.ContinueGame(), Is.False);
                 Assert.That(controller.StartCampaignStage(1), Is.False);
                 Assert.That(controller.StartMission(), Is.False);

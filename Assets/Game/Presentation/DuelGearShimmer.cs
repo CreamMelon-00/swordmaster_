@@ -28,7 +28,7 @@ namespace TurnLimbo.Presentation
         private readonly Func<DuelPresentationSettings> settings;
         private readonly Image gear, glint;
         private readonly RectTransform glintMask;
-        private readonly Texture2D gearTexture, glintTexture;
+        private readonly Texture2D glintTexture;
         private readonly Sprite gearSprite, glintSprite;
         private float seconds, elapsed;
         private bool disposed;
@@ -40,9 +40,8 @@ namespace TurnLimbo.Presentation
             this.settings = settings ?? throw new ArgumentNullException(nameof(settings));
             hud.TryGetEnemyQueueRow(out RectTransform row, out _);
             if (row == null) throw new ArgumentException("The duel HUD has no enemy queue row.", nameof(hud));
-            gearTexture = CreateGearTexture();
             glintTexture = CreateGlintTexture();
-            gearSprite = CreateSprite(gearTexture);
+            gearSprite = AcademyUiSkin.GearClock;
             glintSprite = CreateSprite(glintTexture);
             gear = CreateImage("Enemy Queue Gear", row.parent, gearSprite, new Vector2(GearSize, GearSize));
             glintMask = new GameObject("Enemy Queue Glint", typeof(RectTransform), typeof(RectMask2D)).GetComponent<RectTransform>();
@@ -102,9 +101,7 @@ namespace TurnLimbo.Presentation
             seconds = elapsed = 0f;
             if (gear != null) Release(gear.gameObject);
             if (glintMask != null) Release(glintMask.gameObject);
-            Release(gearSprite);
             Release(glintSprite);
-            Release(gearTexture);
             Release(glintTexture);
         }
 
@@ -126,7 +123,7 @@ namespace TurnLimbo.Presentation
             gearRect.anchoredPosition = origin + new Vector2(span.x + LegacyCombatHud.QueueCardSize * .5f, 0f);
             gearRect.localRotation = Quaternion.Euler(0f, 0f, -LegacyGearShimmer.GearTurn(t));
             gearRect.localScale = Vector3.one * LegacyGearShimmer.GearScale(t);
-            gear.color = new Color(Brass.r, Brass.g, Brass.b, GearOpacity * strength * LegacyGearShimmer.GearAlpha(t));
+            gear.color = new Color(1f, 1f, 1f, GearOpacity * strength * LegacyGearShimmer.GearAlpha(t));
             float width = Mathf.Max(0f, span.y - span.x);
             glintMask.anchoredPosition = origin + new Vector2((span.x + span.y) * .5f, 0f);
             glintMask.sizeDelta = new Vector2(width, LegacyCombatHud.QueueCardSize);
@@ -169,18 +166,7 @@ namespace TurnLimbo.Presentation
         }
 
         // The gear in white, its edges softened over a texel (LegacyGearShimmer.GearCoverage); the Image tints it brass.
-        private static Texture2D CreateGearTexture()
-        {
-            var pixels = new Color32[GearTexels * GearTexels];
-            float texel = 2f / GearTexels;
-            for (int y = 0; y < GearTexels; y++)
-                for (int x = 0; x < GearTexels; x++)
-                {
-                    float coverage = LegacyGearShimmer.GearCoverage((x + .5f) * texel - 1f, (y + .5f) * texel - 1f, texel);
-                    pixels[y * GearTexels + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(coverage * 255f));
-                }
-            return CreateTexture("Gear Shimmer Gear", GearTexels, pixels);
-        }
+
 
         // A soft vertical band: brightest down its middle, fading to the sides and toward both ends.
         private static Texture2D CreateGlintTexture()

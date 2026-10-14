@@ -1,0 +1,49 @@
+[
+  {
+    "id": "86571eb8-a4b4-4cb4-9e59-2d2b8c91b3e4",
+    "name": "cycle-lever"
+  },
+  {
+    "id": "3e142e59-100a-43d8-bdc6-926ad746ec5c",
+    "name": "lever-arm"
+  },
+  {
+    "id": "5c2cb950-79fb-4b90-9bcd-b63ff1f97e27",
+    "name": "lever-base"
+  },
+  {
+    "id": "e9d606cf-609a-44f4-bd77-1c08e9e93805",
+    "name": "valve-wheel",
+    "status": "superseded by imported slices of breath-valve.png; not loaded by the control"
+  },
+  {
+    "id": "cc7290bc-7a59-49d2-a366-2a109d9f3c83",
+    "name": "valve-base",
+    "status": "superseded by imported slices of breath-valve.png; not loaded by the control"
+  },
+  {
+    "name": "breath-valve imported slices",
+    "source_job": "38fa2860-6555-4de1-b682-b96963e022db",
+    "candidate": 2,
+    "source_png_unchanged": true,
+    "sprite_rects_bottom_left": {
+      "Valve Wheel": [
+        16,
+        24,
+        64,
+        62
+      ],
+      "Valve Pipe": [
+        38,
+        6,
+        20,
+        18
+      ]
+    },
+    "wheel_pivot": [
+      0.5,
+      0.5
+    ],
+    "method": "Unity TextureImporter Multiple sprites, no runtime texture or sprite allocation"
+  }
+]

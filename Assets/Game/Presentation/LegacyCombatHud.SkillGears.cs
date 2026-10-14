@@ -23,14 +23,14 @@ namespace TurnLimbo.Presentation
     {
         /// <summary>The gears' centres in the dock ('Input/Keys' space: its centre at 0, y up), just inside its bottom edge:
         /// the line they turn out of, below which nothing of them shows.</summary>
-        public const float GearCentreY = -96f;
-        /// <summary>How far either side of the middle the gears may reach: 넘기기 and 숨고르기 (x ±360, 136 wide) start at ±292.</summary>
+        public const float GearCentreY = -100f;
+        /// <summary>How far either side of the middle the gears may reach: 넘기기 and 숨고르기 (x ±360, 152 wide) start at ±284.</summary>
         public const float GearRoomHalfWidth = 284f;
         /// <summary>The current skill's size at the top of its gear; the other slots scale from it
         /// (<see cref="LegacySkillGear.SlotScale"/>).</summary>
-        public const float CurrentSkillSize = 52f;
+        public const float CurrentSkillSize = 60f;
         /// <summary>The fixed window round the current skill, the lane's button.</summary>
-        public const float SkillWindowSize = 66f;
+        public const float SkillWindowSize = 76f;
         /// <summary>The gears' sounds (<c>Resources/Sfx</c>): a lane's turn and 넘기기's.</summary>
         public const string GearTickSound = "gear-tick", GearRatchetSound = "gear-ratchet";
         private const float SocketPad = 6f;
@@ -47,8 +47,8 @@ namespace TurnLimbo.Presentation
         // turn of their symmetry), where its six like teeth alone could seem to step back.
         private const int IdlerSpokes = 2;
         private static readonly float Cos30 = Mathf.Cos(30f * Mathf.Deg2Rad), Sin30 = .5f;
-        private static readonly Color GearBrass = Color.Lerp(DuelVisualTheme.Border, DuelVisualTheme.Accent, .4f);
-        private static readonly Color IdlerBrass = DuelVisualTheme.Border;
+        private static readonly Color GearBrass = Color.white;
+        private static readonly Color IdlerBrass = Color.white;
         // A socket dims with its skill by darkening, never by fading: whatever it sits over (an idler's teeth) stays hidden.
         private static readonly Color DimSocket = new Color(.45f, .45f, .45f, 1f);
 
@@ -64,9 +64,8 @@ namespace TurnLimbo.Presentation
         private float slotRadius = LegacySkillGear.SlotRadius(LegacySkillGear.DefaultRadius);
         // The pointer held on each lane's window (the lane's hold, read by the controller like its key).
         private readonly LanePointerHold[] lanePointers = new LanePointerHold[3];
-        private Texture2D wheelTexture, idlerTexture, socketTexture;
+        private Texture2D socketTexture;
         private Sprite wheelSprite, idlerSprite, socketSprite;
-        private (float, int, float) wheelPicture, idlerPicture;
         private AudioSource gearAudio;
         private AudioClip gearTick, gearRatchet;
 
@@ -113,6 +112,7 @@ namespace TurnLimbo.Presentation
                 any = true;
             }
             if (!any) return;
+            cycleAnimation?.Play();
             StartIdlers();
             PlayGearSound(gearRatchet, presentationSettings != null ? presentationSettings.GearRatchetVolume
                 : LegacySkillGear.DefaultRatchetVolume);
@@ -242,16 +242,16 @@ namespace TurnLimbo.Presentation
                 AddSlot(gear, 2, window.transform, "Socket", "Skill Image");
                 // The current skill's core mechanic (its first keyword's glyph) at the icon's upper right.
                 gear.Role = new SkillRolePip(window.transform, Vector2.one * RolePipOffset);
-                var keyLabel = Text("Key", window.transform, new Vector2(-18f, KeyRow), new Vector2(24f, 22f), 20, TextAnchor.MiddleCenter);
+                var keyLabel = Text("Key", window.transform, new Vector2(-18f, KeyRow), new Vector2(26f, 24f), 22, TextAnchor.MiddleCenter);
                 keyLabel.text = key.ToString(); keyLabel.color = Accent;
                 var styleName = Text("Style Name", window.transform, new Vector2(16f, KeyRow), new Vector2(48f, 20f), 14, TextAnchor.MiddleLeft);
                 styleName.text = SkillLaneStyle.Name(lane); styleName.color = SkillLaneStyle.Edge(lane);
-                skillNames[lane] = Text("Skill Name", window.transform, new Vector2(0f, SkillNameRow), new Vector2(150f, 20f), 15, TextAnchor.MiddleCenter);
+                skillNames[lane] = Text("Skill Name", window.transform, new Vector2(0f, SkillNameRow), new Vector2(154f, 24f), 18, TextAnchor.MiddleCenter);
                 skillNames[lane].supportRichText = false;
                 skillNames[lane].verticalOverflow = VerticalWrapMode.Truncate;
                 skillNames[lane].resizeTextForBestFit = true;
                 skillNames[lane].resizeTextMinSize = 11;
-                skillNames[lane].resizeTextMaxSize = 15;
+                skillNames[lane].resizeTextMaxSize = 18;
                 gear.CostPlate = Panel("Cost Plate", window.transform, Vector2.zero, new Vector2(60f, 20f), Card, Border).rectTransform;
                 costs[lane] = Text("SkillCost", window.transform, Vector2.zero, new Vector2(64f, 18f), 16, TextAnchor.MiddleCenter);
                 costs[lane].color = Foreground;
@@ -556,64 +556,23 @@ namespace TurnLimbo.Presentation
             ApplyGears();
         }
 
-        // Draws the lane gear and the idler for these proportions, again only when they change.
+        // Imported images are shared across all lanes and HUDs. Geometry still controls placement and rotation.
         private void DrawGearPictures(GearGeometry geometry, int gearTeeth, int idlerTeeth)
         {
-            var wheel = (geometry.Radius, gearTeeth, geometry.ToothDepth);
-            if (wheelSprite == null || wheel != wheelPicture)
-            {
-                DuelGearShimmer.Release(wheelSprite);
-                DuelGearShimmer.Release(wheelTexture);
-                // The shimmer's gear: a rim on spokes to a hub, its teeth as deep as tuned.
-                float rootRadius = LegacySkillGear.TipShare * Mathf.Clamp((geometry.Radius - geometry.ToothDepth) / geometry.Radius, .4f, .95f);
-                wheelTexture = GearTexture("Skill Gear", WheelTexels, gearTeeth, rootRadius, rootRadius * .75f, .26f, .11f,
-                    LegacyGearShimmer.Spokes);
-                wheelSprite = DuelGearShimmer.CreateSprite(wheelTexture);
-                wheelPicture = wheel;
-                foreach (SkillGear gear in gears) gear.Wheel.sprite = wheelSprite;
-            }
-            var idler = (geometry.IdlerRadius, idlerTeeth, geometry.ToothDepth);
-            if (geometry.IdlerRadius > 0f && (idlerSprite == null || idler != idlerPicture))
-            {
-                DuelGearShimmer.Release(idlerSprite);
-                DuelGearShimmer.Release(idlerTexture);
-                // A small pinion with teeth the lane gears' size: an open rim crossed by a bar (IdlerSpokes) through its
-                // hub, the one mark that shows which way it turns.
-                float rootRadius = LegacySkillGear.TipShare * Mathf.Clamp((geometry.IdlerRadius - geometry.ToothDepth) / geometry.IdlerRadius, .4f, .95f);
-                idlerTexture = GearTexture("Skill Gear Idler", IdlerTexels, idlerTeeth, rootRadius, rootRadius - .14f, .22f, .1f,
-                    IdlerSpokes);
-                idlerSprite = DuelGearShimmer.CreateSprite(idlerTexture);
-                idlerPicture = idler;
-                foreach (Image image in idlers) image.sprite = idlerSprite;
-            }
+            wheelSprite = AcademyUiSkin.GearWheel;
+            idlerSprite = AcademyUiSkin.GearPinion;
+            assetsAvailable &= wheelSprite != null && idlerSprite != null;
+            foreach (SkillGear gear in gears) gear.Wheel.sprite = wheelSprite;
+            foreach (Image image in idlers) image.sprite = idlerSprite;
         }
 
         private void ReleaseGearPictures()
         {
-            DuelGearShimmer.Release(wheelSprite);
-            DuelGearShimmer.Release(wheelTexture);
-            DuelGearShimmer.Release(idlerSprite);
-            DuelGearShimmer.Release(idlerTexture);
+            // Only the runtime socket is owned by this HUD; imported gears must survive HUD disposal.
             DuelGearShimmer.Release(socketSprite);
             DuelGearShimmer.Release(socketTexture);
             wheelSprite = idlerSprite = socketSprite = null;
-            wheelTexture = idlerTexture = socketTexture = null;
-        }
-
-        // A gear in white, its edges softened over a texel (LegacyGearShimmer.GearCoverage); the Image tints it brass.
-        private static Texture2D GearTexture(string name, int texels, int teeth, float rootRadius, float rimInnerRadius,
-            float hubRadius, float axleRadius, int spokes)
-        {
-            var pixels = new Color32[texels * texels];
-            float texel = 2f / texels;
-            for (int y = 0; y < texels; y++)
-                for (int x = 0; x < texels; x++)
-                {
-                    float coverage = LegacyGearShimmer.GearCoverage((x + .5f) * texel - 1f, (y + .5f) * texel - 1f, texel,
-                        teeth, LegacySkillGear.TipShare, rootRadius, rimInnerRadius, hubRadius, axleRadius, spokes);
-                    pixels[y * texels + x] = new Color32(255, 255, 255, (byte)Mathf.RoundToInt(coverage * 255f));
-                }
-            return DuelGearShimmer.CreateTexture(name, texels, pixels);
+            socketTexture = null;
         }
 
         // A socket on the rim: a dark well a skill's icon reads on, ringed in brass.

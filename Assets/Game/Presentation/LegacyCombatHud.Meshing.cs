@@ -19,7 +19,6 @@ namespace TurnLimbo.Presentation
         private const float MeshNoteRow = 22f;
         private const int MeshGearTexels = 64;
         private readonly List<int> meshBonuses = new List<int>();
-        private Texture2D meshGearTexture;
         private Sprite meshGearSprite;
         private RectTransform playerMeshNote;
         private Text playerMeshNoteText;
@@ -48,17 +47,12 @@ namespace TurnLimbo.Presentation
 
         private void BuildMeshPictures()
         {
-            meshGearTexture = GearTexture("Mesh Gear", MeshGearTexels, LegacyMeshCue.GearTeeth, LegacyGearShimmer.RootRadius,
-                LegacyGearShimmer.RimInnerRadius, LegacyGearShimmer.HubRadius, LegacyGearShimmer.AxleRadius, 4);
-            meshGearSprite = DuelGearShimmer.CreateSprite(meshGearTexture);
+            meshGearSprite = AcademyUiSkin.GearPinion;
         }
 
         private void ReleaseMeshPictures()
         {
-            DuelGearShimmer.Release(meshGearSprite);
-            DuelGearShimmer.Release(meshGearTexture);
             meshGearSprite = null;
-            meshGearTexture = null;
         }
 
         // The row over the held explanation's hint: a small gear and a line, hidden until a duel that can mesh shows it.

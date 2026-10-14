@@ -98,14 +98,17 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920, 1080)));
             Assert.That(scaler.matchWidthOrHeight, Is.EqualTo(.5f));
             RectTransform input = Get<RectTransform>(root, "Input");
-            Assert.That(input.rect.width, Is.InRange(900f, 1050f),
-                "The battle commands occupy a compact center dock instead of a screen-wide footer.");
-            Assert.That(input.rect.height, Is.LessThanOrEqualTo(200f));
-            Rect dockBounds = ScreenRect(input);
+            Assert.That(input.rect.width, Is.InRange(1150f, 1320f),
+                "The unified command instrument leaves the sides of the battlefield visible.");
+            Assert.That(input.rect.height, Is.LessThanOrEqualTo(260f));
             RectTransform log = Get<RectTransform>(root, "Input/Keys/LogButton");
             RectTransform commit = Get<RectTransform>(root, "Input/Keys/AButton");
-            Assert.That(ScreenRect(log).xMax, Is.LessThan(dockBounds.xMin), "The log command flanks the dock.");
-            Assert.That(ScreenRect(commit).xMin, Is.GreaterThan(dockBounds.xMax), "The commit command flanks the dock.");
+            AssertWithin(log, input);
+            AssertWithin(commit, input);
+            Assert.That(ScreenRect(log).xMax, Is.LessThan(ScreenRect(Get<RectTransform>(root, "Input/Keys/CycleButton")).xMin),
+                "The record sits outside the cycle lever without sharing its hit area.");
+            Assert.That(ScreenRect(commit).xMin, Is.GreaterThan(ScreenRect(Get<RectTransform>(root, "Input/Keys/BreathButton")).xMax),
+                "The command seal sits outside the breath valve without sharing its hit area.");
             AssertOnScreen(log);
             AssertOnScreen(commit);
 
@@ -113,7 +116,7 @@ namespace TurnLimbo.Presentation.Tests
             Image track = Get<Image>(root, "Input/Keys/Act_BG");
             Assert.That(fill.type, Is.EqualTo(Image.Type.Filled));
             Assert.That(fill.fillMethod, Is.EqualTo(Image.FillMethod.Horizontal));
-            Assert.That(fill.rectTransform.rect.size, Is.EqualTo(new Vector2(520, 8)));
+            Assert.That(fill.rectTransform.rect.size, Is.EqualTo(new Vector2(468, 12)));
             Assert.That(track.rectTransform.rect.size, Is.EqualTo(fill.rectTransform.rect.size));
             Assert.That(track.rectTransform.anchorMin, Is.EqualTo(fill.rectTransform.anchorMin));
             Assert.That(track.rectTransform.anchorMax, Is.EqualTo(fill.rectTransform.anchorMax));

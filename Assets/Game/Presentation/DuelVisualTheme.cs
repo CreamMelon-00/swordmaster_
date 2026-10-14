@@ -3,7 +3,7 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>The duel club's restrained wood, brass and paper vocabulary. No gameplay state.</summary>
+    /// <summary>Walnut, parchment and restrained warm brass. No gameplay state.</summary>
     public static class DuelVisualTheme
     {
         public static readonly Color Surface = Hex(0x29231c);
@@ -14,17 +14,18 @@ namespace TurnLimbo.Presentation
         public static readonly Color Accent = Hex(0xc8a365);
         public static readonly Color Foreground = Hex(0xe9debf);
         public static readonly Color Muted = Hex(0xb7aa8e);
-        public static readonly Color Ink = Hex(0x332c23);
+        public static readonly Color Ink = Hex(0x29231c);
         public static readonly Color Paper = Hex(0xd8c8a4);
         public static readonly Color Danger = Hex(0xc58069);
         public static readonly Color Track = Hex(0x1e211f);
         public static readonly Color Health = Hex(0x789878);
         public static readonly Color Steel = Hex(0x91aaa7);
 
-        // Decorations are code-native UI geometry, not generated paintings over interactive controls.
+        // PixelLab provides sliced material borders; compact controls retain the procedural trim.
         public static void Frame(Image image, bool ornate = false)
         {
             if (image == null) return;
+            // Functional surfaces use a fine trim; illustrated controls have their own silhouettes.
             Transform existing = image.transform.Find("Brass Trim");
             DuelPanelTrim trim;
             if (existing != null) trim = existing.GetComponent<DuelPanelTrim>();
@@ -85,27 +86,17 @@ namespace TurnLimbo.Presentation
             if (bounds.width < 12f || bounds.height < 12f) return;
             Color brass = DuelVisualTheme.Border;
             Color shade = new Color(.08f, .065f, .045f, .8f);
-            float inset = ornate ? 6f : 2f;
-            Outline(vertices, bounds, 0f, 2f, shade);
+            float inset = 1f;
+            Outline(vertices, bounds, 0f, 1f, shade);
             Outline(vertices, bounds, inset, 1f, brass);
             // Short highlight on the upper edge reads as a worn metal rim, not a neon outline.
             Quad(vertices, bounds.xMin + inset + 8f, bounds.yMax - inset - 2f,
                 Mathf.Max(0f, bounds.width - inset * 2f - 16f), 1f,
                 new Color(DuelVisualTheme.Accent.r, DuelVisualTheme.Accent.g, DuelVisualTheme.Accent.b, .38f));
             if (!ornate) return;
-            Color pin = DuelVisualTheme.Accent;
-            foreach (float sideX in new[] { bounds.xMin + 9f, bounds.xMax - 9f })
-                foreach (float sideY in new[] { bounds.yMin + 9f, bounds.yMax - 9f })
-                {
-                    Quad(vertices, sideX - 2f, sideY - 2f, 4f, 4f, shade);
-                    Quad(vertices, sideX - 1f, sideY, 2f, 1f, pin);
-                    Quad(vertices, sideX, sideY - 1f, 1f, 2f, pin);
-                }
-            // Very quiet horizontal grain only at the blank panel edges; never under body text.
-            Color grain = new Color(brass.r, brass.g, brass.b, .13f);
-            for (int line = 0; line < 3; line++)
-                Quad(vertices, bounds.xMin + 18f + line * 6f, bounds.yMin + 15f + line * 3f,
-                    Mathf.Min(54f, bounds.width * .16f), 1f, grain);
+            // One quiet lower rule replaces repeated corner hardware, even when the optional sprite is absent.
+            Quad(vertices, bounds.center.x - Mathf.Min(24f, bounds.width * .1f), bounds.yMin + inset + 2f,
+                Mathf.Min(48f, bounds.width * .2f), 1f, new Color(brass.r, brass.g, brass.b, .3f));
         }
 
         private static void Outline(VertexHelper vertices, Rect bounds, float inset, float width, Color color)

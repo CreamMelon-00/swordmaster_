@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "created": "2026-10-14",
+  "service": "PixelLab MCP",
+  "totalGenerationsCharged": 30,
+  "palette": [
+    "#161b1a",
+    "#202521",
+    "#29231c",
+    "#30291f",
+    "#382d23",
+    "#51412b",
+    "#72563a",
+    "#957449",
+    "#c8a365",
+    "#e9debf",
+    "#b7aa8e",
+    "#91aaa7"
+  ],
+  "assets": [
+    {
+      "file": "Assets/Game/Resources/AcademyUI/panel-frame.png",
+      "size": [
+        128,
+        96
+      ],
+      "border": [
+        12,
+        12,
+        12,
+        12
+      ],
+      "generationJob": "9c83afdd-461e-4620-8fd4-47e6f20ac988",
+      "galleryAsset": "00ae7853-b480-50ad-a127-48b5e91f6fc1",
+      "candidate": 0,
+      "editId": "b7f52c3e-f96e-46a5-9d24-54e71e607b19",
+      "edit": {
+        "map_colors": {
+          "#382d23": "#72563a",
+          "#30291f": "#51412b",
+          "#29231c": "#382d23",
+          "#957449": "#c8a365"
+        }
+      },
+      "url": "https://api.pixellab.ai/mcp/pixel-tools/b7f52c3e-f96e-46a5-9d24-54e71e607b19/image.png"
+    },
+    {
+      "file": "Assets/Game/Resources/AcademyUI/button-frame.png",
+      "size": [
+        160,
+        48
+      ],
+      "border": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "generationJob": "2cfc315d-82fe-4ac5-8910-b5f74457584a",
+      "galleryAsset": "7fb9a2ea-5b2d-5468-ba7b-7655ae34f36c",
+      "candidate": 3,
+      "editId": "ba2d64a1-b986-4f00-a995-801e234831ac",
+      "edit": {
+        "map_colors": {
+          "#72563a": "#957449",
+          "#957449": "#c8a365",
+          "#161b1a": "#382d23"
+        }
+      },
+      "url": "https://api.pixellab.ai/mcp/pixel-tools/ba2d64a1-b986-4f00-a995-801e234831ac/image.png"
+    },
+    {
+      "file": "Assets/Game/Resources/AcademyUI/academy-crest.png",
+      "size": [
+        64,
+        64
+      ],
+      "border": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "generationJob": "ac93e980-8dac-4d65-b477-bfb6022d2072",
+      "galleryAsset": "0620acbb-9d52-527f-882b-314235362288",
+      "candidate": 1,
+      "url": "https://api.pixellab.ai/mcp/images/ac93e980-8dac-4d65-b477-bfb6022d2072/download?index=1"
+    }
+  ],
+  "import": {
+    "textureType": "Sprite",
+    "filterMode": "Point",
+    "compression": "Uncompressed",
+    "mipmaps": false,
+    "spriteMeshType": "FullRect",
+    "pixelsPerUnit": 100
+  },
+  "notes": [
+    "Generated originals are preserved in Art/PixelLabUI/20261014/Originals.",
+    "Panel/button decorations use fillCenter=false; original colours and readable Unity text remain.",
+    "Preview scenes use in-memory campaign data only."
+  ]
+}

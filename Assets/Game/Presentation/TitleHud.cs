@@ -51,31 +51,47 @@ namespace TurnLimbo.Presentation
             root.gameObject.AddComponent<GraphicRaycaster>();
 
             Stretch(Panel("Title Backdrop", root, Vector2.zero, Vector2.zero, DuelVisualTheme.Surface).rectTransform);
-            Sprite room = selectedRoomSprite != null ? selectedRoomSprite : LobbyRoomBackdrop.PickRandom();
+            Sprite room = AcademyUiSkin.TitleBackground;
+            if (room == null) room = selectedRoomSprite != null ? selectedRoomSprite : LobbyRoomBackdrop.PickRandom();
             var background = Panel("Title Background", root, Vector2.zero, new Vector2(1920f, 1080f), Color.white);
             background.sprite = room;
             background.enabled = room != null;
             var fitter = background.gameObject.AddComponent<AspectRatioFitter>();
             fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
             fitter.aspectRatio = room != null && room.rect.height > 0f ? room.rect.width / room.rect.height : 16f / 9f;
-            Color shade = DuelVisualTheme.Track;
-            shade.a = .62f;
-            Stretch(Panel("Title Shade", root, Vector2.zero, Vector2.zero, shade).rectTransform);
+            var veilRect = Rect("Title Shade", root, Vector2.zero, Vector2.zero);
+            Stretch(veilRect);
+            veilRect.gameObject.AddComponent<CanvasRenderer>();
+            veilRect.gameObject.AddComponent<AcademyTitleVeil>().raycastTarget = false;
 
-            Label("Title Name", root, new Vector2(0f, 210f), new Vector2(1200f, 130f), 104, DuelVisualTheme.Foreground).text = GameTitle;
-            Label("Title Subtitle", root, new Vector2(0f, 120f), new Vector2(900f, 40f), 30, DuelVisualTheme.Muted).text = "검술 클럽";
+            var column = Rect("Title Menu Column", root, new Vector2(-550f, 0f), new Vector2(600f, 940f));
 
-            continueButton = ActionButton("Title Continue", root, "이어하기  [Enter]", new Vector2(0f, -60f), new Vector2(460f, 76f),
+            var titleName = Label("Title Name", column, new Vector2(0f, 200f), new Vector2(520f, 230f), 104, DuelVisualTheme.Foreground);
+            titleName.text = GameTitle.ToUpperInvariant().Replace(" ", "\n");
+            titleName.alignment = TextAnchor.MiddleLeft;
+            titleName.lineSpacing = .95f;
+            var subtitle = Label("Title Subtitle", column, new Vector2(0f, 46f), new Vector2(520f, 40f), 28, DuelVisualTheme.Muted);
+            subtitle.text = "기사학교";
+            subtitle.alignment = TextAnchor.MiddleLeft;
+            AcademyUiSkin.AddCrest(column, new Vector2(-226f, 392f), 64f);
+            var overline = Label("Title Overline", column, new Vector2(36f, 392f), new Vector2(420f, 26f), 16, DuelVisualTheme.Accent);
+            overline.alignment = TextAnchor.MiddleLeft;
+            overline.text = "KNIGHT ACADEMY";
+            Panel("Title Rule", column, new Vector2(0f, 4f), new Vector2(520f, 1f), DuelVisualTheme.Border);
+
+            continueButton = ActionButton("Title Continue", column, "이어하기  [Enter]", new Vector2(0f, -68f), new Vector2(520f, 76f),
                 () => this.continueGame?.Invoke(), true);
-            summary = Label("Title Save Summary", root, new Vector2(0f, -120f), new Vector2(900f, 32f), 22, DuelVisualTheme.Muted);
+            summary = Label("Title Save Summary", column, new Vector2(0f, -132f), new Vector2(520f, 40f), 18, DuelVisualTheme.Muted);
+            summary.alignment = TextAnchor.MiddleLeft;
             continueCaption = continueButton.GetComponentInChildren<Text>();
-            newGameButton = ActionButton("Title New Game", root, "새 게임", new Vector2(0f, -200f), new Vector2(460f, 68f),
+            newGameButton = ActionButton("Title New Game", column, "새 게임", new Vector2(0f, -212f), new Vector2(520f, 64f),
                 PressNewGame);
             newGameCaption = newGameButton.GetComponentInChildren<Text>();
             // Under 새 게임, in the same column.
-            onlineVersusButton = ActionButton("Title Online Versus", root, "온라인 친구 대전", new Vector2(0f, -286f),
-                new Vector2(460f, 68f), () => this.onlineVersus?.Invoke());
-            notice = Label("Title Notice", root, new Vector2(0f, -376f), new Vector2(1100f, 64f), 20, DuelVisualTheme.Danger);
+            onlineVersusButton = ActionButton("Title Online Versus", column, "온라인 친구 대전", new Vector2(0f, -296f),
+                new Vector2(520f, 64f), () => this.onlineVersus?.Invoke());
+            notice = Label("Title Notice", column, new Vector2(0f, -390f), new Vector2(520f, 76f), 18, DuelVisualTheme.Danger);
+            notice.alignment = TextAnchor.MiddleLeft;
 
             var veil = Panel("Title Confirm", root, Vector2.zero, Vector2.zero,
                 new Color(DuelVisualTheme.Track.r, DuelVisualTheme.Track.g, DuelVisualTheme.Track.b, .78f));
@@ -105,6 +121,13 @@ namespace TurnLimbo.Presentation
             confirmPanel.SetActive(false);
             bool canContinue = continueSummary != null;
             continueButton.interactable = canContinue;
+            // The action the player can actually take owns the warm accent.
+            continueButton.targetGraphic.color = Color.white;
+            continueButton.transform.Find("Primary Marker").gameObject.SetActive(canContinue);
+            newGameButton.targetGraphic.color = Color.white;
+            newGameButton.transform.Find("Primary Marker").gameObject.SetActive(!canContinue);
+            continueCaption.color = canContinue ? DuelVisualTheme.Foreground : DuelVisualTheme.Muted;
+            newGameCaption.color = DuelVisualTheme.Foreground;
             // Enter continues when it can and otherwise presses 새 게임, so the hint follows it.
             continueCaption.text = canContinue ? "이어하기  [Enter]" : "이어하기";
             newGameCaption.text = canContinue ? "새 게임" : "새 게임  [Enter]";
@@ -165,14 +188,20 @@ namespace TurnLimbo.Presentation
         private Button ActionButton(string name, Transform parent, string caption, Vector2 position, Vector2 size,
             Action action, bool primary = false)
         {
-            var image = Panel(name, parent, position, size, primary ? DuelVisualTheme.Accent : DuelVisualTheme.RaisedSurface);
+            var image = Panel(name, parent, position, size, Color.white);
+            image.sprite = AcademyUiSkin.MenuPlaque;
+            image.type = Image.Type.Sliced;
+            image.pixelsPerUnitMultiplier = .5f;
             image.raycastTarget = true;
             var button = image.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
             button.navigation = new Navigation { mode = Navigation.Mode.None };
             DuelVisualTheme.StyleButton(button, primary);
+            image.transform.Find("Brass Trim").gameObject.SetActive(false);
+            var marker = Panel("Primary Marker", image.transform, new Vector2(-size.x * .5f + 62f, 0), new Vector2(4, size.y - 28), DuelVisualTheme.Accent);
+            marker.gameObject.SetActive(primary);
             Label("Button Label", image.transform, Vector2.zero, size - new Vector2(16f, 8f), 26,
-                primary ? DuelVisualTheme.Ink : DuelVisualTheme.Foreground).text = caption;
+                DuelVisualTheme.Foreground).text = caption;
             button.onClick.AddListener(() =>
             {
                 ClearSelection();

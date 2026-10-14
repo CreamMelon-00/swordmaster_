@@ -1,0 +1,38 @@
+{
+  "success": true,
+  "playing": false,
+  "panelReady": true,
+  "buttonReady": true,
+  "crestReady": true,
+  "utc": "2026-10-14T05:03:33.254423Z",
+  "command": "render",
+  "scene": "",
+  "gameState": "",
+  "error": "",
+  "files": [
+    "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3\\Logs/AcademyUI/title.png",
+    "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3\\Logs/AcademyUI/home.png",
+    "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3\\Logs/AcademyUI/stages.png",
+    "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3\\Logs/AcademyUI/loadout.png",
+    "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3\\Logs/AcademyUI/curriculum.png",
+    "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3\\Logs/AcademyUI/briefing.png",
+    "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3\\Logs/AcademyUI/combat.png",
+    "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3\\Logs/AcademyUI/loading.png"
+  ],
+  "validationProject": "C:/Users/user/Documents/SwordMasterStory/UIReview-v3",
+  "originalEditorRefreshed": false,
+  "playMode": {
+    "total": 18,
+    "passed": 18,
+    "failed": 0,
+    "result": "Passed",
+    "xml": "playmode-results.xml"
+  },
+  "sourceFiles": [
+    "AcademyUiSkin.cs",
+    "DuelVisualTheme.cs",
+    "LegacyCombatHud.cs",
+    "LegacyCombatHud.SkillGears.cs",
+    "LegacyCombatHud.Keywords.cs"
+  ]
+}

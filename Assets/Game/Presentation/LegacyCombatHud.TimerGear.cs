@@ -9,16 +9,16 @@ namespace TurnLimbo.Presentation
     /// All pictures are bilinear runtime UI sprites, so the effect follows the non-pixel HUD rather than the pixel fighters.</summary>
     public sealed partial class LegacyCombatHud
     {
-        private const float TimerTrackWidth = 520f;
+        private const float TimerTrackWidth = 468f;
         private const float TimerGearSize = 32f;
-        private const float TimerTrackY = 12f;
+        private const float TimerTrackY = 8f;
         private const int TimerGearTexels = 96, SteamTexels = 64, SteamPoolSize = 24;
         private static readonly Color SteamInk = new Color(.94f, .92f, .84f, .52f);
         private static readonly Color PressureSteamInk = new Color(1f, .80f, .50f, .68f);
 
         private Image timerGear;
         private RectTransform steamLayer;
-        private Texture2D timerGearTexture, steamTexture;
+        private Texture2D steamTexture;
         private Sprite timerGearSprite, steamSprite;
         private readonly SteamPuff[] steamPuffs = new SteamPuff[SteamPoolSize];
         private float timerGearRotation, previousTimerRemaining = float.NaN, timerVentRemaining;
@@ -39,8 +39,8 @@ namespace TurnLimbo.Presentation
 
         private void BuildTimerGear(RectTransform controls)
         {
-            timerGearTexture = GearTexture("Planning Timer Gear", TimerGearTexels, 12, .78f, .58f, .28f, .11f, 5);
-            timerGearSprite = DuelGearShimmer.CreateSprite(timerGearTexture);
+            timerGearSprite = AcademyUiSkin.GearClock;
+            assetsAvailable &= timerGearSprite != null;
             timerGear = Image("Timer Gear", timerPanel, timerGearSprite, TimerGearPosition(1f),
                 Vector2.one * TimerGearSize, GearBrass);
 
@@ -75,7 +75,7 @@ namespace TurnLimbo.Presentation
             TickSteam(realDelta);
             if (timerGear == null) return;
             timerGear.rectTransform.anchoredPosition = TimerGearPosition(ratio);
-            timerGear.color = ratio <= LegacyTimerGear.DangerShare ? DuelVisualTheme.Danger : GearBrass;
+            timerGear.color = ratio <= LegacyTimerGear.DangerShare ? DuelVisualTheme.Danger : Color.white;
             if (!planning || !timerGear.gameObject.activeSelf)
             {
                 previousTimerRemaining = remaining;
@@ -202,12 +202,10 @@ namespace TurnLimbo.Presentation
 
         private void ReleaseTimerGearPictures()
         {
-            DuelGearShimmer.Release(timerGearSprite);
-            DuelGearShimmer.Release(timerGearTexture);
             DuelGearShimmer.Release(steamSprite);
             DuelGearShimmer.Release(steamTexture);
             timerGearSprite = steamSprite = null;
-            timerGearTexture = steamTexture = null;
+            steamTexture = null;
         }
 
         private static Texture2D CreateSteamTexture()

@@ -1,0 +1,22 @@
+{
+  "gear-wheel": {
+    "size": [
+      192,
+      192
+    ],
+    "sample_radius": 87,
+    "teeth": 24,
+    "expected": 24,
+    "match": true
+  },
+  "gear-pinion": {
+    "size": [
+      64,
+      64
+    ],
+    "sample_radius": 25,
+    "teeth": 6,
+    "expected": 6,
+    "match": true
+  }
+}

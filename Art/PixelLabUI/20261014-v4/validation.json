@@ -1,0 +1,32 @@
+{
+  "success": true,
+  "playing": false,
+  "panelReady": true,
+  "buttonReady": true,
+  "crestReady": true,
+  "utc": "2026-10-14T06:33:22.1009063Z",
+  "command": "render",
+  "scene": "",
+  "gameState": "",
+  "error": "",
+  "files": [
+    "C:\\Fork\\swordmaster_\\Logs/AcademyUI/title.png",
+    "C:\\Fork\\swordmaster_\\Logs/AcademyUI/home.png",
+    "C:\\Fork\\swordmaster_\\Logs/AcademyUI/stages.png",
+    "C:\\Fork\\swordmaster_\\Logs/AcademyUI/loadout.png",
+    "C:\\Fork\\swordmaster_\\Logs/AcademyUI/curriculum.png",
+    "C:\\Fork\\swordmaster_\\Logs/AcademyUI/briefing.png",
+    "C:\\Fork\\swordmaster_\\Logs/AcademyUI/combat.png",
+    "C:\\Fork\\swordmaster_\\Logs/AcademyUI/loading.png"
+  ],
+  "originalEditorRefreshed": true,
+  "playMode": {
+    "total": 33,
+    "passed": 33,
+    "failed": 0,
+    "result": "Passed",
+    "xml": "playmode-results.xml"
+  },
+  "motionFrames": 15,
+  "assetCostGenerations": 64
+}

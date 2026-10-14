@@ -1,0 +1,20 @@
+{
+  "utc": "2026-10-14T07:02:58.822600+00:00",
+  "unity": "6000.5.9f1",
+  "original_editor_motion_preview": "15 actual HUD frames at 1920x1080, 0.05 second increments",
+  "playmode": {
+    "project": "C:\\Users\\user\\Documents\\SwordMasterStory\\UIReview-v3",
+    "total": 33,
+    "passed": 33,
+    "failed": 0,
+    "result": "Passed"
+  },
+  "checks": [
+    "Imported complete upper wheel, including central cap, excluding connector and pipe",
+    "Fixed pipe keeps original placement",
+    "Wheel rotation and return, breath count and rejected fourth click",
+    "Shift lever rotation, gear docks, meshing, loading and invite HUD"
+  ],
+  "source_sha256": "a8dad1748c2f05a284afe31eacea189bfa245c9e9e13b53af8f364737cd8283a",
+  "scope": "HUD render sequence and isolated PlayMode tests; not a full campaign playthrough"
+}

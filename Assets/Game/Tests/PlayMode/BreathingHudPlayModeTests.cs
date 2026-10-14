@@ -34,12 +34,27 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(fixture.Session.PlayerQueue[i], Is.SameAs(LegacyCommonActions.Breathe));
                     Assert.That(fixture.Session.Act, Is.EqualTo(act));
                     Assert.That(fixture.Label("Remaining").text, Is.EqualTo($"남은 {2 - i}/3"));
+                    fixture.Hud.Refresh(fixture.Session, 10f, false, -1, null, null, null, 0f, .2f);
+                    var fixedValve = fixture.Button.transform.Find("Icon").GetComponent<Image>();
+                    var wheel = fixedValve.transform.Find("Moving Part").GetComponent<Image>();
+                    Assert.That(Quaternion.Angle(Quaternion.identity, wheel.rectTransform.localRotation), Is.GreaterThan(1f),
+                        "Each accepted breath turns the same rigid wheel.");
+                    Assert.That(fixedValve.rectTransform.localRotation, Is.EqualTo(Quaternion.identity), "The pipe cannot rotate.");
+                    Assert.That(wheel.sprite, Is.SameAs(AcademyUiSkin.ValvePart("Valve Wheel")), "Spokes cannot morph between frames.");
+                    Assert.That(wheel.sprite.rect, Is.EqualTo(new Rect(16f, 24f, 64f, 62f)), "Only the upper wheel is sliced from the source.");
+                    Assert.That(fixedValve.sprite, Is.SameAs(AcademyUiSkin.ValvePart("Valve Pipe")));
+                    Assert.That(wheel.rectTransform.pivot, Is.EqualTo(Vector2.one * .5f));
+                    Assert.That(wheel.rectTransform.anchoredPosition, Is.EqualTo(new Vector2(0f, 40f)), "The wheel centre cannot drift while turning.");
                 }
                 Assert.That(fixture.Button.interactable, Is.False);
                 // Direct UnityEvent invocation must also reject a stale fourth click.
                 fixture.Button.onClick.Invoke();
                 Assert.That(fixture.CallbackCount, Is.EqualTo(3));
                 Assert.That(fixture.Session.PlayerQueue.Count, Is.EqualTo(3));
+                fixture.Hud.Refresh(fixture.Session, 10f, false, -1, null, null, null, 0f, 1f);
+                Assert.That(fixture.Button.transform.Find("Icon/Moving Part").localRotation,
+                    Is.EqualTo(Quaternion.identity),
+                    "A rejected fourth click cannot restart the completed valve animation.");
             }
         }
 

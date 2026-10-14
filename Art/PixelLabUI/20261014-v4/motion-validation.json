@@ -1,0 +1,29 @@
+{
+    "success": true,
+    "playing": false,
+    "panelReady": true,
+    "buttonReady": true,
+    "crestReady": true,
+    "utc": "2026-10-14T06:33:27.9748670Z",
+    "command": "render",
+    "scene": "",
+    "gameState": "",
+    "error": "",
+    "files": [
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-00.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-01.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-02.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-03.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-04.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-05.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-06.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-07.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-08.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-09.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-10.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-11.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-12.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-13.png",
+        "C:\\Fork\\swordmaster_\\Logs/AcademyUI/motion-14.png"
+    ]
+}
