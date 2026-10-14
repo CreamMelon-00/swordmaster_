@@ -3,6 +3,7 @@ using System.Collections;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.TestTools;
@@ -35,7 +36,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 // Both strike on this hit: the resistance clash keeps each contact frame.
                 Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
-                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "slash(?:-[23])?-frame-05")));
                 scope.Until(() => controller.IsBetweenSlots);
                 Assert.That(controller.Session.CurrentSlot, Is.Null);
                 Assert.That(controller.Session.LastResolvedSlot, Is.Zero);
@@ -79,7 +80,7 @@ namespace TurnLimbo.Presentation.Tests
                         scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
                         Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
                             "The attack gap is idle time, not a stretched attack pose.");
-                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match("^enemy-poses-block(?:-2)?$"),
+                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "poses-block(?:-2)?")),
                             "The enemy's finished one-hit attack guards while the player keeps striking.");
                     }
                 }
@@ -234,7 +235,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Session.CurrentSlot, Is.SameAs(slot));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
                 Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
-                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "slash(?:-[23])?-frame-05")));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }
@@ -256,10 +257,19 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(999));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
                 Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
-                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match("^enemy-slash(?:-[23])?-frame-05$"));
+                Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "slash(?:-[23])?-frame-05")));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }
+        }
+
+        /// <summary>A stage battle fields that stage's cadet, so its cels carry the cadet's prefix.</summary>
+        private static string EnemyCel(DuelPrototypeController controller, string cel)
+        {
+            Assert.That(controller.ArenaView.EnemyAppearance,
+                Is.EqualTo(CampaignEnemyVariant.ForStage(controller.Campaign.StageNumber)));
+            string prefix = controller.ArenaView.EnemyAppearance == EnemyAppearance.CadetB ? "cadet-b" : "cadet-a";
+            return "^" + prefix + "-" + cel + "$";
         }
 
         private static void AssertPlanningReset(DuelPrototypeController controller)
@@ -300,22 +310,32 @@ namespace TurnLimbo.Presentation.Tests
                 originalSettings = Controller.PresentationSettings;
                 originalSession = Controller.Session;
                 settingsClone = Object.Instantiate(originalSettings);
-                // These regressions isolate the existing animation/impact clock;
-                // StepInputPlayModeTests covers the new, separate anticipation phase.
-                JsonUtility.FromJsonOverwrite("{\"stepAnticipationDuration\":0}", settingsClone);
-                SetField("presentationSettings", settingsClone);
-                var playerSkills = new[]
+                try
                 {
-                    WeakSlash(1, 0, multiHit ? 3 : 1), WeakSlash(3, 1, 1), WeakSlash(5, 2, 1)
-                };
-                SetField("session", new LegacyQueuedDuel(1000, 1000,
-                    lethalFirstHit ? 1 : 1000, lethalFirstHit ? 0 : 1000,
-                    playerSkills, new[] { WeakSlash(1, 0, 1) }, new[] { enemyActionCount }, 1));
-                var method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
-                Assert.That(method, Is.Not.Null);
-                advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance)
-                    .Invoke(Controller, null);
+                    // These regressions isolate the existing animation/impact clock;
+                    // StepInputPlayModeTests covers the new, separate anticipation phase.
+                    JsonUtility.FromJsonOverwrite("{\"stepAnticipationDuration\":0}", settingsClone);
+                    SetField("presentationSettings", settingsClone);
+                    var playerSkills = new[]
+                    {
+                        WeakSlash(1, 0, multiHit ? 3 : 1), WeakSlash(3, 1, 1), WeakSlash(5, 2, 1)
+                    };
+                    SetField("session", new LegacyQueuedDuel(1000, 1000,
+                        lethalFirstHit ? 1 : 1000, lethalFirstHit ? 0 : 1000,
+                        playerSkills, new[] { WeakSlash(1, 0, 1) }, new[] { enemyActionCount }, 1));
+                    var method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
+                    Assert.That(method, Is.Not.Null);
+                    advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
+                    typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance)
+                        .Invoke(Controller, new object[] { null, null });
+                }
+                catch
+                {
+                    // A failed setup never reaches Dispose: restore the shared controller here, or every
+                    // later test inherits it disabled and stalls.
+                    try { Dispose(); } catch { Controller.enabled = originalEnabled; }
+                    throw;
+                }
             }
 
             public void Settings(string json) => JsonUtility.FromJsonOverwrite(json, settingsClone);

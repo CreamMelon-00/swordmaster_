@@ -244,6 +244,13 @@ namespace TurnLimbo.Presentation.Tests
                     }
                     foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills)
                     {
+                        // 에스키브 (54) is kept out of the versus pool (VersusLoadout.ExcludedSkillIds): no card at all.
+                        if (VersusLoadout.IsExcluded(skill.Id))
+                        {
+                            Assert.That(Array.Find(hud.Root.GetComponentsInChildren<Transform>(true),
+                                node => node.name == "Versus Available Skill " + skill.Id), Is.Null, skill.Name);
+                            continue;
+                        }
                         Transform card = Named(hud.Root.transform, "Versus Available Skill " + skill.Id);
                         AssertPip(card.Find("Role Pip"), skill);
                         Assert.That(card.Find("Available Lane").GetComponent<Text>().color, Is.EqualTo(SkillLaneStyle.Edge(skill.LaneIndex)));

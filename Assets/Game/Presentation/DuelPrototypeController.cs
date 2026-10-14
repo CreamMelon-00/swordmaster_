@@ -2399,10 +2399,12 @@ namespace TurnLimbo.Presentation
                 pendingAcademyNotice = AcademyFieldView.CurriculumOpenedNotice(result.CurriculumBalance);
             else if (result.CurriculumNewlyAffordable) pendingAcademyNotice = AcademyFieldView.CurriculumAffordableNotice;
             // A first win that opened something (넘기기 for mission 1, a feature for each lobby mission) announces it,
-            // then where the story goes next.
+            // then where the story goes next. Inside the opening arc the result leads straight to the next briefing
+            // (AdvanceFromBattleResult), so only a mission after it points at the academy's board.
             string unlockNotice = firstWin && !string.IsNullOrEmpty(mission.UnlockText)
                 ? mission.UnlockText + (prologue.IsComplete ? string.Empty
-                    : IsNextMissionAvailable ? "\n다음 임무가 열렸습니다. 학원 게시판에서 확인하세요."
+                    : IsNextMissionAvailable ? "\n다음 임무가 열렸습니다." +
+                        (mission.Number < PrologueMissions.Count ? string.Empty : " 학원 게시판에서 확인하세요.")
                     : "\n학원에서 필요한 전투를 마치면 다음 임무가 열립니다.")
                 : null;
             if (firstWin && campaign.StageLimit > stageLimitBefore &&

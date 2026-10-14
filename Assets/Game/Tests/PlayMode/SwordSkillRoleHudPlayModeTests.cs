@@ -41,7 +41,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 LegacySkill conditionalRecovery = LegacySkillDefinitions.Skill(7);
                 hud.ShowExplanation(conditionalRecovery, false);
-                Assert.That(effect.text, Does.Contain("같은 칸 상대가 타격일 때"));
+                Assert.That(effect.text, Does.Contain("같은 칸 상대가 타격 기술이면"));
                 Assert.That(effect.text, Does.Contain("ACT 회복 +2"));
             }
             finally
@@ -112,7 +112,8 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(LegacySkillRoles.GetShortLabel(owned.Skill), Is.EqualTo(LegacySkillRoles.GetShortLabel(catalog)));
             Assert.That(LegacySkillRoles.GetShortLabel(owned.Skill), Is.EqualTo("단타"));
 
-            Assert.That(new LegacyDuelArt().GetSkillIcon(16), Is.Null);
+            // Icons 16-20 exist since the role16..20 art; the first id past the set is unknown.
+            Assert.That(new LegacyDuelArt().GetSkillIcon(LegacyDuelArt.SkillIconCount + 1), Is.Null);
             Assert.That(LegacySkillRoles.Get(null), Is.EqualTo(LegacySkillRole.None));
             Assert.That(LegacySkillRoles.GetShortLabel(null), Is.Empty);
             Assert.That(LegacySkillRoles.GetDetail(null), Is.Empty);

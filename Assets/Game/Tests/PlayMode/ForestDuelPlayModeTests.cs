@@ -124,8 +124,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.ApproachComplete, Is.True);
                 Assert.That(arena.Separation, Is.EqualTo(LegacyArenaView.ContactDistance).Within(.01f));
                 controller.RestartMatch();
-                Assert.That(player.localPosition, Is.EqualTo(new Vector3(-5f, -.5f, 0f)));
-                Assert.That(enemy.localPosition, Is.EqualTo(new Vector3(5f, -.5f, 0f)));
+                // The spawns stand on the restarted battle's ground line (a stage battle's corridor floor sits lower).
+                Assert.That(player.localPosition, Is.EqualTo(new Vector3(-5f, arena.ActorGroundY, 0f)));
+                Assert.That(enemy.localPosition, Is.EqualTo(new Vector3(5f, arena.ActorGroundY, 0f)));
                 Assert.That(arena.HasPendingPush, Is.False);
                 Assert.That(arena.IsPursuing, Is.False);
                 Assert.That(arena.ArenaCamera.orthographicSize, Is.EqualTo(6f));
@@ -147,6 +148,9 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 LegacyArenaView arena = controller.ArenaView;
+                // Stage battles stage in the corridor, whose camera compensates for its lower floor; this is the forest's
+                // framing (the finally's RestartMatch restores the stage's corridor).
+                arena.SetBackdrop(ArenaBackdropKind.Forest);
                 arena.Reset();
                 arena.PlayerRenderer.transform.localPosition = new Vector3(47f, -.5f, 0f);
                 arena.EnemyRenderer.transform.localPosition = new Vector3(53f, -.5f, 0f);

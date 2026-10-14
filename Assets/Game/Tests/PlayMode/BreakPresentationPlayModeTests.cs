@@ -190,7 +190,7 @@ namespace TurnLimbo.Presentation.Tests
                 var draw = new LegacyQueuedDuel(100, 50, 100, 15,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 sessionField.SetValue(controller, draw);
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 draw.TryQueueLane(0); draw.Commit();
                 begin.Invoke(controller, null);
                 advance.Invoke(controller, new object[] { 0f, null });
@@ -204,7 +204,7 @@ namespace TurnLimbo.Presentation.Tests
                 var clash = new LegacyQueuedDuel(100, 50, 100, 10,
                     new[] { Attack(900, 30) }, new[] { Attack(901, 1) }, new[] { 1 });
                 sessionField.SetValue(controller, clash);
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 Assert.That(ActiveTexts(controller.Hud.Root, "State Callout"), Is.Empty);
                 Assert.That(controller.ArenaView.EnemyBreakAura.IsBroken, Is.False);
                 clash.TryQueueLane(0); clash.Commit();
@@ -264,7 +264,7 @@ namespace TurnLimbo.Presentation.Tests
                 var direct = new LegacyQueuedDuel(100, 50, 100, 15,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 sessionField.SetValue(controller, direct);
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.False);
                 Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
                 direct.TryQueueLane(0); direct.Commit();
@@ -295,7 +295,7 @@ namespace TurnLimbo.Presentation.Tests
                 var clash = new LegacyQueuedDuel(100, 10, 100, 50,
                     new[] { Attack(900, 1) }, new[] { Attack(901, 30) }, new[] { 1 });
                 sessionField.SetValue(controller, clash);
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
                 clash.TryQueueLane(0); clash.Commit();
                 begin.Invoke(controller, null);
@@ -309,7 +309,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(playerBurst.color.g, Is.LessThan(enemyBurst.color.g),
                     "The player's danger flash is redder than the enemy-break reward flash.");
 
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.False,
                     "A new battle clears a break impact still in progress.");
                 Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
@@ -344,7 +344,7 @@ namespace TurnLimbo.Presentation.Tests
                 var big = new LegacyQueuedDuel(100, 50, 100, 50,
                     new[] { Attack(900, 20) }, new[] { Guard(901, 1) }, new[] { 1 });
                 sessionField.SetValue(controller, big);
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 big.TryQueueLane(0); big.Commit();
                 begin.Invoke(controller, null);
                 for (int i = 0; i < 400 && big.Enemy.Health == 100; i++)
@@ -358,7 +358,7 @@ namespace TurnLimbo.Presentation.Tests
                 var finish = new LegacyQueuedDuel(100, 50, 10, 50,
                     new[] { Attack(900, 20) }, new[] { Guard(901, 1) }, new[] { 1 });
                 sessionField.SetValue(controller, finish);
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 finish.TryQueueLane(0); finish.Commit();
                 begin.Invoke(controller, null);
                 for (int i = 0; i < 400 && finish.Enemy.Health > 0; i++)
@@ -457,7 +457,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             var duel = new LegacyQueuedDuel(100, 50, enemyHealth, 50, player, enemy, new[] { 1 });
             sessionField.SetValue(controller, duel);
-            reset.Invoke(controller, null);
+            reset.Invoke(controller, new object[] { null, null });
             Assert.That(controller.ArenaView.IsFatalFocus, Is.False, "Each case starts without a close-up.");
             Assert.That(duel.TryQueueLane(0), Is.True);
             duel.Commit();

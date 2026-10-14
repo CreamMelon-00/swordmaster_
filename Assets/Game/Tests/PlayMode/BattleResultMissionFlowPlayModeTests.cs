@@ -369,7 +369,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.CurriculumPoints.Mission, Is.EqualTo(controller.Result.CurriculumOpen ? 1 : 0),
                     "…only the first win's mission point, shown once the curriculum is open.");
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
-                    Is.EqualTo("넘기기(Shift)가 열렸습니다.\n다음 임무가 열렸습니다."), "The first win announces 넘기기.");
+                    Is.EqualTo("넘기기(Shift)가 열렸습니다.\n다음 임무가 열렸습니다."),
+                    "The first win announces 넘기기. Inside the 서막 the next briefing follows at once, so no board is named.");
                 Assert.That(CampaignFingerprint(controller.Campaign), Is.EqualTo(campaignBefore));
 
                 Assert.That(controller.RetryBattleResult(), Is.True);
@@ -553,7 +554,7 @@ namespace TurnLimbo.Presentation.Tests
                 typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller,
                     new LegacyQueuedDuel(100, 50, 40, 10, new[] { strike }, new[] { LegacyCommonActions.Breathe }, new[] { 1 }, 5,
                         features: CombatFeature.LaneQ | CombatFeature.Cycle, enemyHealthFloor: 1, enemyHealthThresholdPercent: 50));
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 int frames = 0;
@@ -621,7 +622,7 @@ namespace TurnLimbo.Presentation.Tests
             private void InstallDuel(LegacyQueuedDuel duel)
             {
                 typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller, duel);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
             }
 
             public void Dispose()

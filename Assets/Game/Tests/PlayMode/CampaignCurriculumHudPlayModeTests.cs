@@ -363,8 +363,14 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(Label(root, "Curriculum Detail Heading").text, Is.EqualTo(SkillLaneStyle.FullName(skill.LaneIndex)));
                     Assert.That(Label(root, "Curriculum Detail Values").text, Is.EqualTo(CampaignSkillText.Power(skill)), node.Id);
                     string effect = SkillInfoContent.For(skill, false).Description;
+                    // The three 정수 (capstones) also carry a stat reward (Docs/Curriculum.md), shown on its own line
+                    // under the technique's effect; every other technique node shows the effect alone.
+                    string statReward = node.Id == "estocada" || node.Id == "cadence" ? "최대 체력 +5"
+                        : node.Id == "doublet" ? "일반 스테이지 제한시간 +2초" : null;
+                    Assert.That(node.StatReward.IsEmpty, Is.EqualTo(statReward == null), node.Id);
                     Assert.That(Label(root, "Curriculum Detail Effect").text,
-                        Is.EqualTo(string.IsNullOrWhiteSpace(effect) ? "추가 효과 없음" : effect), node.Id);
+                        Is.EqualTo(statReward != null ? effect + "\n능력치 보상: " + statReward
+                            : string.IsNullOrWhiteSpace(effect) ? "추가 효과 없음" : effect), node.Id);
                     Assert.That(Named(root, "Skill Keywords").gameObject.activeSelf, Is.True, node.Id);
                     Assert.That(icon.enabled, Is.True, node.Id);
                     Assert.That(icon.sprite, Is.Not.Null, node.Id);
@@ -896,6 +902,15 @@ namespace TurnLimbo.Presentation.Tests
                     // The scroll window and its bar take the wheel and drags; everything else under a card is decoration.
                     if (graphic.GetComponent<Button>() != null || graphic.name == "Curriculum Viewport" ||
                         graphic.GetComponentInParent<Scrollbar>() != null) continue;
+                    // The selected skill's card (급소 찌르기 cycles) opens its keyword popup over the keyword's own letters
+                    // and badges. That card sits in the detail panel beside the tree; anywhere else, even a keyword
+                    // graphic stays decoration.
+                    if ((graphic is SkillKeywordHitGraphic || graphic.name == "Keyword 1" || graphic.name == "Keyword 2") &&
+                        IsUnder(graphic.transform, "Curriculum Selected Detail"))
+                    {
+                        Assert.That(IsUnder(graphic.transform, "Curriculum Viewport"), Is.False);
+                        continue;
+                    }
                     Assert.That(graphic.raycastTarget, Is.False, graphic.name + " is decoration and must not block node clicks.");
                 }
 
@@ -1172,5 +1187,12 @@ namespace TurnLimbo.Presentation.Tests
 
         private static Text Label(GameObject root, string name) => Named(root, name).GetComponent<Text>();
         private static Button Button(GameObject root, string name) => Named(root, name).GetComponent<Button>();
+
+        private static bool IsUnder(Transform node, string ancestorName)
+        {
+            for (Transform parent = node.parent; parent != null; parent = parent.parent)
+                if (parent.name == ancestorName) return true;
+            return false;
+        }
     }
 }

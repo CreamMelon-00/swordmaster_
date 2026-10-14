@@ -178,7 +178,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That((finisherDefinition.Effect.OpponentState, finisherDefinition.Effect.OpponentHealthPercent,
                 finisherDefinition.Effect.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 200)));
             Assert.That(finisherDefinition.HighPower, Is.False);
-            Assert.That(finisherDefinition.Text.Info.EnemySecondary, Is.EqualTo("내 체력 30% 이하"));
+            // 프레디카레's condition badge, shortened so it stays on one line in the 334px loadout and curriculum cards.
+            Assert.That(finisherDefinition.Text.Info.Secondary, Is.EqualTo("상대 30% 이하"));
+            Assert.That(finisherDefinition.Text.Info.EnemySecondary, Is.EqualTo("내 30% 이하"));
 
             foreach (LegacySkill skill in new[] { pierce, strikeBack, sidestep, finisher })
             {

@@ -111,7 +111,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.Controller.ArenaView.HasPendingPush, Is.False);
 
                 typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance)
-                    .Invoke(scope.Controller, null);
+                    .Invoke(scope.Controller, new object[] { null, null });
                 Assert.That(feedback.HasBuffParticles, Is.False);
                 Assert.That(feedback.ActiveSparkCount, Is.Zero);
                 Assert.That(feedback.gameObject.activeSelf, Is.False);
@@ -137,32 +137,42 @@ namespace TurnLimbo.Presentation.Tests
                 originalEnabled = Controller.enabled;
                 originalSession = Controller.Session;
                 Controller.enabled = false;
-                // A fixture duel runs outside the opening arc's missions and their coach.
-                Field("mission").SetValue(Controller, null);
-                Field("guide").SetValue(Controller, null);
-                duel = duel ?? new LegacyQueuedDuel(1000, 1000, 1000, 1000,
-                    new[]
-                    {
-                        Skill(42, "Draw Test", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash),
-                        Skill(7, "Guard Test", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence),
-                        Skill(101, "Plain Test", 2, LegacySkillKind.Attack, LegacySkillProperty.Slash)
-                    },
-                    new[]
-                    {
-                        Skill(900, "Enemy Guard", 0, LegacySkillKind.Defence, LegacySkillProperty.Defence),
-                        Skill(901, "Enemy Hit", 0, LegacySkillKind.Attack, LegacySkillProperty.Hit),
-                        Skill(902, "Enemy Slash", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash)
-                    }, new[] { 3 });
-                Field("session").SetValue(Controller, duel);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
-                advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,
-                    typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance));
-                foreach (Transform node in Controller.Hud.Root.GetComponentsInChildren<Transform>(true))
-                    if (node.name == "Skill Explain") Explanation = node;
-                Assert.That(Explanation, Is.Not.Null);
-                foreach (Text text in Explanation.GetComponentsInChildren<Text>(true))
-                    if (text.name == "Name") PlayerName = text;
-                Assert.That(PlayerName, Is.Not.Null);
+                try
+                {
+                    // A fixture duel runs outside the opening arc's missions and their coach.
+                    Field("mission").SetValue(Controller, null);
+                    Field("guide").SetValue(Controller, null);
+                    duel = duel ?? new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                        new[]
+                        {
+                            Skill(42, "Draw Test", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash),
+                            Skill(7, "Guard Test", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence),
+                            Skill(101, "Plain Test", 2, LegacySkillKind.Attack, LegacySkillProperty.Slash)
+                        },
+                        new[]
+                        {
+                            Skill(900, "Enemy Guard", 0, LegacySkillKind.Defence, LegacySkillProperty.Defence),
+                            Skill(901, "Enemy Hit", 0, LegacySkillKind.Attack, LegacySkillProperty.Hit),
+                            Skill(902, "Enemy Slash", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash)
+                        }, new[] { 3 });
+                    Field("session").SetValue(Controller, duel);
+                    typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
+                    advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,
+                        typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance));
+                    foreach (Transform node in Controller.Hud.Root.GetComponentsInChildren<Transform>(true))
+                        if (node.name == "Skill Explain") Explanation = node;
+                    Assert.That(Explanation, Is.Not.Null);
+                    foreach (Text text in Explanation.GetComponentsInChildren<Text>(true))
+                        if (text.name == "Name") PlayerName = text;
+                    Assert.That(PlayerName, Is.Not.Null);
+                }
+                catch
+                {
+                    // A failed setup never reaches Dispose: restore the shared controller here, or every
+                    // later test inherits it disabled and stalls.
+                    try { Dispose(); } catch { Controller.enabled = originalEnabled; }
+                    throw;
+                }
             }
 
             // The controller's lane holds (DuelLaneHolds, internal) keep each lane's held time.

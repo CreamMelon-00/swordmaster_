@@ -80,7 +80,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryFindActive(lobby, "Loadout Heading W"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Heading E"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null);
-                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("보유 기술을 골라 강조된 칸을 누르세요."));
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 같은 열의 칸으로 드래그하세요."));
                 AssertNoActiveText(lobby, "커리큘럼", "Loadout");
                 Assert.That(controller.CloseFieldMenu(), Is.True);
                 Assert.That(controller.LobbyHud.IsVisible, Is.False);
@@ -306,7 +306,7 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Lane E"), Is.Null);
-                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("보유 기술을 골라 강조된 칸을 누르세요."));
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 같은 열의 칸으로 드래그하세요."));
                 Assert.That(controller.UnequipSkill(LegacySkillDefinitions.Skill(3).Id), Is.False, "A closed lane's skills stay put.");
                 Assert.That(controller.Campaign.HasLoadoutChanges, Is.False);
                 Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null, "The curriculum still waits for the W lane.");
@@ -796,7 +796,7 @@ namespace TurnLimbo.Presentation.Tests
                     LegacySkillProperty.Slash, 1, 0, "", iconId: 1);
                 typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller,
                     new LegacyQueuedDuel(100, 50, 1, 0, LegacyInitialSkills.All, new[] { zero }, new[] { 1 }, 3));
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 int frames = 0;
@@ -814,7 +814,7 @@ namespace TurnLimbo.Presentation.Tests
                 typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller,
                     new LegacyQueuedDuel(100, 50, 40, 10, new[] { strike }, new[] { LegacyCommonActions.Breathe }, new[] { 1 }, 5,
                         features: CombatFeature.LaneQ | CombatFeature.Cycle, enemyHealthFloor: 1, enemyHealthThresholdPercent: 50));
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 int frames = 0;

@@ -200,13 +200,15 @@ namespace TurnLimbo.Presentation.Tests
                     Does.Contain("방어 기술").And.Contain("저항 즉시 15 감소"));
                 Assert.That(CampaignSkillText.Effect(Skill(42)), Does.Contain("체력 피해로 이어지지"));
 
-                foreach (int id in new[] { 12, 42 })
+                // ACT recovery seen on the enemy's card stays the player's own. 쿠페 lost its ACT recovery on 2026-10-12, so
+                // 탐색 (43) stands in for it and 쿠페 joins the skills that must not claim the limit.
+                foreach (int id in new[] { 12, 43 })
                 {
                     fixture.View.SetSkill(Skill(id), true);
                     Assert.That(VisibleText(fixture.View.Root), Does.Contain("플레이어 전용"));
                     Assert.That(Keywords(fixture.View.Root), Does.Contain("플레이어 ACT"));
                 }
-                foreach (int id in new[] { 10, 19 })
+                foreach (int id in new[] { 10, 19, 42 })
                 {
                     fixture.View.SetSkill(Skill(id), true);
                     Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("플레이어 전용"));
@@ -433,7 +435,7 @@ namespace TurnLimbo.Presentation.Tests
                 float height = fixture.View.Height;
                 LegacySkill skill = Skill(5);
                 fixture.View.SetSkill(skill, false, "능력치 보상: 최대 체력 +5 · 매 턴 ACT 회복 +1");
-                Assert.That(fixture.View.EffectText.text, Does.Contain("저항 즉시 5 감소").And.Contain("최대 체력 +5"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("저항 즉시 10 감소").And.Contain("최대 체력 +5"));
                 Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
                 fixture.View.SetSkill(skill);
                 Assert.That(fixture.View.EffectText.text, Does.Not.Contain("최대 체력 +5"));

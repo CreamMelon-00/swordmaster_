@@ -159,19 +159,29 @@ namespace TurnLimbo.Presentation.Tests
                 originalSettings = Controller.PresentationSettings;
                 originalSession = Controller.Session;
                 settingsClone = Object.Instantiate(originalSettings);
-                // A windup before the first hit leaves room for the dodge decision.
-                JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1,\"skillInterval\":0.1," +
-                    "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1}", settingsClone);
-                SetField("presentationSettings", settingsClone);
-                var playerSkills = new[] { Attack(101, 1, 1) };
-                var enemySkills = new[] { Attack(201, 1, 1) };
-                SetField("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000, playerSkills, enemySkills,
-                    new[] { enemyActionCount }, 1, playerCounter, enemyCounter));
-                var method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
-                Assert.That(method, Is.Not.Null);
-                advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance)
-                    .Invoke(Controller, null);
+                try
+                {
+                    // A windup before the first hit leaves room for the dodge decision.
+                    JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1,\"skillInterval\":0.1," +
+                        "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1}", settingsClone);
+                    SetField("presentationSettings", settingsClone);
+                    var playerSkills = new[] { Attack(101, 1, 1) };
+                    var enemySkills = new[] { Attack(201, 1, 1) };
+                    SetField("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000, playerSkills, enemySkills,
+                        new[] { enemyActionCount }, 1, playerCounter, enemyCounter));
+                    var method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
+                    Assert.That(method, Is.Not.Null);
+                    advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
+                    typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance)
+                        .Invoke(Controller, new object[] { null, null });
+                }
+                catch
+                {
+                    // A failed setup never reaches Dispose: restore the shared controller here, or every
+                    // later test inherits it disabled and stalls.
+                    try { Dispose(); } catch { Controller.enabled = originalEnabled; }
+                    throw;
+                }
             }
 
             public void Advance(float realDelta) => advance(realDelta, null);

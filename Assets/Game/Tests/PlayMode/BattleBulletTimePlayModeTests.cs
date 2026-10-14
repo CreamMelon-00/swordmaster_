@@ -39,14 +39,19 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(grade.saturation.value, Is.EqualTo(-30f).Within(1e-3f));
                 Assert.That(grade.colorFilter.value.b, Is.EqualTo(1f).Within(1e-4f));
                 Assert.That(grade.colorFilter.value.r, Is.LessThan(1f), "A cold filter.");
-                Sprite held = arena.PlayerRenderer.sprite;
-                Assert.That(held.name, Does.StartWith("idle-frame-"), "The held pose is an idle frame.");
+                // Planning travel shows the single run cel (Docs/Art/Movement: 계획 이동), held while they edge in.
+                Sprite run = arena.PlayerRenderer.sprite;
+                Assert.That(run.name, Does.StartWith("move-frame-"), "Edging in holds the run pose.");
 
                 scope.Advance(2f);
                 Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "They stop at the drift floor…");
-                scope.Advance(1f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(run), "…holding the one run cel all the way.");
+                scope.Advance(.5f);
                 Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "…and stay there.");
-                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(held), "The pose is held throughout.");
+                Sprite held = arena.PlayerRenderer.sprite;
+                Assert.That(held.name, Does.StartWith("idle-frame-"), "Standing at the floor, the held pose is an idle frame.");
+                scope.Advance(.5f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(held), "The idle motion stays stopped while planning.");
                 Assert.That(controller.TurnTimeRemaining, Is.EqualTo(6f).Within(1e-4f));
 
                 controller.CommitTurn();

@@ -238,6 +238,9 @@ namespace TurnLimbo.Presentation.Tests
             var root = controller.Hud.Root.transform;
             try
             {
+                // The battle opens behind the full-screen loading bridge, which blocks input by design;
+                // real clicks wait for it to close instead of relying on the empty turn outlasting it.
+                yield return WaitForLoadingBridge(controller);
                 yield return AdvanceEmptyTurnToSixAct(controller);
                 for (int lane = 0; lane < 3; lane++)
                 {
@@ -251,6 +254,14 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(3));
             }
             finally { controller.RestartMatch(); }
+        }
+
+        private static IEnumerator WaitForLoadingBridge(DuelPrototypeController controller)
+        {
+            Assert.That(controller.LoadingHud, Is.Not.Null);
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while (controller.LoadingHud.IsVisible && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(controller.LoadingHud.IsVisible, Is.False, "The loading bridge must close on its own.");
         }
 
         private static void ClickThroughRaycast(Button button)

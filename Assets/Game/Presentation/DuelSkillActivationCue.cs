@@ -172,7 +172,9 @@ namespace TurnLimbo.Presentation
             Object.Destroy(root.gameObject);
         }
 
-        private static string Join(string left, string right) => string.IsNullOrEmpty(left) ? right : left + " · " + right;
+        // Either side may be empty (a cue without a keyword effect passes none), and an empty side adds no separator.
+        private static string Join(string left, string right) =>
+            string.IsNullOrEmpty(right) ? left : string.IsNullOrEmpty(left) ? right : left + " · " + right;
 
         // 200 → "피해 2배", 150 → "피해 1.5배".
         private static string ConditionalDamageText(int percent)

@@ -259,13 +259,16 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.ActiveAuraAfterimageCount, Is.Zero, "Switched off at once, it takes them with it.");
                 Assert.That(controller.AdvanceCutscene(), Is.True);
                 Assert.That(controller.IsInLobby, Is.True, "The lobby follows the completed outro.");
+                Assert.That(controller.IsInAcademyField, Is.True, "After the 서막 the lobby is the academy field.");
                 Assert.That(controller.Result, Is.Null);
                 Assert.That(controller.IsMissionEmpowered, Is.False);
-                Assert.That(ActiveTexts(controller.LobbyHud.Root, "Outcome Banner"),
-                    Is.EqualTo(new[] { BattleResultHud.PrologueCompleteNotice(controller.Campaign.IsCurriculumOpen) }),
+                Assert.That(controller.AcademyField.ArrivalNotice,
+                    Is.EqualTo(BattleResultHud.PrologueCompleteNotice(controller.Campaign.IsCurriculumOpen)),
                     "…which says what the old win's result said: the 서막 is over and what it opened.");
-                controller.LobbyHud.ResetView();
-                Assert.That(ActiveTexts(controller.LobbyHud.Root, "Outcome Banner"), Is.Empty, "It is a note, not saved state.");
+                Assert.That(ActiveTexts(controller.LobbyHud.Root, "Outcome Banner"), Is.Empty, "The field says it, not the old lobby.");
+                controller.ReturnToLobby();
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.AcademyField.ArrivalNotice, Is.Empty, "It is a note, not saved state.");
             }
         }
 

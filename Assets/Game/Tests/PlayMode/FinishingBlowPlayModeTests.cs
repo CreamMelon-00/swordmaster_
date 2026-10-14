@@ -200,7 +200,7 @@ namespace TurnLimbo.Presentation.Tests
                     "", iconId: 1);
                 typeof(DuelPrototypeController).GetField("session", PrivateInstance).SetValue(Controller,
                     new LegacyQueuedDuel(100, 50, 10, 0, new[] { strike }, new[] { LegacyCommonActions.Breathe }, new[] { 1 }, 3));
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
                 Assert.That(Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 Assert.That(Controller.IsResolving, Is.True);

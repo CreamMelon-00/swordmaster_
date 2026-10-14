@@ -224,20 +224,24 @@ namespace TurnLimbo.Presentation.Tests
                 LegacySkill recovery = Guard(19, "르프리즈");
                 LegacySkill heavyHit = new LegacySkill(902, "강한 타격", 1, 30, 30,
                     LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 0, string.Empty);
-                var recoveryDuel = new LegacyQueuedDuel(100, 100, 100, 100,
+                // 르프리즈 restores 20% of its maximum only while the opponent is broken: the opener breaks the enemy's
+                // last resistance point while the heavy hit takes 30 of the player's.
+                var recoveryDuel = new LegacyQueuedDuel(100, 100, 100, 1,
                     new[] { Attack(903, LegacySkillProperty.Slash), recovery },
                     new[] { heavyHit, Guard(901, "방어") }, new[] { 2 });
                 Assert.That(recoveryDuel.TryQueueLane(0), Is.True);
                 Assert.That(recoveryDuel.TryQueueLane(0), Is.True);
                 recoveryDuel.Commit();
                 recoveryDuel.ResolveNextSlot();
+                Assert.That(recoveryDuel.Enemy.IsResistanceBroken, Is.True);
+                Assert.That(recoveryDuel.Player.Resistance, Is.EqualTo(70));
                 LegacyCurrentSlot restored = recoveryDuel.BeginNextSlot();
-                Assert.That(restored.PlayerFeedback.ResistanceRestored, Is.EqualTo(10));
+                Assert.That(restored.PlayerFeedback.ResistanceRestored, Is.EqualTo(20));
                 Assert.That(fixture.Cue.Show(true, recovery, restored.PlayerFeedback), Is.True);
                 fixture.Tick(.02f);
                 Assert.That(fixture.PlayerBurst.gameObject.activeSelf, Is.True);
                 Assert.That(fixture.PlayerBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Recovery));
-                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("저항 회복 +10"));
+                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("저항 회복 +20"));
             }
         }
 

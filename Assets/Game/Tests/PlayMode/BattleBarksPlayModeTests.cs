@@ -281,7 +281,7 @@ namespace TurnLimbo.Presentation.Tests
             public void Install(LegacyQueuedDuel duel, string lines)
             {
                 SetField("session", duel);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
                 Controller.Barks.Use(BarkScriptParser.Parse("Barks/test", lines));
             }
 

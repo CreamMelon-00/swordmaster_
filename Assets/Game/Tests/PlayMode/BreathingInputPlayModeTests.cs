@@ -166,17 +166,27 @@ namespace TurnLimbo.Presentation.Tests
                 arenaSettings = typeof(LegacyArenaView).GetField("settings", PrivateInstance);
                 originalArenaSettings = (DuelPresentationSettings)arenaSettings.GetValue(Controller.ArenaView);
                 settings = Object.Instantiate(originalSettings);
-                JsonUtility.FromJsonOverwrite("{\"hitStopDuration\":0,\"skillInterval\":0}", settings);
-                Set("presentationSettings", settings);
-                arenaSettings.SetValue(Controller.ArenaView, settings);
-                Set("mission", null);
-                Set("guide", null);
-                Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
-                    new[] { Skill(101, 0), Skill(102, 0), Skill(103, 1), Skill(105, 2) },
-                    new[] { Skill(201, 0, 2) }, new[] { 1 }, 1));
-                var method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
-                advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                try
+                {
+                    JsonUtility.FromJsonOverwrite("{\"hitStopDuration\":0,\"skillInterval\":0}", settings);
+                    Set("presentationSettings", settings);
+                    arenaSettings.SetValue(Controller.ArenaView, settings);
+                    Set("mission", null);
+                    Set("guide", null);
+                    Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                        new[] { Skill(101, 0), Skill(102, 0), Skill(103, 1), Skill(105, 2) },
+                        new[] { Skill(201, 0, 2) }, new[] { 1 }, 1));
+                    var method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
+                    advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
+                    typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
+                }
+                catch
+                {
+                    // A failed setup never reaches Dispose: restore the shared controller here, or every
+                    // later test inherits it disabled and stalls.
+                    try { Dispose(); } catch { Controller.enabled = originallyEnabled; }
+                    throw;
+                }
             }
 
             public void Advance(float delta, Keyboard keyboard = null) => advance(delta, keyboard);

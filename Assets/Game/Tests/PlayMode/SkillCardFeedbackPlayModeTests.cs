@@ -104,21 +104,36 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator SelfRecoveryCondition_EmphasizesTheHeldEffectWithoutMatchingAnyEnemyCard()
+        public IEnumerator BrokenEnemyRecoveryCondition_EmphasizesTheHeldEffectWithoutMatchingAnyEnemyCard()
         {
             yield return null;
             using (var fixture = new Fixture())
             {
+                // 르프리즈 restores resistance only while the opponent is broken (상대 상태 조건 붕괴). Each 2-power clash
+                // takes 2 resistance from both sides: the first leaves the enemy standing at 2, the second breaks her.
                 var recovery = Skill(19, 2, LegacySkillKind.Defence, LegacySkillProperty.Defence);
-                var duel = Duel(new[] { Skill(100, 0), recovery }, new[] { Skill(900, 0) });
+                var duel = new LegacyQueuedDuel(1000, 1000, 1000, 4, new[] { Skill(100, 0), recovery },
+                    new[] { Skill(900, 0) }, new[] { 1 });
                 Assert.That(duel.TryQueueLane(0), Is.True);
                 duel.Commit(); duel.ResolveNextSlot(); duel.BeginNextTurn();
+                Assert.That(duel.Player.Resistance, Is.LessThan(duel.Player.MaxResistance));
+                Assert.That(duel.Enemy.IsResistanceBroken, Is.False);
+                fixture.Hud.BeginTurn(); fixture.Refresh(duel);
+                fixture.Hud.ShowExplanation(recovery, false);
+                Assert.That(fixture.Lane(2).ConditionReady, Is.False, "Room to recover is not enough while the enemy stands.");
+                Assert.That(fixture.Effect(false).ConditionReady, Is.False);
+                Assert.That(fixture.Hint.text, Does.Contain("조건: 상대 붕괴"));
+                AssertTargets(fixture.Hud, Array.Empty<int>(), -1, "A state condition marks no enemy card.");
+
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                duel.Commit(); duel.ResolveNextSlot(); duel.BeginNextTurn();
+                Assert.That(duel.Enemy.IsResistanceBroken, Is.True, "A break lasts through the following planning turn.");
                 Assert.That(duel.Player.Resistance, Is.LessThan(duel.Player.MaxResistance));
                 fixture.Hud.BeginTurn(); fixture.Refresh(duel);
                 fixture.Hud.ShowExplanation(recovery, false);
                 Assert.That(fixture.Lane(2).ConditionReady, Is.True);
                 Assert.That(fixture.Effect(false).ConditionReady, Is.True);
-                Assert.That(fixture.Hint.text, Does.Contain("현재 저항: 회복 가능"));
+                Assert.That(fixture.Hint.text, Does.Contain("현재 상대 상태: 조건 충족"));
                 AssertTargets(fixture.Hud, Array.Empty<int>(), -1);
                 Assert.That(fixture.Effect(false).raycastTarget, Is.False);
             }

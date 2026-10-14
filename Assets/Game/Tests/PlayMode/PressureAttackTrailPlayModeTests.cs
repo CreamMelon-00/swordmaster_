@@ -312,16 +312,26 @@ namespace TurnLimbo.Presentation.Tests
                 originalSettings = Controller.PresentationSettings;
                 originalSession = Controller.Session;
                 settingsClone = Object.Instantiate(originalSettings);
-                JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1," +
-                    "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1}", settingsClone);
-                Set("presentationSettings", settingsClone);
-                Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
-                    new[] { Attack(3), Attack(1, 103, 1), Attack(1, 105, 2) },
-                    new[] { Attack(3, 201) }, new[] { 1 }, 1));
-                MethodInfo method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", NonPublic);
-                Assert.That(method, Is.Not.Null);
-                advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", NonPublic).Invoke(Controller, null);
+                try
+                {
+                    JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1," +
+                        "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1}", settingsClone);
+                    Set("presentationSettings", settingsClone);
+                    Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                        new[] { Attack(3), Attack(1, 103, 1), Attack(1, 105, 2) },
+                        new[] { Attack(3, 201) }, new[] { 1 }, 1));
+                    MethodInfo method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", NonPublic);
+                    Assert.That(method, Is.Not.Null);
+                    advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
+                    typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", NonPublic).Invoke(Controller, new object[] { null, null });
+                }
+                catch
+                {
+                    // A failed setup never reaches Dispose: restore the shared controller here, or every
+                    // later test inherits it disabled and stalls.
+                    try { Dispose(); } catch { Controller.enabled = originalEnabled; }
+                    throw;
+                }
             }
 
             public void Advance(float realDelta) => advance(realDelta, null);

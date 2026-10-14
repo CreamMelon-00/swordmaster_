@@ -56,16 +56,18 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             using (var fixture = new Fixture())
             {
-                var duel = new LegacyQueuedDuel(100, 50, 100, 50,
+                // 르프리즈 (19) restores 20% only while its opponent is broken: slot 0's clash breaks the enemy's last point.
+                var duel = new LegacyQueuedDuel(100, 50, 100, 1,
                     new[] { Attack(100, 1), Guard(19, 100) },
                     new[] { Attack(900, 2), Guard(901, 100) }, new[] { 2 });
                 duel.TryQueueLane(0); duel.TryQueueLane(0); duel.Commit();
                 duel.ResolveNextSlot();
+                Assert.That(duel.Enemy.IsResistanceBroken, Is.True);
                 int before = duel.Player.Resistance;
                 duel.BeginNextSlot();
                 fixture.Feedback.Show(true, duel.Player.Resistance - before);
                 fixture.Tick(0f);
-                Assert.That(fixture.PlayerLabel.text, Is.EqualTo("저항 +2"), "A capped restoration must not promise the uncapped +5.");
+                Assert.That(fixture.PlayerLabel.text, Is.EqualTo("저항 +2"), "A capped restoration must not promise the uncapped +10.");
                 Assert.That(fixture.PlayerLabel.color, Is.EqualTo(DuelVisualTheme.Health));
                 Assert.That(fixture.PlayerLabel.gameObject.activeSelf, Is.True);
 
@@ -103,7 +105,7 @@ namespace TurnLimbo.Presentation.Tests
                 var draw = new LegacyQueuedDuel(100, 50, 100, 12,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 sessionField.SetValue(controller, draw);
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 draw.TryQueueLane(0); draw.Commit();
                 Vector3 enemyBefore = controller.ArenaView.EnemyRenderer.transform.position;
                 begin.Invoke(controller, null);
@@ -119,13 +121,15 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.ArenaView.IsFatalFocus, Is.False);
                 Assert.That(controller.ArenaView.EnemyRenderer.transform.position, Is.EqualTo(enemyBefore));
 
-                var recovery = new LegacyQueuedDuel(100, 50, 100, 50,
+                // 르프리즈 restores only while its opponent is broken, as slot 0's clash leaves the enemy.
+                var recovery = new LegacyQueuedDuel(100, 50, 100, 1,
                     new[] { Attack(100, 1), Guard(19, 100) },
                     new[] { Attack(900, 2), Guard(901, 100) }, new[] { 2 });
                 sessionField.SetValue(controller, recovery);
-                reset.Invoke(controller, null);
+                reset.Invoke(controller, new object[] { null, null });
                 recovery.TryQueueLane(0); recovery.TryQueueLane(0); recovery.Commit();
                 recovery.ResolveNextSlot();
+                Assert.That(recovery.Enemy.IsResistanceBroken, Is.True);
                 begin.Invoke(controller, null);
                 advance.Invoke(controller, new object[] { 0f, null });
                 Canvas.ForceUpdateCanvases();

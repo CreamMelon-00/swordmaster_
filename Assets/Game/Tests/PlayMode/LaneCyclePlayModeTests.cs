@@ -434,7 +434,7 @@ namespace TurnLimbo.Presentation.Tests
                     new[] { Skill(101, "하나", 0), Skill(102, "둘", 0), Skill(104, "넷", 0), Skill(103, "셋", 1),
                         Skill(106, "여섯", 1), Skill(105, "다섯", 2) },
                     new[] { Skill(201, "적", 0) }, new[] { 1 }, 1, features: features));
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
             }
 
             /// <summary>A free duel of the sheet's own rows (each in its own lane, in the order given), with 10 ACT a turn.</summary>
@@ -444,7 +444,7 @@ namespace TurnLimbo.Presentation.Tests
                 Set("guide", null);
                 Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000, ids.Select(LegacySkillDefinitions.Skill).ToArray(),
                     new[] { Skill(201, "적", 0) }, new[] { 1 }, 1, playerActGainBonus: 7));
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
             }
 
             public void Advance(float delta, Keyboard keyboard = null) => advance(delta, keyboard);

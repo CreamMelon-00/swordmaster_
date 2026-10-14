@@ -417,20 +417,30 @@ namespace TurnLimbo.Presentation.Tests
                 arenaSettings = typeof(LegacyArenaView).GetField("settings", PrivateInstance);
                 originalArenaSettings = (DuelPresentationSettings)arenaSettings.GetValue(Controller.ArenaView);
                 Settings = Object.Instantiate(originalSettings);
-                JsonUtility.FromJsonOverwrite("{\"hitStopDuration\":0,\"skillInterval\":0}", Settings);
-                Set("presentationSettings", Settings);
-                arenaSettings.SetValue(Controller.ArenaView, Settings);
-                advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,
-                    typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance));
-                Set("mission", null);
-                Set("guide", null);
-                Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
-                    new[] { Skill(101, "하나", 0), Skill(102, "둘", 0), Skill(104, "넷", 0), Skill(103, "셋", 1),
-                        Skill(106, "여섯", 1), Skill(105, "다섯", 2) },
-                    new[] { Skill(201, "적", 0) }, new[] { 1 }, 1));
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
-                Advance(0f);
-                Assert.That(Controller.CanChoose, Is.True);
+                try
+                {
+                    JsonUtility.FromJsonOverwrite("{\"hitStopDuration\":0,\"skillInterval\":0}", Settings);
+                    Set("presentationSettings", Settings);
+                    arenaSettings.SetValue(Controller.ArenaView, Settings);
+                    advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,
+                        typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance));
+                    Set("mission", null);
+                    Set("guide", null);
+                    Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                        new[] { Skill(101, "하나", 0), Skill(102, "둘", 0), Skill(104, "넷", 0), Skill(103, "셋", 1),
+                            Skill(106, "여섯", 1), Skill(105, "다섯", 2) },
+                        new[] { Skill(201, "적", 0) }, new[] { 1 }, 1));
+                    typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
+                    Advance(0f);
+                    Assert.That(Controller.CanChoose, Is.True);
+                }
+                catch
+                {
+                    // A failed setup never reaches Dispose: restore the shared controller here, or every
+                    // later test inherits it disabled and stalls.
+                    try { Dispose(); } catch { Controller.enabled = originallyEnabled; }
+                    throw;
+                }
             }
 
             public void Advance(float delta, Keyboard keyboard = null) => advance(delta, keyboard);

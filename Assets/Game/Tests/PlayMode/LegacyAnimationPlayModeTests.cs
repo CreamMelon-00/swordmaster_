@@ -1,6 +1,7 @@
 using System.Collections;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
+using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
 using UnityEngine.TestTools;
 
@@ -18,6 +19,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var arena = controller.ArenaView;
+                UseRemadeStudent(arena);
                 Assert.That(arena.HasMobStudentAnimations, Is.True);
                 for (var frame = 0; frame <= 8; frame++)
                 {
@@ -38,6 +40,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var arena = controller.ArenaView;
+                UseRemadeStudent(arena);
                 foreach (var skill in LegacyInitialSkills.All)
                 {
                     arena.Reset();
@@ -70,6 +73,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var arena = controller.ArenaView;
+                UseRemadeStudent(arena);
                 arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
                 AssertFrame(arena, "pa_player_slash-Sheet", "pa_enemy_1_i-Sheet", 0);
                 arena.Tick(0, .5f);
@@ -96,6 +100,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var arena = controller.ArenaView;
+                UseRemadeStudent(arena);
                 var threeHitThrust = new LegacySkill(903, "Three-hit thrust", 1, 6, 6,
                     LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 1, string.Empty);
                 arena.BeginSlot(LegacySkillDefinitions.Skill(1), threeHitThrust);
@@ -164,6 +169,15 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.EnemyRenderer.sprite.name,
                     Does.Match("^enemy-" + type + "(?:-[23])?-frame-" + (frame == 0 ? "01" : "05") + "$"));
             }
+        }
+
+        /// <summary>A campaign stage fields its cadet (CampaignEnemyVariant); these loops are the remade student's (이아),
+        /// which the missions keep. The finally's RestartMatch puts the stage's cadet back.</summary>
+        private static void UseRemadeStudent(LegacyArenaView arena)
+        {
+            arena.SetEnemyAppearance(EnemyAppearance.Student);
+            arena.Reset();
+            Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.Student));
         }
 
         private static DuelPrototypeController FindPrototype()

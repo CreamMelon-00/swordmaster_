@@ -307,7 +307,8 @@ namespace TurnLimbo.Presentation.Tests
                     Vector2.zero, 334f, "Keyword Test");
                 var backgrounds = new HashSet<Color>();
                 var inks = new HashSet<Color>();
-                foreach (int id in new[] { 1, 3, 8, 2, 9, 16, 17 })
+                // One skill per meaning. 기세 꺾기 (5) stands for 방어: 호흡 (17) now leads with 숨고르기 +1 in 회복, like 베기.
+                foreach (int id in new[] { 1, 3, 8, 2, 9, 16, 5 })
                 {
                     view.SetSkill(Skill(id));
                     Transform first = Named(view.Root, "Keyword 1");

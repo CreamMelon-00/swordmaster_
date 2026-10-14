@@ -273,6 +273,9 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             DuelPrototypeController controller = FindPrototype();
             controller.RestartMatch();
+            // The battle opens behind the full-screen loading bridge, which blocks input by design;
+            // real clicks wait for it to close.
+            yield return WaitForLoadingBridge(controller);
             // A standalone run begins in the lobby. The newly enabled battle
             // graphics must get a render frame before testing actual raycasts.
             yield return null;
@@ -512,6 +515,14 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(bounds.yMin, Is.EqualTo(head.y + 12f * canvasScale).Within(.5f),
                 "The panel's lower edge must follow immediately with a constant 12-unit head gap, even at delta zero.");
             AssertWithin(status, root);
+        }
+
+        private static IEnumerator WaitForLoadingBridge(DuelPrototypeController controller)
+        {
+            Assert.That(controller.LoadingHud, Is.Not.Null);
+            float deadline = Time.realtimeSinceStartup + 3f;
+            while (controller.LoadingHud.IsVisible && Time.realtimeSinceStartup < deadline) yield return null;
+            Assert.That(controller.LoadingHud.IsVisible, Is.False, "The loading bridge must close on its own.");
         }
 
         private static void ClickIcon(Button button)

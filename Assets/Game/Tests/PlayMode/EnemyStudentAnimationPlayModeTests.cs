@@ -61,7 +61,8 @@ namespace TurnLimbo.Presentation.Tests
         {
             var host = new GameObject("Enemy Variant Test");
             using (var art = new LegacyDuelArt())
-            using (var arena = LegacyArenaView.Create(host.transform, art, null))
+            // The cadets roll among three authored attack variants; pin the roll to the first so the exact cel is checked.
+            using (var arena = LegacyArenaView.Create(host.transform, art, null, enemyAttackPoseRandom: new FirstVariant()))
             {
                 foreach (EnemyAppearance appearance in new[] { EnemyAppearance.CadetA, EnemyAppearance.CadetB })
                 {
@@ -173,6 +174,8 @@ namespace TurnLimbo.Presentation.Tests
             var previous = camera.targetTexture;
             try
             {
+                // A campaign stage fields its cadet; this capture is of the remade student (이아), which missions keep.
+                arena.SetEnemyAppearance(EnemyAppearance.Student);
                 camera.targetTexture = target;
                 for (int i = 0; i < 5; i++)
                 {
@@ -211,5 +214,7 @@ namespace TurnLimbo.Presentation.Tests
 
         private static void Hold(LegacyArenaView arena, float time) => typeof(LegacyArenaView)
             .GetMethod("HoldSlotAtTime", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(arena, new object[] { time });
+
+        private sealed class FirstVariant : System.Random { public override int Next(int maxValue) => 0; }
     }
 }

@@ -116,7 +116,12 @@ namespace TurnLimbo.Presentation.Tests
                         float floorSeamY = tile.bounds.max.y - expectedWorldHeight * (592f / 916f);
                         foreach (SpriteRenderer actor in new[] { arena.PlayerRenderer, arena.EnemyRenderer })
                         {
-                            Assert.That(actor.bounds.min.y, Is.InRange(floorSeamY - 1.25f, floorSeamY - .75f),
+                            // The cels keep a transparent margin (22 px) under the feet, so the sprite's bounds sit below
+                            // them; the feet are at the authored ground point, GroundOffset under the actor, as its shadow is.
+                            float feetY = actor.transform.TransformPoint(0f, MobStudentAnimationSet.GroundOffset, 0f).y;
+                            Assert.That(actor.bounds.min.y, Is.LessThan(feetY));
+                            Assert.That(actor.bounds.max.y, Is.GreaterThan(feetY));
+                            Assert.That(feetY, Is.InRange(floorSeamY - 1.25f, floorSeamY - .75f),
                                 "The actor's feet should stand visibly inside the marble floor.");
                             Transform shadow = actor.transform.Find("Original Ground Shadow");
                             Assert.That(shadow, Is.Not.Null);

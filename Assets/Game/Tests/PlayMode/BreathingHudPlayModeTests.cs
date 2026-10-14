@@ -17,6 +17,15 @@ namespace TurnLimbo.Presentation.Tests
         [UnityTest]
         public IEnumerator Clicks_QueueOneIdleEach_KeepAct_AndDisableAfterThird()
         {
+            // A battle an earlier test restarted opens behind the shared controller's full-screen loading bridge
+            // (sorting order 1000, above this fixture's 500), which blocks input by design: real clicks wait it out.
+            DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            if (controller != null && controller.LoadingHud != null)
+            {
+                float deadline = Time.realtimeSinceStartup + 3f;
+                while (controller.LoadingHud.IsVisible && Time.realtimeSinceStartup < deadline) yield return null;
+                Assert.That(controller.LoadingHud.IsVisible, Is.False, "The loading bridge must close on its own.");
+            }
             using (var fixture = new HudFixture())
             {
                 fixture.Refresh();

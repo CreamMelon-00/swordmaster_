@@ -362,6 +362,15 @@ namespace TurnLimbo.Presentation.Tests
 
                 // A clock that does not run (training) never presses.
                 controller.ReturnToLobby();
+                // Training opens with stage 3, and clearing stages 1 and 2 opens stage 3.
+                CampaignRun run = controller.Campaign;
+                for (int stage = 1; stage <= 2; stage++)
+                {
+                    Assert.That(run.TryStartStage(stage), Is.True);
+                    Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                }
+                Assert.That(run.ReturnToLobby(), Is.True);
+                Assert.That(run.CanStartTraining, Is.True, "Clearing 1-2 opens stage 3, and training with it.");
                 Assert.That(controller.StartTraining(), Is.True);
                 scope.SetField("planningTime", .5f);
                 scope.AdvanceFor(.5f);
@@ -458,7 +467,7 @@ namespace TurnLimbo.Presentation.Tests
             public void Install(LegacyQueuedDuel duel)
             {
                 SetField("session", duel);
-                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, null);
+                typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", PrivateInstance).Invoke(Controller, new object[] { null, null });
             }
 
             /// <summary>The 서막's mission <paramref name="number"/> in battle: the missions before it counted won, its intro

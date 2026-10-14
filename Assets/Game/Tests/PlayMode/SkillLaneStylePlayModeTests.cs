@@ -62,8 +62,9 @@ namespace TurnLimbo.Presentation.Tests
                 duel.Commit();
                 duel.BeginNextSlot();
                 hud.Refresh(duel, 10f, true, 0, null, null, null);
-                Assert.That(Label(queued.gameObject, "Cycle Count").text, Is.EqualTo("1/9"),
-                    "The active queue card shows the increased count during its use.");
+                Assert.That(duel.CycleUses(skill.Id), Is.EqualTo(1), "Starting its slot counts the use.");
+                Assert.That(Label(queued.gameObject, "Cycle Count").text, Is.EqualTo("0/9"),
+                    "The active queue card shows the count its use read (its power), not the count it has just raised.");
                 while (!duel.IsTurnResolved) duel.ResolveNextSlot();
                 duel.BeginNextTurn();
                 hud.Refresh(duel, 10f, false, -1, null, null, null);
