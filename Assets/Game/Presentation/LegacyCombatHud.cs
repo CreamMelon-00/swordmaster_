@@ -333,7 +333,7 @@ namespace TurnLimbo.Presentation
             var logImage = Panel("LogButton", controls, new Vector2(-EndButtonX, -16f), new Vector2(96, 132));
             BuildActionIcon(logImage.transform, "combat-log", "기록", "L");
             var logButton = AddButton(logImage);
-            ConfigureCommandControl(logImage, logButton, "HudActions/combat-log", 64f, new Vector2(0f, 16f), logImage.transform.Find("Icon").GetComponent<Image>());
+            ConfigureCommandControl(logImage, logButton, "HudActions/combat-log", 64f, new Vector2(0f, 20f), logImage.transform.Find("Icon").GetComponent<Image>());
             logButton.onClick.AddListener(() => { ToggleLog(); ClearSelection(logButton.gameObject); });
             // The lanes' gears turn up out of the dock's bottom edge; the ACT track runs along its top.
             BuildSkillGears(controls, white, queue);

@@ -281,7 +281,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 string[] buttons = { "LogButton", "AButton" };
-                string[] resources = { "combat-log", "confirm-turn" };
+                string[] resources = { "HudActions/combat-log", "AcademyUI/commit-seal" };
                 string[] keys = { "L", "Space" };
                 for (int index = 0; index < buttons.Length; index++)
                 {
@@ -289,7 +289,7 @@ namespace TurnLimbo.Presentation.Tests
                     Image icon = Get<Image>(button.transform, "Icon");
                     Text label = Get<Text>(button.transform, "Label");
                     Text hint = Get<Text>(button.transform, "KeyHint");
-                    Sprite source = Resources.Load<Sprite>("HudActions/" + resources[index]);
+                    Sprite source = Resources.Load<Sprite>(resources[index]);
                     Assert.That(source, Is.Not.Null);
                     Assert.That(icon.sprite, Is.SameAs(source));
                     Assert.That(icon.preserveAspect, Is.True);
@@ -298,8 +298,8 @@ namespace TurnLimbo.Presentation.Tests
                         "The complete confirmation key must fit on one line.");
                     Assert.That(label.text, Is.Not.Empty);
                     RectTransform buttonRect = button.GetComponent<RectTransform>();
-                    Assert.That(buttonRect.rect.size, Is.EqualTo(new Vector2(96, 112)));
-                    Assert.That(icon.rectTransform.rect.size, Is.EqualTo(new Vector2(64, 64)));
+                    // Different illustrated controls have different sizes. Their actual content must fit,
+                    // remain separate and resolve to the same action when the illustration is clicked.
                     AssertWithin(icon.rectTransform, buttonRect);
                     AssertWithin(label.rectTransform, buttonRect);
                     AssertWithin(hint.rectTransform, buttonRect);

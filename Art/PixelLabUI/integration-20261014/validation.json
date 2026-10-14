@@ -1,0 +1,513 @@
+{
+  "utc": "2026-10-14T07:33:43.424449+00:00",
+  "branch": "ui/academy-hud",
+  "ui_snapshot_commit": "04166d1",
+  "merged_commit": "767acc8",
+  "origin_main": "50ef612",
+  "editmode": {
+    "total": "1216",
+    "passed": "1216",
+    "failed": "0",
+    "skipped": "0",
+    "result": "Passed"
+  },
+  "baseline_playmode": {
+    "total": "560",
+    "passed": "445",
+    "failed": "114",
+    "skipped": "1",
+    "result": "Failed(Child)"
+  },
+  "merged_initial_playmode": {
+    "total": "561",
+    "passed": "446",
+    "failed": "114",
+    "skipped": "1",
+    "result": "Failed(Child)"
+  },
+  "added_failures": [],
+  "known_baseline_failures": [
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleBarksPlayModeTests.AHeavyHit_IsAnswered_AndTheBubbleKeepsRealTimeThroughTheSlowMotion",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleBarksPlayModeTests.TheFinishingBlow_AndLeavingTheBattle_TakeTheBubblesAway",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleBarksPlayModeTests.TheStartLines_ShowOverTheHeadHuds_ForTheirRealSeconds_WhileTheBattleGoesOn",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleBarksPlayModeTests.TheSutunScene_TakesTheBubblesAway_AndTheResumedBattleHearsSutun",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleBulletTimePlayModeTests.StagePlanning_EdgesTheFiguresTogetherInAHeldPoseUnderAColdGrade_WithTheClockUntouched",
+      "message": "  The held pose is an idle frame.\n  Expected: String starting with \"idle-frame-\"\n  But was:  \"move-frame-01\"\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleIntroPlayModeTests.ARetryHasTheShortCard_MissionsNameTheirFoe_AndTheEmpoweredResumeHasNone",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleIntroPlayModeTests.ElisasEye_PlaysOverTheEnemysQueueEachPlanningTurn_BesideTheRowNotInIt",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleIntroPlayModeTests.EnterSpaceEscapeOrAClick_SkipTheCard_AndNeverReachTheBattle",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleIntroPlayModeTests.TheClocksLastShare_PushesTheCameraIn_AndTheCommitLetsGo",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleIntroPlayModeTests.TheForestBed_StaysOutOfCorridorBattlesAndScenes_AndPlaysUnderForestScenes",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleIntroPlayModeTests.TheStartCard_HoldsTheBattle_NamesOnlyTheTwoFighters_ThenHandsOverToTheFirstPlanningTurn",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.CampaignVictory_ShowsPaidResult_BlocksActions_AndReturnsToStageSelection",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.DefeatResult_CannotAdvance_RetriesCurrentStage_AndHeldEnterOnlyDismissesOnce",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.LastMission_RunsItsTimerAfterTheOpeningBeat_AndItsForcedLossOpensTheLobby",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.MultiHitSkillClash_GivesOneExperience_AndAnUnansweredSkillGivesNone",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.NewGame_BriefsFirstMission_ThenIntroGuidedQOnlyDuelOutroAndResult",
+      "message": "  The first win announces 넘기기.\n  Expected string length 32 but was 48. Strings differ at index 32.\n  Expected: \"넘기기(Shift)가 열렸습니다.\\n다음 임무가 열렸습니다.\"\n  But was:  \"넘기기(Shift)가 열렸습니다.\\n다음 임무가 열렸습니다. 학원 게시판에서 확인하세요.\"\n  --------------------------------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.SkillLevelUp_DuringAClashShowsTheUpgradedNameAndBurst_ThenResets",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.SkillLevelUpCue_DoesNotPlayForPartialExperienceOrAnEmptyOpposingSlot",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.SkillLevelUpCue_OnAFinishingBlowRemainsVisibleAtTheResult",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreakPresentationPlayModeTests.ActualController_BreakImpactPlaysOncePerNewBreakOnEitherSideAndExpiresOnRealTime",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreakPresentationPlayModeTests.ActualController_CallsOutSkillAndHitBreaksAndTheTurnStartRefill",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreakPresentationPlayModeTests.ActualController_ClosesUpOnBreaksFinishingBlowsAndQuarterHealthHitsOnly",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreakPresentationPlayModeTests.DecisiveHealthDamagePercent_IsClampedAndZeroSwitchesTheQuarterTriggerOff",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreathingHudPlayModeTests.Clicks_QueueOneIdleEach_KeepAct_AndDisableAfterThird",
+      "message": "  Expected: <BreathButton (UnityEngine.GameObject)>\n  But was:  null\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreathingInputPlayModeTests.Breathing_IsBlockedDuringInspection_LobbyBriefingAndMissions",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreathingInputPlayModeTests.SPress_QueuesOncePerPress_AndStopsAtThreeWithoutSpendingAct",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreathingInputPlayModeTests.WaitSlot_StaysIdle_TakesUnguardedHits_HidesPressure_AndResetsNextTurn",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.BreathingInputPlayModeTests.ZeroAct_StillAllowsBreathing_WithoutChangingLaneRotation",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.Detail_ShowsEveryNodesGrantedSkillThroughTheSharedSkillInfoView",
+      "message": "  estocada\n  Expected string length 39 but was 56. Strings differ at index 39.\n  Expected: \"앞에 예약된 저항 감소 기술 1종마다\\n- 기본 위력 +5 (최대 3종)\"\n  But was:  \"앞에 예약된 저항 감소 기술 1종마다\\n- 기본 위력 +5 (최대 3종)\\n능력치 보상: 최대 체력 +5\"\n  ---------------------------------------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.Lifecycle_RebuildKeepsSelectionRefreshReusesNodesAndDisposeIsIdempotent",
+      "message": "  Keyword Word Hits is decoration and must not block node clicks.\n  Expected: False\n  But was:  True\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.EditingTempoDuringSlot_AppliesOnlyToTheNextSkill",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.HitStop_ConsumesRealTimeExactly_AndSimultaneousHitsDoNotStack",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.LethalFirstHit_StopsTheRemainingAttackClips_AndShowsTheResult",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.LongFrame_DoesNotBatchMultiHitsOrSkipTheFinalPose",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.MultiHit_UsesPlaybackAndAttackGap_ReturnsToIdle_AndFinishesAfterLastClip",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.Restart_ClearsHitStopAndSkillGap_AndRestoresPlanningImmediately",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.ShortFrameOvershootIntoGap_HoldsTheActualImpactPose",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CombatTempoPlayModeTests.SlowPlayback_MovesImpactWithItsPose_AndWaitsBetweenSkills",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CompactHudPlayModeTests.ButtonSkillSprites_CurrentPreviewQueuesAndResolvedLogUseTheNewSet",
+      "message": "  The empty funding turn must finish.\n  Expected: False\n  But was:  True\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CompactHudPlayModeTests.CompactStatusAndQueues_UseFlatBarsSmallIconsAndOppositeGrowthDirections",
+      "message": "  The empty funding turn must finish.\n  Expected: False\n  But was:  True\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CompactHudPlayModeTests.HeldSkillExplanation_StaysOnScreenAtEveryScreenEdgeAndDoesNotQueue",
+      "message": "  A hold should reveal the selected technique.\n  Expected: True\n  But was:  False\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CompactHudPlayModeTests.LaneButtons_QueueSpendActRotateIconsRejectUnaffordableClickAndReset",
+      "message": "  The empty funding turn must finish.\n  Expected: False\n  But was:  True\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CompactHudPlayModeTests.PointerRaycasts_ReachEveryLaneAndCommitWithoutDecorationsBlockingThem",
+      "message": "  The empty funding turn must finish.\n  Expected: False\n  But was:  True\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CompactSkillCardPlayModeTests.EverySkillAndSide_FitsMeasuredTextWithoutDroppingFactsOrKeywordColours",
+      "message": "  Keyword 2 Text [상대 체력 30% 이하] should show all measured text lines.\n  Expected: greater than or equal to 30.0f\n  But was:  27.0f\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CounterPresentationPlayModeTests.EnemyCounter_MarksTheAnsweredCardSummarizesUsesAndCallsOut",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CounterPresentationPlayModeTests.PlayerCounter_DodgeAttemptWithdrawsItAndShortensTheSlot",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.CounterPresentationPlayModeTests.PlayerCounter_SettlesAtItsFirstHitWithACallout",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.DialogueHudPlayModeTests.Controller_EnterAdvancesAndFinalEnterDoesNotLeakIntoLobby",
+      "message": "  Expected string length 4 but was 3. Strings differ at index 0.\n  Expected: \"둘째 줄\"\n  But was:  \"첫 줄\"\n  -----------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.DialogueHudPlayModeTests.Controller_EscapeClosesOnlyDialogueWithoutChangingCampaignState",
+      "message": "  Expected: False\n  But was:  True\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.DuelPrototypePlayModeTests.CompactStatusBars_AndOptionalCombatLog_RestoreAndReset",
+      "message": "  The full queue must finish rather than stall.\n  Expected: False\n  But was:  True\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.DuelPrototypePlayModeTests.CompleteDuel_ProducesOutcome_AndRematchRestoresDeckAndResources",
+      "message": "  The full queue must finish rather than stall.\n  Expected: False\n  But was:  True\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.DuelPrototypePlayModeTests.KeyboardTap_QueuesOnRelease_AndSpaceCommitsTheWholeTurn",
+      "message": "  Expected: 1\n  But was:  0\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.DuelPrototypePlayModeTests.OriginalHud_DetailsAreHiddenUntilInspect_AndControlsHideDuringCombat",
+      "message": "  Expected: True\n  But was:  False\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.DuelResistanceFeedbackPlayModeTests.ActualCappedSkillChanges_ShowSignedResistanceWithoutDamageFeedback",
+      "message": "  A capped restoration must not promise the uncapped +5.\n  Expected string length 5 but was 0. Strings differ at index 0.\n  Expected: \"저항 +2\"\n  But was:  <string.Empty>\n  -----------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.DuelResistanceFeedbackPlayModeTests.ActualController_ReportsCappedInitialChangesBeforeHitsWithoutPushOrHitStop",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.ArenaSwitchesCampaignCadetsWithoutChangingIia",
+      "message": "  Expected string length 22 but was 24. Strings differ at index 14.\n  Expected: \"cadet-b-slash-frame-05\"\n  But was:  \"cadet-b-slash-3-frame-05\"\n  -------------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.CameraRendersNewEnemyIdleAllAttacksAndGuardBesidePlayer",
+      "message": "  Expected: String starting with \"enemy-\"\n  But was:  \"cadet-a-idle-frame-01\"\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.FinishingBlowPlayModeTests.LeavingInTheMiddleOfIt_LeavesNoBarsNoFreezeAndNoSlowMotion",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.FinishingBlowPlayModeTests.TheFinishingBlow_SlowsTheBattle_BringsTheBarsIn_Freezes_ThenTheResultComesClear",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.FixedHudPlayModeTests.ActionButtonIconsAndHints_FitWithoutOverlap_AndIconClicksReachTheButton",
+      "message": "  Clicking the icon must resolve to its parent action button.\n  Expected: <LogButton (UnityEngine.GameObject)>\n  But was:  null\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.ForestDuelPlayModeTests.Camera_FollowsDistantDuelCenters_DuringPlanningAndCombat",
+      "message": "  Expected: -1.5f +/- 0.00999999978f\n  But was:  -0.550005853f\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.ForestDuelPlayModeTests.NextTurn_RetainsDisplacedPositions_AndRestartAloneRestoresSpawns",
+      "message": "  Expected: (-5.00, -0.50, 0.00)\n  But was:  (-5.00, -1.45, 0.00)\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneCyclePlayModeTests.Cycle_IsRefusedWhileInspectingOrResolving_AndHiddenWhenClosed",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneCyclePlayModeTests.Cycle_SpendsASecondOfPlanningTime_AndNeedsMoreThanThatLeft",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneCyclePlayModeTests.LaneKeyHeldThroughShift_DoesNotQueueTheSkillThatCameForward",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneCyclePlayModeTests.Reservation_PaysItsTimeCost_IsRefusedShortOfIt_AndEarnedSecondsStartTheNextTurnLater",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneCyclePlayModeTests.Shift_TurnsEveryLaneOncePerPress_AndTheButtonDoesTheSame",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneCyclePlayModeTests.Whetstone_SetsItsCopiesAtOnce_AndTheGearTagsAndRemembersThem",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneCyclePlayModeTests.Whetstone_TheLastCopyLeftAtALanesFront_GoesWithTheTurnWithoutShowingAsReserved",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneHoldPlayModeTests.AHoldCutByTab_NeverQueuesOnItsRelease_AndTheNextPressStillTaps",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneHoldPlayModeTests.KeyHold_TapQueues_LongerPressDoesNot_AndAHoldOpensTheExplanationWithoutQueuing",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneHoldPlayModeTests.PointerHold_OnTheWindow_TapsHoldsAndLetsGoAway_LikeTheKey",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneHoldPlayModeTests.ReadingAnExplanation_SlowsThePlanningClock_AndNothingSlowsOutsidePlanning",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneHoldPlayModeTests.TheExplanation_OpensLargerAboveTheDock_CentredOnTheHeldLane_OverTheHeadHud",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LaneHoldPlayModeTests.UnderTheCoachsCard_TheExplanationOpensAboveIt_AndBackAboveTheDockWithoutIt",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.Animation_UsesScaledClock_AndResetRestoresIdleInsteadOfLeavingAttackPose",
+      "message": "  Expected: String starting with \"enemy-idle-frame-\"\n  But was:  \"cadet-a-idle-frame-01\"\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.EveryOriginalSkill_ChangesPoseAtImpact_AndRepeatsEveryHitForBothActors",
+      "message": "  Expected: String matching \"^enemy-slash(?:-[23])?-frame-01$\"\n  But was:  \"cadet-a-slash-3-frame-01\"\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.Idle_AdvancesBothRemadeActorLoops",
+      "message": "  Expected: String starting with \"enemy-idle-frame-\"\n  But was:  \"cadet-a-idle-frame-01\"\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.UnequalAttackCounts_FinishedAttackGuardsUntilTheOpponentFinishes",
+      "message": "  Expected: String matching \"^enemy-pierce(?:-[23])?-frame-04$\"\n  But was:  \"cadet-a-pierce-frame-04\"\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LobbyScreensPlayModeTests.KeywordBadges_UseReadableSemanticColorsAndActualViewsOmitSharedDamageRouting",
+      "message": "  Different meanings need distinct badge backgrounds: skill 17\n  Expected: True\n  But was:  False\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.LobbyStoryLauncherPlayModeTests.StoryEntry_DoesNotCoverHomePanelsAtWideAndNarrowResolutions",
+      "message": "  Expected: 1600\n  But was:  640\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.MissionScenePlayModeTests.MissionFourEvent_PausesOnItsHit_PlaysOnTheArenaAsItStands_StartsAnEmpoweredTurn_AndTheLossEndsTheArc",
+      "message": "  …which says what the old win's result said: the 서막 is over and what it opened.\n  Expected is <System.String[1]>, actual is <System.String[0]>\n  Values differ at index [0]\n  Missing:  < \"「깨어남」의 임무를 모두 마쳤습니다.\n도미니코 학원을 탐색하며 편성과 커리큘럼을 이용할 수 있습니다.\" >"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.MissionUnlockFlowPlayModeTests.AfterTheArc_StagesFightWithOnlyQ_AndTheNextMissionWaitsForStageOne",
+      "message": "  Expected string length 22 but was 21. Strings differ at index 0.\n  Expected: \"보유 기술을 골라 강조된 칸을 누르세요.\"\n  But was:  \"기술을 같은 열의 칸으로 드래그하세요.\"\n  -----------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.MissionUnlockFlowPlayModeTests.ArcFinale_InTheStory_OpensTheLobbyWithoutPromisingTheCurriculum",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.MissionUnlockFlowPlayModeTests.BreathMission_CoachHoldsQueueingAndCommitUntilSIsUsed",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.MissionUnlockFlowPlayModeTests.DirectApiUse_KeepsEveryFeature_AndNoStageWaitsForAMission",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.MissionUnlockFlowPlayModeTests.FieldMission_BriefsFromTheBoard_EscapeLeaves_AndItsWinOpensTheELaneForStages",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.MissionUnlockFlowPlayModeTests.WLaneMission_OpensTheLastLaneAndWithItTheCurriculum",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.PressureAttackTrailPlayModeTests.ControllerPressure_EmitsDuringLaterAttackAfterMovementEnds",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SchoolCorridorPlayModeTests.LaterBattlesUseLayeredCorridor_WhileTheOpeningMissionKeepsTheForest",
+      "message": "  The actor's feet should stand visibly inside the marble floor.\n  Expected: in range (-3.948896,-3.448896)\n  But was:  -4.23000002f\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.ActualController_ShowsMatchedGuardAndClearsAtLifecycleBoundaries",
+      "message": "  Expected string length 14 but was 17. Strings differ at index 14.\n  Expected: \"다음 턴 ACT 회복 +2\"\n  But was:  \"다음 턴 ACT 회복 +2 · \"\n  -------------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.EnemyDraw_ReportsActualCappedResistanceLossAndSuppressesZeroEffect",
+      "message": "  Expected string length 8 but was 11. Strings differ at index 8.\n  Expected: \"내 저항 -13\"\n  But was:  \"내 저항 -13 · \"\n  -------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.EnemyGuard_MatchedResponseWarnsWithoutClaimingEnemyAct",
+      "message": "  Expected string length 8 but was 11. Strings differ at index 8.\n  Expected: \"내 공격을 읽음\"\n  But was:  \"내 공격을 읽음 · \"\n  -------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.OpeningESkill_ShowsAnAppliedResistanceCutOnlyAgainstAnAttack",
+      "message": "  Expected string length 9 but was 12. Strings differ at index 9.\n  Expected: \"상대 저항 -10\"\n  But was:  \"상대 저항 -10 · \"\n  --------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.PlayerDrawAndRecovery_UseDifferentBurstStylesForAppliedEffects",
+      "message": "  Expected: 10\n  But was:  0\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.PlayerGuard_AnnouncesOnlyTheMatchedNextTurnActGain",
+      "message": "  Expected string length 14 but was 17. Strings differ at index 14.\n  Expected: \"다음 턴 ACT 회복 +2\"\n  But was:  \"다음 턴 ACT 회복 +2 · \"\n  -------------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.StateConditions_AnnounceTheGatedRecoveryAndTheArmedMultiplier",
+      "message": "  Expected string length 9 but was 12. Strings differ at index 9.\n  Expected: \"저항 회복 +12\"\n  But was:  \"저항 회복 +12 · \"\n  --------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.VersusGuard_IsWordedFromTheViewersSide_WithoutPlayerNumbers_WithoutChangingSingleplayerCue",
+      "message": "  Expected string length 14 but was 17. Strings differ at index 14.\n  Expected: \"다음 턴 ACT 회복 +2\"\n  But was:  \"다음 턴 ACT 회복 +2 · \"\n  -------------------------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillCardFeedbackPlayModeTests.SelfRecoveryCondition_EmphasizesTheHeldEffectWithoutMatchingAnyEnemyCard",
+      "message": "  Expected: True\n  But was:  False\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillFeedbackIntegrationPlayModeTests.ActualController_PassesTheAppliedBuffSnapshotAndClearsParticlesOnRestart",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillFeedbackIntegrationPlayModeTests.HeldSkillInspection_ClosesOnKeyReleaseWithoutQueuingTheInspectedSkill",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillFeedbackIntegrationPlayModeTests.ReleasingAnotherHeldKey_DoesNotCloseTheCurrentlyInspectedSkill",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.AddedUtilitySkills_ShowTheirOwnConditionsAndEnemyRecoveryLimit",
+      "message": "  Expected: String containing \"플레이어 전용\"\n  But was:  \"1\n4–8\n참격\n1회\n같은 칸 상대가 방어 기술이면\n- 상대 저항 즉시 15 감소\n저항 -15\n방어 대응\"\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.AdditionalCurriculumReward_UsesTheSameCardAndClearsWhenSelectionChanges",
+      "message": "  Expected: String containing \"저항 즉시 5 감소\" and containing \"최대 체력 +5\"\n  But was:  \"같은 칸 상대가 공격 기술이면\n- 상대 저항 즉시 10 감소\n능력치 보상: 최대 체력 +5 · 매 턴 ACT 회복 +1\"\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SkillLaneStylePlayModeTests.CycleSkill_ShowsBattleUsesAndCurrentCostOnTheWCommandWindow",
+      "message": "  The active queue card shows the increased count during its use.\n  String lengths are both 3. Strings differ at index 0.\n  Expected: \"1/9\"\n  But was:  \"0/9\"\n  -----------^\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SlotForecastHudPlayModeTests.LoadoutCurriculumAndVersusCards_ShowEachSkillsCoreMechanic",
+      "message": "Missing UI node: Versus Available Skill 54"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.StepFocusIntegrationPlayModeTests.DodgeAndPressurePressedTogether_CanBothSucceedBeforeTheSameImpact",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.StepFocusIntegrationPlayModeTests.EarlyMiss_StillMovesAndCostsNaturalRecovery_ButDoesNotStartSuccessfulSlowMotion",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.StepFocusIntegrationPlayModeTests.HeldShift_NoLongerSlowsCombat_OnlyTheStepSuccessDoes",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.StepFocusIntegrationPlayModeTests.RepeatingTheSameSuccessfulAction_DoesNotRenewExpiredFocus_ButStillMoves",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.StepFocusIntegrationPlayModeTests.RestartAndReturnToLobby_ClearCinematicStepState",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.StepFocusIntegrationPlayModeTests.SuccessfulPressureInput_SlowsTheActualSlotClock_WithoutChangingGlobalTime",
+      "message": "System.Reflection.TargetParameterCountException : Number of parameters specified does not match the expected number."
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SwordSkillRoleHudPlayModeTests.CurriculumSkillKeepsCatalogRoleAndIcon_UnknownLookupsStayEmpty",
+      "message": "  Expected: null\n  But was:  <role16 (UnityEngine.Sprite)>\n"
+    },
+    {
+      "test": "TurnLimbo.Presentation.Tests.SwordSkillRoleHudPlayModeTests.HeldExplanation_ShowsAuthoritativeActAndConditionalRecoveryDetails",
+      "message": "  Expected: String containing \"같은 칸 상대가 타격일 때\"\n  But was:  \"같은 칸 상대가 타격 기술이면\n- 다음 턴 ACT 회복 +2\"\n"
+    }
+  ],
+  "rendered_pages": [
+    "title",
+    "home",
+    "stages",
+    "loadout",
+    "curriculum",
+    "briefing",
+    "combat",
+    "loading"
+  ],
+  "scope": "Actual HUD renders and isolated automated tests. Existing main failures remain; no full manual campaign playthrough.",
+  "final_ui_playmode": {
+    "total": "62",
+    "passed": "61",
+    "failed": "1",
+    "skipped": "0",
+    "result": "Failed(Child)"
+  },
+  "final_ui_known_failures": [
+    {
+      "test": "TurnLimbo.Presentation.Tests.FixedHudPlayModeTests.ActionButtonIconsAndHints_FitWithoutOverlap_AndIconClicksReachTheButton",
+      "message": "  Clicking the icon must resolve to its parent action button.\n  Expected: <LogButton (UnityEngine.GameObject)>\n  But was:  null\n",
+      "also_failed_on_origin_main": true
+    }
+  ],
+  "final_fix": "Record icon raised by 4px to keep label separate. Fixed HUD test updated to check imported seal and actual content bounds."
+}
