@@ -187,11 +187,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(CampaignSkillText.Effect(Skill(12)), Does.Contain("받는 피해").And.Contain("50%"));
 
                 fixture.View.SetSkill(Skill(19));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 회복").And.Contain("10%"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 회복").And.Contain("20%"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("기술 시작").And.Contain("최대 저항의 10% 회복"));
+                    Does.Contain("기술 시작").And.Contain("최대 저항의 20% 회복"));
                 Assert.That(Keywords(fixture.View.Root), Does.Not.Contain("피해 -30%"));
-                Assert.That(CampaignSkillText.Effect(Skill(19)), Does.Contain("최대 저항").And.Contain("최대치를 넘지"));
+                Assert.That(CampaignSkillText.Effect(Skill(19)), Does.Contain("최대 저항의 20%"));
 
                 fixture.View.SetSkill(Skill(42));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -15").And.Contain("방어 대응"));
@@ -438,8 +438,8 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(skill);
                 Assert.That(fixture.View.EffectText.text, Does.Not.Contain("최대 체력 +5"));
                 Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
-                fixture.View.SetEmptyMessage("최대 저항 +4 · 일반 스테이지 선택 시간 +3초");
-                Assert.That(fixture.View.EffectText.text, Does.Contain("선택 시간 +3초"));
+                fixture.View.SetEmptyMessage("최대 저항 +4 · 일반 스테이지 제한시간 +3초");
+                Assert.That(fixture.View.EffectText.text, Does.Contain("제한시간 +3초"));
                 Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
             }
             yield return null;

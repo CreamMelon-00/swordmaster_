@@ -99,7 +99,7 @@ namespace TurnLimbo.Presentation.Tests
         public void CommonTerms_ExplainMeaningWithoutSkillSpecificNumbers()
         {
             Assert.That(SkillKeywordHover.TryExplain("순환", out string cycle), Is.True);
-            Assert.That(cycle, Does.Contain("시전할 때마다"));
+            Assert.That(cycle, Does.Contain("사용하거나"));
             Assert.That(SkillKeywordHover.TryExplain("취소", out string cancel), Is.True);
             Assert.That(cancel, Does.Contain("돌려받지"));
             Assert.That(SkillKeywordHover.TryExplain("반환", out string returned), Is.True);
@@ -145,7 +145,7 @@ namespace TurnLimbo.Presentation.Tests
                 yield return new WaitForSecondsRealtime(SkillKeywordHover.DelaySeconds + .12f);
                 Assert.That(popup.activeSelf, Is.True);
                 Assert.That(popup.transform.Find("Keyword Title").GetComponent<Text>().text, Is.EqualTo("순환"));
-                Assert.That(popup.transform.Find("Keyword Meaning").GetComponent<Text>().text, Does.Contain("시전"));
+                Assert.That(popup.transform.Find("Keyword Meaning").GetComponent<Text>().text, Does.Contain("사용"));
 
                 badgeTarget.OnPointerExit(fixture.Pointer(Vector2.zero));
                 Assert.That(popup.activeSelf, Is.False);

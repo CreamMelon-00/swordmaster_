@@ -45,7 +45,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return Math.Max(baseSeconds, Math.Min(ceilingSeconds, baseSeconds + bonus));
         }
 
-        /// <summary>A campaign turn's start: its base (10 seconds and the curriculum's 선택 시간) plus the bonus, at most base + 10.</summary>
+        /// <summary>A campaign turn's start: its base (10 seconds and the curriculum's 제한시간 reward) plus the bonus, at most base + 10.</summary>
         public static float CampaignTurnStart(float baseSeconds, int bonusSeconds)
             => TurnStart(baseSeconds, bonusSeconds, baseSeconds + MaximumBonusSeconds);
 

@@ -11,7 +11,8 @@ namespace TurnLimbo.Presentation
     {
         public const float DelaySeconds = 1.2f;
         private static readonly string[] Terms = { "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간" };
-        // The popup's size before its scale: room for the longest meaning (제한시간's, about six lines) at the smallest type.
+        // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
+        // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
 
         private RectTransform card, canvasRect, popup, divider;
@@ -91,14 +92,16 @@ namespace TurnLimbo.Presentation
             switch (term)
             {
                 case "순환":
-                    explanation = "같은 전투에서 이 기술을 시전할 때마다, 또는 다른 기술이 올려 줄 때 횟수가 1씩 증가합니다. " +
+                    explanation = "이 기술을 사용하거나 다른 기술이 올려 줄 때마다 횟수가 1 오릅니다. " +
                         "횟수는 전투 내내 남고 상한에서 멈춥니다.";
                     return true;
                 case "취소":
-                    explanation = "예약된 기술이 대기열에서 빠집니다. 그 기술에 쓴 ACT는 돌려받지 못합니다.";
+                    explanation = "예약된 기술이 대기열에서 빠지고, 그 기술에 쓴 ACT는 돌려받지 못합니다. " +
+                        "빠진 기술은 열 맨 앞으로 돌아오지 않습니다.";
                     return true;
                 case "반환":
-                    explanation = "예약된 기술이 대기열에서 빠지고, 그 기술에 쓴 ACT를 돌려받습니다.";
+                    explanation = "예약된 기술이 대기열에서 빠지고, 그 기술에 쓴 ACT를 돌려받습니다. " +
+                        "빠진 기술은 열 맨 앞으로 돌아오지 않습니다.";
                     return true;
                 case "붕괴":
                     explanation = "저항이 0인 상태입니다. 회복되기 전까지 받는 체력 피해가 2배가 됩니다.";
@@ -107,20 +110,18 @@ namespace TurnLimbo.Presentation
                     explanation = "서로 다른 검술의 기술을 연달아 예약하면, 연결된 기술 수 × 10%만큼 위력이 증가합니다.";
                     return true;
                 case "숨고르기":
-                    explanation = "ACT 0으로 한 칸을 비우는 행동입니다. 손으로 한 턴 3번, 기술이 1번 더 넣습니다. " +
-                        "취소·반환에도 남고, 맞물림을 끊습니다.";
+                    explanation = "ACT 0으로 한 칸을 비우는 행동으로, 취소·반환에도 남고 맞물림을 끊습니다. " +
+                        "턴당 3회까지 넣을 수 있고, 기술 효과로 1회 더 자동 예약될 수 있습니다.";
                     return true;
                 case "회피":
-                    explanation = "그 칸의 상대 공격을 모두 피합니다. 스텝으로 피하면 다음 턴 ACT가 줄지만, " +
-                        "기술의 자동 회피는 줄지 않습니다.";
+                    explanation = "같은 칸의 상대 공격을 모두 피합니다. 스텝 회피는 다음 턴 ACT가 줄지만 자동 회피는 줄지 않습니다.";
                     return true;
                 case "일회성":
-                    explanation = "열 맨 앞에 잠깐 생기는 기술입니다. 예약하거나 턴이 끝나면 사라집니다. " +
-                        "순환 횟수는 전투 내내 남습니다.";
+                    explanation = "열 맨 앞에 잠깐 생기는 기술로, 예약하거나 턴이 끝나면 사라집니다.";
                     return true;
                 case "제한시간":
-                    explanation = "턴마다 계획할 수 있는 시간, 곧 상대가 내게 닿기까지의 시간입니다. 내가 빨라지거나 상대가 " +
-                        "느려지면 늘고, 내가 느려지거나 상대가 빨라지면 줄어듭니다. 시간이 멈춘 전투에서는 변하지 않습니다.";
+                    explanation = "턴마다 계획할 수 있는 시간, 곧 상대가 내게 닿기까지의 시간입니다. " +
+                        "시간이 멈춘 전투에서는 늘거나 줄지 않습니다.";
                     return true;
                 default:
                     explanation = null;

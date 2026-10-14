@@ -129,7 +129,7 @@ namespace TurnLimbo.Presentation.Tests
                 string reward = Label(root, "Curriculum Detail Effect").text;
                 Assert.That(reward, Does.Contain("최대 체력 +5").And.Contain("최대 저항 +4")
                     .And.Contain("매 턴 ACT 회복 +1").And.Contain("ACT 상한 +2")
-                    .And.Contain("일반 스테이지 선택 시간 +3초"));
+                    .And.Contain("일반 스테이지 제한시간 +3초"));
                 Assert.That(Label(root, "Curriculum Detail Effect").rectTransform.rect.height,
                     Is.GreaterThanOrEqualTo(Label(root, "Curriculum Detail Effect").preferredHeight - 1f));
 

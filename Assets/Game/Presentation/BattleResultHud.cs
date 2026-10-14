@@ -411,7 +411,7 @@ namespace TurnLimbo.Presentation
             if (reward.Resistance > 0) parts.Add("최대 저항 +" + reward.Resistance);
             if (reward.ActGain > 0) parts.Add("매 턴 ACT 회복 +" + reward.ActGain);
             if (reward.ActCapacity > 0) parts.Add("ACT 상한 +" + reward.ActCapacity);
-            if (reward.PlanningSeconds > 0) parts.Add("선택 시간 +" + reward.PlanningSeconds + "초");
+            if (reward.PlanningSeconds > 0) parts.Add("제한시간 +" + reward.PlanningSeconds + "초");
             return string.Join(" · ", parts);
         }
 

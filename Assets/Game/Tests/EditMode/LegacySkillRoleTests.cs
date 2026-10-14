@@ -110,7 +110,7 @@ namespace TurnLimbo.Core.Tests
 
             string fightingSpirit = LegacySkillRoles.GetDetail(FindSkill(19));
             StringAssert.Contains("기술 시작에 상대가 붕괴 상태이면 최대 저항의 20%", fightingSpirit);
-            StringAssert.Contains("최대치까지", fightingSpirit);
+            StringAssert.DoesNotContain("반올림", fightingSpirit);
             StringAssert.DoesNotContain("피해 -30%", fightingSpirit);
 
             string draw = LegacySkillRoles.GetDetail(FindSkill(42));

@@ -9,7 +9,7 @@ namespace TurnLimbo.Presentation
     /// skill is reserved and follow the queue as it changes:
     /// <list type="bullet">
     /// <item>under a lane's window, in the 순환 count's place, one line saying what reserving its front skill now would do
-    /// (<c>숨 3/4 · +12</c>, <c>감소 2/3 · +10</c>, <c>앞 순환 2</c>, <c>자동 숨 1/1</c>, or <c>(이번 턴 사용함)</c>);</item>
+    /// (<c>숨 3/4 · +12</c>, <c>감소 2/3 · +10</c>, <c>앞 순환 2</c>, <c>자동 숨 1/1</c>, or <c>턴당 1회 · 사용함</c>);</item>
     /// <item>under 숨고르기's count, <c>자동 1/1</c> while a lane holds a skill that adds one;</item>
     /// <item>on the held explanation, a row over the 맞물림 row with the same in full words;</item>
     /// <item>on queued cards (the queue rows), a keyword mark over the card where a 취소/반환 mark is not (<c>자동</c>,

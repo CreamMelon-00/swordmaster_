@@ -38,7 +38,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.GetCycleCountLabel(true, 0), Is.EqualTo("0→1/2"), "The rise is written on the count.");
                 Assert.That(hud.GetLanePreview(E), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn), "A second copy feeds nothing.");
                 hud.ShowExplanation(duel.GetLane(E)[0], false);
-                Assert.That(hud.KeywordNote, Is.EqualTo("순환 +1 · 이번 턴 사용함 (같은 기술은 한 번)"));
+                Assert.That(hud.KeywordNote, Is.EqualTo("순환 +1 · 턴당 1회 · 사용함"));
                 hud.HideExplanation();
 
                 duel.Commit();
@@ -162,7 +162,7 @@ namespace TurnLimbo.Presentation.Tests
         public void Glossary_ExplainsBreathAndDodge_AndEveryMeaningFitsThePopup()
         {
             Assert.That(SkillKeywordHover.TryExplain("숨고르기", out string breath), Is.True);
-            Assert.That(breath, Does.Contain("ACT 0").And.Contain("1번 더"));
+            Assert.That(breath, Does.Contain("ACT 0").And.Contain("1회 더"));
             Assert.That(SkillKeywordHover.TryExplain("회피", out string dodge), Is.True);
             Assert.That(dodge, Does.Contain("자동 회피"));
             Assert.That(SkillKeywordHover.TryExplain("순환", out string cycle), Is.True);
