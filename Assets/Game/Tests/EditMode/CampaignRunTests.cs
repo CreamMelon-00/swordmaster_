@@ -142,17 +142,18 @@ namespace TurnLimbo.Core.Tests
         {
             var run = NewBattleRun();
             run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
+            int points = run.CurriculumPoints;
             run.TryStartNextStage();
 
             Assert.That(run.TryCompleteBattle(outcome), Is.True);
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Failed));
             Assert.That(run.LastReward, Is.Zero);
             Assert.That(run.Currency, Is.EqualTo(60));
-            Assert.That(run.Curriculum.IsCompleted("horizontal-cut"), Is.True, "A lost battle still counts.");
+            Assert.That(run.CurriculumPoints, Is.EqualTo(points + 1), "A lost battle still earns its point.");
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.False);
             Assert.That(run.TryStartNextStage(), Is.False);
-            Assert.That(run.TrySelectCurriculumNode("preparation"), Is.False);
+            Assert.That(run.TryLearnCurriculumNode("preparation"), Is.False, "Not on the result.");
             Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.RetryCurrentStage(), Is.True);
             Assert.That(run.RetryCurrentStage(), Is.False);
@@ -173,11 +174,11 @@ namespace TurnLimbo.Core.Tests
         {
             var run = new CampaignRun();
             LegacySkill granted = LegacySkillDefinitions.Skill(14);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
-            Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"));
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True, "Between battles too.");
+            Assert.That(run.Curriculum.LastCompleted.Id, Is.EqualTo("horizontal-cut"));
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(11), "The first clear also grants 탐색.");
             CampaignOwnedSkill owned = Owned(run, granted.Id);
             Assert.That(owned.Skill, Is.Not.SameAs(granted), "Player upgrades must not mutate the shared skill sheet.");
@@ -243,7 +244,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Owned(run, 43)?.Skill.Name, Is.EqualTo("탐색"));
             Assert.That(run.IsSkillEquipped(43), Is.False);
 
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(Owned(run, 14), Is.Not.Null);
@@ -347,7 +348,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Owned(restored, 46)?.Skill.Name, Is.EqualTo("연마"));
             Assert.That(restored.IsSkillEquipped(46), Is.True);
 
-            var olderSave = new CampaignSave(300, new[] { 1, 2, 3, 4, 5 }, new string[0], null, 0,
+            var olderSave = new CampaignSave(300, new[] { 1, 2, 3, 4, 5 }, new string[0], null,
                 new IEnumerable<int>[] { new[] { 1, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
             var olderRun = new CampaignRun();
             Assert.That(olderRun.TryRestore(olderSave, out error), Is.True, error);
@@ -379,7 +380,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(ownedCount), "Replaying stage 7 gives no duplicate.");
 
             // A save that cleared stage 7 before the stage gave it (the old tree's one-stroke node did) receives it.
-            var olderSave = new CampaignSave(500, new[] { 1, 2, 3, 4, 5, 6, 7 }, new string[0], null, 0,
+            var olderSave = new CampaignSave(500, new[] { 1, 2, 3, 4, 5, 6, 7 }, new string[0], null,
                 new IEnumerable<int>[] { new[] { 1, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
             var olderRun = new CampaignRun();
             Assert.That(olderRun.TryRestore(olderSave, out string error), Is.True, error);
@@ -391,7 +392,7 @@ namespace TurnLimbo.Core.Tests
         public void RestoreOlderSaveWithStageThreeCleared_GrantsItsNewReward()
         {
             // Older saves list cleared stages and the equipped lanes, but never serialize skill ownership.
-            var olderSave = new CampaignSave(210, new[] { 1, 2, 3 }, new string[0], null, 0,
+            var olderSave = new CampaignSave(210, new[] { 1, 2, 3 }, new string[0], null,
                 new IEnumerable<int>[] { new[] { 1, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
             var run = new CampaignRun();
             Assert.That(run.TryRestore(olderSave, out string error), Is.True, error);
@@ -445,7 +446,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryStartNextStage(), Is.False);
             Assert.That(run.RetryCurrentStage(), Is.False);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.False);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.False);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.False, "Not on the last result.");
         }
 
         [Test]
@@ -453,12 +454,13 @@ namespace TurnLimbo.Core.Tests
         {
             var run = NewBattleRun();
             ReachMaintenance(run, 3);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             run.TryStartNextStage();
             run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory);
             Assert.That(Owned(run, 14), Is.Not.Null);
             run.ReturnToLobby();
-            Assert.That(run.TrySelectCurriculumNode("preparation"), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("preparation"), Is.True);
+            Assert.That(run.CurriculumPoints, Is.Positive);
             run.Reset();
 
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Lobby));
@@ -468,8 +470,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
             Assert.That(Owned(run, 14), Is.Null);
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-            Assert.That(run.Curriculum.Active, Is.Null);
-            Assert.That(run.LastCompletedCurriculumNode, Is.Null);
+            Assert.That(run.CurriculumPoints, Is.Zero, "A new journey starts without 수련 점수.");
+            Assert.That(run.LastCurriculumPointGain.IsEmpty, Is.True);
+            Assert.That(run.CurriculumNewlyAffordable, Is.False);
             Assert.That(run.Curriculum.GetState("preparation"), Is.EqualTo(CurriculumNodeState.Locked));
             Assert.That(run.CreateDuel().Enemy.Health, Is.EqualTo(80));
         }
@@ -519,10 +522,10 @@ namespace TurnLimbo.Core.Tests
             run.SetProgression(CombatFeature.All, 2);
             Assert.That(run.IsTrainingUnlocked, Is.False, "The story must open stage 3 too.");
             run.SetProgression(CombatFeature.All, 3);
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             int currency = run.Currency;
             int completed = run.Curriculum.CompletedCount;
-            int counted = run.Curriculum.ActiveBattles;
+            int points = run.CurriculumPoints;
 
             Assert.That(run.TryStartTraining(), Is.True);
             Assert.That(run.IsTrainingBattle, Is.True);
@@ -541,7 +544,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Currency, Is.EqualTo(currency));
             Assert.That(run.ClearedStageCount, Is.EqualTo(2));
             Assert.That(run.Curriculum.CompletedCount, Is.EqualTo(completed));
-            Assert.That(run.Curriculum.ActiveBattles, Is.EqualTo(counted));
+            Assert.That(run.CurriculumPoints, Is.EqualTo(points), "Training earns no 수련 점수.");
+            Assert.That(run.LastCurriculumPointGain.IsEmpty, Is.True);
             Assert.That(run.TrainingVictoryCount, Is.Zero);
             Assert.That(run.ReturnToLobby(), Is.True);
             Assert.That(run.IsTrainingBattle, Is.False);
@@ -590,7 +594,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             CampaignSave basis = run.CaptureSave();
             var capped = new CampaignSave(basis.Currency, basis.ClearedStages, basis.CurriculumCompleted,
-                basis.CurriculumActive, basis.CurriculumBattles, basis.Loadout, int.MaxValue);
+                basis.CurriculumPoints, basis.Loadout, int.MaxValue);
             Assert.That(run.TryRestore(capped, out string error), Is.True, error);
             Assert.That(run.TrainingDummyHealth, Is.EqualTo(int.MaxValue));
             Assert.That(run.TryStartTraining(), Is.True);

@@ -280,10 +280,10 @@ namespace TurnLimbo.Core.Tests
         private static CampaignRun CurriculumRun()
         {
             var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             return run;
         }
 

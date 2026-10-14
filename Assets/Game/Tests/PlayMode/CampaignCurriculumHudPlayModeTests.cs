@@ -26,6 +26,8 @@ namespace TurnLimbo.Presentation.Tests
             private readonly bool callbacks;
             public CampaignCurriculumHud Hud;
             public int SelectCalls, ResetCalls;
+            /// <summary>Whether the learn callback rebuilds the page, as the lobby does on every change.</summary>
+            public bool RebuildOnLearn;
 
             public Fixture(bool callbacks = true, CurriculumTree tree = null)
             {
@@ -57,22 +59,40 @@ namespace TurnLimbo.Presentation.Tests
                 Action reset = null;
                 if (callbacks)
                 {
-                    select = id => { SelectCalls++; Assert.That(Run.TrySelectCurriculumNode(id), Is.True); };
+                    select = id =>
+                    {
+                        SelectCalls++;
+                        Assert.That(Run.TryLearnCurriculumNode(id), Is.True);
+                        if (RebuildOnLearn) Build();
+                    };
                     reset = () => { ResetCalls++; Assert.That(Run.TryResetCurriculum(), Is.True); };
                 }
                 Hud = new CampaignCurriculumHud(Panel, Art, Run, select, reset, State);
                 Canvas.ForceUpdateCanvases();
             }
 
-            /// <summary>Makes the node the one in progress (unless it already is) and finishes one battle with it.</summary>
+            /// <summary>Finishes battles of stage one with the outcome until the 수련 점수 cover the available node, then
+            /// learns it. Ends in the lobby.</summary>
             public void Complete(string id, DuelMatchOutcome outcome = DuelMatchOutcome.PlayerVictory)
             {
-                if (Run.Curriculum.Active?.Id != id) Assert.That(Run.TrySelectCurriculumNode(id), Is.True, "Select " + id);
+                Assert.That(Run.Curriculum.GetState(id), Is.EqualTo(CurriculumNodeState.Available), id);
+                while (!Run.IsCurriculumNodeAffordable(id)) Finish(outcome);
+                Assert.That(Run.TryLearnCurriculumNode(id), Is.True, "Learn " + id);
+                Hud.Refresh();
+            }
+
+            /// <summary>Earns the points with lost battles of stage one, a point each. Ends in the lobby.</summary>
+            public void Earn(int points)
+            {
+                for (int i = 0; i < points; i++) Finish(DuelMatchOutcome.EnemyVictory);
+                Hud.Refresh();
+            }
+
+            private void Finish(DuelMatchOutcome outcome)
+            {
                 Assert.That(Run.TryStartStage(1), Is.True);
                 Assert.That(Run.TryCompleteBattle(outcome), Is.True);
                 Assert.That(Run.ReturnToLobby(), Is.True);
-                Assert.That(Run.Curriculum.IsCompleted(id), Is.True, "Complete " + id);
-                Hud.Refresh();
             }
 
             public void CompleteAll(params string[] ids)
@@ -138,10 +158,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(root, "Curriculum Detail Effect").text,
                     Does.Contain("능력치 보상: 최대 저항 +2"));
                 fixture.Hud.SelectNode("stats");
-                Assert.That(fixture.Run.TrySelectCurriculumNode("stats"), Is.True);
-                Assert.That(fixture.Run.TryStartStage(1), Is.True);
-                Assert.That(fixture.Run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                fixture.Hud.Refresh();
+                fixture.Complete("stats");
                 Assert.That(Label(root, "Curriculum Availability").text, Does.Contain("능력치 보상이 적용됐습니다"));
                 Assert.That(panel.rect.height, Is.EqualTo(fixedHeight).Within(.1f));
             }
@@ -149,28 +166,37 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator NodeCards_ShowLockedAvailableActiveAndCompletedWithTheirColorsAndStatus()
+        public IEnumerator NodeCards_ShowLockedAvailableAffordableAndCompletedWithTheirColorsAndStatus()
         {
             yield return null;
             using (var fixture = new Fixture())
             {
                 GameObject root = fixture.Root;
                 int total = fixture.Run.Curriculum.Tree.Nodes.Count;
-                AssertCard(root, "horizontal-cut", DuelVisualTheme.Card, "전투 1회", DuelVisualTheme.Muted, false);
+                AssertCard(root, "horizontal-cut", DuelVisualTheme.Card, "1점", DuelVisualTheme.Muted, false);
                 AssertCard(root, "preparation", DuelVisualTheme.Track, "잠김", DuelVisualTheme.Muted, true);
                 AssertCard(root, "advance", DuelVisualTheme.Track, "잠김", DuelVisualTheme.Muted, true);
                 AssertCard(root, "quick-draw", DuelVisualTheme.Track, "잠김", DuelVisualTheme.Muted, true);
-                Assert.That(Label(root, "Curriculum Status").text, Is.EqualTo("진행 중인 과정 없음 · 과정을 고르세요"));
-                Assert.That(Label(root, "Curriculum Status").color, Is.EqualTo(DuelVisualTheme.Danger));
+                Text points = Label(root, "Curriculum Points");
+                Assert.That(points.text, Is.EqualTo("수련 점수 0"), "The top row leads with the balance…");
+                Assert.That(points.fontStyle, Is.EqualTo(FontStyle.Bold));
+                Assert.That(points.color, Is.EqualTo(DuelVisualTheme.Foreground));
+                Assert.That(Label(root, "Curriculum Status").text, Is.EqualTo("다음 과정까지 1점"), "…then what it buys.");
+                Assert.That(Label(root, "Curriculum Status").color, Is.EqualTo(DuelVisualTheme.Muted));
                 Assert.That(Label(root, "Curriculum Completed Count").text, Is.EqualTo("완료 0 / " + total));
+                Assert.That(Label(Named(root, "Curriculum Node horizontal-cut").gameObject, "Node Status").fontStyle,
+                    Is.EqualTo(FontStyle.Normal));
 
-                Assert.That(fixture.Run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
-                fixture.Hud.Refresh();
-                AssertCard(root, "horizontal-cut", DuelVisualTheme.Selected, "진행 중 0/1", DuelVisualTheme.Accent, false);
-                Assert.That(Label(root, "Curriculum Status").text, Is.EqualTo("진행 중  가로베기  0/1"));
+                // Every finished battle earns, whatever its outcome; an affordable node's cost turns brass and bold.
+                fixture.Earn(1);
+                AssertCard(root, "horizontal-cut", DuelVisualTheme.Card, "1점", DuelVisualTheme.Accent, false);
+                Assert.That(Label(Named(root, "Curriculum Node horizontal-cut").gameObject, "Node Status").fontStyle,
+                    Is.EqualTo(FontStyle.Bold));
+                Assert.That(points.text, Is.EqualTo("수련 점수 1"));
+                Assert.That(points.color, Is.EqualTo(DuelVisualTheme.Accent), "In brass while it buys something.");
+                Assert.That(Label(root, "Curriculum Status").text, Is.EqualTo("익힐 수 있는 과정 1개"));
                 Assert.That(Label(root, "Curriculum Status").color, Is.EqualTo(DuelVisualTheme.Accent));
 
-                // Every finished battle counts, whatever its outcome.
                 fixture.Complete("horizontal-cut", DuelMatchOutcome.EnemyVictory);
                 fixture.Complete("preparation", DuelMatchOutcome.Draw);
                 fixture.Complete("advance");
@@ -178,10 +204,13 @@ namespace TurnLimbo.Presentation.Tests
                 AssertCard(root, "preparation", DuelVisualTheme.RaisedSurface, "완료", DuelVisualTheme.Accent, false);
                 AssertCard(root, "advance", DuelVisualTheme.RaisedSurface, "완료", DuelVisualTheme.Accent, false);
                 foreach (string school in new[] { "quick-draw", "diagonal-cut", "suppleness" })
-                    AssertCard(root, school, DuelVisualTheme.Card, "전투 1회", DuelVisualTheme.Muted, false);
+                    AssertCard(root, school, DuelVisualTheme.Card, "1점", DuelVisualTheme.Accent, false);
                 AssertCard(root, "vital-thrust", DuelVisualTheme.Track, "잠김", DuelVisualTheme.Muted, true);
                 Assert.That(Label(root, "Curriculum Completed Count").text, Is.EqualTo("완료 3 / " + total));
-                Assert.That(Label(root, "Curriculum Status").text, Is.EqualTo("진행 중인 과정 없음 · 과정을 고르세요"));
+                Assert.That(points.text, Is.EqualTo("수련 점수 3"), "The first clear's 4 less 1 for 플레슈.");
+                Assert.That(Label(root, "Curriculum Status").text, Is.EqualTo("익힐 수 있는 과정 3개"));
+                Assert.That(CampaignCurriculumHud.StandingText(0, true, 0),
+                    Is.EqualTo("모든 과정을 익혔습니다 · 초기화하면 점수를 돌려받습니다"), "Nothing left to learn: the reset's offer.");
             }
         }
 
@@ -213,7 +242,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(root, "Curriculum Availability").text,
                     Is.EqualTo("함께 고를 수 없는 과정을 이미 마쳤습니다. 초기화하면 다시 고를 수 있습니다."));
                 primary.onClick.Invoke();
-                Assert.That(fixture.Run.Curriculum.Active, Is.Null, "An excluded node cannot be started.");
+                Assert.That(fixture.Run.Curriculum.IsCompleted("left"), Is.False, "An excluded node cannot be learned.");
             }
         }
 
@@ -345,15 +374,16 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(Named(card.gameObject, "Node Icon").GetComponent<Image>().sprite, Is.SameAs(icon.sprite));
                 }
                 Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("battement")),
-                    Is.EqualTo("다리 과정  ·  붕괴 × 순환  ·  전투 1회"));
+                    Is.EqualTo("다리 과정  ·  붕괴 × 순환  ·  3점"));
                 Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("whetstone")),
-                    Is.EqualTo("다리 과정  ·  순환 × 판짜기  ·  전투 1회"));
-                Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("quick-steps")), Is.EqualTo("순환 과정  ·  전투 1회"));
-                Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("cadence")), Is.EqualTo("순환 과정 정수  ·  전투 1회"));
-                Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("vital-thrust")), Is.EqualTo("순환 과정  ·  전투 1회"));
+                    Is.EqualTo("다리 과정  ·  순환 × 판짜기  ·  3점"));
+                Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("quick-steps")), Is.EqualTo("순환 과정  ·  2점"));
+                Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("cadence")), Is.EqualTo("순환 과정 정수  ·  3점"));
+                Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("vital-thrust")), Is.EqualTo("순환 과정  ·  2점"));
+                Assert.That(CampaignCurriculumHud.PurposeText(tree, tree.Find("diagonal-cut")), Is.EqualTo("순환 과정  ·  1점"));
                 Assert.That(Label(root, "Curriculum Damage Hint").text, Is.Empty);
-                Assert.That(fixture.SelectCalls, Is.Zero, "Browsing details must not start any node.");
-                Assert.That(fixture.Run.Curriculum.Active, Is.Null);
+                Assert.That(fixture.SelectCalls, Is.Zero, "Browsing details must not learn any node.");
+                Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(9));
             }
         }
@@ -385,7 +415,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator PrimaryAction_FollowsTheSelectedNodesStateAndStartsItOnlyThroughOneExplicitClick()
+        public IEnumerator PrimaryAction_FollowsTheSelectedNodesStateAndLearnsItOnlyThroughOneExplicitClick()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -394,47 +424,49 @@ namespace TurnLimbo.Presentation.Tests
                 Button primary = Button(root, "Curriculum Primary Action");
                 Text availability = Label(root, "Curriculum Availability");
                 Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("horizontal-cut"), "The first available node is shown by default.");
-                AssertPrimary(primary, "이 과정 진행", true);
-                Assert.That(availability.text, Does.StartWith("진행하면 다음 전투부터 반영됩니다."));
+                AssertPrimary(primary, "점수 부족 · 0/1", false);
+                Assert.That(availability.text, Is.EqualTo("전투를 마칠 때마다 수련 점수가 쌓입니다."));
 
                 Button(root, "Curriculum Node diagonal-cut").onClick.Invoke();
                 AssertPrimary(primary, "잠긴 과정", false);
-                Assert.That(availability.text, Is.EqualTo("선행 과정을 먼저 마치세요."));
+                Assert.That(availability.text, Is.EqualTo("선행 과정을 먼저 익히세요."));
                 primary.onClick.Invoke();
-                Assert.That(fixture.SelectCalls, Is.Zero, "A locked node cannot be started.");
+                Assert.That(fixture.SelectCalls, Is.Zero, "A locked node cannot be learned.");
 
                 fixture.CompleteAll("horizontal-cut", "preparation", "advance");
+                fixture.Earn(1);
                 Button(root, "Curriculum Node quick-draw").onClick.Invoke();
                 Assert.That(fixture.SelectCalls, Is.Zero, "Clicking a node only selects it for viewing.");
-                Assert.That(fixture.Run.Curriculum.Active, Is.Null);
-                AssertPrimary(primary, "이 과정 진행", true);
+                Assert.That(fixture.Run.Curriculum.IsCompleted("quick-draw"), Is.False);
+                AssertPrimary(primary, "익히기 · 1점", true);
+                Assert.That(availability.text, Is.EqualTo("수련 점수 1점으로 바로 익힙니다."));
                 if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(primary.gameObject);
                 primary.onClick.Invoke();
                 if (EventSystem.current != null) Assert.That(EventSystem.current.currentSelectedGameObject, Is.Null);
                 Assert.That(fixture.SelectCalls, Is.EqualTo(1));
-                Assert.That(fixture.Run.Curriculum.Active.Id, Is.EqualTo("quick-draw"));
-                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("quick-draw"));
-                AssertPrimary(primary, "진행 중", false);
-                Assert.That(availability.text, Is.EqualTo("진행 중 · 전투 0/1. 전투를 마치면 기술을 얻습니다."));
+                Assert.That(fixture.Run.Curriculum.IsCompleted("quick-draw"), Is.True, "Learned at once.");
+                Assert.That(fixture.Run.CurriculumPoints, Is.Zero);
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("fighting-spirit"),
+                    "The page turns to the first node it opened (none is affordable now).");
+                AssertPrimary(primary, "점수 부족 · 0/2", false);
+                Assert.That(availability.text, Is.EqualTo("전투를 마칠 때마다 수련 점수가 쌓입니다."));
+                Button(root, "Curriculum Node quick-draw").onClick.Invoke();
+                AssertPrimary(primary, "완료한 과정", false);
+                Assert.That(availability.text, Is.EqualTo("익혔습니다. 얻은 기술은 편성에서 장착하세요."));
                 primary.onClick.Invoke();
                 Assert.That(fixture.SelectCalls, Is.EqualTo(1));
 
                 Button(root, "Curriculum Node diagonal-cut").onClick.Invoke();
-                AssertPrimary(primary, "이 과정 진행", true);
-                Assert.That(availability.text, Is.EqualTo("진행 중인 쿠페 대신 이 과정을 진행합니다."),
-                    "Before a battle counts, the choice can still change.");
+                AssertPrimary(primary, "점수 부족 · 0/1", false);
                 primary.onClick.Invoke();
-                Assert.That(fixture.SelectCalls, Is.EqualTo(2));
-                Assert.That(fixture.Run.Curriculum.Active.Id, Is.EqualTo("diagonal-cut"));
-                Assert.That(fixture.Run.Curriculum.GetState("quick-draw"), Is.EqualTo(CurriculumNodeState.Available));
+                Assert.That(fixture.SelectCalls, Is.EqualTo(1), "Short points refuse the click.");
 
                 fixture.Complete("diagonal-cut", DuelMatchOutcome.EnemyVictory);
                 Button(root, "Curriculum Node diagonal-cut").onClick.Invoke();
                 AssertPrimary(primary, "완료한 과정", false);
-                Assert.That(availability.text, Is.EqualTo("완료했습니다. 얻은 기술은 편성에서 장착하세요."));
                 Assert.That(fixture.Run.GetOwnedSkill(15), Is.Not.Null);
                 Assert.That(fixture.Run.GetOwnedSkill(43), Is.Null,
-                    "A lost stage battle advances curriculum but does not grant the stage-clear skill.");
+                    "A lost stage battle earns a point but does not grant the stage-clear skill.");
                 Assert.That(fixture.Run.IsSkillInLoadout(15), Is.False, "A granted skill is not placed automatically.");
                 Assert.That(fixture.Run.IsSkillEquipped(15), Is.False);
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.False);
@@ -451,9 +483,14 @@ namespace TurnLimbo.Presentation.Tests
                 Button primary = Button(root, "Curriculum Primary Action");
                 Button reset = Button(root, "Curriculum Reset");
                 primary.onClick.Invoke();
-                Assert.That(fixture.Run.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"),
+                Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero, "No points, nothing learned.");
+                fixture.Earn(1);
+                primary.onClick.Invoke();
+                Assert.That(fixture.Run.Curriculum.IsCompleted("horizontal-cut"), Is.True,
                     "Without a callback the page asks the run directly.");
-                AssertPrimary(primary, "진행 중", false);
+                Assert.That(fixture.Hud.LearnedNodeId, Is.EqualTo("horizontal-cut"), "…and plays the moment itself.");
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("preparation"));
+                AssertPrimary(primary, "점수 부족 · 0/1", false);
 
                 Assert.That(fixture.Run.TryStartStage(1), Is.True);
                 fixture.Hud.Refresh();
@@ -465,44 +502,44 @@ namespace TurnLimbo.Presentation.Tests
                 reset.onClick.Invoke();
                 reset.onClick.Invoke();
                 Assert.That(fixture.Hud.IsResetArmed, Is.False);
-                Assert.That(fixture.Run.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
+                Assert.That(fixture.Run.Curriculum.CompletedCount, Is.EqualTo(1));
 
                 Assert.That(fixture.Run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
                 Assert.That(fixture.Run.Phase, Is.EqualTo(CampaignPhase.Failed));
                 fixture.Hud.Refresh();
                 AssertLocked(root, primary, reset);
-                Assert.That(fixture.Run.Curriculum.IsCompleted("horizontal-cut"), Is.True, "A lost battle still counts.");
+                Assert.That(fixture.Run.CurriculumPoints, Is.EqualTo(1), "A lost battle still earns its point.");
 
                 Assert.That(fixture.Run.ReturnToLobby(), Is.True);
                 fixture.Hud.Refresh();
-                AssertPrimary(primary, "이 과정 진행", true);
+                AssertPrimary(primary, "익히기 · 1점", true);
                 primary.onClick.Invoke();
-                Assert.That(fixture.Run.Curriculum.Active.Id, Is.EqualTo("preparation"));
+                Assert.That(fixture.Run.Curriculum.IsCompleted("preparation"), Is.True);
 
                 Assert.That(fixture.Run.TryStartStage(1), Is.True);
                 Assert.That(fixture.Run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
                 Assert.That(fixture.Run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
                 fixture.Hud.Refresh();
                 Button(root, "Curriculum Node advance").onClick.Invoke();
-                AssertPrimary(primary, "이 과정 진행", true);
+                AssertPrimary(primary, "익히기 · 1점", true);
                 primary.onClick.Invoke();
-                Assert.That(fixture.Run.Curriculum.Active.Id, Is.EqualTo("advance"), "Maintenance still allows a choice.");
+                Assert.That(fixture.Run.Curriculum.IsCompleted("advance"), Is.True, "Maintenance still allows learning.");
 
                 Assert.That(reset.interactable, Is.True);
                 reset.onClick.Invoke();
                 Assert.That(fixture.Hud.IsResetArmed, Is.True);
-                Assert.That(fixture.Run.Curriculum.CompletedCount, Is.EqualTo(2));
+                Assert.That(fixture.Run.Curriculum.CompletedCount, Is.EqualTo(3));
                 reset.onClick.Invoke();
                 Assert.That(fixture.Hud.IsResetArmed, Is.False);
                 Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
-                Assert.That(fixture.Run.Curriculum.Active, Is.Null);
+                Assert.That(fixture.Run.CurriculumPoints, Is.EqualTo(6), "3 left after 플레슈, and 3 given back.");
                 Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10),
                     "Reset removes curriculum skills but keeps the first stage reward.");
             }
         }
 
         [UnityTest]
-        public IEnumerator Reset_NeedsTwoClicksDisarmsOnPhaseChangeAndRemovesGrantedSkills()
+        public IEnumerator Reset_NeedsTwoClicksDisarmsOnPhaseChangeRefundsAndRemovesGrantedSkills()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -518,17 +555,19 @@ namespace TurnLimbo.Presentation.Tests
 
                 fixture.Complete("horizontal-cut");
                 fixture.Complete("preparation");
+                Assert.That(fixture.Run.CurriculumPoints, Is.EqualTo(2));
                 Assert.That(fixture.Run.TryPlaceLoadoutSkill(14, 0, 0), Is.True);
                 Assert.That(fixture.Run.TrySaveLoadout(), Is.True);
                 Assert.That(fixture.Run.IsSkillEquipped(14), Is.True);
-                Assert.That(fixture.Run.TrySelectCurriculumNode("advance"), Is.True);
                 fixture.Hud.Refresh();
                 Assert.That(reset.interactable, Is.True);
                 Assert.That(caption.color, Is.EqualTo(DuelVisualTheme.Foreground));
 
                 reset.onClick.Invoke();
                 Assert.That(fixture.Hud.IsResetArmed, Is.True);
-                Assert.That(caption.text, Is.EqualTo("한 번 더 누르면 초기화"));
+                Assert.That(caption.text, Is.EqualTo("한 번 더 누르면 초기화\n쓴 점수 2점을 돌려받습니다"),
+                    "Armed, it says what the reset gives back.");
+                Assert.That(caption.text, Is.EqualTo(CampaignCurriculumHud.ArmedResetText(fixture.Run.CurriculumRefund)));
                 Assert.That(fixture.ResetCalls, Is.Zero, "The first click only arms the reset.");
                 Assert.That(fixture.Run.Curriculum.CompletedCount, Is.EqualTo(2));
 
@@ -540,8 +579,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Run.TryAbandonBattle(), Is.True);
                 fixture.Hud.Refresh();
                 Assert.That(caption.text, Is.EqualTo("커리큘럼 초기화"));
-                Assert.That(fixture.Run.Curriculum.Active.Id, Is.EqualTo("advance"));
-                Assert.That(fixture.Run.Curriculum.ActiveBattles, Is.Zero, "An abandoned battle does not count.");
+                Assert.That(fixture.Run.CurriculumPoints, Is.EqualTo(2), "An abandoned battle earns nothing.");
 
                 reset.onClick.Invoke();
                 reset.onClick.Invoke();
@@ -550,7 +588,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(caption.text, Is.EqualTo("커리큘럼 초기화"));
                 Assert.That(reset.interactable, Is.False);
                 Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
-                Assert.That(fixture.Run.Curriculum.Active, Is.Null);
+                Assert.That(fixture.Run.CurriculumPoints, Is.EqualTo(4), "Both nodes' costs come back.");
                 Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10),
                     "Reset keeps the first stage reward even after curriculum skills are removed.");
                 Assert.That(fixture.Run.IsSkillEquipped(14), Is.False);
@@ -558,7 +596,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Run.CanStartStage(1), Is.True);
                 Assert.That(Label(root, "Curriculum Completed Count").text,
                     Is.EqualTo("완료 0 / " + fixture.Run.Curriculum.Tree.Nodes.Count));
-                AssertCard(root, "horizontal-cut", DuelVisualTheme.Card, "전투 1회", DuelVisualTheme.Muted, false);
+                AssertCard(root, "horizontal-cut", DuelVisualTheme.Card, "1점", DuelVisualTheme.Accent, false);
                 AssertCard(root, "advance", DuelVisualTheme.Track, "잠김", DuelVisualTheme.Muted, true);
             }
         }
@@ -631,6 +669,24 @@ namespace TurnLimbo.Presentation.Tests
                 var treeFrame = (RectTransform)Named(fixture.Root, "Curriculum Tree");
                 var detail = (RectTransform)Named(fixture.Root, "Curriculum Selected Detail");
                 Assert.That(FrameBounds(treeFrame).Overlaps(FrameBounds(detail)), Is.False, "The detail panel sits beside the tree.");
+                Assert.That(treeFrame.sizeDelta, Is.EqualTo(new Vector2(760f, CampaignCurriculumHud.TreeHeight)));
+
+                // The banner under the tree, as wide as it; the top row over it, nothing overlapping.
+                Rect frameBounds = FrameBounds(treeFrame);
+                Rect banner = FrameBounds((RectTransform)Named(fixture.Root, "Curriculum Banner"));
+                Assert.That(banner.yMax, Is.LessThan(frameBounds.yMin), "The banner sits under the tree.");
+                Assert.That((banner.xMin, banner.xMax), Is.EqualTo((frameBounds.xMin, frameBounds.xMax)));
+                Assert.That(banner.Overlaps(FrameBounds(detail)), Is.False);
+                var row = new[] { "Curriculum Reset", "Curriculum Points Plate", "Curriculum Status", "Curriculum Completed Count" };
+                for (int index = 0; index < row.Length; index++)
+                {
+                    Rect bounds = FrameBounds((RectTransform)Named(fixture.Root, row[index]));
+                    Assert.That(bounds.yMin, Is.GreaterThan(frameBounds.yMax), row[index] + " sits over the tree.");
+                    Assert.That(bounds.xMin >= frameBounds.xMin - 1f && bounds.xMax <= frameBounds.xMax + 1f, Is.True, row[index] + " stays over it.");
+                    for (int other = index + 1; other < row.Length; other++)
+                        Assert.That(bounds.Overlaps(FrameBounds((RectTransform)Named(fixture.Root, row[other]))), Is.False,
+                            row[index] + " overlaps " + row[other]);
+                }
             }
         }
 
@@ -702,7 +758,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator Focus_OpensOnTheNodeInProgressThenANewOneThenTheFirstAvailable()
+        public IEnumerator Focus_OpensOnANewNodeThenTheFirstAffordableThenTheFirstAvailable()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -714,11 +770,20 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Hud.IsNodeInView("estocada"), Is.True);
                 Assert.That(fixture.Hud.ScrollOffset, Is.GreaterThan(0f));
 
-                Assert.That(fixture.Run.TrySelectCurriculumNode("suppleness"), Is.True);
+                Assert.That(fixture.Run.CurriculumPoints, Is.Zero);
                 fixture.State.Reopen();
                 fixture.Build();
-                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("suppleness"), "The node in progress comes before a new one.");
-                Assert.That(fixture.Hud.IsNodeInView("suppleness"), Is.True);
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("estocada"), "Focusing alone does not count as looking at it.");
+                Button(fixture.Root, "Curriculum Node estocada").onClick.Invoke();
+                fixture.State.Reopen();
+                fixture.Build();
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("diagonal-cut"),
+                    "Nothing new and nothing affordable: the first available node.");
+                fixture.Earn(2);
+                fixture.State.Reopen();
+                fixture.Build();
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("diagonal-cut"), "The first affordable node.");
+                Assert.That(fixture.Hud.IsNodeInView("diagonal-cut"), Is.True);
             }
         }
 
@@ -751,9 +816,8 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Complete("quick-draw", DuelMatchOutcome.EnemyVictory);
                 Assert.That(fixture.Hud.IsNew("suppleness"), Is.False, "A new completion brings its own new nodes.");
                 Assert.That(fixture.Hud.IsNew("fighting-spirit") && fixture.Hud.IsNew("esquive"), Is.True);
-                Assert.That(fixture.Run.TrySelectCurriculumNode("esquive"), Is.True);
-                fixture.Hud.Refresh();
-                Assert.That(fixture.Hud.IsNew("esquive"), Is.False, "A node in progress is no longer new.");
+                fixture.Complete("esquive", DuelMatchOutcome.EnemyVictory);
+                Assert.That(fixture.Hud.IsNew("esquive"), Is.False, "A learned node is no longer new.");
             }
         }
 
@@ -845,9 +909,8 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.State.Reset();
                 Assert.That(fixture.State.SelectedNodeId, Is.Null);
                 Assert.That(fixture.State.TreeScroll.HasValue, Is.False);
-                Assert.That(fixture.Run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
                 fixture.Hud.Refresh();
-                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("horizontal-cut"), "Without a selection the node in progress is shown.");
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("horizontal-cut"), "Without a selection the first available node is shown.");
 
                 Button primary = Button(fixture.Root, "Curriculum Primary Action");
                 Button node = Button(fixture.Root, "Curriculum Node breathing");
@@ -865,26 +928,135 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("horizontal-cut"), "A disposed page ignores selection.");
                 Assert.That(fixture.SelectCalls, Is.Zero);
                 Assert.That(fixture.ResetCalls, Is.Zero);
-                Assert.That(fixture.Run.Curriculum.Active.Id, Is.EqualTo("horizontal-cut"));
+                Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
                 yield return null;
                 Assert.That(disposedRoot == null, Is.True, "Dispose releases the page's objects.");
             }
         }
 
+        [UnityTest]
+        public IEnumerator LearningMoment_PulsesTheCard_NamesTheTechniqueAndWhatItOpened_AndTurnsToIt()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                GameObject root = fixture.Root;
+                Text title = Label(root, "Curriculum Banner Title"), detail = Label(root, "Curriculum Banner Detail");
+                Transform iconFrame = Named(root, "Curriculum Banner Icon Frame");
+                Assert.That(fixture.Hud.LearnedNodeId, Is.Null);
+                Assert.That(title.text, Is.EqualTo(CampaignCurriculumHud.RestingBannerTitle), "At rest the banner says how points come.");
+                Assert.That(detail.text, Is.EqualTo("전투 +1 · 승리 +1 · 첫 클리어 +2 · 임무 첫 완료 +1"));
+                Assert.That(title.color, Is.EqualTo(DuelVisualTheme.Muted));
+                Assert.That(iconFrame.gameObject.activeSelf, Is.False);
+
+                fixture.Earn(3);
+                Button primary = Button(root, "Curriculum Primary Action");
+                primary.onClick.Invoke();
+                LegacySkill cut = LegacySkillDefinitions.Skill(14);
+                Assert.That(fixture.Hud.LearnedNodeId, Is.EqualTo("horizontal-cut"));
+                Assert.That(title.text, Is.EqualTo("새 기술 · " + cut.Name + "(" + SkillLaneStyle.Key(cut.LaneIndex) + " " +
+                    SkillLaneStyle.Name(cut.LaneIndex) + ")"));
+                Assert.That(title.color, Is.EqualTo(DuelVisualTheme.Accent));
+                Assert.That(detail.text, Is.EqualTo("새로 열린 과정: 준비"));
+                Assert.That(iconFrame.gameObject.activeSelf, Is.True, "The technique on its lane's dye, as the result row had it.");
+                Assert.That(iconFrame.GetComponent<Image>().color, Is.EqualTo(SkillLaneStyle.Edge(cut.LaneIndex)));
+                Assert.That(Named(root, "Curriculum Banner Accent").GetComponent<Image>().color, Is.EqualTo(SkillLaneStyle.Edge(cut.LaneIndex)));
+                Assert.That(Named(root, "Curriculum Banner Icon").GetComponent<Image>().sprite, Is.SameAs(fixture.Art.GetSkillIcon(cut.IconId)));
+                Button card = Button(root, "Curriculum Node horizontal-cut");
+                CurriculumLearnPulse pulse = card.GetComponent<CurriculumLearnPulse>();
+                Assert.That(pulse, Is.Not.Null);
+                Assert.That(pulse.IsPlaying, Is.True, "The learned card pulses.");
+                Image flash = Named(card.gameObject, "Learn Flash").GetComponent<Image>();
+                Assert.That(flash.gameObject.activeSelf, Is.True);
+                Assert.That(flash.raycastTarget, Is.False, "The flash never takes a click.");
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("preparation"), "The page turns to what it opened…");
+                Assert.That(fixture.Hud.IsNew("preparation"), Is.True, "…without counting as a look at it.");
+                Assert.That(fixture.Hud.IsNodeInView("preparation"), Is.True);
+                Assert.That(fixture.Hud.IsNodeInView("horizontal-cut"), Is.True);
+                AssertPrimary(primary, "익히기 · 1점", true);
+                pulse.Advance(CurriculumLearnPulse.Duration);
+                Assert.That(pulse.IsPlaying, Is.False);
+                Assert.That(card.transform.localScale, Is.EqualTo(Vector3.one), "The card settles back.");
+                Assert.That(flash.gameObject.activeSelf, Is.False);
+
+                primary.onClick.Invoke();
+                primary.onClick.Invoke();
+                Assert.That(fixture.Hud.LearnedNodeId, Is.EqualTo("advance"));
+                Assert.That(title.text, Is.EqualTo("새 기술 · " + CampaignCurriculumHud.SkillLabel(LegacySkillDefinitions.Skill(12))));
+                Assert.That(detail.text, Is.EqualTo("기초 과정 수료  ·  새로 열린 과정: 쿠페 · 사선베기 · 유연함"),
+                    "The trunk's end finishes the 기초 course.");
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("quick-draw"), "Nothing is affordable: the first it opened.");
+                Assert.That(fixture.Run.CurriculumPoints, Is.Zero);
+
+                fixture.Build();
+                Assert.That(fixture.Hud.LearnedNodeId, Is.Null, "A later page does not play the moment again.");
+                Assert.That(Label(fixture.Root, "Curriculum Banner Title").text, Is.EqualTo(CampaignCurriculumHud.RestingBannerTitle));
+
+                // The lobby rebuilds its page on a learn: the new page plays the moment.
+                fixture.RebuildOnLearn = true;
+                fixture.Earn(1);
+                GameObject before = fixture.Root;
+                Button(fixture.Root, "Curriculum Primary Action").onClick.Invoke();
+                Assert.That(fixture.Root, Is.Not.SameAs(before));
+                Assert.That(fixture.Run.Curriculum.IsCompleted("quick-draw"), Is.True);
+                Assert.That(fixture.Hud.LearnedNodeId, Is.EqualTo("quick-draw"));
+                Assert.That(Label(fixture.Root, "Curriculum Banner Title").text,
+                    Is.EqualTo("새 기술 · " + CampaignCurriculumHud.SkillLabel(LegacySkillDefinitions.Skill(42))));
+                Assert.That(Label(fixture.Root, "Curriculum Banner Detail").text, Is.EqualTo("새로 열린 과정: 르프리즈 · 에스키브"));
+                Assert.That(Button(fixture.Root, "Curriculum Node quick-draw").GetComponent<CurriculumLearnPulse>().IsPlaying, Is.True);
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("fighting-spirit"));
+
+                // A capstone finishes its school: the course and its stat.
+                fixture.RebuildOnLearn = false;
+                fixture.Earn(5);
+                fixture.Hud.SelectNode("esquive");
+                Button(fixture.Root, "Curriculum Primary Action").onClick.Invoke();
+                Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("estocada"), "에스키브 opened 에스토카다, and 3 points cover it.");
+                Button(fixture.Root, "Curriculum Primary Action").onClick.Invoke();
+                Assert.That(fixture.Hud.LearnedNodeId, Is.EqualTo("estocada"));
+                Assert.That(Label(fixture.Root, "Curriculum Banner Title").text,
+                    Is.EqualTo("새 기술 · " + CampaignCurriculumHud.SkillLabel(LegacySkillDefinitions.Skill(51))));
+                Assert.That(Label(fixture.Root, "Curriculum Banner Detail").text, Is.EqualTo("붕괴 과정 수료 · 최대 체력 +5"));
+
+                // A reset takes the moment away.
+                Button reset = Button(fixture.Root, "Curriculum Reset");
+                reset.onClick.Invoke();
+                reset.onClick.Invoke();
+                Assert.That(fixture.Hud.LearnedNodeId, Is.Null);
+                Assert.That(Label(fixture.Root, "Curriculum Banner Title").text, Is.EqualTo(CampaignCurriculumHud.RestingBannerTitle));
+                Assert.That(Named(fixture.Root, "Curriculum Banner Icon Frame").gameObject.activeSelf, Is.False);
+            }
+        }
+
         [Test]
-        public void FieldNotice_NamesTheCompletionOrTheCourse_AndTheNewSkill()
+        public void LearnedDetail_NamesTheCourseTheStatsAndWhatOpened_OrWhereTheTechniqueGoes()
         {
             CurriculumTree tree = CampaignCurriculum.Default;
-            LegacySkill estocada = LegacySkillDefinitions.Skill(51);
-            string notice = AcademyFieldView.CurriculumNotice(tree.Find("estocada"), estocada, true, true);
-            Assert.That(notice, Does.StartWith("커리큘럼 · 붕괴 과정 수료 · 새 기술 " + estocada.Name + "(" +
-                SkillLaneStyle.Key(estocada.LaneIndex)));
-            Assert.That(notice, Does.EndWith("Esc 메뉴의 편성에서 장착할 수 있습니다."));
-            string closed = AcademyFieldView.CurriculumNotice(tree.Find("horizontal-cut"), LegacySkillDefinitions.Skill(14), false, false);
-            Assert.That(closed, Does.StartWith("커리큘럼 · 가로베기 완료 · 새 기술 가로베기").And.Contain("이 기술의 열이 열리면"));
+            LegacySkill vital = LegacySkillDefinitions.Skill(21);
+            Assert.That(CampaignCurriculumHud.LearnedDetail(tree, tree.Find("battement"), LegacySkillDefinitions.Skill(52),
+                Array.Empty<CurriculumNode>(), true), Is.EqualTo("편성에서 장착할 수 있습니다."), "A bridge opens nothing and ends no course.");
+            Assert.That(CampaignCurriculumHud.LearnedDetail(tree, tree.Find("battement"), LegacySkillDefinitions.Skill(52),
+                Array.Empty<CurriculumNode>(), false), Is.EqualTo("이 기술의 열이 열리면 편성할 수 있습니다."));
+            Assert.That(CampaignCurriculumHud.LearnedDetail(tree, tree.Find("vital-thrust"), vital,
+                new[] { tree.Find("cadence") }, true), Is.EqualTo("새로 열린 과정: 카덴스"));
+            Assert.That(CampaignCurriculumHud.LearnedDetail(tree, tree.Find("doublet"), LegacySkillDefinitions.Skill(56),
+                Array.Empty<CurriculumNode>(), true), Is.EqualTo("판짜기 과정 수료 · 일반 스테이지 제한시간 +2초"));
             var stats = new CurriculumNode("stats", "기초 체력", CurriculumBranch.Retraction, 0f, 0, Array.Empty<int>(),
                 statReward: new CurriculumStatReward(health: 5));
-            Assert.That(AcademyFieldView.CurriculumNotice(stats, null, false, false), Does.Contain("능력치가 올랐습니다"));
+            Assert.That(CampaignCurriculumHud.LearnedHeadline(stats, null), Is.EqualTo("능력치 · 최대 체력 +5"));
+            Assert.That(CampaignCurriculumHud.LearnedDetail(null, stats, null, null, false), Is.EqualTo("능력치가 올랐습니다."));
+            Assert.That(CampaignCurriculumHud.SkillLabel(vital),
+                Is.EqualTo(vital.Name + "(" + SkillLaneStyle.Key(vital.LaneIndex) + " " + SkillLaneStyle.Name(vital.LaneIndex) + ")"));
+        }
+
+        [Test]
+        public void FieldNotices_SayANodeIsWithinReach_OrThatTheCurriculumOpenedWithItsBank()
+        {
+            Assert.That(AcademyFieldView.CurriculumAffordableNotice, Is.EqualTo("익힐 수 있는 과정이 있습니다 · Esc 메뉴의 커리큘럼"));
+            string opened = AcademyFieldView.CurriculumOpenedNotice(24);
+            Assert.That(opened.Split('\n')[0], Is.EqualTo("커리큘럼이 열렸습니다 · 모아 둔 수련 점수 24점"));
+            Assert.That(opened, Does.EndWith("Esc 메뉴의 커리큘럼에서 과정을 익힐 수 있습니다."));
+            Assert.That(opened.Split('\n').Length, Is.EqualTo(2));
         }
 
         private static Color Opaque(Color color) => new Color(color.r, color.g, color.b);

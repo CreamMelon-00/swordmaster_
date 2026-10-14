@@ -60,12 +60,10 @@ namespace TurnLimbo.Presentation
         private BattleResult battleResult;
         private PrologueRun prologue;
         private string pendingAcademyNotice;
-        // The lane whose selection sound comes with the field's notice (a curriculum completion's skill), or -1.
-        private int pendingAcademySoundLane = -1;
         /// <summary>The field's arrival notice after 이어하기 emptied a curriculum made with an older tree
         /// (<see cref="CampaignRun.RestoreDroppedCurriculum"/>).</summary>
         internal const string CurriculumResetNotice =
-            "커리큘럼이 새로 짜여 처음부터 고릅니다.\n이야기·스테이지 기록과 주운 기술은 그대로입니다.";
+            "커리큘럼이 새로 짜여 처음부터 익힙니다.\n모은 수련 점수와 이야기·스테이지 기록, 주운 기술은 그대로입니다.";
         // The opening-arc mission being fought, its coach, and whether its briefing is on screen.
         private PrologueMission mission;
         private MissionGuide guide;
@@ -370,7 +368,7 @@ namespace TurnLimbo.Presentation
             forestAmbience = new DuelForestAmbience(transform, () => presentationSettings);
             Sprite lobbyRoomSprite = LobbyRoomBackdrop.PickRandom();
             lobbyHud = new CampaignLobbyHud(transform, art,
-                id => SelectCurriculumNode(id), () => ResetCurriculum(), id => EquipSkill(id),
+                id => LearnCurriculumNode(id), () => ResetCurriculum(), id => EquipSkill(id),
                 id => UnequipSkill(id), (id, direction) => MoveEquippedSkill(id, direction),
                 stage => StartCampaignStage(stage), RestartJourney,
                 (id, lane, slot) => PlaceLoadoutSkill(id, lane, slot),
@@ -1241,13 +1239,15 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>Restarts the post-arc journey (the lobby's 여정 초기화): a fresh campaign, back in the lobby.
-        /// The opening arc's progress is kept.</summary>
+        /// The opening arc's progress is kept, and so are the 수련 점수 its won missions paid (one each, as a save written
+        /// before points existed is credited). Like the story's unlocks (<see cref="SyncStoryProgression"/>) this follows
+        /// the story only while it is in play; direct use without it (tests, API) starts the journey at zero.</summary>
         public void RestartJourney()
         {
             academyField?.ResetExploration();
             CloseDialogue();
             ClearMissionState();
-            campaign.Reset();
+            campaign.Reset(StoryProgressionEnabled ? prologue.ClearedCount : 0);
             SyncStoryProgression();
             session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
@@ -1263,7 +1263,6 @@ namespace TurnLimbo.Presentation
         {
             academyField?.ResetExploration();
             pendingAcademyNotice = null;
-            pendingAcademySoundLane = -1;
             CloseDialogue();
             ClearMissionState();
             campaign.Reset();
@@ -1306,7 +1305,6 @@ namespace TurnLimbo.Presentation
         {
             academyField?.ResetExploration();
             pendingAcademyNotice = null;
-            pendingAcademySoundLane = -1;
             onlineVersus?.Stop();
             localVersus?.Stop();
             ClearBattleScreens();
@@ -1830,10 +1828,13 @@ namespace TurnLimbo.Presentation
             // 이어하기 follows the story, so the curriculum counts only once the saved missions have opened it.
             var story = new PrologueRun();
             story.TryRestore(save.PrologueCleared);
-            // Read through the tree version as loading will, so an older tree's progress shows as the 0 it becomes.
+            // Read through the tree version as loading will, so an older tree's progress shows as the 0 it becomes, and
+            // the balance as loading works it out (a save from before 수련 점수 is credited retroactively).
             int completed = save.Campaign.ForCurriculumTree(CampaignCurriculum.TreeVersion, out _).CurriculumCompleted.Count;
             string curriculum = CampaignRun.OpensCurriculum(story.UnlockedFeatures)
-                ? $"커리큘럼 {completed} / {campaign.Curriculum.Tree.Nodes.Count}  ·  " : string.Empty;
+                ? $"커리큘럼 {completed} / {campaign.Curriculum.Tree.Nodes.Count}  ·  " +
+                  $"수련 점수 {campaign.CurriculumPointsIn(save.Campaign, save.PrologueCleared)}  ·  "
+                : string.Empty;
             return $"도미니코 학원  ·  전투 클리어 {save.Campaign.ClearedStages.Count} / {campaign.StageCount}  ·  " +
                 curriculum + $"임무 완료 {save.PrologueCleared} / {StoryMissions.Count}";
         }
@@ -1974,16 +1975,27 @@ namespace TurnLimbo.Presentation
                 leftPortrait, rightPortrait);
         }
 
-        /// <summary>Makes a curriculum node the one in progress (lobby only, once the curriculum is open).</summary>
-        public bool SelectCurriculumNode(string nodeId)
+        /// <summary>Spends 수련 점수 on a curriculum node and completes it at once (lobby only, once the curriculum is open,
+        /// the node available and affordable: <see cref="CampaignRun.TryLearnCurriculumNode"/>), then autosaves. No
+        /// confirmation step.</summary>
+        public bool LearnCurriculumNode(string nodeId)
         {
-            if (!IsInLobby || !campaign.TrySelectCurriculumNode(nodeId)) return false;
+            if (!IsInLobby || !campaign.TryLearnCurriculumNode(nodeId)) return false;
+            // The learning moment: the curriculum page pulses the card and names what it gave, with the technique's lane
+            // sound (the battle's queue cue, as a field pickup's). A node granting no technique sounds Q's.
+            lobbyHud.PresentCurriculumLearned(nodeId);
             lobbyHud.Show(campaign);
+            CurriculumNode node = campaign.Curriculum.Tree.Find(nodeId);
+            int grantedId = node != null && node.SkillIds.Count > 0 ? node.SkillIds[0] : 0;
+            LegacySkill granted = grantedId == 0 ? null : LegacySkillDefinitions.Find(grantedId)?.Skill;
+            effectsSource.pitch = 1f;
+            art.PlaySelection(effectsSource, granted?.LaneIndex ?? 0);
             AutoSave();
             return true;
         }
 
-        /// <summary>Clears the curriculum and the skills it granted (lobby only, once the curriculum is open).</summary>
+        /// <summary>Clears the curriculum and the skills it granted and gives back the points it cost (lobby only, once
+        /// the curriculum is open).</summary>
         public bool ResetCurriculum()
         {
             if (!IsInLobby || !campaign.TryResetCurriculum()) return false;
@@ -2038,11 +2050,7 @@ namespace TurnLimbo.Presentation
 
         private bool RestartFromResult()
         {
-            if (battleResult.IsTraining)
-            {
-                ShowLobby();
-                return StartTraining();
-            }
+            if (battleResult.IsTraining) return RetryThroughLobby(StartTraining);
             int number = battleResult.StageNumber;
             // A mission retry skips its intro, as a restarted StarCraft mission does.
             if (battleResult.IsMission)
@@ -2050,8 +2058,19 @@ namespace TurnLimbo.Presentation
                 BeginMissionBattle(number);
                 return true;
             }
+            return RetryThroughLobby(() => StartCampaignStage(number));
+        }
+
+        // A retry only passes through the lobby (field) to start the next battle in the same frame, so the field could
+        // not show the pending arrival notice. It is held back and kept for the next real arrival.
+        private bool RetryThroughLobby(System.Func<bool> start)
+        {
+            string notice = pendingAcademyNotice;
+            pendingAcademyNotice = null;
             ShowLobby();
-            return StartCampaignStage(number);
+            bool started = start();
+            pendingAcademyNotice = notice;
+            return started;
         }
 
         public bool AdvanceFromBattleResult()
@@ -2285,13 +2304,8 @@ namespace TurnLimbo.Presentation
             AutoSave();
             skillExperienceDirty = false;
             bool victory = session.Outcome == DuelMatchOutcome.PlayerVictory;
-            // A closed curriculum counted nothing; any progress an older save holds stays out of the result too.
+            // 수련 점수 accrue while the curriculum is closed too (the bank), but the result says nothing about them then.
             bool curriculumOpen = campaign.IsCurriculumOpen;
-            // What a completion opened, and whether it finished the trunk or a school (과정 수료).
-            CurriculumNode completedNode = curriculumOpen ? campaign.LastCompletedCurriculumNode : null;
-            System.Collections.Generic.IReadOnlyList<CurriculumNode> openedNodes =
-                completedNode != null ? campaign.Curriculum.OpenedBy(completedNode.Id) : null;
-            bool finishedCourse = completedNode != null && campaign.Curriculum.Tree.EndsBranch(completedNode.Id);
             var result = new BattleResult(session.Outcome, false,
                 campaign.StageNumber, campaign.CurrentStage.Name,
                 campaign.LastReward, campaign.Currency, session.RoundNumber,
@@ -2299,23 +2313,16 @@ namespace TurnLimbo.Presentation
                 campaign.HighestUnlockedStage > unlockedBefore &&
                 campaign.StageLimit >= campaign.HighestUnlockedStage ? campaign.HighestUnlockedStage : 0,
                 victory,
-                campaign.LastCompletedCurriculumNode, curriculumOpen ? campaign.Curriculum.Active : null,
-                curriculumOpen ? campaign.Curriculum.ActiveBattles : 0, curriculumOpen && campaign.Curriculum.IsFinished,
-                curriculumOpen,
+                curriculumOpen ? campaign.LastCurriculumPointGain : default,
+                curriculumOpen ? campaign.CurriculumPoints : 0,
+                curriculumOpen ? campaign.AffordableCurriculumNodeCount : 0,
+                curriculumOpen ? campaign.CurriculumPointsToNextNode : 0,
+                curriculumOpen && campaign.Curriculum.IsFinished, curriculumOpen,
                 firstClear && victory && campaign.CurrentStage.FirstClearSkillId != 0
                     ? LegacySkillDefinitions.Skill(campaign.CurrentStage.FirstClearSkillId).Name : null,
-                openedCurriculumNodes: openedNodes, completedCurriculumCourse: finishedCourse);
-            if (completedNode != null)
-            {
-                // The field says it again as the player arrives, with the skill's lane sound (the lobby banner never shows
-                // after the 서막).
-                int grantedId = completedNode.SkillIds.Count > 0 ? completedNode.SkillIds[0] : 0;
-                LegacySkill granted = grantedId == 0 ? null
-                    : campaign.GetOwnedSkill(grantedId)?.Skill ?? LegacySkillDefinitions.Find(grantedId)?.Skill;
-                pendingAcademyNotice = AcademyFieldView.CurriculumNotice(completedNode, granted,
-                    granted != null && campaign.IsLaneOpen(granted.LaneIndex), finishedCourse);
-                pendingAcademySoundLane = granted?.LaneIndex ?? -1;
-            }
+                curriculumNewlyAffordable: campaign.CurriculumNewlyAffordable);
+            // Points that newly cover a node: the field says so as the player arrives (the result's row says it too).
+            if (result.CurriculumNewlyAffordable) pendingAcademyNotice = AcademyFieldView.CurriculumAffordableNotice;
             EndDuelPresentation();
             // A newly available lesson is now collected at the academy notice board.
             PrologueMission arrived = victory && prologue.IsArcComplete && IsNextMissionAvailable &&
@@ -2349,8 +2356,15 @@ namespace TurnLimbo.Presentation
             float fromGrey = forcedLoss && finale.EndsInGrey ? presentationSettings.FinalFallColourReturnSeconds : 0f;
             guide?.Finish();
             int stageLimitBefore = campaign.StageLimit;
+            bool curriculumWasOpen = campaign.IsCurriculumOpen;
             bool firstWin = prologue.TryComplete(mission.Number, session.Outcome, missionEmpowered);
-            if (firstWin) SyncStoryProgression();
+            CurriculumPointGain missionPoints = default;
+            if (firstWin)
+            {
+                SyncStoryProgression();
+                // Each story mission's first completion pays its 수련 점수, open curriculum or not (the bank).
+                missionPoints = campaign.AwardStoryMissionPoints();
+            }
             if (firstWin || skillExperienceDirty) AutoSave();
             skillExperienceDirty = false;
             if (forcedLoss)
@@ -2361,19 +2375,29 @@ namespace TurnLimbo.Presentation
                 // No result says that the 서막 is over and what it opened, as the old win's did: the lobby the story
                 // reaches next says it, the first time only (replays and 이어하기 do not).
                 if (firstWin && lost.Number == PrologueMissions.Count)
-                {
                     pendingAcademyNotice = BattleResultHud.PrologueCompleteNotice(campaign.IsCurriculumOpen);
-                    pendingAcademySoundLane = -1;
-                }
                 EndDuelPresentation();
                 if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura, fromGrey))
                     ShowBriefing();
                 return;
             }
-            // After the story is synced, so mission 8's first win already reports the curriculum it opened.
+            // After the story is synced, so mission 8's first win already reports the curriculum it opened and the points
+            // banked until then.
+            bool curriculumOpen = campaign.IsCurriculumOpen;
             var result = new BattleResult(session.Outcome, true, mission.Number, mission.Title, 0, campaign.Currency,
                 session.RoundNumber, session.Player.Health, session.Enemy.Health, false, 0, victory,
-                curriculumOpen: campaign.IsCurriculumOpen);
+                curriculumOpen ? missionPoints : default,
+                curriculumOpen ? campaign.CurriculumPoints : 0,
+                curriculumOpen ? campaign.AffordableCurriculumNodeCount : 0,
+                curriculumOpen ? campaign.CurriculumPointsToNextNode : 0,
+                curriculumOpen && campaign.Curriculum.IsFinished, curriculumOpen,
+                curriculumNewlyAffordable: firstWin && campaign.CurriculumNewlyAffordable,
+                curriculumJustOpened: firstWin && !curriculumWasOpen && curriculumOpen);
+            // The field says it as the player arrives: the curriculum just opened with the points banked until now, or the
+            // mission's point newly covers a node.
+            if (result.CurriculumJustOpened)
+                pendingAcademyNotice = AcademyFieldView.CurriculumOpenedNotice(result.CurriculumBalance);
+            else if (result.CurriculumNewlyAffordable) pendingAcademyNotice = AcademyFieldView.CurriculumAffordableNotice;
             // A first win that opened something (넘기기 for mission 1, a feature for each lobby mission) announces it,
             // then where the story goes next.
             string unlockNotice = firstWin && !string.IsNullOrEmpty(mission.UnlockText)
@@ -2480,14 +2504,7 @@ namespace TurnLimbo.Presentation
                     : $"스토리 게시판 · 전투 {next.RequiredClearedStage:00} 후 새 임무";
                 academyField.Show(campaign, next != null && IsNextMissionAvailable,
                     campaign.IsTrainingUnlocked, storyStatus, pendingAcademyNotice);
-                // A curriculum completion's notice comes with its skill's lane sound, as a field pickup's does.
-                if (pendingAcademyNotice != null && pendingAcademySoundLane >= 0)
-                {
-                    effectsSource.pitch = 1f;
-                    art.PlaySelection(effectsSource, pendingAcademySoundLane);
-                }
                 pendingAcademyNotice = null;
-                pendingAcademySoundLane = -1;
             }
             else
             {

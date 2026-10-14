@@ -7,7 +7,7 @@ namespace TurnLimbo.Runtime.Campaign
 {
     public enum CampaignPhase { Battle, Maintenance, Failed, Completed, Lobby }
 
-    /// <summary>One eight-stage run with its curriculum. Combat rules remain in LegacyQueuedDuel.
+    /// <summary>One eight-stage run with its curriculum and its 수련 점수 balance. Combat rules remain in LegacyQueuedDuel.
     /// Currency is still earned and saved but has no use at the moment (the shop was replaced by the curriculum).</summary>
     public sealed class CampaignRun
     {
@@ -142,8 +142,26 @@ namespace TurnLimbo.Runtime.Campaign
                 return total;
             }
         }
-        /// <summary>The node the last finished battle completed, or null.</summary>
-        public CurriculumNode LastCompletedCurriculumNode { get; private set; }
+        /// <summary>The unspent 수련 점수 (never negative). Stage battles and story missions add to it
+        /// (<see cref="CurriculumPointRules"/>), also while the curriculum is closed (the bank); learning a node spends it
+        /// and a curriculum reset gives the spent points back. A new journey starts with what the story missions it keeps
+        /// already paid (<see cref="Reset(int)"/>), zero in a new game.</summary>
+        public int CurriculumPoints { get; private set; }
+        /// <summary>What the last finished stage battle earned (empty after a training fight and once the next battle
+        /// begins), or what the last <see cref="AwardStoryMissionPoints"/> earned.</summary>
+        public CurriculumPointGain LastCurriculumPointGain { get; private set; }
+        /// <summary>Whether <see cref="LastCurriculumPointGain"/> made the balance cover an available node it did not
+        /// cover before (<see cref="CurriculumProgress.BecameAffordable"/>). Always false while the curriculum is closed.</summary>
+        public bool CurriculumNewlyAffordable { get; private set; }
+        /// <summary>Whether the node is available and the balance covers its cost (the curriculum and the phase aside).</summary>
+        public bool IsCurriculumNodeAffordable(string nodeId) => curriculum.IsAffordable(nodeId, CurriculumPoints);
+        /// <summary>How many available nodes the balance covers (익힐 수 있는 과정 k개).</summary>
+        public int AffordableCurriculumNodeCount => curriculum.AffordableCount(CurriculumPoints);
+        /// <summary>With none affordable, the points still missing for the cheapest available node (다음 과정까지 m점);
+        /// zero otherwise.</summary>
+        public int CurriculumPointsToNextNode => curriculum.PointsToNext(CurriculumPoints);
+        /// <summary>What a curriculum reset gives back now: the costs of the completed nodes.</summary>
+        public int CurriculumRefund => curriculum.SpentPoints;
         /// <summary>How the last stage battle ended, or null when none has finished since it began.</summary>
         public DuelMatchOutcome? LastOutcome { get; private set; }
         /// <summary>The combat features stage battles allow. Story missions open them; the default (everything) is
@@ -169,8 +187,8 @@ namespace TurnLimbo.Runtime.Campaign
         public bool IsLaneOpen(int laneIndex) => Features.HasLane(laneIndex);
 
         /// <summary>Whether the curriculum exists for the player: only once every lane is open (the story opens W, the
-        /// last one, with mission 8; outside the story everything is open). While it is closed, selecting and resetting
-        /// are refused and battles count toward nothing; saved progress is kept as it is for the day it opens.</summary>
+        /// last one, with mission 8; outside the story everything is open). While it is closed, learning and resetting
+        /// are refused; 수련 점수 still accrue (the bank) and saved progress is kept as it is for the day it opens.</summary>
         public bool IsCurriculumOpen => OpensCurriculum(Features);
 
         /// <summary>Whether these features open the curriculum: all three lanes.</summary>
@@ -204,6 +222,11 @@ namespace TurnLimbo.Runtime.Campaign
         public int GetStageReward(int stageNumber)
             => IsValidStage(stageNumber) ? stages[stageNumber - 1].Reward / (IsStageCleared(stageNumber) ? 2 : 1) : 0;
 
+        /// <summary>The 수련 점수 a win of the stage would earn now: battle and victory, and the first clear while it is not
+        /// cleared (승리 시 수련 점수 +2, 첫 클리어 +4). Zero for an unknown stage.</summary>
+        public int GetStageVictoryPoints(int stageNumber)
+            => IsValidStage(stageNumber) ? CurriculumPointRules.ForStageBattle(true, !IsStageCleared(stageNumber)).Total : 0;
+
         public bool CanStartStage(int stageNumber)
             => CanEditLoadout && CanEnterStage(stageNumber);
 
@@ -220,7 +243,7 @@ namespace TurnLimbo.Runtime.Campaign
             StageNumber = 3;
             trainingBattle = true;
             LastReward = 0;
-            LastCompletedCurriculumNode = null;
+            ClearLastCurriculumPointGain();
             LastOutcome = null;
             Phase = CampaignPhase.Battle;
             return true;
@@ -372,6 +395,8 @@ namespace TurnLimbo.Runtime.Campaign
             return false;
         }
 
+        /// <summary>Settles the battle in progress. A stage battle earns 수련 점수 whatever the outcome
+        /// (<see cref="CurriculumPointRules.ForStageBattle"/>), open curriculum or not; a training fight earns none.</summary>
         public bool TryCompleteBattle(DuelMatchOutcome outcome)
         {
             if (Phase != CampaignPhase.Battle) return false;
@@ -381,27 +406,22 @@ namespace TurnLimbo.Runtime.Campaign
             {
                 LastOutcome = outcome;
                 LastReward = 0;
-                LastCompletedCurriculumNode = null;
+                ClearLastCurriculumPointGain();
                 if (outcome == DuelMatchOutcome.PlayerVictory && TrainingVictoryCount < int.MaxValue)
                     TrainingVictoryCount++;
                 Phase = CampaignPhase.Maintenance;
                 return true;
             }
-            // The node this battle completes must find its techniques in the sheet. They are looked up before anything
-            // changes, so a sheet without one stops here with the sheet's own error and a retry cannot count the battle twice.
-            CurriculumNode completing = IsCurriculumOpen ? curriculum.CompletesNext : null;
-            if (completing != null)
-                foreach (int skillId in completing.SkillIds) _ = LegacySkillDefinitions.Skill(skillId);
-            int stageSkillRewardId = outcome == DuelMatchOutcome.PlayerVictory && !clearedStages[StageNumber - 1]
-                ? CurrentStage.FirstClearSkillId : 0;
+            bool victory = outcome == DuelMatchOutcome.PlayerVictory;
+            bool firstClear = victory && !clearedStages[StageNumber - 1];
+            // The stage's first-clear technique must be in the sheet. It is looked up before anything changes, so a sheet
+            // without it stops here with the sheet's own error and a retry cannot count the battle twice.
+            int stageSkillRewardId = firstClear ? CurrentStage.FirstClearSkillId : 0;
             if (stageSkillRewardId != 0) _ = LegacySkillDefinitions.Skill(stageSkillRewardId);
 
             LastOutcome = outcome;
-            // Every finished battle counts toward the node in progress, as days pass in a national focus. A closed
-            // curriculum counts nothing, even a node an older save left in progress.
-            LastCompletedCurriculumNode = IsCurriculumOpen ? curriculum.RecordBattle() : null;
-            if (LastCompletedCurriculumNode != null) GrantSkills(LastCompletedCurriculumNode);
-            if (outcome != DuelMatchOutcome.PlayerVictory)
+            EarnCurriculumPoints(CurriculumPointRules.ForStageBattle(victory, firstClear));
+            if (!victory)
             {
                 LastReward = 0;
                 Phase = CampaignPhase.Failed;
@@ -410,7 +430,7 @@ namespace TurnLimbo.Runtime.Campaign
 
             LastReward = GetStageReward(StageNumber);
             Currency += LastReward;
-            if (!clearedStages[StageNumber - 1])
+            if (firstClear)
             {
                 clearedStages[StageNumber - 1] = true;
                 ClearedStageCount++;
@@ -420,6 +440,35 @@ namespace TurnLimbo.Runtime.Campaign
             Phase = StageNumber == StageCount ? CampaignPhase.Completed : CampaignPhase.Maintenance;
             return true;
         }
+
+        /// <summary>Pays a story mission's first completion (서막 and 수련 missions, once each; the story itself, not this
+        /// run, knows which completion is the first: <c>PrologueRun.TryComplete</c> returning true). Works in any phase and
+        /// whether or not the curriculum is open. Returns what it earned, which <see cref="LastCurriculumPointGain"/> and
+        /// <see cref="CurriculumNewlyAffordable"/> then describe.</summary>
+        public CurriculumPointGain AwardStoryMissionPoints()
+        {
+            CurriculumPointGain gain = CurriculumPointRules.ForStoryMission();
+            EarnCurriculumPoints(gain);
+            return gain;
+        }
+
+        private void EarnCurriculumPoints(CurriculumPointGain gain)
+        {
+            int before = CurriculumPoints;
+            CurriculumPoints = AddPoints(before, gain.Total);
+            LastCurriculumPointGain = gain;
+            CurriculumNewlyAffordable = IsCurriculumOpen && curriculum.BecameAffordable(before, CurriculumPoints);
+        }
+
+        private void ClearLastCurriculumPointGain()
+        {
+            LastCurriculumPointGain = default;
+            CurriculumNewlyAffordable = false;
+        }
+
+        // The balance saturates instead of overflowing.
+        private static int AddPoints(int balance, int points)
+            => points > 0 && balance > int.MaxValue - points ? int.MaxValue : balance + points;
 
         public bool TryStartNextStage()
         {
@@ -434,18 +483,37 @@ namespace TurnLimbo.Runtime.Campaign
             return true;
         }
 
-        /// <summary>Makes the node the one in progress (lobby or maintenance, curriculum open). The choice can still
-        /// change until a battle counts.</summary>
-        public bool TrySelectCurriculumNode(string nodeId) => IsCurriculumOpen && CanEditLoadout && curriculum.TrySelect(nodeId);
+        /// <summary>Whether the node can be learned now: the curriculum is open, the run is in the lobby or between battles
+        /// (the result screen is the controller's to block), the node is available (prerequisites met, neither completed nor
+        /// closed) and the balance covers its cost.</summary>
+        public bool CanLearnCurriculumNode(string nodeId)
+            => IsCurriculumOpen && CanEditLoadout && curriculum.IsAffordable(nodeId, CurriculumPoints);
 
-        /// <summary>Clears the whole curriculum (lobby or maintenance, curriculum open): completed nodes, the node in
-        /// progress and every skill they granted. Stage first-clear skills and field-pickup skills remain owned. Saved
-        /// lanes that lose a skill are refilled with that lane's starting skills.</summary>
+        /// <summary>Spends the node's cost and completes it at once: its techniques are owned (not equipped) and its stat
+        /// bonuses apply, as every completion has. Refused (false, nothing changes) unless
+        /// <see cref="CanLearnCurriculumNode"/>. A technique the sheet lacks throws the sheet's Korean error before anything
+        /// changes. <see cref="CurriculumProgress.LastCompleted"/> and <see cref="CurriculumProgress.OpenedBy"/> then name
+        /// the node and what it opened.</summary>
+        public bool TryLearnCurriculumNode(string nodeId)
+        {
+            if (!CanLearnCurriculumNode(nodeId)) return false;
+            CurriculumNode node = curriculum.Tree.Find(nodeId);
+            foreach (int skillId in node.SkillIds) _ = LegacySkillDefinitions.Skill(skillId);
+            CurriculumPoints -= node.Cost;
+            curriculum.Complete(node.Id);
+            GrantSkills(node);
+            return true;
+        }
+
+        /// <summary>Clears the whole curriculum (lobby or maintenance, curriculum open, something completed): completed
+        /// nodes and every skill they granted, and gives back the points they cost (<see cref="CurriculumRefund"/>). Stage
+        /// first-clear skills and field-pickup skills remain owned. Saved lanes that lose a skill are refilled with that
+        /// lane's starting skills.</summary>
         public bool TryResetCurriculum()
         {
-            if (!IsCurriculumOpen || !CanEditLoadout || curriculum.CompletedCount == 0 && curriculum.Active == null) return false;
+            if (!IsCurriculumOpen || !CanEditLoadout || curriculum.CompletedCount == 0) return false;
+            CurriculumPoints = AddPoints(CurriculumPoints, curriculum.SpentPoints);
             curriculum.Reset();
-            LastCompletedCurriculumNode = null;
             ownedSkills.RemoveAll(owned => !IsStartingSkill(owned.SkillId) && !IsUnlockedStageSkill(owned.SkillId) &&
                 !IsCollectedFieldSkill(owned.SkillId));
             RefillLanesWithStartingSkills();
@@ -496,7 +564,16 @@ namespace TurnLimbo.Runtime.Campaign
                 basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId);
         }
 
-        public void Reset()
+        /// <summary>A new journey with no story mission won (a new game, tests and direct API use): balance 0.</summary>
+        public void Reset() => Reset(0);
+
+        /// <summary>A new journey: everything back to the start. The story is not part of the journey and stays won, so
+        /// the new journey starts with what its story missions already paid,
+        /// <see cref="CurriculumPointRules.StoryMission"/> (1) each; a mission is never won twice, so this is the only way
+        /// it counts once in every journey. That is the same credit a save written before 수련 점수 gets for the same
+        /// state (<see cref="CurriculumPointsIn"/>).</summary>
+        /// <param name="storyMissionsWon">The story missions won so far (<c>PrologueRun.ClearedCount</c>).</param>
+        public void Reset(int storyMissionsWon)
         {
             ownedSkills.Clear();
             foreach (List<CampaignOwnedSkill> lane in equippedLanes) lane.Clear();
@@ -509,7 +586,8 @@ namespace TurnLimbo.Runtime.Campaign
             ResetLoadoutDraft();
             curriculum.Reset();
             collectedFieldPickups.Clear();
-            LastCompletedCurriculumNode = null;
+            CurriculumPoints = Saturate(StoryMissionCredit(storyMissionsWon));
+            ClearLastCurriculumPointGain();
             LastOutcome = null;
             RestoreDroppedCurriculum = false;
             StageNumber = 1;
@@ -540,8 +618,8 @@ namespace TurnLimbo.Runtime.Campaign
                 if (owned.Experience > 0)
                     skillExperience.Add(new KeyValuePair<int, int>(owned.SkillId, owned.Experience));
             skillExperience.Sort((left, right) => left.Key.CompareTo(right.Key));
-            return new CampaignSave(Currency, cleared, curriculum.Completed, curriculum.Active?.Id, curriculum.ActiveBattles,
-                loadout, TrainingVictoryCount, skillExperience, collectedFieldPickups);
+            return new CampaignSave(Currency, cleared, curriculum.Completed, CurriculumPoints, loadout, TrainingVictoryCount,
+                skillExperience, collectedFieldPickups);
         }
 
         /// <summary>Whether the last successful <see cref="TryRestore"/> dropped curriculum progress that was made with
@@ -554,17 +632,24 @@ namespace TurnLimbo.Runtime.Campaign
         /// curriculum is emptied, its lanes lose the techniques only the curriculum granted and its experience records lose
         /// theirs. The whole save is then checked; when it breaks a rule nothing changes and <paramref name="error"/> says
         /// why. Curriculum progress is restored whether or not the curriculum is open (an older save may hold some before
-        /// mission 8); a closed curriculum keeps it untouched until it opens.</summary>
-        public bool TryRestore(CampaignSave save, out string error)
+        /// mission 8); a closed curriculum keeps it untouched until it opens. The balance is the save's, or worked out for a
+        /// save without one (<see cref="CurriculumPointsIn"/>; this overload counts no story mission).</summary>
+        public bool TryRestore(CampaignSave save, out string error) => TryRestore(save, 0, out error);
+
+        /// <param name="storyMissionsWon">The story missions the same save records as won (<c>GameSave.PrologueCleared</c>),
+        /// credited to a save written before 수련 점수 existed (<see cref="CurriculumPointsIn"/>).</param>
+        public bool TryRestore(CampaignSave save, int storyMissionsWon, out string error)
         {
-            save = NormalizeSave(save, out bool droppedCurriculum);
-            error = ValidateSave(save);
+            CampaignSave normalized = NormalizeSave(save, out bool droppedCurriculum);
+            error = ValidateSave(normalized);
             if (error != null) return false;
             RestoreDroppedCurriculum = droppedCurriculum;
 
-            curriculum.Restore(save.CurriculumCompleted, save.CurriculumActive, save.CurriculumBattles);
-            LastCompletedCurriculumNode = null;
+            CurriculumPoints = RestoredCurriculumPoints(save, normalized, droppedCurriculum, storyMissionsWon);
+            curriculum.Restore(normalized.CurriculumCompleted);
+            ClearLastCurriculumPointGain();
             LastOutcome = null;
+            save = normalized;
             ownedSkills.Clear();
             foreach (LegacySkill skill in LegacyInitialSkills.All) ownedSkills.Add(new CampaignOwnedSkill(skill));
             foreach (string id in save.CurriculumCompleted) GrantSkills(curriculum.Tree.Find(id));
@@ -597,6 +682,36 @@ namespace TurnLimbo.Runtime.Campaign
             Phase = CampaignPhase.Lobby;
             return true;
         }
+
+        /// <summary>The 수련 점수 balance the save restores with, without changing anything (the title's 이어하기 summary reads
+        /// it). A save with a <c>curriculum-points</c> line keeps its balance. One written before points existed is credited
+        /// retroactively: <see cref="CurriculumPointRules.FirstClearedStage"/> (4) per cleared stage plus
+        /// <see cref="CurriculumPointRules.StoryMission"/> (1) per story mission won, less the costs of the completed nodes
+        /// it keeps (after the tree-version step), never below zero. When the tree version emptied the curriculum, the
+        /// balance is the larger of the saved one and that credit with no node kept, so the spent points come back.</summary>
+        /// <param name="storyMissionsWon">The story missions the same save records as won (<c>GameSave.PrologueCleared</c>).</param>
+        public int CurriculumPointsIn(CampaignSave save, int storyMissionsWon)
+        {
+            if (save == null) throw new ArgumentNullException(nameof(save));
+            CampaignSave normalized = NormalizeSave(save, out bool dropped);
+            return RestoredCurriculumPoints(save, normalized, dropped, storyMissionsWon);
+        }
+
+        private int RestoredCurriculumPoints(CampaignSave save, CampaignSave normalized, bool dropped, int storyMissionsWon)
+        {
+            long credit = (long)CurriculumPointRules.FirstClearedStage * normalized.ClearedStages.Count +
+                StoryMissionCredit(storyMissionsWon);
+            foreach (string id in normalized.CurriculumCompleted) credit -= curriculum.Tree.Find(id)?.Cost ?? 0;
+            int retroactive = Saturate(credit);
+            if (!save.CurriculumPoints.HasValue) return retroactive;
+            return dropped ? Math.Max(save.CurriculumPoints.Value, retroactive) : save.CurriculumPoints.Value;
+        }
+
+        // What the won story missions pay: the journey reset's start and part of the retroactive credit.
+        private static long StoryMissionCredit(int storyMissionsWon)
+            => (long)CurriculumPointRules.StoryMission * Math.Max(0, storyMissionsWon);
+
+        private static int Saturate(long points) => points <= 0 ? 0 : points >= int.MaxValue ? int.MaxValue : (int)points;
 
         /// <summary>A save of the current curriculum tree version as it is. Any other version gets its curriculum
         /// emptied (<see cref="CampaignSave.ForCurriculumTree"/>), which can leave techniques it granted in the lanes and in
@@ -639,15 +754,15 @@ namespace TurnLimbo.Runtime.Campaign
             var experience = new List<KeyValuePair<int, int>>();
             foreach (KeyValuePair<int, int> entry in reset.SkillExperience)
                 if (owned.Contains(entry.Key)) experience.Add(entry);
-            return new CampaignSave(reset.Currency, reset.ClearedStages, reset.CurriculumCompleted, reset.CurriculumActive,
-                reset.CurriculumBattles, lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups,
-                reset.CurriculumTreeVersion);
+            return new CampaignSave(reset.Currency, reset.ClearedStages, reset.CurriculumCompleted, reset.CurriculumPoints,
+                lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups, reset.CurriculumTreeVersion);
         }
 
         private string ValidateSave(CampaignSave save)
         {
             if (save == null) return "저장 데이터가 없습니다.";
             if (save.Currency < 0) return $"재화가 음수입니다({save.Currency}).";
+            if (save.CurriculumPoints < 0) return $"수련 점수가 음수입니다({save.CurriculumPoints}).";
             if (save.TrainingVictoryCount < 0) return $"수련 승리 횟수가 음수입니다({save.TrainingVictoryCount}).";
 
             var cleared = new HashSet<int>();
@@ -659,7 +774,7 @@ namespace TurnLimbo.Runtime.Campaign
             if (save.TrainingVictoryCount > 0 && (!cleared.Contains(1) || !cleared.Contains(2)))
                 return "스테이지 3 해금 전 수련 기록이 있습니다.";
 
-            string curriculumError = curriculum.Validate(save.CurriculumCompleted, save.CurriculumActive, save.CurriculumBattles);
+            string curriculumError = curriculum.Validate(save.CurriculumCompleted);
             if (curriculumError != null) return curriculumError;
             // Owned skills follow completed nodes, first-clear stage rewards and field pickups taken; the loadout and the
             // experience records may only use those.
@@ -825,7 +940,7 @@ namespace TurnLimbo.Runtime.Campaign
             StageNumber = number;
             trainingBattle = false;
             LastReward = 0;
-            LastCompletedCurriculumNode = null;
+            ClearLastCurriculumPointGain();
             LastOutcome = null;
             Phase = CampaignPhase.Battle;
         }

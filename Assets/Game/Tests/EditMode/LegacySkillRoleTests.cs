@@ -179,9 +179,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(curriculumArtIds.Count, Is.EqualTo(6));
 
             var run = new CampaignRun();
-            Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryStartStage(1), Is.True);
             run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory);
+            Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(14), Is.True);
             Assert.That(run.TrySaveLoadout(), Is.True);

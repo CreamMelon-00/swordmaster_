@@ -522,7 +522,6 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("유연함"));
                 Assert.That(Label(detail, "Power Label").text, Is.Empty);
                 Assert.That(Keywords(detail), Does.Contain("반환"), "Its queue removal owns the first badge.");
-                Assert.That(run.Curriculum.Active, Is.Null, "Choosing information must not start a curriculum node.");
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(run.HasLoadoutChanges, Is.False);

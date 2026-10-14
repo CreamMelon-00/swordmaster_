@@ -257,7 +257,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("관통"));
                 Assert.That(detail.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodes));
                 Assert.That(Label(detail, "Style Key").raycastTarget, Is.False);
-                Assert.That(run.Curriculum.Active, Is.Null); Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.Curriculum.CompletedCount, Is.Zero); Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
                 Assert.That(run.HasLoadoutChanges, Is.False);
                 CollectionAssert.AreEqual(saved, EquippedIds(run));
             }

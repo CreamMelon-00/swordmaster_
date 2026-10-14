@@ -290,7 +290,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Finish();
                 Assert.That(Label(fixture.Hud.Root, "Curriculum Detail Name").text, Is.EqualTo("호흡"),
                     "Leaving the page must not discard the selected curriculum node.");
-                Assert.That(fixture.Run.Curriculum.Active, Is.Null, "Viewing a node must not start it.");
+                Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero, "Viewing a node must not learn it.");
                 Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(owned));
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
             }

@@ -95,22 +95,99 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void ClosedCurriculum_IsMarkedAndCarriesNoProgress()
+        public void ClosedCurriculum_IsMarkedAndCarriesNoPoints()
         {
             Assert.That(Create().CurriculumOpen, Is.True, "Results report the curriculum unless told it is closed.");
             var closed = new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 60, 60, 2, 90, 0, true, 2, true,
                 curriculumOpen: false);
             Assert.That(closed.CurriculumOpen, Is.False);
-            Assert.That(closed.CompletedCurriculumNode, Is.Null);
+            Assert.That(closed.CurriculumPoints.IsEmpty, Is.True);
+            Assert.That(closed.CurriculumBalance, Is.Zero);
             Assert.That(new BattleResult(DuelMatchOutcome.PlayerVictory, true, 5, "기교 검술", 0, 0, 2, 90, 0, false, 0, true,
                 curriculumOpen: false).CurriculumOpen, Is.False, "Missions say it too.");
-            CurriculumNode node = CampaignCurriculum.Default.Find("horizontal-cut");
+            // Points accrue while it is closed, but the result says nothing about them.
+            CurriculumPointGain battle = CurriculumPointRules.ForStageBattle(false, false);
             Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
-                0, 0, 3, 10, 10, false, 0, false, completedCurriculumNode: node, curriculumOpen: false));
+                0, 0, 3, 10, 10, false, 0, false, battle, 1, curriculumOpen: false));
             Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
-                0, 0, 3, 10, 10, false, 0, false, activeCurriculumNode: node, curriculumOpen: false));
+                0, 0, 3, 10, 10, false, 0, false, curriculumBalance: 5, curriculumOpen: false));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
+                0, 0, 3, 10, 10, false, 0, false, affordableCurriculumNodes: 1, curriculumOpen: false));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
+                0, 0, 3, 10, 10, false, 0, false, curriculumPointsToNext: 1, curriculumOpen: false));
             Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
                 0, 0, 3, 10, 10, false, 0, false, curriculumFinished: true, curriculumOpen: false));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, true, 8, "강공 검술",
+                0, 0, 3, 10, 0, false, 0, true, curriculumOpen: false, curriculumJustOpened: true));
+        }
+
+        [Test]
+        public void StageResult_CarriesItsPointBreakdownBalanceAndStanding()
+        {
+            var first = new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구", 60, 60, 2, 90, 0, true, 2, true,
+                CurriculumPointRules.ForStageBattle(true, true), 7, 3, 0, curriculumNewlyAffordable: true);
+            Assert.That((first.CurriculumPoints.Battle, first.CurriculumPoints.Victory, first.CurriculumPoints.FirstClear,
+                first.CurriculumPoints.Mission), Is.EqualTo((1, 1, 2, 0)));
+            Assert.That(first.CurriculumPointsEarned, Is.EqualTo(4));
+            Assert.That(first.CurriculumBalance, Is.EqualTo(7));
+            Assert.That(first.AffordableCurriculumNodes, Is.EqualTo(3));
+            Assert.That(first.CurriculumPointsToNext, Is.Zero);
+            Assert.That(first.CurriculumNewlyAffordable, Is.True);
+            Assert.That(first.CurriculumJustOpened, Is.False);
+
+            var loss = new BattleResult(DuelMatchOutcome.EnemyVictory, false, 4, "석조 기둥 사이", 0, 60, 2, 0, 9, false, 0, false,
+                CurriculumPointRules.ForStageBattle(false, false), 1, 0, 1);
+            Assert.That(loss.CurriculumPointsEarned, Is.EqualTo(1));
+            Assert.That(loss.CurriculumPointsToNext, Is.EqualTo(1), "다음 과정까지 1점.");
+
+            // Each source fits only its own kind of result.
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.EnemyVictory, false, 1, "숲길 입구",
+                0, 0, 3, 0, 9, false, 0, false, new CurriculumPointGain(1, 1), 2), "A loss earns no victory point.");
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
+                30, 30, 3, 90, 0, false, 0, true, CurriculumPointRules.ForStageBattle(true, true), 4), "A replay is no first clear.");
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
+                30, 30, 3, 90, 0, false, 0, true, CurriculumPointRules.ForStoryMission(), 1), "A stage earns no mission point.");
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
+                30, 30, 3, 90, 0, false, 0, true, CurriculumPointRules.ForStageBattle(true, false), 1),
+                "The balance after holds what was earned.");
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
+                30, 30, 3, 90, 0, false, 0, true, curriculumBalance: 3, affordableCurriculumNodes: 1, curriculumPointsToNext: 1));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
+                30, 30, 3, 90, 0, false, 0, true, curriculumPointsToNext: 1, curriculumFinished: true));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
+                30, 30, 3, 90, 0, false, 0, true, curriculumNewlyAffordable: true), "Newly affordable means one is affordable.");
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, false, 1, "숲길 입구",
+                30, 30, 3, 90, 0, false, 0, true, curriculumJustOpened: true), "Only a story mission opens the curriculum.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
+                0, 0, 3, 10, 10, false, 0, false, curriculumBalance: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
+                0, 0, 3, 10, 10, false, 0, false, affordableCurriculumNodes: -1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 1, "숲길 입구",
+                0, 0, 3, 10, 10, false, 0, false, curriculumPointsToNext: -1));
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.Draw, false, 3, "허수아비 수련",
+                0, 0, 3, 10, 10, false, 0, false, CurriculumPointRules.ForStageBattle(false, false), 1, isTraining: true),
+                "Training earns nothing.");
+        }
+
+        [Test]
+        public void MissionResult_CarriesItsFirstWinsPoint_AndMissionEightMayOpenTheCurriculum()
+        {
+            var eight = new BattleResult(DuelMatchOutcome.PlayerVictory, true, 8, "강공 검술", 0, 0, 3, 70, 0, false, 0, true,
+                CurriculumPointRules.ForStoryMission(), 24, 9, 0, curriculumJustOpened: true);
+            Assert.That(eight.CurriculumPoints.Mission, Is.EqualTo(1));
+            Assert.That(eight.CurriculumPointsEarned, Is.EqualTo(1));
+            Assert.That(eight.CurriculumBalance, Is.EqualTo(24));
+            Assert.That(eight.CurriculumJustOpened, Is.True);
+            var replay = new BattleResult(DuelMatchOutcome.PlayerVictory, true, 8, "강공 검술", 0, 0, 3, 70, 0, false, 0, true,
+                default, 24, 9);
+            Assert.That(replay.CurriculumPointsEarned, Is.Zero, "A replay pays nothing.");
+
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.PlayerVictory, true, 8, "강공 검술",
+                0, 0, 3, 70, 0, false, 0, true, CurriculumPointRules.ForStageBattle(true, false), 2), "Missions earn no battle points.");
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.EnemyVictory, true, 8, "강공 검술",
+                0, 0, 3, 0, 9, false, 0, false, CurriculumPointRules.ForStoryMission(), 1), "Only a win pays the mission point.");
+            Assert.Throws<ArgumentException>(() => new BattleResult(DuelMatchOutcome.EnemyVictory, true, 8, "강공 검술",
+                0, 0, 3, 0, 9, false, 0, false, curriculumJustOpened: true));
         }
 
         [Test]

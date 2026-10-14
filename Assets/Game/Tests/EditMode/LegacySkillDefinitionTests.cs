@@ -215,7 +215,7 @@ namespace TurnLimbo.Core.Tests
             var run = new CampaignRun();
             Assert.That(run.TryEquipSkill(500), Is.False);
             Assert.That(run.OwnedSkills.Any(owned => owned.SkillId == 500), Is.False);
-            var save = new CampaignSave(0, new int[0], new string[0], null, 0,
+            var save = new CampaignSave(0, new int[0], new string[0], null,
                 new[] { new[] { 500, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
             Assert.That(run.TryRestore(save, out string error), Is.False);
             Assert.That(error, Does.Contain("500"));

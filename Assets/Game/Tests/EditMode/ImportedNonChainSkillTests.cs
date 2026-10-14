@@ -49,12 +49,16 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryPlaceLoadoutSkill(id, basis.LaneIndex, 0), Is.False, "A fresh run does not own it.");
             foreach (string node in nodes)
             {
-                Assert.That(run.TrySelectCurriculumNode(node), Is.True, node);
-                Assert.That(run.TryStartStage(1), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.ReturnToLobby(), Is.True);
+                // Each won battle of stage one earns 수련 점수; learning spends them.
+                while (!run.IsCurriculumNodeAffordable(node))
+                {
+                    Assert.That(run.TryStartStage(1), Is.True);
+                    Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                    Assert.That(run.ReturnToLobby(), Is.True);
+                }
+                Assert.That(run.TryLearnCurriculumNode(node), Is.True, node);
             }
-            Assert.That(run.TrySelectCurriculumNode(nodes[nodes.Length - 1]), Is.False, "A node is completed only once.");
+            Assert.That(run.TryLearnCurriculumNode(nodes[nodes.Length - 1]), Is.False, "A node is completed only once.");
             int copies = 0;
             CampaignOwnedSkill granted = null;
             foreach (CampaignOwnedSkill owned in run.OwnedSkills)

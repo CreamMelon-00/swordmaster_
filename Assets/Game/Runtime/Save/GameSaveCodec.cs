@@ -14,14 +14,16 @@ namespace TurnLimbo.Runtime.Save
     /// cleared 1 2
     /// curriculum-tree 2
     /// curriculum-done horizontal-cut preparation
-    /// curriculum-active advance 0
+    /// curriculum-points 5
     /// field-pickups forest-pierce
     /// lane 0 14 2 7
     /// skill-xp 14 3
     /// </code>
-    /// <c>curriculum-done</c> lists completed node ids in order; <c>curriculum-active</c> is the node in progress and its
-    /// counted battles, or nothing after the key when no node is in progress; <c>lane</c> (index, three ids) appears
-    /// once per lane. Optional <c>training-wins N</c> records successful dummy fights; optional repeated
+    /// <c>curriculum-done</c> lists completed node ids in order; <c>curriculum-points N</c> is the unspent 수련 점수, always
+    /// written now (a file without it predates points, and <see cref="CampaignRun.CurriculumPointsIn"/> credits it when it is
+    /// loaded); <c>lane</c> (index, three ids) appears once per lane. An older file's <c>curriculum-active</c> line (the node
+    /// in progress before points replaced it) is still read once and ignored: that node and its counted battles are
+    /// dropped. Optional <c>training-wins N</c> records successful dummy fights; optional repeated
     /// <c>skill-xp ID XP</c> lines record nonzero cumulative clashes; an optional <c>field-pickups</c> line lists the
     /// field pickups taken in order. Their absence means zero or none, keeping earlier version 2 saves readable (a build
     /// from before a key still rejects a file that has it). <c>curriculum-tree N</c> records the version of the default
@@ -57,10 +59,9 @@ namespace TurnLimbo.Runtime.Save
             text.Append("curriculum-done");
             foreach (string id in campaign.CurriculumCompleted) text.Append(' ').Append(id);
             text.Append('\n');
-            text.Append("curriculum-active");
-            if (campaign.CurriculumActive != null)
-                text.Append(' ').Append(campaign.CurriculumActive).Append(' ').Append(campaign.CurriculumBattles);
-            text.Append('\n');
+            // Absent only for a save read from an older file and written back unrestored; a restored one always has it.
+            if (campaign.CurriculumPoints.HasValue)
+                text.Append("curriculum-points ").Append(campaign.CurriculumPoints.Value).Append('\n');
             // Absent while none is taken, so existing version 2 files round-trip byte for byte.
             if (campaign.FieldPickups.Count > 0)
             {
@@ -92,13 +93,11 @@ namespace TurnLimbo.Runtime.Save
             if (lines.Length > 0 && lines[0].Length > 0 && lines[0][0] == '﻿') lines[0] = lines[0].Substring(1);
 
             int? prologue = null, currency = null, trainingWins = null, openingChoice = null, openingPending = null,
-                curriculumTree = null;
+                curriculumTree = null, curriculumPoints = null;
             List<int> cleared = null;
             List<string> curriculumDone = null;
             List<string> fieldPickups = null;
             bool curriculumActiveRead = false;
-            string curriculumActive = null;
-            int curriculumBattles = 0;
             var lanes = new List<int>[LaneCount];
             var skillExperience = new List<KeyValuePair<int, int>>();
             bool headerRead = false;
@@ -134,12 +133,9 @@ namespace TurnLimbo.Runtime.Save
                 }
                 if (parts[0] == "curriculum-active")
                 {
+                    // Written before 수련 점수 replaced the node in progress: read once, then ignored.
                     if (curriculumActiveRead) return Fail(out error, lineNumber, "curriculum-active가 두 번 있습니다.");
                     curriculumActiveRead = true;
-                    if (parts.Length == 1) continue;
-                    if (parts.Length != 3 || !TryInt(parts[2], out curriculumBattles))
-                        return Fail(out error, lineNumber, "curriculum-active에는 과정 이름과 전투 수가 필요합니다.");
-                    curriculumActive = parts[1];
                     continue;
                 }
                 if (!TryInts(parts, 1, out int[] values)) return Fail(out error, lineNumber, "숫자가 아닌 값이 있습니다.");
@@ -172,6 +168,11 @@ namespace TurnLimbo.Runtime.Save
                         if (values.Length != 1) return Fail(out error, lineNumber, "training-wins에는 값이 하나만 필요합니다.");
                         trainingWins = values[0];
                         break;
+                    case "curriculum-points":
+                        if (curriculumPoints.HasValue) return Fail(out error, lineNumber, "curriculum-points가 두 번 있습니다.");
+                        if (values.Length != 1) return Fail(out error, lineNumber, "curriculum-points에는 값이 하나만 필요합니다.");
+                        curriculumPoints = values[0];
+                        break;
                     case "curriculum-tree":
                         if (curriculumTree.HasValue) return Fail(out error, lineNumber, "curriculum-tree가 두 번 있습니다.");
                         if (values.Length != 1 || values[0] < 1)
@@ -201,12 +202,11 @@ namespace TurnLimbo.Runtime.Save
             if (!currency.HasValue) return Fail(out error, 0, "currency 항목이 없습니다.");
             if (cleared == null) return Fail(out error, 0, "cleared 항목이 없습니다.");
             if (curriculumDone == null) return Fail(out error, 0, "curriculum-done 항목이 없습니다.");
-            if (!curriculumActiveRead) return Fail(out error, 0, "curriculum-active 항목이 없습니다.");
             for (int lane = 0; lane < LaneCount; lane++)
                 if (lanes[lane] == null) return Fail(out error, 0, $"lane {lane} 항목이 없습니다.");
 
             save = new GameSave(prologue.Value,
-                new CampaignSave(currency.Value, cleared, curriculumDone, curriculumActive, curriculumBattles, lanes,
+                new CampaignSave(currency.Value, cleared, curriculumDone, curriculumPoints, lanes,
                     trainingWins ?? 0, skillExperience, fieldPickups, curriculumTree ?? 1),
                 (OpeningVoiceChoice)(openingChoice ?? 0), !openingPending.HasValue);
             error = null;

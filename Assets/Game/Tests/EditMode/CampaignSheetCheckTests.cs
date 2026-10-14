@@ -300,10 +300,10 @@ namespace TurnLimbo.Core.Tests
             {
                 LegacySkillDefinitions.Install(() => sheet);
                 var run = new CampaignRun();
-                Assert.That(run.TrySelectCurriculumNode("horizontal-cut"), Is.True);
                 Assert.That(run.TryStartStage(1), Is.True);
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.LastCompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"));
+                Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
+                Assert.That(run.Curriculum.LastCompleted.Id, Is.EqualTo("horizontal-cut"));
                 Assert.That(run.OwnedSkills.Count(owned => owned.SkillId == 14), Is.EqualTo(1), "Already owned, so nothing new.");
 
                 CampaignSave save = run.CaptureSave();
@@ -319,7 +319,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void NodeWhoseSkillIsMissing_StopsTheBattleEndBeforeAnythingChanges()
+        public void NodeWhoseSkillIsMissing_StopsLearningBeforeAnythingChanges()
         {
             List<string[]> rows = Rows();
             rows.Remove(RowOf(rows, 42));
@@ -328,29 +328,23 @@ namespace TurnLimbo.Core.Tests
             {
                 LegacySkillDefinitions.Install(() => sheet);
                 var run = new CampaignRun();
-                Assert.That(run.TrySelectCurriculumNode("horizontal-cut") && run.TryStartStage(1), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.TrySelectCurriculumNode("preparation") && run.TryStartNextStage(), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.TrySelectCurriculumNode("advance") && run.TryStartNextStage(), Is.True);
-                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-                Assert.That(run.TrySelectCurriculumNode("quick-draw") && run.TryStartNextStage(), Is.True);
-                int currency = run.Currency;
+                Assert.That(run.TryStartStage(1) && run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                Assert.That(run.ReturnToLobby(), Is.True);
+                foreach (string id in new[] { "horizontal-cut", "preparation", "advance" })
+                    Assert.That(run.TryLearnCurriculumNode(id), Is.True, id);
+                int points = run.CurriculumPoints;
+                Assert.That(run.CanLearnCurriculumNode("quick-draw"), Is.True);
 
-                // The controller calls again every frame while it waits, so the second call must fail the same way.
+                // A second click must fail the same way.
                 for (int attempt = 0; attempt < 2; attempt++)
                 {
-                    var error = Assert.Throws<InvalidOperationException>(() => run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory));
+                    var error = Assert.Throws<InvalidOperationException>(() => run.TryLearnCurriculumNode("quick-draw"));
                     Assert.That(error.Message, Does.Contain("ID 42 기술이 없습니다"));
-                    Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Battle));
-                    Assert.That(run.LastOutcome, Is.Null);
                     Assert.That(run.Curriculum.Completed, Is.EqualTo(new[] { "horizontal-cut", "preparation", "advance" }));
-                    Assert.That(run.Curriculum.Active.Id, Is.EqualTo("quick-draw"));
-                    Assert.That(run.Curriculum.ActiveBattles, Is.Zero);
-                    Assert.That(run.Currency, Is.EqualTo(currency));
-                    Assert.That(run.IsStageCleared(4), Is.False);
+                    Assert.That(run.CurriculumPoints, Is.EqualTo(points), "Nothing is spent.");
+                    Assert.That(run.GetOwnedSkill(42), Is.Null);
                 }
-                Assert.That(run.TryAbandonBattle(), Is.True, "The run itself is still whole.");
+                Assert.That(run.TryLearnCurriculumNode("diagonal-cut"), Is.True, "The run itself is still whole.");
             }
             finally
             {

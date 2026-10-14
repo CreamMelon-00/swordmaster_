@@ -28,7 +28,7 @@ namespace TurnLimbo.Presentation.Tests
                 DuelPrototypeController controller = scope.Controller;
                 Assert.That(controller.Result, Is.Null);
                 Assert.That(controller.ResultHud.IsVisible, Is.False);
-                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
+                Assert.That(controller.LearnCurriculumNode("horizontal-cut"), Is.False, "No 수련 점수 yet.");
                 scope.StartSelectedStage();
                 scope.WinToResult();
 
@@ -45,24 +45,25 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.UnlockedStageNumber, Is.Zero,
                     "The first two academy opponents are already available as a group.");
                 Assert.That(controller.Result.CanAdvance, Is.True);
-                Assert.That(controller.Result.CompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"));
-                Assert.That(controller.Result.ActiveCurriculumNode, Is.Null);
-                Assert.That(Label(controller.ResultHud.Root, "Result Curriculum").text, Is.EqualTo("가로베기 완료"));
+                Assert.That(controller.Result.CurriculumPointsEarned, Is.EqualTo(4), "Battle, victory and first clear.");
+                Assert.That(controller.Result.CurriculumBalance, Is.EqualTo(4));
+                Assert.That(controller.Result.AffordableCurriculumNodes, Is.EqualTo(1));
+                Assert.That(Label(controller.ResultHud.Root, "Result Curriculum").text, Does.Contain("+4"));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Reward is paid before the result is shown.");
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(1));
-                Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True,
-                    "The curriculum counts the battle before the result is shown.");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11));
+                Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(4),
+                    "The 수련 점수 are earned before the result is shown.");
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
 
                 Assert.That(controller.QueueLane(0), Is.False);
                 Assert.That(controller.StartCampaignStage(2), Is.False);
-                Assert.That(controller.SelectCurriculumNode("preparation"), Is.False, "The result blocks the curriculum.");
+                Assert.That(controller.LearnCurriculumNode("horizontal-cut"), Is.False, "The result blocks the curriculum.");
                 Assert.That(controller.StartMission(), Is.False);
                 scope.Advance(5f);
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Result frames cannot pay a second reward.");
-                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(1));
-                Assert.That(controller.Campaign.Curriculum.Active, Is.Null);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11), "…nor grant a skill twice.");
+                Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.Zero);
+                Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(4), "…nor earn twice…");
+                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10), "…nor grant a skill twice.");
 
                 Assert.That(controller.AdvanceFromBattleResult(), Is.True);
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));
@@ -94,9 +95,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.Reward, Is.Zero);
                 Assert.That(controller.Result.CanAdvance, Is.False);
                 Assert.That(controller.Campaign.Currency, Is.Zero);
-                Assert.That(controller.Result.CompletedCurriculumNode, Is.Null);
-                Assert.That(Label(controller.ResultHud.Root, "Result Curriculum").text, Is.EqualTo("진행 없음"),
-                    "Without a chosen node the battle reports no curriculum progress.");
+                Assert.That(controller.Result.CurriculumPointsEarned, Is.EqualTo(1), "A defeat still earns its battle point.");
+                Assert.That(Label(controller.ResultHud.Root, "Result Curriculum").text, Does.Contain("+1"));
                 Assert.That(controller.AdvanceFromBattleResult(), Is.False);
                 Assert.That(controller.RetryBattleResult(), Is.True);
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));
@@ -295,7 +295,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.LeaveBriefing(), Is.False);
                 Assert.That(controller.IsInBriefing, Is.True);
                 Assert.That(controller.StartCampaignStage(1), Is.False, "Stages stay closed until the arc is over.");
-                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.False,
+                Assert.That(controller.LearnCurriculumNode("horizontal-cut"), Is.False,
                     "The curriculum stays closed until the arc is over.");
                 Assert.That(controller.CanChoose, Is.False);
 
@@ -365,11 +365,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Result.StageNumber, Is.EqualTo(1));
                 Assert.That(controller.Result.Reward, Is.Zero);
                 Assert.That(controller.Result.CanAdvance, Is.True);
-                Assert.That(controller.Result.CompletedCurriculumNode, Is.Null);
+                Assert.That(controller.Result.CurriculumPoints.Battle, Is.Zero, "Missions earn no battle points…");
+                Assert.That(controller.Result.CurriculumPoints.Mission, Is.EqualTo(controller.Result.CurriculumOpen ? 1 : 0),
+                    "…only the first win's mission point, shown once the curriculum is open.");
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
                     Is.EqualTo("넘기기(Shift)가 열렸습니다.\n다음 임무가 열렸습니다."), "The first win announces 넘기기.");
-                Assert.That(Label(controller.ResultHud.Root, "Result Curriculum").text, Is.EqualTo("깨어남 이후"),
-                    "Missions never count toward the curriculum.");
                 Assert.That(CampaignFingerprint(controller.Campaign), Is.EqualTo(campaignBefore));
 
                 Assert.That(controller.RetryBattleResult(), Is.True);
@@ -497,7 +497,6 @@ namespace TurnLimbo.Presentation.Tests
                 value.Append(";o").Append(owned.SkillId);
             foreach (string node in run.Curriculum.Completed)
                 value.Append(";c").Append(node);
-            value.Append(";a").Append(run.Curriculum.Active?.Id ?? "-").Append(':').Append(run.Curriculum.ActiveBattles);
             for (int lane = 0; lane < 3; lane++)
                 foreach (CampaignOwnedSkill owned in run.GetEquippedLane(lane))
                     value.Append(";e").Append(lane).Append(':').Append(owned.SkillId);

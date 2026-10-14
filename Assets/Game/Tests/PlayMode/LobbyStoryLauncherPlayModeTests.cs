@@ -235,7 +235,7 @@ namespace TurnLimbo.Presentation.Tests
             int stagesCleared = controller.Campaign.ClearedStageCount;
             int currency = controller.Campaign.Currency;
             int curriculumDone = controller.Campaign.Curriculum.CompletedCount;
-            string curriculumActive = controller.Campaign.Curriculum.Active?.Id;
+            int curriculumPoints = controller.Campaign.CurriculumPoints;
             try
             {
                 controller.StopCutscene();
@@ -278,7 +278,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(stagesCleared));
                     Assert.That(controller.Campaign.Currency, Is.EqualTo(currency));
                     Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(curriculumDone));
-                    Assert.That(controller.Campaign.Curriculum.Active?.Id, Is.EqualTo(curriculumActive));
+                    Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(curriculumPoints));
                 }
             }
             finally

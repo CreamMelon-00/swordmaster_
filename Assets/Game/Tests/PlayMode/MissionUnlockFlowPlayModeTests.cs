@@ -62,7 +62,7 @@ namespace TurnLimbo.Presentation.Tests
                 AssertNoActiveText(lobby, "커리큘럼", "Field menu");
                 controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
                 Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Loadout), "A locked curriculum returns to loadout.");
-                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.False);
+                Assert.That(controller.LearnCurriculumNode("horizontal-cut"), Is.False);
                 controller.LobbyHud.ShowTab(LobbyTab.Stages);
                 Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Loadout));
                 Assert.That(TryFindActive(lobby, "Selected Stage Curriculum"), Is.Null);
@@ -469,7 +469,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 DuelPrototypeController controller = scope.Controller;
                 scope.ContinueFrom(PrologueMissions.Count + 3, 4);
-                Assert.That(scope.TitleSummary, Does.Not.Contain("커리큘럼"), "With W still closed the title leaves it out.");
+                Assert.That(scope.TitleSummary, Does.Not.Contain("커리큘럼").And.Not.Contain("수련 점수"),
+                    "With W still closed the title leaves it out, and the banked points too.");
                 Assert.That(controller.IsInAcademyField, Is.True);
                 Assert.That(controller.OpenNextMission(), Is.True);
                 Assert.That(controller.IsInBriefing, Is.True);
@@ -494,19 +495,39 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.IsShowingResult, Is.True);
                 Assert.That(controller.Campaign.IsCurriculumOpen, Is.True, "The win opens W, the last lane, and the curriculum with it.");
                 Assert.That(controller.Result.CurriculumOpen, Is.True);
+                Assert.That(controller.Result.CurriculumJustOpened, Is.True, "The field shows the bank once.");
+                Assert.That(controller.Result.CurriculumPoints.Mission, Is.EqualTo(1));
+                Assert.That(controller.Result.CurriculumBalance, Is.EqualTo(controller.Campaign.CurriculumPoints));
+                Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(17),
+                    "The save's four first clears (4 each) and mission 8's own point; this fixture restored the earlier missions.");
                 Assert.That(Label(controller.ResultHud.Root, "Result Notice").text,
                     Does.Contain(StoryMissions.Get(8).UnlockText).And.Contain("커리큘럼도 열렸습니다"));
                 Assert.That(Named(controller.ResultHud.Root, "Result Curriculum Panel").gameObject.activeSelf, Is.True);
+                Assert.That(Label(controller.ResultHud.Root, "Result Curriculum Detail").text, Does.StartWith("임무 +1\n보유 17"),
+                    "The result's row shows the bank from the first result it appears on.");
                 Assert.That(controller.AdvanceFromBattleResult(), Is.True);
                 Assert.That(controller.IsInAcademyField, Is.True, "Mission 9 waits for stage 5.");
+                Assert.That(controller.AcademyField.ArrivalNotice, Is.EqualTo(AcademyFieldView.CurriculumOpenedNotice(17)));
+                Assert.That(controller.AcademyField.ArrivalNotice, Does.StartWith("커리큘럼이 열렸습니다 · 모아 둔 수련 점수 17점"),
+                    "The field says once that the curriculum opened, with the bank.");
 
                 Assert.That(controller.OpenFieldMenu(), Is.True);
                 Assert.That(ActiveButton(lobby, "Tab Curriculum").interactable, Is.True, "The tab is there now…");
                 Assert.That(TryFindActive(lobby, "Tab Stages"), Is.Null, "Field battles are selected on the map.");
                 ActiveButton(lobby, "Tab Curriculum").onClick.Invoke();
                 Assert.That(controller.LobbyHud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
-                Assert.That(controller.SelectCurriculumNode("horizontal-cut"), Is.True);
-                Assert.That(scope.Load().Campaign.CurriculumActive, Is.EqualTo("horizontal-cut"), "The choice is saved.");
+                Assert.That(ActiveLabel(lobby, "Curriculum Points").text, Is.EqualTo("수련 점수 17"));
+                int bank = controller.Campaign.CurriculumPoints;
+                Assert.That(controller.LearnCurriculumNode("horizontal-cut"), Is.True);
+                Assert.That(scope.Load().Campaign.CurriculumCompleted, Is.EqualTo(new[] { "horizontal-cut" }), "Learning is saved.");
+                Assert.That(scope.Load().Campaign.CurriculumPoints, Is.EqualTo(bank - 1));
+                Assert.That(ActiveLabel(lobby, "Curriculum Banner Title").text,
+                    Is.EqualTo("새 기술 · " + CampaignCurriculumHud.SkillLabel(LegacySkillDefinitions.Skill(14))),
+                    "The field menu's page plays the learning moment of a learn the controller made.");
+                // Spend the bank down until nothing is affordable: the next stage's points then cover a node again.
+                for (CurriculumNode next = FirstAffordable(controller.Campaign); next != null; next = FirstAffordable(controller.Campaign))
+                    Assert.That(controller.LearnCurriculumNode(next.Id), Is.True, next.Id);
+                Assert.That(controller.Campaign.CurriculumPointsToNextNode, Is.GreaterThan(0));
                 controller.LobbyHud.ShowTab(LobbyTab.Loadout);
                 Assert.That(TryFindActive(lobby, "Loadout Counts"), Is.Null);
                 Assert.That(SlotX(lobby, "Q", 1), Is.LessThan(SlotX(lobby, "W", 1)));
@@ -515,11 +536,31 @@ namespace TurnLimbo.Presentation.Tests
 
                 Assert.That(controller.StartCampaignStage(5), Is.True);
                 scope.WinToSettled();
-                Assert.That(controller.Result.CompletedCurriculumNode.Id, Is.EqualTo("horizontal-cut"), "Stage battles count now.");
+                Assert.That(controller.Result.CurriculumPointsEarned, Is.EqualTo(4), "The result shows the points now.");
+                Assert.That(controller.Result.CurriculumNewlyAffordable, Is.True, "A first clear's 4 cover any node again.");
+                // A result-screen retry only passes through the field into the next battle, so the notice waits for the
+                // next real arrival instead of being used up unseen.
+                Assert.That(controller.RetryBattleResult(), Is.True);
+                Assert.That(controller.AcademyField.ArrivalNotice, Is.Empty, "The field the retry passed through got no notice.");
+                scope.WinToSettled();
+                Assert.That(controller.Result.CurriculumPointsEarned, Is.EqualTo(2), "A replayed win.");
+                Assert.That(controller.Result.CurriculumNewlyAffordable, Is.False, "The balance already covered every node.");
                 Assert.That(controller.Campaign.OwnedSkills.Any(owned => owned.SkillId == 14), Is.True);
+                Assert.That(controller.DismissBattleResult(), Is.True);
+                Assert.That(controller.IsInAcademyField, Is.True);
+                Assert.That(controller.AcademyField.ArrivalNotice, Is.EqualTo("익힐 수 있는 과정이 있습니다 · Esc 메뉴의 커리큘럼"));
+                int learned = controller.Campaign.Curriculum.CompletedCount, balance = controller.Campaign.CurriculumPoints;
                 controller.ShowTitle();
-                Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text, Does.Contain($"커리큘럼 1 / {CampaignCurriculum.Default.Nodes.Count}"));
+                Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text,
+                    Does.Contain($"커리큘럼 {learned} / {CampaignCurriculum.Default.Nodes.Count}  ·  수련 점수 {balance}"));
             }
+        }
+
+        private static CurriculumNode FirstAffordable(CampaignRun run)
+        {
+            foreach (CurriculumNode node in run.Curriculum.Tree.Nodes)
+                if (run.IsCurriculumNodeAffordable(node.Id)) return node;
+            return null;
         }
 
         [UnityTest]

@@ -68,7 +68,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(saved.PrologueCleared, Is.Zero);
                 Assert.That(saved.Campaign.Currency, Is.Zero);
                 Assert.That(saved.Campaign.CurriculumCompleted, Is.Empty);
-                Assert.That(saved.Campaign.CurriculumActive, Is.Null);
+                Assert.That(saved.Campaign.CurriculumPoints, Is.Zero);
             }
         }
 
@@ -372,13 +372,14 @@ namespace TurnLimbo.Presentation.Tests
             {
                 DuelPrototypeController controller = scope.Controller;
                 var campaign = new CampaignRun();
-                Assert.That(campaign.TrySelectCurriculumNode("horizontal-cut"), Is.True);
                 for (int stage = 1; stage <= 2; stage++)
                 {
                     Assert.That(campaign.TryStartStage(stage), Is.True);
                     Assert.That(campaign.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
                 }
                 campaign.ReturnToLobby();
+                Assert.That(campaign.TryLearnCurriculumNode("horizontal-cut"), Is.True);
+                Assert.That(campaign.CurriculumPoints, Is.EqualTo(7));
                 var prologue = new PrologueRun();
                 prologue.CompleteAll();
                 Assert.That(scope.Store.TrySave(GameSave.Capture(prologue, campaign), out string error), Is.True, error);
@@ -386,7 +387,8 @@ namespace TurnLimbo.Presentation.Tests
                 controller.ShowTitle();
                 Assert.That(controller.TitleHud.CanContinue, Is.True);
                 Assert.That(Label(controller.TitleHud.Root, "Title Save Summary").text,
-                    Does.Contain("도미니코 학원").And.Contain("2 / 8").And.Contain($"커리큘럼 1 / {CampaignCurriculum.Default.Nodes.Count}"));
+                    Does.Contain("도미니코 학원").And.Contain("2 / 8").And.Contain($"커리큘럼 1 / {CampaignCurriculum.Default.Nodes.Count}")
+                        .And.Contain("수련 점수 7"));
 
                 var keyboard = InputSystem.AddDevice<Keyboard>();
                 controller.enabled = true;
@@ -411,12 +413,12 @@ namespace TurnLimbo.Presentation.Tests
 
                 Assert.That(controller.OpenFieldMenu(), Is.True);
                 controller.LobbyHud.ShowTab(LobbyTab.Curriculum);
-                Assert.That(controller.SelectCurriculumNode("preparation"), Is.True);
+                Assert.That(controller.LearnCurriculumNode("preparation"), Is.True);
                 Assert.That(controller.CloseFieldMenu(), Is.True);
-                GameSave afterSelect = scope.Load();
-                Assert.That(afterSelect.Campaign.CurriculumActive, Is.EqualTo("preparation"), "Choosing a node is saved.");
-                Assert.That(afterSelect.Campaign.CurriculumBattles, Is.Zero);
-                Assert.That(afterSelect.Campaign.CurriculumCompleted, Is.EqualTo(new[] { "horizontal-cut" }));
+                GameSave afterLearn = scope.Load();
+                Assert.That(afterLearn.Campaign.CurriculumCompleted, Is.EqualTo(new[] { "horizontal-cut", "preparation" }),
+                    "Learning a node is saved at once.");
+                Assert.That(afterLearn.Campaign.CurriculumPoints, Is.EqualTo(6));
 
                 Assert.That(controller.StartCampaignStage(3), Is.True);
                 scope.WinToSettled();
@@ -424,9 +426,8 @@ namespace TurnLimbo.Presentation.Tests
                 GameSave afterBattle = scope.Load();
                 Assert.That(afterBattle.Campaign.ClearedStages, Does.Contain(3), "A settled stage result is saved.");
                 Assert.That(afterBattle.Campaign.Currency, Is.EqualTo(controller.Campaign.Currency));
-                Assert.That(afterBattle.Campaign.CurriculumCompleted, Is.EqualTo(new[] { "horizontal-cut", "preparation" }),
-                    "The node the battle completed is saved.");
-                Assert.That(afterBattle.Campaign.CurriculumActive, Is.Null);
+                Assert.That(afterBattle.Campaign.CurriculumCompleted, Is.EqualTo(new[] { "horizontal-cut", "preparation" }));
+                Assert.That(afterBattle.Campaign.CurriculumPoints, Is.EqualTo(10), "The battle's 4 points are saved.");
                 var restored = new CampaignRun();
                 Assert.That(restored.TryRestore(afterBattle.Campaign, out error), Is.True, error);
                 Assert.That(restored.OwnedSkills.Any(skill => skill.SkillId == 10), Is.True, "…and so is the skill it granted.");
@@ -437,8 +438,12 @@ namespace TurnLimbo.Presentation.Tests
                 GameSave afterRestart = scope.Load();
                 Assert.That(afterRestart.Campaign.Currency, Is.Zero, "여정 초기화 is saved too.");
                 Assert.That(afterRestart.Campaign.CurriculumCompleted, Is.Empty, "…with a reset curriculum.");
-                Assert.That(afterRestart.Campaign.CurriculumActive, Is.Null);
                 Assert.That(afterRestart.PrologueCleared, Is.EqualTo(StoryMissions.Count), "…and keeps the story.");
+                Assert.That(afterRestart.Campaign.CurriculumPoints, Is.EqualTo(StoryMissions.Count * CurriculumPointRules.StoryMission),
+                    "…and what its won missions paid, so the new journey counts each mission once.");
+                Assert.That(controller.Campaign.CurriculumPointsIn(new CampaignSave(0, new int[0], new string[0], null,
+                    afterRestart.Campaign.Loadout), afterRestart.PrologueCleared), Is.EqualTo(afterRestart.Campaign.CurriculumPoints),
+                    "A save written before 수련 점수 with the same state is credited alike.");
             }
         }
 
