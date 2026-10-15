@@ -23,6 +23,8 @@ MonoBehaviour:
   animationPlaybackSpeed: 0.6
   attackInterval: 0.1
   skillInterval: 0.28
+  exhaustedSideSpeed: 1
+  exhaustedGapScale: 0.25
   hitStopDuration: 0.04
   combatCameraSize: 3.5
   cameraFollowSharpness: 6

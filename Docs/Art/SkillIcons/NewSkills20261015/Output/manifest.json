@@ -1,0 +1,248 @@
+{
+  "logical_canvas": 48,
+  "visible_extent": 44,
+  "runtime_canvas": 192,
+  "existing_runtime_sha256": {
+    "skill-role-atlas.png": "b70fc9efea04c2362c3f7801956fec8d53d1eef96fa925895ab58473346af54a",
+    "skill-role-atlas.png.meta": "3f906f048e2df5eddc00300bda8a0a2bb16b70c6d099eca69196fc59a948b757",
+    "role16.png": "e4507b049d21f9cc39e4346477018fa31e1550699b030fc5db5256359c6d78cc",
+    "role16.png.meta": "f44cfd73a22baf13bb8fc436dbe28680c161b821a343cde196c3b6bd462016e6",
+    "role17.png": "3ea40ca01d0978df8a3a0c3a336cf7f7433013593304889d63e0a2a72bf08b4d",
+    "role17.png.meta": "aef189520fedf0d69fcf880b066266bf1cabd6cecbb9705adeee0e865d6bb927",
+    "role18.png": "8dee565f9e7c897202b33bdc57d35864354fd5d5a1a2fc87a2bba048c2928039",
+    "role18.png.meta": "658eb43d6d3ea5c08d7836fb5b6a494ac645c8cbe5b5bb0eb51c746490c59560",
+    "role19.png": "1e6661c9467331b483ae12222e5456476928ce3432aae7fa56fbd3550b35446c",
+    "role19.png.meta": "5af4dfa34bcf28e07fb274ed038fc9b9e0c2ba26cbb88ab600efadafc112c49e",
+    "role20.png": "9321d2ddb27389981c556d57f9c98e9a8e0a8ead2ff7782fe454c2146299eb9e",
+    "role20.png.meta": "58f894e1611689bf1e707b1aa3481c2ea34f89008bf400f72386475e16389942"
+  },
+  "roles": [
+    {
+      "skill_id": 45,
+      "role": 21,
+      "name": "자세 잡기",
+      "family": "Defence",
+      "source": "StyleRefinement\\48\\role21.png",
+      "source_sha256": "1a50adc6468eb73470b99408933c54fdde1a27d36e7406ccd83728cdd7d9fed6",
+      "bbox": [
+        5,
+        2,
+        42,
+        46
+      ],
+      "opaque_colors": 34
+    },
+    {
+      "skill_id": 46,
+      "role": 22,
+      "name": "연마",
+      "family": "Slash",
+      "source": "StyleRefinement\\48\\role22.png",
+      "source_sha256": "8c1e2027999c650a6b3818b45f3d3ec7e04c2e1e3033ccc5df6a5ae4ffa07e26",
+      "bbox": [
+        2,
+        2,
+        45,
+        46
+      ],
+      "opaque_colors": 36
+    },
+    {
+      "skill_id": 47,
+      "role": 23,
+      "name": "꿰뚫기",
+      "family": "Thrust",
+      "source": "StyleRefinement\\48\\role23.png",
+      "source_sha256": "b3b4fa524bc0548b27f3812435ba84517f675d5221e45f4cfbad130267893acb",
+      "bbox": [
+        4,
+        2,
+        41,
+        46
+      ],
+      "opaque_colors": 39
+    },
+    {
+      "skill_id": 48,
+      "role": 24,
+      "name": "받아치기",
+      "family": "Hit",
+      "source": "StyleRefinement\\48\\role24.png",
+      "source_sha256": "1b8dcfec23ff63cdf7ceced69ab234e8e09eadd13f2f3731d9cf3e81dc026729",
+      "bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 43
+    },
+    {
+      "skill_id": 49,
+      "role": 25,
+      "name": "비껴서기",
+      "family": "Defence",
+      "source": "StyleRefinement\\48\\role25.png",
+      "source_sha256": "321637cce115e675ed8ac94ef3b53c6cf9abb96ebc839b6f9dd66b2c2ba11bab",
+      "bbox": [
+        5,
+        2,
+        42,
+        46
+      ],
+      "opaque_colors": 37
+    },
+    {
+      "skill_id": 50,
+      "role": 26,
+      "name": "끝내기",
+      "family": "Thrust",
+      "source": "StyleRefinement\\48\\role26.png",
+      "source_sha256": "54e7c44be1594cd73c4f9c01b77060fc226a7de31ca5a2bce4c3d95668d30c95",
+      "bbox": [
+        4,
+        2,
+        41,
+        46
+      ],
+      "opaque_colors": 41
+    },
+    {
+      "skill_id": 51,
+      "role": 27,
+      "name": "에스토카다",
+      "family": "Thrust",
+      "source": "StyleRefinement\\48\\role27.png",
+      "source_sha256": "4ceb62fa8f61d28d5230c1e81fb35cc7537056922ad0138bb1c4476e9edc1262",
+      "bbox": [
+        4,
+        2,
+        41,
+        46
+      ],
+      "opaque_colors": 41
+    },
+    {
+      "skill_id": 52,
+      "role": 28,
+      "name": "바트망",
+      "family": "Hit",
+      "source": "StyleRefinement\\48\\role28.png",
+      "source_sha256": "9d3c6c420cf07a6646b9f1f02cf85929491cbe02b782506dfdeeedeaba6858d0",
+      "bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 42
+    },
+    {
+      "skill_id": 53,
+      "role": 29,
+      "name": "카덴스",
+      "family": "Hit",
+      "source": "StyleRefinement\\48\\role29.png",
+      "source_sha256": "74dd97bbb2b4b13588ee33da9698aa80224599491e9a5ab724030cc726010864",
+      "bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 42
+    },
+    {
+      "skill_id": 54,
+      "role": 30,
+      "name": "에스키브",
+      "family": "Hit",
+      "source": "StyleRefinement\\48\\role30.png",
+      "source_sha256": "177f41979dd908c8071a20e930bf30e770f9a9f441b404a46e66ce61075825ce",
+      "bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 43
+    },
+    {
+      "skill_id": 55,
+      "role": 31,
+      "name": "콩트르탕",
+      "family": "Hit",
+      "source": "StyleRefinement\\48\\role31.png",
+      "source_sha256": "f6452c78672e2a19dcb99e7bd4fb31908f847cf46acfd6bfd1d87bb3bfe302b3",
+      "bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 41
+    },
+    {
+      "skill_id": 56,
+      "role": 32,
+      "name": "두블레",
+      "family": "Thrust",
+      "source": "StyleRefinement\\48\\role32.png",
+      "source_sha256": "279fbd04bd0bdd5d3d151c7e9a937ac8b7eb80e4c84bbc9d805d0e383b4d05d5",
+      "bbox": [
+        4,
+        2,
+        41,
+        46
+      ],
+      "opaque_colors": 39
+    },
+    {
+      "skill_id": 57,
+      "role": 33,
+      "name": "잔걸음",
+      "family": "Slash",
+      "source": "StyleRefinement\\48\\role33.png",
+      "source_sha256": "4f5df3f787acecfea8397d8b535c2cccffa3a798e531b2e3bf1243719e24a7bd",
+      "bbox": [
+        2,
+        2,
+        45,
+        46
+      ],
+      "opaque_colors": 36
+    },
+    {
+      "skill_id": 58,
+      "role": 34,
+      "name": "숫돌",
+      "family": "Defence",
+      "source": "StyleRefinement\\48\\role34.png",
+      "source_sha256": "796eb95c79f7343c9b4c717674e015c50de508ed7fde806a2bde9b28b5f3b6de",
+      "bbox": [
+        5,
+        2,
+        42,
+        46
+      ],
+      "opaque_colors": 36
+    },
+    {
+      "skill_id": 59,
+      "role": 35,
+      "name": "갈아내기",
+      "family": "Slash",
+      "source": "StyleRefinement\\48\\role35.png",
+      "source_sha256": "0aa44b4b4ac34b36fa943979d92500dae7503ef46d8415e320c0862e18096cb5",
+      "bbox": [
+        2,
+        2,
+        45,
+        46
+      ],
+      "opaque_colors": 37
+    }
+  ],
+  "native_template_refinement": true,
+  "runtime_applied": true
+}

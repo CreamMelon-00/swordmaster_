@@ -1,0 +1,65 @@
+{
+  "method": "built-in image_gen + Unified/build_icons.normalize + symbol mask extraction",
+  "icons": {
+    "role29": {
+      "skill_id": 53,
+      "name": "카덴스",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_bbox": [
+        145,
+        143,
+        1108,
+        1108
+      ],
+      "output_bbox": [
+        2,
+        2,
+        46,
+        46
+      ],
+      "opaque_colors": 46,
+      "symbol_bbox": [
+        7,
+        16,
+        41,
+        39
+      ],
+      "source_sha256": "751290288ba72a4265ed9d01488dbede183b1fa12e23ec1d44c8f11dd36fb14c",
+      "logical_sha256": "d442296dd328d7294d4e2348739b4133152c82135b0f78b0712cd2c55fe1119b",
+      "runtime_sha256": "3a1dee9e8d2d0d646e3adf5eb1e193632cfee7e4b8110e53d752e193e590def9"
+    },
+    "role31": {
+      "skill_id": 55,
+      "name": "콩트르탕",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_bbox": [
+        175,
+        165,
+        1079,
+        1084
+      ],
+      "output_bbox": [
+        2,
+        2,
+        45,
+        46
+      ],
+      "opaque_colors": 47,
+      "symbol_bbox": [
+        9,
+        8,
+        39,
+        41
+      ],
+      "source_sha256": "e391cf3ebd68e31a6f1a527b26551e96d78c0e200c510d9a036f7b9cdfbb83d2",
+      "logical_sha256": "8b3b1fa11af337f3d532c7ddaeee9742a213e1302139c73299626211e293f431",
+      "runtime_sha256": "80d0c9f4704cb0a57acc4719830da277fea6dca5b2a7ac880338f1b5cd1b66a3"
+    }
+  }
+}

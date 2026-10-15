@@ -1,0 +1,148 @@
+{
+  "logical_canvas": 48,
+  "visible_extent": 44,
+  "palette_limit": 48,
+  "runtime_canvas": 192,
+  "roles": {
+    "21": {
+      "id": 45,
+      "name": "자세 잡기",
+      "source_bbox": [
+        156,
+        26,
+        1098,
+        1241
+      ],
+      "output_bbox": [
+        7,
+        2,
+        41,
+        46
+      ],
+      "opaque_colors": 48,
+      "generated_sha256": "37f207ec6e2a028e4df2e1a760034052ca9aad0cd08e1893efebb5ea03fb56ad",
+      "logical_sha256": "afa2939d020d825faa8adc1a7480b0f8d7d21d7aaf4ebaf5b59169169221d46e",
+      "runtime_sha256": "3ba172752548e2de9f25e11017c81ef9fd8c1cb207c73c17a61721790147791d",
+      "generated_size": [
+        1254,
+        1254
+      ],
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "22": {
+      "id": 46,
+      "name": "연마",
+      "source_bbox": [
+        39,
+        37,
+        1216,
+        1215
+      ],
+      "output_bbox": [
+        2,
+        2,
+        46,
+        46
+      ],
+      "opaque_colors": 47,
+      "generated_sha256": "a78904aeb1a1f3c0625d23894e553ff8232b620f6700fbe6daa26c7d359503c8",
+      "logical_sha256": "2bcfda9af7e0542f8eac5e63e3af85f0643f812768096130ccb628d9f37b07cf",
+      "runtime_sha256": "0363c90003aac4c395400b49f4b4c647b86bd7aaddc6387e9c36bb8878b4c3cf",
+      "generated_size": [
+        1254,
+        1254
+      ],
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "23": {
+      "id": 47,
+      "name": "꿰뚫기",
+      "source_bbox": [
+        157,
+        79,
+        1164,
+        1160
+      ],
+      "output_bbox": [
+        3,
+        2,
+        44,
+        46
+      ],
+      "opaque_colors": 46,
+      "generated_sha256": "b57066a845a2ded3d519598b65d46a1300354678861f29238faa17bed202a75f",
+      "logical_sha256": "6b70d74e5a9cd9e574ab7931f801745f03802000df0bf922acdefa7f49065306",
+      "runtime_sha256": "05f20e242aec3ecd35ad7a21ceb7c436476ecffd7361691a6e28e643bb8977fc",
+      "generated_size": [
+        1254,
+        1254
+      ],
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "24": {
+      "id": 48,
+      "name": "받아치기",
+      "source_bbox": [
+        72,
+        93,
+        1183,
+        1158
+      ],
+      "output_bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 47,
+      "generated_sha256": "0367c5f87bea0f51f2b157e45786761d2790af198c8b4ab9617397cd47dcd748",
+      "logical_sha256": "bf0a71f2a3db64bd53a88abd12c6e3337deb560bc4fe75b001aaa0ca0752d1d2",
+      "runtime_sha256": "f502d04f83ce35e979ca15a1ef4b2401197767057c472e5841b7b1a46857b869",
+      "generated_size": [
+        1254,
+        1254
+      ],
+      "alpha_values": [
+        0,
+        255
+      ]
+    },
+    "25": {
+      "id": 49,
+      "name": "비껴서기",
+      "source_bbox": [
+        90,
+        9,
+        1164,
+        1245
+      ],
+      "output_bbox": [
+        5,
+        2,
+        43,
+        46
+      ],
+      "opaque_colors": 47,
+      "generated_sha256": "799dc903d938a78960ac5164e09b305cc729b2cb4390b4d3ab436495759a9a08",
+      "logical_sha256": "e8056765abc760dd37ed4b3808857acc9dfb8b1c5e8248d7de875e3e75b70a97",
+      "runtime_sha256": "a47193fd71726d5672cd188db4ee86a1985945522a120159d369b18edf6a0bcf",
+      "generated_size": [
+        1254,
+        1254
+      ],
+      "alpha_values": [
+        0,
+        255
+      ]
+    }
+  }
+}

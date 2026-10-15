@@ -164,6 +164,44 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator CombatTempoSettings_KeepDefaultsWhenOldFieldsLoad_AndClampAuthoredValues()
+        {
+            yield return null;
+            DuelPresentationSettings settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
+            try
+            {
+                // Existing assets do not contain these fields; loading their old values keeps the new defaults.
+                JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":0.6}", settings);
+                LegacyCombatTempoTuning tuning = settings.CombatTempo;
+                Assert.That(tuning.Enabled, Is.True);
+                Assert.That(tuning.StepPerSlot, Is.EqualTo(.1f).Within(1e-5f));
+                Assert.That(tuning.MaximumSpeed, Is.EqualTo(1.8f).Within(1e-5f));
+                Assert.That(tuning.ExhaustedSpeed, Is.EqualTo(1f).Within(1e-5f));
+                Assert.That(tuning.ExhaustedGapScale, Is.EqualTo(.25f).Within(1e-5f));
+
+                JsonUtility.FromJsonOverwrite("{\"combatTempoEnabled\":false,\"combatTempoStep\":9," +
+                    "\"combatTempoMaxSpeed\":9,\"exhaustedSideSpeed\":9,\"exhaustedGapScale\":9}", settings);
+                tuning = settings.CombatTempo;
+                Assert.That(tuning.Enabled, Is.False);
+                Assert.That(tuning.StepPerSlot, Is.EqualTo(LegacyCombatTempoTuning.MaximumStepPerSlot));
+                Assert.That(tuning.MaximumSpeed, Is.EqualTo(LegacyCombatTempoTuning.MaximumSpeedLimit));
+                Assert.That(tuning.ExhaustedSpeed, Is.EqualTo(LegacyCombatTempoTuning.MaximumExhaustedSpeed));
+                Assert.That(tuning.ExhaustedGapScale, Is.EqualTo(1f));
+
+                JsonUtility.FromJsonOverwrite("{\"combatTempoEnabled\":true,\"combatTempoStep\":-1," +
+                    "\"combatTempoMaxSpeed\":0,\"exhaustedSideSpeed\":0,\"exhaustedGapScale\":-1}", settings);
+                tuning = settings.CombatTempo;
+                Assert.That(tuning.Enabled, Is.True);
+                Assert.That((tuning.StepPerSlot, tuning.MaximumSpeed, tuning.ExhaustedSpeed), Is.EqualTo((0f, 1f, 1f)));
+                Assert.That(tuning.ExhaustedGapScale, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(settings);
+            }
+        }
+
         private struct SlotRun
         {
             public float ToFirstHit, Rest, Gap, SpeedBeforeHit, SpeedAfterHit, GapSpeed, WindowOpens, WindowCloses;
@@ -210,7 +248,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
             private const string Tempo = "\"animationPlaybackSpeed\":1,\"attackInterval\":0.1,\"skillInterval\":0.28," +
-                "\"hitStopDuration\":0.04,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1," +
+                "\"hitStopDuration\":0.04,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1,\"combatTempoEnabled\":false," +
                 "\"decisiveHealthDamagePercent\":25,\"showDirectorEnabled\":true,\"minorSlotSpeed\":2,\"majorHitStopScale\":3," +
                 "\"majorCameraPush\":0.1,\"majorClashScale\":1.35,\"turnExtraSecondsCap\":0.8,\"largeClashGap\":0.6," +
                 "\"deepPierce\":0.7,\"bigUnopposedPercent\":25,\"bladeBindGap\":0.15,\"bladeBindSeconds\":0.45," +
@@ -239,7 +277,8 @@ namespace TurnLimbo.Presentation.Tests
                 Settings = Object.Instantiate(originalSettings);
                 try
                 {
-                    JsonUtility.FromJsonOverwrite("{" + Tempo + (string.IsNullOrEmpty(tuning) ? "" : "," + tuning) + "}", Settings);
+                    JsonUtility.FromJsonOverwrite("{" + Tempo + "}", Settings);
+                    if (!string.IsNullOrEmpty(tuning)) JsonUtility.FromJsonOverwrite("{" + tuning + "}", Settings);
                     Set("presentationSettings", Settings);
                     arenaSettings.SetValue(Controller.ArenaView, Settings);
                     Set("mission", null);

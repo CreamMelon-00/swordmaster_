@@ -71,7 +71,7 @@ namespace TurnLimbo.Presentation
 
         private void Update()
         {
-            if (!initialized) return;
+            if (!initialized || controller != null && controller.IsCombatDebugMode) return;
             if (IsReplayListOpen && Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
                 CloseReplayList();
             RefreshVisibility(false);

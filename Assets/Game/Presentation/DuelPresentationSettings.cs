@@ -317,7 +317,19 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0, 6), Tooltip("팽팽한 합 동안 맞닿은 칼 사이에서 튀는 불꽃(타격 빛)의 수. 이음매의 두 카드도 같은 때 불꽃을 튀깁니다. 0이면 첫 타격의 불꽃만 남습니다.")]
         private int bladeBindSparks = LegacyBladeBind.DefaultSparks;
 
-        [Header("일방 공격 가속 — 다음 턴부터 적용 (연출 감독이 켜져 있을 때만, 대전에서도 두 화면 같게)")]
+        [Header("전투 후반 가속 — 다음 턴부터 적용")]
+        [SerializeField, Tooltip("한 턴의 큐를 뒤로 진행할수록 교전·이동·스킬 사이 간격을 점점 빠르게 재생합니다. 다음 턴에는 원래 속도로 돌아옵니다. 한쪽 큐가 소진되면 아래 설정으로 추가 배속과 스킬 사이 대기를 조정합니다. 회피·압박의 입력 구간과 실제 시간의 히트 스톱·슬로모션·마무리 연출은 유지합니다. 끄면 기존 일방 공격 가속을 사용합니다.")]
+        private bool combatTempoEnabled = true;
+        [SerializeField, Range(0f, .5f), Tooltip("첫 칸 이후 한 칸마다 더하는 재생 배속. 기본 0.1: 1배, 1.1배, 1.2배… 한쪽 큐가 소진되어도 이 증가를 유지합니다.")]
+        private float combatTempoStep = LegacyCombatTempoTuning.DefaultStepPerSlot;
+        [SerializeField, Range(1f, 3f), Tooltip("턴 후반 가속의 최대 배속. 기본 1.8배. 한쪽 큐가 소진되었을 때의 추가 배속은 이 상한을 적용한 뒤 곱합니다.")]
+        private float combatTempoMaxSpeed = LegacyCombatTempoTuning.DefaultMaximumSpeed;
+        [SerializeField, Range(1f, 3f), Tooltip("한쪽에 남은 스킬이 없을 때 턴 후반 배속에 추가로 곱하는 값. 기본 1배로 추가 통배속을 주지 않습니다. 2로 바꾸면 이전의 소진 시 2배 배속을 비교할 수 있습니다. 누가 큐를 먼저 소진했든 같습니다.")]
+        private float exhaustedSideSpeed = LegacyCombatTempoTuning.DefaultExhaustedSpeed;
+        [SerializeField, Range(0f, 1f), Tooltip("한쪽 큐가 비고 남은 쪽이 공격한 뒤, 다음 스킬까지 기다리는 시간의 비율. 기본 0.25: 0.28초 대기가 0.07초가 됩니다. 1이면 기존 대기 시간으로 비교할 수 있습니다. 숨고르기·방어는 빈칸으로 세지 않으며 연타 간격·공격 동작·입력 구간은 그대로입니다.")]
+        private float exhaustedGapScale = LegacyCombatTempoTuning.DefaultExhaustedGapScale;
+
+        [Header("기존 일방 공격 가속 — 후반 가속을 끈 경우에 적용")]
         [SerializeField, Tooltip("한쪽만 공격하고 다른 쪽은 빈칸이나 숨고르기인 칸(일방 공격)이 한 턴에 이어지면 그 칸들을 점점 빠르게 재생합니다(누가 공격하든 같음). 양쪽 모두 공격이 없는 칸(방어끼리·숨고르기끼리)은 이어짐을 끊지도 늘리지도 않고, 합·방어·회피·반격처럼 양쪽이 맞서는 칸은 처음부터 다시 셉니다. Major·Climax 칸(붕괴·큰 피해·큰 일방 공격·간파·시그니처·마무리 일격)은 빨라지지 않지만 이어짐은 계속 셉니다. 스텝(회피·압박)을 쓸 수 있는 칸은 첫 타격 전(예고와 성공 구간)을 건드리지 않고 첫 타격 뒤와 그 뒤 간격만 빠르게 합니다. 줄인 시간은 강조에 쓰지 않고 턴이 그만큼 짧아집니다. 연출 감독을 끄면 이것도 꺼집니다.")]
         private bool unopposedStreakEnabled = true;
         [SerializeField, Range(1, 8), Tooltip("일방 공격이 몇 칸째 이어질 때부터 빨라지는지. 2면 두 번째 칸부터 빨라집니다(첫 칸은 그대로).")]
@@ -721,6 +733,18 @@ namespace TurnLimbo.Presentation
         public float BladeBindPress => Safe(bladeBindPress, 0f, .4f, LegacyBladeBind.DefaultPress);
         public float BladeBindSpring => Safe(bladeBindSpring, 0f, 1.5f, LegacyBladeBind.DefaultSpring);
         public int BladeBindSparks => Mathf.Clamp(bladeBindSparks, 0, 6);
+        /// <summary>A turn's gradual playback acceleration, multiplied when one side's queue is exhausted. The turn takes
+        /// these settings when it starts; the presentation clock keeps input windows and real-second effects intact.</summary>
+        public bool CombatTempoEnabled => combatTempoEnabled;
+        public float CombatTempoStep => Safe(combatTempoStep, 0f, LegacyCombatTempoTuning.MaximumStepPerSlot,
+            LegacyCombatTempoTuning.DefaultStepPerSlot);
+        public float CombatTempoMaxSpeed => Safe(combatTempoMaxSpeed, 1f, LegacyCombatTempoTuning.MaximumSpeedLimit,
+            LegacyCombatTempoTuning.DefaultMaximumSpeed);
+        public float ExhaustedSideSpeed => Safe(exhaustedSideSpeed, 1f, LegacyCombatTempoTuning.MaximumExhaustedSpeed,
+            LegacyCombatTempoTuning.DefaultExhaustedSpeed);
+        public float ExhaustedGapScale => Safe(exhaustedGapScale, 0f, 1f, LegacyCombatTempoTuning.DefaultExhaustedGapScale);
+        public LegacyCombatTempoTuning CombatTempo => new LegacyCombatTempoTuning(CombatTempoEnabled, CombatTempoStep,
+            CombatTempoMaxSpeed, ExhaustedSideSpeed, ExhaustedGapScale);
         /// <summary>일방 공격 가속 (<see cref="LegacyUnopposedStreak"/>): whether a run of unopposed slots plays faster
         /// (only while the director is on), the streak's length where it starts, the speed each slot adds, and the cap.</summary>
         public bool UnopposedStreakEnabled => unopposedStreakEnabled;
@@ -923,6 +947,8 @@ namespace TurnLimbo.Presentation
             meshChainMinimum = MeshChainMinimum;
             bladeBindGap = BladeBindGap; bladeBindSeconds = BladeBindSeconds; bladeBindSway = BladeBindSway;
             bladeBindPress = BladeBindPress; bladeBindSpring = BladeBindSpring; bladeBindSparks = BladeBindSparks;
+            combatTempoStep = CombatTempoStep; combatTempoMaxSpeed = CombatTempoMaxSpeed;
+            exhaustedSideSpeed = ExhaustedSideSpeed; exhaustedGapScale = ExhaustedGapScale;
             unopposedStreakStartLength = UnopposedStreakStartLength; unopposedStreakStep = UnopposedStreakStep;
             unopposedStreakMaxSpeed = UnopposedStreakMaxSpeed;
             readCueSeconds = ReadCueSeconds; readCueInk = ReadCueInk; readSparkCount = ReadSparkCount;

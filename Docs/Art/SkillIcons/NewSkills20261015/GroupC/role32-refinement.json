@@ -1,0 +1,8 @@
+{
+  "generator": "built-in image_gen",
+  "edit_target": "Generated/role32-v1.png",
+  "selected": "Generated/role32.png",
+  "source_path": "C:\\Users\\User\\.codex\\generated_images\\01a13fee-9966-7333-a599-ee3d840d952f\\exec-2874474c-4615-4c10-bba1-37745d44b04b.png",
+  "prompt": "Use case: precise-object-edit. Asset type: one standalone transparent pixel-art sword skill icon. EDIT TARGET is the supplied icon '두블레'. Preserve the entire teal hexagonal metal badge frame, dark blue-green leather interior, front-facing composition, one horizontal silver crossguard sword pointing right, two ivory backward-curving arrows behind the hilt, transparent outer margin and hard chunky pixel style. Change ONLY the violet forward chevron at the right sword tip: make this chevron broad, boldly stepped and BRIGHT LAVENDER/VIOLET with two flat solid color bands, wider and taller so it remains visible when the entire icon is displayed at 48×48. A simple violet > arrowhead with 4-pixel logical thick strokes, about 9 logical pixels high, clearly separate from white blade and teal rim. Its purple color must survive palette reduction: no tiny glints, no subtle tint, no gray chevron. It remains secondary to the silver sword. Reduce unnecessary dark texture shades to favor a limited flat palette, no smoothing or soft blur. Keep every other element, only one sword and same two return arrows. True transparent alpha outside frame. No letters, digits, writing, UI, watermark, heart, medical/religious cross or golden magic.",
+  "reason": "Make violet next-action chevron survive logical-size palette reduction."
+}

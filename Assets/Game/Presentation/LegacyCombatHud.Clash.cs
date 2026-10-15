@@ -108,7 +108,7 @@ namespace TurnLimbo.Presentation
         public LegacyClash? ShownClash => disposed || liveClash == null ? (LegacyClash?)null : liveClash.Clash;
         public int ClashSlot => disposed || liveClash == null ? -1 : liveClash.Slot;
 
-        /// <summary>Whether the resolving pair has met (the slot's first hit has resolved).</summary>
+        /// <summary>Whether the resolving pair has met (its first hit resolved, or a blade bind holds it before resolution).</summary>
         public bool IsClashMeeting => !disposed && liveClash != null && liveClash.Impact;
 
         /// <summary>The director's emphasis on the resolving pair (<see cref="SetClashEmphasis"/>; 1 while none).</summary>
@@ -142,15 +142,17 @@ namespace TurnLimbo.Presentation
             pendingEmphasis = scale;
         }
 
-        /// <summary>A blade bind on slot <paramref name="slot"/>'s pair, which has just met (its first hit): for
+        /// <summary>A blade bind on slot <paramref name="slot"/>'s pair, which has just met (before or after its first hit): for
         /// <paramref name="seconds"/> of the real time the controller hands over (<see cref="AdvanceClashBind"/>, while the
         /// battle's clock stands still) both cards go to the seam and hold there, swaying together one way and then the other
         /// (<see cref="ClashBindSway"/>), sparking <paramref name="sparks"/> more times; then the meeting goes on as an even
         /// 합 (both bounce back alike). Nothing while the motion is off or the pair is another slot's.</summary>
         public void BindClash(int slot, float seconds, int sparks)
         {
-            if (disposed || liveClash == null || liveClash.Slot != slot || !liveClash.Impact ||
+            if (disposed || !ClashMotionEnabled || liveClash == null || liveClash.Slot != slot ||
                 !(seconds > 0f) || float.IsInfinity(seconds)) return;
+            // Contact is a presentation event: the real hit may wait until the blades release.
+            liveClash.MeetBeforeHit(ClashTuning);
             liveClash.Bound = true;
             liveClash.BindSeconds = seconds;
             liveClash.BindElapsed = 0f;
@@ -163,6 +165,9 @@ namespace TurnLimbo.Presentation
         {
             if (disposed || liveClash == null || !liveClash.Binding) return;
             liveClash.AdvanceBind(realSeconds, ClashTuning);
+            // The contact clock is held, so its sparks must use the bind's real seconds to leave the seam and fade.
+            // Otherwise each new burst stays at phase zero (invisible) until the delayed hit releases the battle clock.
+            foreach (SparkBurst burst in clashSparks) AdvanceSpark(burst, realSeconds);
         }
 
         /// <summary>The pair's blade bind is over (the controller's bind time has run): the meeting goes on from the contact
@@ -758,6 +763,7 @@ namespace TurnLimbo.Presentation
             public float BindSeconds, BindElapsed;
             public int BindSparks;
             private bool sparkFired;
+            private bool awaitingFirstHit;
 
             public bool Binding => BindSeconds > 0f && BindElapsed < BindSeconds;
 
@@ -765,21 +771,38 @@ namespace TurnLimbo.Presentation
 
             public void Observe(LegacyClashInput input)
             {
-                if (!Impact)
+                if (!Impact || awaitingFirstHit && input.Decided)
                 {
                     // A dodge, or a 반격 settling at the first hit, may still change it until then.
                     Clash = LegacyClashMotion.Classify(input);
                     if (input.Decided)
                     {
-                        Impact = true;
-                        ImpactElapsed = 0f;
-                        Player.ImpactStart = Player.Approach;
-                        Enemy.ImpactStart = Enemy.Approach;
+                        awaitingFirstHit = false;
+                        if (!Impact)
+                        {
+                            Impact = true;
+                            ImpactElapsed = 0f;
+                            Player.ImpactStart = Player.Approach;
+                            Enemy.ImpactStart = Enemy.Approach;
+                        }
                     }
                 }
                 // A later hit of a multi-hit skill can still break someone.
                 Player.NoteBreak(input.PlayerBroken);
                 Enemy.NoteBreak(input.EnemyBroken);
+            }
+
+            // The controller reached the contact frame without resolving damage yet. Start directly at the seam and
+            // let the eventual first hit settle the classification, retaining this already-shown contact and its spark.
+            public void MeetBeforeHit(LegacyClashTuning tuning)
+            {
+                if (Impact) return;
+                Impact = true;
+                awaitingFirstHit = true;
+                ImpactElapsed = LegacyClashPose.StrikeShare * tuning.ImpactSeconds;
+                Player.ImpactStart = Player.Approach;
+                Enemy.ImpactStart = Enemy.Approach;
+                if (Clash.Contact) sparkFired = SparkDue = true;
             }
 
             public void Advance(float delta, LegacyClashTuning tuning)

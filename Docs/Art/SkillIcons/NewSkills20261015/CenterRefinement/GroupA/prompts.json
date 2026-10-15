@@ -1,0 +1,22 @@
+{
+  "mode": "built-in image_gen",
+  "transparent_background": true,
+  "center_glyph_only": true,
+  "normalization": "48x48 canvas;32px maximum glyph extent;48 colors maximum;binary alpha;192 exact4x",
+  "roles": {
+    "23": {
+      "id": 47,
+      "name": "꿰뚫기",
+      "prompt": "Use case: precise-object-edit. Asset type: central pixel-art weapon glyph to composite into an existing 48x48 RPG skill badge. The supplied image is the old icon STYLE reference. Recreate only its central sword motif with the same tiny chunky square-pixel scale, muted ivory/gray steel, old warm brown leather hilt, thin bronze crossguard and restrained teal trail accents. REMOVE the hexagon frame, REMOVE the dark inset, output ONLY the central glyph on genuine transparent background. Subject: ONE slender recognizably medieval LONGSWORD thrusting stably from LEFT to RIGHT, long tapered ivory steel blade and sharp triangular tip, a clearly separate simple short vertical bronze CROSSGUARD near left, short dark brown leather handle ending in small round pommel, TWO short faint teal straight motion strokes behind/along blade, and only a tiny ivory diamond glint at tip. Width around32 logical pixels, blade thickness only2 logical pixels, crossguard height8 logical pixels, hilt occupies one quarter of total width. Frame is absent. Horizontal sword is clean elegant and slender, never rectangular tubular or a barrel. Main weapon silhouette is more visible than motion effects. Match original palette and sparse two-tone surfaces closely, no new texture, no glossy finish, no painterly shading, no extra detail, no blur, no antialias, deliberate 48x48 pixel-art logic. Center glyph in square transparent canvas. No huge star, no many-point star, no circles or utility symbols, no gold magic, no letters, no numbers, no medical crosses, no physical shields, no firearms.",
+      "generated_original": "C:\\Users\\User\\.codex\\generated_images\\01a13ff1-8408-7662-adda-2263b4dd0ec3\\exec-932d6ec8-035c-4600-b139-a524f93e43e9.png",
+      "style_reference": "Docs/Art/SkillIcons/Unified/Output/Runtime192/role4.png"
+    },
+    "24": {
+      "id": 48,
+      "name": "받아치기",
+      "prompt": "Use case: precise-object-edit. Asset type: central pixel-art weapon glyph to composite into an existing 48x48 RPG skill badge. The supplied image is the old icon STYLE reference. Recreate only its central weapon motif with the same tiny chunky square-pixel scale, muted ivory/gray steel, warm brown leather hilt, thin muted bronze crossguard, two-tone sparse shading. REMOVE the square frame, REMOVE the dark inset, output ONLY the central glyph on genuine transparent background. Subject: TWO sword blades at a restrained decisive contact. The main broad longsword points from LOWER LEFT toward UPPER RIGHT, with clear short brown handle and bronze crossguard in lower-left. Its ivory tapered blade strikes an incoming THINNER horizontal steel thrust from the RIGHT and deflects it a little upward. Exactly one TINY ivory 2-pixel spark at the contact, not a many-point star, no explosion. Main broadsword blade thickness3 logical pixels; incoming blade thickness1 logical pixel and visibly subordinate. Overall weapon group fits32x28 logical pixels. Two real blade silhouettes must be distinct, bold readable weapon first, tiny effect last. Match original role5 palette, antique subdued appearance and sparseness closely; do not brighten rim to gold or add magic. Center glyph in square transparent canvas. No frame, no background, no shield, no oversized sparks, no shattered sword, no dozens of action lines, no extra weapons, no letters, no numbers, no cross icons, no blur, no antialias, deliberate 48x48 pixel-art logic.",
+      "generated_original": "C:\\Users\\User\\.codex\\generated_images\\01a13ff1-8408-7662-adda-2263b4dd0ec3\\exec-dd6c91ad-2106-4bc3-a963-d1270b8cdc9b.png",
+      "style_reference": "Docs/Art/SkillIcons/Unified/Output/Runtime192/role5.png"
+    }
+  }
+}

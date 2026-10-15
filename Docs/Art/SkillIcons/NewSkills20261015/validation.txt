@@ -1,0 +1,56 @@
+New skill icon validation — final native-style revision
+Final validation date: 2026-10-16 Asia/Seoul
+
+ART AND APPLIED RESOURCES: PASS
+- All 15 final icons use StyleRefinement/48 as their source.
+- Logical canvas 48x48; visible bounds at most 44x44; alpha only 0/255;
+  no more than 48 opaque colors; 15 distinct images.
+- Runtime PNGs are exactly nearest-neighbor 4x (192x192).
+- All role21..35 PNGs in Assets/Game/Resources/SkillRoles match the final output.
+- Protected native frame pixels have zero RGBA mismatches in report.json.
+- Metadata: Point filtering, Clamp, no mipmaps, no compression, centered pivot,
+  100 PPU, FullRect; 15 unique GUIDs, retained during reapplication.
+- Existing icon atlas1..15 and role16..20 PNGs/importers match the saved baseline.
+- CSV comparison against Git HEAD changes only the picture field of skills45..59,
+  mapping to21..35. Line endings normalized for comparison; other values equal.
+- LegacyDuelArt.SkillIconCount is35.
+
+VISUAL REVIEW: COMPLETED
+- Compared the existing Slash10 / Thrust4 / Hit5 / Defence15 canonical artwork.
+- Revised frame thickness, corner shape, leather values, steel brightness and size.
+- Final23/24 use approved native4/5 weapon pixels at the existing thickness.
+- Checked detached fragments, old hilt/tip ghosts, clipped centers and effect weight.
+- Reviewed enlarged contact sheets and 40/48/52px presentation samples.
+- A second agent independently reviewed the final23/24 and found no blocking defect.
+- Output/style-review.png shows the old references and new15 at the same scale.
+
+EDITABLE ASEPRITE MASTER: CONTENT PASS, NATIVE EXIT NONZERO
+- build_and_verify_master.lua saved and reopened NewSkillIcons-48.aseprite.
+- Its15 tagged frames matched all final logical PNGs pixel-for-pixel.
+- Independent CLI export with --list-tags reopened the saved master and wrote
+  Temp/NewSkillIconsBuild/master-roundtrip.png and .json.
+- verify_saved_master.py confirmed all15 exported frames and15 tags match.
+- Both Aseprite invocations returned native exit code -1073740791 after producing
+  the verified outputs. A successful process shutdown is not claimed.
+
+CODE VALIDATION COMPLETED BEFORE FINAL ART-ONLY REFINEMENT
+- TurnLimbo.Core.Tests.csproj build: succeeded, 0 warnings / 0 errors.
+- TurnLimbo.Presentation.Tests.csproj build: succeeded, 8 warnings / 0 errors.
+  Existing Logs/ProgressiveTempoBuild-20261015.targets included concurrent tempo
+  sources; no project file was modified. Warnings concerned existing unset fields
+  and obsolete Unity object search in existing code/tests.
+- Executed four actual NUnit EditMode methods through .NET reflection: PASS.
+  NewSkills_UseDistinctDedicatedIcons_IncludingTheTemporaryCut
+  ShippedSheet_UsesOnlyImportedIcons
+  ThirdStageReward_CancelsEarlierSkills_AndPowersTheNextOne
+  FieldPickupSkills_AreAcquisitionRowsWithOneExistingRuleEach
+- These were direct method invocations, not a Unity Test Runner run.
+- NewSkillIcons_LoadFromTheirDedicatedResourcesAtTheUnifiedSize compiled, but was
+  not executed in Unity. Actual Editor/Game View rendering was not checked.
+- Scoped git diff --check: PASS.
+
+PROVENANCE
+- Original generated artwork and complete prompts remain under GroupA/B/C.
+- CenterRefinement preserves the subsequent symbol-only generation inputs.
+- StyleRefinement/README.md and report.json document the native frame / weapon
+  references, cleanup exclusions, sources and output hashes.

@@ -1,6 +1,50 @@
 # 첫 전투·연출·컴팩트 HUD 검증
 
-최근 검증일: 2026-10-07. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
+최근 검증일: 2026-10-16. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
+
+## 팽팽한 합: 검이 튕길 때 피해 적용 (2026-10-16)
+
+첫 접촉에서 안전한 저항 교환인지 저장된 위력과 복사한 전투 상태로 확인한다. 붙잡는 동안 실제 첫 타격·피해 숫자·상태바 갱신을 보류하고, 검이 떨어지는 순간 기존 타격 처리를 한 번 실행한 뒤 양쪽 밀림을 나눈다. 접촉 불꽃·소리·히트 스톱은 먼저 나온다. 해제 때 정지를 추가하지 않으며 큰 프레임에서도 후속 타격을 같은 프레임에 처리하지 않는다. 큰 저항 피해도 공격 자세를 유지한다. 싱글·F1 디버그·대전이 같은 흐름을 사용한다.
+
+- **관련 EditMode 69/69 통과**, 실패·건너뜀 0. 새 `BladeBindHitEligibilityTests` 13개는 원본 상태·후속 난수 불변, 실제 타격과의 일치, 체력 피해·새 붕괴·성공 회피·압박 피해 제외, 반격의 확정 여부와 대전 대칭을 확인한다. 결과: `Logs/BladeBindRelease-20261016-71f26e-EditModeVerified.xml` 및 `.log`.
+- **최종 집중 PlayMode 11/11 통과**, 실패·건너뜀 0. 새 `BladeBindDamagePlayModeTests` 5개와 `ShowDirectorPlayModeTests` 6개다. 접촉·힘겨루기 중 HP/저항/숫자 불변과 입력 잠금, 해제 시 1회 피해·숫자·동일한 밀림, 3연타 계속, 큰 해제 프레임의 중복 타격 방지, 큰 저항 피해의 공격 자세 유지, 일시정지·재시작 및 호스트/게스트의 동일한 적용을 확인했다. 결과: `Logs/BladeBindRelease-20261016-71f26e-FinalPlayMode.xml` 및 `.log`. 감독의 기존 턴 시간 장부·상한 검사도 통과했다.
+- 먼저 실행한 관련 PlayMode는 **76개 중 72개 통과·4개 실패**였다(`Logs/BladeBindRelease-20261016-71f26e-PlayMode.xml`). 새 재시작 검사가 사용자 정의 전투를 재시작 후에도 유지한다고 잘못 가정한 1건은 일시정지·재시작을 각각 별도 전투에서 확인하도록 고쳐 위 최종 실행에서 통과했다. F1·스텝 입력/집중·반격·마무리·일시정지·점진 가속·소진 간격·대전 기존 검사는 모두 통과했다.
+- 나머지 **기존 큐 연출 검사 3건은 이전 HUD 코드에서도 동일하게 실패**했다. 격리 사본의 `LegacyCombatHud.Clash.cs`만 HEAD `138e981` 버전으로 교체하고 나머지는 유지한 비교 실행에서 `QueueClashPlayModeTests` 10개 중 7개 통과·동일한 3개 실패였다(`Logs/BladeBindRelease-20261016-71f26e-BaselineQueue.xml`). 두 건은 회전 z=-0.00029를 Unity가 근사 identity로 판단해 초기화를 건너뛰지만 검사는 정확 identity를 요구하는 차이이고, 한 건은 검사에서 복제한 설정을 컨트롤러·전장에만 연결하고 기존 HUD에는 연결하지 않은 구성 문제다. 관련 코드와 검사는 이번에 수정하지 않았다. 비교 뒤 최신 HUD로 복원했다.
+- 최종 Unity C# 컴파일 오류는 0개이며 위 두 최종 실행의 종료 코드는 0이다. 처음 샌드박스 실행은 라이선스 IPC 연결 제한으로 검사에 도달하지 못했고, 이후 격리 검증 실행 권한으로 정상 연결했다. 작성 중 검사 코드의 누락된 네임스페이스 1건도 수정 후 컴파일했다. 실행 환경은 기존 정상 격리 사본 `C:\Users\User\AppData\Local\Temp\swordmaster-tempo-validation-20261015-18c8b866`이며 원본 Editor는 조작하지 않았다. 최종 원본·사본·실행 소스/어셈블리 정의/연출 설정 363개가 SHA256으로 일치한다(`Logs/BladeBindRelease-20261016-71f26e-FinalHashEvidence.json`). 실제 자연 플레이의 체감과 별도 출시 빌드는 이번 검증 범위에 포함하지 않았다.
+
+## F1 전투 연출 디버그 모드 (2026-10-16)
+
+F1로 별도 미리보기를 열고 닫는다. 적·내 공격 수를 각각 0~10개로 조절하며 기본은 5 대 5다. 숫자를 바꾸거나 다시 재생을 누르면 즉시 새 세션을 시작하고, 한 턴을 마치면 자동 반복한다. 기존 체력 하한 규칙을 양쪽에 적용하여 피해·붕괴를 판정하되 죽지 않게 했다. 일반 세션의 새 `playerHealthFloor` 기본값은 0이므로 원래 사망 규칙은 유지한다.
+
+- 실제 전투 컨트롤러를 별도 자식 인스턴스에서 수동으로 진행한다. 원래 세션·시간·화면 활성 상태·선택·재생 중인 소리는 보관하며, 미리보기는 저장소를 만들지 않고 경험치·보상·자동 저장을 차단한다. 온라인 화면에서는 진입을 허용하지 않는다. 미리보기를 닫으면 숨겨진 인스턴스를 재사용한다.
+- **신규 Runtime EditMode 11/11 통과.** 전체 EditMode는 1,433개 중 1,424개 통과·기존 별도 아이콘 기대값 실패 9개, 종료 코드 2다. 공격 수·빈 큐·양측 무적·붕괴·초과 피해·Reset·예측 복사·기존 사망 규칙을 확인했다. 결과: `Logs/CombatDebug-20261015-4044fc41-EditMode.xml` 및 `.log`.
+- 첫 관련 PlayMode는 42개 중 39개 통과, 새 디버그 진입 검사 3개 실패였다. 스테이지 전환 직후 표시되는 시각적 로딩 화면에 진입 금지 조건이 걸린 것이 원인이었다. 화면 전환이 동기식이고 로딩은 독립된 시각 효과임을 확인하고 이 불필요한 금지를 제거했다. 기존 Pause 6개·DuelPrototype 8개·소진 간격 3개·점진 가속 5개·수련 5개·대전 11개는 전부 통과했다. 첫 결과: `Logs/CombatDebug-20261015-4044fc41-PlayMode.xml`.
+- **최종 관련 PlayMode 19/19 통과**, 실패·건너뜀 0, 종료 코드 0. 디버그 5개·스토리 다시보기 5개·숲/환경음 9개다. 실제 F1 왕복, 원래 전투 동결·복원, 공격 수 버튼과 범위, 10회 일방 공격에서도 생존·자동 반복, 경험치·재화·저장 불변, 미리보기 재사용·공용 EventSystem·카메라 수, 온라인 진입 차단을 확인했다. 추가 복원 검사에서 자식 오디오 루프의 재생 위치와 열린 스토리 목록도 확인했다. 결과: `Logs/CombatDebug-20261015-4044fc41-FinalPlayMode2.xml` 및 `.log`.
+- 독립 검토로 발견한 자식 오디오 중단과 스토리 목록 닫힘을 고쳤다. 원래 재생 중이던 자식 AudioSource는 화면 복귀 후 위치를 복원하며, `LobbyStoryLauncher.Update`는 디버그 관람 중 숨겨진 로비에 반응하지 않는다.
+- 정상 격리 프로젝트 `C:\Users\User\AppData\Local\Temp\swordmaster-tempo-validation-20261015-18c8b866`에서 최신 소스 해시를 확인한 뒤 실행했다. 원본 Editor·진행 저장·생성 프로젝트 파일은 조작하지 않았고 최종 Unity 컴파일 오류는 0개다. 이번 모드의 사용법과 비교 예시는 `PresentationTuning.md`의 'F1 전투 연출 디버그 관람'에 있다.
+- 마지막으로 관람 중 사용할 수 없는 A/D 스텝 안내·판정 링을 숨겼으며 예고 시간은 유지했다. 이 마지막 변경 뒤 디버그 5개와 임시 시각 검사 1개 **6/6 통과**, 종료 코드 0이다(`Logs/CombatDebug-20261015-4044fc41-FinalDebugVisual.xml`). 1600×900 캡처 `Logs/CombatDebug-20261015-4044fc41-1600x900.png`를 육안 확인하여 상단 옵션·하단 대기열과 안내 숨김을 확인했다. Overlay Canvas를 임시 카메라로 렌더한 캡처이므로 캐릭터 부착 HP 패널 위치의 실제 Game View 검증을 대신하지 않는다. 임시 probe는 검증 사본에서 정리했고 원본·검증 사본·실행 당시 소스 64개는 최종 SHA256이 일치한다(`Logs/CombatDebug-20261015-4044fc41-FinalHashEvidence.json`).
+
+## 속도감 비교 1단계: 소진 공격 뒤 스킬 간격 압축 (2026-10-15)
+
+아래 '전투 후반·대기열 소진 가속'의 첫 구현에서 소진 추가 통배속 기본값을 2에서 1로 바꿨다. 대신 실제 공격 대 빈칸이 끝난 뒤 다음 스킬까지의 대기를 25%로 줄인다. 기본 간격은 0.28→0.07초이며 기존 점진 가속이 그 위에 적용된다. 연타 간격·공격 클립·회수 동작·첫 타격 전 스텝 시간은 유지한다. 반격이 채운 칸, 숨고르기·방어가 남은 칸은 압축하지 않는다. Inspector의 `Exhausted Gap Scale`을 1로 설정하면 이번 간격 변경을 비교할 수 있다. 적용 자산에는 `exhaustedSideSpeed: 1`, `exhaustedGapScale: 0.25` 두 필드만 추가했다.
+
+- **새 간격 PlayMode 3/3 통과**, 기존 점진 가속 PlayMode 5/5 통과. 새 검사는 실제 시간을 비교하여 스킬 사이 대기만 0.28→0.07초가 되고 첫 타격·3연타 간격·히트 스톱·회수·스텝 성공 구간·피해·저항이 같은지 확인했다. 숨고르기→방어→빈칸 전환, 다음 턴 복귀, 대전 양쪽의 동일한 간격도 확인했다.
+- **관련 PlayMode 총 67개 중 65개 통과·기존 실패 2개**, 건너뜀 0, 종료 코드 2. 실패는 바로 아래 기록에서 HEAD `138e981`과 비교한 `CombatTempo.MultiHit`의 이동/대기 프레임과 `ReadRewards` 도장 검사 두 건과 동일하다. 이번 변경으로 새로 실패한 검사는 없다. 결과: `Logs/ExhausedGap-20261015-556883dc-PlayMode.xml` 및 `.log`.
+- **EditMode 1,422개 중 1,413개 통과·별도 아이콘 작업 실패 9개**, 종료 코드 2. 이번 `CombatTempoTests` 12개는 전부 통과했다. 실패 9개는 작업 시작부터 함께 변경 중이던 `LegacySkillDefinitionTests.KeywordCurriculumRows_HoldTheirSheetValues`의 51~59번 기술 아이콘 기대값과 새 시트 값(27~35)의 불일치다. 해당 스킬·아이콘·검사 파일은 이번 간격 작업에서 수정하지 않았다. 결과: `Logs/ExhausedGap-20261015-556883dc-EditMode.xml` 및 `.log`.
+- 정상 격리 프로젝트 `C:\Users\User\AppData\Local\Temp\swordmaster-tempo-validation-20261015-18c8b866`에 최신 Assets/Packages/ProjectSettings를 복사하고 변경 코드·메타·설정 자산 21개가 SHA256으로 일치한 상태에서 실행했다. 최종 Unity C# 컴파일 오류는 0개다. 원본 Editor는 조작하지 않았으며 자연 플레이의 체감은 자동 검사 범위가 아니다.
+- 실행 후 최종 해시도 21개 모두 일치했다(`Logs/ExhausedGap-20261015-556883dc-FinalHashEvidence.json`). 별도 아트 작업이 그 이후 추가한 `Assets/Game/Resources/SkillRoles/role21~35.png`와 메타 30개는 이번 실행 사본에 포함되지 않았다. 해당 작업의 검증 결과와 이번 간격 기능의 검증 결과를 구분한다.
+
+## 전투 후반·대기열 소진 가속 (2026-10-15)
+
+한 턴의 대기열 순서에 따라 칸마다 +0.1배, 최대 1.8배로 재생하며 정확히 한쪽이 빈칸이면 현재 배속에 2배를 곱한다. 숨고르기·방어는 빈칸으로 세지 않는다. 다음 턴에 초기화하며 기존 일방 공격 가속과 중첩하지 않는다. 스텝 입력 전 실제 시간, 반격 확정, 히트 스톱·팽팽한 합·결정타 슬로모션은 유지한다. 싱글·대전의 설정과 계산을 공유한다. 수치는 `PresentationTuning.md`의 '전투 후반 가속'에 있다.
+
+- **EditMode 전체 1,419/1,419 통과**, 실패·건너뜀 0, Unity 종료 코드 0. 새 `CombatTempoTests` 10개를 포함한다. 결과: `Logs/ProgressiveTempo-20261015-6cd5cc82-FreshEditMode.xml`, 실행 로그는 같은 이름의 `.log`.
+- **관련 PlayMode 64개 중 62개 통과, 기존 실패 2개**, 건너뜀 0, 종료 코드 2. 새 `ProgressiveCombatTempoPlayModeTests` 5/5, `ShowDirector` 6/6, `UnopposedStreak` 7/7, `StepInput` 14/14, `StepFocusIntegration` 6/6, `FinishingBlow` 2/2, `VersusBattleScreen` 11/11 통과. 점진 가속·상한·다음 턴 초기화, 빈칸 즉시 2배, 숨고르기 구분, 가속 전후 동일한 피해·저항, 첫 타격까지의 입력 시간과 반격, 대전 양쪽 동일 배율을 확인했다. 결과: `Logs/ProgressiveTempo-20261015-6cd5cc82-FinalPlayMode.xml` 및 `.log`.
+- **남은 실패는 변경 전에도 동일하다.** `CombatTempoPlayModeTests.MultiHit_UsesPlaybackAndAttackGap_ReturnsToIdle_AndFinishesAfterLastClip`은 공격 간격의 스프라이트가 `idle-frame-*` 대신 `move-frame-01`이고, `ReadRewardsPlayModeTests.TheEnemysRead_IsNoCue_AndTheCueAndItsStampSwitchOff`는 도장을 끈 검사에서 표시가 남는다. HEAD `138e981`의 원본 파일로 같은 격리 환경에서 비교한 결과 기존 58개 중 49개 통과·9개 실패였으며, 위 두 실패의 내용도 동일했다. 근거: `Logs/ProgressiveTempo-20261015-6cd5cc82-BaselinePlayMode.xml` 및 `.log`. 이번 변경으로 새로 실패한 검사는 없다.
+- 도장 검사 실패는 fixture가 컨트롤러·전장의 설정만 복사본으로 바꾸고 HUD는 생성 당시 원본 설정을 계속 참조하는 것으로 코드에서 확인했다. 실제 게임에서 같은 설정 자산을 사용하는 경로의 도장 끄기 결함을 입증하는 결과는 아니다. 이 추가 fixture 수정과 공격 간격의 이동/대기 동작 판별은 이번 가속 작업에서 다루지 않았다.
+- 비교 검사에서 기본 설정과 끄기 설정을 한 JSON에 중복 키로 넣어 끄기가 무시되는 문제를 확인했다. `ShowDirector`, `UnopposedStreak`, `ReadRewards` 및 새 가속 fixture는 기본 설정을 먼저 적용한 뒤 추가 설정을 별도로 덮어쓰게 고쳤으며 검사 조건은 유지했다. 기존 감독 장부·정해진 클립 시간 검사는 새 가속을 꺼서 각각의 시간을 독립적으로 검사한다.
+- 최종 Unity 실행의 C# 컴파일 오류는 0개다. 새 소스 3개를 포함한 `.NET` 검사 프로젝트 두 개도 오류 0개로 빌드했다. 자동 생성 프로젝트는 편집하지 않고 `Logs/ProgressiveTempoBuild-20261015.targets`를 외부 주입했다.
+- 실행 환경: `C:\Users\User\AppData\Local\Temp\swordmaster-tempo-validation-20261015-18c8b866`. 원본 Editor를 조작하지 않고 Assets/Packages/ProjectSettings를 복사했으며 최종 변경 소스·메타 14개가 SHA256으로 일치한 상태에서 검사했다(`Logs/ProgressiveTempo-20261015-6cd5cc82-FinalSourceHashes.json`). 기존 격리 캐시의 패키지·AssetDatabase 누락으로 테스트 시작 전 실패한 기록은 보존하고 새 검증 환경에서 다시 실행했다. 전체 PlayMode, 출시 빌드와 자연 플레이의 체감 평가는 이번 검증 범위에 포함하지 않았다.
 
 ## 학교 복도 배경 적용 (2026-10-07)
 

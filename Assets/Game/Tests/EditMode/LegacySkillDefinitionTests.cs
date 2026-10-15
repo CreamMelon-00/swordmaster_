@@ -111,7 +111,7 @@ namespace TurnLimbo.Core.Tests
                 Is.EqualTo(("자세 잡기", 1, 3, 5, 1, 2)));
             Assert.That((posture.Kind, posture.Property),
                 Is.EqualTo((LegacySkillKind.Defence, LegacySkillProperty.Defence)));
-            Assert.That(posture.IconId, Is.EqualTo(9), "Reuse an existing E guard icon until dedicated art exists.");
+            Assert.That(posture.IconId, Is.EqualTo(21), "Its dedicated focus-and-guard icon.");
             LegacySkillDefinition definition = LegacySkillDefinitions.Find(posture);
             Assert.That(definition.Effect.QueueRemovalMode, Is.EqualTo(LegacyQueueRemovalMode.Cancel));
             Assert.That(definition.Effect.QueuePowerMultiplierCap, Is.EqualTo(5));
@@ -186,7 +186,7 @@ namespace TurnLimbo.Core.Tests
             {
                 LegacySkillDefinition definition = LegacySkillDefinitions.Find(skill);
                 Assert.That(LegacySkillDefinitions.Table.GroupOf(definition), Is.EqualTo(LegacySkillGroup.Acquisition), skill.Name);
-                Assert.That(skill.IconId, Is.InRange(1, 17), skill.Name + " reuses an existing player icon.");
+                Assert.That(skill.IconId, Is.InRange(23, 26), skill.Name + " has its own field-skill icon.");
                 Assert.That(definition.Text.Purpose, Is.Not.Null, skill.Name);
                 Assert.That(definition.Text.Effect, Is.Not.Null, skill.Name);
                 Assert.That(CampaignCurriculum.Default.FindGranting(skill.Id), Is.Null, skill.Name + " is not a curriculum reward.");
@@ -401,9 +401,20 @@ namespace TurnLimbo.Core.Tests
         public void ShippedSheet_UsesOnlyImportedIcons()
         {
             // Presentation's LegacyDuelArt.SkillIconCount; the runtime does not know the art source.
-            const int skillIconCount = 20;
+            const int skillIconCount = 35;
             foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 Assert.That(definition.Skill.IconId, Is.InRange(1, skillIconCount), "icon of " + definition.Skill.Id);
+        }
+
+        [Test]
+        public void NewSkills_UseDistinctDedicatedIcons_IncludingTheTemporaryCut()
+        {
+            int[] icons = Enumerable.Range(45, 15)
+                .Select(id => LegacySkillDefinitions.Skill(id).IconId).ToArray();
+            Assert.That(icons, Is.EqualTo(Enumerable.Range(21, 15).ToArray()),
+                "The new skills must not fall back to unrelated attack or guard art.");
+            Assert.That(LegacySkillDefinitions.TemporarySkills.Single(s => s.Id == 59).IconId,
+                Is.EqualTo(35));
         }
 
         [TestCase(16, "알티바호")]

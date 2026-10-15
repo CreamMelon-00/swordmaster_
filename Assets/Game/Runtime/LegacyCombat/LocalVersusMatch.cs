@@ -694,6 +694,23 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return slot;
         }
 
+        /// <summary>Whether the first hit of the current slot reaches only both blades, without health loss or a new
+        /// break. Uses stored powers on copied fighters, leaving match state and random rolls untouched. It is identical
+        /// from either player's perspective; the director separately checks the power gap and time allowance.</summary>
+        public bool CanBindCurrentHit()
+        {
+            LocalVersusSlot slot = CurrentSlot;
+            if (Phase != LegacyDuelPhase.Resolving || slot == null || slot.HitsResolved != 0 || slot.IsResolved ||
+                !HasAttackHit(slot.LeftSkill, 0) || !HasAttackHit(slot.RightSkill, 0)) return false;
+            LegacyFighterState left = Left.State.Copy(), right = Right.State.Copy();
+            LegacyHitImpact rightImpact = ResolveHit(slot.LeftSkill, slot.RightSkill, slot.LeftPower, slot.RightPower,
+                right, slot.RightReceivedMultiplier, out _);
+            LegacyHitImpact leftImpact = ResolveHit(slot.RightSkill, slot.LeftSkill, slot.RightPower, slot.LeftPower,
+                left, slot.LeftReceivedMultiplier, out _);
+            return LegacyQueuedDuel.IsResistanceOnlyHit(Left.State, left, leftImpact) &&
+                LegacyQueuedDuel.IsResistanceOnlyHit(Right.State, right, rightImpact);
+        }
+
         public LocalVersusHit ResolveNextHit()
         {
             if (Phase != LegacyDuelPhase.Resolving || CurrentSlot == null || CurrentSlot.IsResolved)

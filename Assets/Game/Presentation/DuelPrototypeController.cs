@@ -11,7 +11,7 @@ using UnityEngine.InputSystem;
 
 namespace TurnLimbo.Presentation
 {
-    public sealed class DuelPrototypeController : MonoBehaviour
+    public sealed partial class DuelPrototypeController : MonoBehaviour
     {
         private const float PlanningDuration = 10f;
         private float CurrentPlanningDuration => planningDuration;
@@ -165,6 +165,7 @@ namespace TurnLimbo.Presentation
         private int directorRound = -1;
         // A blade bind holds the battle's clock for this many real seconds more, after the hit stop.
         private float bladeBindRemaining;
+        private bool bladeBindHitPending, releasingBladeBindHit;
         // While a blade bind holds, the camera comes in by this share of a Major slot's push.
         private const float BladeBindCameraShare = .6f;
         // 결정적 한 수 (2026-10-15): the battle's most important slot, recorded while candidate slots play and replayed once
@@ -279,7 +280,7 @@ namespace TurnLimbo.Presentation
         public LegacyShowDirector ShowDirector => showDirector;
         /// <summary>Real seconds the current blade bind still holds the battle's clock (after the hit stop); 0 while none.</summary>
         public float BladeBindTimeRemaining => bladeBindRemaining;
-        /// <summary>일방 공격 가속 (2026-10-15): how many times faster the battle's clock runs this frame for a run of
+        /// <summary>The legacy unopposed-streak multiplier, used only when progressive tempo is off. It speeds a run of
         /// unopposed slots (<see cref="LegacyShowDirector.StreakSpeed"/>; the wait after such a slot,
         /// <see cref="LegacyShowDirector.GapSpeed"/>). Before a slot's first hit only where no step can be taken and no 반격
         /// waits to fill the slot, so a step window keeps its real time; 1 anywhere else. Another slow motion (a step's, the
@@ -294,6 +295,21 @@ namespace TurnLimbo.Presentation
                 if (slot == null) return 1f;
                 if (slot.HitsResolved == 0 && !StreakFromSlotStart(slot)) return 1f;
                 return showDirector.StreakSpeed;
+            }
+        }
+        /// <summary>The turn's progressive playback speed, with an optional multiplier after either queue runs out. The first impact keeps
+        /// its real-time step window whenever a step or pending counter can still change the slot.</summary>
+        public float ResolutionPlaybackSpeed
+        {
+            get
+            {
+                if (viewPhase == ViewPhase.BetweenSlots) return showDirector.PlaybackGapSpeed;
+                if (viewPhase == ViewPhase.ClosingDistance)
+                    return showDirector.Tempo.Enabled ? showDirector.PlaybackGapSpeed : 1f;
+                if (viewPhase != ViewPhase.PlayingSlot) return 1f;
+                LegacyCurrentSlot slot = session?.CurrentSlot;
+                if (slot == null || slot.HitsResolved == 0 && !StreakFromSlotStart(slot)) return 1f;
+                return showDirector.PlaybackSpeed;
             }
         }
         /// <summary>결정적 한 수: the battle's decisive-moment recording and its replay over the result.</summary>
@@ -317,6 +333,7 @@ namespace TurnLimbo.Presentation
         }
         // A cut-in holds the battle: no step is judged against its held cue.
         public bool CanStep => session != null && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
+            !bladeBindHitPending &&
             StepFeatures.AllowsAnyStep() &&
             session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
@@ -431,11 +448,12 @@ namespace TurnLimbo.Presentation
             localVersus = new LocalVersusController(transform, art, arena, () => ShowTitle(), presentationSettings);
             onlineVersus = new OnlineVersusController(transform, art, localVersus, () => ShowTitle());
             loadingHud = DuelLoadingHud.Create(transform, art.UIFont);
-            saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
+            if (!combatDebugInstance) saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
             session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
             ResetBattlePresentation();
             lobbyHud.ResetView();
-            ShowTitle();
+            if (combatDebugInstance) BeginCombatDebugLoop();
+            else ShowTitle();
         }
 
         private void Update()
@@ -446,6 +464,7 @@ namespace TurnLimbo.Presentation
         private void AdvancePresentation(float realDelta, Keyboard keyboard)
         {
             realDelta = Mathf.Max(0f, realDelta);
+            if (AdvanceCombatDebug(realDelta, keyboard)) return;
             // The online room ticks its battle itself (the versus duel only runs under it).
             if (onlineVersus != null && onlineVersus.IsActive)
             {
@@ -627,9 +646,9 @@ namespace TurnLimbo.Presentation
             if (IsResolving) speed = Mathf.Min(speed, arena.StepPresentationSpeed);
             // The finishing blow's longer slow motion takes over from the decisive close-up's.
             if (finale.IsRunning) speed = finale.CombatSpeed;
-            // 일방 공격 가속: a run of unopposed slots plays faster and faster (never a Major or Climax slot, never before a
-            // slot's first hit while a step could be taken there, never under another slow motion).
-            else if (IsResolving && speed >= 1f) speed *= StreakPlaybackSpeed;
+            // Each later slot plays faster, with an optional multiplier once one queue is exhausted. Step windows keep their
+            // real time, and a cinematic slow motion still owns its clock. The old streak is a tuning fallback only.
+            else if (IsResolving && speed >= 1f) speed *= ResolutionPlaybackSpeed;
             float stoppedTime = Mathf.Min(realDelta, hitStopRemaining);
             hitStopRemaining = Mathf.Max(0f, hitStopRemaining - stoppedTime);
             // The hit that brought the enemy to the event's threshold has landed and its hit stop has played out.
@@ -727,7 +746,8 @@ namespace TurnLimbo.Presentation
                 case ViewPhase.Settling:
                     if (arena.ReturnComplete)
                     {
-                        if (session.IsFinished)
+                        if (combatDebugInstance) BeginCombatDebugLoop();
+                        else if (session.IsFinished)
                         {
                             FinishStage();
                         }
@@ -741,7 +761,7 @@ namespace TurnLimbo.Presentation
             // A signature move's strike trail, sampled like the pressure trail after this frame's holds.
             arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot);
             // 결정적 한 수: a picture of the arena camera when one is due (only while a candidate slot or its tail records).
-            decisiveReplay.Capture(realDelta, arena.ArenaCamera);
+            if (!combatDebugInstance) decisiveReplay.Capture(realDelta, arena.ArenaCamera);
             if (viewPhase != ViewPhase.Outcome)
             {
                 RefreshHudClock(delta, realDelta);
@@ -781,7 +801,9 @@ namespace TurnLimbo.Presentation
             if (waitBetweenSlots)
             {
                 // After a Minor slot the wait is shorter too (the director saves the time).
-                betweenSlotsDuration = showDirector.ShortenGap(Mathf.Max(0f, presentationSettings.SkillInterval));
+                // The exhausted attack's empty gap is compressed without speeding its clip or funding extra emphasis.
+                betweenSlotsDuration = showDirector.ShortenGap(Mathf.Max(0f, presentationSettings.SkillInterval))
+                    * showDirector.PlaybackGapScale;
                 if (betweenSlotsDuration > 0f)
                 {
                     SetViewPhase(ViewPhase.BetweenSlots);
@@ -832,7 +854,7 @@ namespace TurnLimbo.Presentation
             // A signature move's windup glow gathers to its first strike (the steps' windup is untouched).
             BeginSignatures(startRank, playerAction, slot.EnemySkill, slotAnticipationDuration + slotImpactTime);
             // 결정적 한 수: a candidate slot is recorded from its windup (never in training).
-            if (!IsTrainingBattle) decisiveReplay.BeginSlot(startRank, arena.ArenaCamera);
+            if (!IsTrainingBattle && !combatDebugInstance) decisiveReplay.BeginSlot(startRank, arena.ArenaCamera);
             // 자동 회피: the skill steps back from the attack by itself as the slot starts, with the dodge's sound but none of a
             // timed step's slow motion; A is not taken in this slot (D still is).
             if (slot.AutoDodge && slot.DodgeSucceeded)
@@ -878,13 +900,14 @@ namespace TurnLimbo.Presentation
 
         private void UpdateSlot(float delta)
         {
+            if (bladeBindHitPending) return;
             LegacyCurrentSlot slot = session.CurrentSlot;
             float attackTime = slotImpactTime + slotCycleDuration * slot.HitsResolved;
             float animationClipEnd = slotCycleDuration * slot.HitsResolved + OriginalClipDuration / slotPlaybackSpeed;
             if (!slot.IsResolved && phaseTime >= attackTime)
             {
                 bool firstStepImpact = slot.HitsResolved == 0 && (slot.DodgeSucceeded || slot.PressureSucceeded);
-                if (!arena.IsInRange && !firstStepImpact)
+                if (!releasingBladeBindHit && !arena.IsInRange && !firstStepImpact)
                 {
                     // Movement keeps running while this contact frame waits.
                     // Pausing the slot clock prevents off-screen air strikes or
@@ -897,6 +920,8 @@ namespace TurnLimbo.Presentation
                         return;
                     }
                 }
+                // The blades touch now, but this first hit lands only when their struggle releases.
+                if (!releasingBladeBindHit && TryBeginBladeBind(slot.SlotIndex, attackTime)) return;
                 int playerResistanceBefore = session.Player.Resistance;
                 int enemyResistanceBefore = session.Enemy.Resistance;
                 int playerHealthBefore = session.Player.Health;
@@ -960,12 +985,6 @@ namespace TurnLimbo.Presentation
                 if (hit.Outcome == DuelMatchOutcome.InProgress && !missionEventPending)
                     barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage),
                         Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage));
-                // An even 합's first hit, both blades met and neither body reached: the two hold in a blade bind.
-                if (hit.Outcome == DuelMatchOutcome.InProgress && hit.HitIndex == 0 && !missionEventPending &&
-                    hit.PlayerAttacked && hit.EnemyAttacked && !hit.PlayerDodged && !enemyBrokeNow && !playerBrokeNow &&
-                    !decisiveNow && BladesOnly(hit.EnemyHealthDamage, hit.EnemyResistanceDamage, hit.EnemyDisplayedDamage) &&
-                    BladesOnly(hit.PlayerHealthDamage, hit.PlayerResistanceDamage, hit.PlayerDisplayedDamage))
-                    BeginBladeBind(slot.SlotIndex);
                 // A Minor slot (no attack) plays its rest after its last hit faster, as the director saves time.
                 if (hit.Outcome == DuelMatchOutcome.InProgress && slot.IsResolved && showDirector.ShortensSlot)
                 {
@@ -1015,8 +1034,9 @@ namespace TurnLimbo.Presentation
             directorSession = session;
             directorRound = session.RoundNumber;
             bladeBindRemaining = 0f;
+            bladeBindHitPending = false;
             showDirector.BeginTurn(presentationSettings.ShowPacing, presentationSettings.SlotImportanceTuning(),
-                presentationSettings.UnopposedStreak);
+                presentationSettings.UnopposedStreak, presentationSettings.CombatTempo);
         }
 
         // Forgets the director's turn and any bind (a reset, a new battle, the lobby, the result).
@@ -1026,10 +1046,11 @@ namespace TurnLimbo.Presentation
             directorSession = null;
             directorRound = -1;
             bladeBindRemaining = 0f;
+            bladeBindHitPending = releasingBladeBindHit = false;
             arena.ClearBladeBind();
         }
 
-        // 일방 공격 가속 may speed a slot up from its start only when nothing before its first hit can change it: no step can be
+        // Playback may speed a slot up from its start only when nothing before its first hit can change it: no step can be
         // taken there (the steps are closed, or the slot is meshed) and no 반격 waits to fill it. Otherwise it waits for the
         // first hit, so the windup and the step window keep their real time.
         private bool StreakFromSlotStart(LegacyCurrentSlot slot)
@@ -1099,21 +1120,29 @@ namespace TurnLimbo.Presentation
                 art.PlayClash(effectsSource, true, false, presentationSettings.SignatureImpactVolume);
         }
 
-        // A hit that met only the other's blade: no health lost and nothing shown beyond the resistance lost.
-        internal static bool BladesOnly(int healthDamage, int resistanceDamage, int displayedDamage)
-            => healthDamage <= 0 && displayedDamage <= Mathf.Max(0, resistanceDamage);
-
         // The director's blade bind for this slot, as long as the turn can afford: the arena's fighters and the seam's cards
-        // hold at the contact on the same real seconds, the locked blades grinding.
-        private void BeginBladeBind(int slotIndex)
+        // hold at contact on the same real seconds. The rules and damage presentation wait for the blades to spring apart.
+        private bool TryBeginBladeBind(int slotIndex, float attackTime)
         {
+            if (!showDirector.Enabled || !showDirector.IsBladeBindCandidate || missionEventPending ||
+                !session.CanBindCurrentHit()) return false;
+            // Allocate the contact's emphasis before its bind, as for an ordinary hit. A refused bind still gets the
+            // normal impact below; releasing an accepted bind must not add another stop to the turn's budget.
+            PresentMajorMoment(false);
             float seconds = showDirector.BladeBind();
-            if (!(seconds > 0f)) return;
+            if (!(seconds > 0f)) return false;
+            phaseTime = attackTime;
+            arena.HoldSlotAtTime(attackTime);
+            hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
+            bladeBindHitPending = true;
             bladeBindRemaining = seconds;
+            arena.PresentBladeBindContact();
             arena.BeginBladeBind(seconds, presentationSettings.BladeBindSway, presentationSettings.BladeBindPress,
                 presentationSettings.BladeBindSpring, presentationSettings.BladeBindSparks);
+            hud.ObserveClash(session);
             hud.BindClash(slotIndex, seconds, presentationSettings.BladeBindSparks);
             art.PlayClash(effectsSource, true, false, .4f);
+            return true;
         }
 
         // Plays up to <paramref name="available"/> real seconds of the blade bind and returns what it took (0 while none).
@@ -1122,6 +1151,15 @@ namespace TurnLimbo.Presentation
             if (!(bladeBindRemaining > 0f)) return 0f;
             float bound = Mathf.Clamp(available, 0f, bladeBindRemaining);
             bladeBindRemaining -= bound;
+            bool released = bladeBindRemaining <= 1e-5f && bladeBindHitPending;
+            if (released)
+            {
+                bladeBindHitPending = false;
+                releasingBladeBindHit = true;
+                // Resolve exactly once, while the arena can still share the hit's pushes in FinishBladeBind.
+                try { UpdateSlot(0f); }
+                finally { releasingBladeBindHit = false; }
+            }
             arena.AdvanceBladeBind(bound);
             hud.AdvanceClashBind(bound);
             if (bladeBindRemaining <= 1e-5f)
@@ -1132,12 +1170,14 @@ namespace TurnLimbo.Presentation
                 // Both spring apart alike: the blades let go of each other.
                 art.PlayClash(effectsSource, true, true, .35f);
             }
-            return bound;
+            // Show the released hit for a frame even after a long stall; leftover time must not batch the next hit.
+            return released ? Mathf.Max(bound, available) : bound;
         }
 
         private void RecordResolvedSkillSlot(LegacyCurrentSlot slot)
         {
             hud.RecordResolvedSlot(slot.PlayerSkill, slot.EnemySkill, playerSlotDamage, enemySlotDamage);
+            if (combatDebugInstance) return;
             CampaignOwnedSkill owned = slot.PlayerSkill == null ? null : campaign.GetOwnedSkill(slot.PlayerSkill.Id);
             int previousLevel = owned?.Level ?? 0;
             if (campaign.TryGainClashExperience(slot.PlayerSkill, slot.EnemySkill))
@@ -1204,8 +1244,11 @@ namespace TurnLimbo.Presentation
             // shows its 0 HP as before; the break callout tells the rest.
             bool resistanceNumber = !bodyHit && resistanceDamage > 0 && displayedDamage == resistanceDamage;
             // Both sides of a simultaneous clash share the same real-time stop.
-            hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
-            arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded, emphasised, pushPower, exchange, decisive);
+            if (!releasingBladeBindHit)
+                hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
+            // A locked pair releases in its strike pose, including a large resistance-only number.
+            arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded,
+                emphasised && !releasingBladeBindHit, pushPower, exchange, decisive);
             if (decisive) hud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
             hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber);
@@ -1469,6 +1512,7 @@ namespace TurnLimbo.Presentation
 
         public void RestartMatch()
         {
+            if (combatDebugInstance) { BeginCombatDebugLoop(); return; }
             CloseDialogue();
             ClearMissionState();
             campaign.Reset();
@@ -2086,7 +2130,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Writes the persistent progress after a settled change. Never during a battle's own state.</summary>
         private void AutoSave()
         {
-            if (!AutoSaveEnabled || saveStore == null) return;
+            if (combatDebugInstance || !AutoSaveEnabled || saveStore == null) return;
             if (!saveStore.TrySave(GameSave.Capture(prologue, campaign, openingChoice, openingCompleted), out string error))
                 Debug.LogWarning(error);
         }
@@ -2531,6 +2575,7 @@ namespace TurnLimbo.Presentation
 
         private void FinishStage()
         {
+            if (combatDebugInstance) { BeginCombatDebugLoop(); return; }
             if (IsShowingResult || !session.IsFinished) return;
             if (IsTrainingBattle)
             {
@@ -3019,7 +3064,7 @@ namespace TurnLimbo.Presentation
 
         /// <summary>This battle's bark file: <c>Barks/mission-NN</c> for a story mission, <c>Barks/stage-NN</c> for a stage, none
         /// in training.</summary>
-        private string BarkResource => IsTrainingBattle ? null
+        private string BarkResource => combatDebugInstance || IsTrainingBattle ? null
             : IsMission ? BarkScript.MissionResource(mission.Number) : BarkScript.StageResource(campaign.StageNumber);
 
         private void RefreshGuide()
@@ -3086,7 +3131,7 @@ namespace TurnLimbo.Presentation
             meshCues.SyncLinks(session);
             meshCues.Tick(realDelta, arena.ArenaCamera, arena.PlayerRenderer.transform);
             stepHud.BindActor(arena.ArenaCamera, arena.PlayerRenderer.transform);
-            stepHud.Refresh(CanStep, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,
+            stepHud.Refresh(CanStep && !combatDebugInstance, session.CurrentSlot, StepCueProgress, IsStepTimingWindow,
                 StepWindowFraction, session.UsedStepThisTurn, session.StepAttemptsThisTurn, session.StepMissedThisTurn,
                 StepFeatures, session.StepSuccessStreak, session.IsCurrentSlotMeshed);
             resistanceFeedback.Tick(realDelta, arena.ArenaCamera,
@@ -3114,6 +3159,7 @@ namespace TurnLimbo.Presentation
 
         private void OnDisable()
         {
+            if (!combatDebugInstance) SetCombatDebugMode(false);
             pauseHud?.Hide();
             stepAudio?.Stop();
             breakImpactCue?.Reset();
@@ -3124,6 +3170,7 @@ namespace TurnLimbo.Presentation
 
         private void OnDestroy()
         {
+            DisposeCombatDebug();
             // First, while the arena and the screens it touches still exist: it releases the senior knight's runtime art
             // and its sounds, and gives a suspended battle's arena back. Its continuation never runs.
             cutscene?.Dispose();

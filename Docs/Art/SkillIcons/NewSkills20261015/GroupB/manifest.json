@@ -1,0 +1,125 @@
+{
+  "method": "built-in image_gen + Unified/build_icons.normalize",
+  "icons": {
+    "role26": {
+      "skill_id": 50,
+      "name": "끝내기",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_bbox": [
+        136,
+        71,
+        1119,
+        1183
+      ],
+      "output_bbox": [
+        4,
+        2,
+        43,
+        46
+      ],
+      "opaque_colors": 46,
+      "source_sha256": "9a20ed51ee12b035fbc4c66a3cfb7f3d0cc9b1c306ddd4e1e1a114462994beb6",
+      "logical_sha256": "3d0726d5a32bda8cf3a45f11e5db7b7809c4292fe1ca82f8102354c781f0fa40",
+      "runtime_sha256": "2771ce8bcf26e7a33cc406a86eabf2f4a80f80dfacd8cb67d0ee4f9a7035a42d"
+    },
+    "role27": {
+      "skill_id": 51,
+      "name": "에스토카다",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_bbox": [
+        130,
+        53,
+        1123,
+        1197
+      ],
+      "output_bbox": [
+        5,
+        2,
+        43,
+        46
+      ],
+      "opaque_colors": 45,
+      "source_sha256": "e9666da7b7e14ab536bc48211af7ccea32a0d7c2eaeb61cc81332331ffadfdbb",
+      "logical_sha256": "e3dd4e31026ee54ad4e4a262a91170ff613e68ddd39f89be0b55a4bb36a59986",
+      "runtime_sha256": "d56d80acf9dbeea56883fb17ea97103a324be96d502517bbe4a8b98d2ca1572a"
+    },
+    "role28": {
+      "skill_id": 52,
+      "name": "바트망",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_bbox": [
+        95,
+        95,
+        1157,
+        1152
+      ],
+      "output_bbox": [
+        2,
+        2,
+        46,
+        46
+      ],
+      "opaque_colors": 48,
+      "source_sha256": "7c5d10f95a3ba7e786c9a20060b37ff5eabba791acb365c974e307c348949374",
+      "logical_sha256": "4033f5a820685dd94a2c955b486877614fbb81016fc975c7094b0a492fda61f6",
+      "runtime_sha256": "f4557dfc5b6fda060e417fefb69748f2ed228ffa0e5558fe56b6e89c599ca73a"
+    },
+    "role29": {
+      "skill_id": 53,
+      "name": "카덴스",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_bbox": [
+        102,
+        109,
+        1153,
+        1121
+      ],
+      "output_bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 47,
+      "source_sha256": "abf23d4f41a476a98cc5f34874182ed95b9300a04674f3f54bb44e6567f46b8e",
+      "logical_sha256": "d5c338ce13677becfe5a6898b3388ab765f7d424ec787191e6ae34e26aaf7cf1",
+      "runtime_sha256": "eac8055e077edb8061c8d1c87b34ee8908a5137feebee673845cefa17b3fbe43"
+    },
+    "role30": {
+      "skill_id": 54,
+      "name": "에스키브",
+      "source_size": [
+        1254,
+        1254
+      ],
+      "source_bbox": [
+        79,
+        108,
+        1175,
+        1146
+      ],
+      "output_bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 47,
+      "source_sha256": "100f945d4ed7c474875caf36683af6503ddd550876c4b0f86cbff20e1d311a52",
+      "logical_sha256": "9d26dc0ddee6ec4b12e9c29cf19062550f97279258d7dd70f2ceae0542a02a89",
+      "runtime_sha256": "bda4729d16d9f98acb62fd01c00ae4aa48ca5651c0361423824049a4b2276a2e"
+    }
+  }
+}

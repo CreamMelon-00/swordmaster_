@@ -112,11 +112,29 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(LegacySkillRoles.GetShortLabel(owned.Skill), Is.EqualTo(LegacySkillRoles.GetShortLabel(catalog)));
             Assert.That(LegacySkillRoles.GetShortLabel(owned.Skill), Is.EqualTo("단타"));
 
-            // Icons 16-20 exist since the role16..20 art; the first id past the set is unknown.
+            // The first id past the imported art set remains unknown.
             Assert.That(new LegacyDuelArt().GetSkillIcon(LegacyDuelArt.SkillIconCount + 1), Is.Null);
             Assert.That(LegacySkillRoles.Get(null), Is.EqualTo(LegacySkillRole.None));
             Assert.That(LegacySkillRoles.GetShortLabel(null), Is.Empty);
             Assert.That(LegacySkillRoles.GetDetail(null), Is.Empty);
+        }
+
+        [Test]
+        public void NewSkillIcons_LoadFromTheirDedicatedResourcesAtTheUnifiedSize()
+        {
+            using (var art = new LegacyDuelArt())
+            {
+                for (int id = 45; id <= 59; id++)
+                {
+                    LegacySkill skill = LegacySkillDefinitions.Skill(id);
+                    Sprite icon = art.GetSkillIcon(skill.IconId);
+                    Assert.That(icon, Is.Not.Null, skill.Name);
+                    Assert.That(icon, Is.SameAs(Resources.Load<Sprite>("SkillRoles/role" + (id - 24))),
+                        skill.Name + " must use its own exported icon.");
+                    Assert.That(icon.rect.size, Is.EqualTo(new Vector2(192f, 192f)), skill.Name);
+                    Assert.That(icon.texture.filterMode, Is.EqualTo(FilterMode.Point), skill.Name);
+                }
+            }
         }
 
         // Wins stage one until the 수련 점수 cover the node, then learns it. Ends in the lobby.

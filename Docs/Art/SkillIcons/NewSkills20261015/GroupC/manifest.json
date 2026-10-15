@@ -1,0 +1,155 @@
+{
+  "generator": "built-in image_gen",
+  "logical_canvas": 48,
+  "logical_art_extent": 44,
+  "palette_limit": 48,
+  "runtime_canvas": 192,
+  "roles": {
+    "role31": {
+      "skill_name": "콩트르탕",
+      "skill_id": 55,
+      "family": "HIT",
+      "frame": "brass notched square",
+      "raw_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "c03c8345fddafccbbe8f00b902d1a6464d939e201651fd7e51624b208f3c5029",
+      "logical_sha256": "ced0287c8cc2d4de45436352be2a5eaf2a4fe8df8e1743af45bd4599533cc73b",
+      "runtime_sha256": "b1eec8e4cf5ce0f5b00e901d39bd302ebd984f7aa48f76547cbfc10f6f697793",
+      "source_bbox": [
+        85,
+        100,
+        1169,
+        1144
+      ],
+      "output_bbox": [
+        2,
+        3,
+        46,
+        45
+      ],
+      "opaque_colors": 48
+    },
+    "role32": {
+      "skill_name": "두블레",
+      "skill_id": 56,
+      "family": "THRUST",
+      "frame": "cyan hexagon",
+      "raw_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "97dfc7a867ec50e8b46676ee5c9f06d84cd863a4aa04a137fbaf01bd2f55f9fa",
+      "logical_sha256": "33151ca1f3f99da8d02712e39b6b36d371cf1e2bacf52916efdea12a9ddcd741",
+      "runtime_sha256": "7668f958b88a7a6c5f369083db69545007ced170254691410cd0518cbe29e288",
+      "source_bbox": [
+        154,
+        73,
+        1100,
+        1162
+      ],
+      "output_bbox": [
+        5,
+        2,
+        43,
+        46
+      ],
+      "opaque_colors": 45,
+      "refinement": {
+        "generator": "built-in image_gen",
+        "edit_target": "Generated/role32-v1.png",
+        "selected": "Generated/role32.png",
+        "source_path": "C:\\Users\\User\\.codex\\generated_images\\01a13fee-9966-7333-a599-ee3d840d952f\\exec-2874474c-4615-4c10-bba1-37745d44b04b.png",
+        "prompt": "Use case: precise-object-edit. Asset type: one standalone transparent pixel-art sword skill icon. EDIT TARGET is the supplied icon '두블레'. Preserve the entire teal hexagonal metal badge frame, dark blue-green leather interior, front-facing composition, one horizontal silver crossguard sword pointing right, two ivory backward-curving arrows behind the hilt, transparent outer margin and hard chunky pixel style. Change ONLY the violet forward chevron at the right sword tip: make this chevron broad, boldly stepped and BRIGHT LAVENDER/VIOLET with two flat solid color bands, wider and taller so it remains visible when the entire icon is displayed at 48×48. A simple violet > arrowhead with 4-pixel logical thick strokes, about 9 logical pixels high, clearly separate from white blade and teal rim. Its purple color must survive palette reduction: no tiny glints, no subtle tint, no gray chevron. It remains secondary to the silver sword. Reduce unnecessary dark texture shades to favor a limited flat palette, no smoothing or soft blur. Keep every other element, only one sword and same two return arrows. True transparent alpha outside frame. No letters, digits, writing, UI, watermark, heart, medical/religious cross or golden magic.",
+        "reason": "Make violet next-action chevron survive logical-size palette reduction."
+      }
+    },
+    "role33": {
+      "skill_name": "잔걸음",
+      "skill_id": 57,
+      "family": "SLASH",
+      "frame": "copper diamond",
+      "raw_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "a4b597596a795bd647a38b9810a86925ea28cfb34426c3ee66a57a063e580553",
+      "logical_sha256": "a4d24726f16fc9ba51868d0b71b911bfd3c94d9050a7071548ab4b33ac7e3e55",
+      "runtime_sha256": "eb47a8e4495404edb76a193e8d01585a3d6680018e7070a2062818df043d8332",
+      "source_bbox": [
+        35,
+        45,
+        1219,
+        1210
+      ],
+      "output_bbox": [
+        2,
+        2,
+        46,
+        45
+      ],
+      "opaque_colors": 47
+    },
+    "role34": {
+      "skill_name": "숫돌",
+      "skill_id": 58,
+      "family": "DEFENCE",
+      "frame": "olive shield",
+      "raw_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "4de7cf59f459f6a25de1b6c7f2c883138bac967b89f0471b133c1492efe8e2bd",
+      "logical_sha256": "c616ca9780634fc451ae5b38fc641af5d3d64dc30f62b7d32f09b123f27c9dad",
+      "runtime_sha256": "d1a14e5c28f7b3547698881159c2ff993e5c3f59ccf17d004cb69a7a58eb455e",
+      "source_bbox": [
+        185,
+        65,
+        1069,
+        1201
+      ],
+      "output_bbox": [
+        7,
+        2,
+        41,
+        46
+      ],
+      "opaque_colors": 48
+    },
+    "role35": {
+      "skill_name": "갈아내기",
+      "skill_id": 59,
+      "family": "SLASH",
+      "frame": "copper diamond",
+      "raw_size": [
+        1254,
+        1254
+      ],
+      "source_sha256": "19b225dd3fc0c1420f2de1da7ec1f5d32074f04b7b45d6e4c8f47f0a976dc162",
+      "logical_sha256": "1b01fda983f4883843a68cef4e3664c2cf58ac5555970437d3fbb8b5419d57ea",
+      "runtime_sha256": "7d7ae6e88e68d8ccc043f08f510353fa269756539f244a2c23bf8386d682dc74",
+      "source_bbox": [
+        63,
+        66,
+        1191,
+        1185
+      ],
+      "output_bbox": [
+        2,
+        2,
+        46,
+        46
+      ],
+      "opaque_colors": 48,
+      "refinement": {
+        "generator": "built-in image_gen",
+        "edit_target": "Generated/role35-v1.png",
+        "selected": "Generated/role35.png",
+        "source_path": "C:\\Users\\User\\.codex\\generated_images\\01a13fee-9966-7333-a599-ee3d840d952f\\exec-f6ed6032-1a7f-49e7-952c-83d2b1dd3613.png",
+        "prompt": "Use case: precise-object-edit. Asset type: one transparent pixel-art sword skill badge. EDIT TARGET is supplied '갈아내기' copper-diamond badge. Keep the copper orange diamond metal border with its four rivets, dark brown leather background, chunky hard-stepped pixels, single silver crossguard sword slanting up toward upper right, and ONE short orange edge slash arc. Make ONLY this readability correction: remove all small disconnected chips/fragments below the blade and remove the tiny square folded-corner glyph at lower right. In the LOWER LEFT quadrant, draw ONE clear upright thin ivory consumable CARD/PAPER SILHOUETTE, with a plainly folded top-right corner. The card is a simple clean small rectangular sheet, about 8 logical pixels wide by 10 logical pixels high when the badge is reduced to 48×48, dark ink contour, pale paper fill and one folded triangle. This one card remains subordinate to the sword but unmistakably reads as a consumable card, not a bootprint, pebble, blade chip or hourglass. Leave a dark gap separating card from sword hilt; slightly shift the hilt upward only if needed. Sword remains the central dominant silhouette, card is the sole lower-left secondary mark; no small scattered pieces anywhere below. No letters, digits, printed lines, text, writing, additional cards, extra blades, whetstone, feet/footprints, ornate gold magic, hearts, medical or religious crosses, scenery, UI or watermark. Keep true transparent alpha outside full centered badge and dark hard outlines, no blurred antialias edges.",
+        "reason": "Distinguish consumable cut from footwork: replace lower chips with one clearly folded paper/card silhouette."
+      }
+    }
+  }
+}

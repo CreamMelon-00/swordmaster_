@@ -52,6 +52,16 @@ namespace TurnLimbo.Presentation
             directorPushRequest = float.IsNaN(share) || float.IsInfinity(share) ? 0f : Mathf.Clamp(share, 0f, .5f);
         }
 
+        /// <summary>The blades meet before the held hit resolves: sparks and a small contact glow, without a body flash,
+        /// reaction, knock-back or decisive focus. The controller owns the short stop and the eventual damage.</summary>
+        public void PresentBladeBindContact()
+        {
+            if (disposed || !resolving || approaching || returning) return;
+            // The regular particle prefab starts after a battle-clock delay, so it would appear only on release while
+            // that clock is held. The existing bind's starlight is immediate and ages on real time instead.
+            impactGlow.Emit(BladeBindContactPosition, false, false);
+        }
+
         /// <summary>A blade bind begins (an even 합's first hit, both blades met, neither body reached): for
         /// <paramref name="seconds"/> of the real time the controller hands over (<see cref="AdvanceBladeBind"/>, while the
         /// battle's clock stands still) the two fighters hold their contact frames, lean into each other by
@@ -270,9 +280,11 @@ namespace TurnLimbo.Presentation
         private void EmitBindSpark()
         {
             BladeBindSparksStruck++;
-            Vector3 contact = (player.Renderer.transform.position + enemy.Renderer.transform.position) * .5f;
-            impactGlow.Emit(contact, false, false);
+            impactGlow.Emit(BladeBindContactPosition, false, false);
         }
+
+        private Vector3 BladeBindContactPosition
+            => (player.Renderer.transform.position + enemy.Renderer.transform.position) * .5f;
 
         private static float Finite(float value) => float.IsNaN(value) || float.IsInfinity(value) || value < 0f ? 0f : value;
     }

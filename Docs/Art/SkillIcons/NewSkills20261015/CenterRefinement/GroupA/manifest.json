@@ -1,0 +1,47 @@
+{
+  "center_only": true,
+  "canvas": 48,
+  "glyph_extent": 32,
+  "roles": {
+    "23": {
+      "id": 47,
+      "name": "꿰뚫기",
+      "source_bbox": [
+        172,
+        536,
+        1082,
+        763
+      ],
+      "output_bbox": [
+        8,
+        20,
+        39,
+        28
+      ],
+      "opaque_colors": 29,
+      "original_sha256": "f3c4bf38e326bd0d9ae7bf1fbd3b16380d420acb54104ee104d8f5a8990e42cb",
+      "logical_sha256": "7b38c30c3268d187e8dfc4763b0f922c71daba60bc7a6c34d25b1e48337eba8c",
+      "runtime_sha256": "a1ead0eec0919211a46547849fd7f24628e30542d83a29419174da92dbc84c7c"
+    },
+    "24": {
+      "id": 48,
+      "name": "받아치기",
+      "source_bbox": [
+        245,
+        224,
+        1232,
+        958
+      ],
+      "output_bbox": [
+        8,
+        12,
+        40,
+        36
+      ],
+      "opaque_colors": 39,
+      "original_sha256": "93695f8e2509c83f233daed8b36dd2cb572750e282af734761ca13939cc5c1f0",
+      "logical_sha256": "bf606258266cedaab6dba9f7d5ed37fa72d8d7bfa24fecbdc3da979dde829a1b",
+      "runtime_sha256": "1c59d71a16f2be4ebc63c389da1aec52c3e371042129bf301fcebf5113470574"
+    }
+  }
+}

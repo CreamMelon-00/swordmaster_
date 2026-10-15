@@ -18,6 +18,7 @@ namespace TurnLimbo.Presentation
         private readonly DuelPresentationSettings presentationSettings;
         private readonly Canvas canvas;
         private readonly RectTransform root;
+        private readonly RectTransform turnHeader;
         // The whole HUD's fade (SetFade): an overlay the arena's grade never reaches fades on its own.
         private readonly CanvasGroup fade;
         private readonly GameObject ownedEventSystem;
@@ -435,7 +436,7 @@ namespace TurnLimbo.Presentation
             // The former top-centre clock position now holds the round throughout planning and resolution.
             // Flags frame the number without turning the emblem into another control.
             Vector2 flagSize = new Vector2(DuelCrossedFlags.PreferredWidth, DuelCrossedFlags.PreferredHeight);
-            var turnHeader = Rect("Turn Header", root, new Vector2(0f, -36f), flagSize, new Vector2(.5f, 1f));
+            turnHeader = Rect("Turn Header", root, new Vector2(0f, -36f), flagSize, new Vector2(.5f, 1f));
             var crossedFlags = Rect("Crossed Flags", turnHeader, Vector2.zero, flagSize,
                 Vector2.one * .5f).gameObject.AddComponent<DuelCrossedFlags>();
             crossedFlags.raycastTarget = false;
@@ -566,6 +567,9 @@ namespace TurnLimbo.Presentation
 
         /// <summary>What the stage plate says now.</summary>
         public string StageText => stageText.text;
+
+        /// <summary>The debug spectator's controls replace the central turn badge.</summary>
+        public void SetTurnHeaderVisible(bool visible) => turnHeader.gameObject.SetActive(visible);
 
         /// <summary>The commit seal's word: <see cref="CommitLabel"/> in the campaign's battles; versus, where the seal passes
         /// the reservation turn (two passes in a row resolve both queues), calls it 패스. Null or empty goes back to

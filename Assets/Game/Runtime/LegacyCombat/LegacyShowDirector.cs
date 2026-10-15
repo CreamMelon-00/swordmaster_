@@ -79,9 +79,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// <item><see cref="LegacySlotTier.Climax"/>: nothing; the finishing blow keeps its finale.</item>
     /// <item>An even 합 (<see cref="LegacySlotRank.IsBladeBind"/>) may hold its first hit as a blade bind
     /// (<see cref="BladeBind"/>), whatever its tier but Climax.</item>
-    /// <item>Secondary to all of that, a run of unopposed slots plays faster and faster (<see cref="StreakSpeed"/>,
-    /// <see cref="LegacyUnopposedStreak"/>): Major and Climax slots keep their own speed, the streak counting on through
-    /// them. What it saves is never banked: it only shortens the turn.</item>
+    /// <item>The turn's later slots play progressively faster (<see cref="PlaybackSpeed"/>, <see cref="LegacyCombatTempo"/>).
+    /// After an attack against an empty side, the gap keeps only <see cref="PlaybackGapScale"/> of its usual length.
+    /// When this tempo is off, the legacy unopposed-streak speed is used instead (<see cref="StreakSpeed"/>).
+    /// They never multiply each other; their saved time is never banked.</item>
     /// </list>
     /// Nothing is ever spent before a slot's first hit, so the step windows keep their time. Every added second is granted
     /// from the turn's allowance (<see cref="Available"/>: <see cref="LegacyShowPacingTuning.TurnExtraCap"/> plus what Minor
@@ -92,11 +93,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
     {
         private LegacySlotRank slotRank = LegacySlotRank.None, latestRank = LegacySlotRank.None,
             lastSlotRank = LegacySlotRank.None;
+        private LegacySlotFacts latestFacts = LegacySlotFacts.None;
         private bool majorStopGiven, bindGiven, readCueGiven;
         // The turn's unopposed streak before the resolving slot (after the slot completed last), and the playback speed the
         // slot completed last had (the wait after it plays at it).
         private int streakBefore;
-        private float lastSlotSpeed = 1f;
+        private float lastSlotSpeed = 1f, lastPlaybackSpeed = 1f, lastPlaybackGapScale = 1f;
 
         public LegacyShowDirector() : this(LegacyShowPacingTuning.Default, LegacySlotImportanceTuning.Default) { }
 
@@ -109,6 +111,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Pacing = pacing;
             Importance = importance;
             Streak = streak;
+            Tempo = LegacyCombatTempoTuning.Off;
         }
 
         /// <summary>The pacing this turn plays with (taken at <see cref="BeginTurn"/>).</summary>
@@ -119,6 +122,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <see cref="BeginTurn(LegacyShowPacingTuning, LegacySlotImportanceTuning, LegacyStreakTuning)"/>; the
         /// two-argument <c>BeginTurn</c> keeps them).</summary>
         public LegacyStreakTuning Streak { get; private set; }
+        /// <summary>The resolving turn's progressive speed, taken by the four-argument <see cref="BeginTurn"/>. Older
+        /// overloads keep it; legacy constructors start with it off.</summary>
+        public LegacyCombatTempoTuning Tempo { get; private set; }
         public bool Enabled => Pacing.Enabled;
 
         /// <summary>Real seconds the Minor slots of this turn have saved so far.</summary>
@@ -157,10 +163,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         /// <summary>A turn begins resolving: the ledger and the streak start afresh with these numbers.</summary>
         public void BeginTurn(LegacyShowPacingTuning pacing, LegacySlotImportanceTuning importance, LegacyStreakTuning streak)
+            => BeginTurn(pacing, importance, streak, Tempo);
+
+        /// <summary>A turn begins resolving: snapshots its pacing and tempo, and resets the ledger, streak and last gap.</summary>
+        public void BeginTurn(LegacyShowPacingTuning pacing, LegacySlotImportanceTuning importance, LegacyStreakTuning streak,
+            LegacyCombatTempoTuning tempo)
         {
             Pacing = pacing;
             Importance = importance;
             Streak = streak;
+            Tempo = tempo;
             Clear();
         }
 
@@ -169,9 +181,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             Saved = Spent = 0f;
             slotRank = latestRank = lastSlotRank = LegacySlotRank.None;
+            latestFacts = LegacySlotFacts.None;
             majorStopGiven = bindGiven = readCueGiven = false;
             streakBefore = 0;
-            lastSlotSpeed = 1f;
+            lastSlotSpeed = lastPlaybackSpeed = lastPlaybackGapScale = 1f;
         }
 
         /// <summary>A slot begins: rates what is known at its start (the kinds, the rolled powers, the met conditions, the
@@ -180,8 +193,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (HasSlot) EndSlot();
             majorStopGiven = bindGiven = readCueGiven = false;
-            lastSlotSpeed = 1f;
+            lastSlotSpeed = lastPlaybackSpeed = lastPlaybackGapScale = 1f;
             if (!facts.HasSlot) return slotRank;
+            latestFacts = facts;
             latestRank = slotRank = LegacySlotImportance.Rate(facts, Importance);
             return slotRank;
         }
@@ -193,6 +207,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (!facts.HasSlot) return slotRank;
             if (!HasSlot || slotRank.SlotIndex != facts.SlotIndex) return BeginSlot(facts);
+            latestFacts = facts;
             latestRank = LegacySlotImportance.Rate(facts, Importance);
             slotRank = Keep(slotRank, latestRank);
             return slotRank;
@@ -204,9 +219,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (!HasSlot) return;
             lastSlotSpeed = StreakSpeed;
+            lastPlaybackSpeed = PlaybackSpeed;
+            lastPlaybackGapScale = LegacyCombatTempo.GapScale(latestFacts, Tempo);
             streakBefore = StreakLength;
             lastSlotRank = slotRank;
             slotRank = latestRank = LegacySlotRank.None;
+            latestFacts = LegacySlotFacts.None;
             majorStopGiven = bindGiven = readCueGiven = false;
         }
 
@@ -294,6 +312,22 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>How many times faster the wait after the slot that completed last plays: that slot's
         /// <see cref="StreakSpeed"/> as it ended (1 after any other slot, once the next slot begins, or while switched off).</summary>
         public float GapSpeed => StreakEnabled ? lastSlotSpeed : 1f;
+
+        /// <summary>The current slot's progressive speed, including the extra multiplier if exactly one side is Empty.
+        /// Breath and guard count as skills, and Major/Climax never remove this tempo. A pending counter may still read
+        /// Empty here; controllers preserve input time before its first hit. If tempo is off, uses <see cref="StreakSpeed"/>
+        /// alone. Between slots or with the director off, 1. Its savings never enter the emphasis ledger.</summary>
+        public float PlaybackSpeed => !Enabled || !HasSlot ? 1f
+            : Tempo.Enabled ? LegacyCombatTempo.Speed(latestFacts, Tempo) : StreakSpeed;
+
+        /// <summary>The completed slot's playback speed for the wait after it. Resets when the next slot or turn begins;
+        /// with tempo off, uses the legacy <see cref="GapSpeed"/> alone.</summary>
+        public float PlaybackGapSpeed => !Enabled ? 1f : Tempo.Enabled ? lastPlaybackSpeed : GapSpeed;
+
+        /// <summary>The share of the wait after the completed slot that remains: shorter only after an attack against an
+        /// empty side. Controllers apply it after <see cref="ShortenGap"/> without crediting its savings to the ledger.
+        /// Resets when the next slot or turn begins, or on clear; 1 with the director or progressive tempo off.</summary>
+        public float PlaybackGapScale => Enabled && Tempo.Enabled ? lastPlaybackGapScale : 1f;
 
         // What only adds up as a slot plays (an attack, a dodge, a break, a heavy hit, a fall, a 간파, a signature move). The
         // rest (a 합's gap, a deep pierce, a big unopposed attack, a bind) tells how the cards meet: it belongs to one kind.

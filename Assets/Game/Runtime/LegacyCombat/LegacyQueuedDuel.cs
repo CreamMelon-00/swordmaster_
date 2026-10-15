@@ -32,6 +32,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly List<SkillBuff> enemyBuffs = new List<SkillBuff>();
         private readonly int playerMaxHealth;
         private readonly int playerMaxResistance;
+        private readonly int playerHealthFloor;
         private readonly int playerBaseActGain;
         private readonly int playerMaximumAct;
         private readonly int enemyMaxHealth;
@@ -70,17 +71,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// first crossing is reported (<see cref="LegacyHitResult.EnemyReachedHealthThreshold"/>); below 100.</param>
         /// <param name="meshPercent">맞물림: the power percent each skill of a chain gains per skill in the chain
         /// (<see cref="MeshPercent"/>); 0 switches 맞물림 off.</param>
+        /// <param name="playerHealthFloor">Damage never takes the player's health below this; above zero the player
+        /// cannot be defeated. Must stay under <paramref name="playerHealth"/>. Defaults to normal lethal damage.</param>
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, int randomSeed = 1,
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
             int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0,
-            int meshPercent = LegacyMeshing.DefaultPercent)
+            int meshPercent = LegacyMeshing.DefaultPercent, int playerHealthFloor = 0)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills, enemySkills,
                 enemyTurnActionCounts, null, randomSeed, playerCounter, enemyCounter, features,
                 playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent,
-                meshPercent) { }
+                meshPercent, playerHealthFloor) { }
 
         /// <summary>A duel whose enemy follows <paramref name="enemyScript"/> turn by turn.</summary>
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
@@ -88,19 +91,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
             int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0,
-            int meshPercent = LegacyMeshing.DefaultPercent)
+            int meshPercent = LegacyMeshing.DefaultPercent, int playerHealthFloor = 0)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills,
                 (enemyScript ?? throw new ArgumentNullException(nameof(enemyScript))).AllSkills, enemyScript.TurnSizes,
                 enemyScript, randomSeed, playerCounter, enemyCounter, features,
                 playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent,
-                meshPercent) { }
+                meshPercent, playerHealthFloor) { }
 
         private LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, EnemyScript enemyScript, int randomSeed,
             LegacyCounter playerCounter, LegacyCounter enemyCounter, CombatFeature features,
             int playerActGainBonus, int playerActCapacityBonus, int roundLimit,
-            int enemyHealthFloor, int enemyHealthThresholdPercent, int meshPercent)
+            int enemyHealthFloor, int enemyHealthThresholdPercent, int meshPercent, int playerHealthFloor)
         {
             initialEnemyScript = enemyScript;
             PlayerCounter = playerCounter;
@@ -114,11 +117,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (playerActCapacityBonus < 0) throw new ArgumentOutOfRangeException(nameof(playerActCapacityBonus));
             if (roundLimit < 1) throw new ArgumentOutOfRangeException(nameof(roundLimit));
             if (enemyHealthFloor < 0 || enemyHealthFloor >= enemyHealth) throw new ArgumentOutOfRangeException(nameof(enemyHealthFloor));
+            if (playerHealthFloor < 0 || playerHealthFloor >= playerHealth) throw new ArgumentOutOfRangeException(nameof(playerHealthFloor));
             if (enemyHealthThresholdPercent < 0 || enemyHealthThresholdPercent >= 100)
                 throw new ArgumentOutOfRangeException(nameof(enemyHealthThresholdPercent));
             if (meshPercent < 0) throw new ArgumentOutOfRangeException(nameof(meshPercent));
             this.meshPercent = meshPercent;
             this.enemyHealthFloor = enemyHealthFloor;
+            this.playerHealthFloor = playerHealthFloor;
             this.enemyHealthThresholdPercent = enemyHealthThresholdPercent;
             this.roundLimit = roundLimit;
             playerBaseActGain = checked(BaseActGain + playerActGainBonus);
@@ -164,6 +169,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             enemyScriptFirstRound = source.enemyScriptFirstRound;
             playerMaxHealth = source.playerMaxHealth;
             playerMaxResistance = source.playerMaxResistance;
+            playerHealthFloor = source.playerHealthFloor;
             playerBaseActGain = source.playerBaseActGain;
             playerMaximumAct = source.playerMaximumAct;
             enemyMaxHealth = source.enemyMaxHealth;
@@ -360,6 +366,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyCountersRemaining { get; private set; }
         /// <summary>The enemy's health never drops below this; above zero the enemy cannot be defeated.</summary>
         public int EnemyHealthFloor => enemyHealthFloor;
+        /// <summary>The player's health never drops below this; above zero the player cannot be defeated.</summary>
+        public int PlayerHealthFloor => playerHealthFloor;
         /// <summary>0 for none, otherwise the percent of the enemy's maximum health whose first crossing a hit reports.</summary>
         public int EnemyHealthThresholdPercent => enemyHealthThresholdPercent;
         /// <summary>Whether a hit of this attempt has brought the enemy to <see cref="EnemyHealthThresholdPercent"/> or below
@@ -853,6 +861,34 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 deferredEnemyPowerBuffPercent, deferredEnemyProtectionBuffPercent);
         }
 
+        /// <summary>Whether this slot's first hit can wait for the blades to separate: both attacks meet only resistance,
+        /// without health loss or a new break. Uses the powers already rolled on copied fighters, never the live state or
+        /// random generator. The presentation director still decides the power gap and whether a bind can be afforded.
+        /// A pending player counter has not rolled or applied its initial effects yet, so cannot be previewed here.</summary>
+        public bool CanBindCurrentHit()
+        {
+            LegacyCurrentSlot slot = CurrentSlot;
+            if (Phase != LegacyDuelPhase.Resolving || slot == null || slot.HitsResolved != 0 || slot.IsResolved ||
+                slot.PendingPlayerCounter != null || slot.DodgeSucceeded ||
+                !HasAttackHit(slot.PlayerSkill, 0) || !HasAttackHit(slot.EnemySkill, 0)) return false;
+            LegacyFighterState player = Player.Copy(), enemy = Enemy.Copy();
+            LegacyHitImpact enemyImpact = ResolveSingleHit(slot.PlayerSkill, slot.EnemySkill, slot.PlayerPower,
+                slot.EnemyPower, enemy, slot.EnemyReceivedMultiplier, false, out _);
+            if (slot.PressureSucceeded)
+            {
+                LegacyHitImpact pressure = enemy.ReceiveFlatHealthDamage(PressureBonus(slot, 0));
+                enemyImpact = new LegacyHitImpact(enemyImpact.PushPower + pressure.PushPower,
+                    enemyImpact.DisplayedDamage + pressure.DisplayedDamage);
+            }
+            LegacyHitImpact playerImpact = ResolveSingleHit(slot.EnemySkill, slot.PlayerSkill, slot.EnemyPower,
+                slot.PlayerPower, player, slot.PlayerReceivedMultiplier, false, out _);
+            return IsResistanceOnlyHit(Player, player, playerImpact) && IsResistanceOnlyHit(Enemy, enemy, enemyImpact);
+        }
+
+        internal static bool IsResistanceOnlyHit(LegacyFighterState before, LegacyFighterState after, LegacyHitImpact impact)
+            => after.Health == before.Health && !(before.Resistance > 0 && after.Resistance <= 0) &&
+                impact.DisplayedDamage <= Math.Max(0, before.Resistance - after.Resistance);
+
         public LegacyHitResult ResolveNextHit()
         {
             if (Phase != LegacyDuelPhase.Resolving || CurrentSlot == null || CurrentSlot.IsResolved)
@@ -964,7 +1000,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             cycleUses.Clear();
             random = new Random(randomSeed);
-            Player = new LegacyFighterState(playerMaxHealth, playerMaxResistance);
+            Player = new LegacyFighterState(playerMaxHealth, playerMaxResistance, playerHealthFloor);
             Enemy = new LegacyFighterState(enemyMaxHealth, enemyMaxResistance, enemyHealthFloor);
             for (int i = 0; i < lanes.Length; i++) lanes[i].Clear();
             foreach (LegacySkill skill in initialPlayerSkills)

@@ -109,16 +109,18 @@ namespace TurnLimbo.Presentation.Tests
                 Transform playerFigure = arena.PlayerRenderer.transform, enemyFigure = arena.EnemyRenderer.transform;
                 Assert.That(controller.QueueLane(0), Is.True);
                 controller.CommitTurn();
-                scope.Until(() => controller.Session.CurrentSlot != null && controller.Session.CurrentSlot.HitsResolved == 1);
+                scope.Until(() => controller.BladeBindTimeRemaining > 0f);
                 float seconds = scope.Settings.BladeBindSeconds;
                 Assert.That(controller.BladeBindTimeRemaining, Is.EqualTo(seconds).Within(1e-4f), "10 against 10: a bind.");
                 Assert.That(arena.IsBladeBinding, Is.True);
                 Assert.That(controller.Hud.IsClashBound && controller.Hud.IsClashBinding, Is.True, "The seam's pair binds too.");
+                Assert.That(controller.Session.CurrentSlot.HitsResolved, Is.Zero, "The first impact waits until the swords release.");
                 Assert.That(controller.Session.Player.Health, Is.EqualTo(1000), "Both blades met: no body was reached.");
+                Assert.That((controller.Session.Player.Resistance, controller.Session.Enemy.Resistance), Is.EqualTo((1000, 1000)));
                 Vector3 playerAt = playerFigure.localPosition, enemyAt = enemyFigure.localPosition;
                 float slotTime = controller.ActiveSlotElapsedTime;
 
-                // The hit's own stop comes first; the bind holds after it.
+                // The contact's own stop comes first; the unresolved hit waits through the bind.
                 scope.Advance(controller.HitStopTimeRemaining);
                 Assert.That(controller.BladeBindTimeRemaining, Is.EqualTo(seconds).Within(1e-4f));
                 Assert.That(arena.BladeBindProgress, Is.Zero);
@@ -142,6 +144,8 @@ namespace TurnLimbo.Presentation.Tests
                 // The bind's last moment, with no time left over for the battle's clock.
                 scope.Advance(controller.BladeBindTimeRemaining);
                 Assert.That(controller.BladeBindTimeRemaining, Is.Zero);
+                Assert.That(controller.Session.CurrentSlot.HitsResolved, Is.EqualTo(1), "The deferred impact resolves on release.");
+                Assert.That((controller.Session.Player.Resistance, controller.Session.Enemy.Resistance), Is.EqualTo((990, 990)));
                 Assert.That(arena.IsBladeBinding || controller.Hud.IsClashBinding, Is.False);
                 Assert.That(controller.Hud.IsClashBound, Is.True, "The pair goes on as an even 합: both bounce back.");
                 Assert.That(arena.BladeBindSparksStruck, Is.EqualTo(scope.Settings.BladeBindSparks));
@@ -298,7 +302,7 @@ namespace TurnLimbo.Presentation.Tests
             private const BindingFlags PrivateInstance = BindingFlags.Instance | BindingFlags.NonPublic;
             private const string Tempo = "\"animationPlaybackSpeed\":1,\"attackInterval\":0.1,\"skillInterval\":0.28," +
                 "\"hitStopDuration\":0.04,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1," +
-                "\"decisiveHealthDamagePercent\":25,\"showDirectorEnabled\":true,\"minorSlotSpeed\":2,\"majorHitStopScale\":3," +
+                "\"decisiveHealthDamagePercent\":25,\"showDirectorEnabled\":true,\"combatTempoEnabled\":false,\"minorSlotSpeed\":2,\"majorHitStopScale\":3," +
                 "\"majorCameraPush\":0.1,\"majorClashScale\":1.35,\"turnExtraSecondsCap\":0.8,\"largeClashGap\":0.6," +
                 "\"deepPierce\":0.7,\"bladeBindGap\":0.15,\"bladeBindSeconds\":0.45,\"bladeBindSway\":0.16," +
                 "\"bladeBindPress\":0.1,\"bladeBindSpring\":0,\"bladeBindSparks\":2,\"clashMotionEnabled\":true";
@@ -323,7 +327,8 @@ namespace TurnLimbo.Presentation.Tests
                 Settings = Object.Instantiate(originalSettings);
                 try
                 {
-                    JsonUtility.FromJsonOverwrite("{" + Tempo + (string.IsNullOrEmpty(tuning) ? "" : "," + tuning) + "}", Settings);
+                    JsonUtility.FromJsonOverwrite("{" + Tempo + "}", Settings);
+                    if (!string.IsNullOrEmpty(tuning)) JsonUtility.FromJsonOverwrite("{" + tuning + "}", Settings);
                     Set("presentationSettings", Settings);
                     arenaSettings.SetValue(Controller.ArenaView, Settings);
                     Set("mission", null);

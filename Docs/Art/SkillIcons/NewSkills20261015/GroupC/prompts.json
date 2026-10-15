@@ -1,0 +1,46 @@
+{
+  "generator": "built-in image_gen",
+  "references": "existing Unified/Output/Runtime192 icons",
+  "roles": {
+    "31": {
+      "skill_name": "콩트르탕",
+      "skill_id": 55,
+      "family": "HIT",
+      "frame": "brass notched square",
+      "source_path": "C:\\Users\\User\\.codex\\generated_images\\01a13fee-9966-7333-a599-ee3d840d952f\\exec-883c9b28-5acb-4b1f-b40f-eeb50da22014.png",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone bitmap skill badge for a Unity pixel-art sword-duel game. The supplied PNG is a STYLE REFERENCE ONLY. Draw a NEW badge, not a contact sheet. Match its front-facing centered metal badge shape, very dark leather interior, ivory/silver broad crossguard sword, chunky hard stepped pixel clusters, dark ink outlines, restrained palette and legibility at48×48. Full badge fits a square canvas with generous transparent margin outside its silhouette. Genuine transparent alpha outside badge. No writing, letters, digits, text, labels, watermark, hearts, physical shield prop, religious or medical cross, extra frame, UI mockup, scene or shadow outside silhouette. No soft blur, photorealism, painterly brushwork, noisy tiny fragments or ornate magical gold halo. Use large clean readable shapes. Primary request: skill '콩트르탕', a solid delayed blow whose force gathers through breathing. Frame: BRASS NOTCHED SQUARE matching reference frame and dark brown leather. Subject: ONE broad silver crossguard sword angled down toward lower right to make ONE solid contact spark at its tip. THREE broad pale ivory breath/air waves gather behind the hilt and flow into the sword, secondary to the sword. The waves show breath-gathering force, not a clock or timepiece. One clear blade, one contact. Restrained brass border; ivory steel and pale breath waves; no cyan recovery circle, no clock, no hourglass."
+    },
+    "32": {
+      "skill_name": "두블레",
+      "skill_id": 56,
+      "family": "THRUST",
+      "frame": "cyan hexagon",
+      "source_path": "C:\\Users\\User\\.codex\\generated_images\\01a13fee-9966-7333-a599-ee3d840d952f\\exec-7be4edeb-b5d8-4f44-8733-7da13ee99f6e.png",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone bitmap skill badge for a Unity pixel-art sword-duel game. The supplied PNG is a STYLE REFERENCE ONLY. Draw a NEW badge, not a contact sheet. Match its front-facing centered metal badge shape, very dark leather interior, ivory/silver broad crossguard sword, chunky hard stepped pixel clusters, dark ink outlines, restrained palette and legibility at48×48. Full badge fits a square canvas with generous transparent margin outside its silhouette. Genuine transparent alpha outside badge. No writing, letters, digits, text, labels, watermark, hearts, physical shield prop, religious or medical cross, extra frame, UI mockup, scene or shadow outside silhouette. No soft blur, photorealism, painterly brushwork, noisy tiny fragments or ornate magical gold halo. Use large clean readable shapes. Primary request: skill '두블레', a returning preparation concentrates the next forward thrust. Frame: CYAN/TEAL HEXAGON matching reference, dark blue-green leather. Subject: ONE wide horizontal silver crossguard sword pointing RIGHT, clear thrust silhouette. Behind the hilt at left, TWO small backward-curving return arrows converge toward the sword hilt. Ahead of the tip at right add ONE small concentrated VIOLET forward chevron/glint, secondary to silver sword. Two separate compact ivory/steel return arrows, not a cyan circular ACT recovery symbol. No big circle, no clock, no extra swords, no gold magic."
+    },
+    "33": {
+      "skill_name": "잔걸음",
+      "skill_id": 57,
+      "family": "SLASH",
+      "frame": "copper diamond",
+      "source_path": "C:\\Users\\User\\.codex\\generated_images\\01a13fee-9966-7333-a599-ee3d840d952f\\exec-afb454c9-8ff0-401e-9575-47586e6a3064.png",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone bitmap skill badge for a Unity pixel-art sword-duel game. The supplied PNG is a STYLE REFERENCE ONLY. Draw a NEW badge, not a contact sheet. Match its front-facing centered metal badge shape, very dark leather interior, ivory/silver broad crossguard sword, chunky hard stepped pixel clusters, dark ink outlines, restrained palette and legibility at 48×48. Full badge fits a square canvas with generous transparent margin outside its silhouette. Genuine transparent alpha outside badge. No writing, letters, digits, text, labels, watermark, hearts, physical shield prop, religious or medical cross, extra frame, UI mockup, scene or shadow outside silhouette. No soft blur, photorealism, painterly brushwork, noisy tiny fragments or ornate magical gold halo. Use large clean readable shapes. Primary request: skill '잔걸음', nimble footwork paired with a light slash. Frame: COPPER ORANGE DIAMOND matching reference shape and dark brown leather. Subject: ONE light silver crossguard sword placed diagonally across center with ONE short orange edge-sweep behind it. Beneath the sword, TWO small but readable bootprint/step silhouettes stagger left to right, conveying light footwork. Sword is large primary silhouette; two steps are small secondary silhouettes. Favor clear footwork over extra symbols: no hourglass if it competes for space. Only one slash, not a three-hit attack promise; do not copy the reference's repeated arcs. No extra weapons, no magical gold effects."
+    },
+    "34": {
+      "skill_name": "숫돌",
+      "skill_id": 58,
+      "family": "DEFENCE",
+      "frame": "olive shield",
+      "source_path": "C:\\Users\\User\\.codex\\generated_images\\01a13fee-9966-7333-a599-ee3d840d952f\\exec-551db224-78d1-4689-a943-12d2873f5b44.png",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone bitmap skill badge for a Unity pixel-art sword-duel game. The supplied PNG is a STYLE REFERENCE ONLY. Draw a NEW badge, not a contact sheet. Match its front-facing centered metal badge shape, very dark leather interior, ivory/silver broad crossguard sword, chunky hard stepped pixel clusters, dark ink outlines, restrained palette and legibility at 48×48. Full badge fits a square canvas with generous transparent margin outside its silhouette. Genuine transparent alpha outside badge. No writing, letters, digits, text, labels, watermark, hearts, physical shield prop, religious or medical cross, extra frame, UI mockup, scene or shadow outside silhouette. No soft blur, photorealism, painterly brushwork, noisy tiny fragments or ornate magical gold halo. Use large clean readable shapes. Primary request: skill '숫돌', sharpening a sword on a whetstone. Frame: OLIVE GREEN SHIELD-SHAPED METAL BORDER matching reference frame, not a physical shield prop; dark forest-green leather interior. Subject: ONE broad rectangular GRAY WHETSTONE, clearly a stone block with a lighter top plane, and ONE diagonal silver crossguard blade being honed against its top edge. Stone and blade are the two large unmistakable shapes. At their contact add THREE crisp modest sharpening glints, subordinate to the stone and blade, to suggest three prepared single-use sharp cuts. Preserve green defense frame clearly. No attack blast, no copper frame, no helmet, no extra sword, no magic halo, no literal shield object inside."
+    },
+    "35": {
+      "skill_name": "갈아내기",
+      "skill_id": 59,
+      "family": "SLASH",
+      "frame": "copper diamond",
+      "source_path": "C:\\Users\\User\\.codex\\generated_images\\01a13fee-9966-7333-a599-ee3d840d952f\\exec-9b460750-9ae0-4d3f-8045-7f35ffa43412.png",
+      "prompt": "Use case: stylized-concept. Asset type: ONE standalone transparent bitmap skill badge for a Unity pixel-art sword-duel game. Supplied PNG is STYLE REFERENCE ONLY. Create NEW skill '갈아내기', a consumable keen silver blade giving a clean short slash. Frame: centered COPPER ORANGE DIAMOND metal badge with rivets exactly in the reference's visual family, dark brown leather inside. Draw ONE small keen silver crossguard blade as the dominant central silhouette, pointed diagonally toward upper right; ONE short orange edge arc and TWO crisp modest ivory sharpening glints follow the blade. A very small folded paper-corner / consumable-corner glyph at lower right hints one-use preparation, clearly subordinate to the blade. Keep blade plainly distinct and avoid a large page/paper object. Do not draw a whetstone; the related sharpening-stone skill is separate. Match ivory steel, thick ink outline, chunky hard-stepped pixel clusters, restrained palette and broad readable forms at 48×48, no soft blur. Full frame fits centered within square with generous true transparent margin outside silhouette. One icon, one blade, one short arc; no repeated barrage arcs, no extra weapons, no hearts, no medical/religious crosses, no writing, letters, digits or watermark, no scene/UI mockup, no cast shadow outside badge, no ornate golden enemy magic. Border remains copper orange, not gold."
+    }
+  }
+}

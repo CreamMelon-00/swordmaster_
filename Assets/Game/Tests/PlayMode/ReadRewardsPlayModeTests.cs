@@ -309,7 +309,8 @@ namespace TurnLimbo.Presentation.Tests
                 Settings = Object.Instantiate(originalSettings);
                 try
                 {
-                    JsonUtility.FromJsonOverwrite("{" + Tempo + (string.IsNullOrEmpty(tuning) ? "" : "," + tuning) + "}", Settings);
+                    JsonUtility.FromJsonOverwrite("{" + Tempo + "}", Settings);
+                    if (!string.IsNullOrEmpty(tuning)) JsonUtility.FromJsonOverwrite("{" + tuning + "}", Settings);
                     Set("presentationSettings", Settings);
                     arenaSettings.SetValue(Controller.ArenaView, Settings);
                     // A stage battle, so the end of the duel is a result (the campaign completes it).
