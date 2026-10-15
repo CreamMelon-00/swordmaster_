@@ -181,6 +181,98 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0, 30), Tooltip("판정 값이 체력 이만큼 이상 앞서면 유리, 이만큼 이상 뒤지면 불리, 그 사이는 비슷. 그 칸에서 승부가 나면 이 값과 관계없이 유리·불리입니다.")]
         private int slotForecastMargin = LegacySlotForecast.DefaultMargin;
 
+        [Header("전투 큐 패널 — 실행 중 즉시 적용 (조작대 위 양쪽 큐, Docs/CompactHudDesign.md)")]
+        [SerializeField, Range(360f, 760f), Tooltip("조작대 위 양쪽 큐 패널 하나의 너비(1920x1080 기준 HUD 단위). 왼쪽은 내 큐(대전에서는 보는 사람의 큐), 오른쪽은 상대 큐이고, 1번 칸이 가운데 이음매 쪽입니다. 화면 끝(여백 16)을 넘지 않게 줄어듭니다. 기본 560은 카드 7장이 원래 간격으로 들어가고, 더 길면 간격이 좁아집니다.")]
+        private float queuePanelWidth = LegacyQueuePanelLayout.DefaultPanelWidth;
+        [SerializeField, Range(48f, 80f), Tooltip("큐 카드 한 장의 크기(HUD 단위). 카드에 붙은 표식(반격·맞물림·예상·순환·키워드)도 함께 커지고 작아집니다.")]
+        private float queueCardSize = LegacyQueuePanelLayout.DefaultCardSize;
+        [SerializeField, Range(48f, 104f), Tooltip("이웃한 큐 카드 중심 사이의 간격(HUD 단위). 긴 쪽 큐가 패널에 들어가지 않으면 두 큐가 함께 좁아져(최소 12) 같은 칸이 늘 같은 거리에 마주 봅니다. 카드 크기보다 작으면 늘 조금 겹칩니다.")]
+        private float queueCardSpacing = LegacyQueuePanelLayout.DefaultCardSpacing;
+        [SerializeField, Range(0f, 240f), Tooltip("가운데 이음매에서 두 패널 사이의 간격(HUD 단위). 두 1번 칸이 이 간격을 사이에 두고 마주 봅니다. 코치 카드가 조작대 위에 펼쳐져 있는 동안은 카드를 가리지 않도록 저절로 넓어집니다.")]
+        private float queueSeamGap = LegacyQueuePanelLayout.DefaultSeamGap;
+        [SerializeField, Range(0f, .6f), Tooltip("한 칸이 끝날 때마다 두 큐가 가운데 쪽으로 한 칸 미끄러지는 시간(전투 시계 초). 불릿타임·슬로모션·히트 스톱을 따르고, 진행을 기다리게 하지 않습니다(다음 칸은 원래 시간에 시작합니다). 0이면 바로 옮겨집니다.")]
+        private float queueSlideSeconds = LegacyQueuePanelLayout.DefaultSlideSeconds;
+        [SerializeField, Range(0f, 40f), Tooltip("편성 중 패널 아래 가장자리와 조작대 위쪽 가장자리 사이의 간격(HUD 단위). 기본 8이면 조작대 윗변을 따라 도는 시계 톱니에 닿지 않습니다.")]
+        private float queuePanelDockGap = LegacyQueuePanelLayout.DefaultDockGap;
+        [SerializeField, Range(0f, 120f), Tooltip("진행 중(조작대가 접힌 동안) 패널 아래 가장자리의 높이(화면 아래에서 HUD 단위). 기본 46이면 아래 레터박스 띠(0~64) 위, 스텝 안내 줄(19~41) 바로 위에 앉습니다. 조작대가 접히고 펴질 때 함께 내려가고 올라옵니다.")]
+        private float queuePanelResolvingBottom = LegacyQueuePanelLayout.DefaultResolvingBottom;
+        [SerializeField, Tooltip("켜면 전장 카메라가 인물의 발을 큐 패널 위(아래 간격만큼 띄워)에 두도록, 필요한 만큼만 아래로 내려갑니다(복도 배경에서 편성 화면 최대 약 60, 진행 화면 약 45, 화면 기준 HUD 단위). 숲처럼 이미 충분히 높으면 움직이지 않고, Tab 확대·결정타 확대·스텝 집중·수훈 컷인은 자기 구도를 지킵니다. 끄면 카메라는 예전 그대로이고 패널이 발을 가릴 수 있습니다.")]
+        private bool queuePanelKeepsFightersClear = true;
+        [SerializeField, Range(0f, 60f), Tooltip("큐 패널 위쪽 가장자리와 인물의 발 사이에 남기는 간격(HUD 단위).")]
+        private float queuePanelFighterClearance = LegacyQueuePanelLayout.DefaultFighterClearance;
+
+        [Header("큐 짝 표시 — 실행 중 즉시 적용 (편성 중 조작대 위 큐 패널, Docs/CompactHudDesign.md)")]
+        [SerializeField, Tooltip("편성 중 내가 지금 예약할 수 있을 때, 다음 예약이 마주칠 상대 큐 카드(같은 칸)에 놋쇠 테를 두르고 내 패널의 거울 자리에 옅은 빈 자리를 그립니다. 그 칸에 상대 카드가 없거나, 입력이 묶였거나(대전의 상대 차례), Tab으로 상대를 보는 동안에는 숨깁니다. 끄면 둘 다 그리지 않습니다.")]
+        private bool queuePairCuesEnabled = true;
+        [SerializeField, Range(0f, 1f), Tooltip("다음 상대 카드 테의 진하기. 아래 맥박 시간마다 이 값과 (1 − 맥박 깊이)배 사이를 오갑니다(기본 60%~100%). 0이면 테가 보이지 않습니다.")]
+        private float nextOpponentRingAlpha = LegacyCombatHud.DefaultNextOpponentRingAlpha;
+        [SerializeField, ColorUsage(false, false), Tooltip("다음 상대 카드 테의 색(기본: 놋쇠 강조색). 진하기는 위 값이 정합니다.")]
+        private Color nextOpponentRingInk = DefaultNextOpponentRingInk;
+        [SerializeField, Range(0f, 16f), Tooltip("테가 카드 바깥으로 둘러서는 여백(HUD 단위, 큐 카드 크기에 맞춰 커지고 작아짐).")]
+        private float nextOpponentRingMargin = LegacyCombatHud.DefaultNextOpponentRingMargin;
+        [SerializeField, Range(0f, 3f), Tooltip("다음 상대 카드 테가 한 번 숨 쉬는 시간(실제 초). 0이면 맥박 없이 그대로 둡니다.")]
+        private float nextOpponentRingPulseSeconds = LegacyCombatHud.DefaultNextOpponentRingPulseSeconds;
+        [SerializeField, Range(0f, 1f), Tooltip("테 맥박의 깊이. 가장 옅을 때 진하기의 (1 − 이 값)배까지 내려갑니다. 0이면 맥박 없이 그대로 둡니다.")]
+        private float nextOpponentRingPulseDepth = LegacyCombatHud.DefaultNextOpponentRingPulseDepth;
+        [SerializeField, Range(0f, 1f), Tooltip("내 패널에서 다음 예약이 들어갈 빈 자리(테를 두른 상대 카드의 거울 자리)의 진하기. 0이면 그리지 않습니다.")]
+        private float nextReservationSocketAlpha = LegacyCombatHud.DefaultNextReservationSocketAlpha;
+        [SerializeField, ColorUsage(true, false), Tooltip("빈 자리 안쪽을 채우는 색(테두리는 놋쇠 테두리색). 알파는 채움의 진하기이고, 위 진하기가 전체에 다시 곱해집니다.")]
+        private Color nextReservationSocketInk = DefaultNextReservationSocketInk;
+        [SerializeField, Range(0f, 1f), Tooltip("상대도 카드를 둔 칸에 내가 기술(숨고르기 포함)을 예약하면, 내 새 카드와 그 상대 카드에서 같은 순간 짧게 튀는 불꽃의 시간(실제 초). 두 카드를 잇는 선은 없습니다. 0이면 끕니다.")]
+        private float reservationSparkSeconds = LegacyCombatHud.DefaultReservationSparkSeconds;
+        [SerializeField, Range(12f, 60f), Tooltip("예약 불꽃의 크기(HUD 단위, 큐 카드 크기에 맞춰 커지고 작아짐). 불꽃은 이 크기의 1.6배까지 튑니다. 유리·불리에 따라 아래 배율을 곱합니다.")]
+        private float reservationSparkSize = LegacyCombatHud.DefaultReservationSparkSize;
+        [SerializeField, Range(0, 24), Tooltip("예약 불꽃 한 번에 튀는 불꽃 수(카드 하나당). 유리·불리 배율만큼 늘고 줄어듭니다. 0이면 끕니다.")]
+        private int reservationSparkCount = LegacyCombatHud.DefaultReservationSparkCount;
+        [SerializeField, ColorUsage(true, false), Tooltip("편성 예상이 유리(▲)인 칸의 예약 불꽃 색. 불꽃 머리는 이 색에서 흰빛 쪽으로 밝게, 꼬리는 이 색으로 사라집니다. 알파는 불꽃 전체의 진하기입니다.")]
+        private Color reservationSparkFavourableInk = DefaultReservationSparkFavourableInk;
+        [SerializeField, ColorUsage(true, false), Tooltip("편성 예상이 비슷(=)이거나 예상이 없는(꺼짐·계산 안 됨) 칸의 예약 불꽃 색.")]
+        private Color reservationSparkEvenInk = DefaultReservationSparkEvenInk;
+        [SerializeField, ColorUsage(true, false), Tooltip("편성 예상이 불리(▼)인 칸의 예약 불꽃 색. 기본은 차갑고 어두운 강철빛입니다.")]
+        private Color reservationSparkUnfavourableInk = DefaultReservationSparkUnfavourableInk;
+        [SerializeField, Range(1f, 2f), Tooltip("유리(▲)한 칸의 예약 불꽃 크기·수 배율.")]
+        private float reservationSparkFavourableScale = LegacyCombatHud.DefaultReservationSparkFavourableScale;
+        [SerializeField, Range(.3f, 1f), Tooltip("불리(▼)한 칸의 예약 불꽃 크기·수 배율.")]
+        private float reservationSparkUnfavourableScale = LegacyCombatHud.DefaultReservationSparkUnfavourableScale;
+
+        [Header("큐 합 연출 — 실행 중 즉시 적용 (진행 중 가운데 이음매의 카드 한 쌍, Docs/CompactHudDesign.md)")]
+        [SerializeField, Tooltip("한 칸이 진행될 때 가운데 이음매의 내 카드와 상대 카드가 그 칸의 결과대로 움직입니다(합: 센 쪽이 밀고 약한 쪽이 튕김, 방어: 공격만 파고들고 방어는 버팀, 회피: 위로 비킴, 붕괴: 흔들림). 전투 시계를 따르고 진행을 기다리게 하지 않으며, 늘 제자리로 돌아옵니다. 끄면 카드는 예전처럼 제자리에 있습니다.")]
+        private bool clashMotionEnabled = true;
+        [SerializeField, Range(0f, .4f), Tooltip("칸이 시작될 때 공격 카드가 이음매 쪽으로 기우는 시간(전투 시계 초, 이 시간에 약 95%).")]
+        private float clashApproachSeconds = LegacyClashPose.DefaultApproachSeconds;
+        [SerializeField, Range(0f, 30f), Tooltip("첫 타격 전 공격 카드가 이음매 쪽으로 기우는 거리(HUD 단위). 맞닿을 자리를 넘지 않습니다.")]
+        private float clashApproachDistance = LegacyClashPose.DefaultApproachDistance;
+        [SerializeField, Range(.1f, 1f), Tooltip("첫 타격부터 두 카드가 맞닿고(이 시간의 14%) 밀고 튕긴 뒤(46%) 잠깐 버티고(56%) 제자리로 돌아오기까지의 시간(전투 시계 초). 칸이 먼저 끝나면 떠난 카드가 나머지를 마저 하며 사라집니다. 진행 시간은 바뀌지 않습니다.")]
+        private float clashImpactSeconds = LegacyClashPose.DefaultImpactSeconds;
+        [SerializeField, Range(0f, 160f), Tooltip("카드가 맞닿으러 가는 가장 먼 거리(HUD 단위). 합은 두 카드가 이음매에서, 방어 공격은 방어 카드 앞에서 만납니다. 코치 카드로 이음매가 넓어지면 이 거리까지만 갑니다.")]
+        private float clashReach = LegacyClashPose.DefaultReach;
+        [SerializeField, Range(0f, 40f), Tooltip("합에서 이긴 카드·방어를 뚫은 카드가 맞닿은 자리에서 더 밀고 들어가는 거리(HUD 단위, 차이가 클수록 이 값까지). 비긴 합의 튕김·막힌 공격의 되튐·빗나간 공격의 지나침도 이 값을 기준으로 합니다.")]
+        private float clashPushDistance = LegacyClashPose.DefaultPushDistance;
+        [SerializeField, Range(0f, 60f), Tooltip("합에서 진 카드·뚫린 방어 카드가 제자리 뒤로 밀려나는 거리(HUD 단위, 차이가 클수록 이 값까지, 가장 작게는 30%).")]
+        private float clashKnockbackDistance = LegacyClashPose.DefaultKnockbackDistance;
+        [SerializeField, Range(0f, 60f), Tooltip("회피한 쪽 카드가 공격을 비켜 위로 올라서는 거리(HUD 단위).")]
+        private float clashSideStepDistance = LegacyClashPose.DefaultSideStepDistance;
+        [SerializeField, Range(0f, 25f), Tooltip("밀려난 카드가 뒤로 젖혀지는 가장 큰 각도(도).")]
+        private float clashTiltDegrees = LegacyClashPose.DefaultTiltDegrees;
+        [SerializeField, Range(0f, 20f), Tooltip("이번 칸에서 저항이 붕괴한 쪽 카드가 흔들리는 폭(HUD 단위). 0이면 흔들지 않습니다.")]
+        private float clashBreakShake = LegacyClashPose.DefaultBreakShake;
+        [SerializeField, Range(0f, 1f), Tooltip("붕괴 흔들림이 잦아드는 시간(전투 시계 초).")]
+        private float clashBreakShakeSeconds = LegacyClashPose.DefaultBreakShakeSeconds;
+        [SerializeField, Range(0f, 12f), Tooltip("공격이 없는 칸(방어끼리, 방어·숨고르기 대 빈칸)의 카드가 살짝 내려앉는 거리(HUD 단위). 0이면 움직이지 않습니다.")]
+        private float clashSettleDip = LegacyClashPose.SettleDip;
+        [SerializeField, Range(0f, .3f), Tooltip("공격을 받는 방어 카드가 순간 움츠러드는 비율(0.06 = 6% 작아짐). 뚫린 방어와 내려앉는 카드는 그 절반입니다. 카드는 쉬는 크기보다 커지지 않습니다.")]
+        private float clashBraceSquash = -LegacyClashPose.BraceSquash;
+        [SerializeField, Range(0f, 1f), Tooltip("두 카드가 맞닿는 순간(합·방어) 맞닿은 자리에서 한 번 튀는 불꽃의 시간(전투 시계 초). 0이면 끕니다.")]
+        private float clashSparkSeconds = LegacyCombatHud.DefaultClashSparkSeconds;
+        [SerializeField, Range(12f, 80f), Tooltip("맞닿는 불꽃의 크기(HUD 단위, 큐 카드 크기에 맞춰 커지고 작아짐). 한쪽이 크게 앞설수록 1.2배까지 커집니다.")]
+        private float clashSparkSize = LegacyCombatHud.DefaultClashSparkSize;
+        [SerializeField, Range(0, 24), Tooltip("맞닿는 불꽃의 수. 0이면 끕니다.")]
+        private int clashSparkCount = LegacyCombatHud.DefaultClashSparkCount;
+        [SerializeField, ColorUsage(true, false), Tooltip("맞닿는 불꽃 머리의 색(기본: 맞물림 불꽃과 같은 흰 금빛). 알파는 머리의 진하기입니다.")]
+        private Color clashSparkHeadInk = DefaultClashSparkHeadInk;
+        [SerializeField, ColorUsage(true, false), Tooltip("맞닿는 불꽃 꼬리의 색(기본: 주황, 알파 0이라 꼬리는 머리 쪽으로 사라짐). 알파를 올리면 꼬리가 그 색으로 남습니다.")]
+        private Color clashSparkTailInk = DefaultClashSparkTailInk;
+
         [Header("숲 소리 — 실행 중 즉시 적용 (Resources/Sfx/forest-ambience-loop)")]
         [SerializeField, Range(0f, 1f), Tooltip("전투와 숲 장면(컷신) 내내 낮게 깔리는 숲 소리(바람·잎·먼 새)의 음량. 로비·타이틀·브리핑에서는 잦아들어 멈춥니다. 0이면 끕니다.")]
         private float forestAmbienceVolume = .4f;
@@ -364,6 +456,83 @@ namespace TurnLimbo.Presentation
         public int SlotForecastResistanceWeight => Mathf.Clamp(slotForecastResistanceWeight, 0, 100);
         public int SlotForecastBreakBonus => Mathf.Clamp(slotForecastBreakBonus, 0, 30);
         public int SlotForecastMargin => Mathf.Clamp(slotForecastMargin, 0, 30);
+        /// <summary>The duel HUD's two facing queue panels over the dock (<see cref="LegacyQueuePanelLayout"/>): one panel's
+        /// width, a card's size and the full spacing between cards, the gap at the centre seam (HUD units), and the slide
+        /// toward the seam after each resolved slot (battle seconds; 0 at once).</summary>
+        public float QueuePanelWidth => Safe(queuePanelWidth, 360f, 760f, LegacyQueuePanelLayout.DefaultPanelWidth);
+        public float QueueCardSize => Safe(queueCardSize, 48f, 80f, LegacyQueuePanelLayout.DefaultCardSize);
+        public float QueueCardSpacing => Safe(queueCardSpacing, 48f, 104f, LegacyQueuePanelLayout.DefaultCardSpacing);
+        public float QueueSeamGap => Safe(queueSeamGap, 0f, 240f, LegacyQueuePanelLayout.DefaultSeamGap);
+        public float QueueSlideSeconds => Safe(queueSlideSeconds, 0f, .6f, LegacyQueuePanelLayout.DefaultSlideSeconds);
+        /// <summary>The panels' gap over the dock while planning, and their bottom over the screen's while the dock is folded
+        /// away for a resolving turn (HUD units).</summary>
+        public float QueuePanelDockGap => Safe(queuePanelDockGap, 0f, 40f, LegacyQueuePanelLayout.DefaultDockGap);
+        public float QueuePanelResolvingBottom => Safe(queuePanelResolvingBottom, 0f, 120f, LegacyQueuePanelLayout.DefaultResolvingBottom);
+        /// <summary>Whether the arena camera keeps the fighters' feet over the panels (moving down only as far as that takes),
+        /// and the room it leaves between them (HUD units).</summary>
+        public bool QueuePanelKeepsFightersClear => queuePanelKeepsFightersClear;
+        public float QueuePanelFighterClearance => Safe(queuePanelFighterClearance, 0f, 60f, LegacyQueuePanelLayout.DefaultFighterClearance);
+        /// <summary>The planning pair cues on the queue panels: whether the ring on the opponent card the next reservation
+        /// would meet and the faint socket at its mirror on the player's panel show, the ring's strength and its pulse (real
+        /// seconds; 0 steady), and the socket's strength.</summary>
+        public bool QueuePairCuesEnabled => queuePairCuesEnabled;
+        public float NextOpponentRingAlpha => Safe(nextOpponentRingAlpha, 0f, 1f, LegacyCombatHud.DefaultNextOpponentRingAlpha);
+        public float NextOpponentRingPulseSeconds => Safe(nextOpponentRingPulseSeconds, 0f, 3f, LegacyCombatHud.DefaultNextOpponentRingPulseSeconds);
+        public float NextReservationSocketAlpha => Safe(nextReservationSocketAlpha, 0f, 1f, LegacyCombatHud.DefaultNextReservationSocketAlpha);
+        /// <summary>The ring's ink (opaque; its strength is <see cref="NextOpponentRingAlpha"/>), how far it stands round the
+        /// card (HUD units at the built card size) and how deep its pulse dips (a share of its strength, 0 steady); the
+        /// socket's fill (alpha is the fill's own strength, under <see cref="NextReservationSocketAlpha"/>).</summary>
+        public static readonly Color DefaultNextOpponentRingInk = DuelVisualTheme.Accent;
+        public static readonly Color DefaultNextReservationSocketInk =
+            new Color(DuelVisualTheme.Track.r, DuelVisualTheme.Track.g, DuelVisualTheme.Track.b, .6f);
+        public Color NextOpponentRingInk => SafeColor(nextOpponentRingInk, DefaultNextOpponentRingInk);
+        public float NextOpponentRingMargin => Safe(nextOpponentRingMargin, 0f, 16f, LegacyCombatHud.DefaultNextOpponentRingMargin);
+        public float NextOpponentRingPulseDepth => Safe(nextOpponentRingPulseDepth, 0f, 1f, LegacyCombatHud.DefaultNextOpponentRingPulseDepth);
+        public Color NextReservationSocketInk => SafeInk(nextReservationSocketInk, DefaultNextReservationSocketInk);
+        /// <summary>The spark at both cards of a slot the player reserves into while the opponent holds it: its real seconds
+        /// (0 off), size (HUD units) and sparks per card; its ink and scale by the slot forecast's verdict.</summary>
+        public float ReservationSparkSeconds => Safe(reservationSparkSeconds, 0f, 1f, LegacyCombatHud.DefaultReservationSparkSeconds);
+        public float ReservationSparkSize => Safe(reservationSparkSize, 12f, 60f, LegacyCombatHud.DefaultReservationSparkSize);
+        public int ReservationSparkCount => Mathf.Clamp(reservationSparkCount, 0, 24);
+        /// <summary>The reservation spark's inks: 유리 (bright and warm), 비슷 or no forecast, 불리 (cold and dim); alpha is
+        /// the spark's strength.</summary>
+        public static readonly Color DefaultReservationSparkFavourableInk = new Color(1f, .66f, .22f, 1f);
+        public static readonly Color DefaultReservationSparkEvenInk = new Color(.82f, .69f, .45f, .9f);
+        public static readonly Color DefaultReservationSparkUnfavourableInk = new Color(.47f, .6f, .74f, .75f);
+        public Color ReservationSparkFavourableInk => SafeInk(reservationSparkFavourableInk, DefaultReservationSparkFavourableInk);
+        public Color ReservationSparkEvenInk => SafeInk(reservationSparkEvenInk, DefaultReservationSparkEvenInk);
+        public Color ReservationSparkUnfavourableInk => SafeInk(reservationSparkUnfavourableInk, DefaultReservationSparkUnfavourableInk);
+        public float ReservationSparkFavourableScale => Safe(reservationSparkFavourableScale, 1f, 2f,
+            LegacyCombatHud.DefaultReservationSparkFavourableScale);
+        public float ReservationSparkUnfavourableScale => Safe(reservationSparkUnfavourableScale, .3f, 1f,
+            LegacyCombatHud.DefaultReservationSparkUnfavourableScale);
+        /// <summary>The clash motion of the resolving pair at the queue panels' seam (<see cref="LegacyClashPose"/>): whether it
+        /// plays, its numbers (<see cref="ClashTuning"/>), and the contact spark's battle seconds (0 off), size and count.</summary>
+        public bool ClashMotionEnabled => clashMotionEnabled;
+        public float ClashApproachSeconds => Safe(clashApproachSeconds, 0f, .4f, LegacyClashPose.DefaultApproachSeconds);
+        public float ClashApproachDistance => Safe(clashApproachDistance, 0f, 30f, LegacyClashPose.DefaultApproachDistance);
+        public float ClashImpactSeconds => Safe(clashImpactSeconds, .1f, 1f, LegacyClashPose.DefaultImpactSeconds);
+        public float ClashReach => Safe(clashReach, 0f, 160f, LegacyClashPose.DefaultReach);
+        public float ClashPushDistance => Safe(clashPushDistance, 0f, 40f, LegacyClashPose.DefaultPushDistance);
+        public float ClashKnockbackDistance => Safe(clashKnockbackDistance, 0f, 60f, LegacyClashPose.DefaultKnockbackDistance);
+        public float ClashSideStepDistance => Safe(clashSideStepDistance, 0f, 60f, LegacyClashPose.DefaultSideStepDistance);
+        public float ClashTiltDegrees => Safe(clashTiltDegrees, 0f, 25f, LegacyClashPose.DefaultTiltDegrees);
+        public float ClashBreakShake => Safe(clashBreakShake, 0f, 20f, LegacyClashPose.DefaultBreakShake);
+        public float ClashBreakShakeSeconds => Safe(clashBreakShakeSeconds, 0f, 1f, LegacyClashPose.DefaultBreakShakeSeconds);
+        /// <summary>How far a settling card dips (HUD units) and how much a guard taking the blow shrinks (a share, 0 to 0.3).</summary>
+        public float ClashSettleDip => Safe(clashSettleDip, 0f, 12f, LegacyClashPose.SettleDip);
+        public float ClashBraceSquash => Safe(clashBraceSquash, 0f, .3f, -LegacyClashPose.BraceSquash);
+        public LegacyClashTuning ClashTuning => new LegacyClashTuning(ClashApproachSeconds, ClashApproachDistance,
+            ClashImpactSeconds, ClashReach, ClashPushDistance, ClashKnockbackDistance, ClashSideStepDistance, ClashTiltDegrees,
+            ClashBreakShake, ClashBreakShakeSeconds, ClashSettleDip, -ClashBraceSquash);
+        public float ClashSparkSeconds => Safe(clashSparkSeconds, 0f, 1f, LegacyCombatHud.DefaultClashSparkSeconds);
+        public float ClashSparkSize => Safe(clashSparkSize, 12f, 80f, LegacyCombatHud.DefaultClashSparkSize);
+        public int ClashSparkCount => Mathf.Clamp(clashSparkCount, 0, 24);
+        /// <summary>The contact spark's head and tail inks (alpha in; the defaults are 맞물림's, <see cref="DuelMeshSparks"/>).</summary>
+        public static readonly Color DefaultClashSparkHeadInk = DuelMeshSparks.DefaultHead;
+        public static readonly Color DefaultClashSparkTailInk = DuelMeshSparks.DefaultTail;
+        public Color ClashSparkHeadInk => SafeInk(clashSparkHeadInk, DefaultClashSparkHeadInk);
+        public Color ClashSparkTailInk => SafeInk(clashSparkTailInk, DefaultClashSparkTailInk);
         public float ForestAmbienceVolume => Safe(forestAmbienceVolume, 0f, 1f, .4f);
         public float ForestAmbienceFadeSeconds => Safe(forestAmbienceFadeSeconds, 0f, 5f, 1.2f);
         public float ForestAmbienceSceneDuck => Safe(forestAmbienceSceneDuck, 0f, 1f, .7f);
@@ -410,6 +579,13 @@ namespace TurnLimbo.Presentation
             float.IsInfinity(value.r) || float.IsInfinity(value.g) || float.IsInfinity(value.b)
                 ? fallback : new Color(Mathf.Clamp01(value.r), Mathf.Clamp01(value.g), Mathf.Clamp01(value.b), 1f);
 
+        // A colour within 0..1 that keeps its alpha (no HDR); one that is not a number falls back whole.
+        private static Color SafeInk(Color value, Color fallback) =>
+            float.IsNaN(value.r) || float.IsNaN(value.g) || float.IsNaN(value.b) || float.IsNaN(value.a) ||
+            float.IsInfinity(value.r) || float.IsInfinity(value.g) || float.IsInfinity(value.b) || float.IsInfinity(value.a)
+                ? fallback
+                : new Color(Mathf.Clamp01(value.r), Mathf.Clamp01(value.g), Mathf.Clamp01(value.b), Mathf.Clamp01(value.a));
+
         private void OnValidate()
         {
             farMistHeight = FarMistHeight; farMistY = FarMistY;
@@ -451,6 +627,27 @@ namespace TurnLimbo.Presentation
             explanationTimeScale = ExplanationTimeScale;
             slotForecastResistanceWeight = SlotForecastResistanceWeight; slotForecastBreakBonus = SlotForecastBreakBonus;
             slotForecastMargin = SlotForecastMargin;
+            queuePanelWidth = QueuePanelWidth; queueCardSize = QueueCardSize; queueCardSpacing = QueueCardSpacing;
+            queueSeamGap = QueueSeamGap; queueSlideSeconds = QueueSlideSeconds;
+            queuePanelDockGap = QueuePanelDockGap; queuePanelResolvingBottom = QueuePanelResolvingBottom;
+            queuePanelFighterClearance = QueuePanelFighterClearance;
+            nextOpponentRingAlpha = NextOpponentRingAlpha; nextOpponentRingPulseSeconds = NextOpponentRingPulseSeconds;
+            nextOpponentRingInk = NextOpponentRingInk; nextOpponentRingMargin = NextOpponentRingMargin;
+            nextOpponentRingPulseDepth = NextOpponentRingPulseDepth;
+            nextReservationSocketAlpha = NextReservationSocketAlpha; nextReservationSocketInk = NextReservationSocketInk;
+            reservationSparkSeconds = ReservationSparkSeconds; reservationSparkSize = ReservationSparkSize;
+            reservationSparkCount = ReservationSparkCount;
+            reservationSparkFavourableInk = ReservationSparkFavourableInk; reservationSparkEvenInk = ReservationSparkEvenInk;
+            reservationSparkUnfavourableInk = ReservationSparkUnfavourableInk;
+            reservationSparkFavourableScale = ReservationSparkFavourableScale;
+            reservationSparkUnfavourableScale = ReservationSparkUnfavourableScale;
+            clashApproachSeconds = ClashApproachSeconds; clashApproachDistance = ClashApproachDistance;
+            clashImpactSeconds = ClashImpactSeconds; clashReach = ClashReach; clashPushDistance = ClashPushDistance;
+            clashKnockbackDistance = ClashKnockbackDistance; clashSideStepDistance = ClashSideStepDistance;
+            clashTiltDegrees = ClashTiltDegrees; clashBreakShake = ClashBreakShake; clashBreakShakeSeconds = ClashBreakShakeSeconds;
+            clashSettleDip = ClashSettleDip; clashBraceSquash = ClashBraceSquash;
+            clashSparkSeconds = ClashSparkSeconds; clashSparkSize = ClashSparkSize; clashSparkCount = ClashSparkCount;
+            clashSparkHeadInk = ClashSparkHeadInk; clashSparkTailInk = ClashSparkTailInk;
             forestAmbienceVolume = ForestAmbienceVolume; forestAmbienceFadeSeconds = ForestAmbienceFadeSeconds;
             forestAmbienceSceneDuck = ForestAmbienceSceneDuck;
             timePressureShare = TimePressureShare; timePressureCameraPush = TimePressureCameraPush;

@@ -152,7 +152,13 @@ namespace TurnLimbo.Presentation.Tests
                     Rect window = WorldRect(scope.Get("Input/Keys/Current " + "QWE"[lane]));
                     float unit = scope.Controller.Hud.Root.GetComponent<Canvas>().scaleFactor;
                     Assert.That(panel.yMin, Is.GreaterThanOrEqualTo(dock.yMax), "Above the dock, clear of the gears…");
-                    Assert.That(panel.yMin - dock.yMax, Is.EqualTo(LegacyCombatHud.ExplanationGap * unit).Within(1f), "…just above it…");
+                    // …and above the queue panels standing on it (2026-10-15), the tabs over their cards included, so the
+                    // enemy card it would face stays in view.
+                    float queues = scope.Controller.Hud.QueueRowTop * unit;
+                    foreach (RectTransform tray in new[] { scope.Controller.Hud.PlayerQueuePanel, scope.Controller.Hud.EnemyQueuePanel })
+                        Assert.That(panel.Overlaps(WorldRect(tray)), Is.False, "The explanation never covers a queue panel…");
+                    Assert.That(queues, Is.GreaterThan(dock.yMax));
+                    Assert.That(panel.yMin - queues, Is.EqualTo(LegacyCombatHud.ExplanationGap * unit).Within(1f), "…just above them…");
                     Assert.That(panel.center.x, Is.EqualTo(window.center.x).Within(1f), "…centred on the held lane.");
                     Assert.That(panel.xMin >= 0f && panel.xMax <= Screen.width && panel.yMax <= Screen.height, Is.True, "On screen.");
                     Release(Key(keyboard, lane));
@@ -171,7 +177,8 @@ namespace TurnLimbo.Presentation.Tests
                 Shadow shade = player.GetComponent<Shadow>();
                 Assert.That(shade, Is.Not.Null, "…on a dark shadow that lifts it off the arena.");
                 Assert.That(shade.effectColor.a, Is.GreaterThan(.5f));
-                foreach (string head in new[] { "PlayerStatus", "Player Requests", "EnemyStatus", "Enemy Requests", "Input" })
+                foreach (string head in new[] { "PlayerStatus", "Player Requests", "EnemyStatus", "Enemy Requests", "Input",
+                    LegacyCombatHud.QueuePanelsName })
                     Assert.That(player.GetSiblingIndex(), Is.GreaterThan(root.Find(head).GetSiblingIndex()), head + " never covers it.");
             }
         }
@@ -221,9 +228,10 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 scope.Advance(scope.Settings.ExplanationHoldSeconds, keyboard);
                 Canvas.ForceUpdateCanvases();
-                Rect alone = WorldRect(scope.Explanation), dock = WorldRect(scope.Get("Input"));
-                Assert.That(alone.yMin - dock.yMax, Is.EqualTo(LegacyCombatHud.ExplanationGap *
-                    scope.Controller.Hud.Root.GetComponent<Canvas>().scaleFactor).Within(1f), "…and the explanation sits on the dock again.");
+                Rect alone = WorldRect(scope.Explanation);
+                float scale = scope.Controller.Hud.Root.GetComponent<Canvas>().scaleFactor;
+                Assert.That(alone.yMin - scope.Controller.Hud.QueueRowTop * scale, Is.EqualTo(LegacyCombatHud.ExplanationGap * scale)
+                    .Within(1f), "…and the explanation sits on the queue panels over the dock again.");
                 Release(keyboard.qKey);
                 yield return null;
                 scope.Advance(0f, keyboard);

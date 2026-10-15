@@ -23,6 +23,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         IReadOnlyList<LegacySkill> EnemyQueue { get; }
         /// <summary>The slot resolving now, or null. The same object for as long as that slot plays.</summary>
         ILegacySlotView CurrentSlot { get; }
+        /// <summary>The slot resolving now as the queue cards' clash motion reads it (<see cref="LegacyClashMotion.Classify"/>),
+        /// from the player's side: each side's action, rolled power and hits, a dodge, a break this slot, a 반격 filling an
+        /// empty side, and whether the first hit has settled it. <see cref="LegacyClashInput.None"/> while no slot resolves.
+        /// It changes as the slot plays (a dodge, a pending 반격 settling at the first hit, a breaking hit), so read it again
+        /// when those land.</summary>
+        LegacyClashInput CurrentClash { get; }
         /// <summary>One of the player's lanes, its front skill first; empty for a lane the duel does not have.</summary>
         IReadOnlyList<LegacySkill> GetLane(int laneIndex);
         /// <summary>ACT the player pays if this skill is reserved now.</summary>

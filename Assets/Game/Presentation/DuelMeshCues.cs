@@ -469,15 +469,34 @@ namespace TurnLimbo.Presentation
     }
 
     /// <summary>맞물림's sparks: short streaks flying from where two gears' teeth meet, hot at the head and cooling to nothing
-    /// along their arc (<see cref="LegacyMeshCue.SparkX"/>). Drawn in code; no texture.</summary>
+    /// along their arc (<see cref="LegacyMeshCue.SparkX"/>). Drawn in code; no texture. The queue panels' clash and
+    /// reservation sparks (<see cref="LegacyCombatHud"/>) are the same streaks, the latter in the slot forecast's inks
+    /// (<see cref="SetInks"/>).</summary>
     [RequireComponent(typeof(CanvasRenderer))]
     public sealed class DuelMeshSparks : MaskableGraphic
     {
-        private static readonly Color Head = new Color(1f, .96f, .74f, 1f);
-        private static readonly Color Tail = new Color(1f, .56f, .16f, 0f);
+        /// <summary>The streaks' own inks: a white-hot head cooling to a transparent orange tail.</summary>
+        public static readonly Color DefaultHead = new Color(1f, .96f, .74f, 1f);
+        public static readonly Color DefaultTail = new Color(1f, .56f, .16f, 0f);
+        private Color head = DefaultHead, tail = DefaultTail;
         private int count;
         private float progress = 1f, reach, width;
         private bool looping;
+
+        /// <summary>The head's and the tail's inks now.</summary>
+        public Color HeadInk => head;
+        public Color TailInk => tail;
+
+        /// <summary>Draws the streaks from <paramref name="headInk"/> at their heads to <paramref name="tailInk"/> at their
+        /// tails (each still faded by the flight and the graphic's alpha); <see cref="DefaultHead"/> and
+        /// <see cref="DefaultTail"/> are 맞물림's.</summary>
+        public void SetInks(Color headInk, Color tailInk)
+        {
+            if (head == headInk && tail == tailInk) return;
+            head = headInk;
+            tail = tailInk;
+            SetVerticesDirty();
+        }
 
         /// <summary>The sparks drawn now (0 once a one-shot burst has flown, or when tuned off).</summary>
         public int Count => reach <= 0f || !looping && progress >= 1f ? 0 : count;
@@ -554,8 +573,9 @@ namespace TurnLimbo.Presentation
                 back = front - along;
             }
             Vector2 side = new Vector2(-along.y, along.x).normalized * (width * .5f);
-            Color head = Head, tail = Tail;
+            Color head = this.head, tail = this.tail;
             head.a *= alpha;
+            tail.a *= alpha;
             int first = vertices.currentVertCount;
             vertices.AddVert(front + side, head, Vector2.zero);
             vertices.AddVert(front - side, head, Vector2.up);

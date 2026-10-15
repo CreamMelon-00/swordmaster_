@@ -273,6 +273,25 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacySkill> EnemyQueue { get; }
         public LegacyCurrentSlot CurrentSlot { get; private set; }
         ILegacySlotView ILegacyDuelView.CurrentSlot => CurrentSlot;
+        /// <summary>The current slot as the clash motion reads it (<see cref="ILegacyDuelView.CurrentClash"/>): each side's rolled
+        /// power per hit, the player's dodge (a timed one or 자동 회피; the enemy never dodges) and 압박 (the enemy never
+        /// presses), a break since the slot began, a 반격 filling either side. A player's 반격 still pending reads as an empty
+        /// side until the first hit settles it.</summary>
+        public LegacyClashInput CurrentClash
+        {
+            get
+            {
+                LegacyCurrentSlot slot = CurrentSlot;
+                if (slot == null) return LegacyClashInput.None;
+                return LegacyClashInput.FromSkills(slot.SlotIndex, slot.PlayerSkill, slot.PlayerPower,
+                    slot.EnemySkill, slot.EnemyPower,
+                    playerDodged: slot.DodgeSucceeded, enemyDodged: false,
+                    playerBroken: slot.PlayerStartingResistance > 0 && Player.IsResistanceBroken,
+                    enemyBroken: slot.EnemyStartingResistance > 0 && Enemy.IsResistanceBroken,
+                    playerCountered: slot.PlayerCountered, enemyCountered: slot.EnemyCountered,
+                    decided: slot.HitsResolved > 0, playerPressured: slot.PressureSucceeded);
+            }
+        }
         /// <summary>Whether any step was attempted this turn.</summary>
         public bool UsedStepThisTurn => StepAttemptsThisTurn > 0;
         /// <summary>Dodge and pressure attempts this turn, hit or miss; each one narrows the next

@@ -126,6 +126,9 @@ namespace TurnLimbo.Presentation
         // The planning clock's pressure (0..1): asked for every planning frame (SetTimePressure) and consumed by Tick like
         // bullet time, it eases in and out on real time and pushes the planning framing in a touch (LegacyTimePressure).
         private float timePressureTarget, timePressureAmount;
+        // The duel HUD's queue panels' top over the screen's bottom, as a share of its height (SetHudFloor): asked for every
+        // battle frame and consumed by Tick, it keeps the fighters' feet above the panels in the battle framings.
+        private float hudFloorRequest, hudFloor;
         // The battle as a cutscene in its middle found it (SuspendForCutscene), or null.
         private Suspension suspension;
         private LegacyStepAction stepAction;
@@ -207,6 +210,11 @@ namespace TurnLimbo.Presentation
         public bool IsFinishingFocus => finishingFocus && IsFatalFocus;
         /// <summary>How far the planning clock's pressure has pushed the camera in, 0 to 1 (<see cref="SetTimePressure"/>).</summary>
         public float TimePressureAmount => timePressureAmount;
+        /// <summary>The HUD floor the last Tick framed against (<see cref="SetHudFloor"/>), a share of the screen's height.</summary>
+        public float HudFloor => hudFloor;
+        /// <summary>Where the fighters' feet stand (world y): their ground line, where their shadows lie
+        /// (<see cref="MobStudentAnimationSet.GroundOffset"/> under the actors).</summary>
+        public float FeetY => ActorGroundY + MobStudentAnimationSet.GroundOffset;
         /// <summary>Whether a cutscene is playing in the middle of the battle (<see cref="SuspendForCutscene"/>).</summary>
         public bool IsSuspendedForCutscene => suspension != null;
         public int ActiveStepAfterimageCount => stepAfterimages.ActiveCount;
@@ -540,6 +548,18 @@ namespace TurnLimbo.Presentation
         public void SetTimePressure(float target)
         {
             timePressureTarget = float.IsNaN(target) ? 0f : Mathf.Clamp01(target);
+        }
+
+        /// <summary>The duel HUD's queue panels stand over the bottom of the screen up to this share of its height, their
+        /// clearance included (<see cref="LegacyCombatHud.QueuePanelFloor"/>; 0 for none). The battle framings (planning and
+        /// combat) keep the fighters' feet (<see cref="FeetY"/>) at or above it, moving the camera down only as far as that
+        /// takes (<see cref="LegacyQueuePanelLayout.CameraCeiling"/>): the forest's framing already clears the panels and does
+        /// not move; the corridor's lower floor moves a little. Tab's close-up and the decisive close-up keep their framing; a
+        /// step's push-in and a 수훈 cut-in let it go as far as they pull. Asked for frame by frame like the time pressure:
+        /// the next Tick consumes it, so an arena ticked without it (a cutscene, a test) frames as before.</summary>
+        public void SetHudFloor(float screenShare)
+        {
+            hudFloorRequest = float.IsNaN(screenShare) || float.IsInfinity(screenShare) ? 0f : Mathf.Clamp(screenShare, 0f, .5f);
         }
 
         public void BeginApproach()
@@ -986,6 +1006,8 @@ namespace TurnLimbo.Presentation
             float pressure = !resolving && !approaching && !returning ? timePressureTarget : 0f;
             timePressureTarget = 0f;
             timePressureAmount = LegacyTimePressure.Step(timePressureAmount, pressure, realDelta);
+            hudFloor = hudFloorRequest;
+            hudFloorRequest = 0f;
             // A planning phase that starts at close quarters (turns usually end at contact) first steps back to the
             // staging gap at normal speed, so there is room to edge in again. A staging gap at contact turns it off.
             float staging = settings.BattleStagingSeparation;
@@ -1156,6 +1178,9 @@ namespace TurnLimbo.Presentation
                     ? enemy.Renderer.transform.localPosition + new Vector3(0f, 0.5f, 0f)
                     : DuelCenter + new Vector3(0f, -1f, 0f);
                 pivot.y += CameraCompensation(ArenaCamera.orthographicSize, inspecting ? 1f : 0f);
+                // As TickCamera frames it: the feet over the duel HUD's queue panels (not under Tab).
+                if (!inspecting)
+                    pivot.y = Mathf.Min(pivot.y, LegacyQueuePanelLayout.CameraCeiling(FeetY, ArenaCamera.orthographicSize, hudFloor));
                 pivot.z = -10f;
                 ArenaCamera.transform.localPosition = pivot;
                 ArenaCamera.transform.localRotation = Quaternion.Euler(0f, 0f, CameraRotate ? cameraRotation : 0f);
@@ -1587,6 +1612,11 @@ namespace TurnLimbo.Presentation
             }
             // Keep the wide corridor shot fixed while close-ups can still follow the whole figure.
             pivot.y += CameraCompensation(size, inspecting || IsFatalFocus ? 1f : Mathf.Max(focus, cutIn));
+            // The duel HUD's queue panels over the bottom of the screen: the feet stay above them (SetHudFloor). Only ever
+            // down, only as far as needed; Tab's and the decisive close-ups keep theirs, a push-in or cut-in as far as it pulls.
+            float floorWeight = inspecting || IsFatalFocus ? 0f : 1f - Mathf.Clamp01(Mathf.Max(focus, cutIn));
+            float ceiling = LegacyQueuePanelLayout.CameraCeiling(FeetY, size, hudFloor);
+            if (floorWeight > 0f && pivot.y > ceiling) pivot.y = Mathf.Lerp(pivot.y, ceiling, floorWeight);
             pivot.z = -10f;
             if (cameraJoltTime > 0f) pivot += cameraJolt * (cameraJoltTime / 0.1f);
             ArenaCamera.orthographicSize = Mathf.Lerp(ArenaCamera.orthographicSize, size, blend);

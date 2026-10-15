@@ -608,6 +608,8 @@ namespace TurnLimbo.Presentation
             // The running clock's last share pushes the camera in a touch (not untimed, not while a coached beat holds it).
             arena.SetTimePressure(CanChoose && PlanningTimerRuns
                 ? LegacyTimePressure.Target(planningTime, turnPlanningDuration, presentationSettings.TimePressureShare) : 0f);
+            // The fighters' feet stay above the duel HUD's queue panels (as last laid out).
+            arena.SetHudFloor(hud.QueuePanelFloor);
             arena.Tick(delta, realDelta);
             phaseTime += delta;
             switch (viewPhase)
@@ -696,6 +698,8 @@ namespace TurnLimbo.Presentation
                 return;
             }
             arena.SetPlanningState(planningTime, false);
+            // Framed for the queue panels already, so the camera does not drift as the HUD comes back under the card.
+            arena.SetHudFloor(hud.QueuePanelFloor);
             arena.Tick(realDelta, realDelta);
             if (startCard.Tick(realDelta)) EndStartCard();
             // The duel HUD comes back under the leaving card (its veil still takes the clicks).
@@ -828,6 +832,8 @@ namespace TurnLimbo.Presentation
                 bool playerWasBroken = session.Player.IsResistanceBroken;
                 bool enemyWasBroken = session.Enemy.IsResistanceBroken;
                 LegacyHitResult hit = session.ResolveNextHit();
+                // The queue panels' clash motion reads the hit now: a finishing blow completes its slot before the HUD's frame.
+                hud.ObserveClash(session);
                 // 맞물림: the meshed slot's gears flash at the player as its first hit lands, where the rings would have been.
                 if (hit.HitIndex == 0) meshCues.ShowSlotFlash(hit.PlayerMesh);
                 if (hit.HitIndex == 0 && slotStartDeferred)
@@ -1150,6 +1156,8 @@ namespace TurnLimbo.Presentation
             hud.PlayLaneTurn(lane);
             // 맞물림: when it made or lengthened a chain, gears bite on the seam in the queue row, with sparks and a sound.
             meshCues.Queued(session);
+            // When the enemy holds a card in the slot just reserved into, a spark bursts at both cards (the forecast's look).
+            hud.PlayReservationSpark(session.LastQueuedSlotIndex);
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             laneHolds.DropExplanation();
@@ -1193,6 +1201,8 @@ namespace TurnLimbo.Presentation
             // The duel refuses a closed 숨고르기; a coached mission also waits for its lesson beat.
             if (!CanChoose || IsInspecting || guide != null && !guide.AllowsBreath || !session.TryQueueBreath()) return false;
             hud.ClearHoldCancel();
+            // A 숨고르기 takes a slot too: it meets whatever the enemy holds there.
+            hud.PlayReservationSpark(session.PlayerQueue.Count - 1);
             effectsSource.pitch = 1f;
             art.PlaySelection(effectsSource, Random.Range(0, 3));
             laneHolds.DropExplanation();
@@ -2800,12 +2810,22 @@ namespace TurnLimbo.Presentation
 
         private void RefreshHud(float delta) => RefreshHudClock(delta, delta);
 
+        /// <summary>The room the queue panels' seam keeps round the coach's card while it is up (expanded) over the dock's
+        /// centre: half its width and a small margin, HUD units (both HUDs scale from 1920x1080 alike); 0 otherwise. The
+        /// folded free-play card sits at the screen's lower left, beside the dock.</summary>
+        private float CoachSeamReserve => coachHud != null && coachHud.TopEdge > 0f
+            ? MissionCoachCard.FrameSize.x * .5f + CoachSeamMargin : 0f;
+
+        private const float CoachSeamMargin = 8f;
+
         private void RefreshHudClock(float delta, float realDelta)
         {
             // Every frame, after this frame's poses: the outline follows the actor's current sprite.
             arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
             hud.SetLaneCycleCost(LaneCycleCost, CanAffordLaneCycle);
             hud.SetReservationClock(planningTime, PlanningTimerRuns);
+            // The coach's card, while it is up over the dock's centre, opens the queue panels' seam round it.
+            hud.SetQueueSeamReserve(CoachSeamReserve);
             hud.Refresh(session, planningTime, IsResolving, highlightedSlot, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta, turnPlanningDuration);
             // On real time, over the head HUDs as just laid out.

@@ -96,7 +96,7 @@ namespace TurnLimbo.Presentation
                 return;
             }
             // The fixed actor-local point avoids animation-dependent sprite bounds.
-            // Keep the text below the existing head-attached status/queue stack.
+            // Keep the text below the head-attached status panel.
             Vector3 screen = camera.WorldToScreenPoint(actor.TransformPoint(new Vector3(-.6f, .7f, 0f)));
             Camera uiCamera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
             if (screen.z <= 0f || !RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen, uiCamera, out Vector2 position))

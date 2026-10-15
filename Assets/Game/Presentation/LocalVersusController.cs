@@ -422,6 +422,8 @@ namespace TurnLimbo.Presentation
             // start this turn.
             arena.SetTimePressure(planning
                 ? LegacyTimePressure.Target(clock, turnClocks[match.CurrentPlanner], settings.TimePressureShare) : 0f);
+            // The fighters' feet stay above the duel HUD's queue panels (as last laid out).
+            arena.SetHudFloor(battleHud.QueuePanelFloor);
             arena.Tick(delta, realDelta);
             phaseTime += delta;
             switch (viewPhase)
@@ -553,6 +555,8 @@ namespace TurnLimbo.Presentation
         private void AdvanceStartCard(float realDelta)
         {
             arena.SetPlanningState(Mathf.Min(10f, shownClock), false);
+            // Framed for the queue panels already, so the camera does not drift as the HUD comes back under the card.
+            arena.SetHudFloor(battleHud.QueuePanelFloor);
             arena.Tick(realDelta, realDelta);
             if (startCard.Tick(realDelta))
             {
@@ -681,6 +685,8 @@ namespace TurnLimbo.Presentation
                     // clock, so the '-4초' rises over the reserved lane's window (its cost read '3 ACT · 4초').
                     if (lastActionSeconds > 0f) battleHud.ShowLaneTimeSpent(lane, lastActionSeconds);
                     LocalVersusFighter self = view.Me;
+                    // When the opponent holds a card in the slot just reserved into, a spark bursts at both cards.
+                    battleHud.PlayReservationSpark(self.LastQueuedSlotIndex);
                     if (!temporaryUsedBefore && (self.ReserveEffectsUsedThisTurn & LegacyReserveEffect.Temporary) != 0 &&
                         self.LastQueuedSlotIndex >= 0 && self.LastQueuedSlotIndex < self.Queue.Count)
                     {
@@ -702,6 +708,7 @@ namespace TurnLimbo.Presentation
                     break;
                 case OnlineVersusAction.Breath:
                     battleHud.ClearHoldCancel();
+                    battleHud.PlayReservationSpark(view.PlayerQueue.Count - 1);
                     PlaySelection();
                     break;
             }
@@ -856,6 +863,8 @@ namespace TurnLimbo.Presentation
                 bool playerWasBroken = view.Player.IsResistanceBroken;
                 bool enemyWasBroken = view.Enemy.IsResistanceBroken;
                 LocalVersusPerspectiveHit hit = view.Hit(match.ResolveNextHit());
+                // The queue panels' clash motion reads the hit now: a finishing blow completes its slot before the HUD's frame.
+                battleHud.ObserveClash(view);
                 if (hit.PlayerAttacked) playerSlotDamage = hit.EnemyDisplayedDamage;
                 if (hit.EnemyAttacked) enemySlotDamage = hit.PlayerDisplayedDamage;
                 if (hit.PlayerAttacked)

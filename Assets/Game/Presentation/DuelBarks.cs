@@ -11,9 +11,10 @@ namespace TurnLimbo.Presentation
     /// is simply none). The controller reports the battle's moments, <see cref="BarkTracker"/> decides what is said, and
     /// this draws it. A bubble never pauses the battle and stays its set real time
     /// (<see cref="DuelPresentationSettings.BarkSeconds"/>), so bullet time, slow motion and hit stop never stretch it. It
-    /// sits above the fighter's head HUD (status panel and queue row), on screen, never over either fighter's head HUD or
-    /// the other bubble (<see cref="BarkLayout"/>); a thought in parentheses reads in the dialogue's monologue colour, with a
-    /// trail of beads for a tail. It lives on the duel HUD, so it goes when the HUD does.</summary>
+    /// sits above the fighter's head HUD (its status panel; the queues stand over the dock since 2026-10-15), on screen,
+    /// never over either fighter's head HUD or the other bubble (<see cref="BarkLayout"/>); a thought in parentheses reads in
+    /// the dialogue's monologue colour, with a trail of beads for a tail. It lives on the duel HUD, so it goes when the HUD
+    /// does.</summary>
     public sealed class DuelBarks : IDisposable
     {
         /// <summary>A line wider than this (HUD units at the 1920x1080 reference) folds onto a second line.</summary>

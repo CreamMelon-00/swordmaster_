@@ -56,6 +56,7 @@ namespace TurnLimbo.Presentation.Tests
                 versus.Tick(0f, null);
                 Assert.That(versus.BattleHud.GetQueuedSkillAnchor(true, 0), Is.Not.Null,
                     "The host's reservation rides its own queue row.");
+                Assert.That(OnLeftPanel(versus.BattleHud, true, 0), Is.True, "…in the left panel over the dock: the viewer's.");
                 Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
                 Assert.That(versus.Hud.HintText, Is.EqualTo(LocalVersusHud.OpponentChoosingHint));
                 Assert.That(versus.BattleHud.InputsHeld, Is.True);
@@ -128,6 +129,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(match.Right.Queue.Count, Is.EqualTo(1));
                 Assert.That(versus.BattleHud.GetQueuedSkillAnchor(true, 0), Is.Not.Null,
                     "Right's queue is the guest's own row.");
+                Assert.That(OnLeftPanel(versus.BattleHud, true, 0), Is.True, "Mirrored: the guest's own queue is the left panel.");
                 Assert.That(versus.BattleHud.GetQueuedSkillAnchor(false, 0), Is.Null);
                 Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
 
@@ -135,6 +137,7 @@ namespace TurnLimbo.Presentation.Tests
                 versus.Tick(0f, null);
                 Assert.That(versus.BattleHud.GetQueuedSkillAnchor(false, 0), Is.Not.Null,
                     "Left's queue is the opponent's row.");
+                Assert.That(OnLeftPanel(versus.BattleHud, false, 0), Is.False, "…in the right panel, across the seam.");
                 Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
 
                 // The host's clocks arrive by match side; the timer shows the planner's (the guest's own now).
@@ -539,6 +542,21 @@ namespace TurnLimbo.Presentation.Tests
             => new LegacySkill(id, name, 0, 5, 5, kind, property, 1, lane, "검증");
 
         private static string Caption(Button button) => button.GetComponentInChildren<Text>(true).text;
+
+        // Whether a queued card stands in the left queue panel over the dock (the viewer's), left of the screen's centre.
+        private static bool OnLeftPanel(LegacyCombatHud hud, bool playerSide, int slot)
+        {
+            Canvas.ForceUpdateCanvases();
+            RectTransform card = hud.GetQueuedSkillAnchor(playerSide, slot);
+            Assert.That(card, Is.Not.Null);
+            var corners = new Vector3[4];
+            ((RectTransform)hud.Root.transform).GetWorldCorners(corners);
+            float centre = (corners[0].x + corners[2].x) * .5f;
+            RectTransform tray = card.position.x < centre ? hud.PlayerQueuePanel : hud.EnemyQueuePanel;
+            tray.GetWorldCorners(corners);
+            Assert.That(card.position.x, Is.InRange(corners[0].x, corners[2].x), "The card stands in its panel.");
+            return card.position.x < centre;
+        }
 
         private static Text TextUnder(Transform root, string name)
         {

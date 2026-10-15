@@ -98,6 +98,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacySkill> EnemyQueue => Opponent.Queue;
         public LocalVersusPerspectiveSlot CurrentSlot => Slot(Match.CurrentSlot);
         ILegacySlotView ILegacyDuelView.CurrentSlot => CurrentSlot;
+        /// <summary>The current slot's clash from this side (<see cref="LocalVersusMatch.CurrentClash"/>): the guest's view is
+        /// the host's mirrored.</summary>
+        public LegacyClashInput CurrentClash => Match.CurrentClash(LocalPlayer);
         public IReadOnlyList<LegacySkill> GetLane(int laneIndex) => Me.GetLane(laneIndex);
         public int EffectiveCost(LegacySkill skill) => Me.EffectiveCost(skill);
         public void EffectivePowerRange(LegacySkill skill, out int min, out int max) => Me.EffectivePowerRange(skill, out min, out max);

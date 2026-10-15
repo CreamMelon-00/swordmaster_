@@ -64,7 +64,7 @@
 
 ## 화면
 
-- 말풍선은 그 사람의 머리 위 상태 패널과 기술 큐 줄 바로 위에 뜨고, 꼬리가 머리를 가리킨다. 두 사람의 상태 패널·큐 줄과 다른 사람의 말풍선은 가리지 않는다. 겹칠 것 같으면 옆으로 비켜나고, 늘 화면 안에 있다. 화면 위쪽에 자리가 없으면 상태 패널 옆으로 간다.
+- 말풍선은 그 사람의 머리 위 상태 패널 바로 위에 뜨고, 꼬리가 머리를 가리킨다(2026-10-15부터 기술 큐는 조작대 위 패널에 있어 머리 위에는 상태 패널만 있다). 두 사람의 상태 패널과 다른 사람의 말풍선은 가리지 않는다. 겹칠 것 같으면 옆으로 비켜나고, 늘 화면 안에 있다. 화면 위쪽에 자리가 없으면 상태 패널 옆으로 간다.
 - 짙은 나무색 바탕에 놋쇠 테두리, 밝은 글씨다(독백은 위의 독백 색). 살짝 커지며 나타났다가 마지막 0.3초에 흐려진다.
 - 수훈 장면 같은 전투 중 장면이나 결과 창, 로비, 브리핑, 타이틀로 넘어가면 바로 사라진다.
 - 서막 1·2 임무의 코치 안내 화면은 3 임무의 튜토리얼 회상(`@recall`)에 쓰려고 찍어 둔다. 찍을 때 말풍선이 떠 있으면 말풍선이 사라진 뒤에 찍는다(그사이 안내가 바뀌면 그 안내는 찍지 않는다). 그래서 1·2 임무에 `start` 대사를 써도 회상 화면에는 말풍선이 나오지 않는다.
@@ -124,6 +124,6 @@
 ## 코드
 
 - Runtime `Barks/`: `BarkScriptParser`(파일 읽기, 줄 번호를 단 한국어 오류), `BarkScript`(상황별 대사, 파일 경로 `MissionResource`·`StageResource`), `BarkTracker`(위의 상황·횟수·세기·시간 규칙), `BarkLayout`(말풍선 자리). 모두 Unity 없이 돌고 전투 판정은 읽지 않는다.
-- Presentation `DuelBarks`(파일을 불러 규칙에 넘기고 말풍선을 그림, 전투 HUD 위), `DuelBarkTail`(꼬리), `LegacyCombatHud.TryGetHeadStack`(머리 위 상태 패널과 큐 줄 자리).
+- Presentation `DuelBarks`(파일을 불러 규칙에 넘기고 말풍선을 그림, 전투 HUD 위), `DuelBarkTail`(꼬리), `LegacyCombatHud.TryGetHeadStack`(머리 위 상태 패널 자리).
 - 컨트롤러는 전투마다 `ResetBattlePresentation`에서 파일을 불러오고(`Begin`), 첫 편성 프레임(`BattleStarted`), 칸 시작의 붕괴와 타격(`Hit`), 수훈 뒤 재개(`Empowered`)를 알린다. 수훈 장면과 마무리 일격은 `Hide`, 전투가 끝나거나 떠나면 `End`.
 - 테스트: EditMode `BarkScriptParserTests`(형식, 오류, 들어 있는 1~4 임무 틀), `BarkTrackerTests`(상황 규칙), `BarkLayoutTests`(자리). PlayMode `BattleBarksPlayModeTests`(컴파일만 확인).

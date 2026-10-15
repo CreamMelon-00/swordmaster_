@@ -223,7 +223,7 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (Transform child in row)
                     if (child.gameObject.activeSelf) cards++;
                 Assert.That(cards, Is.EqualTo(controller.Session.EnemyQueue.Count), "The row holds only its cards.");
-                Assert.That(gear.anchoredPosition.x, Is.EqualTo(row.anchoredPosition.x + span.x + LegacyCombatHud.QueueCardSize * .5f)
+                Assert.That(gear.anchoredPosition.x, Is.EqualTo(row.anchoredPosition.x + span.x + controller.Hud.QueueCardWidth * .5f)
                     .Within(.01f), "The gear sits behind slot 1.");
                 Assert.That(shimmer.Gear.raycastTarget || shimmer.Glint.raycastTarget, Is.False);
                 Assert.That(shimmer.GearSprite, Is.Not.Null, "The gear is drawn in code.");

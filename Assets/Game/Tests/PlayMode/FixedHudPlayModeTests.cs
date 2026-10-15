@@ -18,8 +18,10 @@ namespace TurnLimbo.Presentation.Tests
             "Player Requests", "Enemy Requests",
         };
 
+        // 2026-10-15: the queues left the fighters' heads for two facing panels over the dock (LegacyCombatHud.QueuePanels.cs).
+        // The status panels still ride the heads; the queue rows stay put over the dock, mirrored round the centre seam.
         [UnityTest]
-        public IEnumerator HeadQueuesAndStatus_FollowCameraAndActors_KeepTheirStack()
+        public IEnumerator QueuePanels_StayOverTheDock_WhileTheCameraAndActorsMove()
         {
             yield return null;
             DuelPrototypeController controller = FindPrototype();
@@ -39,7 +41,9 @@ namespace TurnLimbo.Presentation.Tests
             {
                 RefreshHud(controller, false);
                 Vector2[] positions = CaptureQueuePositions(root);
-                AssertStackLayout(root);
+                Vector2[] cards = CaptureFirstCards(root);
+                AssertPanelLayout(root);
+                AssertPanelsOverDock(root);
                 camera.orthographicSize = 2.8f;
                 camera.transform.position = cameraPosition + new Vector3(4, -2, 0);
                 camera.transform.rotation = Quaternion.Euler(0, 0, 17);
@@ -47,11 +51,12 @@ namespace TurnLimbo.Presentation.Tests
                 enemy.position = enemyPosition + new Vector3(-3, -1, 0);
                 RefreshHud(controller, false);
                 for (int index = 0; index < QueueNodes.Length; index++)
+                {
                     Assert.That(Vector2.Distance(Get<RectTransform>(root, QueueNodes[index]).anchoredPosition, positions[index]),
-                        Is.GreaterThan(1f), QueueNodes[index] + " must follow the camera/actor projection instead of staying screen-fixed.");
-                // At these extreme camera positions, the whole stack may clamp.
-                // Its queue/status relationship must survive that boundary correction.
-                AssertStackLayout(root);
+                        Is.LessThan(.01f), QueueNodes[index] + " stays in its panel over the dock, whatever the camera does.");
+                    Assert.That(Vector2.Distance(CaptureFirstCards(root)[index], cards[index]), Is.LessThan(.01f));
+                }
+                AssertPanelLayout(root);
             }
             finally
             {
@@ -65,7 +70,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator HeadHudStacks_KeepQueuesAboveStatusThroughPlanningCombatAndNextTurn()
+        public IEnumerator QueuePanels_KeepTheirMirroredRows_ThroughPlanningCombatAndNextTurn()
         {
             yield return null;
             DuelPrototypeController controller = FindPrototype();
@@ -78,25 +83,30 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.QueueLane(2), Is.True);
                 Assert.That(controller.QueueLane(0), Is.True);
                 yield return null;
-                AssertStackLayout(root);
+                AssertPanelLayout(root);
+                AssertPanelsOverDock(root);
                 controller.CommitTurn();
                 Assert.That(controller.IsResolving, Is.True);
                 float deadline = Time.realtimeSinceStartup + 25f;
                 while (controller.IsResolving && Time.realtimeSinceStartup < deadline)
                 {
-                    AssertStackLayout(root);
+                    // Sinking with the folding dock and sliding toward the seam, the rows keep their mirror and order (the
+                    // clash motion's card is read at its place in the row, less the offset the motion draws it with).
+                    AssertPanelLayout(root, false, controller.Hud);
                     yield return null;
                 }
                 Assert.That(controller.IsResolving, Is.False, "The queue must finish rather than stall.");
                 Assert.That(controller.CanChoose, Is.True);
                 Assert.That(controller.Session.RoundNumber, Is.EqualTo(2));
-                AssertStackLayout(root);
+                yield return null;
+                AssertPanelLayout(root);
+                Assert.That(controller.Hud.QueueSlide, Is.Zero, "A new turn starts with the rows at rest.");
             }
             finally { controller.RestartMatch(); }
         }
 
         [UnityTest]
-        public IEnumerator HeadHudStacks_FollowActorsImmediately_KeepScreenSizeWhileZooming()
+        public IEnumerator StatusPanels_FollowActorsImmediately_KeepScreenSizeWhileZooming_QueuesStayPut()
         {
             yield return null;
             DuelPrototypeController controller = FindPrototype();
@@ -126,7 +136,7 @@ namespace TurnLimbo.Presentation.Tests
                 Vector2[] queueCardSizes = CaptureQueueCardSizes(root);
                 AssertHeadStatus(playerStatus, player, new Vector3(-.6f, 1.1f, 0), camera, root);
                 AssertHeadStatus(enemyStatus, enemy, new Vector3(-.4f, 1f, 0), camera, root);
-                AssertStackLayout(root);
+                AssertPanelLayout(root);
                 Vector2 playerCenter = playerStatus.anchoredPosition;
                 Vector2 enemyCenter = enemyStatus.anchoredPosition;
 
@@ -139,8 +149,8 @@ namespace TurnLimbo.Presentation.Tests
                 AssertHeadStatus(enemyStatus, enemy, new Vector3(-.4f, 1f, 0), camera, root);
                 for (int index = 0; index < QueueNodes.Length; index++)
                     Assert.That(Vector2.Distance(Get<RectTransform>(root, QueueNodes[index]).anchoredPosition, queuePositions[index]),
-                        Is.GreaterThan(1f), "Each queue must follow its status panel immediately, even at delta zero.");
-                AssertStackLayout(root);
+                        Is.LessThan(.01f), "The queues stay in their panels over the dock while the fighters move.");
+                AssertPanelLayout(root);
 
                 camera.orthographicSize = 4f;
                 camera.transform.position += new Vector3(.2f, .2f, 0);
@@ -150,7 +160,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Vector2.Distance(ScreenRect(playerStatus).size, playerScreenSize), Is.LessThan(.01f));
                 Assert.That(Vector2.Distance(ScreenRect(enemyStatus).size, enemyScreenSize), Is.LessThan(.01f));
                 AssertQueueCardSizes(root, queueCardSizes);
-                AssertStackLayout(root);
+                AssertPanelLayout(root);
             }
             finally
             {
@@ -164,7 +174,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator TabInspection_ZoomsToEnemy_AndKeepsQueueAboveConstantSizeStatus()
+        public IEnumerator TabInspection_ZoomsToEnemy_AndKeepsQueuePanelsAndConstantSizeStatus()
         {
             yield return null;
             DuelPrototypeController controller = FindPrototype();
@@ -187,7 +197,7 @@ namespace TurnLimbo.Presentation.Tests
                 float inspectionZoom = camera.orthographicSize;
                 Assert.That(Get<RectTransform>(root, "Enemy Skill Explain").gameObject.activeSelf, Is.True);
                 AssertHeadStatus(status, enemy, new Vector3(-.4f, 1f, 0), camera, root);
-                AssertStackLayout(root);
+                AssertPanelLayout(root);
                 Assert.That(Vector2.Distance(ScreenRect(status).size, initialStatusSize), Is.LessThan(.01f));
                 AssertQueueCardSizes(root, initialCardSizes);
 
@@ -196,7 +206,7 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 Assert.That(camera.orthographicSize, Is.GreaterThan(inspectionZoom), "Releasing Tab must restore the normal view.");
                 Assert.That(Get<RectTransform>(root, "Enemy Skill Explain").gameObject.activeSelf, Is.False);
-                AssertStackLayout(root);
+                AssertPanelLayout(root);
                 Assert.That(Vector2.Distance(ScreenRect(status).size, initialStatusSize), Is.LessThan(.01f));
                 AssertQueueCardSizes(root, initialCardSizes);
                 Assert.That(controller.Session.PlayerQueue, Is.Empty);
@@ -327,12 +337,12 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LongSkillQueues_StayOnOneRowGrowingOutward_AndTightenOnlyToFitTheScreen()
+        public IEnumerator LongSkillQueues_StayOnOneRowGrowingOutward_AndTightenOnlyToFitTheirPanels()
         {
             yield return null;
             AssertLongQueue(6);
-            // Far more than fits between a panel and its screen edge: the row tightens instead of leaving the screen,
-            // and the status panel stays on its fighter's head.
+            // Far more than fits a panel: both rows tighten together instead of leaving their panels, and the status panels
+            // stay on their fighters' heads.
             AssertLongQueue(24);
         }
 
@@ -358,14 +368,16 @@ namespace TurnLimbo.Presentation.Tests
                 controller.Hud.Refresh(queueFixture, 10f, false, -1, arena.ArenaCamera,
                     arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, .1f, .1f);
                 Canvas.ForceUpdateCanvases();
-                AssertStackLayout(root);
+                AssertPanelLayout(root);
+                // Slot 1 at the panel's inner end, by the seam: half the seam, the panel's padding and half a card out.
+                float inner = SeamHalf(root) + LegacyQueuePanelLayout.Padding + controller.Hud.QueueCardWidth * .5f;
                 foreach (string name in new[] { "Player Requests", "Enemy Requests" })
                 {
                     bool playerSide = name == "Player Requests";
                     var cards = VisibleQueueCards(root.Find(name));
                     Assert.That(cards.Count, Is.EqualTo(skillCount));
-                    Assert.That(cards[0].anchoredPosition.x, Is.EqualTo(playerSide ? 86f : -86f).Within(.01f),
-                        name + ": slot 1 sits at the panel's inner edge.");
+                    Assert.That(cards[0].anchoredPosition.x, Is.EqualTo(playerSide ? -inner : inner).Within(.01f),
+                        name + ": slot 1 sits at the panel's inner end, by the centre seam.");
                     float pitch = Mathf.Abs(cards[1].anchoredPosition.x - cards[0].anchoredPosition.x);
                     for (int index = 0; index < cards.Count; index++)
                     {
@@ -380,7 +392,8 @@ namespace TurnLimbo.Presentation.Tests
                                 Assert.That(ScreenRect(cards[index]).Overlaps(ScreenRect(cards[previous])), Is.False,
                                     name + " cards at full spacing must not overlap.");
                     }
-                    if (skillCount >= 24) Assert.That(pitch, Is.LessThan(72f), name + " tightens to fit the screen.");
+                    if (skillCount <= 6) Assert.That(pitch, Is.EqualTo(72f).Within(.01f), name + ": six cards fit at full spacing.");
+                    if (skillCount >= 24) Assert.That(pitch, Is.LessThan(72f), name + " tightens to fit its panel.");
                 }
                 // A long row never drags the panels together.
                 Assert.That(ScreenRect(Get<RectTransform>(root, "PlayerStatus")).Overlaps(ScreenRect(Get<RectTransform>(root, "EnemyStatus"))),
@@ -459,47 +472,101 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
-        private static void AssertStackLayout(Transform root)
+        private static Vector2[] CaptureFirstCards(Transform root)
+        {
+            var positions = new Vector2[QueueNodes.Length];
+            for (int index = 0; index < QueueNodes.Length; index++)
+            {
+                var cards = VisibleQueueCards(root.Find(QueueNodes[index]));
+                positions[index] = cards.Count > 0 ? (Vector2)cards[0].position : Vector2.zero;
+            }
+            return positions;
+        }
+
+        private static RectTransform Tray(Transform root, bool playerSide)
+            => Get<RectTransform>(root, LegacyCombatHud.QueuePanelsName + "/" +
+                (playerSide ? LegacyCombatHud.PlayerQueuePanelName : LegacyCombatHud.EnemyQueuePanelName));
+
+        // Half the gap between the panels at the centre seam, HUD units (the enemy's tray starts there).
+        private static float SeamHalf(Transform root)
+        {
+            RectTransform enemyTray = Tray(root, false);
+            return enemyTray.anchoredPosition.x - enemyTray.sizeDelta.x * .5f;
+        }
+
+        // While planning the panels stand on the dock: just above its top, clear of the fighters' status panels.
+        private static void AssertPanelsOverDock(Transform root)
+        {
+            RectTransform dock = Get<RectTransform>(root, "Input");
+            float unit = root.GetComponent<Canvas>().scaleFactor;
+            foreach (bool playerSide in new[] { true, false })
+            {
+                Rect tray = ScreenRect(Tray(root, playerSide));
+                Assert.That(tray.yMin, Is.GreaterThanOrEqualTo(ScreenRect(dock).yMax - .5f), "Above the command dock…");
+                Assert.That(tray.yMin - ScreenRect(dock).yMax, Is.LessThan(48f * unit), "…just above it.");
+                foreach (string status in new[] { "PlayerStatus", "EnemyStatus" })
+                    Assert.That(tray.Overlaps(ScreenRect(Get<RectTransform>(root, status))), Is.False,
+                        "The panels never cover a fighter's status panel.");
+            }
+        }
+
+        // The two facing panels: the player's queue (the viewer's) in the left one, the opponent's in the right one, both rows
+        // starting from the centre seam (slot 1 innermost) and growing outward, slot k at the same distance from the seam on
+        // both sides. At rest (atRest), every card stands inside its panel; mid-slide or as the dock folds the rows only keep
+        // their mirror and order. While a slot resolves, the clash motion draws its pair off their places (pushed, knocked
+        // back, dipped, stepped up: LegacyCombatHud.Clash.cs); with the HUD given, such a card is read at its place in the
+        // row, its drawn position less the motion's offset.
+        private static void AssertPanelLayout(Transform root, bool atRest = true, LegacyCombatHud hud = null)
         {
             RectTransform canvasRect = root.GetComponent<RectTransform>();
+            float centre = ScreenRect(canvasRect).center.x;
+            var rows = new List<Vector2>[QueueNodes.Length];
             for (int side = 0; side < QueueNodes.Length; side++)
             {
-                RectTransform status = Get<RectTransform>(root, side == 0 ? "PlayerStatus" : "EnemyStatus");
+                bool playerSide = side == 0;
                 RectTransform queue = Get<RectTransform>(root, QueueNodes[side]);
-                foreach (var node in new[] { status, queue })
-                {
-                    Assert.That(node.parent, Is.EqualTo(root));
-                    Assert.That(node.anchorMin, Is.EqualTo(Vector2.one * .5f));
-                    Assert.That(node.anchorMax, Is.EqualTo(Vector2.one * .5f));
-                    Assert.That(node.localScale, Is.EqualTo(Vector3.one));
-                }
-                Assert.That(status.rect.size, Is.EqualTo(new Vector2(236, 92)));
-                AssertWithin(status, canvasRect);
-                Assert.That(queue.anchoredPosition.x, Is.EqualTo(status.anchoredPosition.x).Within(.01f),
-                    "Queue and status must share one head attachment X.");
+                Assert.That(queue.parent, Is.EqualTo(root), "The rows keep their names as the HUD root's children.");
+                Assert.That(queue.anchorMin, Is.EqualTo(Vector2.one * .5f));
+                Assert.That(queue.anchorMax, Is.EqualTo(Vector2.one * .5f));
+                Assert.That(queue.localScale, Is.EqualTo(Vector3.one));
+                Assert.That(queue.anchoredPosition.x, Is.EqualTo(0f).Within(.01f), "Both rows start from the centre seam.");
+                RectTransform tray = Tray(root, playerSide);
+                Rect trayRect = ScreenRect(tray);
+                if (playerSide) Assert.That(trayRect.xMax, Is.LessThanOrEqualTo(centre + .5f), "The player's panel is the left one.");
+                else Assert.That(trayRect.xMin, Is.GreaterThanOrEqualTo(centre - .5f), "The opponent's panel is the right one.");
+                AssertWithin(tray, canvasRect);
+                Assert.That(tray.parent.GetSiblingIndex(), Is.LessThan(queue.GetSiblingIndex()), "The panels draw under the cards.");
                 var cards = VisibleQueueCards(queue);
-                float expectedQueueOffset = 46f + 12f + 64f - 32f;
-                Assert.That(queue.anchoredPosition.y - status.anchoredPosition.y,
-                    Is.EqualTo(expectedQueueOffset).Within(.01f), "The queue row must sit immediately above the status panel.");
-                // One row growing outward: the player's slot 1 at its panel's right edge, later slots to the left;
-                // the enemy's slot 1 at its panel's left edge, later slots to the right. Even spacing, 72 unless the
-                // row had to tighten to fit the screen.
-                float pitch = cards.Count < 2 ? 72f : Mathf.Abs(cards[1].anchoredPosition.x - cards[0].anchoredPosition.x);
-                Assert.That(pitch, Is.InRange(12f - .01f, 72f + .01f));
+                RectTransform posed = null;
+                Vector2 offset = Vector2.zero;
+                if (hud != null && hud.TryGetPosedQueueCard(playerSide, out int posedSlot, out offset))
+                    posed = hud.GetQueuedSkillAnchor(playerSide, posedSlot);
+                var places = new List<Vector2>(cards.Count);
+                foreach (RectTransform card in cards) places.Add(card.anchoredPosition - (card == posed ? offset : Vector2.zero));
+                rows[side] = places;
                 for (int index = 0; index < cards.Count; index++)
                 {
                     RectTransform card = cards[index];
-                    float expectedX = side == 0 ? 118f - 32f - index * pitch : -118f + 32f + index * pitch;
+                    Vector2 place = places[index];
                     Assert.That(card.rect.size, Is.EqualTo(new Vector2(64, 64)));
                     Assert.That(Get<RectTransform>(card, "Icon").rect.size, Is.EqualTo(new Vector2(48, 48)));
-                    Assert.That(card.anchoredPosition.x, Is.EqualTo(expectedX).Within(.01f));
-                    Assert.That(card.anchoredPosition.y, Is.EqualTo(0f).Within(.01f), "Never a second row.");
+                    Assert.That(place.y, Is.EqualTo(0f).Within(.01f), "Never a second row.");
                     Assert.That(card.localScale.x, Is.InRange(0f, 1.2001f));
+                    Assert.That(Mathf.Sign(place.x), Is.EqualTo(playerSide ? -1f : 1f), "On its own side of the seam.");
+                    if (index > 0)
+                        Assert.That(Mathf.Sign(place.x - places[index - 1].x),
+                            Is.EqualTo(playerSide ? -1f : 1f), "Slot 1 innermost, later slots outward.");
                     AssertWithin(card, canvasRect);
-                    Assert.That(ScreenRect(card).Overlaps(ScreenRect(status)), Is.False,
-                        "Skill icons must stay above, not cover, the HP/resistance panel during focus or playback.");
+                    if (!atRest) continue;
+                    Vector2 middle = ScreenRect(card).center;
+                    Assert.That(middle.x, Is.InRange(trayRect.xMin, trayRect.xMax), QueueNodes[side] + " card " + index + " in its panel.");
+                    Assert.That(middle.y, Is.InRange(trayRect.yMin, trayRect.yMax));
                 }
             }
+            // Mirror images: slot k on both sides at the same distance from the seam (one shared spacing and slide).
+            for (int index = 0; index < Mathf.Min(rows[0].Count, rows[1].Count); index++)
+                Assert.That(rows[0][index].x, Is.EqualTo(-rows[1][index].x).Within(.01f),
+                    "Slot " + (index + 1) + " pairs mirror each other across the seam.");
         }
 
         private static void AssertHeadStatus(RectTransform status, Transform actor, Vector3 headOffset, Camera camera, RectTransform root)

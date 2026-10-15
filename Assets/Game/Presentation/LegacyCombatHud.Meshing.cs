@@ -24,7 +24,8 @@ namespace TurnLimbo.Presentation
         private Text playerMeshNoteText;
         private int shownMeshNoteBonus = -1;
 
-        /// <summary>The player's queue row: the cards' parent over the player's status panel. 맞물림's bursts play beside it
+        /// <summary>The player's queue row: the cards' parent, at the centre seam of the queue panels over the dock (the left
+        /// panel holds its cards). 맞물림's bursts play beside it
         /// (<see cref="DuelMeshCues"/>), never in it, so its children stay its cards.</summary>
         public RectTransform PlayerQueueRow => disposed ? null : playerQueue.Root;
 

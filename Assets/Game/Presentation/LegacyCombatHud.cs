@@ -91,7 +91,7 @@ namespace TurnLimbo.Presentation
         private const float QueueCancellationSeconds = .64f, QueueCancellationFadeStart = .33f;
         private readonly RectTransform queueCancellationLayer;
         private readonly List<QueueCancellationGhost> queueCancellationGhosts = new List<QueueCancellationGhost>();
-        // Each fighter's head HUD as last laid out, and its panel's centre over the head (TryGetHeadStack).
+        // Each fighter's status panel over its head as last laid out, and the panel's centre (TryGetHeadStack).
         private Rect playerHeadStack, enemyHeadStack;
         private float playerHeadX, enemyHeadX;
         private readonly RectTransform attackView, topBar, bottomBar;
@@ -190,7 +190,8 @@ namespace TurnLimbo.Presentation
         }
         public int LogCount => logRows.Count;
 
-        /// <summary>The displayed queue card, including its pulse and head attachment.</summary>
+        /// <summary>The displayed queue card in its panel over the dock (the player's on the left, the opponent's on the right),
+        /// including its pulse, slide and clash motion; null while the slot shows no card.</summary>
         public RectTransform GetQueuedSkillAnchor(bool playerSide, int queueIndex)
             => disposed ? null : (playerSide ? playerQueue : enemyQueue).GetAnchor(queueIndex);
 
@@ -214,8 +215,10 @@ namespace TurnLimbo.Presentation
                 var card = Panel(mode == LegacyQueueRemovalMode.Return ? "Returned Skill" : "Cancelled Skill",
                     queueCancellationLayer, start, Vector2.one * QueueCardSize, Card,
                     mode == LegacyQueueRemovalMode.Return ? DuelVisualTheme.Health : DuelVisualTheme.Danger);
-                var icon = Image("Icon", card.transform, iconFor(skill.IconId), Vector2.zero, Vector2.one * 48f);
+                var icon = Image("Icon", card.transform, iconFor(skill.IconId), Vector2.zero, Vector2.one * QueueIconSize);
                 icon.preserveAspect = true;
+                // As large as the card it leaves (the panels' tuned card size).
+                card.rectTransform.localScale = Vector3.one * queueCardScale;
                 var group = card.gameObject.AddComponent<CanvasGroup>();
                 group.interactable = group.blocksRaycasts = false;
                 queueCancellationGhosts.Add(new QueueCancellationGhost(card.rectTransform, group, start, index));
@@ -449,10 +452,17 @@ namespace TurnLimbo.Presentation
             enemyStatus = BuildStatus(true);
             // 맞물림's marks ride the player's queued cards only; the enemy's queue never meshes.
             BuildMeshPictures();
+            // The two facing queue panels over the dock (LegacyCombatHud.QueuePanels.cs): their trays and seam first, so the
+            // card rows draw over them. The rows keep their names and stay the HUD root's children.
+            BuildQueuePanels(white);
+            // The next-opponent ring, the socket and the cards leaving the seam draw under the cards; their sparks over them
+            // (LegacyCombatHud.Clash.cs).
+            BuildQueueCues();
             playerQueue = new QueueView(Rect("Player Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), true, white,
                 art.UIFont, meshGearSprite);
             enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
             guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
+            BuildQueueSparks();
             queueCancellationLayer = Rect("Queue Cancellation Layer", root, Vector2.zero, Vector2.zero, Vector2.one * .5f);
             queueCancellationLayer.anchorMin = Vector2.zero;
             queueCancellationLayer.anchorMax = Vector2.one;
@@ -767,7 +777,7 @@ namespace TurnLimbo.Presentation
             Vector2 size = enemyQueue.DisplaySize;
             guideEnemyFocus.gameObject.SetActive(highlightEnemyQueue && size != Vector2.zero);
             guideEnemyFocus.sizeDelta = size + Vector2.one * 16f;
-            // Around the row, which starts at the status panel's left edge rather than centring on it.
+            // Around the row, which grows outward from the centre seam (its root) rather than centring on it.
             Vector2 span = enemyQueue.HorizontalSpan;
             guideEnemyFocus.anchoredPosition = new Vector2((span.x + span.y) * .5f, 0f);
         }
@@ -886,8 +896,16 @@ namespace TurnLimbo.Presentation
             // The player's own schools are always open; the enemy's cards are dyed once all three are (as its Tab badge).
             enemyQueue.SetSchoolsNamed(session.Features.LaneCount() == 3);
             UpdateSlotForecast(session, planning);
+            ApplyQueueCardSize();
+            // The clash motion reads the resolving slot before the rows hide a slot just completed (its cards' copies
+            // play out the rest of their meeting; the turn's last slot stays shown and plays it on its own cards).
+            AdvanceQueueClash(session, isResolving, currentSlot, delta);
             playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale, session);
             enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale, session);
+            // Both rows in their panels over the dock, sliding one step toward the seam after each resolved slot.
+            LayoutQueuePanels(isResolving, currentSlot, delta);
+            // The ring and socket where the next reservation meets the opponent, and the reservation sparks.
+            UpdateQueueCues(session, planning, actualDelta);
             UpdateConditionPreview();
             UpdateEffectEmphasis();
             playerQueue.TickFeedback(actualDelta);
@@ -896,11 +914,11 @@ namespace TurnLimbo.Presentation
             foreach (var feedback in laneFeedback) feedback.Tick(actualDelta);
             playerEffectFeedback.Tick(actualDelta);
             enemyEffectFeedback.Tick(actualDelta);
-            PositionFighterHud(playerStatus, playerQueue, player, camera, new Vector3(-.6f, 1.1f, 0),
+            PositionFighterHud(playerStatus, player, camera, new Vector3(-.6f, 1.1f, 0),
                 ref playerHeadStack, ref playerHeadX);
-            PositionFighterHud(enemyStatus, enemyQueue, enemy, camera, new Vector3(-.4f, 1f, 0),
+            PositionFighterHud(enemyStatus, enemy, camera, new Vector3(-.4f, 1f, 0),
                 ref enemyHeadStack, ref enemyHeadX);
-            // After the rows were fitted to the screen.
+            // After the rows were laid out in their panel.
             UpdateGuideEnemyFocus();
             playerStatus.Refresh(session.Player, delta);
             enemyStatus.Refresh(session.Enemy, delta);
@@ -921,6 +939,7 @@ namespace TurnLimbo.Presentation
             inspectedSlot = -1;
             ClearSkillFeedback();
             HideExplanation();
+            ResetQueueCues();
         }
 
         public void EndTurn()
@@ -1096,12 +1115,14 @@ namespace TurnLimbo.Presentation
             Vector2 desired = root.rect.size / 2 + new Vector2(-480, 160);
             if (!enemy)
             {
-                // Above the dock, centred on the held lane's window (where its current skill rests, so the panel stays put
-                // while the gear turns the icon in): clear of the gears, and over the fighters' head HUDs. Above the
-                // coach's card too while one is up over the dock: it draws over this HUD and would hide the effect text.
+                // Above the dock and the queue panels over it (with the tabs over their cards), centred on the held lane's
+                // window (where its current skill rests, so the panel stays put while the gear turns the icon in): clear of
+                // the gears and of the queues it is read against (the enemy card it would face is framed there), and over
+                // the fighters' status panels. Above the coach's card too while one is up over the dock: it draws over this
+                // HUD and would hide the effect text.
                 int lane = Mathf.Clamp(skill.LaneIndex, 0, 2);
                 Vector2 window = ScreenPosition(RectTransformUtility.WorldToScreenPoint(null, gears[lane].Window.position));
-                float floor = Mathf.Max(DockTop, ScreenPosition(new Vector3(0f, explanationFloor, 0f)).y);
+                float floor = Mathf.Max(Mathf.Max(DockTop, queueRowTop), ScreenPosition(new Vector3(0f, explanationFloor, 0f)).y);
                 desired = new Vector2(window.x, floor + ExplanationGap + panel.sizeDelta.y / 2f);
             }
             panel.anchoredPosition = ClampCenter(desired,
@@ -1344,7 +1365,7 @@ namespace TurnLimbo.Presentation
             // A separate small pool: callouts are never counted as damage numbers.
             DamageView view = AcquireDamageView(calloutTexts, "Counter Callout", MaximumCalloutTexts);
             view.Direction = playerSide ? -1f : 1f;
-            // On the side facing the opponent, below the head status/queue stack and away from
+            // On the side facing the opponent, below the head status panel and away from
             // the outward damage numbers, so it covers neither gauges nor cards.
             view.StartOffset = new Vector2(-view.Direction * 170f, 60f);
             view.WorldPosition = worldPosition;
@@ -1422,6 +1443,7 @@ namespace TurnLimbo.Presentation
             playerStatus.Reset(); enemyStatus.Reset();
             ClearQueueCancellations();
             playerQueue.Clear(); enemyQueue.Clear();
+            ResetQueuePanels();
             SetHoldProgress(-1, 0);
             outcomePanel.gameObject.SetActive(false);
             foreach (var damage in damageTexts) { damage.Remaining = 0; damage.Text.gameObject.SetActive(false); }
@@ -1507,9 +1529,9 @@ namespace TurnLimbo.Presentation
             }
         }
 
-        /// <param name="stack">Set to the head HUD laid out (<see cref="TryGetHeadStack"/>); kept when nothing could be.</param>
+        /// <param name="stack">Set to the status panel laid out (<see cref="TryGetHeadStack"/>); kept when nothing could be.</param>
         /// <param name="headX">Set to the panel's centre, over the fighter's head.</param>
-        private void PositionFighterHud(StatusView status, QueueView queue, Transform actor, Camera camera, Vector3 headAnchor,
+        private void PositionFighterHud(StatusView status, Transform actor, Camera camera, Vector3 headAnchor,
             ref Rect stack, ref float headX)
         {
             if (actor == null || camera == null) return;
@@ -1519,41 +1541,21 @@ namespace TurnLimbo.Presentation
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen, null, out var position)) return;
             var halfCanvas = root.rect.size / 2;
             var statusSize = status.Root.sizeDelta;
-            var queueSize = queue.DisplaySize;
-            float extraHeight = queueSize.y > 0 ? 12 + queueSize.y + 8 + (queue.HasQueuePowerMark ? 24 : 0) : 0;
-            // The status panel stays on its fighter's head: clamp it, with the row's height above it, on its own,
-            // so a long row never drags it away (or onto the other fighter's panel). The row sits above the panel
-            // even while Tab focuses an off-centre actor.
-            var groupSize = new Vector2(statusSize.x, statusSize.y + extraHeight);
-            position += halfCanvas + Vector2.up * (statusSize.y / 2 + 12 + extraHeight / 2);
-            position = ClampCenter(position, groupSize) - halfCanvas - Vector2.up * (extraHeight / 2);
+            // Only the status panel rides the head now (2026-10-15): the queues stand in their panels over the dock. It is
+            // clamped on its own, a constant 12 over the head even while Tab focuses an off-centre actor.
+            position += halfCanvas + Vector2.up * (statusSize.y / 2 + 12);
+            position = ClampCenter(position, statusSize) - halfCanvas;
             status.Root.anchoredPosition = position;
-            queue.Root.anchoredPosition = position + Vector2.up * (statusSize.y / 2 + 12 + Mathf.Max(64, queueSize.y) - 32);
-            // The row grows outward from the panel's inner edge; it gets the room up to that side of the screen
-            // and tightens its spacing when it would not fit.
-            float room = queue.GrowsLeft ? position.x + statusSize.x / 2 + halfCanvas.x - ScreenMargin
-                : halfCanvas.x - ScreenMargin - (position.x - statusSize.x / 2);
-            queue.Fit(room);
-            // What sits above it (the speech bubbles) keeps clear of the panel and of the row's room over it, held even
-            // while the row is empty so it does not jump as cards come and go.
-            float left = position.x - statusSize.x / 2, right = position.x + statusSize.x / 2;
-            if (queue.DisplaySize.x > 0)
-            {
-                left = Mathf.Min(left, position.x + queue.HorizontalSpan.x);
-                right = Mathf.Max(right, position.x + queue.HorizontalSpan.y);
-            }
-            stack = UnityEngine.Rect.MinMaxRect(left, position.y - statusSize.y / 2, right,
-                position.y + statusSize.y / 2 + QueueRowRoom + (queue.HasQueuePowerMark ? 24 : 0));
+            // What sits above it (the speech bubbles) keeps clear of the panel.
+            stack = UnityEngine.Rect.MinMaxRect(position.x - statusSize.x / 2, position.y - statusSize.y / 2,
+                position.x + statusSize.x / 2, position.y + statusSize.y / 2);
             headX = position.x;
         }
 
-        /// <summary>The room a queue row takes over its status panel: the gap, a card, and what can rise past the card's
-        /// top (the active card's pulse, its counter tab, the coach's frame around the enemy's row).</summary>
-        private const float QueueRowRoom = 92f;
-
-        /// <summary>Where a fighter's head HUD was last laid out (<see cref="Refresh"/>): its status panel and the room of
-        /// its queue row above it, in the HUD root's local units (centre origin, y up), and the panel's centre, over the
-        /// fighter's head. False before the first layout. The speech bubbles (<see cref="DuelBarks"/>) keep clear of it.</summary>
+        /// <summary>Where a fighter's head HUD was last laid out (<see cref="Refresh"/>): its status panel (with any buff rows),
+        /// in the HUD root's local units (centre origin, y up), and the panel's centre, over the fighter's head. False before
+        /// the first layout. The speech bubbles (<see cref="DuelBarks"/>) keep clear of it. The queues no longer ride the
+        /// heads; they stand in their panels over the dock (<see cref="PlayerQueuePanel"/>).</summary>
         public bool TryGetHeadStack(bool playerSide, out Rect stack, out float headX)
         {
             stack = playerSide ? playerHeadStack : enemyHeadStack;
@@ -1561,13 +1563,20 @@ namespace TurnLimbo.Presentation
             return !disposed && stack.width > 0f;
         }
 
-        /// <summary>A queue card's size, HUD units at the 1920x1080 reference.</summary>
+        /// <summary>A queue card's built size, HUD units at the 1920x1080 reference; the panels draw it at the tuned size
+        /// (<see cref="QueueCardWidth"/>, <see cref="DuelPresentationSettings.QueueCardSize"/>).</summary>
         public const float QueueCardSize = 64f;
 
+        /// <summary>The most the resolving slot's card is enlarged over its scale at rest (its pulse is clamped to it).</summary>
+        public const float QueueActiveCardMaxScale = 1.2f;
+
+        // A queue card's icon and the width of its dyed ring, at the built card size (a clash copy is built the same).
+        private const float QueueIconSize = 48f, QueueCardRing = 3f;
+
         /// <summary>The enemy's queue row as last laid out (<see cref="Refresh"/>): <paramref name="row"/> is the cards'
-        /// parent, over the enemy's status panel and level with the cards, and <paramref name="span"/> the row's left and
-        /// right edges relative to it (slot 1, the next to come, at the left: the inner end). False while the row shows no
-        /// card. The gear shimmer over a revealed queue (<see cref="DuelGearShimmer"/>) plays beside it.</summary>
+        /// parent, at the centre seam over the dock and level with the cards, and <paramref name="span"/> the row's left and
+        /// right edges relative to it (slot 1, the next to come, at the left: the inner end, by the seam). False while the
+        /// row shows no card. The gear shimmer over a revealed queue (<see cref="DuelGearShimmer"/>) plays beside it.</summary>
         public bool TryGetEnemyQueueRow(out RectTransform row, out Vector2 span)
         {
             row = disposed ? null : enemyQueue.Root;
@@ -2067,20 +2076,34 @@ namespace TurnLimbo.Presentation
                 effect?.QueueRemovalMode ?? LegacyQueueRemovalMode.None);
         }
 
-        /// <summary>A fighter's queue above its status panel: one row, never wrapping, growing outward. The two first
-        /// slots face each other: the player's slot 1 sits at its panel's right edge and the row grows left (read
-        /// right to left); the enemy's slot 1 sits at its panel's left edge and the row grows right. A row longer
-        /// than the room to the screen edge tightens its spacing so the cards overlap a little.</summary>
+        /// <summary>A fighter's queue in its panel over the dock (2026-10-15; it rode the fighter's head before): one row, never
+        /// wrapping, growing outward from the centre seam. The two first slots face each other across the seam: the player's
+        /// slot 1 is its row's right end and the row grows left (read right to left); the enemy's slot 1 is its row's left
+        /// end and the row grows right. The HUD lays both rows out together (<see cref="Layout"/>, one spacing, so slot k
+        /// stands at the same distance from the seam on both sides).</summary>
         private sealed class QueueView
         {
-            private const float Pitch = 72f, CardSize = QueueCardSize, MinimumPitch = 12f;
+            private const float DefaultPitch = LegacyQueuePanelLayout.DefaultCardSpacing;
             private readonly List<RectTransform> visibleItems = new List<RectTransform>();
             public bool GrowsLeft => player;
             public readonly RectTransform Root;
             public Vector2 DisplaySize { get; private set; }
-            /// <summary>The row's left and right edges, relative to the status panel's centre.</summary>
+            /// <summary>The row's left and right edges, relative to its root (at the centre seam).</summary>
             public Vector2 HorizontalSpan { get; private set; }
+            /// <summary>The cards shown now (consumed slots hide), in slot order.</summary>
+            public int VisibleCount => visibleItems.Count;
+            /// <summary>The queue's slots this turn, shown or consumed (as last refreshed).</summary>
+            public int QueueLength => displayedQueue?.Count ?? 0;
+            /// <summary>The tuned card size over the built one (<see cref="QueueCardSize"/>): the cards' scale at rest.</summary>
+            public float CardScale { get; set; } = 1f;
             private readonly bool player;
+            // The first shown card's slot (the slots consumed so far), each card's scale at rest as last refreshed, and the
+            // clash motion's pose for one card (LegacyCombatHud.Clash.cs): its slot (-1: none), offset, tilt and scale.
+            private int firstShown;
+            private readonly List<float> restScales = new List<float>();
+            private int poseIndex = -1;
+            private Vector2 poseOffset;
+            private float poseTilt, poseScale = 1f;
             private readonly Sprite white;
             private readonly Font font;
             private readonly List<Image> icons = new List<Image>(), highlights = new List<Image>();
@@ -2136,10 +2159,10 @@ namespace TurnLimbo.Presentation
                     var item = frame.rectTransform;
                     Pin(item, Vector2.one * .5f);
                     // A 3px ring, so the school's dye reads round the icon.
-                    PanelSurface(frame).rectTransform.sizeDelta = new Vector2(-6f, -6f);
+                    PanelSurface(frame).rectTransform.sizeDelta = -Vector2.one * (QueueCardRing * 2f);
                     frames.Add(frame);
                     var highlight = Image("Selected", item, white, Vector2.zero, new Vector2(64, 64), new Color(Accent.r, Accent.g, Accent.b, .4f));
-                    var icon = Image("Icon", item, null, Vector2.zero, new Vector2(48, 48));
+                    var icon = Image("Icon", item, null, Vector2.zero, Vector2.one * QueueIconSize);
                     icon.preserveAspect = true;
                     icons.Add(icon); highlights.Add(highlight);
                     feedback.Add(SkillCardFeedbackGraphic.Create(item, "Skill Condition Feedback", 3f));
@@ -2150,9 +2173,11 @@ namespace TurnLimbo.Presentation
                     if (!player) AddDodgeStrike(item);
                     AddCycleMark(item);
                     if (player) AddForecastMark(item);
+                    restScales.Add(1f);
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
+                firstShown = consumed;
                 visibleItems.Clear();
                 keywordMarkValues.Clear();
                 for (int i = 0; i < icons.Count; i++)
@@ -2166,7 +2191,8 @@ namespace TurnLimbo.Presentation
                     icons[i].sprite = iconFor(queue[i].IconId);
                     frames[i].color = schoolsNamed && !queue[i].IsWait ? SkillLaneStyle.Edge(queue[i].LaneIndex) : Border;
                     visibleItems.Add(item);
-                    item.localScale = Vector3.one * (resolving && i == activeSlot ? Mathf.Min(scale, 1.2f) : 1);
+                    restScales[i] = (resolving && i == activeSlot ? Mathf.Min(scale, QueueActiveCardMaxScale) : 1) * CardScale;
+                    item.localScale = Vector3.one * restScales[i];
                     highlights[i].enabled = !resolving && i == selected;
                     // Each row counts its own side's uses: a versus opponent cycles too.
                     LegacySkillEffect effect = LegacySkillDefinitions.Find(queue[i])?.Effect;
@@ -2194,33 +2220,95 @@ namespace TurnLimbo.Presentation
                 UpdateQueuePowerMarks();
                 UpdateKeywordMarks();
                 UpdateForecastMarks();
-                Layout(Pitch);
                 UpdateFeedback();
             }
-            /// <summary>Fits the row into <paramref name="room"/> (from the panel's inner edge to the screen edge it grows
-            /// toward), tightening the spacing down to a readable floor when it would not fit at full spacing.</summary>
-            public void Fit(float room)
+
+            /// <summary>The spacing between neighbouring cards now (the tuned one unless the panels had to tighten).</summary>
+            public float CurrentPitch { get; private set; } = DefaultPitch;
+
+            /// <summary>Lays the shown cards out from the seam (the row's root): slot 1 at <paramref name="inner"/> from it, the
+            /// rest a <paramref name="spacing"/> further out each, the whole row <paramref name="slide"/> slots further out while
+            /// it slides in (<see cref="LegacyQueuePanelLayout"/>). <paramref name="cardSize"/> is a card as drawn.</summary>
+            public void Layout(float spacing, float inner, float slide, float cardSize)
             {
+                CurrentPitch = spacing;
                 int count = visibleItems.Count;
-                float pitch = count < 2 ? Pitch : Mathf.Clamp((room - CardSize) / (count - 1), MinimumPitch, Pitch);
-                if (!Mathf.Approximately(pitch, CurrentPitch)) Layout(pitch);
+                if (count == 0)
+                {
+                    DisplaySize = HorizontalSpan = Vector2.zero;
+                    return;
+                }
+                float side = player ? -1f : 1f, half = cardSize / 2f;
+                float first = LegacyQueuePanelLayout.CardDistance(0, inner, spacing, slide);
+                float last = LegacyQueuePanelLayout.CardDistance(count - 1, inner, spacing, slide);
+                DisplaySize = new Vector2(last - first + cardSize, cardSize);
+                HorizontalSpan = player ? new Vector2(-(last + half), -(first - half)) : new Vector2(first - half, last + half);
+                for (int index = 0; index < count; index++)
+                {
+                    RectTransform item = visibleItems[index];
+                    var position = new Vector2(side * LegacyQueuePanelLayout.CardDistance(index, inner, spacing, slide), 0f);
+                    // The clash motion's card is drawn off its place (its row's span keeps the place); every other card
+                    // stands upright where the row puts it.
+                    if (firstShown + index == poseIndex)
+                    {
+                        item.anchoredPosition = position + poseOffset;
+                        item.localRotation = Quaternion.Euler(0f, 0f, poseTilt);
+                        item.localScale = Vector3.one * (restScales[poseIndex] * poseScale);
+                    }
+                    else
+                    {
+                        item.anchoredPosition = position;
+                        if (item.localRotation != Quaternion.identity) item.localRotation = Quaternion.identity;
+                    }
+                }
             }
 
-            /// <summary>The spacing between neighbouring cards now (72 unless the row had to tighten).</summary>
-            public float CurrentPitch { get; private set; } = Pitch;
-
-            // Slot 1 stays at the inner edge as the row grows; later slots go outward.
-            private void Layout(float pitch)
+            /// <summary>Draws the card of slot <paramref name="index"/> off its place on the next <see cref="Layout"/> (the clash
+            /// motion): moved by <paramref name="offset"/>, tilted <paramref name="tilt"/> degrees, its scale at rest times
+            /// <paramref name="scale"/>. Laid out again every frame, so a card the pose leaves is back at rest at once.</summary>
+            public void SetPose(int index, Vector2 offset, float tilt, float scale)
             {
-                CurrentPitch = pitch;
-                int count = visibleItems.Count;
-                float width = count > 0 ? (count - 1) * pitch + CardSize : 0f;
-                DisplaySize = count > 0 ? new Vector2(width, CardSize) : Vector2.zero;
-                float rowLeft = player ? StatusWidth / 2 - width : -StatusWidth / 2;
-                HorizontalSpan = new Vector2(rowLeft, rowLeft + width);
-                float inner = player ? StatusWidth / 2 - CardSize / 2 : -StatusWidth / 2 + CardSize / 2;
-                for (int index = 0; index < count; index++)
-                    visibleItems[index].anchoredPosition = new Vector2(inner + (player ? -1f : 1f) * index * pitch, 0f);
+                poseIndex = index;
+                poseOffset = offset;
+                poseTilt = tilt;
+                poseScale = scale > 0f ? scale : 1f;
+            }
+
+            public void ClearPose()
+            {
+                poseIndex = -1;
+                poseOffset = Vector2.zero;
+                poseTilt = 0f;
+                poseScale = 1f;
+            }
+
+            /// <summary>The shown card the last <see cref="Layout"/> drew off its place (<see cref="SetPose"/>): its slot and the
+            /// offset added to its place; false while every card stands where the row puts it.</summary>
+            public bool TryGetPose(out int index, out Vector2 offset)
+            {
+                index = IsShown(poseIndex) ? poseIndex : -1;
+                offset = index >= 0 ? poseOffset : Vector2.zero;
+                return index >= 0;
+            }
+
+            /// <summary>Whether slot <paramref name="index"/>'s card is shown (as last refreshed).</summary>
+            public bool IsShown(int index)
+                => index >= 0 && index < icons.Count && icons[index].transform.parent.gameObject.activeSelf;
+
+            /// <summary>The card of slot <paramref name="index"/> as last laid out: its node, ring ink, icon and scale at rest
+            /// (a clash card that leaves the row takes them on); false for a slot that has none.</summary>
+            public bool TryGetCardLook(int index, out RectTransform card, out Color ring, out Sprite icon, out float restScale)
+            {
+                card = null;
+                ring = Border;
+                icon = null;
+                restScale = 1f;
+                if (index < 0 || index >= icons.Count) return false;
+                card = icons[index].transform.parent.GetComponent<RectTransform>();
+                ring = frames[index].color;
+                icon = icons[index].sprite;
+                restScale = restScales[index];
+                return true;
             }
 
             /// <summary>Whether the cards' rings wear their schools' dyes (the enemy's row waits until all three are open).</summary>
@@ -2587,14 +2675,20 @@ namespace TurnLimbo.Presentation
                 DisplaySize = Vector2.zero;
                 HorizontalSpan = Vector2.zero;
                 visibleItems.Clear();
-                CurrentPitch = Pitch;
+                CurrentPitch = DefaultPitch;
                 displayedQueue = null;
                 preview = null;
                 previewSlot = feedbackSlot = -1;
                 currentFeedback = null;
                 counterSlots.Clear();
                 foreach (var view in feedback) view.Clear();
-                foreach (var icon in icons) icon.transform.parent.gameObject.SetActive(false);
+                ClearPose();
+                firstShown = 0;
+                foreach (var icon in icons)
+                {
+                    icon.transform.parent.localRotation = Quaternion.identity;
+                    icon.transform.parent.gameObject.SetActive(false);
+                }
                 foreach (var mark in counterMarks) mark.SetActive(false);
                 queuePowerSourceSlot = queuePowerTargetSlot = -1;
                 queuePowerRemovedCount = 0;

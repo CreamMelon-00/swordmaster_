@@ -15,7 +15,8 @@ namespace TurnLimbo.Presentation
     /// <see cref="DuelPresentationSettings.GearShimmerSeconds"/> 0 switches it off.</summary>
     public sealed class DuelGearShimmer : IDisposable
     {
-        /// <summary>The gear's size, HUD units: half again a card's, so its rim and teeth ring the first card.</summary>
+        /// <summary>The gear's size, HUD units: half again a card's (at the built card size), so its rim and teeth ring the
+        /// first card; it scales with the tuned card size (<see cref="LegacyCombatHud.QueueCardWidth"/>).</summary>
         public const float GearSize = 96f;
         /// <summary>How opaque the gear and the glint are at their height, before the strength setting.</summary>
         public const float GearOpacity = .85f, GlintOpacity = .55f;
@@ -120,13 +121,13 @@ namespace TurnLimbo.Presentation
             // The gear centred on slot 1, the glint's window over the row; both where the row now stands.
             Vector2 origin = row.anchoredPosition;
             RectTransform gearRect = gear.rectTransform;
-            gearRect.anchoredPosition = origin + new Vector2(span.x + LegacyCombatHud.QueueCardSize * .5f, 0f);
+            gearRect.anchoredPosition = origin + new Vector2(span.x + hud.QueueCardWidth * .5f, 0f);
             gearRect.localRotation = Quaternion.Euler(0f, 0f, -LegacyGearShimmer.GearTurn(t));
-            gearRect.localScale = Vector3.one * LegacyGearShimmer.GearScale(t);
+            gearRect.localScale = Vector3.one * (LegacyGearShimmer.GearScale(t) * hud.QueueCardWidth / LegacyCombatHud.QueueCardSize);
             gear.color = new Color(1f, 1f, 1f, GearOpacity * strength * LegacyGearShimmer.GearAlpha(t));
             float width = Mathf.Max(0f, span.y - span.x);
             glintMask.anchoredPosition = origin + new Vector2((span.x + span.y) * .5f, 0f);
-            glintMask.sizeDelta = new Vector2(width, LegacyCombatHud.QueueCardSize);
+            glintMask.sizeDelta = new Vector2(width, hud.QueueCardWidth);
             float travel = width * .5f + GlintOverhang;
             glint.rectTransform.anchoredPosition = new Vector2(Mathf.Lerp(-travel, travel, LegacyGearShimmer.GlintPosition(t)), 0f);
             glint.color = new Color(GlintColor.r, GlintColor.g, GlintColor.b,

@@ -575,6 +575,24 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacyDuelPhase Phase { get; private set; }
         public LocalVersusOutcome Outcome { get; private set; }
         public LocalVersusSlot CurrentSlot { get; private set; }
+
+        /// <summary>The current slot as the clash motion reads it (<see cref="ILegacyDuelView.CurrentClash"/>) from
+        /// <paramref name="perspectivePlayer"/>'s side (0 Left, 1 Right, read as the player): each side's rolled power per hit
+        /// and a break since the slot began. Versus has no dodge or 반격. <see cref="LegacyClashInput.None"/> while no slot
+        /// resolves. Reading never changes the match or its state hash.</summary>
+        public LegacyClashInput CurrentClash(int perspectivePlayer)
+        {
+            if (perspectivePlayer < 0 || perspectivePlayer > 1) throw new ArgumentOutOfRangeException(nameof(perspectivePlayer));
+            LocalVersusSlot slot = CurrentSlot;
+            if (slot == null) return LegacyClashInput.None;
+            LegacyClashInput left = LegacyClashInput.FromSkills(slot.SlotIndex, slot.LeftSkill, slot.LeftPower,
+                slot.RightSkill, slot.RightPower,
+                playerBroken: slot.LeftStartingResistance > 0 && Left.State.IsResistanceBroken,
+                enemyBroken: slot.RightStartingResistance > 0 && Right.State.IsResistanceBroken,
+                decided: slot.HitsResolved > 0);
+            return perspectivePlayer == 0 ? left : left.Mirrored();
+        }
+
         public int ResolutionSlotCount => slotCount;
         public bool IsTurnResolved => Phase == LegacyDuelPhase.Resolving && CurrentSlot == null && nextSlot >= slotCount;
         public bool IsFinished => Phase == LegacyDuelPhase.Finished;
