@@ -34,6 +34,25 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 MatchesSelfCondition(skill, self);
         }
 
+        /// <summary>Whether the skill's 저항 회복 waits on a 상대 상태 조건 that holds against <paramref name="opponent"/> as it
+        /// stands: the gate the rules read first of the skill's initial effects, whatever the recovery then restores (none at
+        /// full resistance). Presentation reads it for 간파 (<see cref="LegacySlotFacts.PlayerStateConditionHeld"/>).</summary>
+        internal static bool RecoveryStateHolds(LegacySkill skill, LegacyFighterState opponent)
+        {
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            return effect != null && effect.ResistanceRecoveryPercent > 0 && effect.HasOpponentStateCondition &&
+                effect.OpponentStateHolds(opponent);
+        }
+
+        /// <summary>Whether the attack's 조건 피해 배율 has its 상대 상태 조건 holding against <paramref name="opponent"/> as it
+        /// stands, whether or not a hit will reach health (presentation's 간파, as above).</summary>
+        internal static bool DamageStateHolds(LegacySkill skill, LegacyFighterState opponent)
+        {
+            if (skill == null || skill.Kind != LegacySkillKind.Attack) return false;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            return effect != null && effect.ConditionalDamagePercent > 0 && effect.OpponentStateHolds(opponent);
+        }
+
         public static bool HasSelfCondition(LegacySkill skill)
             => LegacySkillDefinitions.Find(skill)?.Effect.ResistanceRecoveryPercent > 0;
 

@@ -229,8 +229,10 @@ namespace TurnLimbo.Presentation.Tests
                 settingsClone = Object.Instantiate(originalSettings);
                 try
                 {
+                    // The step clock alone: the presentation director's pacing has its own tests (ShowDirectorPlayModeTests).
                     JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1," +
-                        "\"skillInterval\":0.28,\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1}", settingsClone);
+                        "\"skillInterval\":0.28,\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1," +
+                        "\"showDirectorEnabled\":false}", settingsClone);
                     SetField("presentationSettings", settingsClone);
                     SetField("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
                         new[] { WeakSkill(101, 0), WeakSkill(103, 1), WeakSkill(105, 2) },

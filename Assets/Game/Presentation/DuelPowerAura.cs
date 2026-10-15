@@ -53,6 +53,9 @@ namespace TurnLimbo.Presentation
         private float chargeSeconds, chargeElapsed, releaseElapsed;
         private bool charging, releasing, chargeHolds;
         private float auraSpawn, chargeSpawn, clock;
+        // A charge's own ink (a signature move's school, a 간파's gold): its core, its share of the glow and its motes. None
+        // (alpha 0): the golden look a cutscene's @charge has.
+        private Color chargeInk;
         private int activeMotes;
         // Everything was last drawn switched off; with nothing to show, Apply can skip the renderers.
         private bool drawnIdle;
@@ -130,16 +133,39 @@ namespace TurnLimbo.Presentation
         /// <summary>Gathers power for <paramref name="seconds"/>, then flares and fades. A new charge starts over.</summary>
         /// <param name="hold">Reach full glow in <paramref name="seconds"/>, then keep gathering (motes still drawn in, no
         /// flare) until <see cref="StopCharge"/> cuts it off: a charge that is interrupted however long it lasts.</param>
-        public void Charge(float seconds, bool hold = false)
+        public void Charge(float seconds, bool hold = false) => Charge(seconds, hold, default);
+
+        /// <summary>A charge in <paramref name="ink"/> (alpha 0: the usual gold): the battle's signature moves gather in their
+        /// school's dye over the windup and flare as they strike (2026-10-15). A new charge starts over, in its own ink.</summary>
+        public void Charge(float seconds, bool hold, Color ink)
         {
             if (disposed) return;
             charging = true;
             releasing = false;
             chargeHolds = hold;
+            chargeInk = ink;
             chargeSeconds = Mathf.Max(0f, seconds);
             chargeElapsed = releaseElapsed = chargeSpawn = 0f;
             Apply();
         }
+
+        /// <summary>Only the release: a short flare at the chest in <paramref name="ink"/> (alpha 0: the usual gold), fading
+        /// over <see cref="ReleaseSeconds"/> on the aura's clock, with no motes drawn in. The battle's 간파 lights the player's
+        /// fighter with it (2026-10-15). A charge gathering is cut off by it; the aura is untouched.</summary>
+        public void Flare(Color ink)
+        {
+            if (disposed) return;
+            foreach (Mote mote in motes)
+                if (mote.Charge) Deactivate(mote);
+            charging = chargeHolds = false;
+            releasing = true;
+            chargeInk = ink;
+            chargeSeconds = chargeElapsed = releaseElapsed = chargeSpawn = 0f;
+            Apply();
+        }
+
+        /// <summary>The ink the charge or flare now showing was given (alpha 0: the usual gold).</summary>
+        public Color ChargeInk => chargeInk;
 
         /// <summary>Cuts a charge off at once: its glow and every mote being drawn in vanish. The aura is untouched.</summary>
         public void StopCharge()
@@ -159,6 +185,7 @@ namespace TurnLimbo.Presentation
             auraTarget = AuraAmount = auraFadeSeconds = auraSpawn = 0f;
             charging = releasing = chargeHolds = false;
             chargeElapsed = releaseElapsed = chargeSpawn = 0f;
+            chargeInk = default;
             foreach (Mote mote in motes) Deactivate(mote);
             Afterimages?.Clear();
             Apply();
@@ -269,7 +296,8 @@ namespace TurnLimbo.Presentation
             mote.Velocity = -direction * (radius / mote.Life);
             mote.Size = Mathf.Lerp(.08f, .16f, (float)random.NextDouble());
             mote.Phase = 0f;
-            mote.Color = Color.Lerp(PaleGold, Color.white, (float)random.NextDouble());
+            mote.Color = Color.Lerp(chargeInk.a > 0f ? Opaque(chargeInk) : PaleGold, Color.white,
+                (float)random.NextDouble() * (chargeInk.a > 0f ? .45f : 1f));
             Activate(mote, random.NextDouble() < .6);
         }
 
@@ -304,12 +332,17 @@ namespace TurnLimbo.Presentation
             drawnIdle = idle;
             float pulse = .85f + .15f * Mathf.Sin(clock / GlowPulsePeriod * 6.2832f);
             float charge = ChargeGlow;
-            float glowAlpha = Mathf.Clamp01(AuraAmount * .32f * pulse + charge * .28f);
+            float auraGlow = AuraAmount * .32f * pulse, chargeGlow = charge * .28f;
+            float glowAlpha = Mathf.Clamp01(auraGlow + chargeGlow);
             glow.enabled = glowAlpha > 0f;
-            glow.color = new Color(Gold.r, Gold.g, Gold.b, glowAlpha);
+            // A charge in its own ink tints the glow by its share of it (the aura's stays gold).
+            Color glowInk = chargeInk.a > 0f && glowAlpha > 0f
+                ? Color.Lerp(Gold, Opaque(chargeInk), chargeGlow / (auraGlow + chargeGlow)) : Gold;
+            glow.color = new Color(glowInk.r, glowInk.g, glowInk.b, glowAlpha);
             glow.transform.localScale = new Vector3(3.4f, 4.4f, 1f) * (1f + .08f * charge);
             core.enabled = charge > 0f;
-            core.color = new Color(1f, .96f, .82f, Mathf.Clamp01(.75f * charge));
+            Color coreInk = chargeInk.a > 0f ? Color.Lerp(Opaque(chargeInk), Color.white, .45f) : new Color(1f, .96f, .82f, 1f);
+            core.color = new Color(coreInk.r, coreInk.g, coreInk.b, Mathf.Clamp01(.75f * charge));
             core.transform.localScale = Vector3.one * (.5f + 1.3f * charge);
             foreach (Mote mote in motes)
             {
@@ -338,6 +371,8 @@ namespace TurnLimbo.Presentation
                 view.color = new Color(mote.Color.r, mote.Color.g, mote.Color.b, alpha);
             }
         }
+
+        private static Color Opaque(Color ink) => new Color(ink.r, ink.g, ink.b, 1f);
 
         private SpriteRenderer CreateRenderer(string name, Sprite sprite, Material material, int layer, int sortingLayer,
             int sortingOrder)

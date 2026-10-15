@@ -224,6 +224,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int PlanningSecondsGained { get; internal set; }
         public LegacySkillFeedback PlayerFeedback { get; internal set; } = LegacySkillFeedback.None;
         public LegacySkillFeedback EnemyFeedback { get; internal set; } = LegacySkillFeedback.None;
+        /// <summary>The most health the player has lost to a single hit of this slot so far (presentation only:
+        /// <see cref="LegacySlotFacts.PlayerLargestHitTaken"/>).</summary>
+        public int PlayerLargestHitTaken { get; internal set; }
+        public int EnemyLargestHitTaken { get; internal set; }
+        /// <summary>The player's skill's 상대 상태 조건 has held against the enemy where the rules checked it this slot: the
+        /// recovery's gate, the slot's start (after both sides' initial effects) for a damage multiplier, or one of its hits
+        /// (presentation only: <see cref="LegacySlotFacts.PlayerStateConditionHeld"/>).</summary>
+        public bool PlayerStateConditionHeld { get; internal set; }
+        public bool EnemyStateConditionHeld { get; internal set; }
         internal int PlayerPower { get; set; }
         internal int EnemyPower { get; }
         internal int PlayerTotalPower { get; set; }

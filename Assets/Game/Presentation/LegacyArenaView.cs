@@ -12,7 +12,7 @@ namespace TurnLimbo.Presentation
     public enum ArenaBackdropKind { Forest, SchoolCorridor }
 
     /// <summary>Inherited actors/effects with travelling forest or school-corridor staging. The session owns combat rules.</summary>
-    public sealed class LegacyArenaView : IDisposable
+    public sealed partial class LegacyArenaView : IDisposable
     {
         private const float ForestActorY = -.5f;
         private const float CorridorActorDepth = .95f;
@@ -416,6 +416,8 @@ namespace TurnLimbo.Presentation
 
         public void Reset()
         {
+            // The tension lighting first: the step's cancel and the grade below light the fresh arena without it.
+            ClearLighting();
             approaching = returning = resolving = inspecting = false;
             CancelStep();
             stepAfterimages.Reset();
@@ -472,6 +474,7 @@ namespace TurnLimbo.Presentation
                 effect.Instance.SetActive(false);
                 effect.Active = false;
             }
+            ClearDirector();
             openingPlacementAvailable = true;
         }
 
@@ -503,6 +506,8 @@ namespace TurnLimbo.Presentation
         public void BeginTurn()
         {
             openingPlacementAvailable = false;
+            ClearBladeBind();
+            ClearSignatureTrails(false);
             resolving = false;
             approaching = returning = false;
             fatalTime = 0f;
@@ -598,6 +603,8 @@ namespace TurnLimbo.Presentation
             resolving = true;
             stepFeedbackStartedThisSlot = dodgedThisSlot = false;
             ClearPressureAttackTrail();
+            // A signature's trail belongs to its own slot (the controller arms the new one's after this).
+            ClearSignatureTrails(false);
             player.Skill = playerSkill;
             enemy.Skill = enemySkill;
             ResetMovementPose(player);
@@ -640,6 +647,8 @@ namespace TurnLimbo.Presentation
 
         public void EndTurn()
         {
+            ClearBladeBind();
+            ClearSignatureTrails(false);
             returning = true;
             approaching = false;
             movementTime = 0f;
@@ -1031,6 +1040,8 @@ namespace TurnLimbo.Presentation
             aberration.intensity.value = Mathf.MoveTowards(aberration.intensity.value, 0f, gradeDelta * 0.75f);
             fatalExposure = Mathf.MoveTowards(fatalExposure, 0f, gradeDelta * 0.75f);
             impactFlashTime = Mathf.Max(0f, impactFlashTime - Mathf.Max(0f, realDelta));
+            // The tension lighting reads this frame's health (or eases out without it) on real time, before the grade.
+            TickLighting(realDelta);
             RefreshExposure();
             RefreshBloom();
             saturationPulse = Mathf.MoveTowards(saturationPulse, 0f, gradeDelta * 60f);
@@ -1038,6 +1049,7 @@ namespace TurnLimbo.Presentation
             TickActor(player, scaledDelta);
             TickActor(enemy, scaledDelta);
             stepAfterimages.Tick(realDelta);
+            TickSignatureAfterimages(realDelta);
             bool stepMovedThisFrame = stepping;
             TickStep(realDelta);
             // Pushes and dodge/pressure afterimages keep their authored poses. Only travel uses the movement pose.
@@ -1086,6 +1098,7 @@ namespace TurnLimbo.Presentation
                     effect.Instance.SetActive(false);
                 }
             }
+            TickDirectorPush(realDelta);
             TickCamera(scaledDelta, realDelta);
             RefreshStepBackdrop(scaledDelta);
             impactGlow.Tick(Mathf.Max(0f, realDelta));
@@ -1163,11 +1176,8 @@ namespace TurnLimbo.Presentation
             stepFocusTime = stepFocusDuration = stepFocusStrength = stepSlowTime = 0f;
             stepSlowScale = 1f;
             stepFeedbackStartedThisSlot = false;
-            if (ForestBackdrop != null)
-            {
-                ArenaCamera.backgroundColor = NormalSkyColor;
-                TickBackdrop(ArenaCamera, inspecting, 0f);
-            }
+            // The sky and the scenery lose the step's darkening at once (the tension lighting's stays).
+            if (ForestBackdrop != null) RefreshStepBackdrop();
             if (hadFocus && !IsFatalFocus)
             {
                 // Phase changes cancel the special framing immediately. With
@@ -1193,6 +1203,9 @@ namespace TurnLimbo.Presentation
         private void RefreshStepBackdrop(float scaledDelta = 0f)
         {
             float darkness = settings.StepBackdropDarkening * StepFocusAmount;
+            // The tension lighting darkens the scenery too; the two darkenings multiply (neither adds up past black).
+            float tension = LightingBackdropDarkening;
+            if (tension > 0f) darkness = 1f - (1f - darkness) * (1f - tension);
             ArenaCamera.backgroundColor = new Color(NormalSkyColor.r * (1f - darkness),
                 NormalSkyColor.g * (1f - darkness), NormalSkyColor.b * (1f - darkness), 1f);
             TickBackdrop(ArenaCamera, inspecting, scaledDelta, darkness);
@@ -1202,7 +1215,8 @@ namespace TurnLimbo.Presentation
         {
             float pulse = settings.GlowEnabled
                 ? Mathf.Clamp01(impactFlashTime / Mathf.Min(0.12f, settings.GlowDuration)) : 0f;
-            colorAdjustments.postExposure.value = Mathf.Max(fatalExposure, settings.FlashExposure * pulse * pulse);
+            // The tension lighting's dimming and a flow's swell over the hit's flash.
+            colorAdjustments.postExposure.value = Mathf.Max(fatalExposure, settings.FlashExposure * pulse * pulse) + LightingExposure;
         }
 
         private void TickActor(Actor actor, float delta)
@@ -1286,13 +1300,17 @@ namespace TurnLimbo.Presentation
         /// the enemy's look, and hides the passing effects of the hit it paused on (sparks, glow, step afterimages, break
         /// outlines), which would otherwise hang frozen over the scene. The hit's grade (the decisive close-up's
         /// chromatic aberration, exposure and saturation pulse, and the impact flash's exposure) is set aside too: it only
-        /// fades on the battle's clock, which stops for the scene, so the scene plays under the neutral grade. 이아's 수훈
+        /// fades on the battle's clock, which stops for the scene, so the scene plays under the neutral grade (the tension
+        /// lighting's tension waits with it, and a flow's swell ends). 이아's 수훈
         /// afterimages are cleared (her aura keeps leaving new ones in the scene, on its real time). The battle's own state
         /// (pushes, reactions, the slot's clock) is untouched; <see cref="ResumeAfterCutscene"/> puts the picture back
         /// exactly.</summary>
         internal void SuspendForCutscene()
         {
             if (disposed || suspension != null) return;
+            // A blade bind lets go where it is (the scene poses the fighters itself); a signature's trail ends with its ghosts.
+            ClearBladeBind();
+            ClearSignatureTrails(true);
             // A hit shake stops here (the scene moves the camera itself) and its offset is not part of the picture kept.
             RemoveHitShakeOffset();
             hitShake.Clear();
@@ -1304,6 +1322,8 @@ namespace TurnLimbo.Presentation
                 CameraSize = ArenaCamera.orthographicSize, Appearance = enemyAppearance, Flashback = flashbackAmount,
                 Aberration = aberration.intensity.value, FatalExposure = fatalExposure, ImpactFlash = impactFlashTime,
                 SaturationPulse = saturationPulse, Empowerment = empowermentAmount,
+                // The tension lighting waits for the battle too (a swell ends here).
+                Tension = SetLightingAside(),
             };
             foreach (var effect in effects)
             {
@@ -1321,6 +1341,8 @@ namespace TurnLimbo.Presentation
             empowermentAmount = cutInAmount = 0f;
             RefreshExposure();
             ApplyGrade();
+            // The sky and the scenery lose the tension lighting's darkening with it (a step's focus keeps its own).
+            RefreshStepBackdrop();
             suspension = saved;
         }
 
@@ -1346,6 +1368,7 @@ namespace TurnLimbo.Presentation
             impactFlashTime = saved.ImpactFlash;
             saturationPulse = saved.SaturationPulse;
             empowermentAmount = saved.Empowerment;
+            PutLightingBack(saved.Tension);
             RefreshExposure();
             // Re-applies the grade with the pulse that is back.
             SetFlashback(saved.Flashback);
@@ -1359,14 +1382,17 @@ namespace TurnLimbo.Presentation
             RefreshStepBackdrop();
         }
 
-        /// <summary>The fatal pulse plus the 전투 planning grade (less colour, a cold filter) and the 수훈 atmosphere (a warm
-        /// golden filter, a deeper amber vignette), and a cutscene's flashback over all of them (full desaturation, no tint).</summary>
+        /// <summary>The fatal pulse plus the 전투 planning grade (less colour, a cold filter), the 수훈 atmosphere (a warm
+        /// golden filter, a deeper amber vignette) and the tension lighting (deeper ember edges; a swell's warm filter and
+        /// open edges), and a cutscene's flashback over all of them (full desaturation, no tint).</summary>
         private void ApplyGrade()
         {
             float saturation = saturationPulse - settings.BattleDesaturation * bulletTimeAmount;
             Color filter = Color.Lerp(Color.white, BulletTimeCoolColor, settings.BattleCoolTint * bulletTimeAmount);
             if (empowermentAmount > 0f)
                 filter *= Color.Lerp(Color.white, EmpowermentWarmColor, settings.EmpowermentWarmTint * empowermentAmount);
+            // A flow's swell warms the light a moment (the tension lighting).
+            filter = LightingFilter(filter);
             if (flashbackAmount > 0f)
             {
                 saturation = Mathf.Lerp(saturation, -100f, flashbackAmount);
@@ -1374,8 +1400,11 @@ namespace TurnLimbo.Presentation
             }
             colorAdjustments.saturation.value = saturation;
             colorAdjustments.colorFilter.value = filter;
-            vignette.intensity.value = BaseVignette + settings.EmpowermentVignette * empowermentAmount;
-            vignette.color.value = Color.Lerp(Color.black, EmpowermentVignetteColor, empowermentAmount);
+            // The tension lighting deepens the edges toward an ember; a flow's swell opens them a moment.
+            float lighting = LightingVignette;
+            float edges = BaseVignette + settings.EmpowermentVignette * empowermentAmount;
+            vignette.intensity.value = lighting != 0f ? Mathf.Max(0f, edges + lighting) : edges;
+            vignette.color.value = LightingVignetteInk(Color.Lerp(Color.black, EmpowermentVignetteColor, empowermentAmount));
         }
 
         // Takes the hit shake's last offset off the camera, leaving the place the camera follows.
@@ -1580,6 +1609,8 @@ namespace TurnLimbo.Presentation
                     combatCameraPivot.x = center.x - Mathf.Sign(drift) * settings.CameraFollowDeadZone;
                 combatCameraPivot.y = center.y;
                 size = IsFatalFocus ? 3f : settings.CombatCameraSize;
+                // The director's push for a Major slot (SetDirectorPush); the decisive close-up keeps its own framing.
+                if (!IsFatalFocus) size *= 1f - directorPushAmount;
                 pivot = IsFatalFocus && fatalTarget != null ? fatalTarget.localPosition
                     : combatCameraPivot;
             }
@@ -1753,6 +1784,7 @@ namespace TurnLimbo.Presentation
             disposed = true;
             CancelStep();
             stepAfterimages.Dispose();
+            DisposeDirector();
             mobAnimations.Dispose();
             enemyAnimations.Dispose();
             cadetAAnimations?.Dispose();
@@ -1832,8 +1864,8 @@ namespace TurnLimbo.Presentation
             public float CameraSize, Flashback;
             // The hit's grade: chromatic aberration, the close-up's exposure, the impact flash's time left, the saturation pulse.
             public float Aberration, FatalExposure, ImpactFlash, SaturationPulse;
-            // The 수훈 atmosphere.
-            public float Empowerment;
+            // The 수훈 atmosphere, and the tension lighting's tension.
+            public float Empowerment, Tension;
             public EnemyAppearance Appearance;
             public readonly List<ImpactEffect> HiddenEffects = new List<ImpactEffect>();
         }

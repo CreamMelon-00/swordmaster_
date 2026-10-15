@@ -319,8 +319,9 @@ namespace TurnLimbo.Presentation.Tests
                 Settings = Object.Instantiate(originalSettings);
                 try
                 {
-                    JsonUtility.FromJsonOverwrite("{\"hitStopDuration\":0" + (string.IsNullOrEmpty(tuning) ? "" : "," + tuning) + "}",
-                        Settings);
+                    // The slide's own clock: the presentation director's pacing has its own tests.
+                    JsonUtility.FromJsonOverwrite("{\"hitStopDuration\":0,\"showDirectorEnabled\":false" +
+                        (string.IsNullOrEmpty(tuning) ? "" : "," + tuning) + "}", Settings);
                     Set("presentationSettings", Settings);
                     arenaSettings.SetValue(Controller.ArenaView, Settings);
                     advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,

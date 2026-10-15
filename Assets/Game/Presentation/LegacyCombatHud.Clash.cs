@@ -58,6 +58,12 @@ namespace TurnLimbo.Presentation
         private readonly SparkBurst[] reservationSparks = new SparkBurst[ReservationSparkPairs * 2];
         private int nextClashSpark, nextReservationPair;
         private SparkBurst lastClashSpark;
+        // The director's emphasis for a slot whose pair is not on the seam yet (SetClashEmphasis): applied when it comes.
+        private int pendingEmphasisSlot = -1;
+        private float pendingEmphasis = 1f;
+        /// <summary>How far the two cards of a blade bind sway together along the row as they hold at the seam (HUD units,
+        /// at the built card size; <see cref="LegacyBladeBind.Sway"/>).</summary>
+        public const float ClashBindSway = 6f;
 
         /// <summary>The layer under the queue cards (the ring, the socket and the cards leaving the seam), and the one over them
         /// (the sparks); both stand where the rows do, at the centre seam on the cards' line.</summary>
@@ -104,6 +110,68 @@ namespace TurnLimbo.Presentation
 
         /// <summary>Whether the resolving pair has met (the slot's first hit has resolved).</summary>
         public bool IsClashMeeting => !disposed && liveClash != null && liveClash.Impact;
+
+        /// <summary>The director's emphasis on the resolving pair (<see cref="SetClashEmphasis"/>; 1 while none).</summary>
+        public float ClashEmphasis => disposed || liveClash == null ? 1f : liveClash.Emphasis;
+
+        /// <summary>Whether the resolving pair is held at the seam in a blade bind now (<see cref="BindClash"/>).</summary>
+        public bool IsClashBinding => !disposed && liveClash != null && liveClash.Binding;
+
+        /// <summary>Whether the resolving pair plays its meeting as a blade bind: held at the seam, then both bounce back
+        /// alike (no push and recoil: both dealt damage).</summary>
+        public bool IsClashBound => !disposed && liveClash != null && liveClash.Bound;
+
+        /// <summary>The presentation director's weight on slot <paramref name="slot"/>'s pair (a Major slot's
+        /// <see cref="DuelPresentationSettings.MajorClashScale"/>; 1 for none): the lean, the drive, the knock-back, the
+        /// side-step and the tilt go that much farther, and the contact spark is that much larger. The meeting's time is
+        /// unchanged. A pair not on the seam yet takes it when it comes. Once the pair's meeting has begun to play (any time
+        /// after the frame of its first hit) its weight stays as it was: a weight a later hit brings (a break on the second
+        /// hit) would otherwise snap the cards mid push, so it changes nothing for this pair.</summary>
+        public void SetClashEmphasis(int slot, float scale)
+        {
+            if (disposed || slot < 0) return;
+            scale = float.IsNaN(scale) || float.IsInfinity(scale) ? 1f : Mathf.Clamp(scale, 1f, 2f);
+            if (liveClash != null && liveClash.Slot == slot)
+            {
+                // The first hit's own weight still lands: the meeting starts from where the cards stand (its clock at 0).
+                if (!liveClash.Impact || liveClash.ImpactElapsed <= 0f) liveClash.Emphasis = scale;
+                pendingEmphasisSlot = -1;
+                return;
+            }
+            pendingEmphasisSlot = slot;
+            pendingEmphasis = scale;
+        }
+
+        /// <summary>A blade bind on slot <paramref name="slot"/>'s pair, which has just met (its first hit): for
+        /// <paramref name="seconds"/> of the real time the controller hands over (<see cref="AdvanceClashBind"/>, while the
+        /// battle's clock stands still) both cards go to the seam and hold there, swaying together one way and then the other
+        /// (<see cref="ClashBindSway"/>), sparking <paramref name="sparks"/> more times; then the meeting goes on as an even
+        /// 합 (both bounce back alike). Nothing while the motion is off or the pair is another slot's.</summary>
+        public void BindClash(int slot, float seconds, int sparks)
+        {
+            if (disposed || liveClash == null || liveClash.Slot != slot || !liveClash.Impact ||
+                !(seconds > 0f) || float.IsInfinity(seconds)) return;
+            liveClash.Bound = true;
+            liveClash.BindSeconds = seconds;
+            liveClash.BindElapsed = 0f;
+            liveClash.BindSparks = Mathf.Max(0, sparks);
+        }
+
+        /// <summary>Plays <paramref name="realSeconds"/> more of the pair's blade bind (the same real seconds the arena's bind
+        /// gets). Nothing while none holds.</summary>
+        public void AdvanceClashBind(float realSeconds)
+        {
+            if (disposed || liveClash == null || !liveClash.Binding) return;
+            liveClash.AdvanceBind(realSeconds, ClashTuning);
+        }
+
+        /// <summary>The pair's blade bind is over (the controller's bind time has run): the meeting goes on from the contact
+        /// on the battle's clock. Nothing while none holds.</summary>
+        public void FinishClashBind()
+        {
+            if (disposed || liveClash == null || !liveClash.Binding) return;
+            liveClash.AdvanceBind(liveClash.BindSeconds, ClashTuning);
+        }
 
         /// <summary>The pose one side's resolving card was last drawn with (rest while none is).</summary>
         public LegacyCardPose GetClashPose(bool playerSide)
@@ -182,7 +250,12 @@ namespace TurnLimbo.Presentation
                 liveClash = null;
             }
             if (!input.HasSlot) return;
-            if (liveClash == null) liveClash = new ClashPlay(input.SlotIndex);
+            if (liveClash == null)
+            {
+                liveClash = new ClashPlay(input.SlotIndex);
+                if (pendingEmphasisSlot == input.SlotIndex) liveClash.Emphasis = pendingEmphasis;
+                pendingEmphasisSlot = -1;
+            }
             liveClash.Observe(input);
         }
 
@@ -405,7 +478,7 @@ namespace TurnLimbo.Presentation
             float seconds = presentationSettings != null ? presentationSettings.ClashSparkSeconds : DefaultClashSparkSeconds;
             int count = presentationSettings != null ? presentationSettings.ClashSparkCount : DefaultClashSparkCount;
             float size = (presentationSettings != null ? presentationSettings.ClashSparkSize : DefaultClashSparkSize) *
-                LegacyClashPose.SparkScale(play.Clash) * queueCardScale;
+                LegacyClashPose.SparkScale(play.Clash) * queueCardScale * play.Emphasis;
             LegacyClashKind kind = play.Clash.Kind;
             float playerFront = play.Player.BaseX + QueueCardSize * play.Player.RestScale * .5f +
                 LegacyClashPose.Meet(kind, play.Clash.PlayerMove, play.ContactOf(play.Player, tuning), tuning).Forward;
@@ -479,6 +552,7 @@ namespace TurnLimbo.Presentation
         private void ClearQueueClash()
         {
             liveClash = null;
+            pendingEmphasisSlot = -1;
             if (leavingClashes.Count > 0)
             {
                 foreach (ClashPlay play in leavingClashes) ReleaseClash(play);
@@ -655,6 +729,7 @@ namespace TurnLimbo.Presentation
         private void ResetQueueCues()
         {
             ClearQueueClash();
+            ResetReadCue();
             pendingReservationSpark = -1;
             reservationSparkSlot = -1;
             reservationSparkVerdict = null;
@@ -676,7 +751,15 @@ namespace TurnLimbo.Presentation
             // TakenOut: its slot left the rows and copies of its cards play the rest of the meeting.
             public bool Impact, SparkDue, TakenOut;
             public float ImpactElapsed;
+            // The director's weight (a Major slot's scale, 1 for none) and a blade bind: Bound plays the meeting as an even
+            // 합; while BindSeconds is left the pair holds at the seam on the real time the controller hands over.
+            public float Emphasis = 1f;
+            public bool Bound;
+            public float BindSeconds, BindElapsed;
+            public int BindSparks;
             private bool sparkFired;
+
+            public bool Binding => BindSeconds > 0f && BindElapsed < BindSeconds;
 
             public ClashPlay(int slot) { Slot = slot; }
 
@@ -702,7 +785,8 @@ namespace TurnLimbo.Presentation
             public void Advance(float delta, LegacyClashTuning tuning)
             {
                 delta = delta > 0f && !float.IsInfinity(delta) ? delta : 0f;
-                if (Impact)
+                // A bind holds the meeting at the seam: only its own real time moves it (AdvanceBind).
+                if (Impact && !Binding)
                 {
                     float before = ImpactElapsed;
                     ImpactElapsed += delta;
@@ -716,7 +800,29 @@ namespace TurnLimbo.Presentation
             public float Progress(LegacyClashTuning tuning) => LegacyClashPose.Progress(ImpactElapsed, tuning.ImpactSeconds);
 
             public bool Finished(LegacyClashTuning tuning)
-                => Impact && ImpactElapsed >= tuning.ImpactSeconds && !Player.Shaking && !Enemy.Shaking;
+                => Impact && !Binding && ImpactElapsed >= tuning.ImpactSeconds && !Player.Shaking && !Enemy.Shaking;
+
+            // The bind's real time: the cards travel on to the seam (the contact spark as they meet) and hold there, a spark
+            // at each of its moments; then the meeting goes on from the contact on the battle's clock.
+            public void AdvanceBind(float realSeconds, LegacyClashTuning tuning)
+            {
+                if (!Binding) return;
+                realSeconds = realSeconds > 0f && !float.IsInfinity(realSeconds) ? realSeconds : 0f;
+                float moment = LegacyClashPose.StrikeShare * tuning.ImpactSeconds;
+                float before = ImpactElapsed;
+                ImpactElapsed = Mathf.Max(ImpactElapsed, Mathf.Min(moment, ImpactElapsed + realSeconds));
+                if (!sparkFired && Clash.Contact && LegacyClashPose.ReachesContact(before, ImpactElapsed, tuning.ImpactSeconds))
+                    sparkFired = SparkDue = true;
+                float share = BindElapsed / BindSeconds;
+                BindElapsed = Mathf.Min(BindSeconds, BindElapsed + realSeconds);
+                if (LegacyBladeBind.SparksBetween(share, BindElapsed / BindSeconds, BindSparks) > 0) SparkDue = true;
+                if (BindElapsed >= BindSeconds)
+                {
+                    // Held to the end: the meeting goes on from the contact.
+                    ImpactElapsed = Mathf.Max(ImpactElapsed, moment);
+                    BindSeconds = BindElapsed = 0f;
+                }
+            }
 
             // Where the resolving cards stand this frame (both rows share the spacing, so the pair mirrors).
             public void Place(float distance, float gap, float restScale)
@@ -730,6 +836,7 @@ namespace TurnLimbo.Presentation
             // Before the first hit: lean toward the approach the classification asks for now.
             public void Lean(float delta, LegacyClashTuning tuning)
             {
+                tuning = Emphasized(tuning);
                 Player.Approach = LegacyClashPose.Follow(Player.Approach,
                     LegacyClashPose.ApproachTarget(Clash.Kind, Clash.PlayerMove, ContactOf(Player, tuning), tuning), delta,
                     tuning.ApproachSeconds);
@@ -742,13 +849,29 @@ namespace TurnLimbo.Presentation
                 => LegacyClashPose.ContactTravel(Clash.Kind, side.IsPlayer ? Clash.PlayerMove : Clash.EnemyMove, side.Gap,
                     (side.IsPlayer ? Enemy : Player).Gap, tuning.Reach);
 
+            // The director's weight on the distances (never the times): a Major slot's pair goes farther.
+            private LegacyClashTuning Emphasized(LegacyClashTuning t)
+                => Emphasis == 1f ? t : new LegacyClashTuning(t.ApproachSeconds, t.ApproachDistance * Emphasis,
+                    t.ImpactSeconds, t.Reach, t.PushDistance * Emphasis, t.KnockbackDistance * Emphasis,
+                    t.SideStepDistance * Emphasis, t.TiltDegrees * Emphasis, t.BreakShake, t.BreakShakeSeconds, t.SettleDip,
+                    t.BraceSquash);
+
             public LegacyCardPose PoseOf(ClashCard side, LegacyClashTuning tuning)
             {
+                float contact = ContactOf(side, tuning);
+                tuning = Emphasized(tuning);
+                // A bound meeting is an even 합 whatever the small gap: both bounce back alike.
+                LegacyClashMove move = Bound ? LegacyClashMove.Bounce : side.IsPlayer ? Clash.PlayerMove : Clash.EnemyMove;
+                float strength = Bound ? 0f : side.IsPlayer ? Clash.PlayerStrength : Clash.EnemyStrength;
                 LegacyCardPose pose = Impact
-                    ? LegacyClashPose.Impact(Clash.Kind, side.IsPlayer ? Clash.PlayerMove : Clash.EnemyMove,
-                        side.IsPlayer ? Clash.PlayerStrength : Clash.EnemyStrength, side.ImpactStart, ContactOf(side, tuning),
-                        Progress(tuning), tuning)
+                    ? LegacyClashPose.Impact(Clash.Kind, move, strength, side.ImpactStart, contact, Progress(tuning), tuning)
                     : side.Approach;
+                if (Binding)
+                {
+                    // The locked pair sways together along the row (forward is toward the seam: the opponent's is mirrored).
+                    float sway = LegacyBladeBind.Sway(BindElapsed / BindSeconds, ClashBindSway);
+                    pose = new LegacyCardPose(pose.Forward + (side.IsPlayer ? sway : -sway), pose.Up, pose.Tilt, pose.Squash);
+                }
                 return side.Shaking
                     ? pose.Shaken(LegacyClashPose.Shake(side.BreakElapsed, tuning.BreakShakeSeconds, tuning.BreakShake))
                     : pose;

@@ -654,9 +654,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arenaSettingsField, Is.Not.Null);
                 originalArenaSettings = (DuelPresentationSettings)arenaSettingsField.GetValue(Controller.ArenaView);
                 settingsClone = Object.Instantiate(originalSettings);
+                // The step and mesh clock alone: the presentation director's pacing has its own tests.
                 JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1,\"skillInterval\":0.28," +
                     "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1,\"meshPercent\":10," +
-                    "\"meshBurstSeconds\":0.6,\"meshFlashSeconds\":0.45}", settingsClone);
+                    "\"meshBurstSeconds\":0.6,\"meshFlashSeconds\":0.45,\"showDirectorEnabled\":false}", settingsClone);
                 SetField("presentationSettings", settingsClone);
                 arenaSettingsField.SetValue(Controller.ArenaView, settingsClone);
                 var playerSkills = customPlayerSkills ?? new[] { Weak(101, 0), Weak(103, 1), Weak(105, 2) };

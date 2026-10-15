@@ -180,10 +180,15 @@ namespace TurnLimbo.Presentation
         }
 
         public void PlayClash(AudioSource source, bool parried = false, bool alternateHit = false)
+            => PlayClash(source, parried, alternateHit, 0.55f);
+
+        /// <summary>The same clash sound at <paramref name="volume"/> (0 to 1): the presentation director layers a second one
+        /// under a Major slot's hit.</summary>
+        public void PlayClash(AudioSource source, bool parried, bool alternateHit, float volume)
         {
             var clip = parried ? parrySound : alternateHit ? secondHitSound : hitSound;
-            if (source != null && clip != null)
-                source.PlayOneShot(clip, 0.55f);
+            if (source != null && clip != null && volume > 0f)
+                source.PlayOneShot(clip, Mathf.Clamp01(volume));
         }
 
         private static Dictionary<string, Sprite[]> LoadActor(string actor, string idleSheet, string slashSheet,

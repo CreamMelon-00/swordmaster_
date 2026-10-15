@@ -273,6 +273,148 @@ namespace TurnLimbo.Presentation
         [SerializeField, ColorUsage(true, false), Tooltip("맞닿는 불꽃 꼬리의 색(기본: 주황, 알파 0이라 꼬리는 머리 쪽으로 사라짐). 알파를 올리면 꼬리가 그 색으로 남습니다.")]
         private Color clashSparkTailInk = DefaultClashSparkTailInk;
 
+        [Header("연출 감독 — 칸의 무게에 따른 속도·강조 (켜기·속도·히트 스톱·상한은 다음 턴부터, 카메라·타격음·이음매 배율은 바로; Docs/PresentationTuning.md)")]
+        [SerializeField, Tooltip("진행 중 칸마다 무게(Minor·Normal·Major·Climax, 아래 '칸 등급 기준')를 매겨 Minor 칸은 빨리 넘기고 Major 칸은 카메라를 당기고 히트 스톱을 길게 하며, 위력이 비슷한 합은 팽팽한 합으로 붙잡습니다. 첫 타격 전(스텝 판정 구간)의 시간은 건드리지 않고, 판정도 바꾸지 않습니다. 끄면 칸의 빠르기(Minor 칸·일방 공격 가속), 히트 스톱, 팽팽한 합, Major 칸의 카메라 당김·겹친 타격음·이음매 강조가 예전 그대로입니다(등급은 계속 매깁니다). 간파 신호와 시그니처 기술의 예고 빛·잔상·카메라 당김은 각자의 스위치(간파 신호의 Read Cue Enabled, 시그니처 기술의 Signature Treatment Enabled)로 끄고, 결정적 한 수와 긴장 조명도 각자의 스위치를 따릅니다.")]
+        private bool showDirectorEnabled = true;
+        [SerializeField, Range(1f, 4f), Tooltip("Minor 칸(양쪽 모두 공격이 없는 칸: 방어끼리·숨고르기·빈칸)의 첫 타격 뒤 남은 시간과 그 뒤 다음 칸까지의 간격을 이 배만큼 짧게 합니다. 줄인 시간은 그 턴의 Major 강조에 씁니다. 1이면 그대로입니다.")]
+        private float minorSlotSpeed = LegacyShowPacingTuning.DefaultMinorSpeed;
+        [SerializeField, Range(1f, 6f), Tooltip("Major 칸의 첫 타격(맞은 타격이 있을 때)의 히트 스톱을 위 '히트 스톱' 값의 이 배로 늘립니다(기본 0.04초 × 3 = 0.12초). 한 칸에 한 번이며, 마무리 일격(Climax)은 기존 마무리 연출 그대로입니다. 1이면 늘리지 않습니다.")]
+        private float majorHitStopScale = LegacyShowPacingTuning.DefaultMajorHitStopScale;
+        [SerializeField, Range(0f, .3f), Tooltip("Major 칸이 진행되는 동안(칸 시작에 이미 Major로 알 수 있으면 예고 동안부터) 교전 카메라가 다가가는 양(화면 크기에 대한 비율, 0.1 = 10%). 실제 시간으로 부드럽게 들어오고 빠지며, 결정타 집중 카메라가 켜지면 그쪽을 따릅니다. 0이면 끕니다.")]
+        private float majorCameraPush = .1f;
+        [SerializeField, Range(0f, 1f), Tooltip("Major 칸의 첫 타격에 겹쳐 울리는 두 번째 타격음의 음량(낮은 음). 결정타의 크리티컬 효과음이 이미 울리는 타격에는 겹치지 않습니다. 0이면 끕니다.")]
+        private float majorImpactVolume = .35f;
+        [SerializeField, Range(1f, 2f), Tooltip("Major 칸에서 큐 합 연출(가운데 이음매의 카드 한 쌍)의 기울기·밀기·밀려남·비킴 거리와 맞닿는 불꽃 크기에 곱하는 배율. 시간은 바꾸지 않습니다. 한 쌍이 맞부딪치기 시작한 뒤에야 Major가 된 칸(두 번째 타격의 붕괴 등)은 움직이던 카드가 튀지 않도록 그 쌍에 배율을 더하지 않습니다. 1이면 그대로입니다.")]
+        private float majorClashScale = 1.35f;
+        [SerializeField, Range(0f, 5f), Tooltip("연출 감독이 한 턴에 더할 수 있는 시간의 상한(실제 초). Major 히트 스톱과 팽팽한 합이 쓰는 시간은 '이 값 + 그 턴의 Minor 칸이 줄인 시간'을 넘지 않습니다. 그래서 한 턴은 감독이 없을 때보다 이 값 이상 길어지지 않습니다. 0이면 Minor 칸이 줄인 만큼만 씁니다.")]
+        private float turnExtraSecondsCap = LegacyShowPacingTuning.DefaultTurnExtraCap;
+
+        [Header("칸 등급 기준 — 다음 턴부터 적용 (연출 감독이 씀; 큰 체력 피해는 위 '결정타 연출' 비율)")]
+        [SerializeField, Range(0f, 1f), Tooltip("합(공격 대 공격)에서 위력 차이의 비율(|내 위력 − 상대 위력| ÷ 큰 쪽)이 이 값 이상이면 Major. 누가 이겼는지는 보지 않고 차이의 크기만 봅니다. 0이면 이 조건을 끕니다.")]
+        private float largeClashGap = LegacySlotImportanceTuning.DefaultLargeClashGap;
+        [SerializeField, Range(0f, 1f), Tooltip("공격이 방어를 뚫은 몫(공격 중 방어를 지난 비율)이 이 값 이상이면 Major. 0이면 끕니다.")]
+        private float deepPierce = LegacySlotImportanceTuning.DefaultDeepPierce;
+        [SerializeField, Range(0, 100), Tooltip("상대가 아무것도 없거나 숨고르기인 칸에 들어간 공격의 전체 위력이 대상 최대 체력의 이 비율(%) 이상이면 Major. 0이면 끕니다.")]
+        private int bigUnopposedPercent = LegacySlotImportanceTuning.DefaultBigUnopposedPercent;
+        [SerializeField, Range(0, 7), Tooltip("맞물림 사슬의 이 번째 기술부터 그 칸을 플레이어의 간파로 보고 Major로 올립니다(2면 사슬의 두 번째 기술부터). 0이면 끕니다.")]
+        private int meshChainMinimum = LegacySlotImportanceTuning.DefaultMeshChainMinimum;
+        [SerializeField, Tooltip("회피(스텝 회피·자동 회피)한 칸을 Major로 올립니다. 끄면 점수만 더합니다.")]
+        private bool dodgeRaisesToMajor = true;
+        [SerializeField, Tooltip("상대의 간파(상대 기술의 조건 충족·붕괴)도 플레이어의 간파처럼 칸을 Major로 올립니다. 끄면 점수만 더합니다. 온라인 대전은 두 화면의 연출 길이가 같아야 하므로 이 값과 관계없이 늘 켠 것처럼 셉니다.")]
+        private bool enemyReadsRaiseTier;
+
+        [Header("팽팽한 합 — 기준·시간은 다음 턴부터, 흔들림·기댐·튕김·불꽃은 다음 합부터 (위력이 비슷한 공격끼리의 합)")]
+        [SerializeField, Range(0f, .5f), Tooltip("합(공격 대 공격)에서 위력 차이의 비율이 이 값 이하이면 팽팽한 합입니다. 첫 타격에 두 칼이 맞닿고 둘 다 몸에 피해가 들어가지 않았으면, 두 사람이 맞닿은 자세 그대로 함께 밀고 밀리다 불꽃을 튀기고 똑같이 튕겨 납니다(둘 다 피해를 입었으니 이긴 쪽이 없습니다). 0이면 위력이 똑같을 때만입니다.")]
+        private float bladeBindGap = LegacySlotImportanceTuning.DefaultBladeBindGap;
+        [SerializeField, Range(0f, 2f), Tooltip("팽팽한 합이 두 사람을 붙잡는 시간(실제 초). 그동안 전투 시계는 멈춥니다(히트 스톱처럼). 위 상한에서 이 시간의 절반도 남지 않았으면 그 턴에는 붙잡지 않고, 남은 만큼만 붙잡습니다. 0이면 끕니다.")]
+        private float bladeBindSeconds = LegacyBladeBind.DefaultSeconds;
+        [SerializeField, Range(0f, .6f), Tooltip("맞붙은 두 사람이 함께 한쪽으로 밀렸다 다른 쪽으로 밀리는 폭(월드 단위). 양쪽으로 같은 만큼 흔들려 어느 쪽도 밀어내지 못합니다.")]
+        private float bladeBindSway = LegacyBladeBind.DefaultSway;
+        [SerializeField, Range(0f, .4f), Tooltip("팽팽한 합 동안 두 사람이 서로에게 기대는 거리(한 사람당, 월드 단위). 둘이 같은 만큼 기댑니다.")]
+        private float bladeBindPress = LegacyBladeBind.DefaultPress;
+        [SerializeField, Range(0f, 1.5f), Tooltip("팽팽한 합이 끝나면 두 사람은 그 타격의 원래 밀림을 똑같이 나눠 같은 거리만큼 튕겨 납니다(전투 시계가 다시 흐를 때). 이 값은 그 위에 한 사람당 더하는 거리(월드 단위)입니다. 0이면 더하지 않아 다음 타격까지 다가가는 시간도 늘지 않습니다.")]
+        private float bladeBindSpring = LegacyBladeBind.DefaultSpring;
+        [SerializeField, Range(0, 6), Tooltip("팽팽한 합 동안 맞닿은 칼 사이에서 튀는 불꽃(타격 빛)의 수. 이음매의 두 카드도 같은 때 불꽃을 튀깁니다. 0이면 첫 타격의 불꽃만 남습니다.")]
+        private int bladeBindSparks = LegacyBladeBind.DefaultSparks;
+
+        [Header("일방 공격 가속 — 다음 턴부터 적용 (연출 감독이 켜져 있을 때만, 대전에서도 두 화면 같게)")]
+        [SerializeField, Tooltip("한쪽만 공격하고 다른 쪽은 빈칸이나 숨고르기인 칸(일방 공격)이 한 턴에 이어지면 그 칸들을 점점 빠르게 재생합니다(누가 공격하든 같음). 양쪽 모두 공격이 없는 칸(방어끼리·숨고르기끼리)은 이어짐을 끊지도 늘리지도 않고, 합·방어·회피·반격처럼 양쪽이 맞서는 칸은 처음부터 다시 셉니다. Major·Climax 칸(붕괴·큰 피해·큰 일방 공격·간파·시그니처·마무리 일격)은 빨라지지 않지만 이어짐은 계속 셉니다. 스텝(회피·압박)을 쓸 수 있는 칸은 첫 타격 전(예고와 성공 구간)을 건드리지 않고 첫 타격 뒤와 그 뒤 간격만 빠르게 합니다. 줄인 시간은 강조에 쓰지 않고 턴이 그만큼 짧아집니다. 연출 감독을 끄면 이것도 꺼집니다.")]
+        private bool unopposedStreakEnabled = true;
+        [SerializeField, Range(1, 8), Tooltip("일방 공격이 몇 칸째 이어질 때부터 빨라지는지. 2면 두 번째 칸부터 빨라집니다(첫 칸은 그대로).")]
+        private int unopposedStreakStartLength = LegacyStreakTuning.DefaultStartLength;
+        [SerializeField, Range(0f, .5f), Tooltip("이어지는 일방 공격 한 칸마다 더 빨라지는 양(재생 배속). 기본 0.15: 1.15배, 1.3배, 1.45배… 0이면 빨라지지 않습니다.")]
+        private float unopposedStreakStep = LegacyStreakTuning.DefaultStepPerSlot;
+        [SerializeField, Range(1f, 3f), Tooltip("일방 공격이 아무리 이어져도 넘지 않는 가장 빠른 재생 배속. 기본 1.6배. 1이면 빨라지지 않습니다.")]
+        private float unopposedStreakMaxSpeed = LegacyStreakTuning.DefaultMaximumSpeed;
+
+        [Header("간파 신호 — 실행 중 즉시 적용 (내 간파: 상대 조건 충족·붕괴·맞물림 사슬, 위 '칸 등급 기준')")]
+        [SerializeField, Tooltip("내 간파가 맞아떨어진 칸의 첫 타격(또는 붕괴를 낸 타격)에, 이음매의 내 카드에서 금빛 불꽃이 터지고 테가 퍼지며, 내 캐릭터 가슴께가 잠깐 금빛으로 밝아집니다. 칸마다 한 번이고, 상대의 간파에는 없습니다. 시간을 쓰지 않습니다. 끄면 아무것도 나오지 않습니다(칸의 등급은 그대로).")]
+        private bool readCueEnabled = true;
+        [SerializeField, Tooltip("간파 신호와 함께 이음매의 내 카드 위에 작은 '간파' 도장을 잠깐 찍습니다. 기술 이름이나 효과(기존 'OO 성공!' 신호)는 되풀이하지 않습니다. 끄면 불꽃과 빛만 나옵니다.")]
+        private bool readStampEnabled = true;
+        [SerializeField, Range(.3f, 2f), Tooltip("'간파' 도장이 떠 있는 시간(실제 초). 처음 0.12초에 작게 튀어나왔다가 마지막 0.3초에 사라집니다. 불꽃과 테는 이 시간의 절반쯤(최대 0.5초)입니다.")]
+        private float readCueSeconds = .9f;
+        [SerializeField, ColorUsage(false), Tooltip("간파 신호의 색(불꽃·테·도장·캐릭터의 빛). 기본은 밝은 금빛입니다.")]
+        private Color readCueInk = DefaultReadCueInk;
+        [SerializeField, Range(0, 24), Tooltip("간파 불꽃 줄기의 수. 0이면 불꽃을 끄고 테와 도장만 남깁니다.")]
+        private int readSparkCount = 12;
+        [SerializeField, Range(12f, 80f), Tooltip("간파 불꽃이 퍼지는 크기(1920x1080 기준 HUD 단위, 카드 크기 설정에 맞춰 함께 커짐).")]
+        private float readSparkSize = 40f;
+        [SerializeField, Tooltip("간파 때 내 캐릭터 가슴께가 잠깐 금빛으로 밝아집니다(전투 시계로 약 0.35초, 히트 스톱 동안은 밝은 채 머묾). 끄면 화면 아래 신호만 나옵니다.")]
+        private bool readFighterAccent = true;
+
+        [Header("시그니처 기술 — 목록과 히트 스톱은 다음 턴부터, 그 밖은 바로(빛·잔상은 다음 칸부터) (어느 쪽이 쓰든, 대전에서도 같은 길이)")]
+        [SerializeField, Tooltip("시그니처 기술(정수 기술)의 시트 번호. 어느 쪽이 쓰든 그 칸은 Major이고 아래 연출을 받습니다. 기본: 51 에스토카다, 53 카덴스, 56 두블레. 비우면 시그니처 기술이 없습니다.")]
+        private int[] signatureSkillIds = { 51, 53, 56 };
+        [SerializeField, Tooltip("시그니처 기술의 연출: 예고 동안 기술 열의 색(정공 금·강공 청록·기교 적갈)으로 힘이 가슴께에 모였다가 타격에 번쩍이고, 공격 동작에 같은 색의 잔상이 남으며, 카메라가 더 다가가고, 첫 타격의 히트 스톱이 더 길고, 타격음이 한 겹 더 울립니다. 끄면 다른 Major 칸과 같습니다(등급은 그대로).")]
+        private bool signatureTreatmentEnabled = true;
+        [SerializeField, Range(1f, 6f), Tooltip("시그니처 기술 칸의 첫 타격 히트 스톱 배율(위 '히트 스톱' 값의 배수, Major의 배율보다 작지 않음). 기본 4.5배 = 0.18초. 늘어난 시간은 연출 감독의 턴 상한 안에서만 씁니다.")]
+        private float signatureHitStopScale = LegacyShowPacingTuning.DefaultSignatureHitStopScale;
+        [SerializeField, Range(0f, .3f), Tooltip("시그니처 기술 칸 동안(예고부터) 교전 카메라가 다가가는 양(화면 크기에 대한 비율). Major 당김보다 크면 이 값을 씁니다. 0이면 Major 당김만 씁니다.")]
+        private float signatureCameraPush = .16f;
+        [SerializeField, Range(0f, 1f), Tooltip("시그니처 기술 칸의 첫 타격에 한 겹 더 울리는 칼날 울림(막기 소리)의 음량. 0이면 끕니다.")]
+        private float signatureImpactVolume = .45f;
+        [SerializeField, Tooltip("시그니처 기술의 예고 동안 기술 열의 색으로 힘이 모였다가 첫 타격에 번쩍입니다(코드로 그린 빛, 새 그림 없음).")]
+        private bool signatureWindupGlow = true;
+        [SerializeField, Range(0f, 1f), Tooltip("시그니처 기술의 공격 동작이 남기는 잔상 하나가 사라지는 시간(실제 초). 0이면 잔상을 끕니다.")]
+        private float signatureAfterimageSeconds = .3f;
+        [SerializeField, Range(0f, 1f), Tooltip("시그니처 잔상이 처음 남을 때의 불투명도.")]
+        private float signatureAfterimageAlpha = .55f;
+
+        [Header("결정적 한 수 — 다음 전투부터 적용 (결과 창 위 다시보기)")]
+        [SerializeField, Tooltip("전투 중 가장 무게가 큰 칸(등급, 같으면 점수, 같으면 먼저 것)을 작은 그림으로 녹화해 두었다가, 승리·패배·무승부 결과 창 위에 '결정적 한 수'로 한 번 다시 보여 줍니다. 클릭이나 Enter·Space·Esc로 넘기면 결과 창이 바로 보입니다. 녹화는 후보 칸(공격·간파·시그니처가 있는 칸)이 진행되는 동안만 하고, 결과를 보여 주거나 다시 시작·로비로 가면 모두 놓습니다. 결과 창은 녹화가 안 되는 환경이나 이 값을 끈 경우에도 그대로입니다. 수련과 종료 장면이 이어지는 임무 승리에는 없습니다.")]
+        private bool replayEnabled = true;
+        [SerializeField, Range(6f, 30f), Tooltip("녹화하는 초당 그림 수(실제 시간).")]
+        private float replayFramesPerSecond = LegacyReplayTuning.DefaultFramesPerSecond;
+        [SerializeField, Range(1f, 4f), Tooltip("다시보기의 최대 길이(녹화 기준 실제 초). 더 긴 칸은 마지막 부분을 남깁니다. 메모리 상한(두 묶음 합쳐 24MB)을 넘으면 저절로 줄입니다.")]
+        private float replayMaxSeconds = LegacyReplayTuning.DefaultMaximumSeconds;
+        [SerializeField, Range(0f, 1f), Tooltip("칸이 끝난 뒤에도 이어 녹화하는 시간(실제 초): 튕겨 나는 모습과 피해 숫자. 다음 칸이 시작되면 거기서 끊습니다.")]
+        private float replayTailSeconds = LegacyReplayTuning.DefaultTailSeconds;
+        [SerializeField, Range(.25f, 1f), Tooltip("다시보기 속도(1이면 녹화한 그대로, 작을수록 느리게).")]
+        private float replayPlaybackSpeed = LegacyReplayTuning.DefaultPlaybackSpeed;
+        [SerializeField, Range(0f, 2f), Tooltip("다시보기의 마지막 그림을 붙잡아 두는 시간(실제 초). 그 뒤 0.3초에 걸쳐 사라지고 결과 창이 드러납니다.")]
+        private float replayHoldSeconds = LegacyReplayTuning.DefaultHoldSeconds;
+        [SerializeField, Range(160, 480), Tooltip("녹화 그림의 가로 픽셀(세로는 화면 비율). 클수록 선명하지만 메모리를 더 씁니다(320 × 180, 초당 15장, 2.5초: 두 묶음 합쳐 약 17.5MB).")]
+        private int replayWidth = LegacyReplayTuning.DefaultWidth;
+        [SerializeField, Tooltip("마무리 일격(Climax) 칸도 다시보기 후보로 둡니다. 켜면 마무리 일격이 늘 가장 높아 거의 늘 그것을 보여 줍니다. 기본은 꺼서, 마무리 연출이 이미 보여 준 쓰러짐 대신 거기까지 이끈 순간을 보여 줍니다.")]
+        private bool replayIncludesFinishingBlow;
+
+        [Header("긴장 조명 — 실행 중 즉시 적용 (조명만: 판정·시간·스텝과 무관, 수련에는 없음)")]
+        [SerializeField, Tooltip("어느 쪽이든 체력이 아래 비율 이하로 떨어지면 전장의 빛이 바뀝니다: 배경과 하늘이 어두워지고(인물은 그대로), 화면이 조금 어두워지며, 가장자리(비네트)가 짙은 불씨 색으로 깊어집니다. 회복해 그 비율을 넘거나 다시 시작하면 돌아옵니다. 대전에서는 두 화면이 같습니다. 끄면 빛이 바뀌지 않습니다(아래 흐름의 빛과는 따로).")]
+        private bool tensionLightingEnabled = true;
+        [SerializeField, Range(0, 99), Tooltip("긴장 조명이 켜지는 체력 비율(%, 최대 체력 기준). 내 체력이나 상대 체력 중 하나라도 이 비율 이하이면 켜집니다. 0이면 끕니다.")]
+        private int tensionHealthPercent = LegacyTensionTuning.DefaultHealthPercent;
+        [SerializeField, Range(0f, 3f), Tooltip("긴장 조명이 다 들어오는 시간(실제 초). 히트 스톱·슬로모션에 늘어나지 않습니다. 0이면 바로 바뀝니다.")]
+        private float tensionEaseInSeconds = LegacyTensionTuning.DefaultEaseInSeconds;
+        [SerializeField, Range(0f, 3f), Tooltip("회복해 비율을 넘었을 때 긴장 조명이 다 빠지는 시간(실제 초). 다시 시작·로비로 가면 바로 빠집니다. 0이면 바로 돌아옵니다.")]
+        private float tensionEaseOutSeconds = LegacyTensionTuning.DefaultEaseOutSeconds;
+        [SerializeField, Range(0f, .85f), Tooltip("긴장 조명에서 배경과 하늘이 어두워지는 양(스텝 성공의 배경 암전과 같은 방식, 겹치면 곱해짐). 인물·효과·HUD는 어두워지지 않습니다. 0이면 끕니다.")]
+        private float tensionBackdropDarkening = DuelTensionLook.DefaultBackdropDarkening;
+        [SerializeField, Range(0f, 1f), Tooltip("긴장 조명에서 화면 전체의 노출을 낮추는 양(EV). 작게 둘수록 인물이 잘 보입니다. 0이면 끕니다.")]
+        private float tensionDimming = DuelTensionLook.DefaultDimming;
+        [SerializeField, Range(0f, .4f), Tooltip("긴장 조명에서 가장자리(비네트)를 더 어둡게 하는 양(기본 비네트 0.4에 더함). 0이면 끕니다.")]
+        private float tensionVignette = DuelTensionLook.DefaultVignette;
+        [SerializeField, ColorUsage(false), Tooltip("긴장 조명에서 가장자리가 물드는 색(기본: 짙은 불씨 색). 검정이면 색 없이 어두워지기만 합니다.")]
+        private Color tensionVignetteInk = DuelTensionLook.DefaultVignetteInk;
+        [SerializeField, Tooltip("흐름이 바뀔 때(내가 체력 비율로 뒤지다 앞서거나, 상대 저항을 붕괴시킬 때) 화면이 잠깐 밝고 따뜻해집니다(노출이 오르고 가장자리가 열리며 금빛이 돎). 시간을 쓰지 않고 진행을 멈추지 않습니다. 누가 쓰러진 순간(마무리 일격)에는 마무리 연출이 빛을 맡으므로 없습니다. 대전에서는 각 화면이 자기 플레이어의 흐름에만 냅니다. 끄면 없습니다.")]
+        private bool flowSwellEnabled = true;
+        [SerializeField, Tooltip("상대 저항을 붕괴시킨 순간에도 흐름의 빛을 냅니다. 끄면 뒤지다 앞설 때만 냅니다.")]
+        private bool flowSwellOnBreak = true;
+        [SerializeField, Range(0, 30), Tooltip("앞섬과 뒤짐을 가르는 체력 비율의 차이(퍼센트포인트). 두 사람의 체력 비율(각자 최대 체력 기준) 차이가 이 값보다 커야 앞서거나 뒤진 것으로 봅니다. 그 사이는 비김이라, 아주 작은 차이로 오가는 엎치락뒤치락마다 빛나지 않습니다. 0이면 조금이라도 앞서면 앞선 것입니다.")]
+        private int flowLeadMarginPercent = LegacyTensionTuning.DefaultLeadMarginPercent;
+        [SerializeField, Range(0f, 1f), Tooltip("흐름의 빛이 가장 밝을 때 노출이 오르는 양(EV). 0이면 밝아지지 않습니다.")]
+        private float flowSwellExposure = DuelTensionLook.DefaultSwellExposure;
+        [SerializeField, Range(0f, .4f), Tooltip("흐름의 빛이 가장 밝을 때 가장자리(비네트)가 열리는 양. 0이면 그대로입니다.")]
+        private float flowSwellVignetteRelief = DuelTensionLook.DefaultSwellVignetteRelief;
+        [SerializeField, Range(0f, 1f), Tooltip("흐름의 빛이 가장 밝을 때 화면에 도는 금빛의 세기. 0이면 색은 그대로입니다.")]
+        private float flowSwellWarmTint = DuelTensionLook.DefaultSwellWarmTint;
+        [SerializeField, Range(0f, 3f), Tooltip("흐름의 빛이 차오르는 시간(실제 초).")]
+        private float flowSwellRiseSeconds = LegacyTensionTuning.DefaultSwellRiseSeconds;
+        [SerializeField, Range(0f, 3f), Tooltip("흐름의 빛이 가장 밝은 채 머무는 시간(실제 초).")]
+        private float flowSwellHoldSeconds = LegacyTensionTuning.DefaultSwellHoldSeconds;
+        [SerializeField, Range(.05f, 3f), Tooltip("흐름의 빛이 잦아드는 시간(실제 초). 기본은 차오름 0.12 + 머묾 0.1 + 잦아듦 0.7 = 약 0.9초입니다.")]
+        private float flowSwellFadeSeconds = LegacyTensionTuning.DefaultSwellFadeSeconds;
+
         [Header("숲 소리 — 실행 중 즉시 적용 (Resources/Sfx/forest-ambience-loop)")]
         [SerializeField, Range(0f, 1f), Tooltip("전투와 숲 장면(컷신) 내내 낮게 깔리는 숲 소리(바람·잎·먼 새)의 음량. 로비·타이틀·브리핑에서는 잦아들어 멈춥니다. 0이면 끕니다.")]
         private float forestAmbienceVolume = .4f;
@@ -533,6 +675,133 @@ namespace TurnLimbo.Presentation
         public static readonly Color DefaultClashSparkTailInk = DuelMeshSparks.DefaultTail;
         public Color ClashSparkHeadInk => SafeInk(clashSparkHeadInk, DefaultClashSparkHeadInk);
         public Color ClashSparkTailInk => SafeInk(clashSparkTailInk, DefaultClashSparkTailInk);
+        /// <summary>The presentation director (<see cref="LegacyShowDirector"/>): whether it plays, a Minor slot's speed-up,
+        /// a Major hit stop's scale, the turn's cap on added time (real seconds), and its time-free emphasis: the Major camera
+        /// push (a share of the combat framing), the layered impact's volume and the seam clash's scale.</summary>
+        public bool ShowDirectorEnabled => showDirectorEnabled;
+        public float MinorSlotSpeed => Safe(minorSlotSpeed, 1f, LegacyShowPacingTuning.MaximumMinorSpeed,
+            LegacyShowPacingTuning.DefaultMinorSpeed);
+        public float MajorHitStopScale => Safe(majorHitStopScale, 1f, LegacyShowPacingTuning.MaximumMajorHitStopScale,
+            LegacyShowPacingTuning.DefaultMajorHitStopScale);
+        public float MajorCameraPush => Safe(majorCameraPush, 0f, .3f, .1f);
+        public float MajorImpactVolume => Safe(majorImpactVolume, 0f, 1f, .35f);
+        public float MajorClashScale => Safe(majorClashScale, 1f, 2f, 1.35f);
+        public float TurnExtraSecondsCap => Safe(turnExtraSecondsCap, 0f, LegacyShowPacingTuning.MaximumTurnExtraCap,
+            LegacyShowPacingTuning.DefaultTurnExtraCap);
+        /// <summary>The director's pacing as a turn takes it (<see cref="LegacyShowPacingTuning"/>); a signature move's
+        /// longer stop only while its treatment is on.</summary>
+        public LegacyShowPacingTuning ShowPacing => new LegacyShowPacingTuning(ShowDirectorEnabled, MinorSlotSpeed,
+            MajorHitStopScale, BladeBindSeconds, TurnExtraSecondsCap, LegacyShowPacingTuning.DefaultBladeBindMinimumShare,
+            SignatureTreatmentEnabled ? SignatureHitStopScale : MajorHitStopScale);
+        /// <summary>The slot rating's thresholds (<see cref="LegacySlotImportanceTuning"/>): a 합's gap, a pierce's share, an
+        /// unopposed attack's share of the target's health (%), the 맞물림 depth that reads as 간파 (0 off), whether a dodge and
+        /// the enemy's 간파 lift a slot, and the signature moves' skill ids. A heavy hit is the decisive close-up's
+        /// <see cref="DecisiveHealthDamagePercent"/>.</summary>
+        public float LargeClashGap => Safe(largeClashGap, 0f, 1f, LegacySlotImportanceTuning.DefaultLargeClashGap);
+        public float DeepPierce => Safe(deepPierce, 0f, 1f, LegacySlotImportanceTuning.DefaultDeepPierce);
+        public int BigUnopposedPercent => Mathf.Clamp(bigUnopposedPercent, 0, 100);
+        public int MeshChainMinimum => Mathf.Clamp(meshChainMinimum, 0, 7);
+        public bool DodgeRaisesToMajor => dodgeRaisesToMajor;
+        public bool EnemyReadsRaiseTier => enemyReadsRaiseTier;
+        /// <summary>The signature moves' skill ids (empty: none), as a fresh read-only copy.</summary>
+        public System.Collections.Generic.IReadOnlyList<int> SignatureSkillIds
+            => System.Array.AsReadOnly(signatureSkillIds != null ? (int[])signatureSkillIds.Clone() : new int[0]);
+        /// <summary>The rating this game's slots get. <paramref name="symmetric"/> (online versus) counts the enemy's 간파 as
+        /// the player's, so both screens give each slot the same tier and play it for the same time.</summary>
+        public LegacySlotImportanceTuning SlotImportanceTuning(bool symmetric = false)
+            => new LegacySlotImportanceTuning(BladeBindGap, LargeClashGap, DeepPierce, BigUnopposedPercent,
+                DecisiveHealthDamagePercent, MeshChainMinimum, DodgeRaisesToMajor, symmetric || EnemyReadsRaiseTier,
+                SignatureSkillIds);
+        /// <summary>팽팽한 합 (<see cref="LegacyBladeBind"/>): the 합 gap that binds, its real seconds (0 off), the pair's sway,
+        /// each one's lean and spring apart (world units), and the sparks it strikes.</summary>
+        public float BladeBindGap => Safe(bladeBindGap, 0f, .5f, LegacySlotImportanceTuning.DefaultBladeBindGap);
+        public float BladeBindSeconds => Safe(bladeBindSeconds, 0f, LegacyShowPacingTuning.MaximumBladeBindSeconds,
+            LegacyBladeBind.DefaultSeconds);
+        public float BladeBindSway => Safe(bladeBindSway, 0f, .6f, LegacyBladeBind.DefaultSway);
+        public float BladeBindPress => Safe(bladeBindPress, 0f, .4f, LegacyBladeBind.DefaultPress);
+        public float BladeBindSpring => Safe(bladeBindSpring, 0f, 1.5f, LegacyBladeBind.DefaultSpring);
+        public int BladeBindSparks => Mathf.Clamp(bladeBindSparks, 0, 6);
+        /// <summary>일방 공격 가속 (<see cref="LegacyUnopposedStreak"/>): whether a run of unopposed slots plays faster
+        /// (only while the director is on), the streak's length where it starts, the speed each slot adds, and the cap.</summary>
+        public bool UnopposedStreakEnabled => unopposedStreakEnabled;
+        public int UnopposedStreakStartLength => Mathf.Clamp(unopposedStreakStartLength, 1, LegacyStreakTuning.MaximumStartLength);
+        public float UnopposedStreakStep => Safe(unopposedStreakStep, 0f, LegacyStreakTuning.MaximumStepPerSlot,
+            LegacyStreakTuning.DefaultStepPerSlot);
+        public float UnopposedStreakMaxSpeed => Safe(unopposedStreakMaxSpeed, 1f, LegacyStreakTuning.MaximumSpeedLimit,
+            LegacyStreakTuning.DefaultMaximumSpeed);
+        /// <summary>The unopposed streak as a turn takes it (<see cref="LegacyStreakTuning"/>).</summary>
+        public LegacyStreakTuning UnopposedStreak => new LegacyStreakTuning(UnopposedStreakEnabled, UnopposedStreakStep,
+            UnopposedStreakMaxSpeed, UnopposedStreakStartLength);
+        /// <summary>간파 신호 (the player's read paying off): whether it shows, its '간파' stamp, its real seconds, its ink,
+        /// the burst's sparks and size (HUD units), and the light accent on the player's fighter.</summary>
+        public static readonly Color DefaultReadCueInk = new Color(1f, .84f, .4f, 1f);
+        public bool ReadCueEnabled => readCueEnabled;
+        public bool ReadStampEnabled => readStampEnabled;
+        public float ReadCueSeconds => Safe(readCueSeconds, .3f, 2f, .9f);
+        public Color ReadCueInk => SafeColor(readCueInk, DefaultReadCueInk);
+        public int ReadSparkCount => Mathf.Clamp(readSparkCount, 0, 24);
+        public float ReadSparkSize => Safe(readSparkSize, 12f, 80f, 40f);
+        public bool ReadFighterAccent => readFighterAccent;
+        /// <summary>시그니처 기술: whether a signature move gets its treatment, its longer stop's scale (at least a Major
+        /// slot's), the camera's push, the extra steel ring's volume, the windup glow, and its trail's ghosts (real seconds
+        /// and opacity; 0 seconds: none).</summary>
+        public bool SignatureTreatmentEnabled => signatureTreatmentEnabled;
+        public float SignatureHitStopScale => Mathf.Max(MajorHitStopScale, Safe(signatureHitStopScale, 1f,
+            LegacyShowPacingTuning.MaximumMajorHitStopScale, LegacyShowPacingTuning.DefaultSignatureHitStopScale));
+        public float SignatureCameraPush => Safe(signatureCameraPush, 0f, .3f, .16f);
+        public float SignatureImpactVolume => Safe(signatureImpactVolume, 0f, 1f, .45f);
+        public bool SignatureWindupGlow => signatureWindupGlow;
+        public float SignatureAfterimageSeconds => Safe(signatureAfterimageSeconds, 0f, 1f, .3f);
+        public float SignatureAfterimageAlpha => Safe(signatureAfterimageAlpha, 0f, 1f, .55f);
+        /// <summary>결정적 한 수 (<see cref="LegacyReplayTuning"/>): whether the battle's most important slot is recorded and
+        /// replayed on its result, its pictures a second, longest length, tail, playback speed, last picture's hold, width,
+        /// and whether the finishing blow may be it.</summary>
+        public bool ReplayEnabled => replayEnabled;
+        public LegacyReplayTuning ReplayTuning => new LegacyReplayTuning(replayEnabled,
+            Safe(replayFramesPerSecond, LegacyReplayTuning.MinimumFramesPerSecond, LegacyReplayTuning.MaximumFramesPerSecond,
+                LegacyReplayTuning.DefaultFramesPerSecond),
+            Safe(replayMaxSeconds, LegacyReplayTuning.MinimumSeconds, LegacyReplayTuning.MaximumSeconds,
+                LegacyReplayTuning.DefaultMaximumSeconds),
+            Safe(replayTailSeconds, 0f, LegacyReplayTuning.MaximumTailSeconds, LegacyReplayTuning.DefaultTailSeconds),
+            Safe(replayPlaybackSpeed, LegacyReplayTuning.MinimumPlaybackSpeed, 1f, LegacyReplayTuning.DefaultPlaybackSpeed),
+            Safe(replayHoldSeconds, 0f, LegacyReplayTuning.MaximumHoldSeconds, LegacyReplayTuning.DefaultHoldSeconds),
+            Mathf.Clamp(replayWidth, LegacyReplayTuning.MinimumWidth, LegacyReplayTuning.MaximumWidth),
+            replayIncludesFinishingBlow);
+        /// <summary>긴장 조명 (<see cref="LegacyTensionLight"/>, <see cref="DuelTensionLook"/>): low health's tension (on/off,
+        /// its health share, its real-second eases, the scenery's darkening, the picture's dimming, the vignette's depth and
+        /// ember) and the flow's swell (on/off, on a break too, the lead margin, its exposure, the vignette's opening, its
+        /// warmth and its real-second rise, hold and fade).</summary>
+        public bool TensionLightingEnabled => tensionLightingEnabled;
+        public int TensionHealthPercent => Mathf.Clamp(tensionHealthPercent, 0, LegacyTensionTuning.MaximumHealthPercent);
+        public float TensionEaseInSeconds => Safe(tensionEaseInSeconds, 0f, LegacyTensionTuning.MaximumEaseSeconds,
+            LegacyTensionTuning.DefaultEaseInSeconds);
+        public float TensionEaseOutSeconds => Safe(tensionEaseOutSeconds, 0f, LegacyTensionTuning.MaximumEaseSeconds,
+            LegacyTensionTuning.DefaultEaseOutSeconds);
+        public float TensionBackdropDarkening => Safe(tensionBackdropDarkening, 0f, DuelTensionLook.MaximumBackdropDarkening,
+            DuelTensionLook.DefaultBackdropDarkening);
+        public float TensionDimming => Safe(tensionDimming, 0f, 1f, DuelTensionLook.DefaultDimming);
+        public float TensionVignette => Safe(tensionVignette, 0f, DuelTensionLook.MaximumVignette, DuelTensionLook.DefaultVignette);
+        public Color TensionVignetteInk => SafeColor(tensionVignetteInk, DuelTensionLook.DefaultVignetteInk);
+        public bool FlowSwellEnabled => flowSwellEnabled;
+        public bool FlowSwellOnBreak => flowSwellOnBreak;
+        public int FlowLeadMarginPercent => Mathf.Clamp(flowLeadMarginPercent, 0, LegacyTensionTuning.MaximumLeadMarginPercent);
+        public float FlowSwellExposure => Safe(flowSwellExposure, 0f, 1f, DuelTensionLook.DefaultSwellExposure);
+        public float FlowSwellVignetteRelief => Safe(flowSwellVignetteRelief, 0f, DuelTensionLook.MaximumVignette,
+            DuelTensionLook.DefaultSwellVignetteRelief);
+        public float FlowSwellWarmTint => Safe(flowSwellWarmTint, 0f, 1f, DuelTensionLook.DefaultSwellWarmTint);
+        public float FlowSwellRiseSeconds => Safe(flowSwellRiseSeconds, 0f, LegacyTensionTuning.MaximumSwellSeconds,
+            LegacyTensionTuning.DefaultSwellRiseSeconds);
+        public float FlowSwellHoldSeconds => Safe(flowSwellHoldSeconds, 0f, LegacyTensionTuning.MaximumSwellSeconds,
+            LegacyTensionTuning.DefaultSwellHoldSeconds);
+        public float FlowSwellFadeSeconds => Safe(flowSwellFadeSeconds, LegacyTensionTuning.MinimumSwellFadeSeconds,
+            LegacyTensionTuning.MaximumSwellSeconds, LegacyTensionTuning.DefaultSwellFadeSeconds);
+        /// <summary>The tension lighting as the arena takes it, frame by frame (<see cref="LegacyArenaView.SetTensionLighting"/>).</summary>
+        public DuelTensionLook TensionLighting => new DuelTensionLook(
+            new LegacyTensionTuning(TensionLightingEnabled, TensionHealthPercent, TensionEaseInSeconds, TensionEaseOutSeconds,
+                FlowSwellEnabled, FlowSwellOnBreak, FlowLeadMarginPercent, FlowSwellRiseSeconds, FlowSwellHoldSeconds,
+                FlowSwellFadeSeconds),
+            TensionBackdropDarkening, TensionDimming, TensionVignette, TensionVignetteInk, FlowSwellExposure,
+            FlowSwellVignetteRelief, FlowSwellWarmTint);
         public float ForestAmbienceVolume => Safe(forestAmbienceVolume, 0f, 1f, .4f);
         public float ForestAmbienceFadeSeconds => Safe(forestAmbienceFadeSeconds, 0f, 5f, 1.2f);
         public float ForestAmbienceSceneDuck => Safe(forestAmbienceSceneDuck, 0f, 1f, .7f);
@@ -648,6 +917,31 @@ namespace TurnLimbo.Presentation
             clashSettleDip = ClashSettleDip; clashBraceSquash = ClashBraceSquash;
             clashSparkSeconds = ClashSparkSeconds; clashSparkSize = ClashSparkSize; clashSparkCount = ClashSparkCount;
             clashSparkHeadInk = ClashSparkHeadInk; clashSparkTailInk = ClashSparkTailInk;
+            minorSlotSpeed = MinorSlotSpeed; majorHitStopScale = MajorHitStopScale; majorCameraPush = MajorCameraPush;
+            majorImpactVolume = MajorImpactVolume; majorClashScale = MajorClashScale; turnExtraSecondsCap = TurnExtraSecondsCap;
+            largeClashGap = LargeClashGap; deepPierce = DeepPierce; bigUnopposedPercent = BigUnopposedPercent;
+            meshChainMinimum = MeshChainMinimum;
+            bladeBindGap = BladeBindGap; bladeBindSeconds = BladeBindSeconds; bladeBindSway = BladeBindSway;
+            bladeBindPress = BladeBindPress; bladeBindSpring = BladeBindSpring; bladeBindSparks = BladeBindSparks;
+            unopposedStreakStartLength = UnopposedStreakStartLength; unopposedStreakStep = UnopposedStreakStep;
+            unopposedStreakMaxSpeed = UnopposedStreakMaxSpeed;
+            readCueSeconds = ReadCueSeconds; readCueInk = ReadCueInk; readSparkCount = ReadSparkCount;
+            readSparkSize = ReadSparkSize;
+            signatureHitStopScale = Safe(signatureHitStopScale, 1f, LegacyShowPacingTuning.MaximumMajorHitStopScale,
+                LegacyShowPacingTuning.DefaultSignatureHitStopScale);
+            signatureCameraPush = SignatureCameraPush; signatureImpactVolume = SignatureImpactVolume;
+            signatureAfterimageSeconds = SignatureAfterimageSeconds; signatureAfterimageAlpha = SignatureAfterimageAlpha;
+            LegacyReplayTuning replay = ReplayTuning;
+            replayFramesPerSecond = replay.FramesPerSecond; replayMaxSeconds = replay.MaximumClipSeconds;
+            replayTailSeconds = replay.TailSeconds; replayPlaybackSpeed = replay.PlaybackSpeed;
+            replayHoldSeconds = replay.HoldSeconds; replayWidth = replay.Width;
+            tensionHealthPercent = TensionHealthPercent; tensionEaseInSeconds = TensionEaseInSeconds;
+            tensionEaseOutSeconds = TensionEaseOutSeconds; tensionBackdropDarkening = TensionBackdropDarkening;
+            tensionDimming = TensionDimming; tensionVignette = TensionVignette; tensionVignetteInk = TensionVignetteInk;
+            flowLeadMarginPercent = FlowLeadMarginPercent; flowSwellExposure = FlowSwellExposure;
+            flowSwellVignetteRelief = FlowSwellVignetteRelief; flowSwellWarmTint = FlowSwellWarmTint;
+            flowSwellRiseSeconds = FlowSwellRiseSeconds; flowSwellHoldSeconds = FlowSwellHoldSeconds;
+            flowSwellFadeSeconds = FlowSwellFadeSeconds;
             forestAmbienceVolume = ForestAmbienceVolume; forestAmbienceFadeSeconds = ForestAmbienceFadeSeconds;
             forestAmbienceSceneDuck = ForestAmbienceSceneDuck;
             timePressureShare = TimePressureShare; timePressureCameraPush = TimePressureCameraPush;

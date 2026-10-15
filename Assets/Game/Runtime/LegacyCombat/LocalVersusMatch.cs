@@ -342,6 +342,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The next turn's planning seconds each side's skill added as this slot started; 0 for none.</summary>
         public int LeftPlanningSecondsGained { get; internal set; }
         public int RightPlanningSecondsGained { get; internal set; }
+        /// <summary>The most health each side has lost to a single hit of this slot so far (presentation only, never in the
+        /// state hash: <see cref="LegacySlotFacts.PlayerLargestHitTaken"/>).</summary>
+        public int LeftLargestHitTaken { get; internal set; }
+        public int RightLargestHitTaken { get; internal set; }
+        /// <summary>Each side's skill's 상대 상태 조건 has held against the other where the rules checked it this slot (the
+        /// recovery's gate, the slot's start for a damage multiplier, or one of its hits; presentation only, never in the
+        /// state hash: <see cref="LegacySlotFacts.PlayerStateConditionHeld"/>).</summary>
+        public bool LeftStateConditionHeld { get; internal set; }
+        public bool RightStateConditionHeld { get; internal set; }
         internal int LeftPower { get; }
         internal int RightPower { get; }
         internal double LeftReceivedMultiplier { get; }
@@ -593,6 +602,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return perspectivePlayer == 0 ? left : left.Mirrored();
         }
 
+        /// <summary>The current slot as the presentation director and the 간파 cue read it
+        /// (<see cref="ILegacyDuelView.CurrentSlotFacts"/>) from <paramref name="perspectivePlayer"/>'s side (0 Left, 1 Right,
+        /// read as the player): <see cref="CurrentClash"/>, both skills' ids, both fighters' maximum health, the health each
+        /// lost this slot and its largest single hit, a fall, each side's met 상대 속성/종류 조건 and 상대 상태 조건. Versus never
+        /// meshes. <see cref="LegacySlotFacts.None"/> while no slot resolves. Reading never changes the match or its state
+        /// hash.</summary>
+        public LegacySlotFacts CurrentSlotFacts(int perspectivePlayer)
+        {
+            if (perspectivePlayer < 0 || perspectivePlayer > 1) throw new ArgumentOutOfRangeException(nameof(perspectivePlayer));
+            LocalVersusSlot slot = CurrentSlot;
+            if (slot == null) return LegacySlotFacts.None;
+            var left = new LegacySlotFacts(CurrentClash(0), LegacyQueuedDuel.SkillId(slot.LeftSkill),
+                LegacyQueuedDuel.SkillId(slot.RightSkill), Left.State.MaxHealth, Right.State.MaxHealth,
+                Math.Max(0, slot.LeftStartingHealth - Left.State.Health), Math.Max(0, slot.RightStartingHealth - Right.State.Health),
+                slot.LeftLargestHitTaken, slot.RightLargestHitTaken,
+                slot.LeftStartingHealth > 0 && Left.State.IsDefeated, slot.RightStartingHealth > 0 && Right.State.IsDefeated,
+                LegacySkillConditions.MatchesOpponent(slot.LeftSkill, slot.RightSkill),
+                LegacySkillConditions.MatchesOpponent(slot.RightSkill, slot.LeftSkill),
+                slot.LeftStateConditionHeld, slot.RightStateConditionHeld);
+            return perspectivePlayer == 0 ? left : left.Mirrored();
+        }
+
         public int ResolutionSlotCount => slotCount;
         public bool IsTurnResolved => Phase == LegacyDuelPhase.Resolving && CurrentSlot == null && nextSlot >= slotCount;
         public bool IsFinished => Phase == LegacyDuelPhase.Finished;
@@ -684,6 +715,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 leftImpact = ResolveHit(slot.RightSkill, slot.LeftSkill, slot.RightPower, slot.LeftPower,
                     Left.State, slot.LeftReceivedMultiplier, out rightCondition);
             slot.HitsResolved++;
+            // Presentation only (LegacySlotFacts), outside the state hash: the largest single hits and a met state condition.
+            slot.LeftLargestHitTaken = Math.Max(slot.LeftLargestHitTaken, leftHealth - Left.State.Health);
+            slot.RightLargestHitTaken = Math.Max(slot.RightLargestHitTaken, rightHealth - Right.State.Health);
+            if (leftCondition) slot.LeftStateConditionHeld = true;
+            if (rightCondition) slot.RightStateConditionHeld = true;
             LocalVersusOutcome outcome = DetermineOutcome();
             if (outcome != LocalVersusOutcome.InProgress) slot.HitCount = slot.HitsResolved;
             return new LocalVersusHit(slot, index, leftAttack, rightAttack,
@@ -835,6 +871,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 ArmedConditionalDamage(slot.LeftSkill, slot.RightSkill, slot.LeftPower, slot.RightPower, Right.State));
             slot.RightFeedback = slot.RightFeedback.WithConditionalDamage(
                 ArmedConditionalDamage(slot.RightSkill, slot.LeftSkill, slot.RightPower, slot.LeftPower, Left.State));
+            // 간파 (presentation only, outside the state hash): each side's 상대 상태 조건 as the rules read it here, the
+            // recovery's gate before any effect, a damage multiplier's once both sides' effects are in.
+            slot.LeftStateConditionHeld = leftEffect.ResistanceRecoveryPercent > 0 && leftEffect.HasOpponentStateCondition && leftState ||
+                LegacySkillConditions.DamageStateHolds(slot.LeftSkill, Right.State);
+            slot.RightStateConditionHeld = rightEffect.ResistanceRecoveryPercent > 0 && rightEffect.HasOpponentStateCondition && rightState ||
+                LegacySkillConditions.DamageStateHolds(slot.RightSkill, Left.State);
         }
 
         private static LegacySkillFeedback Feedback(LegacySkill skill, LegacySkillEffect effect, int powerBuff,

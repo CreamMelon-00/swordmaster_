@@ -162,8 +162,10 @@ namespace TurnLimbo.Presentation.Tests
                 try
                 {
                     // A windup before the first hit leaves room for the dodge decision.
+                    // The counter's clock alone: the presentation director's pacing has its own tests.
                     JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1,\"skillInterval\":0.1," +
-                        "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1}", settingsClone);
+                        "\"hitStopDuration\":0,\"stepAnticipationDuration\":0.24,\"stepTimingWindow\":0.1," +
+                        "\"showDirectorEnabled\":false}", settingsClone);
                     SetField("presentationSettings", settingsClone);
                     var playerSkills = new[] { Attack(101, 1, 1) };
                     var enemySkills = new[] { Attack(201, 1, 1) };

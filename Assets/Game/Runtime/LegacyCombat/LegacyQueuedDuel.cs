@@ -292,6 +292,31 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     decided: slot.HitsResolved > 0, playerPressured: slot.PressureSucceeded);
             }
         }
+        /// <summary>The current slot as the presentation director and the 간파 cue read it
+        /// (<see cref="ILegacyDuelView.CurrentSlotFacts"/>): <see cref="CurrentClash"/>, both skills' ids, both fighters'
+        /// maximum health, the health each lost this slot and its largest single hit, a fall, each side's met 상대 속성/종류
+        /// 조건 and 상대 상태 조건, and the player's 맞물림 depth (the enemy never meshes). A pending player 반격 reads as no
+        /// skill until the first hit settles it.</summary>
+        public LegacySlotFacts CurrentSlotFacts
+        {
+            get
+            {
+                LegacyCurrentSlot slot = CurrentSlot;
+                if (slot == null) return LegacySlotFacts.None;
+                LegacyMeshSlot mesh = slot.PlayerMesh;
+                return new LegacySlotFacts(CurrentClash, SkillId(slot.PlayerSkill), SkillId(slot.EnemySkill),
+                    Player.MaxHealth, Enemy.MaxHealth,
+                    Math.Max(0, slot.PlayerStartingHealth - Player.Health), Math.Max(0, slot.EnemyStartingHealth - Enemy.Health),
+                    slot.PlayerLargestHitTaken, slot.EnemyLargestHitTaken,
+                    slot.PlayerStartingHealth > 0 && Player.IsDefeated, slot.EnemyStartingHealth > 0 && Enemy.IsDefeated,
+                    LegacySkillConditions.MatchesOpponent(slot.PlayerSkill, slot.EnemySkill),
+                    LegacySkillConditions.MatchesOpponent(slot.EnemySkill, slot.PlayerSkill),
+                    slot.PlayerStateConditionHeld, slot.EnemyStateConditionHeld,
+                    mesh.IsMeshed ? mesh.SlotIndex - mesh.ChainStart + 1 : 0);
+            }
+        }
+
+        internal static int SkillId(LegacySkill skill) => skill == null ? 0 : skill.Id;
         /// <summary>Whether any step was attempted this turn.</summary>
         public bool UsedStepThisTurn => StepAttemptsThisTurn > 0;
         /// <summary>Dodge and pressure attempts this turn, hit or miss; each one narrows the next
@@ -772,10 +797,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // and applies effects before animation events deal individual hits.
             TickBuffs(playerBuffs);
             TickBuffs(enemyBuffs);
+            // 간파 (presentation only): each side's 상대 상태 조건 as the rules read it, the recovery's gate first of that
+            // side's effects (the player's come first), a damage multiplier's once both sides' effects are in.
+            if (LegacySkillConditions.RecoveryStateHolds(slot.PlayerSkill, Enemy)) slot.PlayerStateConditionHeld = true;
             slot.PlayerFeedback = ApplyInitialSkillEffects(slot.PlayerSkill, slot.EnemySkill, playerBuffs, true,
                 playerPowerBuffPercent, playerProtectionBuffPercent);
+            if (LegacySkillConditions.RecoveryStateHolds(slot.EnemySkill, Player)) slot.EnemyStateConditionHeld = true;
             slot.EnemyFeedback = ApplyInitialSkillEffects(slot.EnemySkill, slot.PlayerSkill, enemyBuffs, false,
                 enemyPowerBuffPercent, enemyProtectionBuffPercent);
+            if (LegacySkillConditions.DamageStateHolds(slot.PlayerSkill, Enemy)) slot.PlayerStateConditionHeld = true;
+            if (LegacySkillConditions.DamageStateHolds(slot.EnemySkill, Player)) slot.EnemyStateConditionHeld = true;
             // With both sides' initial effects in, a 조건 피해 배율 whose state condition already holds keeps holding for the
             // slot (nothing restores health or resistance before the slot ends). Report it as armed only when the slot's
             // hits will also reach health, since the multiplier has nothing else to multiply.
@@ -860,6 +891,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     slot.EnemyPower, slot.PlayerPower, Player, slot.PlayerReceivedMultiplier, halveDamage, out enemyConditionMet);
             }
             slot.HitsResolved++;
+            // Presentation only (LegacySlotFacts): the slot's largest single hits and a 상대 상태 조건 met as a hit landed.
+            slot.PlayerLargestHitTaken = Math.Max(slot.PlayerLargestHitTaken, playerHealth - Player.Health);
+            slot.EnemyLargestHitTaken = Math.Max(slot.EnemyLargestHitTaken, enemyHealth - Enemy.Health);
+            if (playerConditionMet) slot.PlayerStateConditionHeld = true;
+            if (enemyConditionMet) slot.EnemyStateConditionHeld = true;
             DuelMatchOutcome hitOutcome = DetermineOutcome();
             if (hitOutcome != DuelMatchOutcome.InProgress)
                 slot.HitCount = slot.HitsResolved;

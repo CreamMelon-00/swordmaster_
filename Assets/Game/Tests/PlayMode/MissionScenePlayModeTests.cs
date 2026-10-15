@@ -484,8 +484,11 @@ namespace TurnLimbo.Presentation.Tests
                 Color filter = grade.colorFilter.value;
                 if (settings.EmpowermentWarmTint > 0f)
                     Assert.That(filter.r > filter.g && filter.g > filter.b, Is.True, "…golden…");
-                Assert.That(vignette.intensity.value, Is.EqualTo(baseVignette + settings.EmpowermentVignette).Within(1e-4f),
-                    "…with darker edges…");
+                // 이아 is down to a quarter of her health, so the tension lighting (2026-10-15) deepens the edges as well.
+                DuelTensionLook tension = arena.TensionLook;
+                float tensionEdges = arena.TensionAmount * tension.Vignette - arena.FlowSwellAmount * tension.SwellVignetteRelief;
+                Assert.That(vignette.intensity.value,
+                    Is.EqualTo(baseVignette + settings.EmpowermentVignette + tensionEdges).Within(1e-4f), "…with darker edges…");
                 if (cues.LoopClip != null && settings.EmpowermentAuraLoopVolume > 0f)
                 {
                     Assert.That(cues.IsLoopPlaying, Is.True, "…and her aura hums quietly under the fight.");

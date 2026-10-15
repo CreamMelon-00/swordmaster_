@@ -463,6 +463,8 @@ namespace TurnLimbo.Presentation
             enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
             guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
             BuildQueueSparks();
+            // The 간파 cue over the cards and their sparks (LegacyCombatHud.Reads.cs).
+            BuildReadCue();
             queueCancellationLayer = Rect("Queue Cancellation Layer", root, Vector2.zero, Vector2.zero, Vector2.one * .5f);
             queueCancellationLayer.anchorMin = Vector2.zero;
             queueCancellationLayer.anchorMax = Vector2.one;
@@ -906,6 +908,8 @@ namespace TurnLimbo.Presentation
             LayoutQueuePanels(isResolving, currentSlot, delta);
             // The ring and socket where the next reservation meets the opponent, and the reservation sparks.
             UpdateQueueCues(session, planning, actualDelta);
+            // The 간파 cue follows the player's card where the rows now have it, on real time.
+            UpdateReadCue(actualDelta);
             UpdateConditionPreview();
             UpdateEffectEmphasis();
             playerQueue.TickFeedback(actualDelta);

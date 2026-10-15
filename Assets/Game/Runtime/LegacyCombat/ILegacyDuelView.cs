@@ -29,6 +29,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// It changes as the slot plays (a dodge, a pending 반격 settling at the first hit, a breaking hit), so read it again
         /// when those land.</summary>
         LegacyClashInput CurrentClash { get; }
+        /// <summary>The slot resolving now as the presentation director and the 간파 cue read it (<see cref="LegacySlotImportance"/>),
+        /// from the player's side: <see cref="CurrentClash"/>, both skills' ids, both fighters' maximum health, the health each
+        /// lost this slot and its largest single hit, a fall, each side's met 상대 속성/종류 조건 and 상대 상태 조건, and the
+        /// player's 맞물림 depth. <see cref="LegacySlotFacts.None"/> while no slot resolves. It changes as the slot plays, so
+        /// read it again after each hit (before the slot completes). Reading never changes the duel.</summary>
+        LegacySlotFacts CurrentSlotFacts { get; }
         /// <summary>One of the player's lanes, its front skill first; empty for a lane the duel does not have.</summary>
         IReadOnlyList<LegacySkill> GetLane(int laneIndex);
         /// <summary>ACT the player pays if this skill is reserved now.</summary>
