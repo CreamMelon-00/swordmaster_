@@ -10,7 +10,7 @@ from collections import Counter
 from math import sqrt
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps
 
 
 HERE = Path(__file__).resolve().parent
@@ -265,6 +265,82 @@ def draw_left_cap(interior: Image.Image, palette: set[tuple[int, ...]]) -> None:
     rectangle(d, (1, 109, 19, 111), light)
 
 
+def extend_scenery(source: Image.Image) -> Image.Image:
+    """Continue the view at its own edge, independently of the indoor window bays.
+
+    Scenery moves behind the windows. An architectural crop can therefore become
+    visible in the middle of a pane, and a transparent tail cannot be hidden by
+    the fixed end wall. Mirrored continuation shares the exact joining column
+    and fills the complete finite canvas without inventing or resampling pixels.
+    """
+    result = Image.new('RGBA', (W, H), (0, 0, 0, 0))
+    for index, left in enumerate(range(0, W, source.width)):
+        piece = source if index % 2 == 0 else ImageOps.mirror(source)
+        result.paste(piece, (left, 0))
+    assert result.crop((0, 0, source.width, H)).tobytes() == source.tobytes()
+    for y in range(H):
+        assert result.getpixel((source.width - 1, y)) == result.getpixel((source.width, y))
+    return result
+
+
+def repair_floor_splice(interior: Image.Image, source: Image.Image) -> dict[str, int]:
+    """Quilt the existing floor pixels across the architectural copy's overlap.
+
+    The second group of bays starts at logical x=543 with source column 24.
+    Its omitted columns 0..23 belong at x=519..542 and provide a real overlap
+    with the first group. Choose a low-error, irregular cut through that narrow
+    overlap instead of cutting sunlight and marble at the straight x=543 edge.
+    No colour mixing, new drawing, reflection or resampling is involved.
+    """
+    assert interior.size == (W, H) and source.size == (543, H)
+    left, right, top = 519, 543, 109
+    width = right - left
+    before = interior.copy()
+    previous = [0.0] * width
+    parents: list[list[int]] = []
+    for y in range(top, H):
+        costs, choices = [], []
+        for j in range(width):
+            a, b = before.getpixel((left + j, y)), source.getpixel((j, y))
+            error = sum((a[c] - b[c]) ** 2 for c in range(3))
+            if y == top:
+                parent, cost = j, error
+            else:
+                parent = min(
+                    range(max(0, j - 2), min(width, j + 3)),
+                    key=lambda k: previous[k] + abs(k - j) * 100,
+                )
+                cost = error + previous[parent] + abs(parent - j) * 100
+            costs.append(cost)
+            choices.append(parent)
+        previous = costs
+        parents.append(choices)
+
+    column = min(range(width), key=lambda j: previous[j])
+    seam = [0] * (H - top)
+    for row in range(H - top - 1, -1, -1):
+        seam[row] = left + column
+        column = parents[row][column]
+    assert len(set(seam)) > 1, "Floor overlap must not introduce a straight cut"
+    for y, cut in enumerate(seam, top):
+        for x in range(cut, right):
+            interior.putpixel((x, y), source.getpixel((x - left, y)))
+
+    # Architecture, all other floor areas, and the existing sunlight direction
+    # are retained: donor coordinates are translated only, never reflected.
+    assert interior.crop((0, 0, W, top)).tobytes() == before.crop((0, 0, W, top)).tobytes()
+    assert interior.crop((0, top, left, H)).tobytes() == before.crop((0, top, left, H)).tobytes()
+    assert interior.crop((right, top, W, H)).tobytes() == before.crop((right, top, W, H)).tobytes()
+    for y in range(top, H):
+        assert interior.getpixel((right - 1, y)) == source.getpixel((23, y))
+        assert interior.getpixel((right, y)) == source.getpixel((24, y))
+    assert set(interior.get_flattened_data()).issubset(
+        set(before.get_flattened_data()) | set(source.get_flattened_data())
+    )
+    return {"left": min(seam) * SCALE, "right": right * SCALE - 1,
+            "top": top * SCALE, "bottom": H * SCALE - 1}
+
+
 def main() -> None:
     for directory in (AUTHORED, RUNTIME, PREVIEW):
         directory.mkdir(parents=True, exist_ok=True)
@@ -274,14 +350,16 @@ def main() -> None:
         assert all(image.getpixel((x * 4, y * 4)) == image.getpixel((x * 4 + 3, y * 4 + 3)) for y in range(181) for x in range(543)), name
     small = {name: source[name].resize((543, 181), Image.Resampling.NEAREST) for name in LAYER_NAMES}
     target = {name: Image.new("RGBA", (W, H), (0, 0, 0, 0)) for name in LAYER_NAMES}
-    for name in LAYER_NAMES:
-        # Exact original, then two whole bays. The original's first 24 columns
-        # are an extra partial pier, so omit them at the join.
-        target[name].paste(small[name], (0, 0))
-        target[name].paste(small[name].crop((24, 0, 244, H)), (543, 0))
+    for name in ('corridor-far', 'corridor-near'):
+        target[name] = extend_scenery(small[name])
+    # Only the fixed architecture joins by whole window bays. Its first 24
+    # columns are an extra partial pier, so omit those at the architectural join.
+    target['corridor-interior'].paste(small['corridor-interior'], (0, 0))
+    target['corridor-interior'].paste(small['corridor-interior'].crop((24, 0, 244, H)), (543, 0))
     palette = set(small["corridor-interior"].get_flattened_data())
     draw_left_cap(target["corridor-interior"], palette)
     draw_end_wall(target["corridor-interior"], palette)
+    floor_repair = repair_floor_splice(target['corridor-interior'], small['corridor-interior'])
 
     enlarged = {}
     for name in LAYER_NAMES:
@@ -295,6 +373,8 @@ def main() -> None:
         padded.save(RUNTIME / f"{name}.png")
 
     composite = Image.alpha_composite(Image.alpha_composite(enlarged["corridor-far"], enlarged["corridor-near"]), enlarged["corridor-interior"])
+    assert enlarged['corridor-far'].getchannel('A').getextrema() == (255, 255), 'Full-width opaque scenery required for parallax'
+    assert composite.getchannel('A').getextrema() == (255, 255)
     composite.save(PREVIEW / "corridor-composite.png")
     composite.resize((W, H), Image.Resampling.NEAREST).save(PREVIEW / "corridor-logical-1x.png")
     composite.crop((2720, 0, W * SCALE, H * SCALE)).save(PREVIEW / "corridor-exit-detail.png")
@@ -311,6 +391,9 @@ def main() -> None:
         "PASS: 3 authored 4096x724 layers and 3 padded 4096x916 runtime layers.\n"
         "PASS: exact 4x grid; binary alpha; each layer at most 64 opaque palette colors.\n"
         "PASS: runtime y=160..883 exactly equals authored image, top=160 and bottom=32.\n"
+        "PASS: outdoor scenery uses its own mirrored continuation at x=2172; joining columns match exactly.\n"
+        "PASS: opaque far scenery fills all 4096px; no transparent tail behind moving windows.\n"
+        f"PASS: floor splice uses a native-pixel irregular overlap at x={floor_repair['left']}..{floor_repair['right']}, y={floor_repair['top']}..{floor_repair['bottom']}; architecture unchanged.\n"
         "Door: authored x=3600..3840, arch x=3552..3888, center x=3720; shallow threshold y=436..459.\n"
         "Floor/wall seam y=432; finite left and right caps; last full window ends before x=3000.\n",
         encoding="utf-8",

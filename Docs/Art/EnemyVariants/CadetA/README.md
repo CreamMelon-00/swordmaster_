@@ -1,5 +1,9 @@
 # Cadet A — short charcoal-bob opponent
 
+## Pixel repair, 2026-10-17
+
+Restored missing foreground arms/hands, the forward shin/boot in rising-cut preparation, shoulder joins and guard/hurt expressions in 53 runtime frames and the matching native cels. The builder now applies reviewed pose-specific RGBA corrections from `Docs/Art/CharacterAnimationAudit/Repairs/cadet_authored_pixels.lua` after the head/garment conversion. Edit these corrections alongside redesigned poses. Tag ranges are assigned after all frames exist. An isolated rebuild reproduces all 121 runtime frames exactly; the refreshed pose sheet matches the current PNGs. See `Docs/Art/CharacterAnimationAudit/Repairs/README.md` for comparisons and validation.
+
 The approved design is `../Concepts/cadet-a-idle-concept-256x224.png` (and its editable Aseprite source). Runtime frames are in `Assets/Game/Resources/EnemyVariants/CadetA/Animations`.
 
 `Tools/build_cadet_a.lua` produces all 121 frames from the existing combat pose library. The approved head replaces the original long hair and ribbon in every motion. A short bob, narrow brass pin, slate scarf and pewter details distinguish this student from Iia; the sword arm is preserved where it crosses the head during upper cuts. Idle uses the approved full-body concept with a subtle jacket/scarf shading rhythm that keeps the silhouette connected. The library contains 8 idle frames, 1 move, 4 guard/hurt poses and nine 12-frame slash/pierce/blunt sequences.

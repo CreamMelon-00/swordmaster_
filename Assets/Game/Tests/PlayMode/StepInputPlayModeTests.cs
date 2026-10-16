@@ -141,7 +141,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new StepScope(playerHits: 3))
             {
                 scope.Settings("{\"animationPlaybackSpeed\":2,\"attackInterval\":0,\"hitStopDuration\":0," +
-                    "\"movementDistanceMultiplier\":1,\"movementSpeedMultiplier\":1}");
+                    "\"movementDistanceMultiplier\":1,\"movementSpeedMultiplier\":1,\"bladeRecoilScale\":1}");
                 var controller = scope.Controller;
                 scope.BeginWindup();
                 scope.EnterWindow();
@@ -157,6 +157,7 @@ namespace TurnLimbo.Presentation.Tests
                 // either combat animation or its pending knockback.
                 controller.ArenaView.Tick(0f, 10f);
 
+                // Deliberately retain the old full blade recoil to force a gap; compact default contact now stays close.
                 // Both fighters receive the first impact's outward push. At
                 // double speed the next impact falls within the .1s push, before
                 // either fighter can chase. Only the first step impact may

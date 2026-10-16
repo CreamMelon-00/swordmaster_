@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "unity": "6000.5.9f1",
+  "graphics": "Direct3D11",
+  "pipeline": "Built-in",
+  "color_space": "Linear",
+  "captures_per_phase": 15,
+  "changed_inputs": [
+    "Assets\\Resources\\ExplorationMaps\\Corridor\\corridor-far.png",
+    "Assets\\Resources\\ExplorationMaps\\Corridor\\corridor-interior.png",
+    "Assets\\Resources\\ExplorationMaps\\Corridor\\corridor-near.png"
+  ],
+  "before_uncovered_total": 8348,
+  "after_uncovered_total": 0,
+  "unchanged_captures": [
+    "finite-corridor_x24p4.png",
+    "finite-forest_xm24p4.png",
+    "finite-forest_xm12p0.png",
+    "finite-forest_x0p0.png",
+    "finite-forest_x10p0.png",
+    "finite-forest_x24p4.png",
+    "finite-forest_xm13p7_wide.png",
+    "battle-corridor_xm18p6.png",
+    "battle-corridor_x0p0.png",
+    "battle-corridor_x18p6.png"
+  ],
+  "changed_captures": [
+    "finite-corridor_xm24p4.png",
+    "finite-corridor_xm12p0.png",
+    "finite-corridor_x0p0.png",
+    "finite-corridor_x10p0.png",
+    "finite-corridor_xm13p7_wide.png"
+  ],
+  "comparison": "unity-before-after.png",
+  "scope": "Copied production ExplorationFieldBackdrop and SchoolCorridorBackdrop; actual Camera.Render + RenderTexture on NVIDIA D3D11. Isolated Built-in sprite material, no production gameplay/UI/URP/player build."
+}

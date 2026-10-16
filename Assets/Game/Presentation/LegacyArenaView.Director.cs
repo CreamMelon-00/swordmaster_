@@ -56,6 +56,8 @@ namespace TurnLimbo.Presentation
         /// reaction, knock-back or decisive focus. The controller owns the short stop and the eventual damage.</summary>
         public void PresentBladeBindContact()
         {
+            PresentWeaponTrailContact(0, player.Skill?.Kind == LegacySkillKind.Attack,
+                enemy.Skill?.Kind == LegacySkillKind.Attack);
             if (disposed || !resolving || approaching || returning) return;
             // The regular particle prefab starts after a battle-clock delay, so it would appear only on release while
             // that clock is held. The existing bind's starlight is immediate and ages on real time instead.
@@ -67,7 +69,8 @@ namespace TurnLimbo.Presentation
         /// battle's clock stands still) the two fighters hold their contact frames, lean into each other by
         /// <paramref name="press"/> each and sway together by <paramref name="sway"/> one way and then the other just as far
         /// (<see cref="LegacyBladeBind"/>), striking <paramref name="sparks"/> sparks between the blades; at the end both
-        /// spring apart alike: the knock-backs the hit queued are shared out evenly, plus <paramref name="spring"/> each (they
+        /// spring apart alike: the knock-backs the hit queued are shared out evenly, plus <paramref name="spring"/> each
+        /// scaled by the blade-contact recoil setting (they
         /// move once the battle's clock runs again). A small shake rumbles meanwhile. Only while resolving; a bind already
         /// holding lets go first.</summary>
         public void BeginBladeBind(float seconds, float sway, float press, float spring, int sparks)
@@ -79,7 +82,9 @@ namespace TurnLimbo.Presentation
             bindElapsed = 0f;
             bindSway = Finite(sway);
             bindPress = Finite(press);
-            bindSpring = Finite(spring);
+            // The pending contact pushes are already reduced by PresentHit. Scale only this additional spring,
+            // once at the gesture's start, so a small blade recoil cannot turn back into a large separation on release.
+            bindSpring = Finite(spring) * settings.BladeRecoilScale;
             bindSparks = Mathf.Max(0, sparks);
             BladeBindSparksStruck = 0;
             hitShake.Add(BladeBindShake, seconds);
@@ -109,7 +114,7 @@ namespace TurnLimbo.Presentation
             for (int spark = 0; spark < sparks; spark++) EmitBindSpark();
             ApplyBindOffsets(0f, 0f);
             // Both took a hit: the knock-backs the hit queued (held through the bind) are shared out evenly, so the two
-            // spring apart alike and no farther in all than without the bind, plus the tuned extra spring each.
+            // spring apart alike and no farther in all than without the bind, plus the already scaled extra spring each.
             float even = (Pending(player, -1f) + Pending(enemy, 1f)) * .5f + bindSpring;
             SpringApart(player, -1f, even);
             SpringApart(enemy, 1f, even);

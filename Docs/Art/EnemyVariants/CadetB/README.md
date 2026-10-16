@@ -1,5 +1,9 @@
 # Cadet B — sandy-haired trouser-uniform opponent
 
+## Pixel repair, 2026-10-17
+
+Restored foreground arms/hands, shoulder joins, guard/hurt expressions and the rising-cut preparation shin/boot in 53 runtime frames and the matching native cels. The preparation hands also retain skin/cuff colors instead of the trouser palette. The builder applies reviewed pose-specific RGBA corrections from `Docs/Art/CharacterAnimationAudit/Repairs/cadet_authored_pixels.lua` after head/garment conversion. Edit these corrections alongside redesigned poses. Native tag ranges are assigned after all frames exist. An isolated rebuild reproduces all 121 runtime frames exactly; the refreshed pose sheet matches the current PNGs. See `Docs/Art/CharacterAnimationAudit/Repairs/README.md` for comparisons and validation.
+
 The approved design is `../Concepts/cadet-b-idle-concept-256x224.png` (with its editable Aseprite source). The runtime art is in `Assets/Game/Resources/EnemyVariants/CadetB/Animations`.
 
 The exported set mirrors all 121 frames of `EnemyStudent/Animations`: 8 idle, 1 move, 4 guard/hurt poses, and 12 frames in each of the nine slash, pierce and blunt sequences. Aseprite's `build_cadet_b.lua` transfers the approved short-hair head to the source poses, removes the ribbon and long hair, rebuilds the exposed thighs and lower hem into charcoal trousers, follows the source's raised sword arm in overhead cuts, and maps all colors to the approved 80-color palette. The original pose timing, weapon endpoint and planted feet stay aligned with the existing combat animator. Idle detail changes keep the head, neck and torso continuously joined.

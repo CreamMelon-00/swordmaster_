@@ -285,8 +285,8 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(fixture.PlayerX, Is.EqualTo(start - 1.96f).Within(.001f));
                 }
                 Assert.That(fixture.Settings.AnimationPlaybackSpeed, Is.EqualTo(1f));
-                Assert.That(fixture.Settings.AttackInterval, Is.EqualTo(.1f));
-                Assert.That(fixture.Settings.SkillInterval, Is.EqualTo(.28f));
+                Assert.That(fixture.Settings.AttackInterval, Is.EqualTo(.025f));
+                Assert.That(fixture.Settings.SkillInterval, Is.EqualTo(.06f));
             }
             yield return null;
         }

@@ -17,6 +17,7 @@ namespace TurnLimbo.Presentation
         private static readonly Color DodgeTint = new Color(0.62f, 0.80f, 0.91f, InitialAlpha);
         private static readonly Color PressureTint = new Color(0.93f, 0.68f, 0.37f, InitialAlpha);
         private static readonly int TintId = Shader.PropertyToID("_Tint");
+        private static readonly int AttackOffsetId = Shader.PropertyToID("_AttackOffset");
         private readonly Transform root;
         private readonly View[] views;
         // A material with its own tint (the break outline's silhouette) takes the ghost's colour per renderer, in a
@@ -24,6 +25,7 @@ namespace TurnLimbo.Presentation
         // that shader never sees it. Those ghosts keep a white sprite colour, so the tint is never applied twice.
         private readonly bool tintsByProperty;
         private readonly MaterialPropertyBlock tintProperties;
+        private readonly MaterialPropertyBlock sourceProperties = new MaterialPropertyBlock();
         private int nextView;
         private bool disposed;
 
@@ -112,7 +114,10 @@ namespace TurnLimbo.Presentation
             if (disposed || source == null || source.sprite == null || !(lifetime > 0f) || float.IsInfinity(lifetime)) return;
             View view = views[nextView];
             nextView = (nextView + 1) % views.Length;
-            view.Transform.position = source.transform.position;
+            // Bake the rendered lunge into the snapshot's position. The ghost uses its own material and property block,
+            // so it cannot inherit a stale offset or follow the source when that source recovers.
+            Vector3 attackOffset = ReadAttackOffset(source);
+            view.Transform.position = source.transform.position + source.transform.TransformVector(attackOffset);
             view.Transform.rotation = source.transform.rotation;
             view.Transform.localScale = source.transform.localScale;
             view.Origin = view.Transform.position;
@@ -140,7 +145,9 @@ namespace TurnLimbo.Presentation
                     view.LowerRenderer.flipY = lowerSource.flipY;
                     view.LowerRenderer.sortingLayerID = lowerSource.sortingLayerID;
                     view.LowerRenderer.sortingOrder = sortingOrder + (lowerSource.sortingOrder - source.sortingOrder);
-                    view.LowerRenderer.transform.localPosition = source.transform.InverseTransformPoint(lowerSource.transform.position);
+                    Vector3 lowerPosition = lowerSource.transform.position +
+                        lowerSource.transform.TransformVector(ReadAttackOffset(lowerSource));
+                    view.LowerRenderer.transform.localPosition = source.transform.InverseTransformPoint(lowerPosition) - attackOffset;
                     view.LowerRenderer.transform.localRotation = Quaternion.Inverse(source.transform.rotation) * lowerSource.transform.rotation;
                     view.LowerRenderer.transform.localScale = lowerSource.transform.localScale;
                     view.LowerRenderer.color = view.Tint;
@@ -218,6 +225,14 @@ namespace TurnLimbo.Presentation
             renderer.GetPropertyBlock(tintProperties);
             tintProperties.SetColor(TintId, color);
             renderer.SetPropertyBlock(tintProperties);
+        }
+
+        private Vector3 ReadAttackOffset(SpriteRenderer source)
+        {
+            source.GetPropertyBlock(sourceProperties);
+            Vector4 offset = sourceProperties.GetVector(AttackOffsetId);
+            var position = new Vector3(offset.x, offset.y, offset.z);
+            return IsFinite(position) ? position : Vector3.zero;
         }
 
         private static bool IsFinite(Vector3 value)

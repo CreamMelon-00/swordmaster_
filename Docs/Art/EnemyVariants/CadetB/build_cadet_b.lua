@@ -3,6 +3,7 @@
 local root = 'C:/Users/User/Documents/swordmaster_'
 local sourceRoot = root .. '/Assets/Game/Resources/EnemyStudent/Animations/'
 local targetRoot = root .. '/Assets/Game/Resources/EnemyVariants/CadetB/Animations/'
+local authoredPixels = dofile(root .. '/Docs/Art/CharacterAnimationAudit/Repairs/apply_cadet_authored_pixels.lua')
 local conceptPath = root .. '/Docs/Art/EnemyVariants/Concepts/cadet-b-idle-concept-256x224.png'
 local p = app.pixelColor
 local transparent = p.rgba(0, 0, 0, 0)
@@ -537,7 +538,9 @@ local function process(src, folder, name)
     fillSourceGap(result,src,87,129,92,135)
   end
   cleanPixelIntegrity(result,src)
-  return result
+  -- Source-pose-specific hand repairs must be inspected if a pose is redesigned.
+  local relative = folder .. '/' .. name:gsub('%.png$', '')
+  return authoredPixels.apply(result, relative, 'B')
 end
 
 local folders = {'idle', 'move', 'poses', 'slash', 'slash-2', 'slash-3',

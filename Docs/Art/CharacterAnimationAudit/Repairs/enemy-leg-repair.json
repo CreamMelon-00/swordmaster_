@@ -1,0 +1,44 @@
+{
+  "patch": "enemy-slash2-front-leg.patch.png",
+  "description": "Restore intact source shoe and pixel plot the shin occluded by the original blade; patch only transparent pixels behind unchanged runtime sword. Coordinates zero-based.",
+  "before_backup_directory": "C:\\Users\\User\\.codex\\visualizations\\2026\\10\\16\\01a1451f-e124-7450-9281-6a5fa77f3745\\animation-repair-before\\enemy-slash-2",
+  "entries": [
+    {
+      "runtime": "Assets/Game/Resources/EnemyStudent/Animations/slash-2/frame-02.png",
+      "native_frame_1based": 47,
+      "before_sha256": "24ba946de5ceddad3d56fdb849a1a4765f67ee095929285d1508a29c67314476",
+      "changed_pixels": 343,
+      "changed_bbox_inclusive": [
+        85,
+        171,
+        109,
+        201
+      ],
+      "protected_opaque_pixels_unchanged": true,
+      "after_sha256": "2477df766a9d307caee9c2e6862fc540bbef23baa7f7384bbede6890f707d063",
+      "palette_preserved": true,
+      "foreground_component_sizes_8connected": [
+        4990
+      ]
+    },
+    {
+      "runtime": "Assets/Game/Resources/EnemyStudent/Animations/slash-2/frame-03.png",
+      "native_frame_1based": 48,
+      "before_sha256": "24ba946de5ceddad3d56fdb849a1a4765f67ee095929285d1508a29c67314476",
+      "changed_pixels": 343,
+      "changed_bbox_inclusive": [
+        85,
+        171,
+        109,
+        201
+      ],
+      "protected_opaque_pixels_unchanged": true,
+      "after_sha256": "2477df766a9d307caee9c2e6862fc540bbef23baa7f7384bbede6890f707d063",
+      "palette_preserved": true,
+      "foreground_component_sizes_8connected": [
+        4990
+      ]
+    }
+  ],
+  "validation": "Actual Aseprite outputs reloaded; original opaque pixels unchanged, all additions in original palette, one contiguous foreground component; both held frames identical."
+}

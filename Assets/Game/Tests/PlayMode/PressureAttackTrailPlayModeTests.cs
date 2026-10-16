@@ -35,7 +35,8 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     if (!ghost.gameObject.activeSelf || ghost.color.a < DuelStepAfterimages.InitialAlpha - .001f) continue;
                     Assert.That(ghost.sprite, Is.SameAs(source.sprite), "New ghosts must snapshot the displayed sword pose.");
-                    Assert.That(ghost.sharedMaterial, Is.SameAs(source.sharedMaterial));
+                    // The body shader's offset is baked into the snapshot position; ghosts use the ordinary sprite material.
+                    Assert.That(ghost.sharedMaterial, Is.SameAs(fixture.SpriteMaterial));
                     Assert.That(ghost.sortingOrder, Is.LessThan(source.sortingOrder));
                     Assert.That(ghost.transform.position, Is.EqualTo(source.transform.position));
                     currentPoseFound = true;
@@ -241,6 +242,8 @@ namespace TurnLimbo.Presentation.Tests
             private readonly Action<float, bool> tickTrail;
             private readonly Transform trailRoot;
             public LegacyArenaView Arena { get; }
+            public Material SpriteMaterial => (Material)typeof(LegacyArenaView)
+                .GetProperty("SpriteMaterial", NonPublic).GetValue(Arena);
             public SpriteRenderer[] Views
             {
                 get
@@ -257,6 +260,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 host = new GameObject("Pressure Attack Trail Test Host");
                 Arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt());
+                // These tests isolate the pressure trail's existing animation clock and exact authored cels.
+                Arena.SetAttackRhythmOverride(false);
                 Arena.CloseDistance(1f);
                 configure = Bind<Action<float, float>>("ConfigureSlotTiming");
                 hold = Bind<Action<float>>("HoldSlotAtTime");

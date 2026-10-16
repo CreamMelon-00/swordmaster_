@@ -1,0 +1,117 @@
+[
+  {
+    "file": "Docs\\Art\\Animations\\MobStudentAttacks\\head-turn-v2\\blunt-1\\upper-4frames.png",
+    "size": [
+      4096,
+      768
+    ],
+    "mode": "RGBA",
+    "individualFramesPixelExact": true
+  },
+  {
+    "file": "Docs\\Art\\Animations\\MobStudentAttacks\\head-turn-v2\\blunt-1\\upper-preview.gif",
+    "size": [
+      1024,
+      768
+    ],
+    "frames": 4,
+    "timingPreserved": true,
+    "transparencyAndDisposalExtensionsPreserved": true,
+    "unchangedFrameImageBlocksRetained": [
+      0,
+      3
+    ],
+    "unchangedFramesPixelExact": true,
+    "outsideEditedHeadsPixelExact": true
+  },
+  {
+    "file": "Docs\\Art\\Animations\\MobStudentAttacks\\head-turn-v2\\blunt-1\\combined-4frames.png",
+    "size": [
+      4096,
+      768
+    ],
+    "mode": "RGBA",
+    "individualFramesPixelExact": true
+  },
+  {
+    "file": "Docs\\Art\\Animations\\MobStudentAttacks\\head-turn-v2\\blunt-1\\combined-preview.gif",
+    "size": [
+      1024,
+      768
+    ],
+    "frames": 4,
+    "timingPreserved": true,
+    "transparencyAndDisposalExtensionsPreserved": true,
+    "unchangedFrameImageBlocksRetained": [
+      0,
+      3
+    ],
+    "unchangedFramesPixelExact": true,
+    "outsideEditedHeadsPixelExact": true
+  },
+  {
+    "file": "Docs\\Art\\Animations\\MobStudentAttacks\\head-turn-v2\\blunt-combo-preview.gif",
+    "size": [
+      1024,
+      768
+    ],
+    "frames": 12,
+    "timingPreserved": true,
+    "transparencyAndDisposalExtensionsPreserved": true,
+    "unchangedFrameImageBlocksRetained": [
+      0,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "unchangedFramesPixelExact": true,
+    "outsideEditedHeadsPixelExact": true
+  },
+  {
+    "file": "Docs\\Art\\Animations\\MobStudentAttacks\\head-turn-v2\\all-attacks-preview.gif",
+    "size": [
+      1152,
+      320
+    ],
+    "frames": 12,
+    "timingPreserved": true,
+    "transparencyAndDisposalExtensionsPreserved": true,
+    "unchangedFrameImageBlocksRetained": [
+      0,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11
+    ],
+    "unchangedFramesPixelExact": true,
+    "outsideEditedHeadsPixelExact": true
+  },
+  {
+    "file": "Docs\\Art\\Animations\\MobStudentAttacks\\head-turn-v2\\all-attacks-preview-poster.png",
+    "changedPixels": 4248,
+    "size": [
+      1152,
+      320
+    ],
+    "outsideEditedHeadPixelExact": true
+  },
+  {
+    "file": "Docs\\Art\\Animations\\MobStudentAttacks\\head-turn-v2\\contact-pose-grid.png",
+    "changedPixels": 7574,
+    "size": [
+      1536,
+      1152
+    ],
+    "outsideEditedHeadPixelExact": true
+  }
+]

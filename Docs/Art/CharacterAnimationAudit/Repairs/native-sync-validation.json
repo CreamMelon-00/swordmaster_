@@ -1,0 +1,1331 @@
+{
+  "applied": [
+    {
+      "changedFrames": [
+        {
+          "frame": 47,
+          "png": "slash-2/frame-02.png"
+        },
+        {
+          "frame": 48,
+          "png": "slash-2/frame-03.png"
+        }
+      ],
+      "changedTags": [
+        {
+          "from": 118,
+          "name": "Hurt",
+          "oldFrom": 118,
+          "oldTo": 120,
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "Block-2",
+          "oldFrom": 119,
+          "oldTo": 120,
+          "to": 119
+        }
+      ],
+      "dryRun": false,
+      "key": "EnemyStudent",
+      "native": "Docs/Art/EnemyStudent/Reactions/Enemy_AllAttacks3_Reactions2.aseprite",
+      "preservedOtherLayers": 0,
+      "saved": true,
+      "tags": [
+        {
+          "from": 1,
+          "name": "Idle",
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "Slash",
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "Pierce",
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "Blunt",
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "Block",
+          "to": 45
+        },
+        {
+          "from": 46,
+          "name": "slash-2",
+          "to": 57
+        },
+        {
+          "from": 58,
+          "name": "slash-3",
+          "to": 69
+        },
+        {
+          "from": 70,
+          "name": "pierce-2",
+          "to": 81
+        },
+        {
+          "from": 82,
+          "name": "pierce-3",
+          "to": 93
+        },
+        {
+          "from": 94,
+          "name": "blunt-2",
+          "to": 105
+        },
+        {
+          "from": 106,
+          "name": "blunt-3",
+          "to": 117
+        },
+        {
+          "from": 118,
+          "name": "Hurt",
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "Block-2",
+          "to": 119
+        },
+        {
+          "from": 120,
+          "name": "Hurt-2",
+          "to": 120
+        }
+      ],
+      "verifiedFrames": 120
+    },
+    {
+      "changedFrames": [
+        {
+          "frame": 10,
+          "png": "slash/frame-02.png"
+        },
+        {
+          "frame": 11,
+          "png": "slash/frame-03.png"
+        },
+        {
+          "frame": 12,
+          "png": "slash/frame-04.png"
+        },
+        {
+          "frame": 22,
+          "png": "slash-2/frame-02.png"
+        },
+        {
+          "frame": 23,
+          "png": "slash-2/frame-03.png"
+        },
+        {
+          "frame": 25,
+          "png": "slash-2/frame-05.png"
+        },
+        {
+          "frame": 26,
+          "png": "slash-2/frame-06.png"
+        },
+        {
+          "frame": 27,
+          "png": "slash-2/frame-07.png"
+        },
+        {
+          "frame": 28,
+          "png": "slash-2/frame-08.png"
+        },
+        {
+          "frame": 29,
+          "png": "slash-2/frame-09.png"
+        },
+        {
+          "frame": 30,
+          "png": "slash-2/frame-10.png"
+        },
+        {
+          "frame": 37,
+          "png": "slash-3/frame-05.png"
+        },
+        {
+          "frame": 38,
+          "png": "slash-3/frame-06.png"
+        },
+        {
+          "frame": 39,
+          "png": "slash-3/frame-07.png"
+        },
+        {
+          "frame": 49,
+          "png": "pierce/frame-05.png"
+        },
+        {
+          "frame": 50,
+          "png": "pierce/frame-06.png"
+        },
+        {
+          "frame": 51,
+          "png": "pierce/frame-07.png"
+        },
+        {
+          "frame": 52,
+          "png": "pierce/frame-08.png"
+        },
+        {
+          "frame": 58,
+          "png": "pierce-2/frame-02.png"
+        },
+        {
+          "frame": 59,
+          "png": "pierce-2/frame-03.png"
+        },
+        {
+          "frame": 60,
+          "png": "pierce-2/frame-04.png"
+        },
+        {
+          "frame": 61,
+          "png": "pierce-2/frame-05.png"
+        },
+        {
+          "frame": 62,
+          "png": "pierce-2/frame-06.png"
+        },
+        {
+          "frame": 63,
+          "png": "pierce-2/frame-07.png"
+        },
+        {
+          "frame": 64,
+          "png": "pierce-2/frame-08.png"
+        },
+        {
+          "frame": 65,
+          "png": "pierce-2/frame-09.png"
+        },
+        {
+          "frame": 66,
+          "png": "pierce-2/frame-10.png"
+        },
+        {
+          "frame": 82,
+          "png": "blunt/frame-02.png"
+        },
+        {
+          "frame": 83,
+          "png": "blunt/frame-03.png"
+        },
+        {
+          "frame": 84,
+          "png": "blunt/frame-04.png"
+        },
+        {
+          "frame": 85,
+          "png": "blunt/frame-05.png"
+        },
+        {
+          "frame": 86,
+          "png": "blunt/frame-06.png"
+        },
+        {
+          "frame": 87,
+          "png": "blunt/frame-07.png"
+        },
+        {
+          "frame": 88,
+          "png": "blunt/frame-08.png"
+        },
+        {
+          "frame": 89,
+          "png": "blunt/frame-09.png"
+        },
+        {
+          "frame": 94,
+          "png": "blunt-2/frame-02.png"
+        },
+        {
+          "frame": 95,
+          "png": "blunt-2/frame-03.png"
+        },
+        {
+          "frame": 97,
+          "png": "blunt-2/frame-05.png"
+        },
+        {
+          "frame": 98,
+          "png": "blunt-2/frame-06.png"
+        },
+        {
+          "frame": 99,
+          "png": "blunt-2/frame-07.png"
+        },
+        {
+          "frame": 100,
+          "png": "blunt-2/frame-08.png"
+        },
+        {
+          "frame": 101,
+          "png": "blunt-2/frame-09.png"
+        },
+        {
+          "frame": 102,
+          "png": "blunt-2/frame-10.png"
+        },
+        {
+          "frame": 106,
+          "png": "blunt-3/frame-02.png"
+        },
+        {
+          "frame": 107,
+          "png": "blunt-3/frame-03.png"
+        },
+        {
+          "frame": 108,
+          "png": "blunt-3/frame-04.png"
+        },
+        {
+          "frame": 112,
+          "png": "blunt-3/frame-08.png"
+        },
+        {
+          "frame": 113,
+          "png": "blunt-3/frame-09.png"
+        },
+        {
+          "frame": 114,
+          "png": "blunt-3/frame-10.png"
+        },
+        {
+          "frame": 117,
+          "png": "poses/block.png"
+        },
+        {
+          "frame": 118,
+          "png": "poses/block-2.png"
+        },
+        {
+          "frame": 119,
+          "png": "poses/hurt.png"
+        },
+        {
+          "frame": 120,
+          "png": "poses/hurt-2.png"
+        }
+      ],
+      "changedTags": [
+        {
+          "from": 1,
+          "name": "idle",
+          "oldFrom": 1,
+          "oldTo": 121,
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "slash",
+          "oldFrom": 9,
+          "oldTo": 121,
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "slash-2",
+          "oldFrom": 21,
+          "oldTo": 121,
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "slash-3",
+          "oldFrom": 33,
+          "oldTo": 121,
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "pierce",
+          "oldFrom": 45,
+          "oldTo": 121,
+          "to": 56
+        },
+        {
+          "from": 57,
+          "name": "pierce-2",
+          "oldFrom": 57,
+          "oldTo": 121,
+          "to": 68
+        },
+        {
+          "from": 69,
+          "name": "pierce-3",
+          "oldFrom": 69,
+          "oldTo": 121,
+          "to": 80
+        },
+        {
+          "from": 81,
+          "name": "blunt",
+          "oldFrom": 81,
+          "oldTo": 121,
+          "to": 92
+        },
+        {
+          "from": 93,
+          "name": "blunt-2",
+          "oldFrom": 93,
+          "oldTo": 121,
+          "to": 104
+        },
+        {
+          "from": 105,
+          "name": "blunt-3",
+          "oldFrom": 105,
+          "oldTo": 121,
+          "to": 116
+        },
+        {
+          "from": 117,
+          "name": "poses-block",
+          "oldFrom": 117,
+          "oldTo": 121,
+          "to": 117
+        },
+        {
+          "from": 118,
+          "name": "poses-block-2",
+          "oldFrom": 118,
+          "oldTo": 121,
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "poses-hurt",
+          "oldFrom": 119,
+          "oldTo": 121,
+          "to": 119
+        },
+        {
+          "from": 120,
+          "name": "poses-hurt-2",
+          "oldFrom": 120,
+          "oldTo": 121,
+          "to": 120
+        }
+      ],
+      "dryRun": false,
+      "key": "CadetA",
+      "native": "Docs/Art/EnemyVariants/CadetA/CadetA-AllAnimations.aseprite",
+      "preservedOtherLayers": 0,
+      "saved": true,
+      "tags": [
+        {
+          "from": 1,
+          "name": "idle",
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "slash",
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "slash-2",
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "slash-3",
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "pierce",
+          "to": 56
+        },
+        {
+          "from": 57,
+          "name": "pierce-2",
+          "to": 68
+        },
+        {
+          "from": 69,
+          "name": "pierce-3",
+          "to": 80
+        },
+        {
+          "from": 81,
+          "name": "blunt",
+          "to": 92
+        },
+        {
+          "from": 93,
+          "name": "blunt-2",
+          "to": 104
+        },
+        {
+          "from": 105,
+          "name": "blunt-3",
+          "to": 116
+        },
+        {
+          "from": 117,
+          "name": "poses-block",
+          "to": 117
+        },
+        {
+          "from": 118,
+          "name": "poses-block-2",
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "poses-hurt",
+          "to": 119
+        },
+        {
+          "from": 120,
+          "name": "poses-hurt-2",
+          "to": 120
+        },
+        {
+          "from": 121,
+          "name": "move-frame-01",
+          "to": 121
+        }
+      ],
+      "verifiedFrames": 121
+    },
+    {
+      "changedFrames": [
+        {
+          "frame": 10,
+          "png": "slash/frame-02.png"
+        },
+        {
+          "frame": 11,
+          "png": "slash/frame-03.png"
+        },
+        {
+          "frame": 12,
+          "png": "slash/frame-04.png"
+        },
+        {
+          "frame": 22,
+          "png": "slash-2/frame-02.png"
+        },
+        {
+          "frame": 23,
+          "png": "slash-2/frame-03.png"
+        },
+        {
+          "frame": 25,
+          "png": "slash-2/frame-05.png"
+        },
+        {
+          "frame": 26,
+          "png": "slash-2/frame-06.png"
+        },
+        {
+          "frame": 27,
+          "png": "slash-2/frame-07.png"
+        },
+        {
+          "frame": 28,
+          "png": "slash-2/frame-08.png"
+        },
+        {
+          "frame": 29,
+          "png": "slash-2/frame-09.png"
+        },
+        {
+          "frame": 30,
+          "png": "slash-2/frame-10.png"
+        },
+        {
+          "frame": 37,
+          "png": "slash-3/frame-05.png"
+        },
+        {
+          "frame": 38,
+          "png": "slash-3/frame-06.png"
+        },
+        {
+          "frame": 39,
+          "png": "slash-3/frame-07.png"
+        },
+        {
+          "frame": 49,
+          "png": "pierce/frame-05.png"
+        },
+        {
+          "frame": 50,
+          "png": "pierce/frame-06.png"
+        },
+        {
+          "frame": 51,
+          "png": "pierce/frame-07.png"
+        },
+        {
+          "frame": 52,
+          "png": "pierce/frame-08.png"
+        },
+        {
+          "frame": 58,
+          "png": "pierce-2/frame-02.png"
+        },
+        {
+          "frame": 59,
+          "png": "pierce-2/frame-03.png"
+        },
+        {
+          "frame": 60,
+          "png": "pierce-2/frame-04.png"
+        },
+        {
+          "frame": 61,
+          "png": "pierce-2/frame-05.png"
+        },
+        {
+          "frame": 62,
+          "png": "pierce-2/frame-06.png"
+        },
+        {
+          "frame": 63,
+          "png": "pierce-2/frame-07.png"
+        },
+        {
+          "frame": 64,
+          "png": "pierce-2/frame-08.png"
+        },
+        {
+          "frame": 65,
+          "png": "pierce-2/frame-09.png"
+        },
+        {
+          "frame": 66,
+          "png": "pierce-2/frame-10.png"
+        },
+        {
+          "frame": 82,
+          "png": "blunt/frame-02.png"
+        },
+        {
+          "frame": 83,
+          "png": "blunt/frame-03.png"
+        },
+        {
+          "frame": 84,
+          "png": "blunt/frame-04.png"
+        },
+        {
+          "frame": 85,
+          "png": "blunt/frame-05.png"
+        },
+        {
+          "frame": 86,
+          "png": "blunt/frame-06.png"
+        },
+        {
+          "frame": 87,
+          "png": "blunt/frame-07.png"
+        },
+        {
+          "frame": 88,
+          "png": "blunt/frame-08.png"
+        },
+        {
+          "frame": 89,
+          "png": "blunt/frame-09.png"
+        },
+        {
+          "frame": 94,
+          "png": "blunt-2/frame-02.png"
+        },
+        {
+          "frame": 95,
+          "png": "blunt-2/frame-03.png"
+        },
+        {
+          "frame": 97,
+          "png": "blunt-2/frame-05.png"
+        },
+        {
+          "frame": 98,
+          "png": "blunt-2/frame-06.png"
+        },
+        {
+          "frame": 99,
+          "png": "blunt-2/frame-07.png"
+        },
+        {
+          "frame": 100,
+          "png": "blunt-2/frame-08.png"
+        },
+        {
+          "frame": 101,
+          "png": "blunt-2/frame-09.png"
+        },
+        {
+          "frame": 102,
+          "png": "blunt-2/frame-10.png"
+        },
+        {
+          "frame": 106,
+          "png": "blunt-3/frame-02.png"
+        },
+        {
+          "frame": 107,
+          "png": "blunt-3/frame-03.png"
+        },
+        {
+          "frame": 108,
+          "png": "blunt-3/frame-04.png"
+        },
+        {
+          "frame": 112,
+          "png": "blunt-3/frame-08.png"
+        },
+        {
+          "frame": 113,
+          "png": "blunt-3/frame-09.png"
+        },
+        {
+          "frame": 114,
+          "png": "blunt-3/frame-10.png"
+        },
+        {
+          "frame": 117,
+          "png": "poses/block.png"
+        },
+        {
+          "frame": 118,
+          "png": "poses/block-2.png"
+        },
+        {
+          "frame": 119,
+          "png": "poses/hurt.png"
+        },
+        {
+          "frame": 120,
+          "png": "poses/hurt-2.png"
+        }
+      ],
+      "changedTags": [
+        {
+          "from": 1,
+          "name": "idle",
+          "oldFrom": 1,
+          "oldTo": 121,
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "slash",
+          "oldFrom": 9,
+          "oldTo": 121,
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "slash-2",
+          "oldFrom": 21,
+          "oldTo": 121,
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "slash-3",
+          "oldFrom": 33,
+          "oldTo": 121,
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "pierce",
+          "oldFrom": 45,
+          "oldTo": 121,
+          "to": 56
+        },
+        {
+          "from": 57,
+          "name": "pierce-2",
+          "oldFrom": 57,
+          "oldTo": 121,
+          "to": 68
+        },
+        {
+          "from": 69,
+          "name": "pierce-3",
+          "oldFrom": 69,
+          "oldTo": 121,
+          "to": 80
+        },
+        {
+          "from": 81,
+          "name": "blunt",
+          "oldFrom": 81,
+          "oldTo": 121,
+          "to": 92
+        },
+        {
+          "from": 93,
+          "name": "blunt-2",
+          "oldFrom": 93,
+          "oldTo": 121,
+          "to": 104
+        },
+        {
+          "from": 105,
+          "name": "blunt-3",
+          "oldFrom": 105,
+          "oldTo": 121,
+          "to": 116
+        },
+        {
+          "from": 117,
+          "name": "poses-block",
+          "oldFrom": 117,
+          "oldTo": 121,
+          "to": 117
+        },
+        {
+          "from": 118,
+          "name": "poses-block-2",
+          "oldFrom": 118,
+          "oldTo": 121,
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "poses-hurt",
+          "oldFrom": 119,
+          "oldTo": 121,
+          "to": 119
+        },
+        {
+          "from": 120,
+          "name": "poses-hurt-2",
+          "oldFrom": 120,
+          "oldTo": 121,
+          "to": 120
+        }
+      ],
+      "dryRun": false,
+      "key": "CadetB",
+      "native": "Docs/Art/EnemyVariants/CadetB/CadetB-AllAnimations.aseprite",
+      "preservedOtherLayers": 0,
+      "saved": true,
+      "tags": [
+        {
+          "from": 1,
+          "name": "idle",
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "slash",
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "slash-2",
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "slash-3",
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "pierce",
+          "to": 56
+        },
+        {
+          "from": 57,
+          "name": "pierce-2",
+          "to": 68
+        },
+        {
+          "from": 69,
+          "name": "pierce-3",
+          "to": 80
+        },
+        {
+          "from": 81,
+          "name": "blunt",
+          "to": 92
+        },
+        {
+          "from": 93,
+          "name": "blunt-2",
+          "to": 104
+        },
+        {
+          "from": 105,
+          "name": "blunt-3",
+          "to": 116
+        },
+        {
+          "from": 117,
+          "name": "poses-block",
+          "to": 117
+        },
+        {
+          "from": 118,
+          "name": "poses-block-2",
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "poses-hurt",
+          "to": 119
+        },
+        {
+          "from": 120,
+          "name": "poses-hurt-2",
+          "to": 120
+        },
+        {
+          "from": 121,
+          "name": "move-frame-01",
+          "to": 121
+        }
+      ],
+      "verifiedFrames": 121
+    },
+    {
+      "changedFrames": [
+        {
+          "frame": 66,
+          "png": "slash-3/frame-06.png"
+        }
+      ],
+      "changedTags": [],
+      "dryRun": false,
+      "key": "SwordGirl",
+      "native": "Docs/Art/SwordGirl/BluntExpansion/SwordGirl_AllAttacks3.aseprite",
+      "preservedOtherLayers": 1,
+      "saved": true,
+      "tags": [
+        {
+          "from": 1,
+          "name": "Idle",
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "Slash",
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "Pierce",
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "Blunt",
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "Block",
+          "to": 45
+        },
+        {
+          "from": 46,
+          "name": "Hurt",
+          "to": 46
+        },
+        {
+          "from": 47,
+          "name": "Block2",
+          "to": 47
+        },
+        {
+          "from": 48,
+          "name": "Hurt2",
+          "to": 48
+        },
+        {
+          "from": 49,
+          "name": "Slash2",
+          "to": 60
+        },
+        {
+          "from": 61,
+          "name": "Slash3",
+          "to": 72
+        },
+        {
+          "from": 73,
+          "name": "Pierce2",
+          "to": 84
+        },
+        {
+          "from": 85,
+          "name": "Pierce3",
+          "to": 96
+        },
+        {
+          "from": 97,
+          "name": "Blunt2",
+          "to": 108
+        },
+        {
+          "from": 109,
+          "name": "Blunt3",
+          "to": 120
+        }
+      ],
+      "verifiedFrames": 120
+    }
+  ],
+  "after": [
+    {
+      "changedFrames": [],
+      "changedTags": [],
+      "dryRun": true,
+      "key": "EnemyStudent",
+      "native": "Docs/Art/EnemyStudent/Reactions/Enemy_AllAttacks3_Reactions2.aseprite",
+      "preservedOtherLayers": 0,
+      "tags": [
+        {
+          "from": 1,
+          "name": "Idle",
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "Slash",
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "Pierce",
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "Blunt",
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "Block",
+          "to": 45
+        },
+        {
+          "from": 46,
+          "name": "slash-2",
+          "to": 57
+        },
+        {
+          "from": 58,
+          "name": "slash-3",
+          "to": 69
+        },
+        {
+          "from": 70,
+          "name": "pierce-2",
+          "to": 81
+        },
+        {
+          "from": 82,
+          "name": "pierce-3",
+          "to": 93
+        },
+        {
+          "from": 94,
+          "name": "blunt-2",
+          "to": 105
+        },
+        {
+          "from": 106,
+          "name": "blunt-3",
+          "to": 117
+        },
+        {
+          "from": 118,
+          "name": "Hurt",
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "Block-2",
+          "to": 119
+        },
+        {
+          "from": 120,
+          "name": "Hurt-2",
+          "to": 120
+        }
+      ],
+      "verifiedFrames": 120
+    },
+    {
+      "changedFrames": [],
+      "changedTags": [],
+      "dryRun": true,
+      "key": "CadetA",
+      "native": "Docs/Art/EnemyVariants/CadetA/CadetA-AllAnimations.aseprite",
+      "preservedOtherLayers": 0,
+      "tags": [
+        {
+          "from": 1,
+          "name": "idle",
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "slash",
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "slash-2",
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "slash-3",
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "pierce",
+          "to": 56
+        },
+        {
+          "from": 57,
+          "name": "pierce-2",
+          "to": 68
+        },
+        {
+          "from": 69,
+          "name": "pierce-3",
+          "to": 80
+        },
+        {
+          "from": 81,
+          "name": "blunt",
+          "to": 92
+        },
+        {
+          "from": 93,
+          "name": "blunt-2",
+          "to": 104
+        },
+        {
+          "from": 105,
+          "name": "blunt-3",
+          "to": 116
+        },
+        {
+          "from": 117,
+          "name": "poses-block",
+          "to": 117
+        },
+        {
+          "from": 118,
+          "name": "poses-block-2",
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "poses-hurt",
+          "to": 119
+        },
+        {
+          "from": 120,
+          "name": "poses-hurt-2",
+          "to": 120
+        },
+        {
+          "from": 121,
+          "name": "move-frame-01",
+          "to": 121
+        }
+      ],
+      "verifiedFrames": 121
+    },
+    {
+      "changedFrames": [],
+      "changedTags": [],
+      "dryRun": true,
+      "key": "CadetB",
+      "native": "Docs/Art/EnemyVariants/CadetB/CadetB-AllAnimations.aseprite",
+      "preservedOtherLayers": 0,
+      "tags": [
+        {
+          "from": 1,
+          "name": "idle",
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "slash",
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "slash-2",
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "slash-3",
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "pierce",
+          "to": 56
+        },
+        {
+          "from": 57,
+          "name": "pierce-2",
+          "to": 68
+        },
+        {
+          "from": 69,
+          "name": "pierce-3",
+          "to": 80
+        },
+        {
+          "from": 81,
+          "name": "blunt",
+          "to": 92
+        },
+        {
+          "from": 93,
+          "name": "blunt-2",
+          "to": 104
+        },
+        {
+          "from": 105,
+          "name": "blunt-3",
+          "to": 116
+        },
+        {
+          "from": 117,
+          "name": "poses-block",
+          "to": 117
+        },
+        {
+          "from": 118,
+          "name": "poses-block-2",
+          "to": 118
+        },
+        {
+          "from": 119,
+          "name": "poses-hurt",
+          "to": 119
+        },
+        {
+          "from": 120,
+          "name": "poses-hurt-2",
+          "to": 120
+        },
+        {
+          "from": 121,
+          "name": "move-frame-01",
+          "to": 121
+        }
+      ],
+      "verifiedFrames": 121
+    },
+    {
+      "changedFrames": [],
+      "changedTags": [],
+      "dryRun": true,
+      "key": "SwordGirl",
+      "native": "Docs/Art/SwordGirl/BluntExpansion/SwordGirl_AllAttacks3.aseprite",
+      "preservedOtherLayers": 1,
+      "tags": [
+        {
+          "from": 1,
+          "name": "Idle",
+          "to": 8
+        },
+        {
+          "from": 9,
+          "name": "Slash",
+          "to": 20
+        },
+        {
+          "from": 21,
+          "name": "Pierce",
+          "to": 32
+        },
+        {
+          "from": 33,
+          "name": "Blunt",
+          "to": 44
+        },
+        {
+          "from": 45,
+          "name": "Block",
+          "to": 45
+        },
+        {
+          "from": 46,
+          "name": "Hurt",
+          "to": 46
+        },
+        {
+          "from": 47,
+          "name": "Block2",
+          "to": 47
+        },
+        {
+          "from": 48,
+          "name": "Hurt2",
+          "to": 48
+        },
+        {
+          "from": 49,
+          "name": "Slash2",
+          "to": 60
+        },
+        {
+          "from": 61,
+          "name": "Slash3",
+          "to": 72
+        },
+        {
+          "from": 73,
+          "name": "Pierce2",
+          "to": 84
+        },
+        {
+          "from": 85,
+          "name": "Pierce3",
+          "to": 96
+        },
+        {
+          "from": 97,
+          "name": "Blunt2",
+          "to": 108
+        },
+        {
+          "from": 109,
+          "name": "Blunt3",
+          "to": 120
+        }
+      ],
+      "verifiedFrames": 120
+    }
+  ]
+}

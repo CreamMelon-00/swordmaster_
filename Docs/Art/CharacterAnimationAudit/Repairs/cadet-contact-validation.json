@@ -1,0 +1,63 @@
+[
+  {
+    "variant": "CadetA",
+    "file": "Docs\\Art\\EnemyVariants\\CadetA\\cadet-a-motion-contact.png",
+    "size": [
+      1536,
+      1344
+    ],
+    "canvasPreserved": true,
+    "poseCount": 9,
+    "columns": 3,
+    "rows": 3,
+    "integerScale": 2,
+    "currentPngPixelsExact": true,
+    "sha256": "a324f098d888b0dd6fbc689643c2296613afa703bd9b8dbf2844501551f2cf67",
+    "sourceOrder": [
+      "idle/frame-01",
+      "move/frame-01",
+      "slash/frame-05",
+      "slash-2/frame-05",
+      "slash-3/frame-05",
+      "pierce/frame-05",
+      "blunt/frame-05",
+      "poses/block",
+      "poses/hurt"
+    ]
+  },
+  {
+    "variant": "CadetB",
+    "file": "Docs\\Art\\EnemyVariants\\CadetB\\cadet-b-contact.png",
+    "size": [
+      1536,
+      672
+    ],
+    "canvasPreserved": true,
+    "poseCount": 18,
+    "columns": 6,
+    "rows": 3,
+    "integerScale": 1,
+    "currentPngPixelsExact": true,
+    "sha256": "21a26d8fe08ad7a4f0ca10e2b84074bfbd289c2e40d38141609e30e72f107481",
+    "sourceOrder": [
+      "idle/frame-01",
+      "move/frame-01",
+      "poses/block",
+      "poses/block-2",
+      "poses/hurt",
+      "poses/hurt-2",
+      "slash/frame-01",
+      "slash/frame-04",
+      "slash/frame-07",
+      "slash-2/frame-05",
+      "pierce/frame-01",
+      "pierce/frame-04",
+      "pierce/frame-07",
+      "pierce/frame-10",
+      "blunt/frame-01",
+      "blunt/frame-04",
+      "blunt/frame-07",
+      "blunt/frame-10"
+    ]
+  }
+]

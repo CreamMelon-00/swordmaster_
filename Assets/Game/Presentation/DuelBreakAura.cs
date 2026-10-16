@@ -23,6 +23,7 @@ namespace TurnLimbo.Presentation
         private const float OutlineDepth = -0.01f;
         private const float RingDepth = -0.005f;
         private static readonly int TintId = Shader.PropertyToID("_Tint");
+        private static readonly int AttackOffsetId = Shader.PropertyToID("_AttackOffset");
         private static readonly Vector3[] OutlineOffsets =
         {
             new Vector3(OutlineThickness, 0f, OutlineDepth), new Vector3(-OutlineThickness, 0f, OutlineDepth),
@@ -39,6 +40,7 @@ namespace TurnLimbo.Presentation
         private readonly Mesh ringMesh;
         private readonly MaterialPropertyBlock ringProperties = new MaterialPropertyBlock();
         private readonly MaterialPropertyBlock outlineProperties = new MaterialPropertyBlock();
+        private readonly MaterialPropertyBlock sourceProperties = new MaterialPropertyBlock();
         private float pulseTime;
         private bool hidden;
         private bool disposed;
@@ -117,6 +119,9 @@ namespace TurnLimbo.Presentation
             Apply();
         }
 
+        /// <summary>Follows a newly sampled or held attack pose without advancing the pulse or fade.</summary>
+        public void RefreshPose() => Apply();
+
         /// <summary>Copies the actor's current frames and applies the fade; call after the actors are sampled.</summary>
         public void Apply()
         {
@@ -142,15 +147,25 @@ namespace TurnLimbo.Presentation
             if (ringMesh != null) Object.Destroy(ringMesh);
         }
 
-        private static void Follow(SpriteRenderer[] outline, SpriteRenderer source, bool visible, Color color,
+        private void Follow(SpriteRenderer[] outline, SpriteRenderer source, bool visible, Color color,
             MaterialPropertyBlock properties)
         {
             if (outline == null) return;
             bool shown = visible && source != null && source.enabled && source.gameObject.activeInHierarchy && source.sprite != null;
-            foreach (SpriteRenderer copy in outline)
+            Vector3 attackOffset = Vector3.zero;
+            if (shown)
             {
+                source.GetPropertyBlock(sourceProperties);
+                Vector4 offset = sourceProperties.GetVector(AttackOffsetId);
+                attackOffset = new Vector3(offset.x, offset.y, offset.z);
+            }
+            for (int index = 0; index < outline.Length; index++)
+            {
+                SpriteRenderer copy = outline[index];
                 copy.enabled = shown;
                 if (!shown) continue;
+                // A shader-only lunge does not move the source's children. Follow its visible geometry here.
+                copy.transform.localPosition = OutlineOffsets[index] + attackOffset;
                 copy.sprite = source.sprite;
                 copy.flipX = source.flipX;
                 copy.flipY = source.flipY;

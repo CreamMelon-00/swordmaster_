@@ -4,6 +4,10 @@ local W,H=256,224; local pc=app.pixelColor
 local extract=dofile(out..'/extract_poses.lua')
 local sprite=app.open(original); assert(#sprite.frames==118)
 local old=app.open(original)
+local tagRanges={}
+for _,tag in ipairs(sprite.tags) do
+ tagRanges[tag.name]={tag.fromFrame.frameNumber,tag.toFrame.frameNumber}
+end
 local poses={}
 for _,key in ipairs({'block-2','hurt-2'}) do
  local im=extract(key)[1]; local count=0
@@ -14,7 +18,7 @@ for _,key in ipairs({'block-2','hurt-2'}) do
  assert(count>2000,key..' empty');poses[key]=im
  local f=#sprite.frames+1;sprite:newEmptyFrame(f);sprite.frames[f].duration=.16
  sprite:newCel(sprite.layers[1],f,im,Point(0,0))
- local tag=sprite:newTag(f,f);tag.name=key=='block-2' and 'Block-2' or 'Hurt-2'
+ tagRanges[key=='block-2' and 'Block-2' or 'Hurt-2']={f,f}
  im:saveAs(out..'/Resources/poses/'..key..'.png')
 end
 local corrected=extract('hurt')[1]
@@ -26,6 +30,19 @@ sprite:deleteCel(sprite.layers[1]:cel(118));sprite:newCel(sprite.layers[1],118,c
 corrected:saveAs(out..'/Resources/poses/hurt.png')
 for i=1,117 do local a=Image(W,H,ColorMode.RGB);local b=Image(W,H,ColorMode.RGB)
  a:drawSprite(sprite,i);b:drawSprite(old,i);assert(a:isEqual(b),'Existing frame changed '..i)
+end
+-- Appended frames extend the previous final Hurt tag in Aseprite 1.2. Restore
+-- original ranges, then create new one-frame reactions after all frames exist.
+for _,tag in ipairs(sprite.tags) do
+ local range=assert(tagRanges[tag.name]);tag.fromFrame=range[1];tag.toFrame=range[2]
+end
+for _,name in ipairs({'Block-2','Hurt-2'}) do
+ local range=tagRanges[name];local tag=sprite:newTag(range[1],range[2]);tag.name=name
+end
+for _,tag in ipairs(sprite.tags) do
+ local range=tagRanges[tag.name]
+ assert(tag.fromFrame.frameNumber==range[1] and tag.toFrame.frameNumber==range[2],
+  'Incorrect reaction tag range: '..tag.name)
 end
 sprite:saveAs(out..'/Enemy_AllAttacks3_Reactions2.aseprite')
 local preview=Image(W*4,H,ColorMode.RGB)

@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-17",
+  "aseprite_version": "1.2.34.1",
+  "regeneration": {
+    "CadetA_exact_rgba_frames": 121,
+    "CadetB_exact_rgba_frames": 121,
+    "total_exact_rgba_frames": 242,
+    "different_frames": 0,
+    "pass": true
+  },
+  "tag_exports": [
+    {
+      "character": "CadetA",
+      "tag": "idle",
+      "expected_frames": 8,
+      "cli_json_frames": 8,
+      "exported_png_frames": 8,
+      "pixels_match_runtime": true,
+      "pass": true
+    },
+    {
+      "character": "CadetB",
+      "tag": "idle",
+      "expected_frames": 8,
+      "cli_json_frames": 8,
+      "exported_png_frames": 8,
+      "pixels_match_runtime": true,
+      "pass": true
+    },
+    {
+      "character": "EnemyStudent",
+      "tag": "Hurt",
+      "expected_frames": 1,
+      "cli_json_frames": 1,
+      "exported_png_frames": 1,
+      "pixels_match_runtime": true,
+      "pass": true
+    }
+  ],
+  "pass": true
+}

@@ -210,7 +210,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 Assert.That(settings.BattleDriftSpeed, Is.EqualTo(.15f));
-                Assert.That(settings.BattleStagingSeparation, Is.EqualTo(7f));
+                Assert.That(settings.BattleStagingSeparation, Is.EqualTo(5.4f));
                 Assert.That(settings.BattleDriftMinimumSeparation, Is.EqualTo(5f));
                 Assert.That(settings.BattlePoseSpeed, Is.Zero);
                 Assert.That(settings.BattleDesaturation, Is.EqualTo(30f));
@@ -236,7 +236,7 @@ namespace TurnLimbo.Presentation.Tests
                     info.SetValue(settings, float.NaN);
                 }
                 Assert.That(settings.BattleDriftSpeed, Is.EqualTo(.15f));
-                Assert.That(settings.BattleStagingSeparation, Is.EqualTo(7f));
+                Assert.That(settings.BattleStagingSeparation, Is.EqualTo(5.4f));
                 Assert.That(settings.BattleDriftMinimumSeparation, Is.EqualTo(5f));
                 Assert.That(settings.BattleDesaturation, Is.EqualTo(30f));
                 Assert.That(settings.BattleCycleReleaseSeconds, Is.EqualTo(.3f));

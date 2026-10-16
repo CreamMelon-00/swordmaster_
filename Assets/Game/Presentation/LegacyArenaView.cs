@@ -151,6 +151,8 @@ namespace TurnLimbo.Presentation
         private bool dodgedThisSlot;
         private float slotAnimationSpeed = 1f;
         private float slotAttackInterval;
+        private float slotAttackRhythmStrength;
+        private bool? attackRhythmOverride;
         private float fatalExposure;
         private float impactFlashTime;
         private bool resolving;
@@ -160,6 +162,8 @@ namespace TurnLimbo.Presentation
         private float movementTime;
         private float approachMovementSpeed = 1f;
         private float pursuitMovementSpeed = 1f;
+        private float approachSettleSeconds = ApproachDuration;
+        private float returnSettleSeconds = ReturnDuration;
         private float planningTime = 10f;
         private float fatalTime;
         private Transform fatalTarget;
@@ -308,6 +312,7 @@ namespace TurnLimbo.Presentation
             var shader = Shader.Find(pipeline == null
                 ? "Sprites/Default" : "Universal Render Pipeline/2D/Sprite-Unlit-Default");
             if (shader != null) spriteMaterial = new Material(shader) { name = "Legacy Duel Sprites" };
+            InitializeAttackMotionMaterial();
 
             var cameraObject = Child("Original Duel Camera", arenaRoot.transform);
             ArenaCamera = cameraObject.AddComponent<Camera>();
@@ -375,6 +380,8 @@ namespace TurnLimbo.Presentation
             if (!dummyAnimations.HasRequiredAssets)
                 Debug.LogWarning("Training dummy resources are incomplete: " + string.Join(", ", dummyAnimations.MissingResources));
             stepAfterimages = new DuelStepAfterimages(arenaRoot.transform, spriteMaterial, ArenaLayer, mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames);
+            InitializeAttackMotion();
+            InitializeWeaponTrail();
             var shadowSprites = Resources.LoadAll<Sprite>("LegacyArena/Shadow/Circle");
             var shadow = shadowSprites.Length > 0 ? shadowSprites[0] : null;
             SpriteRenderer playerShadow = CreateShadow(player, shadow, mobAnimations.HasRequiredAssets ? 0f : -0.882f);
@@ -416,6 +423,7 @@ namespace TurnLimbo.Presentation
 
         public void Reset()
         {
+            ClearAttackMotion();
             // The tension lighting first: the step's cancel and the grade below light the fresh arena without it.
             ClearLighting();
             approaching = returning = resolving = inspecting = false;
@@ -423,8 +431,12 @@ namespace TurnLimbo.Presentation
             stepAfterimages.Reset();
             movementTime = fatalTime = cameraJoltTime = idleTime = fatalExposure = impactFlashTime = 0f;
             approachMovementSpeed = pursuitMovementSpeed = settings.MovementSpeedMultiplier;
+            approachSettleSeconds = settings.ApproachSettleSeconds;
+            returnSettleSeconds = settings.ReturnSettleSeconds;
             slotAnimationSpeed = 1f;
             slotAttackInterval = 0f;
+            slotAttackRhythmStrength = 0f;
+            slotAttackLungeDistance = 0f;
             cameraJolt = Vector3.zero;
             cameraRotation = 0f;
             rotationSign = 0;
@@ -579,6 +591,7 @@ namespace TurnLimbo.Presentation
             inspecting = returning = false;
             movementTime = 0f;
             approachMovementSpeed = settings.MovementSpeedMultiplier;
+            approachSettleSeconds = settings.ApproachSettleSeconds;
             player.Chasing = enemy.Chasing = false;
             player.Skill = enemy.Skill = null;
             player.LowerTravelActive = player.HasLowerTravelProgress = false;
@@ -599,6 +612,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
         {
+            ClearAttackMotion();
             if (!resolving) combatCameraPivot = DuelCenter;
             resolving = true;
             stepFeedbackStartedThisSlot = dodgedThisSlot = false;
@@ -628,13 +642,20 @@ namespace TurnLimbo.Presentation
 
         internal void ConfigureSlotTiming(float animationSpeed, float attackInterval)
         {
-            // The controller snapshots both values together so changing Inspector
-            // settings cannot move an impact to another animation frame mid-skill.
+            // The controller snapshots speed, gap and pose rhythm together so live authoring cannot jump an ongoing pose.
             slotAnimationSpeed = float.IsNaN(animationSpeed) || float.IsInfinity(animationSpeed)
                 ? 1f : Mathf.Clamp(animationSpeed, 0.1f, 2f);
             slotAttackInterval = float.IsNaN(attackInterval) || float.IsInfinity(attackInterval)
                 ? 0f : Mathf.Clamp(attackInterval, 0f, 1f);
+            slotAttackRhythmStrength = (attackRhythmOverride ?? settings.AttackRhythmEnabled)
+                ? settings.AttackRhythmStrength : 0f;
+            slotAttackLungeDistance = settings.AttackLungeDistance * slotAttackRhythmStrength;
+            ConfigureWeaponTrail();
         }
+
+        /// <summary>Overrides attack pose timing for the next slot in this arena only. The F1 preview uses this to compare
+        /// the same seeded turn without editing the shared settings. Null restores the asset's choice.</summary>
+        public void SetAttackRhythmOverride(bool? enabled) => attackRhythmOverride = enabled;
 
         /// <summary>Changes the player's action inside the current slot, e.g. when a dodge withdraws a pending counter.</summary>
         public void SetPlayerSlotSkill(LegacySkill skill)
@@ -647,11 +668,13 @@ namespace TurnLimbo.Presentation
 
         public void EndTurn()
         {
+            ClearAttackMotion();
             ClearBladeBind();
             ClearSignatureTrails(false);
             returning = true;
             approaching = false;
             movementTime = 0f;
+            returnSettleSeconds = settings.ReturnSettleSeconds;
             cameraRotation = 0f;
             cameraJoltTime = 0f;
             cameraJolt = Vector3.zero;
@@ -802,6 +825,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Chooses how the enemy is drawn. Missing optional appearances fall back to Iia.</summary>
         public void SetEnemyAppearance(EnemyAppearance appearance)
         {
+            ClearAttackMotion(suspension == null);
             if (appearance == EnemyAppearance.TrainingDummy && !dummyAnimations.HasRequiredAssets)
             {
                 Debug.LogWarning("Training dummy art is missing; the student stands in.");
@@ -904,6 +928,9 @@ namespace TurnLimbo.Presentation
                 if (guarded) distance *= GuardKnockbackMultiplier;
             }
             distance *= settings.MovementDistanceMultiplier;
+            // A blade contact or a successful guard stays close enough to continue the exchange. A body hit,
+            // broken resistance or a finishing blow keeps its full displacement and weight.
+            if (hpDamage <= 0 && !fatal && (bladeBlock || guarded)) distance *= settings.BladeRecoilScale;
             // The dummy stands on a fixed base: it sways but is never pushed back.
             if (target == enemy && EnemyIsDummy) distance = 0f;
             if (distance > 0f)
@@ -1049,6 +1076,8 @@ namespace TurnLimbo.Presentation
             TickActor(player, scaledDelta);
             TickActor(enemy, scaledDelta);
             stepAfterimages.Tick(realDelta);
+            attackEchoes?.Tick(realDelta);
+            weaponTrails?.Tick(realDelta);
             TickSignatureAfterimages(realDelta);
             bool stepMovedThisFrame = stepping;
             TickStep(realDelta);
@@ -1060,14 +1089,14 @@ namespace TurnLimbo.Presentation
             {
                 movementTime += scaledDelta;
                 MoveFightersCloser(scaledDelta, ApproachSpeed * approachMovementSpeed, true);
-                if (movementTime >= ApproachDuration && IsInRange && !HasPendingPush) approaching = false;
+                if (movementTime >= approachSettleSeconds && IsInRange && !HasPendingPush) approaching = false;
             }
             else if (returning)
             {
                 // EndTurn retains the displaced world positions. This short wait
                 // only lets the HUD settle; it never interpolates to spawn points.
                 movementTime += scaledDelta;
-                if (movementTime >= ReturnDuration && !HasPendingPush) returning = resolving = false;
+                if (movementTime >= returnSettleSeconds && !HasPendingPush) returning = resolving = false;
             }
             else if (IsPursuing && !stepMovedThisFrame) MoveFightersCloser(scaledDelta, PursuitSpeed * pursuitMovementSpeed, false);
             else if (bulletTime && !stepMovedThisFrame && !HasPendingPush)
@@ -1308,6 +1337,9 @@ namespace TurnLimbo.Presentation
         internal void SuspendForCutscene()
         {
             if (disposed || suspension != null) return;
+            Vector3 playerAttackOffset = player.AttackVisualOffset, enemyAttackOffset = enemy.AttackVisualOffset;
+            Vector3 playerAttackRecoil = player.AttackRecoilOffset, enemyAttackRecoil = enemy.AttackRecoilOffset;
+            ClearAttackMotion(false);
             // A blade bind lets go where it is (the scene poses the fighters itself); a signature's trail ends with its ghosts.
             ClearBladeBind();
             ClearSignatureTrails(true);
@@ -1317,6 +1349,8 @@ namespace TurnLimbo.Presentation
             var saved = new Suspension
             {
                 Player = FigurePicture.Of(player.Renderer), Enemy = FigurePicture.Of(enemy.Renderer),
+                PlayerAttackOffset = playerAttackOffset, EnemyAttackOffset = enemyAttackOffset,
+                PlayerAttackRecoil = playerAttackRecoil, EnemyAttackRecoil = enemyAttackRecoil,
                 PlayerLower = player.LowerRenderer != null ? FigurePicture.Of(player.LowerRenderer) : default,
                 CameraPosition = ArenaCamera.transform.localPosition, CameraRotation = ArenaCamera.transform.localRotation,
                 CameraSize = ArenaCamera.orthographicSize, Appearance = enemyAppearance, Flashback = flashbackAmount,
@@ -1355,10 +1389,14 @@ namespace TurnLimbo.Presentation
         {
             if (disposed || suspension == null) return;
             Suspension saved = suspension;
-            suspension = null;
             if (enemyAppearance != saved.Appearance) SetEnemyAppearance(saved.Appearance);
+            suspension = null;
             saved.Player.ApplyTo(player.Renderer);
             saved.Enemy.ApplyTo(enemy.Renderer);
+            player.AttackRecoilOffset = saved.PlayerAttackRecoil;
+            enemy.AttackRecoilOffset = saved.EnemyAttackRecoil;
+            SetAttackDrawOffset(player, saved.PlayerAttackOffset);
+            SetAttackDrawOffset(enemy, saved.EnemyAttackOffset);
             if (player.LowerRenderer != null) saved.PlayerLower.ApplyTo(player.LowerRenderer);
             ArenaCamera.transform.localPosition = saved.CameraPosition;
             ArenaCamera.transform.localRotation = saved.CameraRotation;
@@ -1448,7 +1486,18 @@ namespace TurnLimbo.Presentation
 
         private void SampleActor(Actor actor)
         {
+            SampleActorPose(actor);
+            ApplyAttackMotion(actor);
+        }
+
+        private void SampleActorPose(Actor actor)
+        {
             bool active = TryGetSkillFrame(actor, out float clipTime);
+            // Only the sampled attack pose changes. Its cycle, hit index, contact and combat clock stay authoritative.
+            // Preserve half-cycle contact so a held blade bind still shows the authored contact cel.
+            if (active && actor.Skill.Kind == LegacySkillKind.Attack && slotAttackRhythmStrength > 0f)
+                clipTime = OriginalClipDuration * LegacyAttackRhythm.PosePhase(clipTime / OriginalClipDuration,
+                    slotAttackRhythmStrength);
             if ((actor == player || actor == enemy && EnemyIsElisa) && mobAnimations.HasRequiredAssets)
             {
                 if (actor.ReactionTime > 0f)
@@ -1784,6 +1833,8 @@ namespace TurnLimbo.Presentation
             disposed = true;
             CancelStep();
             stepAfterimages.Dispose();
+            DisposeAttackMotion();
+            weaponTrails?.Dispose();
             DisposeDirector();
             mobAnimations.Dispose();
             enemyAnimations.Dispose();
@@ -1806,6 +1857,10 @@ namespace TurnLimbo.Presentation
 
         private sealed class Actor
         {
+            public Vector3 AttackVisualOffset, AttackRecoilOffset;
+            public readonly MaterialPropertyBlock AttackDrawProperties = new MaterialPropertyBlock();
+            public readonly Dictionary<int, int> AttackEchoMasks = new Dictionary<int, int>();
+            public readonly HashSet<int> WeaponTrailHits = new HashSet<int>();
             public SpriteRenderer Renderer;
             public SpriteRenderer LowerRenderer;
             public readonly Dictionary<string, AnimationClip> Clips = new Dictionary<string, AnimationClip>(StringComparer.OrdinalIgnoreCase);
@@ -1858,6 +1913,7 @@ namespace TurnLimbo.Presentation
 
         private sealed class Suspension
         {
+            public Vector3 PlayerAttackOffset, EnemyAttackOffset, PlayerAttackRecoil, EnemyAttackRecoil;
             public FigurePicture Player, Enemy, PlayerLower;
             public Vector3 CameraPosition;
             public Quaternion CameraRotation;

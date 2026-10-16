@@ -113,7 +113,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(audio.PressureSource.volume, Is.InRange(0f, 1f));
                 }
                 Assert.That(settings.StepTimingWindow, Is.EqualTo(.1f));
-                Assert.That(settings.StepAnticipationDuration, Is.EqualTo(.24f));
+                Assert.That(settings.StepAnticipationDuration, Is.EqualTo(.20f));
             }
             Object.Destroy(settings); Object.Destroy(host);
             yield return null;

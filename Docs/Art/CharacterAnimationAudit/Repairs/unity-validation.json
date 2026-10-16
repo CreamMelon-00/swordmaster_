@@ -1,0 +1,175 @@
+{
+  "status": "Ready with limitations",
+  "scope": "Character resource import, shared pivots, timing, reactions and game-camera rendering in isolated Windows Editor copy",
+  "unity_version": "6000.5.9f1",
+  "commit": "e8e62457d888037117021331bc3a52cc75da1731",
+  "test_total": 24,
+  "passed": 24,
+  "failed": 0,
+  "skipped": 0,
+  "duration_seconds": 2.4979814,
+  "test_framework_reported_exit_code": 0,
+  "final_pngs_copied_and_hash_matched": 551,
+  "post_run_png_mismatch_paths": [],
+  "source_code_changed_since_snapshot_paths": [],
+  "existing_tests": 22,
+  "copy_only_checks": 2,
+  "character_frames_with_import_and_pivot_assertions": 484,
+  "corrected_cel_camera_captures": 16,
+  "total_camera_captures": 42,
+  "not_run": [
+    "Player build",
+    "Manual complete combat playthrough",
+    "Full unrelated test suite"
+  ],
+  "tests": [
+    {
+      "name": "TurnLimbo.Presentation.Tests.CharacterRepairCaptureOnlyTests.CorrectedHeldLegGripAndReactionCelsRenderThroughTheArenaCamera",
+      "result": "Passed",
+      "duration": "1.056903"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.CharacterRepairCaptureOnlyTests.EveryCharacterFrameRetainsItsPixelArtImportAndGroundPivot",
+      "result": "Passed",
+      "duration": "0.010551"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.BladeBlocksBodyDamageFatalHitsAndSlowClockUseTheCorrectReaction",
+      "result": "Passed",
+      "duration": "0.025135"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.CameraRendersBothGuardsAndBothHurtPosesBesidePlayer",
+      "result": "Passed",
+      "duration": "0.193824"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.EveryIncomingHitAndGuardDrawsOnceIncludingRepeatedChoices",
+      "result": "Passed",
+      "duration": "0.020014"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.FourDistinctReactionAssetsShareDimensionsPaletteImportAndGroundOrigin",
+      "result": "Passed",
+      "duration": "0.002139"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.ArenaSwitchesCampaignCadetsWithoutChangingIia",
+      "result": "Passed",
+      "duration": "0.015935"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.CameraRendersNewEnemyIdleAllAttacksAndGuardBesidePlayer",
+      "result": "Passed",
+      "duration": "0.206672"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.CampaignCadetsHaveCompleteClipsAndStableStageIdentity",
+      "result": "Passed",
+      "duration": "0.005200"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.CompleteAssetsHaveSharedDimensionsPivotAndImpactPhase",
+      "result": "Passed",
+      "duration": "0.001687"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyStudentAnimationPlayModeTests.EnemyRepeatsContactsOnEachHitAndHoldsOnStoppedClock",
+      "result": "Passed",
+      "duration": "0.015470"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.CameraRendersAllNineEnemyContactsAndHurt",
+      "result": "Passed",
+      "duration": "0.436588"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.EveryEnemyHitDrawsOnceAndRetainsItsVariantAcrossHoldsRewindsAndReactions",
+      "result": "Passed",
+      "duration": "0.017850"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.NineMotionsHaveDistinctContactArtAndTheSameImpactPhase",
+      "result": "Passed",
+      "duration": "0.001598"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.PlayerAndEnemyDrawFromIndependentStreamsAndBodyDamageOverridesGuard",
+      "result": "Passed",
+      "duration": "0.014450"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.MobStudentAnimationPlayModeTests.BothStudents_UseRunPoseDuringApproachAndCloseDistanceThenStandAtRest",
+      "result": "Passed",
+      "duration": "0.013585"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.MobStudentAnimationPlayModeTests.SwordGirl_AllAttackCelsHaveCorrectImportAndSharedGroundOrigin",
+      "result": "Passed",
+      "duration": "0.007280"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.MobStudentAnimationPlayModeTests.SwordGirl_AuthoredTimingLoopsAndEveryAttackContactsAtTheAuthoritativeImpact",
+      "result": "Passed",
+      "duration": "0.005841"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.MobStudentAnimationPlayModeTests.SwordGirl_RealArenaRendersAllThreeContactPosesAndIdle",
+      "result": "Passed",
+      "duration": "0.168832"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.MobStudentAnimationPlayModeTests.SwordGirl_StepsAndHitStopKeepWholeBodyPoseAndAfterimageFacingTheOpponent",
+      "result": "Passed",
+      "duration": "0.010588"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.SwordGirlSlashVariantsPlayModeTests.ArenaCameraRendersAllThreeSlashContacts",
+      "result": "Passed",
+      "duration": "0.136998"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.SwordGirlSlashVariantsPlayModeTests.DefenseDoesNotConsumeAttackSelections",
+      "result": "Passed",
+      "duration": "0.016561"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.SwordGirlSlashVariantsPlayModeTests.EachSlashHitSelectsOnceAndKeepsItsVariantAcrossClockHoldsAndRewinds",
+      "result": "Passed",
+      "duration": "0.015652"
+    },
+    {
+      "name": "TurnLimbo.Presentation.Tests.SwordGirlSlashVariantsPlayModeTests.ThreeSlashMotionsHaveDistinctArtAndShareTheContactPhase",
+      "result": "Passed",
+      "duration": "0.001540"
+    }
+  ],
+  "completed_kst": "2026-10-17 00:20",
+  "acceptance_criteria": {
+    "Unity C# compilation": "Passed",
+    "Final 551 PNG snapshot equals production": "Passed",
+    "Existing 22 character tests": "Passed",
+    "484 frame import and pivot assertions": "Passed",
+    "Repaired legs/grip/reaction camera captures": "Passed; inspected enlarged",
+    "Source code unchanged during validation snapshot": "Passed",
+    "Player build": "Not run; outside character-art validation scope"
+  },
+  "warnings": [
+    "Four unique CS0618 obsolete API compiler warnings in unchanged CombatDebugModePlayModeTests.cs and StickyKeysShortcutPlayModeTests.cs; existing source at baseline commit.",
+    "Terrain shader dependency messages during fresh package import; no shader errors or runtime exceptions matched the targeted log; 2D arena rendered correctly."
+  ],
+  "environment_attempts": [
+    "Initial sandboxed isolated Editor could not connect to existing LicenseClient IPC; only that newly started batch Editor was stopped, existing Editors and license processes preserved.",
+    "First unsandboxed copy had excessive Windows path length for package UI assets; retained initial failure logs, reran using short temporary path without changing project settings.",
+    "Short-path final PlayMode run passed 24/24; Unity Test Framework reported exit code 0."
+  ],
+  "existing_user_editor_process_ids_preserved": [
+    23268,
+    35368,
+    41016
+  ],
+  "existing_licensing_process_ids_preserved": [
+    19928,
+    37692
+  ]
+}

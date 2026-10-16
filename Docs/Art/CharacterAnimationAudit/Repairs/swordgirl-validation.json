@@ -1,0 +1,25 @@
+{
+  "asset": "Assets\\Game\\Resources\\SwordGirl\\Animations\\slash-3\\frame-06.png",
+  "nativeFrame": 66,
+  "nativeLayer": "Character - pixel cels",
+  "beforeSha256": "8eb6f5eeb3394473b3f9bf9823a271a6699199dd8f07238a57d3c80b8ca8302f",
+  "afterSha256": "13e04e6c0da5eca68786e77b78f35ccd386021a068cd835273612af13fa9aab0",
+  "changedPixels": 537,
+  "changedBoundsInclusive": [
+    121,
+    113,
+    210,
+    132
+  ],
+  "newPaletteColors": 0,
+  "opaqueComponents8Connected": [
+    5595
+  ],
+  "clippedCanvasPixels": 0,
+  "other11FramesByteIdentical": true,
+  "bladeProjectionPixels": 72,
+  "bladeScreenAngleDegrees": 10,
+  "generatorCorrectionFromOriginalPixelsIdentical": true,
+  "fullOriginalGeneratorRun": false,
+  "fullGeneratorLimitation": "Historical inbetween input sheets are absent at the generator source path"
+}

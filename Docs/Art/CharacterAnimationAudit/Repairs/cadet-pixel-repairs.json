@@ -1,0 +1,649 @@
+{
+  "date": "2026-10-17",
+  "changed_png_count": 106,
+  "unique_patch_count": 52,
+  "frames": [
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt/frame-02.png",
+      "pixels": 496,
+      "before_sha256": "b08d7599cc89ad665387ec4d9a7dfcaaf3d440196ad2d842822af11b5d97738b",
+      "after_sha256": "78c1e6c2bdba93769c5a443ec43c06924b1862a08bd338dcd7ea9475a1627c36"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt/frame-03.png",
+      "pixels": 496,
+      "before_sha256": "b08d7599cc89ad665387ec4d9a7dfcaaf3d440196ad2d842822af11b5d97738b",
+      "after_sha256": "78c1e6c2bdba93769c5a443ec43c06924b1862a08bd338dcd7ea9475a1627c36"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt/frame-04.png",
+      "pixels": 534,
+      "before_sha256": "04456b072c92f91430772281c8d4daf0f6ba2376268810684ec98296e9950f55",
+      "after_sha256": "7f22d974dfd41d9e538ffaf76e718f0a2d78d3279d1afcfe9d044060fbfe8418"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt/frame-05.png",
+      "pixels": 686,
+      "before_sha256": "8289f255f51807060502468a75428ea557258f4a986e3e18e31c508de712f351",
+      "after_sha256": "547322dcdae12c7399eb54eb0fdcfef46f03d0297e652516e0eab4b5d2f4082c"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt/frame-06.png",
+      "pixels": 686,
+      "before_sha256": "8289f255f51807060502468a75428ea557258f4a986e3e18e31c508de712f351",
+      "after_sha256": "547322dcdae12c7399eb54eb0fdcfef46f03d0297e652516e0eab4b5d2f4082c"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt/frame-07.png",
+      "pixels": 534,
+      "before_sha256": "04456b072c92f91430772281c8d4daf0f6ba2376268810684ec98296e9950f55",
+      "after_sha256": "7f22d974dfd41d9e538ffaf76e718f0a2d78d3279d1afcfe9d044060fbfe8418"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt/frame-08.png",
+      "pixels": 412,
+      "before_sha256": "74cc5f4aad0c72c4916f92f9248e3e9e898818afaeae700e8a69114a65cc79ce",
+      "after_sha256": "5d270f130b11803abe1df4f0f6fa3fd07de509a3166306ff6f4058befec612ba"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt/frame-09.png",
+      "pixels": 412,
+      "before_sha256": "74cc5f4aad0c72c4916f92f9248e3e9e898818afaeae700e8a69114a65cc79ce",
+      "after_sha256": "5d270f130b11803abe1df4f0f6fa3fd07de509a3166306ff6f4058befec612ba"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-2/frame-02.png",
+      "pixels": 413,
+      "before_sha256": "748f368edd2a2461a4b417510ce90d0d5a9d9685e0003046b7c7587013f78e54",
+      "after_sha256": "f6d4bc6d2d30749b293dfe675fc5c553fb1e00c6641e3630b4c0b9278d8673df"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-2/frame-03.png",
+      "pixels": 413,
+      "before_sha256": "748f368edd2a2461a4b417510ce90d0d5a9d9685e0003046b7c7587013f78e54",
+      "after_sha256": "f6d4bc6d2d30749b293dfe675fc5c553fb1e00c6641e3630b4c0b9278d8673df"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-2/frame-05.png",
+      "pixels": 857,
+      "before_sha256": "b8bd1f5b9cd5a20e272e8ed4405eaf1265ab459339956e50489633f7193dc800",
+      "after_sha256": "335bff702aacd1cdafdd2a5a6c4770d660a5301680835f08c46b1b065084c005"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-2/frame-06.png",
+      "pixels": 857,
+      "before_sha256": "b8bd1f5b9cd5a20e272e8ed4405eaf1265ab459339956e50489633f7193dc800",
+      "after_sha256": "335bff702aacd1cdafdd2a5a6c4770d660a5301680835f08c46b1b065084c005"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-2/frame-07.png",
+      "pixels": 857,
+      "before_sha256": "b8bd1f5b9cd5a20e272e8ed4405eaf1265ab459339956e50489633f7193dc800",
+      "after_sha256": "335bff702aacd1cdafdd2a5a6c4770d660a5301680835f08c46b1b065084c005"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-2/frame-08.png",
+      "pixels": 519,
+      "before_sha256": "11fcf7f3d226c68ae2f2b778a06aae593ebc0e7e6804565f6acfd1f422114556",
+      "after_sha256": "471a6218dfc291c5217b6aded178c3cb2bc6831cca079956b50550c161d000d5"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-2/frame-09.png",
+      "pixels": 519,
+      "before_sha256": "11fcf7f3d226c68ae2f2b778a06aae593ebc0e7e6804565f6acfd1f422114556",
+      "after_sha256": "471a6218dfc291c5217b6aded178c3cb2bc6831cca079956b50550c161d000d5"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-2/frame-10.png",
+      "pixels": 519,
+      "before_sha256": "11fcf7f3d226c68ae2f2b778a06aae593ebc0e7e6804565f6acfd1f422114556",
+      "after_sha256": "471a6218dfc291c5217b6aded178c3cb2bc6831cca079956b50550c161d000d5"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-3/frame-02.png",
+      "pixels": 844,
+      "before_sha256": "d0767dca6d258c89cc27389425e8ba50af0016db599a6b8db4fb2ce298cc6ab2",
+      "after_sha256": "0de2708edcbcbe41c9f6ea235ce1a6e9e6d49a4bbe05c783cc544a1105de3fce"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-3/frame-03.png",
+      "pixels": 844,
+      "before_sha256": "d0767dca6d258c89cc27389425e8ba50af0016db599a6b8db4fb2ce298cc6ab2",
+      "after_sha256": "0de2708edcbcbe41c9f6ea235ce1a6e9e6d49a4bbe05c783cc544a1105de3fce"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-3/frame-04.png",
+      "pixels": 906,
+      "before_sha256": "4928003362c2cde1dcc79079472be0d727b24950aca1958e6d6a728079f80b0f",
+      "after_sha256": "e89e6c750f272c72d8e80a18f04ea9514a0384174f6665423d76dfe83846fb23"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-3/frame-08.png",
+      "pixels": 516,
+      "before_sha256": "8bf50a0f70d6edbc99d65301bec77193e2975edb4c58f5d615427d84e4886edf",
+      "after_sha256": "f57a97c6e8b1ce1955bb6de1e0368bc74fccc23f66049ee4fcf0c7f4ab7ccd59"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-3/frame-09.png",
+      "pixels": 516,
+      "before_sha256": "8bf50a0f70d6edbc99d65301bec77193e2975edb4c58f5d615427d84e4886edf",
+      "after_sha256": "f57a97c6e8b1ce1955bb6de1e0368bc74fccc23f66049ee4fcf0c7f4ab7ccd59"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/blunt-3/frame-10.png",
+      "pixels": 516,
+      "before_sha256": "8bf50a0f70d6edbc99d65301bec77193e2975edb4c58f5d615427d84e4886edf",
+      "after_sha256": "f57a97c6e8b1ce1955bb6de1e0368bc74fccc23f66049ee4fcf0c7f4ab7ccd59"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce/frame-05.png",
+      "pixels": 598,
+      "before_sha256": "b22d7c78c09ca458e3cf9bd2f34b675182d5ac39ccb4795f077370f800ed2d96",
+      "after_sha256": "69cdc68bfbfd21ca481e603dd6c26cdede7f2a657433842e16d79b36003f8580"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce/frame-06.png",
+      "pixels": 598,
+      "before_sha256": "b22d7c78c09ca458e3cf9bd2f34b675182d5ac39ccb4795f077370f800ed2d96",
+      "after_sha256": "69cdc68bfbfd21ca481e603dd6c26cdede7f2a657433842e16d79b36003f8580"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce/frame-07.png",
+      "pixels": 418,
+      "before_sha256": "ae5c922ae985bf7ba7553a4e68f71a7afad1e0ec6d0294d74460bb19f5c75f0a",
+      "after_sha256": "4b8464d3c632475da117c37d6d972a149f1bf9dacaa743d8039fb951ec89c230"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce/frame-08.png",
+      "pixels": 418,
+      "before_sha256": "ae5c922ae985bf7ba7553a4e68f71a7afad1e0ec6d0294d74460bb19f5c75f0a",
+      "after_sha256": "4b8464d3c632475da117c37d6d972a149f1bf9dacaa743d8039fb951ec89c230"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-02.png",
+      "pixels": 644,
+      "before_sha256": "cd63ca09f9d65ce3b340eadf8c659a2e38085fc2ac8a1beccd398b0e7f9c1b27",
+      "after_sha256": "6936a83603e7ba5d7c0fe2fb535ec8fcd1070712b9c038bff0fcb392c8c03a94"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-03.png",
+      "pixels": 644,
+      "before_sha256": "cd63ca09f9d65ce3b340eadf8c659a2e38085fc2ac8a1beccd398b0e7f9c1b27",
+      "after_sha256": "6936a83603e7ba5d7c0fe2fb535ec8fcd1070712b9c038bff0fcb392c8c03a94"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-04.png",
+      "pixels": 599,
+      "before_sha256": "3ab2f0b001c7ce481b691f35f8aa427a095bedcc06ef2f81c828b3919ff5d488",
+      "after_sha256": "bd4780013a389b8ac064162f9bacde8bd7799418ed01f2f84c6a7fc21d88a79e"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-05.png",
+      "pixels": 820,
+      "before_sha256": "f04a2110a96098c703887f2d901d58fc60e05a7ea34712723237c5e254f621d4",
+      "after_sha256": "c27742c0feefe23af11c62f3fdf103488880b2e95e2affeea2669d3a60c0b37f"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-06.png",
+      "pixels": 820,
+      "before_sha256": "f04a2110a96098c703887f2d901d58fc60e05a7ea34712723237c5e254f621d4",
+      "after_sha256": "c27742c0feefe23af11c62f3fdf103488880b2e95e2affeea2669d3a60c0b37f"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-07.png",
+      "pixels": 820,
+      "before_sha256": "f04a2110a96098c703887f2d901d58fc60e05a7ea34712723237c5e254f621d4",
+      "after_sha256": "c27742c0feefe23af11c62f3fdf103488880b2e95e2affeea2669d3a60c0b37f"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-08.png",
+      "pixels": 582,
+      "before_sha256": "62c62b467df1232c7fd3c66d4a1ee27a2a596dd8894efb75b2abaadc83ea9574",
+      "after_sha256": "c83568f3467972c76ffd6d7f1172b99d7fdfe1dbaf917be15ec3829d0f662b55"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-09.png",
+      "pixels": 582,
+      "before_sha256": "62c62b467df1232c7fd3c66d4a1ee27a2a596dd8894efb75b2abaadc83ea9574",
+      "after_sha256": "c83568f3467972c76ffd6d7f1172b99d7fdfe1dbaf917be15ec3829d0f662b55"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/pierce-2/frame-10.png",
+      "pixels": 582,
+      "before_sha256": "62c62b467df1232c7fd3c66d4a1ee27a2a596dd8894efb75b2abaadc83ea9574",
+      "after_sha256": "c83568f3467972c76ffd6d7f1172b99d7fdfe1dbaf917be15ec3829d0f662b55"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/poses/block-2.png",
+      "pixels": 312,
+      "before_sha256": "625353561f34ea5d0821236d72ed492f26870e7329e05d5eb4141a77b48a8042",
+      "after_sha256": "c68af18008a41b94f389f33a07905614ac994bcbd375acc50879077b18375a38"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/poses/block.png",
+      "pixels": 198,
+      "before_sha256": "a09aac796a9ccfb4da5540d5b3dea052ef7ff368fe5944aca09aef615cf0aa9a",
+      "after_sha256": "f51568cd868b4bde4199d50404412d90f8cc97ed7b3420db8d09cdbf432b0043"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/poses/hurt-2.png",
+      "pixels": 760,
+      "before_sha256": "44e75ab9beb9644901c4703ccb9dbd5ec6bf477fe8f9193cbc823a930da49173",
+      "after_sha256": "5524149254d58e97edca025f637c40a971461889efd1e8c725d7354d91f59263"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/poses/hurt.png",
+      "pixels": 574,
+      "before_sha256": "45ff9161dc3912ff7cb724d31768fa2b39eee79155bffdf7f2b22b1fd3307ced",
+      "after_sha256": "1c090390855982d8a0d0795c46631c9f87b7abd66618cb0ac91e1f984667d1af"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash/frame-02.png",
+      "pixels": 876,
+      "before_sha256": "51d2e08c047d1e4340853fd1a8fb96d6b2dfd2b1767419a08c321f4ff32704fc",
+      "after_sha256": "8167c1e91f53f476077e3c5285d8c0d8116040456ccddbc3d99979798c9b0c40"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash/frame-03.png",
+      "pixels": 395,
+      "before_sha256": "b4d1948d0bdebdb4c70e3b5b353d1ce014c8caae8d6bee8c3955671976c31ddf",
+      "after_sha256": "9512d3db863b594f09fb5063fe0c87d8e2dc989ed5ca0d40cd2eb2b059c526ae"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash/frame-04.png",
+      "pixels": 395,
+      "before_sha256": "b4d1948d0bdebdb4c70e3b5b353d1ce014c8caae8d6bee8c3955671976c31ddf",
+      "after_sha256": "9512d3db863b594f09fb5063fe0c87d8e2dc989ed5ca0d40cd2eb2b059c526ae"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-02.png",
+      "pixels": 343,
+      "before_sha256": "592bd14c2782d4bfec0b864e20a72874656add7d1360c7c2c996b0039e7768a8",
+      "after_sha256": "7472e6bf841b8dc437f3908af8302eb2314e90f5d69acd4bf111698b50ce844e"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-03.png",
+      "pixels": 343,
+      "before_sha256": "592bd14c2782d4bfec0b864e20a72874656add7d1360c7c2c996b0039e7768a8",
+      "after_sha256": "7472e6bf841b8dc437f3908af8302eb2314e90f5d69acd4bf111698b50ce844e"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-05.png",
+      "pixels": 448,
+      "before_sha256": "10536a52ccbbbc138c93051154228e90e0466d548ea973f16518c22de5dfaf64",
+      "after_sha256": "e11b1f6841e76badc00dc8f14b841e5afc7f9f7e4c9f30edb701e3c93a559075"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-06.png",
+      "pixels": 448,
+      "before_sha256": "10536a52ccbbbc138c93051154228e90e0466d548ea973f16518c22de5dfaf64",
+      "after_sha256": "e11b1f6841e76badc00dc8f14b841e5afc7f9f7e4c9f30edb701e3c93a559075"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-07.png",
+      "pixels": 448,
+      "before_sha256": "10536a52ccbbbc138c93051154228e90e0466d548ea973f16518c22de5dfaf64",
+      "after_sha256": "e11b1f6841e76badc00dc8f14b841e5afc7f9f7e4c9f30edb701e3c93a559075"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-08.png",
+      "pixels": 296,
+      "before_sha256": "6cda9fae9818d0798f7b9dc29ed233b433c2f6125c29c1baee923929c381c98c",
+      "after_sha256": "18da34affdc1d9bce125f880df0196946c6f76fa0309b63d48a961f1224b59f2"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-09.png",
+      "pixels": 296,
+      "before_sha256": "6cda9fae9818d0798f7b9dc29ed233b433c2f6125c29c1baee923929c381c98c",
+      "after_sha256": "18da34affdc1d9bce125f880df0196946c6f76fa0309b63d48a961f1224b59f2"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-10.png",
+      "pixels": 296,
+      "before_sha256": "6cda9fae9818d0798f7b9dc29ed233b433c2f6125c29c1baee923929c381c98c",
+      "after_sha256": "18da34affdc1d9bce125f880df0196946c6f76fa0309b63d48a961f1224b59f2"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-3/frame-05.png",
+      "pixels": 462,
+      "before_sha256": "946699f7ab5c7679f12fc5bd0d14cd5290e8fbf87737eba4b565fc0295e67b97",
+      "after_sha256": "901bd9e464f00c825c5f69127985f5e424fa0782a5863dd7d9fbe1d24b58dc9d"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-3/frame-06.png",
+      "pixels": 462,
+      "before_sha256": "946699f7ab5c7679f12fc5bd0d14cd5290e8fbf87737eba4b565fc0295e67b97",
+      "after_sha256": "901bd9e464f00c825c5f69127985f5e424fa0782a5863dd7d9fbe1d24b58dc9d"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-3/frame-07.png",
+      "pixels": 462,
+      "before_sha256": "946699f7ab5c7679f12fc5bd0d14cd5290e8fbf87737eba4b565fc0295e67b97",
+      "after_sha256": "901bd9e464f00c825c5f69127985f5e424fa0782a5863dd7d9fbe1d24b58dc9d"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-02.png",
+      "pixels": 533,
+      "before_sha256": "c2b0d3b97480bf61260a382650fd03a01813f3133a9304c93549a55fcf1621f5",
+      "after_sha256": "4c1709a2f386384b673fe2c148d928f050d6d456c8d51d8bc9795b33fb76e4e4"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-03.png",
+      "pixels": 533,
+      "before_sha256": "c2b0d3b97480bf61260a382650fd03a01813f3133a9304c93549a55fcf1621f5",
+      "after_sha256": "4c1709a2f386384b673fe2c148d928f050d6d456c8d51d8bc9795b33fb76e4e4"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-04.png",
+      "pixels": 545,
+      "before_sha256": "bd0ea7dfc778a89750e88edc7a6ad5ca38cc652704e017cf4196e3c882f4acbd",
+      "after_sha256": "2b71d1685639e99f24898630f44b31ebf96fe131a3f35c14c67219151ae3c696"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-05.png",
+      "pixels": 694,
+      "before_sha256": "f3b032ddf4e2fe8afd705b59e4599ab607d48a55d5059657887ead3e38bdb97f",
+      "after_sha256": "28ed37058e2f9f30c7daed15fa15febef7989168f8b1bae53f5d4f18d658b31a"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-06.png",
+      "pixels": 694,
+      "before_sha256": "f3b032ddf4e2fe8afd705b59e4599ab607d48a55d5059657887ead3e38bdb97f",
+      "after_sha256": "28ed37058e2f9f30c7daed15fa15febef7989168f8b1bae53f5d4f18d658b31a"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-07.png",
+      "pixels": 545,
+      "before_sha256": "bd0ea7dfc778a89750e88edc7a6ad5ca38cc652704e017cf4196e3c882f4acbd",
+      "after_sha256": "2b71d1685639e99f24898630f44b31ebf96fe131a3f35c14c67219151ae3c696"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-08.png",
+      "pixels": 458,
+      "before_sha256": "b885663550ede55b61d860cb5f0b5490f4aad4c18a87e0671d639a70e8fdff6c",
+      "after_sha256": "0fd09e0fd9d12e7ee86fe6385b032cb71efa372b569eac1d2d4231856a95cf1a"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-09.png",
+      "pixels": 458,
+      "before_sha256": "b885663550ede55b61d860cb5f0b5490f4aad4c18a87e0671d639a70e8fdff6c",
+      "after_sha256": "0fd09e0fd9d12e7ee86fe6385b032cb71efa372b569eac1d2d4231856a95cf1a"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-02.png",
+      "pixels": 470,
+      "before_sha256": "f590e05054a578baf8052bcf9ebb2d4a214704483a43339418a4315ce2341102",
+      "after_sha256": "7a4a2b43ebb9d967a30081dca495c14f89a73bde0d9dc79b54a4cde8be9919be"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-03.png",
+      "pixels": 470,
+      "before_sha256": "f590e05054a578baf8052bcf9ebb2d4a214704483a43339418a4315ce2341102",
+      "after_sha256": "7a4a2b43ebb9d967a30081dca495c14f89a73bde0d9dc79b54a4cde8be9919be"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-05.png",
+      "pixels": 907,
+      "before_sha256": "614783ab0829adac093ffcac1555b164cb607da0ec90d5ef793d47eec88b8d74",
+      "after_sha256": "3af2042d75c8a0a2bc3c7e97e9cf3d8324c681f997b5b128cf91a0e1a2e41c6f"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-06.png",
+      "pixels": 907,
+      "before_sha256": "614783ab0829adac093ffcac1555b164cb607da0ec90d5ef793d47eec88b8d74",
+      "after_sha256": "3af2042d75c8a0a2bc3c7e97e9cf3d8324c681f997b5b128cf91a0e1a2e41c6f"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-07.png",
+      "pixels": 907,
+      "before_sha256": "614783ab0829adac093ffcac1555b164cb607da0ec90d5ef793d47eec88b8d74",
+      "after_sha256": "3af2042d75c8a0a2bc3c7e97e9cf3d8324c681f997b5b128cf91a0e1a2e41c6f"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-08.png",
+      "pixels": 574,
+      "before_sha256": "76f034bc4fac2efca51de15cd3a091101aa2945e9467c2f46b0fcada1107db82",
+      "after_sha256": "7d471c1e77c92039baf4a384bd2c6b51e6e6aed83b24d89b8bb6749dcaef6fd9"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-09.png",
+      "pixels": 574,
+      "before_sha256": "76f034bc4fac2efca51de15cd3a091101aa2945e9467c2f46b0fcada1107db82",
+      "after_sha256": "7d471c1e77c92039baf4a384bd2c6b51e6e6aed83b24d89b8bb6749dcaef6fd9"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-10.png",
+      "pixels": 574,
+      "before_sha256": "76f034bc4fac2efca51de15cd3a091101aa2945e9467c2f46b0fcada1107db82",
+      "after_sha256": "7d471c1e77c92039baf4a384bd2c6b51e6e6aed83b24d89b8bb6749dcaef6fd9"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-02.png",
+      "pixels": 907,
+      "before_sha256": "71b376e39ead6b66e9e23f908fff72be5f371e5c5b26a66a464a0d0ec30ecea8",
+      "after_sha256": "0d9ebdd5ebda47f466d0158f5e42fbd19df3b2bfa48f39530fd9ebb3ded09735"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-03.png",
+      "pixels": 907,
+      "before_sha256": "71b376e39ead6b66e9e23f908fff72be5f371e5c5b26a66a464a0d0ec30ecea8",
+      "after_sha256": "0d9ebdd5ebda47f466d0158f5e42fbd19df3b2bfa48f39530fd9ebb3ded09735"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-04.png",
+      "pixels": 959,
+      "before_sha256": "ad5a779a1fe2c754ded5c0b7302fc9e8942b5b9716ee8ab364d751deea92a6cf",
+      "after_sha256": "fdffb53c9c514449f48b593d007eed7680b47e7efb50be2ac83832469ca08e33"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-08.png",
+      "pixels": 530,
+      "before_sha256": "9eb202e7594a74152e258f30f4fe19dca797c24e9967ecacaf95dfcc28c0e0f5",
+      "after_sha256": "6265658f02c278aa054c2ee0f676a1f860ebdfc268069e6f992805f0620c9e2e"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-09.png",
+      "pixels": 530,
+      "before_sha256": "9eb202e7594a74152e258f30f4fe19dca797c24e9967ecacaf95dfcc28c0e0f5",
+      "after_sha256": "6265658f02c278aa054c2ee0f676a1f860ebdfc268069e6f992805f0620c9e2e"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-10.png",
+      "pixels": 530,
+      "before_sha256": "9eb202e7594a74152e258f30f4fe19dca797c24e9967ecacaf95dfcc28c0e0f5",
+      "after_sha256": "6265658f02c278aa054c2ee0f676a1f860ebdfc268069e6f992805f0620c9e2e"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-05.png",
+      "pixels": 620,
+      "before_sha256": "916e1559a82dbb97d15ae02ea87e1a169024fc96c419bc05a23f082114186a77",
+      "after_sha256": "ed4bb9017f0308fca13403a78f35b17d828bb2122ae56994b84451dd4a1e650e"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-06.png",
+      "pixels": 620,
+      "before_sha256": "916e1559a82dbb97d15ae02ea87e1a169024fc96c419bc05a23f082114186a77",
+      "after_sha256": "ed4bb9017f0308fca13403a78f35b17d828bb2122ae56994b84451dd4a1e650e"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-07.png",
+      "pixels": 457,
+      "before_sha256": "fc2d82eb54e65c20e362ef0d18d66bcc2cad6ec5b4778ec316f09071b6437705",
+      "after_sha256": "954bf29ed6c9a71013a01b4eb89cf371197924c6de83fcb266837b24074a7601"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-08.png",
+      "pixels": 457,
+      "before_sha256": "fc2d82eb54e65c20e362ef0d18d66bcc2cad6ec5b4778ec316f09071b6437705",
+      "after_sha256": "954bf29ed6c9a71013a01b4eb89cf371197924c6de83fcb266837b24074a7601"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-02.png",
+      "pixels": 684,
+      "before_sha256": "a0830eede2acb86fdc4d4706b0cb018260e1f845b115f0b0a1ca70a169f61aa2",
+      "after_sha256": "2305c893293ed3e5566c3f3e0341855204b0065e0e57e98cf1529278f1df7543"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-03.png",
+      "pixels": 684,
+      "before_sha256": "a0830eede2acb86fdc4d4706b0cb018260e1f845b115f0b0a1ca70a169f61aa2",
+      "after_sha256": "2305c893293ed3e5566c3f3e0341855204b0065e0e57e98cf1529278f1df7543"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-04.png",
+      "pixels": 601,
+      "before_sha256": "3812303ea31174354ba97f1036ab5310f27c129b2f570bfb635b1b283596cf42",
+      "after_sha256": "b6b68ebaa118140fd03cd3f5a4d9e57d446b7e650ca109c7f296201b9e5429ed"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-05.png",
+      "pixels": 800,
+      "before_sha256": "ce750b5f8e3fbf91dab92f18f9d2df82277c6f9154a0781ebb22b56791a4c47a",
+      "after_sha256": "8705dc2cb657e27331d2ce57e0937050beae6421470bf494e14bbd161a080182"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-06.png",
+      "pixels": 800,
+      "before_sha256": "ce750b5f8e3fbf91dab92f18f9d2df82277c6f9154a0781ebb22b56791a4c47a",
+      "after_sha256": "8705dc2cb657e27331d2ce57e0937050beae6421470bf494e14bbd161a080182"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-07.png",
+      "pixels": 800,
+      "before_sha256": "ce750b5f8e3fbf91dab92f18f9d2df82277c6f9154a0781ebb22b56791a4c47a",
+      "after_sha256": "8705dc2cb657e27331d2ce57e0937050beae6421470bf494e14bbd161a080182"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-08.png",
+      "pixels": 640,
+      "before_sha256": "35c48157e97ed64a107a2ac8946ca6f1dc55516229b0b543a7c1e7e483fd50d4",
+      "after_sha256": "91f9d9b8899a3738c11dbceb79e099a041a3c48a16e74ed1e55f5679f7cbb4d7"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-09.png",
+      "pixels": 640,
+      "before_sha256": "35c48157e97ed64a107a2ac8946ca6f1dc55516229b0b543a7c1e7e483fd50d4",
+      "after_sha256": "91f9d9b8899a3738c11dbceb79e099a041a3c48a16e74ed1e55f5679f7cbb4d7"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-10.png",
+      "pixels": 640,
+      "before_sha256": "35c48157e97ed64a107a2ac8946ca6f1dc55516229b0b543a7c1e7e483fd50d4",
+      "after_sha256": "91f9d9b8899a3738c11dbceb79e099a041a3c48a16e74ed1e55f5679f7cbb4d7"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/block-2.png",
+      "pixels": 298,
+      "before_sha256": "1650a1a5de8943913f5472c8dbb70b302552957f79038447b102a037cfb4585a",
+      "after_sha256": "46f1244682f0ae1e42d0e98c8e0a87ca9b51b9c2a80950a723a203b5c3c5bacf"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/block.png",
+      "pixels": 199,
+      "before_sha256": "c6a8e59f0830fb0507830fd0384d77a5dcf102ade604ec4a294ad5bac8ab5e3a",
+      "after_sha256": "9bf784e8e79bfcd748be3566218559a055a37874363a17e0dd205d095e56b573"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/hurt-2.png",
+      "pixels": 714,
+      "before_sha256": "d7e7f0cc6bcb7cb0b4c896bee7b56af10ddf4af395b8f062c7a6ee65466e90c9",
+      "after_sha256": "f782fa5aab4f662337ee9877b2a729970905d98b112452a909acbf10fdce41da"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/hurt.png",
+      "pixels": 522,
+      "before_sha256": "03852fb6101f29d3f41d0117704ddd958ae9d79e8d2a2610782e6ecb33a8ac4b",
+      "after_sha256": "00bd6b0f14e46b8f24443030aa28bfa7952c80f0378843ba7c2abc7d03aab737"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-02.png",
+      "pixels": 848,
+      "before_sha256": "376d0eff1c6302e0787cefe61f3ed89185052b8005585e750920ecb15e7438fe",
+      "after_sha256": "616d9a1665d40b29fb45ed31b2269b80181b32c6626c337ff82cc829dd5da085"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-03.png",
+      "pixels": 429,
+      "before_sha256": "af57778e6e74ec84c2ffa7572b9a41ed5d0757ab6f83eb1ed4ac2aaddc4e3c68",
+      "after_sha256": "cd3ccf30ce682adf13f054f904990fcb7946432fcb0022c5815c44660ac59276"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-04.png",
+      "pixels": 429,
+      "before_sha256": "af57778e6e74ec84c2ffa7572b9a41ed5d0757ab6f83eb1ed4ac2aaddc4e3c68",
+      "after_sha256": "cd3ccf30ce682adf13f054f904990fcb7946432fcb0022c5815c44660ac59276"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-02.png",
+      "pixels": 559,
+      "before_sha256": "23194fc552ff4614522e59944c4d1a775eacf419f59b362d606445afb8fca1ba",
+      "after_sha256": "35f049886f36762c575a3f600d572d60c73946f6046b48832809d63c52591975"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-03.png",
+      "pixels": 559,
+      "before_sha256": "23194fc552ff4614522e59944c4d1a775eacf419f59b362d606445afb8fca1ba",
+      "after_sha256": "35f049886f36762c575a3f600d572d60c73946f6046b48832809d63c52591975"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-05.png",
+      "pixels": 485,
+      "before_sha256": "938d62bcc88a5e6ff9bd2f6a97ba8bcaa06a1d89e1ee11fdb8c10a9cc4d71f8e",
+      "after_sha256": "33468fe63358522049851b251ecdd6ddea93a1c97582cea7c8bb651869a64033"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-06.png",
+      "pixels": 485,
+      "before_sha256": "938d62bcc88a5e6ff9bd2f6a97ba8bcaa06a1d89e1ee11fdb8c10a9cc4d71f8e",
+      "after_sha256": "33468fe63358522049851b251ecdd6ddea93a1c97582cea7c8bb651869a64033"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-07.png",
+      "pixels": 485,
+      "before_sha256": "938d62bcc88a5e6ff9bd2f6a97ba8bcaa06a1d89e1ee11fdb8c10a9cc4d71f8e",
+      "after_sha256": "33468fe63358522049851b251ecdd6ddea93a1c97582cea7c8bb651869a64033"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-08.png",
+      "pixels": 269,
+      "before_sha256": "4d3bea4d603c61f5df62b7ba7a11b9401c3327caaab61b655a17a84a494715d4",
+      "after_sha256": "7cd9cbea269c4e75569696b24232da9d632feab129588fc9013d587de0035c04"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-09.png",
+      "pixels": 269,
+      "before_sha256": "4d3bea4d603c61f5df62b7ba7a11b9401c3327caaab61b655a17a84a494715d4",
+      "after_sha256": "7cd9cbea269c4e75569696b24232da9d632feab129588fc9013d587de0035c04"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-10.png",
+      "pixels": 269,
+      "before_sha256": "4d3bea4d603c61f5df62b7ba7a11b9401c3327caaab61b655a17a84a494715d4",
+      "after_sha256": "7cd9cbea269c4e75569696b24232da9d632feab129588fc9013d587de0035c04"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-05.png",
+      "pixels": 502,
+      "before_sha256": "8290f611a31a144511138daba649627e1fef7f4a8af96b36874afc5d65dd9967",
+      "after_sha256": "c43cf1d6dedaef366cbeb5e05c3bacab99c109bcbcdfb4860349ae0e45beaf05"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-06.png",
+      "pixels": 502,
+      "before_sha256": "8290f611a31a144511138daba649627e1fef7f4a8af96b36874afc5d65dd9967",
+      "after_sha256": "c43cf1d6dedaef366cbeb5e05c3bacab99c109bcbcdfb4860349ae0e45beaf05"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-07.png",
+      "pixels": 502,
+      "before_sha256": "8290f611a31a144511138daba649627e1fef7f4a8af96b36874afc5d65dd9967",
+      "after_sha256": "c43cf1d6dedaef366cbeb5e05c3bacab99c109bcbcdfb4860349ae0e45beaf05"
+    }
+  ],
+  "replay_guard_pixels_per_frame": 14,
+  "replay_guard_frames": [
+    "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-02.png",
+    "Assets/Game/Resources/EnemyVariants/CadetA/Animations/slash-2/frame-03.png"
+  ],
+  "replay_guard_note": "Preserve original cuff/trim colors during regeneration after source-leg restoration changes legacy source-color inference. Runtime PNGs and actual changed-pixel counts are unchanged."
+}

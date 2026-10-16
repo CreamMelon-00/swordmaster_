@@ -21,11 +21,21 @@ MonoBehaviour:
   nearHeight: 12.6
   nearY: -0.75
   animationPlaybackSpeed: 0.6
-  attackInterval: 0.1
-  skillInterval: 0.28
+  attackInterval: 0.025
+  skillInterval: 0.06
   exhaustedSideSpeed: 1
   exhaustedGapScale: 0.25
   hitStopDuration: 0.04
+  approachSettleSeconds: 0.04
+  returnSettleSeconds: 0.04
+  turnCleanupSeconds: 0.04
+  bladeRecoilScale: 0.35
+  attackRhythmEnabled: 1
+  attackRhythmStrength: 1
+  attackLungeDistance: 0.6
+  weaponTrailEnabled: 1
+  weaponTrailStrength: 1
+  weaponTrailSeconds: 0.12
   combatCameraSize: 3.5
   cameraFollowSharpness: 6
   cameraFollowDeadZone: 0.35
@@ -88,7 +98,7 @@ MonoBehaviour:
   forestAmbienceSceneDuck: 0.7
   timePressureShare: 0.3
   timePressureCameraPush: 0.04
-  stepAnticipationDuration: 0.24
+  stepAnticipationDuration: 0.2
   stepTimingWindow: 0.1
   stepWindowDecay: 0.65
   stepMinimumWindow: 0.04
@@ -104,7 +114,7 @@ MonoBehaviour:
   stepSoundVolume: 0.7
   stepRingGlowIntensity: 1.6
   battleDriftSpeed: 0.15
-  battleStagingSeparation: 7
+  battleStagingSeparation: 5.4
   battleDriftMinimumSeparation: 5
   battlePoseSpeed: 0
   battleDesaturation: 30

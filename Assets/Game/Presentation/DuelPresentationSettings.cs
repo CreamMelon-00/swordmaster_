@@ -25,11 +25,37 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0.1f, 2f), Tooltip("원본 프레임 재생 속도의 배율. 1=원본, 0.8=조금 느리게. 타격 판정도 같은 프레임에 맞춥니다.")]
         private float animationPlaybackSpeed = 1f;
         [SerializeField, Range(0f, 1f), Tooltip("한 스킬의 연타 동작 사이 대기 시간(게임 시계 초). 동작 자체를 늘이지 않고 연타 사이에 여유를 줍니다.")]
-        private float attackInterval = 0.1f;
+        private float attackInterval = 0.025f;
         [SerializeField, Range(0f, 2f), Tooltip("완료된 스킬과 다음 큐 스킬 사이 대기 시간(게임 시계 초).")]
-        private float skillInterval = 0.28f;
+        private float skillInterval = 0.06f;
         [SerializeField, Range(0f, 0.15f), Tooltip("타격 직후 잠깐 멈추는 시간(실제 초). 0이면 히트 스톱을 끕니다.")]
         private float hitStopDuration = 0.04f;
+
+        [Header("교전 동선·전환 대기 — 다음 동작부터 적용")]
+        [SerializeField, Range(0f, .3f), Tooltip("접근 후 기다리는 최소 시간. 실제 이동과 남은 밀림이 끝나야 공격을 시작합니다.")]
+        private float approachSettleSeconds = .04f;
+        [SerializeField, Range(0f, .3f), Tooltip("턴 종료 후 화면을 정리하는 대기. 남은 밀림은 끝까지 표시합니다.")]
+        private float returnSettleSeconds = .04f;
+        [SerializeField, Range(0f, .3f), Tooltip("마지막 기술이 끝난 뒤 턴 정리를 시작하기까지의 대기.")]
+        private float turnCleanupSeconds = .04f;
+        [SerializeField, Range(0f, 1f), Tooltip("칼끼리 맞댄 저항 피해와 성공한 방어의 밀림 비율. 체력 피해·붕괴·마무리의 밀림은 유지합니다.")]
+        private float bladeRecoilScale = .35f;
+
+        [Header("공격 강조 — 다음 스킬부터 적용")]
+        [SerializeField, Tooltip("준비 자세에서 뒤로 모았다가 타격 순간 몸체가 앞으로 뻗고 짧은 잔상을 남깁니다. 동작 그림의 완급도 함께 적용합니다.")]
+        private bool attackRhythmEnabled = true;
+        [SerializeField, Range(0f, 1f), Tooltip("0=기존 동작, 1=준비·베기·회수의 완급과 돌진·잔상을 모두 적용. F1의 공격 강조 버튼으로 켜고 끈 결과를 비교할 수 있습니다.")]
+        private float attackRhythmStrength = LegacyAttackRhythm.DefaultStrength;
+        [SerializeField, Range(0f, 1f), Tooltip("공격 시 몸체가 앞으로 치고 나가는 표시 거리(월드 단위). 준비 때는 조금 뒤로 모으고 타격 순간에 가장 멀리 뻗습니다.")]
+        private float attackLungeDistance = LegacyAttackRhythm.DefaultLungeDistance;
+
+        [Header("베기 잔광 — 다음 스킬부터 적용")]
+        [SerializeField, Tooltip("공격의 베기·찌르기 방향을 따라 짧은 검광을 남깁니다. F1에서 공격 강조와 별도로 비교할 수 있습니다.")]
+        private bool weaponTrailEnabled = true;
+        [SerializeField, Range(0f, 1f)]
+        private float weaponTrailStrength = 1f;
+        [SerializeField, Range(.04f, .25f), Tooltip("검광이 사라질 때까지의 실제 초. 히트 스톱이나 힘겨루기 중에도 감쇠합니다.")]
+        private float weaponTrailSeconds = .12f;
 
         [Header("교전 카메라 — 실행 중 즉시 적용")]
         [SerializeField, Range(2.8f, 6f), Tooltip("일반 교전의 화면 크기. 값이 클수록 두 캐릭터와 검을 넓게 보여줍니다. 일반 타격에는 급확대를 하지 않습니다.")]
@@ -443,7 +469,7 @@ namespace TurnLimbo.Presentation
 
         [Header("스텝 — 다음 스킬부터 적용")]
         [SerializeField, Range(0f, 1f), Tooltip("첫 타격 전 예고 시간(게임 시계 초). 연타의 동작·타격 간격은 유지합니다.")]
-        private float stepAnticipationDuration = 0.24f;
+        private float stepAnticipationDuration = 0.20f;
         [SerializeField, Range(0.03f, 0.25f), Tooltip("첫 타격 직전 회피·압박이 성공하는 구간(게임 시계 초). 턴의 첫 시도 기준이며 시도할 때마다 좁아집니다. 연타는 기술 전체에 한 번 적용합니다.")]
         private float stepTimingWindow = 0.1f;
         [SerializeField, Range(0.3f, 1f), Tooltip("이번 턴 스텝을 시도할 때마다(회피·압박, 성공·실패 무관) 다음 성공 구간에 곱하는 값. 턴마다 초기화됩니다.")]
@@ -481,7 +507,7 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0f, 2f), Tooltip("전투의 편성 중 두 사람이 서로에게 다가가는 속도(한 사람당, 초당 전장 단위). Tab을 누르면 편성 시간과 함께 0.2배로 느려집니다. 0이면 다가가지 않습니다.")]
         private float battleDriftSpeed = 0.15f;
         [SerializeField, Range(4f, 10f), Tooltip("편성이 시작될 때 이보다 가까이 붙어 있으면, 먼저 정상 속도로 이 간격까지 물러섰다가 다시 다가갑니다. 4면 물러서지 않습니다.")]
-        private float battleStagingSeparation = 7f;
+        private float battleStagingSeparation = 5.4f;
         [SerializeField, Range(4f, 10f), Tooltip("편성 중 다가가다 멈추는 거리. 교전 거리 4보다 가까워지지 않고, 이미 가까우면 더 다가가지 않습니다. 편성 시작의 물러섬과는 별개입니다.")]
         private float battleDriftMinimumSeparation = 5f;
         [SerializeField, Range(0f, 1f), Tooltip("편성 중 대기 동작의 속도 배율. 0이면 자세를 붙잡아 둡니다(불릿타임). 1이면 결투와 같습니다.")]
@@ -514,9 +540,19 @@ namespace TurnLimbo.Presentation
         public float NearHeight => Safe(nearHeight, 1f, 100f, 12.6f);
         public float NearY => Safe(nearY, -50f, 50f, -0.75f);
         public float AnimationPlaybackSpeed => Safe(animationPlaybackSpeed, 0.1f, 2f, 1f);
-        public float AttackInterval => Safe(attackInterval, 0f, 1f, 0.1f);
-        public float SkillInterval => Safe(skillInterval, 0f, 2f, 0.28f);
+        public float AttackInterval => Safe(attackInterval, 0f, 1f, 0.025f);
+        public float SkillInterval => Safe(skillInterval, 0f, 2f, 0.06f);
         public float HitStopDuration => Safe(hitStopDuration, 0f, 0.15f, 0.04f);
+        public float ApproachSettleSeconds => Safe(approachSettleSeconds, 0f, .3f, .04f);
+        public float ReturnSettleSeconds => Safe(returnSettleSeconds, 0f, .3f, .04f);
+        public float TurnCleanupSeconds => Safe(turnCleanupSeconds, 0f, .3f, .04f);
+        public float BladeRecoilScale => Safe(bladeRecoilScale, 0f, 1f, .35f);
+        public bool AttackRhythmEnabled => attackRhythmEnabled;
+        public float AttackRhythmStrength => Safe(attackRhythmStrength, 0f, 1f, LegacyAttackRhythm.DefaultStrength);
+        public float AttackLungeDistance => Safe(attackLungeDistance, 0f, 1f, LegacyAttackRhythm.DefaultLungeDistance);
+        public bool WeaponTrailEnabled => weaponTrailEnabled;
+        public float WeaponTrailStrength => Safe(weaponTrailStrength, 0f, 1f, 1f);
+        public float WeaponTrailSeconds => Safe(weaponTrailSeconds, .04f, .25f, .12f);
         public float CombatCameraSize => Safe(combatCameraSize, 2.8f, 6f, 3.5f);
         public float CameraFollowSharpness => Safe(cameraFollowSharpness, 1f, 20f, 6f);
         public float CameraFollowDeadZone => Safe(cameraFollowDeadZone, 0f, 1.5f, 0.35f);
@@ -833,7 +869,7 @@ namespace TurnLimbo.Presentation
         public float TimePressureShare => Safe(timePressureShare, 0f, 1f, .3f);
         /// <summary>How much the camera pushes in when the time is all but out, as a share of its size (0..0.15).</summary>
         public float TimePressureCameraPush => Safe(timePressureCameraPush, 0f, .15f, .04f);
-        public float StepAnticipationDuration => Safe(stepAnticipationDuration, 0f, 1f, 0.24f);
+        public float StepAnticipationDuration => Safe(stepAnticipationDuration, 0f, 1f, 0.20f);
         public float StepTimingWindow => Safe(stepTimingWindow, 0.03f, 0.25f, 0.1f);
         public float StepWindowDecay => Safe(stepWindowDecay, 0.3f, 1f, LegacyStepTiming.DefaultDecay);
         public float StepMinimumWindow => Safe(stepMinimumWindow, 0.02f, 0.1f, LegacyStepTiming.DefaultMinimumWindow);
@@ -849,7 +885,7 @@ namespace TurnLimbo.Presentation
         public float StepSoundVolume => Safe(stepSoundVolume, 0f, 1f, 0.7f);
         public float StepRingGlowIntensity => Safe(stepRingGlowIntensity, 0f, 3f, 1.6f);
         public float BattleDriftSpeed => Safe(battleDriftSpeed, 0f, 2f, 0.15f);
-        public float BattleStagingSeparation => Safe(battleStagingSeparation, 4f, 10f, 7f);
+        public float BattleStagingSeparation => Safe(battleStagingSeparation, 4f, 10f, 5.4f);
         public float BattleDriftMinimumSeparation => Safe(battleDriftMinimumSeparation, 4f, 10f, 5f);
         public float BattlePoseSpeed => Safe(battlePoseSpeed, 0f, 1f, 0f);
         public float BattleDesaturation => Safe(battleDesaturation, 0f, 100f, 30f);
@@ -888,6 +924,14 @@ namespace TurnLimbo.Presentation
             animationPlaybackSpeed = AnimationPlaybackSpeed;
             attackInterval = AttackInterval; skillInterval = SkillInterval;
             hitStopDuration = HitStopDuration;
+            approachSettleSeconds = ApproachSettleSeconds;
+            returnSettleSeconds = ReturnSettleSeconds;
+            turnCleanupSeconds = TurnCleanupSeconds;
+            bladeRecoilScale = BladeRecoilScale;
+            attackRhythmStrength = AttackRhythmStrength;
+            attackLungeDistance = AttackLungeDistance;
+            weaponTrailStrength = WeaponTrailStrength;
+            weaponTrailSeconds = WeaponTrailSeconds;
             combatCameraSize = CombatCameraSize; cameraFollowSharpness = CameraFollowSharpness;
             cameraFollowDeadZone = CameraFollowDeadZone; impactCameraShake = ImpactCameraShake;
             movementDistanceMultiplier = MovementDistanceMultiplier; movementSpeedMultiplier = MovementSpeedMultiplier;

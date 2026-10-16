@@ -4,6 +4,7 @@ local root = 'C:/Users/User/Documents/swordmaster_'
 local sourceRoot = root .. '/Assets/Game/Resources/EnemyStudent/Animations/'
 local outputRoot = root .. '/Assets/Game/Resources/EnemyVariants/CadetA/Animations/'
 local artRoot = root .. '/Docs/Art/EnemyVariants/CadetA/'
+local authoredPixels = dofile(root .. '/Docs/Art/CharacterAnimationAudit/Repairs/apply_cadet_authored_pixels.lua')
 local pixel = app.pixelColor
 local concept = Image { fromFile = root .. '/Docs/Art/EnemyVariants/Concepts/cadet-a-idle-concept-256x224.png' }
 local transparent = pixel.rgba(0, 0, 0, 0)
@@ -514,7 +515,8 @@ local function transform(source, relative)
   cleanPixelIntegrity(output,source,relative)
   repairTopology(output,source,weapon)
   cleanPixelIntegrity(output,source,relative)
-  return output
+  -- Source-pose-specific hand repairs must be inspected if a pose is redesigned.
+  return authoredPixels.apply(output, relative, 'A')
 end
 
 local clips = {
@@ -526,6 +528,7 @@ local poseFiles = {'poses/block', 'poses/block-2', 'poses/hurt', 'poses/hurt-2',
 local native = Sprite(256, 224, ColorMode.RGB)
 native.layers[1].name = 'Cadet A - black hair, blue scarf, pewter trim'
 local frameIndex, contacts = 0, {}
+local tagRanges = {}
 local wanted = {
   ['idle/frame-01'] = true, ['move/frame-01'] = true,
   ['slash/frame-05'] = true, ['slash-2/frame-05'] = true,
@@ -547,14 +550,23 @@ for _, clip in ipairs(clips) do
   for index = 1, clip[2] do
     writeOne(clip[1] .. '/frame-' .. string.format('%02d', index))
   end
-  native:newTag(first, frameIndex).name = clip[1]
+  tagRanges[#tagRanges + 1] = {clip[1], first, frameIndex}
 end
 for _, name in ipairs(poseFiles) do
   local first = frameIndex + 1
   writeOne(name)
-  native:newTag(first, first).name = name:gsub('/', '-')
+  tagRanges[#tagRanges + 1] = {name:gsub('/', '-'), first, first}
 end
 assert(frameIndex == 121)
+-- Appending frames at a tag's last frame extends that tag in Aseprite 1.2.
+-- Create all tags after the complete timeline exists, then check exact bounds.
+for _, range in ipairs(tagRanges) do
+  local tag = native:newTag(range[2], range[3])
+  tag.name = range[1]
+  assert(tag.fromFrame.frameNumber == range[2] and tag.toFrame.frameNumber == range[3],
+         'Incorrect tag range: ' .. range[1])
+end
+assert(#native.tags == 15)
 native:saveAs(artRoot .. 'CadetA-AllAnimations.aseprite')
 
 local order = {

@@ -1,0 +1,17 @@
+{
+  "changed_resources": [
+    "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-far.png",
+    "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-interior.png",
+    "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-near.png"
+  ],
+  "unchanged_resources_and_metadata": 45,
+  "interior_authored_changed_bounds": [
+    2088,
+    436,
+    2172,
+    724
+  ],
+  "interior_changed_logical_pixels": 888,
+  "architecture_preserved": true,
+  "interior_new_colors": 0
+}

@@ -154,7 +154,7 @@ namespace TurnLimbo.Presentation.Tests
                 }
             controller.QueueLane(0);
             controller.CommitTurn();
-            yield return new WaitForSecondsRealtime(LegacyArenaView.ApproachDuration * .5f);
+            yield return new WaitForSecondsRealtime(controller.PresentationSettings.ApproachSettleSeconds * .5f);
             Assert.That(arena.PlayerRenderer.transform.localPosition.x, Is.GreaterThan(-5));
             Assert.That(arena.EnemyRenderer.transform.localPosition.x, Is.LessThan(5));
             Assert.That(controller.Session.CurrentSlot, Is.Null, "No damage should happen during the opening approach.");

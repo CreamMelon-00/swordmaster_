@@ -23,6 +23,7 @@ namespace TurnLimbo.Presentation
         public const float LaneCycleMinimumTimeLeft = LegacyPlanningClock.MinimumTimeLeft;
         private const float OriginalClipDuration = 1f / 6f;
         private const float OriginalAttackEventTime = 1f / 12f;
+        /// <summary>Legacy fallback; active turns snapshot DuelPresentationSettings.TurnCleanupSeconds.</summary>
         public const float TurnCleanupDelay = 0.12f;
         [SerializeField] private DuelPresentationSettings presentationSettings;
         private enum ViewPhase { Planning, Approaching, ClosingDistance, SkillWindup, PlayingSlot, BetweenSlots, AfterTurn, Settling, Outcome }
@@ -143,6 +144,7 @@ namespace TurnLimbo.Presentation
         private float slotStepWindowDecay = LegacyStepTiming.DefaultDecay;
         private float slotStepMinimumWindow = LegacyStepTiming.DefaultMinimumWindow;
         private float betweenSlotsDuration;
+        private float turnCleanupDuration = TurnCleanupDelay;
         private float hitStopRemaining;
         private float planningDuration = PlanningDuration;
         // This turn's own start time: the duration plus what the last turn's skills earned (제한시간), within +10 s. The bar
@@ -736,7 +738,7 @@ namespace TurnLimbo.Presentation
                     if (finishingHitPlayback)
                         arena.HoldSlotAtTime(Mathf.Min(finishingHitTime + phaseTime, finishingClipEnd));
                     // A finishing blow hands over from its freeze frame itself (CompleteFinale), without the return.
-                    if (phaseTime >= TurnCleanupDelay && !finale.IsRunning)
+                    if (phaseTime >= turnCleanupDuration && !finale.IsRunning)
                     {
                         hud.BeginReturn();
                         arena.EndTurn();
@@ -758,6 +760,7 @@ namespace TurnLimbo.Presentation
                     break;
             }
             arena.TickPressureAttackTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
+            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
             // A signature move's strike trail, sampled like the pressure trail after this frame's holds.
             arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot);
             // 결정적 한 수: a picture of the arena camera when one is due (only while a candidate slot or its tail records).
@@ -929,6 +932,7 @@ namespace TurnLimbo.Presentation
                 bool playerWasBroken = session.Player.IsResistanceBroken;
                 bool enemyWasBroken = session.Enemy.IsResistanceBroken;
                 LegacyHitResult hit = session.ResolveNextHit();
+                arena.PresentWeaponTrailContact(hit.HitIndex, hit.PlayerAttacked, hit.EnemyAttacked);
                 // The queue panels' clash motion reads the hit now: a finishing blow completes its slot before the HUD's frame.
                 hud.ObserveClash(session);
                 // The director rates the slot again (a break, a heavy hit, a fall): its weight never drops within the slot.
@@ -1329,6 +1333,7 @@ namespace TurnLimbo.Presentation
 
         private void SetViewPhase(ViewPhase next)
         {
+            if (next == ViewPhase.AfterTurn) turnCleanupDuration = presentationSettings.TurnCleanupSeconds;
             if (next != ViewPhase.AfterTurn) finishingHitPlayback = false;
             viewPhase = next;
             phaseTime = 0f;

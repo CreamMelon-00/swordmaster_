@@ -1,0 +1,399 @@
+{
+  "captured_utc": "2026-10-16T14:53:36.111772+00:00",
+  "scope": [
+    "SchoolCorridor",
+    "ForestArena",
+    "ExplorationMaps/Corridor",
+    "ExplorationMaps/Forest",
+    "LobbyRoom",
+    "LegacyDuel/Background",
+    "AcademyUI/title-academy.png (+meta)"
+  ],
+  "files": [
+    {
+      "path": "Assets/Game/Resources/SchoolCorridor/corridor-composite.png",
+      "sha256": "8fccea472a6416ddc677628ac531732295132fbcde54753041cc0e0d61c27ccf",
+      "bytes": 120067,
+      "size": [
+        2172,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/SchoolCorridor/corridor-composite.png.meta",
+      "sha256": "93a163fd26fa2ae8dc51a1382c6742b129d9cbe827c24821da446714682bba89",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/SchoolCorridor/corridor-far.png",
+      "sha256": "2a2afcac98a73899e953248e24eb8bb4567a321a0ef5f2b3947743bc22dc497f",
+      "bytes": 55912,
+      "size": [
+        2172,
+        916
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/SchoolCorridor/corridor-far.png.meta",
+      "sha256": "04fde163bed71b9e2259e87290d2b3d54a1cf07c1a79bf7d906ec04711b9a3a3",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/SchoolCorridor/corridor-interior.png",
+      "sha256": "764dc1893936dd8d8048276aba63aa715fabdff42455f79dcdefa04d2642f94e",
+      "bytes": 95066,
+      "size": [
+        2172,
+        916
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/SchoolCorridor/corridor-interior.png.meta",
+      "sha256": "cbe20db879583e3798394aaa46b488dd7202d573e082d1ff07cb677c2012660a",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/SchoolCorridor/corridor-near.png",
+      "sha256": "0083e7b240be3d11e42375a56b127772bf7eba3f9db86fd426b7f3841ad78253",
+      "bytes": 114027,
+      "size": [
+        2172,
+        916
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/SchoolCorridor/corridor-near.png.meta",
+      "sha256": "7b53cb651fe7f713d0efc9239cceecbe49b81c5572504aa236f6c4164e0b6e51",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-belt-mid.png",
+      "sha256": "8025f5b257bd5241b408b20debb13f0014b9593f6eb25879f7ad708f9f64d6c0",
+      "bytes": 156893,
+      "size": [
+        2172,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-belt-mid.png.meta",
+      "sha256": "8f2fa36d761352997e496843041e6c295c190543d29139afdb4231cc9dffb114",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-far-mist.png",
+      "sha256": "adad65357d9e070f64b5ca7cc533e374cdaed6da18e4e351d2531bba0ea7f926",
+      "bytes": 126746,
+      "size": [
+        2172,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-far-mist.png.meta",
+      "sha256": "7554d9e959ef2ce920437b7994b762ec15481bd2d9b801783f9f60a12ac2e5ba",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-far-trees.png",
+      "sha256": "ef30f728ab6365124bd68ece81d38bf941a9ee390d3f40f91c6afe909cee33c9",
+      "bytes": 134094,
+      "size": [
+        2172,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-far-trees.png.meta",
+      "sha256": "99634c80c0b73b53a544033255d78736021d1431f2f167b09b95835301d2a671",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-far.png",
+      "sha256": "f2890ca9d1d60fd81c99579aa9950c2a0d12630bbcc79462de0b18ac33ec5f60",
+      "bytes": 193548,
+      "size": [
+        2172,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-far.png.meta",
+      "sha256": "b158af08ba99c4f19635af31a355c7496fd57fcc2edfc2eabcdefefe1fcd2ca8",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-mid.png",
+      "sha256": "557e1101e86b7b03950af503f67bcdbd5eb829a6a75300f7f7561688c2b5904f",
+      "bytes": 1524248,
+      "size": [
+        2172,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-mid.png.meta",
+      "sha256": "47ac7c123d8f01983c3896f481230470f2d9bcd4b55475f28da67bb5c2999a09",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-near.png",
+      "sha256": "a21c19b1dbe15b6fda8cb6848ae717351fcf5165cdb47c21edb2c1e2fa2e099d",
+      "bytes": 46598,
+      "size": [
+        2172,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ForestArena/forest-near.png.meta",
+      "sha256": "3d3212e8f14befd9399a52b5c0183f695da33ebfa30af5e3269ae06763306786",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-far.png",
+      "sha256": "8f9a10615b73a40b0abf77f0a164ced6f5955a9d9ad64a72dd628dd0c4ba8de3",
+      "bytes": 67298,
+      "size": [
+        4096,
+        916
+      ],
+      "expected_unchanged": false
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-far.png.meta",
+      "sha256": "bca54a24b8cc43789231ec81b8c100b9b7c3c5f9112e9d97f23f17d6db4092a9",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-interior.png",
+      "sha256": "f977f12b60e1c07ca5ae38e0a1c131a328595ef18f378cea26e0b20254305823",
+      "bytes": 122392,
+      "size": [
+        4096,
+        916
+      ],
+      "expected_unchanged": false,
+      "reason": "Follow-up rendered audit confirmed floor splice at x2172; architecture must remain unchanged."
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-interior.png.meta",
+      "sha256": "1877c0b6bfb02051e255f52440a40b87398a8f559cdc176900a4139478ab2436",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-near.png",
+      "sha256": "ddc94f2599f282ee9b3a88c62b62db2836ba14e1a37c1cc706be8a410e817129",
+      "bytes": 127391,
+      "size": [
+        4096,
+        916
+      ],
+      "expected_unchanged": false
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Corridor/corridor-near.png.meta",
+      "sha256": "36b5ac3852f1fba32fba727f5162eba4e6712286fb9ede00877c104afeea7c9d",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Forest/forest-belt-mid.png",
+      "sha256": "6b9fd59b1d257409b75f49900707bb25f60019a4fb650fa02339ba0f114a8f0c",
+      "bytes": 302859,
+      "size": [
+        4096,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Forest/forest-belt-mid.png.meta",
+      "sha256": "f7621e5516ec299009a56201c4daeec29e76df8226b7221ee8e8a583ff801177",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Forest/forest-far-mist.png",
+      "sha256": "0f619dba1f17802ceed0e9d3f121b6a13edb10f208dc297b767386087b952abe",
+      "bytes": 214251,
+      "size": [
+        4096,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Forest/forest-far-mist.png.meta",
+      "sha256": "b123da94e4f962c4aab076bf66c533a0e7d78939563367fc6c273711ebf28d4b",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Forest/forest-far-trees.png",
+      "sha256": "7cba91542ee3c3df82c9872775ec5fe9885f75f0d8a521010c07b08ad9ffe2d1",
+      "bytes": 232080,
+      "size": [
+        4096,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Forest/forest-far-trees.png.meta",
+      "sha256": "c9c9d6dd7e71d122fccbf7c95c3fff2d80272f1036d98f878fd6f15170d43f8b",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Forest/forest-near.png",
+      "sha256": "747e54acec17a4a3af9ff11403833ce74e02dd5c6c5dec857a832ea997755b02",
+      "bytes": 82754,
+      "size": [
+        4096,
+        724
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/ExplorationMaps/Forest/forest-near.png.meta",
+      "sha256": "c4887fcd3a16c19d539829e83ae4b5b76022bbebd2b0f370d7dd9b7262b22a5b",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/day.png",
+      "sha256": "e66985ae8f6fdacc98250cb9812948ca8882ad577fdd5d5a6fcbc5e6523c45a4",
+      "bytes": 1285067,
+      "size": [
+        1920,
+        1080
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/day.png.meta",
+      "sha256": "4c169fd186a0eb2a4a2b95b4461581040093470211f0547b26186145be61b0d4",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/evening.png",
+      "sha256": "4bc3c9afdaa45c92aac1e6cde6aaf26cf9ac5e68f4a5c3f029dd490987da88b0",
+      "bytes": 1163605,
+      "size": [
+        1920,
+        1080
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/evening.png.meta",
+      "sha256": "389d529d7988f06c99b49ccd1d33f724c3fde49ae0910b61a08b055fcdee3e50",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/morning.png",
+      "sha256": "ba8d50ee64599e5d7a6740cf3c0c4e7d1585d60cca19e1516ad03ee44e3d2432",
+      "bytes": 1213170,
+      "size": [
+        1920,
+        1080
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/morning.png.meta",
+      "sha256": "c568d3eb64a69b1322b6493d446e5e5442e50f2019c1d9d0851c30179e442425",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/night.png",
+      "sha256": "8701c10352e201a9ec40d108219072df57141dfa6c40483cccc5a487949223ea",
+      "bytes": 1074128,
+      "size": [
+        1920,
+        1080
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/night.png.meta",
+      "sha256": "32a84decb6c02f3446de57aff46d53f5651396b560250f1435ede9abfe547a85",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/room.png",
+      "sha256": "3a62117b0c0645b2055f0c0e6cb5d419255666957dcaa210fa701d915ee1ef18",
+      "bytes": 1557463,
+      "size": [
+        1672,
+        941
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LobbyRoom/room.png.meta",
+      "sha256": "02a0dda7bee39c7b476ee8ce35cef49ad5f5439b46f14a184e341c1829c8cf3b",
+      "bytes": 1237,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LegacyDuel/Background/pa_background_-_school_in_game.png",
+      "sha256": "7eb970b7a8f8f9593cb5d272c5e2556aed088877b41f24c6aad195e9cb39b72e",
+      "bytes": 15468,
+      "size": [
+        320,
+        180
+      ],
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/LegacyDuel/Background/pa_background_-_school_in_game.png.meta",
+      "sha256": "c6698b86e4f83ceedfef00646aca80938691ac6b0b646fcbf34c92f3c5251ea4",
+      "bytes": 3345,
+      "expected_unchanged": true
+    },
+    {
+      "path": "Assets/Game/Resources/AcademyUI/title-academy.png",
+      "sha256": "81c6a71476da506efca6d5f7372c6b75801b53dedddec2c107f7e8bc345cc034",
+      "bytes": 106224,
+      "expected_unchanged": true,
+      "size": [
+        640,
+        360
+      ]
+    },
+    {
+      "path": "Assets/Game/Resources/AcademyUI/title-academy.png.meta",
+      "sha256": "da851583cfe72b6b58ad66a374e0dddd4656a33967923c29c80254510768eb48",
+      "bytes": 3265,
+      "expected_unchanged": true
+    }
+  ]
+}

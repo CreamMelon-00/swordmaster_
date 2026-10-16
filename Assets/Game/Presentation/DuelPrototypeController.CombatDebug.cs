@@ -11,6 +11,8 @@ namespace TurnLimbo.Presentation
         // The preview uses another instance of the production player, so timing changes have exactly one playback path.
         // The original session and its presentation objects stay suspended; the preview owns no save store.
         private bool combatDebugInstance, combatDebugActive;
+        private bool? combatDebugAttackRhythmChoice;
+        private bool? combatDebugWeaponTrailChoice;
         private int combatDebugEnemyCount = 5, combatDebugPlayerCount = 5, combatDebugLoopNumber;
         private GameObject combatDebugRoot, combatDebugSelection;
         private DuelPrototypeController combatDebugPreview;
@@ -42,6 +44,10 @@ namespace TurnLimbo.Presentation
         public DuelPrototypeController CombatDebugPreview => combatDebugPreview;
         public int CombatDebugEnemyAttackCount => combatDebugEnemyCount;
         public int CombatDebugPlayerAttackCount => combatDebugPlayerCount;
+        public bool CombatDebugAttackRhythmEnabled => combatDebugAttackRhythmChoice ??
+            (presentationSettings == null || presentationSettings.AttackRhythmEnabled);
+        public bool CombatDebugWeaponTrailEnabled => combatDebugWeaponTrailChoice ??
+            (presentationSettings == null || presentationSettings.WeaponTrailEnabled);
         public int CombatDebugLoopNumber => combatDebugPreview != null ? combatDebugPreview.combatDebugLoopNumber : 0;
 
         /// <summary>Opens a separate, repeating combat preview or restores the suspended screen. Online rooms keep their
@@ -91,11 +97,14 @@ namespace TurnLimbo.Presentation
                     combatDebugPreview.presentationSettings = presentationSettings;
                     combatDebugPreview.combatDebugEnemyCount = combatDebugEnemyCount;
                     combatDebugPreview.combatDebugPlayerCount = combatDebugPlayerCount;
+                    combatDebugPreview.combatDebugAttackRhythmChoice = combatDebugAttackRhythmChoice;
+                    combatDebugPreview.combatDebugWeaponTrailChoice = combatDebugWeaponTrailChoice;
                     combatDebugRoot.SetActive(true);
                     combatDebugPreview.enabled = false; // Only the owner advances the preview's clock.
                     combatDebugHud = new DuelCombatDebugHud(combatDebugRoot.transform, art,
                         SetCombatDebugEnemyAttackCount, SetCombatDebugPlayerAttackCount,
-                        RestartCombatDebugPreview, () => SetCombatDebugMode(false));
+                        RestartCombatDebugPreview, () => SetCombatDebugMode(false), SetCombatDebugAttackRhythmEnabled,
+                        SetCombatDebugWeaponTrailEnabled);
                 }
                 else
                 {
@@ -135,8 +144,27 @@ namespace TurnLimbo.Presentation
             if (combatDebugPreview == null) return;
             combatDebugPreview.combatDebugEnemyCount = combatDebugEnemyCount;
             combatDebugPreview.combatDebugPlayerCount = combatDebugPlayerCount;
+            combatDebugPreview.combatDebugAttackRhythmChoice = combatDebugAttackRhythmChoice;
+            combatDebugPreview.combatDebugWeaponTrailChoice = combatDebugWeaponTrailChoice;
+            combatDebugPreview.arena.SetAttackRhythmOverride(combatDebugAttackRhythmChoice);
+            combatDebugPreview.arena.SetWeaponTrailOverride(combatDebugWeaponTrailChoice);
             combatDebugPreview.BeginCombatDebugLoop();
             RefreshCombatDebugHud();
+        }
+
+        /// <summary>Compares the preview's attack poses on the same queues and seed, without editing the shared tuning.</summary>
+        public void SetCombatDebugAttackRhythmEnabled(bool enabled)
+        {
+            if (combatDebugAttackRhythmChoice == enabled) return;
+            combatDebugAttackRhythmChoice = enabled;
+            RestartCombatDebugPreview();
+        }
+
+        public void SetCombatDebugWeaponTrailEnabled(bool enabled)
+        {
+            if (combatDebugWeaponTrailChoice == enabled) return;
+            combatDebugWeaponTrailChoice = enabled;
+            RestartCombatDebugPreview();
         }
 
         private bool AdvanceCombatDebug(float realDelta, Keyboard keyboard)
@@ -153,6 +181,9 @@ namespace TurnLimbo.Presentation
         private void BeginCombatDebugLoop()
         {
             if (!combatDebugInstance) return;
+            // Awake starts the first loop before the owner can reach this arena. Later loops retain this local choice.
+            arena.SetAttackRhythmOverride(combatDebugAttackRhythmChoice);
+            arena.SetWeaponTrailOverride(combatDebugWeaponTrailChoice);
             combatDebugLoopNumber++;
             mission = null;
             guide = null;
@@ -167,7 +198,8 @@ namespace TurnLimbo.Presentation
         }
 
         private void RefreshCombatDebugHud()
-            => combatDebugHud?.Refresh(combatDebugEnemyCount, combatDebugPlayerCount, CombatDebugLoopNumber);
+            => combatDebugHud?.Refresh(combatDebugEnemyCount, combatDebugPlayerCount, CombatDebugLoopNumber,
+                CombatDebugAttackRhythmEnabled, CombatDebugWeaponTrailEnabled);
 
         private void RestoreCombatDebugScreen()
         {

@@ -192,8 +192,8 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Arena.Tick(0f, .02f);
                 Assert.That(fixture.Arena.ArenaCamera.transform.localPosition, Is.EqualTo(position));
                 Assert.That(settings.AnimationPlaybackSpeed, Is.EqualTo(1f));
-                Assert.That(settings.AttackInterval, Is.EqualTo(.1f));
-                Assert.That(settings.SkillInterval, Is.EqualTo(.28f));
+                Assert.That(settings.AttackInterval, Is.EqualTo(.025f));
+                Assert.That(settings.SkillInterval, Is.EqualTo(.06f));
                 Assert.That(settings.GlowIntensity, Is.EqualTo(3f));
                 Assert.That(settings.BloomIntensity, Is.EqualTo(.65f));
             }

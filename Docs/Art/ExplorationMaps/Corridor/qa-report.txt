@@ -1,6 +1,9 @@
 PASS: 3 authored 4096x724 layers and 3 padded 4096x916 runtime layers.
 PASS: exact 4x grid; binary alpha; each layer at most 64 opaque palette colors.
 PASS: runtime y=160..883 exactly equals authored image, top=160 and bottom=32.
+PASS: outdoor scenery uses its own mirrored continuation at x=2172; joining columns match exactly.
+PASS: opaque far scenery fills all 4096px; no transparent tail behind moving windows.
+PASS: floor splice uses a native-pixel irregular overlap at x=2088..2171, y=436..723; architecture unchanged.
 Door: authored x=3600..3840, arch x=3552..3888, center x=3720; shallow threshold y=436..459.
 Floor/wall seam y=432; finite left and right caps; last full window ends before x=3000.
 PASS: Aseprite master roundtrip is pixel-identical to authored composite.

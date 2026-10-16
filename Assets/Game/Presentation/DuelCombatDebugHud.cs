@@ -13,20 +13,24 @@ namespace TurnLimbo.Presentation
 
         private readonly LegacyDuelArt art;
         private readonly Action<int> setEnemyCount, setPlayerCount;
-        private readonly Text enemyValue, playerValue, status;
-        private readonly Button enemyLess, enemyMore, playerLess, playerMore, restartButton, closeButton;
+        private readonly Action<bool> setAttackRhythm, setWeaponTrail;
+        private readonly Text enemyValue, playerValue, status, attackRhythmLabel, weaponTrailLabel;
+        private readonly Button enemyLess, enemyMore, playerLess, playerMore, restartButton, closeButton, attackRhythmButton, weaponTrailButton;
         private int enemyCount, playerCount;
-        private bool disposed;
+        private bool attackRhythmEnabled, weaponTrailEnabled, disposed;
 
         public GameObject Root { get; }
 
         public DuelCombatDebugHud(Transform parent, LegacyDuelArt art, Action<int> setEnemyCount,
-            Action<int> setPlayerCount, Action restart, Action close)
+            Action<int> setPlayerCount, Action restart, Action close, Action<bool> setAttackRhythm = null,
+            Action<bool> setWeaponTrail = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
             this.setEnemyCount = setEnemyCount;
             this.setPlayerCount = setPlayerCount;
+            this.setAttackRhythm = setAttackRhythm;
+            this.setWeaponTrail = setWeaponTrail;
 
             RectTransform root = Rect("Combat Debug HUD", parent, Vector2.zero, Vector2.zero);
             Root = root.gameObject;
@@ -40,20 +44,28 @@ namespace TurnLimbo.Presentation
             scaler.matchWidthOrHeight = .5f;
             Root.AddComponent<GraphicRaycaster>();
 
-            Image card = Panel("Combat Debug Controls", root, new Vector2(0f, -18f), new Vector2(900f, 124f),
+            Image card = Panel("Combat Debug Controls", root, new Vector2(0f, -18f), new Vector2(1280f, 124f),
                 DuelVisualTheme.Surface);
             card.rectTransform.anchorMin = card.rectTransform.anchorMax = new Vector2(.5f, 1f);
             card.rectTransform.pivot = new Vector2(.5f, 1f);
             card.raycastTarget = true;
             DuelVisualTheme.DressPanel(card);
 
-            Label("Debug Title", card.transform, new Vector2(-260f, 34f), new Vector2(320f, 32f), 23,
+            Label("Debug Title", card.transform, new Vector2(-465f, 34f), new Vector2(280f, 32f), 23,
                 DuelVisualTheme.Foreground, TextAnchor.MiddleLeft).text = "전투 연출 · 디버그";
-            status = Label("Debug Status", card.transform, new Vector2(80f, 34f), new Vector2(340f, 30f), 18,
+            status = Label("Debug Status", card.transform, new Vector2(-185f, 34f), new Vector2(270f, 30f), 17,
                 DuelVisualTheme.Muted);
-            closeButton = ActionButton("Debug Close", card.transform, "F1 닫기", new Vector2(350f, 34f),
+            attackRhythmButton = ActionButton("Debug Attack Rhythm", card.transform, string.Empty, new Vector2(75f, 34f),
+                new Vector2(210f, 36f), ToggleAttackRhythm);
+            attackRhythmButton.interactable = setAttackRhythm != null;
+            attackRhythmLabel = attackRhythmButton.GetComponentInChildren<Text>();
+            weaponTrailButton = ActionButton("Debug Weapon Trail", card.transform, string.Empty, new Vector2(300f, 34f),
+                new Vector2(210f, 36f), ToggleWeaponTrail);
+            weaponTrailButton.interactable = setWeaponTrail != null;
+            weaponTrailLabel = weaponTrailButton.GetComponentInChildren<Text>();
+            closeButton = ActionButton("Debug Close", card.transform, "F1 닫기", new Vector2(535f, 34f),
                 new Vector2(140f, 36f), close);
-            Panel("Debug Divider", card.transform, new Vector2(0f, 7f), new Vector2(836f, 1f), DuelVisualTheme.Border);
+            Panel("Debug Divider", card.transform, new Vector2(0f, 7f), new Vector2(1216f, 1f), DuelVisualTheme.Border);
 
             Label("Enemy Attack Label", card.transform, new Vector2(-348f, -28f), new Vector2(100f, 36f), 21,
                 DuelVisualTheme.Foreground).text = "적 공격";
@@ -77,13 +89,48 @@ namespace TurnLimbo.Presentation
             Refresh(0, 0, 0);
         }
 
-        public void Refresh(int enemyCount, int playerCount, int loopNumber)
+        public void Refresh(int enemyCount, int playerCount, int loopNumber, bool attackRhythmEnabled = true,
+            bool weaponTrailEnabled = true)
         {
             if (disposed) return;
             this.enemyCount = Mathf.Clamp(enemyCount, 0, MaximumAttackCount);
             this.playerCount = Mathf.Clamp(playerCount, 0, MaximumAttackCount);
             RefreshCounts();
+            this.attackRhythmEnabled = attackRhythmEnabled;
+            RefreshAttackRhythm();
+            this.weaponTrailEnabled = weaponTrailEnabled;
+            RefreshWeaponTrail();
             status.text = "자동 반복 · 양측 무적" + (loopNumber > 0 ? " · " + loopNumber + "회" : string.Empty);
+        }
+
+        private void ToggleAttackRhythm()
+        {
+            if (setAttackRhythm == null) return;
+            attackRhythmEnabled = !attackRhythmEnabled;
+            RefreshAttackRhythm();
+            setAttackRhythm(attackRhythmEnabled);
+        }
+
+        private void RefreshAttackRhythm()
+        {
+            attackRhythmLabel.text = "공격 강조 · " + (attackRhythmEnabled ? "켬" : "끔");
+            attackRhythmLabel.color = attackRhythmEnabled ? DuelVisualTheme.Accent : DuelVisualTheme.Muted;
+            attackRhythmButton.targetGraphic.color = attackRhythmEnabled ? DuelVisualTheme.Selected : DuelVisualTheme.RaisedSurface;
+        }
+
+        private void ToggleWeaponTrail()
+        {
+            if (setWeaponTrail == null) return;
+            weaponTrailEnabled = !weaponTrailEnabled;
+            RefreshWeaponTrail();
+            setWeaponTrail(weaponTrailEnabled);
+        }
+
+        private void RefreshWeaponTrail()
+        {
+            weaponTrailLabel.text = "베기 잔광 · " + (weaponTrailEnabled ? "켬" : "끔");
+            weaponTrailLabel.color = weaponTrailEnabled ? DuelVisualTheme.Accent : DuelVisualTheme.Muted;
+            weaponTrailButton.targetGraphic.color = weaponTrailEnabled ? DuelVisualTheme.Selected : DuelVisualTheme.RaisedSurface;
         }
 
         private void ChangeEnemy(int delta)
@@ -118,7 +165,8 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             disposed = true;
-            foreach (Button button in new[] { enemyLess, enemyMore, playerLess, playerMore, restartButton, closeButton })
+            foreach (Button button in new[] { enemyLess, enemyMore, playerLess, playerMore, restartButton, closeButton,
+                attackRhythmButton, weaponTrailButton })
                 button.onClick.RemoveAllListeners();
             Root.SetActive(false);
             GameObject selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;

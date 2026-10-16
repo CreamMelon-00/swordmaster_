@@ -1,6 +1,8 @@
 local root='C:/Users/user/Documents/SwordMasterStory/Aseprite_Character'
 local out=root..'/Slash_Expansion'
-local sourceNative='C:/Fork/swordmaster_/Docs/Art/SwordGirl/SwordGirl_Defense_Hurt.aseprite'
+local repositoryRoot=app.params.repositoryRoot or 'C:/Users/User/Documents/swordmaster_'
+local sourceNative=repositoryRoot..'/Docs/Art/SwordGirl/SwordGirl_Defense_Hurt.aseprite'
+local gripRepair=dofile(repositoryRoot..'/Docs/Art/CharacterAnimationAudit/Repairs/swordgirl_slash3_grip_pixels.lua')
 local W,H=256,224;local ground,footX=202,56;local pc=app.pixelColor
 local sprite=app.open(sourceNative);assert(#sprite.frames==48)
 local character,effects
@@ -110,10 +112,12 @@ for variant,poses in ipairs({p2,p3}) do
   for i=2,11 do frames[i]=cleanup.clean(frames[i],{label=key..'/'..i,top=tops[i],headX=centers[i],angle=angles[i]}) end
  else
   frames={ready,mid[1],poses[1],poses[2],poses[3],poses[4],poses[5],poses[6],mid[4],mid[5],mid[6],ready}
-  local angles={-58,177,180,32,0,4,20,-46,-51,-55,-58,-58}
-  local lengths={73,60,60,39,73,35,70,73,73,73,73,73}
+  local angles={-58,177,180,32,0,10,20,-46,-51,-55,-58,-58}
+  local lengths={73,60,60,39,73,72,70,73,73,73,73,73}
   local centers={99,98,98,99,102,103,102,100,99,99,99,99}
   for i=2,11 do frames[i]=cleanup.clean(frames[i],{label=key..'/'..i,top=73+(i==2 and 1 or 0),headX=centers[i],angle=angles[i],length=lengths[i],foreshortened=i==4}) end
+  -- Preserve the authored closed fist and cuff after the source-pose body cleanup.
+  frames[6]=gripRepair.apply(frames[6])
  end
  local unique={}
  for _,image in ipairs(frames) do

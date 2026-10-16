@@ -1,0 +1,183 @@
+{
+  "description": "Explicit per-pose foreground masks restore donor hands, cuffs, arms and shoulders in the approved concept palette. Hurt/hurt-2 also remove the transplanted neutral coat stump outside the recoil sleeve silhouette, and plot closed pain eyes and tense mouths. Applied through Aseprite Image pixel editing; no pixels outside reviewed masks changed.",
+  "coordinates": "zero-based inclusive",
+  "entries": [
+    {
+      "cadet": "CadetA",
+      "pose": "block",
+      "runtime": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/poses/block.png",
+      "native_frame_1based": 117,
+      "patch": "CadetA-block.patch.png",
+      "mask": "CadetA-block.mask.png",
+      "changed_pixels": 198,
+      "added_pixels": 6,
+      "removed_neutral_torso_artifact_pixels": 0,
+      "recolored_or_replaced_pixels": 192,
+      "changed_bbox_inclusive": [
+        104,
+        110,
+        122,
+        129
+      ],
+      "before_sha256": "a09aac796a9ccfb4da5540d5b3dea052ef7ff368fe5944aca09aef615cf0aa9a",
+      "after_sha256": "f51568cd868b4bde4199d50404412d90f8cc97ed7b3420db8d09cdbf432b0043",
+      "changed_pixels_match_reviewed_patch": true,
+      "all_changed_colors_in_approved_concept_palette": true
+    },
+    {
+      "cadet": "CadetA",
+      "pose": "block-2",
+      "runtime": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/poses/block-2.png",
+      "native_frame_1based": 118,
+      "patch": "CadetA-block-2.patch.png",
+      "mask": "CadetA-block-2.mask.png",
+      "changed_pixels": 312,
+      "added_pixels": 91,
+      "removed_neutral_torso_artifact_pixels": 0,
+      "recolored_or_replaced_pixels": 221,
+      "changed_bbox_inclusive": [
+        94,
+        121,
+        140,
+        140
+      ],
+      "before_sha256": "625353561f34ea5d0821236d72ed492f26870e7329e05d5eb4141a77b48a8042",
+      "after_sha256": "c68af18008a41b94f389f33a07905614ac994bcbd375acc50879077b18375a38",
+      "changed_pixels_match_reviewed_patch": true,
+      "all_changed_colors_in_approved_concept_palette": true
+    },
+    {
+      "cadet": "CadetA",
+      "pose": "hurt",
+      "runtime": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/poses/hurt.png",
+      "native_frame_1based": 119,
+      "patch": "CadetA-hurt.patch.png",
+      "mask": "CadetA-hurt.mask.png",
+      "changed_pixels": 574,
+      "added_pixels": 138,
+      "removed_neutral_torso_artifact_pixels": 186,
+      "recolored_or_replaced_pixels": 250,
+      "changed_bbox_inclusive": [
+        96,
+        102,
+        148,
+        147
+      ],
+      "before_sha256": "45ff9161dc3912ff7cb724d31768fa2b39eee79155bffdf7f2b22b1fd3307ced",
+      "after_sha256": "1c090390855982d8a0d0795c46631c9f87b7abd66618cb0ac91e1f984667d1af",
+      "changed_pixels_match_reviewed_patch": true,
+      "all_changed_colors_in_approved_concept_palette": true
+    },
+    {
+      "cadet": "CadetA",
+      "pose": "hurt-2",
+      "runtime": "Assets/Game/Resources/EnemyVariants/CadetA/Animations/poses/hurt-2.png",
+      "native_frame_1based": 120,
+      "patch": "CadetA-hurt-2.patch.png",
+      "mask": "CadetA-hurt-2.mask.png",
+      "changed_pixels": 760,
+      "added_pixels": 108,
+      "removed_neutral_torso_artifact_pixels": 353,
+      "recolored_or_replaced_pixels": 299,
+      "changed_bbox_inclusive": [
+        103,
+        102,
+        159,
+        133
+      ],
+      "before_sha256": "44e75ab9beb9644901c4703ccb9dbd5ec6bf477fe8f9193cbc823a930da49173",
+      "after_sha256": "5524149254d58e97edca025f637c40a971461889efd1e8c725d7354d91f59263",
+      "changed_pixels_match_reviewed_patch": true,
+      "all_changed_colors_in_approved_concept_palette": true
+    },
+    {
+      "cadet": "CadetB",
+      "pose": "block",
+      "runtime": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/block.png",
+      "native_frame_1based": 117,
+      "patch": "CadetB-block.patch.png",
+      "mask": "CadetB-block.mask.png",
+      "changed_pixels": 199,
+      "added_pixels": 4,
+      "removed_neutral_torso_artifact_pixels": 0,
+      "recolored_or_replaced_pixels": 195,
+      "changed_bbox_inclusive": [
+        102,
+        110,
+        122,
+        124
+      ],
+      "before_sha256": "c6a8e59f0830fb0507830fd0384d77a5dcf102ade604ec4a294ad5bac8ab5e3a",
+      "after_sha256": "9bf784e8e79bfcd748be3566218559a055a37874363a17e0dd205d095e56b573",
+      "changed_pixels_match_reviewed_patch": true,
+      "all_changed_colors_in_approved_concept_palette": true
+    },
+    {
+      "cadet": "CadetB",
+      "pose": "block-2",
+      "runtime": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/block-2.png",
+      "native_frame_1based": 118,
+      "patch": "CadetB-block-2.patch.png",
+      "mask": "CadetB-block-2.mask.png",
+      "changed_pixels": 298,
+      "added_pixels": 43,
+      "removed_neutral_torso_artifact_pixels": 0,
+      "recolored_or_replaced_pixels": 255,
+      "changed_bbox_inclusive": [
+        94,
+        122,
+        140,
+        138
+      ],
+      "before_sha256": "1650a1a5de8943913f5472c8dbb70b302552957f79038447b102a037cfb4585a",
+      "after_sha256": "46f1244682f0ae1e42d0e98c8e0a87ca9b51b9c2a80950a723a203b5c3c5bacf",
+      "changed_pixels_match_reviewed_patch": true,
+      "all_changed_colors_in_approved_concept_palette": true
+    },
+    {
+      "cadet": "CadetB",
+      "pose": "hurt",
+      "runtime": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/hurt.png",
+      "native_frame_1based": 119,
+      "patch": "CadetB-hurt.patch.png",
+      "mask": "CadetB-hurt.mask.png",
+      "changed_pixels": 522,
+      "added_pixels": 75,
+      "removed_neutral_torso_artifact_pixels": 176,
+      "recolored_or_replaced_pixels": 271,
+      "changed_bbox_inclusive": [
+        96,
+        105,
+        147,
+        149
+      ],
+      "before_sha256": "03852fb6101f29d3f41d0117704ddd958ae9d79e8d2a2610782e6ecb33a8ac4b",
+      "after_sha256": "00bd6b0f14e46b8f24443030aa28bfa7952c80f0378843ba7c2abc7d03aab737",
+      "changed_pixels_match_reviewed_patch": true,
+      "all_changed_colors_in_approved_concept_palette": true
+    },
+    {
+      "cadet": "CadetB",
+      "pose": "hurt-2",
+      "runtime": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/hurt-2.png",
+      "native_frame_1based": 120,
+      "patch": "CadetB-hurt-2.patch.png",
+      "mask": "CadetB-hurt-2.mask.png",
+      "changed_pixels": 714,
+      "added_pixels": 62,
+      "removed_neutral_torso_artifact_pixels": 343,
+      "recolored_or_replaced_pixels": 309,
+      "changed_bbox_inclusive": [
+        103,
+        105,
+        158,
+        133
+      ],
+      "before_sha256": "d7e7f0cc6bcb7cb0b4c896bee7b56af10ddf4af395b8f062c7a6ee65466e90c9",
+      "after_sha256": "f782fa5aab4f662337ee9877b2a729970905d98b112452a909acbf10fdce41da",
+      "changed_pixels_match_reviewed_patch": true,
+      "all_changed_colors_in_approved_concept_palette": true
+    }
+  ],
+  "validation": "Actual Aseprite outputs match each reviewed patch exactly. All pixels outside the patches unchanged. Every edited color belongs to the approved cadet concept palette. All 8 outputs inspected enlarged."
+}

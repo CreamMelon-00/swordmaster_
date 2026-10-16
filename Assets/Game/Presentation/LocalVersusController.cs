@@ -83,6 +83,7 @@ namespace TurnLimbo.Presentation
         // Snapshotted when a slot begins, as in the campaign's battles.
         private float slotPlaybackSpeed = 1f, slotAttackInterval, slotImpactTime, slotCycleDuration, slotDuration;
         private float betweenSlotsDuration;
+        private float turnCleanupDuration = DuelPrototypeController.TurnCleanupDelay;
         private bool finishingHitPlayback;
         private float finishingHitTime, finishingClipEnd;
         private int highlightedSlot = -1, nextSlotIndex;
@@ -499,7 +500,7 @@ namespace TurnLimbo.Presentation
                     if (finishingHitPlayback)
                         arena.HoldSlotAtTime(Mathf.Min(finishingHitTime + phaseTime, finishingClipEnd));
                     // A finishing blow hands over from its freeze frame itself (ShowResult), without the return.
-                    if (phaseTime >= DuelPrototypeController.TurnCleanupDelay && !finale.IsRunning)
+                    if (phaseTime >= turnCleanupDuration && !finale.IsRunning)
                     {
                         battleHud.BeginReturn();
                         arena.EndTurn();
@@ -516,6 +517,7 @@ namespace TurnLimbo.Presentation
             }
             // A signature move's strike trail, and 결정적 한 수's picture when one is due.
             arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot);
+            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
             replay.Capture(realDelta, arena.ArenaCamera);
             if (viewPhase != ViewPhase.Finished) RefreshHud(delta, realDelta);
         }
@@ -820,6 +822,7 @@ namespace TurnLimbo.Presentation
 
         private void SetViewPhase(ViewPhase next)
         {
+            if (next == ViewPhase.AfterTurn) turnCleanupDuration = settings.TurnCleanupSeconds;
             if (next != ViewPhase.AfterTurn) finishingHitPlayback = false;
             viewPhase = next;
             phaseTime = 0f;
@@ -940,6 +943,7 @@ namespace TurnLimbo.Presentation
                 bool playerWasBroken = view.Player.IsResistanceBroken;
                 bool enemyWasBroken = view.Enemy.IsResistanceBroken;
                 LocalVersusPerspectiveHit hit = view.Hit(match.ResolveNextHit());
+                arena.PresentWeaponTrailContact(hit.HitIndex, hit.PlayerAttacked, hit.EnemyAttacked);
                 // The queue panels' clash motion reads the hit now: a finishing blow completes its slot before the HUD's frame.
                 battleHud.ObserveClash(view);
                 // The director rates the slot again: its weight never drops within the slot.

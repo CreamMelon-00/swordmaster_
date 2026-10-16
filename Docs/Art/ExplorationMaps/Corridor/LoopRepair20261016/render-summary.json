@@ -1,0 +1,21 @@
+{
+  "scope": "isolated Unity project; production backdrop classes and resource importers; no actors or UI",
+  "unity": "6000.5.9f1",
+  "graphics": "Direct3D11",
+  "pipeline": "Built-in",
+  "captures_per_phase": 15,
+  "after_uncovered_pixels": 0,
+  "unchanged_forest_and_battle_corridor_captures": [
+    "finite-forest_xm24p4.png",
+    "finite-forest_xm12p0.png",
+    "finite-forest_x0p0.png",
+    "finite-forest_x10p0.png",
+    "finite-forest_x24p4.png",
+    "finite-forest_xm13p7_wide.png",
+    "battle-corridor_xm18p6.png",
+    "battle-corridor_x0p0.png",
+    "battle-corridor_x18p6.png"
+  ],
+  "wide_before_uncovered_pixels": 8348,
+  "wide_after_uncovered_pixels": 0
+}

@@ -1,0 +1,26 @@
+{
+  "corridor-far": {
+    "before": {
+      "sha256": "8f9a10615b73a40b0abf77f0a164ced6f5955a9d9ad64a72dd628dd0c4ba8de3",
+      "join_mismatched_rows": 492,
+      "transparent_pixels": 956304
+    },
+    "after": {
+      "sha256": "ced04c91870a20d5a70311bd8387852248d7c4f2e3e9da92419250361d1e0d78",
+      "join_mismatched_rows": 0,
+      "transparent_pixels": 0
+    }
+  },
+  "corridor-near": {
+    "before": {
+      "sha256": "ddc94f2599f282ee9b3a88c62b62db2836ba14e1a37c1cc706be8a410e817129",
+      "join_mismatched_rows": 396,
+      "transparent_pixels": 2814032
+    },
+    "after": {
+      "sha256": "f5a739ec4faed80ff3c1bbd5edd38b92dcbacb8c998cde60770db2fdc579b146",
+      "join_mismatched_rows": 0,
+      "transparent_pixels": 2509712
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+    "phase": "after",
+    "unity": "6000.5.9f1",
+    "graphics": "Direct3D11",
+    "device": "NVIDIA GeForce RTX 5060 Ti",
+    "pipeline": "Built-in",
+    "colorSpace": "Linear",
+    "shots": [
+        {
+            "file": "finite-corridor_xm24p4.png",
+            "map": "finite-corridor",
+            "cameraX": -24.399999618530275,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-corridor_xm12p0.png",
+            "map": "finite-corridor",
+            "cameraX": -12.0,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-corridor_x0p0.png",
+            "map": "finite-corridor",
+            "cameraX": 0.0,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-corridor_x10p0.png",
+            "map": "finite-corridor",
+            "cameraX": 10.0,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-corridor_x24p4.png",
+            "map": "finite-corridor",
+            "cameraX": 24.399999618530275,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-corridor_xm13p7_wide.png",
+            "map": "finite-corridor",
+            "cameraX": -13.699999809265137,
+            "aspect": 3.555555582046509,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-forest_xm24p4.png",
+            "map": "finite-forest",
+            "cameraX": -24.399999618530275,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-forest_xm12p0.png",
+            "map": "finite-forest",
+            "cameraX": -12.0,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-forest_x0p0.png",
+            "map": "finite-forest",
+            "cameraX": 0.0,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-forest_x10p0.png",
+            "map": "finite-forest",
+            "cameraX": 10.0,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-forest_x24p4.png",
+            "map": "finite-forest",
+            "cameraX": 24.399999618530275,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "finite-forest_xm13p7_wide.png",
+            "map": "finite-forest",
+            "cameraX": -13.699999809265137,
+            "aspect": 3.555555582046509,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "battle-corridor_xm18p6.png",
+            "map": "battle-corridor",
+            "cameraX": -18.600000381469728,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "battle-corridor_x0p0.png",
+            "map": "battle-corridor",
+            "cameraX": 0.0,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        },
+        {
+            "file": "battle-corridor_x18p6.png",
+            "map": "battle-corridor",
+            "cameraX": 18.600000381469728,
+            "aspect": 1.7777777910232545,
+            "uncoveredPixels": 0
+        }
+    ]
+}
