@@ -172,7 +172,7 @@ namespace TurnLimbo.Presentation.Tests
                         RectTransform hint = Label(popup, "Explanation Hint").rectTransform;
                         AssertInside(hint, paper);
                         AssertNoOverlap(body, hint, paper);
-                        AssertHeaderClear(popup, paper, "Name", enemy ? "Power Property" : "Power Cost Property", "Explanation Skill Icon");
+                        AssertHeaderClear(popup, paper, "Explanation Skill Icon", "Name", enemy ? "Power Property" : "Power Cost Property");
                         foreach (SkillInfoAttachment badge in popup.GetComponentsInChildren<SkillInfoAttachment>()) AssertOnScreen(badge.rectTransform);
                     }
                     hud.ShowExplanation(Skill(5), enemy);
@@ -218,7 +218,7 @@ namespace TurnLimbo.Presentation.Tests
                         Is.LessThanOrEqualTo(Bounds(border, lobby.Root.transform).yMin + 1f),
                         "The removal action stays below the card, even when the selected skill changes.");
                     AssertBodyFits(body, Label(detail, "Loadout Detail Effect"));
-                    AssertHeaderClear(detail, paper, "Loadout Detail Name", "Loadout Detail Role", "Loadout Detail Icon");
+                    AssertHeaderClear(detail, paper, "Loadout Detail Icon", "Loadout Detail Name");
                     Assert.That(run.HasLoadoutChanges, Is.False);
                 }
                 // E's conditional response needs more lines than Q's brief effect, but not a larger window.
@@ -291,7 +291,7 @@ namespace TurnLimbo.Presentation.Tests
             RectTransform body = Named(detail, "Skill Summary").GetComponent<RectTransform>();
             AssertBodyFits(body, Label(detail, "Curriculum Detail Effect"));
             AssertInside(body, paper);
-            AssertHeaderClear(detail, paper, "Curriculum Detail Name", "Curriculum Detail Purpose", "Curriculum Detail Icon");
+            AssertHeaderClear(detail, paper, "Curriculum Detail Icon", "Curriculum Detail Name", "Curriculum Detail Purpose");
             string[] names = { "Curriculum Detail Rule", "Curriculum Requirement", "Curriculum Exclusive", "Curriculum Availability", "Curriculum Primary Action" };
             foreach (string name in names)
             {
@@ -320,12 +320,13 @@ namespace TurnLimbo.Presentation.Tests
             { AssertThatTextFits(text); AssertInside(text.rectTransform, text.transform.parent.GetComponent<RectTransform>()); }
         }
 
-        private static void AssertHeaderClear(GameObject card, RectTransform paper, string name, string detail, string icon)
+        // The icon and the header's labels (the loadout's name alone since 2026-10-16) stay clear of the card below.
+        private static void AssertHeaderClear(GameObject card, RectTransform paper, string icon, params string[] labels)
         {
             RectTransform body = Named(card, "Skill Summary").GetComponent<RectTransform>();
             RectTransform image = Named(card, icon).GetComponent<RectTransform>();
             AssertInside(image, paper); AssertNoOverlap(image, body, paper);
-            foreach (string label in new[] { name, detail })
+            foreach (string label in labels)
             {
                 Text text = Label(card, label);
                 AssertInside(text.rectTransform, paper);

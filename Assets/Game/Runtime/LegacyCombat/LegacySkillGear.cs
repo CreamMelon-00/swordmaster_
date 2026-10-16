@@ -10,7 +10,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// clockwise (items go left, top, right); 넘기기 turns every open gear together, the small idlers between them turning
     /// the other way, and ends on a ratchet's bounce. These are its geometry (slot angles, how each slot looks, packing,
     /// where an idler meshes and how wide the gears may stand for it), its turn curves and how far a lane's order turned between two looks. No text: the gear is a
-    /// motif of the picture (<c>Docs/Narrative.md</c>).</summary>
+    /// motif of the picture (<c>Docs/Narrative.md</c>). The loadout screens draw each lane as the same gear, its order
+    /// round the rim the way these turn (<see cref="LoadoutSocketAngle"/>).</summary>
     public static class LegacySkillGear
     {
         /// <summary>Sockets round a gear's rim, and the angle between two (one slot, one turn).</summary>
@@ -18,6 +19,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const float SlotDegrees = 360f / SlotCount;
         /// <summary>Where the current skill sits: the top of the gear (degrees, counter-clockwise from the right).</summary>
         public const float TopAngle = 90f;
+        /// <summary>Which way the lane gears turn, as the sign of their rotation in degrees counter-clockwise: -1,
+        /// clockwise. A queue turns the top skill away to the upper right and brings the next one up from the upper left
+        /// (<see cref="SlotAngle"/>: the next slot lies against the turn, and a turn's remaining degrees run out toward it).
+        /// The loadout's gears lay a lane's order out the same way (<see cref="LoadoutSocketAngle"/>).</summary>
+        public const int TurnDirection = -1;
         /// <summary>Slots counted from the top: the current skill, the next (one slot back, upper left), the one just used
         /// or sent back (one slot on, upper right) and the one before it, on its way down out of sight.</summary>
         public const int CurrentSlot = 0, NextSlot = 1, UsedSlot = -1, SpentSlot = -2;
@@ -55,6 +61,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         /// <summary>The socket's radius on a gear of tip radius <paramref name="gearRadius"/>.</summary>
         public static float SlotRadius(float gearRadius) => gearRadius - SocketInset;
+
+        /// <summary>Where socket <paramref name="index"/> of a loadout gear with <paramref name="count"/> sockets sits, in
+        /// degrees counter-clockwise from the right: the lane's order round the gear as the battle turns it, the first at
+        /// the top (where the battle shows the current skill) and each next one a socket further against the turn
+        /// (<see cref="TurnDirection"/>), so one socket's turn brings it to the top, as the battle's next slot comes up
+        /// (<see cref="SlotAngle"/>). Three sockets: the top, the lower left, the lower right.</summary>
+        public static float LoadoutSocketAngle(int index, int count)
+            => count <= 0 ? TopAngle : TopAngle - TurnDirection * index * (360f / count);
 
         /// <summary>Which of a lane's <paramref name="laneCount"/> skills (its order, front first) a slot shows: the order
         /// repeated round the rim, so the top shows the front, the next slot the second and the used slot the last (the

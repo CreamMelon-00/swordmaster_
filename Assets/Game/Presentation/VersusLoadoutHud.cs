@@ -8,39 +8,49 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Match-only preparation overlay. The caller owns the selected loadout and match start.</summary>
+    /// <summary>Match-only preparation overlay. The caller owns the selected loadout and match start. As the campaign
+    /// loadout (2026-10-16): one gear per lane with a socket per slot (<see cref="LoadoutGear"/>: icon and ACT only, the
+    /// first at the top and the rest the way the battle's gears turn), the pool's unplaced skills in a two-row rack
+    /// (<see cref="LoadoutRack"/>) under a lane filter (<see cref="LoadoutFilter"/>), one hint line, and the selected
+    /// skill's detail.</summary>
     public sealed class VersusLoadoutHud : IDisposable
     {
         public const int SortingOrder = 280;
+        /// <summary>The gears' centres: y, and x for Q then a lane's pitch (in the preparation paper's space).</summary>
+        public const float GearCentreY = 92f, FirstLaneX = -580f, LanePitch = 266f;
+        /// <summary>The pool rack's window width.</summary>
+        public const float RackWidth = 1380f;
 
         private sealed class SkillCard
         {
-            public int Id;
+            public int Id, Lane;
             public Button Button;
+            public RectTransform Rect;
             public Image Image, Icon;
             public Text Name;
             public SkillRolePip Role;
             public VersusLoadoutCardDrag Drag;
         }
 
+        // The pool heading row: the heading and the filter after it (no scroll hint: one hint line, as the campaign's).
+        private const float RackHeadingY = -128f;
+
         private readonly LegacyDuelArt art;
         private readonly RectTransform root, availableContent;
         private readonly GameObject ownedEventSystem;
         private readonly Action confirmed, cancelled, changed;
-        private readonly Button[,] slotButtons = new Button[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
-        private readonly Image[,] slotIcons = new Image[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
-        private readonly Text[,] slotNames = new Text[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
-        private readonly Image[,] slotTargets = new Image[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
+        private readonly LoadoutGear[] gears = new LoadoutGear[VersusLoadout.LaneCount];
         private readonly VersusLoadoutCardDrag[,] slotDrags = new VersusLoadoutCardDrag[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
-        // Each slot's skill's core mechanic at its icon's upper right (as the campaign loadout's).
-        private readonly SkillRolePip[,] slotRoles = new SkillRolePip[VersusLoadout.LaneCount, VersusLoadout.SlotsPerLane];
         private readonly List<SkillCard> availableCards = new List<SkillCard>();
-        private readonly Text heading, confirmLabel, hint, detailName, detailKind;
+        private readonly Text heading, confirmLabel, detailName;
         private readonly Image detailIcon;
         private readonly SkillLaneBadge detailStyle;
         private readonly SkillInfoView detailInfo;
+        private readonly LoadoutFilter laneFilter;
         private readonly Button resetButton;
         private readonly VersusLoadout loadout;
+        private Texture2D socketTexture;
+        private Sprite socketSprite;
         private int selectedId;
         private int draggedSkillId, draggedLane = -1, dragPointerId;
         private RectTransform dragGhost;
@@ -53,6 +63,10 @@ namespace TurnLimbo.Presentation
         public Button CancelButton { get; }
         public VersusLoadout Loadout => loadout;
         public bool IsDragging => draggedSkillId != 0;
+        /// <summary>Which lane's skills the pool rack shows (<see cref="LoadoutRack.AllLanes"/>: every lane's). Each
+        /// <see cref="Show"/> starts on 전체; selecting a gear or its socket (a click, or dragging the socket's skill) turns it
+        /// to that lane, and the filter row can set it too.</summary>
+        public int Filter { get; private set; } = LoadoutRack.AllLanes;
 
         public VersusLoadoutHud(Transform parent, LegacyDuelArt art, VersusLoadout loadout,
             Action confirm = null, Action cancel = null, Action changed = null)
@@ -81,6 +95,9 @@ namespace TurnLimbo.Presentation
                 ownedEventSystem.transform.SetParent(parent, false);
                 ownedEventSystem.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
             }
+            // The battle dock's socket picture, this view's own copy (released with it), as the campaign loadout's.
+            socketTexture = LegacyCombatHud.SocketTexture();
+            socketSprite = DuelGearShimmer.CreateSprite(socketTexture);
 
             var backdrop = Panel("Versus Loadout Backdrop", root, Vector2.zero, Vector2.zero,
                 new Color(DuelVisualTheme.Track.r, DuelVisualTheme.Track.g, DuelVisualTheme.Track.b, .9f));
@@ -94,45 +111,26 @@ namespace TurnLimbo.Presentation
 
             heading = Label("Versus Loadout Heading", paper.transform, new Vector2(0f, 386f),
                 new Vector2(1220f, 56f), 43, DuelVisualTheme.Foreground, TextAnchor.MiddleCenter);
+            // The one hint line, the campaign loadout's (no 클릭·드래그 line, no placement hint by the pool).
             Label("Versus Loadout Subheading", paper.transform, new Vector2(0f, 334f),
-                new Vector2(1190f, 34f), 20, DuelVisualTheme.Muted, TextAnchor.MiddleCenter).text =
-                "Q · W · E 각 3칸을 편성하세요. 클릭: 정보 · 드래그: 배치";
+                new Vector2(1190f, 34f), 20, DuelVisualTheme.Muted, TextAnchor.MiddleCenter).text = CampaignLobbyHud.LoadoutHint;
 
-            const float firstX = -572f, pitch = 258f;
-            string[] lanes = { "Q", "W", "E" };
             for (int lane = 0; lane < VersusLoadout.LaneCount; lane++)
             {
-                int selectedLane = lane;
-                float x = firstX + lane * pitch;
-                // The school's dyed badge with its key, as the campaign loadout's lane headings.
-                new SkillLaneBadge(paper.transform, art.UIFont, "Versus Loadout Heading " + lanes[lane],
+                int gearLane = lane;
+                float x = FirstLaneX + lane * LanePitch;
+                // The school's dyed badge with its key, as the campaign loadout's lane headings, over the lane's gear.
+                new SkillLaneBadge(paper.transform, art.UIFont, "Versus Loadout Heading " + SkillLaneStyle.Key(lane),
                     new Vector2(x, 264f), 236f, 36f, 22).SetLane(lane);
+                var gear = new LoadoutGear(paper.transform, art.UIFont, "Versus", lane, VersusLoadout.SlotsPerLane,
+                    new Vector2(x, GearCentreY), socketSprite, slot => ClickSlot(gearLane, slot), () => ClickGear(gearLane));
                 for (int slot = 0; slot < VersusLoadout.SlotsPerLane; slot++)
                 {
-                    int selectedSlot = slot;
-                    float y = 195f - slot * 93f;
-                    var target = Panel("Versus Slot Target " + lanes[lane] + " " + (slot + 1),
-                        paper.transform, new Vector2(x, y), new Vector2(246f, 88f), DuelVisualTheme.Accent);
-                    target.gameObject.SetActive(false);
-                    slotTargets[lane, slot] = target;
-                    var button = ActionButton("Versus Slot " + lanes[lane] + " " + (slot + 1),
-                        paper.transform, null, new Vector2(x, y), new Vector2(238f, 80f),
-                        () => ClickSlot(selectedLane, selectedSlot));
-                    slotButtons[lane, slot] = button;
-                    slotDrags[lane, slot] = button.gameObject.AddComponent<VersusLoadoutCardDrag>();
-                    button.gameObject.AddComponent<VersusLoadoutSlotDrop>().Configure(this, lane, slot);
-                    Label("Slot Order", button.transform, new Vector2(-105f, 26f), new Vector2(24f, 18f),
-                        15, DuelVisualTheme.Muted, TextAnchor.MiddleCenter).text = (slot + 1).ToString();
-                    var icon = Panel("Slot Icon", button.transform, new Vector2(-72f, -4f),
-                        new Vector2(51f, 51f), Color.white);
-                    icon.preserveAspect = true;
-                    slotIcons[lane, slot] = icon;
-                    slotRoles[lane, slot] = new SkillRolePip(button.transform, new Vector2(-50f, 18f));
-                    var name = Label("Slot Name", button.transform, new Vector2(37f, 0f),
-                        new Vector2(145f, 44f), 20, DuelVisualTheme.Foreground);
-                    Fit(name, 14, 20);
-                    slotNames[lane, slot] = name;
+                    GameObject socket = gear.SocketButton(slot).gameObject;
+                    slotDrags[lane, slot] = socket.AddComponent<VersusLoadoutCardDrag>();
+                    socket.AddComponent<VersusLoadoutSlotDrop>().Configure(this, lane, slot);
                 }
+                gears[lane] = gear;
             }
 
             var detailBorder = Panel("Versus Loadout Detail Border", paper.transform,
@@ -140,39 +138,34 @@ namespace TurnLimbo.Presentation
             var detail = Panel("Versus Loadout Detail", detailBorder.transform, Vector2.zero,
                 new Vector2(408f, 402f), DuelVisualTheme.Paper);
             DuelVisualTheme.Frame(detail, true);
-            // The selected skill's school badge over its icon and name, and its role line (로비 목적), as the campaign
-            // loadout's detail.
+            // The selected skill's school badge over its icon and its name level with the icon's centre, as the campaign
+            // loadout's detail (no role line under the name since 2026-10-16).
             detailStyle = new SkillLaneBadge(detail.transform, art.UIFont, "Versus Detail Heading", new Vector2(-20f, 183f),
                 250f, 24f, 16);
             detailIcon = Panel("Versus Detail Icon", detail.transform, new Vector2(-145f, 135f),
                 new Vector2(66f, 66f), Color.white);
             detailIcon.preserveAspect = true;
-            detailName = Label("Versus Detail Name", detail.transform, new Vector2(44f, 151f),
+            detailName = Label("Versus Detail Name", detail.transform, new Vector2(44f, 135f),
                 new Vector2(248f, 32f), 25, DuelVisualTheme.Ink);
             Fit(detailName, 16, 25);
-            detailKind = Label("Versus Detail Kind", detail.transform, new Vector2(44f, 119f),
-                new Vector2(248f, 25f), 17, DuelVisualTheme.Ink);
-            Fit(detailKind, 12, 17);
             detailInfo = new SkillInfoView(detail.transform, art.UIFont, new Vector2(0f, -51f),
                 370f, "Versus Loadout");
 
-            Label("Versus Available Heading", paper.transform, new Vector2(-527f, -128f),
-                new Vector2(320f, 34f), 23, DuelVisualTheme.Foreground).text = "배치 가능한 기술";
-            hint = Label("Versus Loadout Hint", paper.transform, new Vector2(63f, -128f),
-                new Vector2(780f, 30f), 17, DuelVisualTheme.Accent, TextAnchor.MiddleRight);
-            Label("Versus Available Scroll Hint", paper.transform, new Vector2(576f, -128f),
-                new Vector2(220f, 30f), 15, DuelVisualTheme.Muted, TextAnchor.MiddleRight).text =
-                "휠로 더 보기  →";
+            Label("Versus Available Heading", paper.transform, new Vector2(-587f, RackHeadingY),
+                new Vector2(200f, 34f), 23, DuelVisualTheme.Foreground).text = "배치 가능한 기술";
+            // The lane filter, 전체 · Q · W · E, after the heading (every lane is open in versus).
+            laneFilter = new LoadoutFilter(paper.transform, art.UIFont, "Versus", new[] { 0, 1, 2 },
+                new Vector2(-480f, RackHeadingY), SelectFilter);
 
             var collection = Rect("Versus Available Collection", paper.transform,
-                new Vector2(0f, -222f), new Vector2(1380f, 138f));
+                new Vector2(0f, -222f), new Vector2(RackWidth, LoadoutRack.Height));
             var scroll = collection.gameObject.AddComponent<ScrollRect>();
             var viewport = Panel("Versus Available Viewport", collection, Vector2.zero,
-                new Vector2(1380f, 138f), Color.clear);
+                new Vector2(RackWidth, LoadoutRack.Height), Color.clear);
             viewport.raycastTarget = true;
             viewport.gameObject.AddComponent<RectMask2D>();
             availableContent = Rect("Versus Available Content", viewport.transform,
-                Vector2.zero, new Vector2(1380f, 138f));
+                Vector2.zero, new Vector2(RackWidth, LoadoutRack.Height));
             availableContent.anchorMin = availableContent.anchorMax = new Vector2(0f, 1f);
             availableContent.pivot = new Vector2(0f, 1f);
             scroll.viewport = viewport.rectTransform;
@@ -203,6 +196,8 @@ namespace TurnLimbo.Presentation
             CancelDrag();
             openingIds = loadout.ExportIds();
             selectedId = 0;
+            // A fresh preparation starts with nothing selected, so on every lane's skills.
+            SetFilter(LoadoutRack.AllLanes);
             this.heading.text = heading ?? "대전 기술 편성";
             confirmLabel.text = confirmCaption ?? "편성 완료";
             root.gameObject.SetActive(true);
@@ -243,47 +238,52 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             LegacySkill selected = FindAvailable(selectedId);
             if (selected == null) selectedId = 0;
-            selected = FindAvailable(selectedId);
             int laneToPlace = IsDragging ? draggedLane : -1;
 
             for (int lane = 0; lane < VersusLoadout.LaneCount; lane++)
+            {
+                LoadoutGear gear = gears[lane];
+                int selectedSlot = -1;
                 for (int slot = 0; slot < VersusLoadout.SlotsPerLane; slot++)
                 {
                     LegacySkill skill = loadout.GetSkill(lane, slot);
                     slotDrags[lane, slot].Configure(this, skill.Id, lane);
-                    slotIcons[lane, slot].sprite = art.GetSkillIcon(skill.IconId);
-                    slotIcons[lane, slot].enabled = slotIcons[lane, slot].sprite != null;
-                    slotRoles[lane, slot].SetSkill(skill);
-                    slotNames[lane, slot].text = skill.Name;
-                    slotButtons[lane, slot].GetComponent<Image>().color =
-                        selectedId == skill.Id ? DuelVisualTheme.Selected : DuelVisualTheme.Card;
-                    slotTargets[lane, slot].gameObject.SetActive(laneToPlace == lane &&
-                        draggedSkillId != skill.Id);
+                    // A socket shows only its skill's icon and ACT (every versus slot is filled).
+                    gear.Show(slot, art.GetSkillIcon(skill.IconId), skill.Cost);
+                    gear.SetTarget(slot, laneToPlace == lane && draggedSkillId != skill.Id);
+                    if (selectedId == skill.Id) selectedSlot = slot;
                 }
-
-            int available = 0;
-            foreach (SkillCard card in availableCards)
-            {
-                bool equipped = loadout.IsEquipped(card.Id);
-                card.Button.gameObject.SetActive(!equipped);
-                if (equipped) continue;
-                card.Button.GetComponent<RectTransform>().anchoredPosition =
-                    new Vector2(available * 204f + 100f, -69f);
-                card.Image.color = selectedId == card.Id ? DuelVisualTheme.Selected : DuelVisualTheme.Card;
-                available++;
+                gear.SetSelected(selectedSlot);
             }
-            availableContent.sizeDelta = new Vector2(Mathf.Max(1380f, available * 204f), 138f);
-            hint.text = laneToPlace < 0 ? "기술을 같은 열의 칸으로 드래그하세요."
-                : (new[] { "Q", "W", "E" })[laneToPlace] + " 칸에 놓아 배치";
+
+            LayoutAvailableCards();
+            laneFilter.SetChoice(Filter);
             detailIcon.enabled = selected != null && art.GetSkillIcon(selected.IconId) != null;
             detailIcon.sprite = selected == null ? null : art.GetSkillIcon(selected.IconId);
             detailName.text = selected?.Name ?? "기술을 선택하세요";
-            // As the campaign loadout's detail: the school's badge only while a skill is selected.
+            // As the campaign loadout's detail: the school's badge only while a skill is selected (every versus slot is filled).
             detailStyle.Root.gameObject.SetActive(selected != null);
             if (selected != null) detailStyle.SetLane(selected.LaneIndex);
-            detailKind.text = selected == null ? string.Empty : CampaignSkillText.Purpose(selected);
             if (selected == null) detailInfo.SetEmptyMessage("보유 기술이나 편성된 기술을 선택하면 효과를 볼 수 있습니다.");
             else detailInfo.SetSkill(selected);
+        }
+
+        // The pool's every card is built once; the rack only hides the placed ones and the other lanes' and lays the rest
+        // out, so a filter change never destroys a card under the pointer.
+        private void LayoutAvailableCards()
+        {
+            int shown = 0;
+            foreach (SkillCard card in availableCards)
+            {
+                bool visible = !loadout.IsEquipped(card.Id) && (Filter == LoadoutRack.AllLanes || card.Lane == Filter);
+                if (card.Button.gameObject.activeSelf != visible) card.Button.gameObject.SetActive(visible);
+                if (!visible) continue;
+                card.Rect.anchoredPosition = LoadoutRack.CardPosition(shown++);
+                card.Image.color = selectedId == card.Id ? DuelVisualTheme.Selected : DuelVisualTheme.Card;
+            }
+            availableContent.sizeDelta = new Vector2(LoadoutRack.ContentWidth(shown, RackWidth), LoadoutRack.Height);
+            float offset = Mathf.Clamp(-availableContent.anchoredPosition.x, 0f, availableContent.sizeDelta.x - RackWidth);
+            availableContent.anchoredPosition = new Vector2(-offset, 0f);
         }
 
         private void BuildAvailableCards()
@@ -293,48 +293,78 @@ namespace TurnLimbo.Presentation
                 if (!VersusLoadout.IsExcluded(skill.Id)) AddAvailableCard(skill);
         }
 
+        // A compact card, as the campaign loadout's owned ones: the icon at the left with its core mark, the name, and under
+        // it the cost and the lane.
         private void AddAvailableCard(LegacySkill skill)
         {
             int id = skill.Id;
-            var card = new SkillCard { Id = id };
+            var card = new SkillCard { Id = id, Lane = skill.LaneIndex };
             card.Button = ActionButton("Versus Available Skill " + id, availableContent, null,
-                Vector2.zero, new Vector2(194f, 116f), () => Select(id));
-            var cardRect = card.Button.GetComponent<RectTransform>();
-            cardRect.anchorMin = cardRect.anchorMax = new Vector2(0f, 1f);
+                Vector2.zero, new Vector2(LoadoutRack.CardWidth, LoadoutRack.CardHeight), () => Select(id));
+            card.Rect = card.Button.GetComponent<RectTransform>();
+            card.Rect.anchorMin = card.Rect.anchorMax = new Vector2(0f, 1f);
             card.Image = card.Button.GetComponent<Image>();
-            card.Icon = Panel("Available Icon", card.Button.transform, new Vector2(0f, 22f),
-                new Vector2(52f, 52f), Color.white);
+            card.Icon = Panel("Available Icon", card.Button.transform, new Vector2(-68f, 0f),
+                new Vector2(44f, 44f), Color.white);
             card.Icon.sprite = art.GetSkillIcon(skill.IconId);
             card.Icon.enabled = card.Icon.sprite != null;
             card.Icon.preserveAspect = true;
-            card.Role = new SkillRolePip(card.Button.transform, new Vector2(22f, 44f));
+            card.Role = new SkillRolePip(card.Button.transform, new Vector2(-50f, 17f));
             card.Role.SetSkill(skill);
-            card.Name = Label("Available Name", card.Button.transform, new Vector2(0f, -22f),
-                new Vector2(178f, 25f), 17, DuelVisualTheme.Foreground, TextAnchor.MiddleCenter);
+            card.Name = Label("Available Name", card.Button.transform, new Vector2(24f, 11f),
+                new Vector2(128f, 24f), 17, DuelVisualTheme.Foreground);
             card.Name.text = skill.Name;
-            Fit(card.Name, 12, 17);
-            Label("Available Cost", card.Button.transform, new Vector2(-43f, -46f),
+            Fit(card.Name, 13, 17);
+            Label("Available Cost", card.Button.transform, new Vector2(4f, -14f),
                 new Vector2(88f, 20f), 14, DuelVisualTheme.Muted).text = "ACT " + skill.Cost;
-            Label("Available Lane", card.Button.transform, new Vector2(53f, -46f),
-                new Vector2(64f, 20f), 14, SkillLaneStyle.Edge(skill.LaneIndex),
-                TextAnchor.MiddleRight).text = (new[] { "Q", "W", "E" })[skill.LaneIndex];
+            Label("Available Lane", card.Button.transform, new Vector2(68f, -14f),
+                new Vector2(36f, 20f), 14, SkillLaneStyle.Edge(skill.LaneIndex),
+                TextAnchor.MiddleRight).text = SkillLaneStyle.Key(skill.LaneIndex);
             card.Drag = card.Button.gameObject.AddComponent<VersusLoadoutCardDrag>();
             card.Drag.Configure(this, skill.Id, skill.LaneIndex);
             availableCards.Add(card);
         }
 
+        // The rack follows the selection: a skill outside the lane shown brings its lane's skills up.
         private void Select(int skillId)
         {
             if (!IsVisible) return;
             selectedId = skillId;
+            LegacySkill skill = FindAvailable(skillId);
+            if (skill != null && Filter != LoadoutRack.AllLanes && Filter != skill.LaneIndex) SetFilter(skill.LaneIndex);
             Refresh();
         }
 
+        // A socket selects its skill and shows that lane's skills.
         private void ClickSlot(int lane, int slot)
         {
             if (!IsVisible) return;
             selectedId = loadout.GetSkillId(lane, slot);
+            SetFilter(lane);
             Refresh();
+        }
+
+        // The wheel off its sockets: that lane's skills, the selection as it was.
+        private void ClickGear(int lane)
+        {
+            if (!IsVisible) return;
+            SetFilter(lane);
+            Refresh();
+        }
+
+        private void SelectFilter(int filter)
+        {
+            if (!IsVisible) return;
+            SetFilter(filter);
+            Refresh();
+        }
+
+        private void SetFilter(int filter)
+        {
+            if (Filter == filter) return;
+            Filter = filter;
+            // Another lane's skills start from the rack's left.
+            availableContent.anchoredPosition = Vector2.zero;
         }
 
         internal bool BeginDrag(int skillId, int lane, PointerEventData pointer)
@@ -344,6 +374,10 @@ namespace TurnLimbo.Presentation
                 pointer.button != PointerEventData.InputButton.Left || skill == null || skill.LaneIndex != lane)
                 return false;
             CancelDrag();
+            // A skill taken from a socket (always an equipped one; a rack card's never is) selects that socket, so the rack
+            // follows to its lane as a click there would. A card taken from the rack leaves the filter: the rack never
+            // shifts under it.
+            if (loadout.IsEquipped(skillId)) SetFilter(lane);
             selectedId = draggedSkillId = skillId;
             draggedLane = lane;
             dragPointerId = pointer.pointerId;
@@ -436,6 +470,10 @@ namespace TurnLimbo.Presentation
                 button.onClick.RemoveAllListeners();
             Destroy(root.gameObject);
             if (ownedEventSystem != null) Destroy(ownedEventSystem);
+            DuelGearShimmer.Release(socketSprite);
+            DuelGearShimmer.Release(socketTexture);
+            socketSprite = null;
+            socketTexture = null;
         }
 
         private Button ActionButton(string name, Transform parent, string caption, Vector2 position,
@@ -521,7 +559,7 @@ namespace TurnLimbo.Presentation
         }
     }
 
-    /// <summary>Each card owns its pointer drag; drops are validated by its preparation view.</summary>
+    /// <summary>Each card and each gear socket owns its pointer drag; drops are validated by its preparation view.</summary>
     public sealed class VersusLoadoutCardDrag : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         private int skillId, lane;
@@ -540,6 +578,7 @@ namespace TurnLimbo.Presentation
         private void OnDisable() { if (dragging) Owner?.CancelDrag(); dragging = false; }
     }
 
+    /// <summary>A gear socket takes a dragged skill of its lane (<see cref="VersusLoadoutHud"/>).</summary>
     public sealed class VersusLoadoutSlotDrop : MonoBehaviour, IDropHandler
     {
         private VersusLoadoutHud owner;

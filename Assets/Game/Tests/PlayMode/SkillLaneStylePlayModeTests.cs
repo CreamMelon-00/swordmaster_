@@ -194,12 +194,12 @@ namespace TurnLimbo.Presentation.Tests
                     string key = SkillLaneStyle.Key(lane);
                     Assert.That(Label(lobby.Root, "Loadout Heading " + key).text, Does.Contain(SkillLaneStyle.FullName(lane)));
                     Assert.That(Find(lobby.Root, "Loadout Lane " + key), Is.Null,
-                        "All open schools are visible together without a lane filter.");
+                        "All open schools' gears are visible together, never behind tabs (the filter narrows the owned rack only).");
                     for (int slot = 1; slot <= 3; slot++)
                     {
                         string name = "Loadout Slot " + key + " " + slot;
                         GameObject card = Named(lobby.Root, name).gameObject;
-                        Assert.That(card.GetComponentsInChildren<Text>(true).Length, Is.EqualTo(3), "The compact slot remains order, name and ACT only.");
+                        Assert.That(card.GetComponentsInChildren<Text>(true).Length, Is.EqualTo(1), "A gear socket shows its icon and ACT only (2026-10-16).");
                         Click(lobby.Root, name);
                         Assert.That(Label(detail, "Detail Heading").text, Is.EqualTo(SkillLaneStyle.FullName(lane)));
                         Assert.That(Label(detail, "Style Key").text, Is.EqualTo(key));

@@ -204,13 +204,21 @@ namespace TurnLimbo.Presentation.Tests
                 lobby = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
                 lobby.Show(run); lobby.ShowTab(LobbyTab.Loadout);
                 yield return null;
+                // A gear socket shows only its icon and ACT (2026-10-16): the core mark rides the owned cards and the detail.
                 for (int lane = 0; lane < 3; lane++)
                     for (int slot = 0; slot < 3; slot++)
                     {
-                        Transform card = Named(lobby.Root.transform, "Loadout Slot " + SkillLaneStyle.Key(lane) + " " + (slot + 1));
-                        AssertPip(card.Find("Role Pip"), run.GetLoadoutSlot(lane, slot).Skill);
-                        Assert.That(card.GetComponentsInChildren<Text>(true).Length, Is.EqualTo(3), "Still order, name and ACT only.");
+                        Transform socket = Named(lobby.Root.transform, "Loadout Slot " + SkillLaneStyle.Key(lane) + " " + (slot + 1));
+                        Assert.That(socket.Find("Role Pip"), Is.Null, "No core mark on a socket…");
+                        Assert.That(socket.GetComponentsInChildren<Text>(true).Length, Is.EqualTo(1), "…its ACT the only text.");
+                        Assert.That(socket.Find("Slot ACT").GetComponent<Text>().text, Is.EqualTo("ACT " + run.GetLoadoutSlot(lane, slot).Skill.Cost));
                     }
+                CampaignOwnedSkill freed = run.GetLoadoutSlot(1, 0);
+                Assert.That(run.TryUnequipSkill(freed.SkillId), Is.True);
+                lobby.ShowTab(LobbyTab.Loadout);
+                yield return null;
+                AssertPip(Named(lobby.Root.transform, "Loadout Owned Skill " + freed.SkillId).Find("Role Pip"), freed.Skill);
+                Assert.That(run.TryResetLoadout(), Is.True);
 
                 lobby.ShowTab(LobbyTab.Curriculum);
                 yield return null;
@@ -235,13 +243,24 @@ namespace TurnLimbo.Presentation.Tests
                 using (var hud = new VersusLoadoutHud(host.transform, art, loadout))
                 {
                     hud.Show();
+                    // As the campaign's gears (2026-10-16): a socket shows only its icon and ACT; the core mark rides the
+                    // pool's cards and the detail.
                     for (int lane = 0; lane < 3; lane++)
                     {
                         string key = SkillLaneStyle.Key(lane);
                         Assert.That(Named(hud.Root.transform, "Versus Loadout Heading " + key).GetComponent<Text>().text,
                             Is.EqualTo(SkillLaneStyle.FullName(lane)), "The school's badge, as the campaign's.");
-                        AssertPip(Named(hud.Root.transform, "Versus Slot " + key + " 1").Find("Role Pip"), loadout.GetSkill(lane, 0));
+                        for (int slot = 0; slot < 3; slot++)
+                        {
+                            Transform socket = Named(hud.Root.transform, "Versus Slot " + key + " " + (slot + 1));
+                            Assert.That(socket.Find("Role Pip"), Is.Null, "No core mark on a socket…");
+                            Assert.That(socket.GetComponentsInChildren<Text>(true).Length, Is.EqualTo(1), "…its ACT the only text.");
+                            Assert.That(socket.Find("Slot ACT").GetComponent<Text>().text, Is.EqualTo("ACT " + loadout.GetSkill(lane, slot).Cost));
+                        }
                     }
+                    foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills)
+                        Assert.That(Named(hud.Root.transform, "Versus Available Skill " + skill.Id).gameObject.activeSelf, Is.False,
+                            skill.Name + " sits in a socket, so out of the rack.");
                     foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills)
                     {
                         // 에스키브 (54) is kept out of the versus pool (VersusLoadout.ExcludedSkillIds): no card at all.
@@ -259,8 +278,12 @@ namespace TurnLimbo.Presentation.Tests
                     Named(hud.Root.transform, "Versus Available Skill " + picked.Id).GetComponent<Button>().onClick.Invoke();
                     Assert.That(Named(hud.Root.transform, "Versus Detail Heading").GetComponent<Text>().text,
                         Is.EqualTo(SkillLaneStyle.FullName(picked.LaneIndex)));
-                    Assert.That(Named(hud.Root.transform, "Versus Detail Kind").GetComponent<Text>().text,
-                        Is.EqualTo(CampaignSkillText.Purpose(picked)), "The role line, as the campaign loadout's.");
+                    Assert.That(Named(hud.Root.transform, "Versus Detail Name").GetComponent<Text>().text, Is.EqualTo(picked.Name));
+                    Assert.That(Array.Find(hud.Root.GetComponentsInChildren<Transform>(true), node => node.name == "Versus Detail Kind"),
+                        Is.Null, "No role line under the name, as the campaign loadout's (2026-10-16).");
+                    Assert.That(Named(hud.Root.transform, "Versus Detail Name").GetComponent<RectTransform>().anchoredPosition.y,
+                        Is.EqualTo(Named(hud.Root.transform, "Versus Detail Icon").GetComponent<RectTransform>().anchoredPosition.y)
+                            .Within(.01f), "The name sits level with the icon, as the campaign loadout's.");
                 }
             }
             finally { Object.Destroy(host); }

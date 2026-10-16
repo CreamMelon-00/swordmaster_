@@ -187,7 +187,6 @@ namespace TurnLimbo.Core.Tests
                 LegacySkillDefinition definition = LegacySkillDefinitions.Find(skill);
                 Assert.That(LegacySkillDefinitions.Table.GroupOf(definition), Is.EqualTo(LegacySkillGroup.Acquisition), skill.Name);
                 Assert.That(skill.IconId, Is.InRange(23, 26), skill.Name + " has its own field-skill icon.");
-                Assert.That(definition.Text.Purpose, Is.Not.Null, skill.Name);
                 Assert.That(definition.Text.Effect, Is.Not.Null, skill.Name);
                 Assert.That(CampaignCurriculum.Default.FindGranting(skill.Id), Is.Null, skill.Name + " is not a curriculum reward.");
                 Assert.That(CampaignFieldPickups.FindGranting(skill.Id), Is.Not.Null, skill.Name + " lies in the field.");
@@ -254,7 +253,7 @@ namespace TurnLimbo.Core.Tests
             {
                 Assert.That(LegacySkillDefinitions.Table.IsEnemy(definition), Is.True);
                 Assert.That(definition.Skill.Description, Is.EqualTo("서막 4 임무 이아의 수훈 기술."));
-                Assert.That(definition.Text.Purpose ?? definition.Text.Effect, Is.Null, "Never in the lobby.");
+                Assert.That(definition.Text.Effect, Is.Null, "Never in the lobby.");
                 Assert.That(CampaignCurriculum.Default.FindGranting(definition.Skill.Id), Is.Null);
                 Assert.That(run.TryEquipSkill(definition.Skill.Id), Is.False);
             }
@@ -311,16 +310,16 @@ namespace TurnLimbo.Core.Tests
 
         /// <summary>The keyword curriculum's rows (2026-10-13): 51-59 are new (59 갈아내기 is the 일회성 row 58 숫돌 sets), 15, 17,
         /// 19, 21 and 32 revised with their ID, name, lane, kind and property kept. Every number here is the author's to tune
-        /// in the sheet.</summary>
-        [TestCase(51, "에스토카다", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 14, 18, 1, 6)]
-        [TestCase(52, "바트망", 0, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 2, 4, 1, 5)]
-        [TestCase(53, "카덴스", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 5, 7, 1, 2)]
-        [TestCase(54, "에스키브", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 6, 8, 1, 7)]
-        [TestCase(55, "콩트르탕", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 5, 7, 1, 13)]
-        [TestCase(56, "두블레", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 15, 19, 1, 8)]
-        [TestCase(57, "잔걸음", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 5, 7, 1, 1)]
-        [TestCase(58, "숫돌", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 12)]
-        [TestCase(59, "갈아내기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 2, 4, 1, 10)]
+        /// in the sheet. 51-59 draw their own icons, 27-35 (`SkillRoles/role27`…`role35`, sheet of 2026-10-16).</summary>
+        [TestCase(51, "에스토카다", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 14, 18, 1, 27)]
+        [TestCase(52, "바트망", 0, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 2, 4, 1, 28)]
+        [TestCase(53, "카덴스", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 5, 7, 1, 29)]
+        [TestCase(54, "에스키브", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 6, 8, 1, 30)]
+        [TestCase(55, "콩트르탕", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 5, 7, 1, 31)]
+        [TestCase(56, "두블레", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 15, 19, 1, 32)]
+        [TestCase(57, "잔걸음", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 5, 7, 1, 33)]
+        [TestCase(58, "숫돌", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 34)]
+        [TestCase(59, "갈아내기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 2, 4, 1, 35)]
         [TestCase(15, "사선베기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 4, 5, 2, 11)]
         [TestCase(17, "호흡", 0, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 13)]
         [TestCase(19, "르프리즈", 2, LegacySkillKind.Defence, LegacySkillProperty.Defence, 2, 7, 11, 1, 13)]
@@ -337,7 +336,6 @@ namespace TurnLimbo.Core.Tests
                 Is.EqualTo(id == 59 ? LegacySkillGroup.Temporary : LegacySkillGroup.Acquisition));
             Assert.That(definition.HighPower || definition.VariablePower, Is.False, "급소 찌르기 lost its 고화력 tag.");
             Assert.That(definition.Text.Effect, Is.Not.Null.And.Not.Empty, "Every new and revised row has its 로비 효과.");
-            Assert.That(definition.Text.Purpose, Is.Not.Null.And.Not.Empty);
             Assert.That(definition.Text.Info, Is.Not.Null, "and its badges.");
             Assert.That(skill.Description, Does.Contain(minPower + "~" + maxPower), "설명 states the new range.");
             if (kind == LegacySkillKind.Attack)

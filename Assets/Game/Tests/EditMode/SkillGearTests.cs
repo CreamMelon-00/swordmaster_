@@ -38,6 +38,51 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void TurnDirection_IsTheWayTheSlotsTurn_Clockwise()
+        {
+            Assert.That(LegacySkillGear.TurnDirection, Is.EqualTo(-1), "The gears turn clockwise.");
+            // The next slot lies against the turn: one turn brings it to the top.
+            Assert.That(LegacySkillGear.SlotAngle(LegacySkillGear.NextSlot, 0f) + LegacySkillGear.TurnDirection * LegacySkillGear.SlotDegrees,
+                Is.EqualTo(LegacySkillGear.TopAngle).Within(Tolerance));
+            // As a turn runs out (its remaining degrees falling to 0) every slot moves the turn's way.
+            float before = LegacySkillGear.SlotAngle(LegacySkillGear.CurrentSlot, LegacySkillGear.SlotDegrees);
+            float after = LegacySkillGear.SlotAngle(LegacySkillGear.CurrentSlot, 0f);
+            Assert.That(Math.Sign(after - before), Is.EqualTo(LegacySkillGear.TurnDirection));
+        }
+
+        [Test]
+        public void LoadoutSockets_TheFirstAtTheTop_EachNextOneTurnAwayAsInBattle()
+        {
+            for (int count = 1; count <= 6; count++)
+            {
+                Assert.That(LegacySkillGear.LoadoutSocketAngle(0, count), Is.EqualTo(LegacySkillGear.TopAngle),
+                    count + " sockets: the first at the top, where the battle shows the current skill.");
+                float step = 360f / count;
+                for (int index = 1; index < count; index++)
+                {
+                    // A turn of one socket the battle's way brings each socket to where the one before it was.
+                    float turned = LegacySkillGear.LoadoutSocketAngle(index, count) + LegacySkillGear.TurnDirection * step;
+                    Assert.That(LegacySkillGear.Wrap(turned),
+                        Is.EqualTo(LegacySkillGear.Wrap(LegacySkillGear.LoadoutSocketAngle(index - 1, count))).Within(Tolerance),
+                        count + " sockets, socket " + (index + 1));
+                }
+                var spread = Enumerable.Range(0, count)
+                    .Select(index => (float)Math.Round(LegacySkillGear.Wrap(LegacySkillGear.LoadoutSocketAngle(index, count)), 3))
+                    .Distinct().Count();
+                Assert.That(spread, Is.EqualTo(count), count + " sockets, each its own place.");
+            }
+            // Three sockets: the top, then the lower left (the side the battle's next skill comes up from), then the lower right.
+            const float radius = 86f;
+            Assert.That(LegacySkillGear.LoadoutSocketAngle(1, 3), Is.EqualTo(210f).Within(Tolerance));
+            Assert.That(LegacySkillGear.LoadoutSocketAngle(2, 3), Is.EqualTo(330f).Within(Tolerance));
+            Assert.That(Math.Sign(LegacySkillGear.SlotX(LegacySkillGear.LoadoutSocketAngle(1, 3), radius)),
+                Is.EqualTo(Math.Sign(LegacySkillGear.SlotX(LegacySkillGear.SlotAngle(LegacySkillGear.NextSlot, 0f), radius))),
+                "The second socket sits on the side the battle's next skill comes from.");
+            Assert.That(LegacySkillGear.SlotX(LegacySkillGear.LoadoutSocketAngle(2, 3), radius), Is.GreaterThan(0f));
+            Assert.That(LegacySkillGear.LoadoutSocketAngle(0, 0), Is.EqualTo(LegacySkillGear.TopAngle), "No sockets: no throw.");
+        }
+
+        [Test]
         public void TheUpperArc_ShowsPreviousCurrentAndNext_AndTheDockHidesTheRest()
         {
             const float radius = 68f, half = 26f;

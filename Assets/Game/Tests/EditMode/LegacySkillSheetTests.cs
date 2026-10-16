@@ -97,9 +97,10 @@ namespace TurnLimbo.Core.Tests
             Assert.That(csv[0], Is.EqualTo('\ufeff'), "Excel needs the mark to read Korean.");
             Assert.That(csv, Does.Not.Contain("\r"));
             Assert.That(csv.Substring(1, csv.IndexOf('\n') - 1), Is.EqualTo(string.Join(",", LegacySkillSheet.Headers)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(47));
-            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(47));
-            Assert.That(LegacySkillSheet.Headers.Skip(45), Is.EqualTo(new[] { "예약 효과", "사용 효과" }), "The phrase columns come last.");
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(46));
+            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(46));
+            Assert.That(LegacySkillSheet.Headers.Skip(44), Is.EqualTo(new[] { "예약 효과", "사용 효과" }), "The phrase columns come last.");
+            Assert.That(LegacySkillSheet.Headers, Has.No.Member("로비 목적"), "The lobby purpose column left the sheet on 2026-10-16.");
         }
 
         [Test]
@@ -136,6 +137,25 @@ namespace TurnLimbo.Core.Tests
             LegacySkillTable shipped = LegacySkillDefinitions.Table;
             for (int index = 0; index < shipped.All.Count; index++)
                 Assert.That(Dump(table.All[index]), Is.EqualTo(Dump(shipped.All[index])));
+        }
+
+        [Test]
+        public void RetiredLobbyPurposeColumn_ReadsAsAMemo()
+        {
+            // An author's sheet that still has 로비 목적 (removed 2026-10-16) at its old place, after 전투 상세, keeps loading.
+            int at = Index(Column.Detail) + 1;
+            List<string[]> rows = Rows().Select((row, index) =>
+            {
+                var cells = row.ToList();
+                cells.Insert(at, index == 0 ? "로비 목적" : "예전 목적 문구");
+                return cells.ToArray();
+            }).ToList();
+            LegacySkillTable table = Parse(rows);
+            LegacySkillTable shipped = LegacySkillDefinitions.Table;
+            Assert.That(table.All.Count, Is.EqualTo(shipped.All.Count));
+            for (int index = 0; index < shipped.All.Count; index++)
+                Assert.That(Dump(table.All[index]), Is.EqualTo(Dump(shipped.All[index])), "row of " + shipped.All[index].Skill.Id);
+            Assert.That(LegacySkillSheet.Describe(shipped, table).HasChanges, Is.False, "A memo column changes no technique.");
         }
 
         [Test]
@@ -264,7 +284,7 @@ namespace TurnLimbo.Core.Tests
             Set(rows, 5, Column.InfoSecondarySymbol, "");
             Set(rows, 5, Column.InfoSecondaryTone, "");
             Set(rows, 5, Column.InfoSecondary, "");
-            Set(rows, 5, Column.Purpose, "");
+            Set(rows, 5, Column.Effect, "");
             Set(rows, 5, Column.Description, "");
             LegacySkillDefinition trick = Parse(rows).Find(5);
             Assert.That(trick.Text.Info.MainSymbol, Is.EqualTo(LegacySkillSymbol.Act));
@@ -273,7 +293,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(trick.Text.Info.SecondaryTone, Is.EqualTo(LegacySkillTone.Neutral));
             Assert.That(trick.Text.Info.Secondary, Is.Empty);
             Assert.That(trick.Text.Info.EnemyMain, Is.Null);
-            Assert.That(trick.Text.Purpose, Is.Null);
+            Assert.That(trick.Text.Effect, Is.Null);
             Assert.That(trick.Skill.Description, Is.Empty);
             Assert.That(trick.Skill.IconId, Is.EqualTo(5));
             Assert.That(trick.Skill.AnimationName, Is.EqualTo("Hit"));

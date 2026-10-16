@@ -166,7 +166,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public const string VariablePower = "위력 편차";
             public const string ShortLabel = "짧은 이름";
             public const string Detail = "전투 상세";
-            public const string Purpose = "로비 목적";
+            // 로비 목적 (the loadout detail's line under the name) was removed on 2026-10-16; a sheet that still has it reads
+            // it as a memo column like any other unknown header.
             public const string Effect = "로비 효과";
             public const string InfoMain = "배지 주 문구";
             public const string InfoEnemyMain = "배지 주 문구(적)";
@@ -221,7 +222,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Column.MinPower, Column.MaxPower, Column.Hits, Column.Icon, Column.Animation, Column.Description,
             Column.ActGain, Column.PowerBuff, Column.ProtectionBuff, Column.BuffSlots, Column.ResistanceRecovery,
             Column.ResistanceReduction, Column.OpponentProperty, Column.OpponentKind, Column.HighPower,
-            Column.VariablePower, Column.ShortLabel, Column.Detail, Column.Purpose, Column.Effect,
+            Column.VariablePower, Column.ShortLabel, Column.Detail, Column.Effect,
             Column.InfoMain, Column.InfoEnemyMain, Column.InfoMainSymbol, Column.InfoMainTone, Column.InfoSecondary,
             Column.InfoEnemySecondary, Column.InfoSecondarySymbol, Column.InfoSecondaryTone, Column.InfoDescription,
             Column.BrokenTargetDamage, Column.OpponentBreak, Column.OpponentState, Column.ConditionalDamage,
@@ -476,7 +477,6 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 ShortLabel = r.Required(Column.ShortLabel),
                 Detail = r.Required(Column.Detail),
-                Purpose = r.Text(Column.Purpose),
                 Effect = r.Text(Column.Effect),
             };
             if (InfoColumns.Any(column => r.Cell(column).Length > 0))
@@ -636,7 +636,6 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 [Column.VariablePower] = definition.VariablePower ? TrueCell : string.Empty,
                 [Column.ShortLabel] = text.ShortLabel,
                 [Column.Detail] = text.Detail,
-                [Column.Purpose] = text.Purpose,
                 [Column.Effect] = text.Effect,
                 // A row with badges spells out every symbol and tone, defaults included.
                 [Column.InfoMain] = info?.Main,

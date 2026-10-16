@@ -135,7 +135,9 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Lobby.ShowTab(LobbyTab.Loadout);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Page Ledger"), DuelVisualTheme.Surface);
                 AssertThemed(Find<Image>(fixture.Lobby.Root, "Detail Surface"), DuelVisualTheme.Paper);
-                AssertButtonHasTrim(Find<Button>(fixture.Lobby.Root, "Loadout Slot Q 1"));
+                // A gear socket is a picture with its own round silhouette (the battle's socket), not a framed card.
+                AssertSocketIsIllustrated(Find<Button>(fixture.Lobby.Root, "Loadout Slot Q 1"));
+                AssertButtonHasTrim(Find<Button>(fixture.Lobby.Root, "Loadout Filter All"));
                 AssertDecorationsIgnoreInput(fixture.Lobby.Root);
 
                 fixture.Lobby.ShowTab(LobbyTab.Curriculum);
@@ -209,7 +211,7 @@ namespace TurnLimbo.Presentation.Tests
                 Find<Button>(fixture.Lobby.Root, "Loadout Slot Q 1").onClick.Invoke();
                 Image loadoutPaper = Find<Image>(fixture.Lobby.Root, "Detail Surface");
                 AssertPaperDetails(loadoutPaper,
-                    "Detail Heading", "Loadout Detail Name", "Loadout Detail Role", "Loadout Detail Values",
+                    "Detail Heading", "Loadout Detail Name", "Loadout Detail Values",
                     "Loadout Detail Effect");
                 AssertSharedDamageRoutingRemoved(loadoutPaper.gameObject, "Loadout Damage Hint");
 
@@ -261,6 +263,20 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(button.targetGraphic, Is.Not.Null);
             Assert.That(button.targetGraphic.GetComponentInChildren<DuelPanelTrim>(true), Is.Not.Null,
                 button.name + " should frame the graphic that actually receives its visual state.");
+            foreach (Graphic decoration in button.GetComponentsInChildren<Graphic>(true))
+                if (decoration.gameObject != button.gameObject)
+                    Assert.That(decoration.raycastTarget, Is.False, decoration.name + " must not cover " + button.name);
+        }
+
+        // An illustrated control (a loadout gear's socket): the picture itself takes the button's state, no rectangular trim
+        // is laid over it, and nothing on it takes the pointer from it.
+        private static void AssertSocketIsIllustrated(Button button)
+        {
+            var picture = button.targetGraphic as Image;
+            Assert.That(picture, Is.Not.Null);
+            Assert.That(picture.gameObject, Is.SameAs(button.gameObject), button.name + " tints its own picture.");
+            Assert.That(picture.sprite, Is.Not.Null, button.name + " wears the battle's socket picture.");
+            Assert.That(button.GetComponentInChildren<DuelPanelTrim>(true), Is.Null, button.name + " needs no rectangular trim.");
             foreach (Graphic decoration in button.GetComponentsInChildren<Graphic>(true))
                 if (decoration.gameObject != button.gameObject)
                     Assert.That(decoration.raycastTarget, Is.False, decoration.name + " must not cover " + button.name);

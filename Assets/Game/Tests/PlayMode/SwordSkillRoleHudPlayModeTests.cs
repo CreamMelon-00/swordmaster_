@@ -67,14 +67,15 @@ namespace TurnLimbo.Presentation.Tests
                 hud.ShowTab(LobbyTab.Loadout);
                 yield return null;
 
+                // The roles read from the card itself: there is no line under the name since 2026-10-16.
                 FindButton(hud.Root.transform, "Loadout Slot Q 1").onClick.Invoke();
-                Assert.That(FindTextUnder(hud.Root.transform, "Loadout Selected Detail", "Loadout Detail Role").text,
+                Assert.That(FindTextUnder(hud.Root.transform, "Loadout Selected Detail", "Loadout Detail Effect").text,
                     Does.Contain("ACT 회복"));
                 FindButton(hud.Root.transform, "Loadout Slot Q 3").onClick.Invoke();
-                Assert.That(FindTextUnder(hud.Root.transform, "Loadout Selected Detail", "Loadout Detail Role").text,
+                Assert.That(FindTextUnder(hud.Root.transform, "Loadout Selected Detail", "Keyword 1 Text").text,
                     Does.Contain("조건부 ACT"));
                 string loadoutGuide = FindTextUnder(hud.Root.transform, "Loadout Panel", "Tab Subtitle").text;
-                Assert.That(loadoutGuide, Is.EqualTo("기술을 같은 열의 칸으로 드래그하세요."));
+                Assert.That(loadoutGuide, Is.EqualTo("기술을 같은 열의 톱니에 끼우세요."));
                 Assert.That(loadoutGuide, Does.Not.Contain("공격끼리 대결할 때만 저항 피해"));
                 AssertPureRole(hud.Root.transform, 14, "단타");
                 AssertPureRole(hud.Root.transform, 17, "방어");
@@ -149,13 +150,16 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(run.TryLearnCurriculumNode(nodeId), Is.True, nodeId);
         }
 
+        // The role is the card's own: its badges and its type ribbon.
         private static void AssertPureRole(Transform root, int skillId, string role)
         {
             FindButton(root, "Loadout Owned Skill " + skillId).onClick.Invoke();
-            string purpose = FindTextUnder(root, "Loadout Selected Detail", "Loadout Detail Role").text;
+            string card = FindTextUnder(root, "Loadout Selected Detail", "Keyword 1 Text").text + "\n"
+                + FindTextUnder(root, "Loadout Selected Detail", "Keyword 2 Text").text + "\n"
+                + FindTextUnder(root, "Loadout Selected Detail", "Attack Type").text;
             string effect = FindTextUnder(root, "Loadout Selected Detail", "Loadout Detail Effect").text;
-            Assert.That(purpose, Does.Contain(role));
-            AssertNoInventedUtility(purpose + "\n" + effect);
+            Assert.That(card, Does.Contain(role));
+            AssertNoInventedUtility(card + "\n" + effect);
         }
 
         private static void AssertNoInventedUtility(string detail)

@@ -212,14 +212,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
     }
 
     /// <summary>Player-facing copy. Every table row writes its own ShortLabel and Detail, so they never follow a copy's shape.
-    /// A null Effect uses the generic text for the skill's kind and hits; a null Purpose uses the short label;
-    /// a null Info uses generic badges. A set Info is shown as written.</summary>
+    /// A null Effect uses the generic text for the skill's kind and hits; a null Info uses generic badges. A set Info is
+    /// shown as written.</summary>
     public sealed class LegacySkillText
     {
         public string ShortLabel { get; internal set; }
         public string Detail { get; internal set; }
-        /// <summary>Lobby purpose line; falls back to <see cref="ShortLabel"/>.</summary>
-        public string Purpose { get; internal set; }
         /// <summary>Lobby effect sentence.</summary>
         public string Effect { get; internal set; }
         public LegacySkillInfo Info { get; internal set; }

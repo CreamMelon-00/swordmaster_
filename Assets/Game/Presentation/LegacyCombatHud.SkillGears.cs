@@ -575,8 +575,9 @@ namespace TurnLimbo.Presentation
             socketTexture = null;
         }
 
-        // A socket on the rim: a dark well a skill's icon reads on, ringed in brass.
-        private static Texture2D SocketTexture()
+        // A socket on the rim: a dark well a skill's icon reads on, ringed in brass. The loadout's gears (LoadoutGear) wear
+        // the same socket, from their own copy.
+        internal static Texture2D SocketTexture()
         {
             var pixels = new Color32[SocketTexels * SocketTexels];
             float texel = 2f / SocketTexels;

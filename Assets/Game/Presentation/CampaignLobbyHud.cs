@@ -624,9 +624,12 @@ namespace TurnLimbo.Presentation
                 Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
         }
 
+        /// <summary>The loadout page's one hint line (its subtitle): no second hint inside the page.</summary>
+        public const string LoadoutHint = "기술을 같은 열의 톱니에 끼우세요.";
+
         private void BuildLoadout(CampaignRun run)
         {
-            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성", "기술을 같은 열의 칸으로 드래그하세요.");
+            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성", LoadoutHint);
             loadoutHud = new CampaignLoadoutHud(panel, art, run,
                 (id, lane, slot) =>
                 {

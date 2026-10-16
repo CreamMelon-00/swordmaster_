@@ -68,8 +68,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryFindActive(lobby, "Selected Stage Curriculum"), Is.Null);
                 AssertNoActiveText(lobby, "커리큘럼", "Field menu");
 
-                // The Q-only loadout shows only open slots and has no lane filter.
+                // The Q-only loadout shows only the open gear, and one lane has nothing to filter.
                 controller.LobbyHud.ShowTab(LobbyTab.Loadout);
+                Assert.That(TryFindActive(lobby, "Loadout Gear Q"), Is.Not.Null);
+                Assert.That(TryFindActive(lobby, "Loadout Gear W"), Is.Null);
+                Assert.That(TryFindActive(lobby, "Loadout Filter"), Is.Null, "No owned filter with one open lane.");
                 Assert.That(TryFindActive(lobby, "Loadout Counts"), Is.Null);
                 for (int slot = 1; slot <= 3; slot++)
                 {
@@ -80,7 +83,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryFindActive(lobby, "Loadout Heading W"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Heading E"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null);
-                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 같은 열의 칸으로 드래그하세요."));
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 같은 열의 톱니에 끼우세요."));
                 AssertNoActiveText(lobby, "커리큘럼", "Loadout");
                 Assert.That(controller.CloseFieldMenu(), Is.True);
                 Assert.That(controller.LobbyHud.IsVisible, Is.False);
@@ -306,7 +309,12 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Lane E"), Is.Null);
-                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 같은 열의 칸으로 드래그하세요."));
+                // The owned filter offers 전체 and the open lanes only.
+                Assert.That(TryFindActive(lobby, "Loadout Filter All"), Is.Not.Null);
+                Assert.That(TryFindActive(lobby, "Loadout Filter Q"), Is.Not.Null);
+                Assert.That(TryFindActive(lobby, "Loadout Filter E"), Is.Not.Null);
+                Assert.That(TryFindActive(lobby, "Loadout Filter W"), Is.Null);
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 같은 열의 톱니에 끼우세요."));
                 Assert.That(controller.UnequipSkill(LegacySkillDefinitions.Skill(3).Id), Is.False, "A closed lane's skills stay put.");
                 Assert.That(controller.Campaign.HasLoadoutChanges, Is.False);
                 Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null, "The curriculum still waits for the W lane.");
@@ -687,8 +695,9 @@ namespace TurnLimbo.Presentation.Tests
         private static string SlotCost(GameObject lobby, string lane, int slot)
             => Label(ActiveNamed(lobby, "Loadout Slot " + lane + " " + slot).gameObject, "Slot ACT").text;
 
+        // A socket sits on its lane's gear: compared across lanes in the page's space, not its gear's.
         private static float SlotX(GameObject lobby, string lane, int slot)
-            => ActiveNamed(lobby, "Loadout Slot " + lane + " " + slot).GetComponent<RectTransform>().anchoredPosition.x;
+            => ActiveNamed(lobby, "Loadout Content").InverseTransformPoint(ActiveNamed(lobby, "Loadout Slot " + lane + " " + slot).position).x;
 
         /// <summary>Nothing on screen under <paramref name="root"/> says <paramref name="word"/>.</summary>
         private static void AssertNoActiveText(GameObject root, string word, string where)

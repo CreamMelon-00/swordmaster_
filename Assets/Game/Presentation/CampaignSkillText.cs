@@ -5,9 +5,6 @@ namespace TurnLimbo.Presentation
     /// <summary>Shared, combat-accurate skill explanations for lobby selection panels.</summary>
     public static class CampaignSkillText
     {
-        public static string Purpose(LegacySkill skill)
-            => LegacySkillDefinitions.Find(skill)?.Text.Purpose ?? LegacySkillRoles.GetShortLabel(skill);
-
         public static string Effect(LegacySkill skill)
             => LegacySkillDefinitions.Find(skill)?.Text.Effect
                 ?? (skill.Kind == LegacySkillKind.Defence
