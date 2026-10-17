@@ -65,7 +65,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Arena.ApproachComplete, Is.False, "Contact cannot begin while the previous push is unfinished.");
                 fixture.Arena.Tick(.06f, 0f);
                 Assert.That(fixture.Arena.HasPendingPush, Is.False);
+                // Finishing the push releases pursuit; accelerating back into reach can take longer than the push.
+                for (int frame = 0; frame < 100 && !fixture.Arena.ApproachComplete; frame++) fixture.Arena.Tick(.01f, 0f);
                 Assert.That(fixture.Arena.ApproachComplete, Is.True);
+                Assert.That(fixture.Arena.IsInRange, Is.True, "A completed approach has both blades within reach.");
 
                 fixture.PrepareCombat();
                 fixture.Arena.PresentHit(true, 10, 0, false, false, 10);

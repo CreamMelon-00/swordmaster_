@@ -14,6 +14,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly List<LegacySkill>[] lanes = { new List<LegacySkill>(), new List<LegacySkill>(), new List<LegacySkill>() };
         private readonly IReadOnlyList<LegacySkill>[] laneViews = new IReadOnlyList<LegacySkill>[3];
         internal readonly List<LegacySkill> QueueSkills = new List<LegacySkill>();
+        private LegacySkill[] committedQueue;
         internal readonly List<int> QueueCosts = new List<int>();
         internal readonly Dictionary<int, int> Cycles = new Dictionary<int, int>();
         internal readonly List<LocalVersusBuff> Buffs = new List<LocalVersusBuff>();
@@ -87,6 +88,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int LastQueuedSlotIndex { get; internal set; } = -1;
         public int LaneCyclesThisTurn { get; internal set; }
         public IReadOnlyList<LegacySkill> Queue { get; }
+        /// <summary>First reservation canceled by a new resistance break this turn, or -1. Original queue entries stay
+        /// readable for presentation; the committed execution copy has empty slots from this index onwards.</summary>
+        public int BreakCanceledFromSlotIndex { get; private set; } = -1;
+        internal IReadOnlyList<LegacySkill> ExecutionQueue => committedQueue ?? (IReadOnlyList<LegacySkill>)QueueSkills;
 
         public IReadOnlyList<LegacySkill> GetLane(int laneIndex)
         {
@@ -126,8 +131,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             get
             {
                 if (BoostSource < 0) return -1;
-                for (int i = BoostSource + 1; i < QueueSkills.Count; i++)
-                    if (!QueueSkills[i].IsWait) return i;
+                IReadOnlyList<LegacySkill> queue = ExecutionQueue;
+                for (int i = BoostSource + 1; i < queue.Count; i++)
+                    if (queue[i] != null && !queue[i].IsWait) return i;
                 return -1;
             }
         }
@@ -158,6 +164,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             State.BeginTurn();
             QueueSkills.Clear();
             QueueCosts.Clear();
+            committedQueue = null;
+            BreakCanceledFromSlotIndex = -1;
             Buffs.Clear();
             BoostSource = -1;
             BoostRemoved = BoostCap = 0;
@@ -167,7 +175,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         /// <summary>The turn's queue is final: 순환 +1 raises the counts it feeds (<see cref="LegacyKeywordLinks.ApplyCycleFeed"/>).</summary>
-        internal void CommitTurn() => LegacyKeywordLinks.ApplyCycleFeed(QueueSkills, Cycles);
+        internal void CommitTurn()
+        {
+            committedQueue = QueueSkills.ToArray();
+            LegacyKeywordLinks.ApplyCycleFeed(committedQueue, Cycles);
+        }
+
+        internal void CancelAfterBreak(int breakingSlot)
+        {
+            if (BreakCanceledFromSlotIndex >= 0) return;
+            BreakCanceledFromSlotIndex = breakingSlot + 1;
+            for (int i = BreakCanceledFromSlotIndex; i < committedQueue.Length; i++) committedQueue[i] = null;
+        }
 
         // The 순환 count a cast reads (its power bonus), before the cast records its use; 0 for a skill that does not cycle.
         internal int CycleUsesRead(LegacySkill skill)
@@ -277,8 +296,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         internal int PowerMultiplierForSlot(int slotIndex)
         {
             if (BoostSource < 0 || slotIndex <= BoostSource) return 1;
-            for (int i = BoostSource + 1; i < QueueSkills.Count; i++)
-                if (!QueueSkills[i].IsWait)
+            IReadOnlyList<LegacySkill> queue = ExecutionQueue;
+            for (int i = BoostSource + 1; i < queue.Count; i++)
+                if (queue[i] != null && !queue[i].IsWait)
                     return i == slotIndex ? Math.Max(1, Math.Min(BoostRemoved, BoostCap)) : 1;
             return 1;
         }
@@ -523,8 +543,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 if (Phase != LegacyDuelPhase.Resolving)
                 {
-                    slots.Add(LegacySlotForecast.Unreached(index, index < self.Queue.Count ? self.Queue[index] : null,
-                        index < other.Queue.Count ? other.Queue[index] : null, PerspectiveOutcome(Outcome, perspectivePlayer)));
+                    slots.Add(LegacySlotForecast.Unreached(index, index < self.ExecutionQueue.Count ? self.ExecutionQueue[index] : null,
+                        index < other.ExecutionQueue.Count ? other.ExecutionQueue[index] : null, PerspectiveOutcome(Outcome, perspectivePlayer)));
                     continue;
                 }
                 bool selfWhole = !self.State.IsResistanceBroken, otherWhole = !other.State.IsResistanceBroken;
@@ -566,8 +586,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int CycleUsesAtSlot(int playerIndex, int slotIndex)
         {
             LocalVersusFighter fighter = GetFighter(playerIndex);
-            IReadOnlyList<LegacySkill> queue = fighter.Queue;
-            if (slotIndex < 0 || slotIndex >= queue.Count) return 0;
+            IReadOnlyList<LegacySkill> queue = fighter.ExecutionQueue;
+            if (slotIndex < 0 || slotIndex >= queue.Count || queue[slotIndex] == null) return 0;
             int usesNow = fighter.CycleUses(queue[slotIndex].Id);
             if (Phase == LegacyDuelPhase.Planning) return LegacyKeywordLinks.PlannedCycleUses(queue, slotIndex, usesNow);
             if (CurrentSlot != null && CurrentSlot.SlotIndex == slotIndex)
@@ -673,8 +693,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (Phase != LegacyDuelPhase.Resolving || CurrentSlot != null || nextSlot >= slotCount)
                 throw new InvalidOperationException("An unresolved committed slot is required.");
-            LegacySkill leftSkill = nextSlot < Left.Queue.Count ? Left.Queue[nextSlot] : null;
-            LegacySkill rightSkill = nextSlot < Right.Queue.Count ? Right.Queue[nextSlot] : null;
+            LegacySkill leftSkill = nextSlot < Left.ExecutionQueue.Count ? Left.ExecutionQueue[nextSlot] : null;
+            LegacySkill rightSkill = nextSlot < Right.ExecutionQueue.Count ? Right.ExecutionQueue[nextSlot] : null;
             int leftPower = RollPower(Left, leftSkill, nextSlot, out int leftBuff, out int leftProtection);
             int rightPower = RollPower(Right, rightSkill, nextSlot, out int rightBuff, out int rightProtection);
             double leftReceived = ReceivedMultiplier(Left.Buffs);
@@ -731,6 +751,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (rightAttack)
                 leftImpact = ResolveHit(slot.RightSkill, slot.LeftSkill, slot.RightPower, slot.LeftPower,
                     Left.State, slot.LeftReceivedMultiplier, out rightCondition);
+            if (leftResistance > 0 && Left.State.IsResistanceBroken) Left.CancelAfterBreak(slot.SlotIndex);
+            if (rightResistance > 0 && Right.State.IsResistanceBroken) Right.CancelAfterBreak(slot.SlotIndex);
             slot.HitsResolved++;
             // Presentation only (LegacySlotFacts), outside the state hash: the largest single hits and a met state condition.
             slot.LeftLargestHitTaken = Math.Max(slot.LeftLargestHitTaken, leftHealth - Left.State.Health);
@@ -870,10 +892,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 ? Left.State.RestoreResistance(LegacySkillConditions.ResistanceRecoveryAmount(Left.State, leftEffect.ResistanceRecoveryPercent)) : 0;
             int rightRestored = rightEffect.ResistanceRecoveryPercent > 0 && (!rightEffect.HasOpponentStateCondition || rightState)
                 ? Right.State.RestoreResistance(LegacySkillConditions.ResistanceRecoveryAmount(Right.State, rightEffect.ResistanceRecoveryPercent)) : 0;
+            bool leftWhole = !Left.State.IsResistanceBroken, rightWhole = !Right.State.IsResistanceBroken;
             int rightReduced = leftOpponent ? Right.State.ReduceResistance(leftEffect.OpponentResistanceReduction) : 0;
             int leftReduced = rightOpponent ? Left.State.ReduceResistance(rightEffect.OpponentResistanceReduction) : 0;
             int rightBrokenAmount = leftOpponent && leftEffect.BreaksOpponent ? Right.State.BreakResistance() : 0;
             int leftBrokenAmount = rightOpponent && rightEffect.BreaksOpponent ? Left.State.BreakResistance() : 0;
+            if (leftWhole && Left.State.IsResistanceBroken) Left.CancelAfterBreak(slot.SlotIndex);
+            if (rightWhole && Right.State.IsResistanceBroken) Right.CancelAfterBreak(slot.SlotIndex);
             if (leftOpponent) Left.NextActGain = checked(Left.NextActGain + leftEffect.ActGain);
             if (rightOpponent) Right.NextActGain = checked(Right.NextActGain + rightEffect.ActGain);
             if (leftEffect.HasBuff) Left.Buffs.Add(new LocalVersusBuff(leftEffect.BuffPowerPercent,

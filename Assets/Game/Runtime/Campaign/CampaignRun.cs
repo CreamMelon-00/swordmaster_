@@ -537,6 +537,11 @@ namespace TurnLimbo.Runtime.Campaign
                     features: Features, playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity,
                     roundLimit: TrainingRoundLimit, meshPercent: meshPercent);
 
+            if (CurrentStage.Number == 5)
+                return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
+                    playerSkills, StageFiveEnemies(), randomSeed, features: Features,
+                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
+
             LegacyCounter enemyCounter = CurrentStage.EnemyCounterBasis == null ? null
                 : new LegacyCounter(WithStagePower(CurrentStage.EnemyCounterBasis), CurrentStage.EnemyCountersPerTurn);
 
@@ -562,6 +567,29 @@ namespace TurnLimbo.Runtime.Campaign
             return new LegacySkill(basis.Id, basis.Name, basis.Cost,
                 basis.MinPower + bonus, basis.MaxPower + bonus, basis.Kind, basis.Property,
                 basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId);
+        }
+
+        private static IReadOnlyList<LegacyEnemyDefinition> StageFiveEnemies()
+        {
+            LegacySkill slash = TrioSkill(1), quick = TrioSkill(2), thrust = TrioSkill(3),
+                disrupt = TrioSkill(5), guard = TrioSkill(7);
+            return new[]
+            {
+                new LegacyEnemyDefinition("수련생 1", 50, 10, new EnemyScript(new IReadOnlyList<LegacySkill>[]
+                    { new[] { slash, thrust }, new[] { slash }, new[] { thrust, slash } })),
+                new LegacyEnemyDefinition("수련생 2", 50, 10, new EnemyScript(new IReadOnlyList<LegacySkill>[]
+                    { new[] { quick, guard }, new[] { thrust }, new[] { slash, quick } })),
+                new LegacyEnemyDefinition("수련생 3", 50, 10, new EnemyScript(new IReadOnlyList<LegacySkill>[]
+                    { new[] { slash, disrupt }, new[] { guard }, new[] { thrust, slash } })),
+            };
+        }
+
+        private static LegacySkill TrioSkill(int id)
+        {
+            LegacySkill basis = LegacySkillDefinitions.Skill(id);
+            return new LegacySkill(basis.Id, basis.Name, basis.Cost,
+                Math.Max(1, basis.MinPower * 70 / 100), Math.Max(1, basis.MaxPower * 70 / 100),
+                basis.Kind, basis.Property, basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId);
         }
 
         /// <summary>A new journey with no story mission won (a new game, tests and direct API use): balance 0.</summary>
@@ -961,14 +989,14 @@ namespace TurnLimbo.Runtime.Campaign
         {
             Number = number;
             Name = name;
-            EnemyHealth = 80 + 15 * (number - 1);
-            EnemyResistance = 15 + 3 * (number - 1);
-            EnemyPowerBonus = number - 1;
+            EnemyHealth = number == 5 ? 50 : 80 + 15 * (number - 1);
+            EnemyResistance = number == 5 ? 10 : 15 + 3 * (number - 1);
+            EnemyPowerBonus = number == 5 ? 0 : number - 1;
             Reward = 60 + 10 * (number - 1);
             FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 5 ? 46 : number == 7 ? 16 : 0;
             // Placeholder counters until enemy archetypes exist: a guard (막기, 7) that taxes a
             // one-sided attack from stage five, then a strong thrust (정교한 찌르기, 4) from stage seven.
-            enemyCounterSkillId = number >= 7 ? 4 : number >= 5 ? 7 : 0;
+            enemyCounterSkillId = number >= 7 ? 4 : number == 6 ? 7 : 0;
             EnemyCountersPerTurn = enemyCounterSkillId == 0 ? 0 : 1;
         }
 
@@ -977,6 +1005,7 @@ namespace TurnLimbo.Runtime.Campaign
         public int EnemyHealth { get; }
         public int EnemyResistance { get; }
         public int EnemyPowerBonus { get; }
+        public int EnemyCount => Number == 5 ? 3 : 1;
         /// <summary>The enemy counter before this stage's power bonus, or null when it has none.</summary>
         public LegacySkill EnemyCounterBasis => enemyCounterSkillId == 0 ? null : LegacySkillDefinitions.Skill(enemyCounterSkillId);
         public int EnemyCountersPerTurn { get; }

@@ -186,7 +186,7 @@ namespace TurnLimbo.Presentation.Tests
             MethodInfo startPlanning = typeof(DuelPrototypeController).GetMethod("StartPlanning", PrivateInstance);
             try
             {
-                // 쿠페 breaks a guarding enemy at slot start, before any hit: a callout, but no fatal camera.
+                // 쿠페 breaks a guarding enemy at slot start, before any hit: the same decisive cue as an impact break.
                 var draw = new LegacyQueuedDuel(100, 50, 100, 15,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 sessionField.SetValue(controller, draw);
@@ -198,7 +198,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(ActiveTexts(controller.Hud.Root, "State Callout"), Is.EqualTo(new[] { LegacyCombatHud.BreakCalloutText }));
                 Assert.That(controller.ArenaView.EnemyBreakAura.IsBroken, Is.True);
                 Assert.That(controller.ArenaView.PlayerBreakAura.IsBroken, Is.False);
-                Assert.That(controller.ArenaView.IsFatalFocus, Is.False);
+                Assert.That(controller.ArenaView.IsFatalFocus, Is.True, "A direct skill-effect break also starts the decisive close-up.");
+                AssertDecisiveClock(controller, advance);
 
                 // A clash breaks the enemy on a hit; the enemy's weak strike is plain resistance loss.
                 var clash = new LegacyQueuedDuel(100, 50, 100, 10,
@@ -372,12 +373,14 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(quarter.Enemy.Health, Is.EqualTo(75));
                 Assert.That(quarter.Enemy.IsResistanceBroken || quarter.Enemy.IsDefeated, Is.False);
                 Assert.That(controller.ArenaView.IsFatalFocus, Is.True, "A quarter of her health in one hit is a decisive moment.");
+                AssertDecisiveClock(controller, advance);
 
                 // The same on the player: the enemy's 26 through the player's 1-power guard.
                 LegacyQueuedDuel taken = HitOnce(controller, sessionField, reset, begin, advance,
                     new[] { Guard(901, 1) }, new[] { Attack(900, 26) }, duel => duel.Player.Health < 100);
                 Assert.That(taken.Player.Health, Is.EqualTo(75));
                 Assert.That(controller.ArenaView.IsFatalFocus, Is.True, "Either direction.");
+                AssertDecisiveClock(controller, advance);
 
                 // 40 against an attacking enemy is resistance, not health: no close-up, though the number is large.
                 LegacyQueuedDuel clash = HitOnce(controller, sessionField, reset, begin, advance,
@@ -466,6 +469,21 @@ namespace TurnLimbo.Presentation.Tests
                 advance.Invoke(controller, new object[] { .02f, null });
             Assert.That(landed(duel), Is.True);
             return duel;
+        }
+
+        private static void AssertDecisiveClock(DuelPrototypeController controller, MethodInfo advance)
+        {
+            // Isolate the custom slow clock from the impact's separate real-time stop.
+            typeof(DuelPrototypeController).GetField("hitStopRemaining", PrivateInstance).SetValue(controller, 0f);
+            FieldInfo phaseTime = typeof(DuelPrototypeController).GetField("phaseTime", PrivateInstance);
+            float before = (float)phaseTime.GetValue(controller);
+            float globalScale = Time.timeScale;
+            advance.Invoke(controller, new object[] { .05f, null });
+            Assert.That((float)phaseTime.GetValue(controller) - before,
+                Is.EqualTo(.05f * LegacyArenaView.DecisiveSlowMotionScale).Within(.0001f),
+                "Breaks and large health hits visibly slow the real battle clock, not only the camera.");
+            Assert.That(LegacyArenaView.DecisiveSlowMotionScale, Is.LessThan(.1f));
+            Assert.That(Time.timeScale, Is.EqualTo(globalScale));
         }
 
         private static List<SpriteRenderer> Outline(SpriteRenderer actor)

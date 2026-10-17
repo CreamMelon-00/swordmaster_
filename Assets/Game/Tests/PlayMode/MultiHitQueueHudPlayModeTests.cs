@@ -121,7 +121,8 @@ namespace TurnLimbo.Presentation.Tests
             Image icon = card.Find("Icon").GetComponent<Image>();
             Assert.That(icon.enabled, Is.True);
             Assert.That(icon.sprite, Is.Not.Null);
-            Assert.That(card.localScale.x, Is.InRange(1f, 1.2001f),
+            float restScale = hud.QueueCardWidth / LegacyCombatHud.QueueCardSize;
+            Assert.That(card.localScale.x, Is.InRange(restScale, restScale * LegacyCombatHud.QueueActiveCardMaxScale + .0001f),
                 "An unresolved or waiting skill must stay at least its normal readable size.");
             Assert.That(card.localScale.y, Is.EqualTo(card.localScale.x));
         }

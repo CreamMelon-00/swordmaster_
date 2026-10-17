@@ -51,7 +51,7 @@ namespace TurnLimbo.Presentation
                     offset = actor.AttackRecoilOffset * Mathf.Clamp01(actor.ReactionTime / ReactionPoseDuration);
                 else if (actor.Skill?.Kind == LegacySkillKind.Attack && TryGetSkillFrame(actor, out float clipTime))
                 {
-                    float distance = LegacyAttackRhythm.LungeShare(clipTime / OriginalClipDuration) * slotAttackLungeDistance;
+                    float distance = LegacyAttackRhythm.LungeShare(clipTime / OriginalClipDuration) * AttackLungeDistanceFor(actor);
                     offset = arenaRoot.transform.TransformVector(Vector3.right * (actor == player ? distance : -distance));
                     actor.AttackRecoilOffset = offset;
                 }
@@ -76,12 +76,14 @@ namespace TurnLimbo.Presentation
                 if (actor.Renderer.flipY) center.y = -center.y;
                 bounds.center = center;
                 float scale = Mathf.Max(.01f, Mathf.Abs(actor.Renderer.transform.lossyScale.x));
-                bounds.Expand(new Vector3(2f * Mathf.Max(slotAttackLungeDistance, 1f) / scale, 0f, 0f));
+                float maximumOffset = Mathf.Max(AttackLungeDistanceFor(actor), Mathf.Abs(worldOffset.x));
+                bounds.Expand(new Vector3(2f * Mathf.Max(maximumOffset, 1f) / scale, 0f, 0f));
                 actor.Renderer.localBounds = bounds;
             }
-            DuelPowerAura aura = actor == player ? playerPowerAura : enemyPowerAura;
+            EnemyFigure figure = actor == player ? null : FigureFor(actor);
+            DuelPowerAura aura = actor == player ? playerPowerAura : figure?.PowerAura ?? enemyPowerAura;
             if (aura != null) aura.Root.localPosition = local;
-            (actor == player ? playerBreakAura : enemyBreakAura)?.RefreshPose();
+            (actor == player ? playerBreakAura : figure?.BreakAura ?? enemyBreakAura)?.RefreshPose();
         }
 
         // Called after the controller's impact/hold, so a long frame never leaves ghosts of an overshot pose.
@@ -106,6 +108,8 @@ namespace TurnLimbo.Presentation
             actor.AttackEchoMasks.TryGetValue(hit, out int shown);
             if ((due & ~shown) == 0) return;
             actor.AttackEchoMasks[hit] = shown | due;
+            // Consume the stroke moments without layering extra player silhouettes over the cinematic trail.
+            if (actor == player && IsCinematicSlowMotion) return;
             // Two discrete stroke moments; holds and rewinds cannot keep spawning the same ghost.
             Vector3 drift = arenaRoot.transform.TransformVector(Vector3.right * (actor == player ? -.20f : .20f));
             Color ink = AttackEchoInk;

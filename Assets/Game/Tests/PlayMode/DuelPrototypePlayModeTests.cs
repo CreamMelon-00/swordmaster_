@@ -193,7 +193,7 @@ namespace TurnLimbo.Presentation.Tests
                         Assert.That(material, Is.Not.Null);
                         Assert.That(material.shader.isSupported, Is.True, material.shader.name);
                     }
-                arena.Tick(0, .7f);
+                arena.Tick(0, LegacyArenaView.DecisiveFocusSeconds + .01f);
                 Assert.That(arena.IsFatalFocus, Is.False, "Focus expires on real time, independently of slow motion.");
                 controller.RestartMatch();
                 Assert.That(arena.ActiveParticleCount, Is.Zero);

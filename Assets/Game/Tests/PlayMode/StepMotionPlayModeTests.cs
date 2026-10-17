@@ -40,7 +40,8 @@ namespace TurnLimbo.Presentation.Tests
                 for (int index = 0; index < 8; index++) arena.Tick(0f, stepDuration / 8f);
                 Vector3 afterPressure = arena.PlayerRenderer.transform.localPosition;
                 Assert.That(afterPressure.x, Is.EqualTo(afterDodge.x + pressureDistance).Within(.001f));
-                Assert.That(afterPressure.y, Is.EqualTo(original.y));
+                Assert.That(afterPressure.y, Is.EqualTo(afterDodge.y).Within(.0001f),
+                    "Pressure preserves the floor depth reached by the dodge's sideways step.");
                 arena.EndTurn();
                 arena.Tick(LegacyArenaView.ReturnDuration + .01f, .2f);
                 arena.BeginTurn();
@@ -138,7 +139,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator AfterimageSnapshots_PreserveSpriteMaterialAndDistinctPathPoints()
+        public IEnumerator AfterimageSnapshots_PreserveSpriteAndPoolMaterialAndDistinctPathPoints()
         {
             var host = new GameObject("Step Trail Sampling Test Host");
             var arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt());
@@ -150,11 +151,12 @@ namespace TurnLimbo.Presentation.Tests
                 arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 SpriteRenderer source = arena.PlayerRenderer;
                 Vector3 start = source.transform.position;
+                Transform trailRoot = host.transform.Find("Legacy Duel Arena/Duel Step Afterimages");
+                Assert.That(trailRoot, Is.Not.Null);
+                Material snapshotMaterial = trailRoot.GetChild(0).GetComponent<SpriteRenderer>().sharedMaterial;
                 arena.PerformStep(LegacyStepAction.Dodge);
                 // One large frame still creates samples along the path, not three copies at its end.
                 arena.Tick(0f, stepDuration);
-                Transform trailRoot = host.transform.Find("Legacy Duel Arena/Duel Step Afterimages");
-                Assert.That(trailRoot, Is.Not.Null);
                 Assert.That(trailRoot.childCount, Is.EqualTo(DuelStepAfterimages.Capacity));
                 SpriteRenderer first = trailRoot.GetChild(0).GetComponent<SpriteRenderer>();
                 SpriteRenderer second = trailRoot.GetChild(1).GetComponent<SpriteRenderer>();
@@ -166,7 +168,8 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (SpriteRenderer view in new[] { first, second, third })
                 {
                     Assert.That(view.sprite, Is.SameAs(source.sprite));
-                    Assert.That(view.sharedMaterial, Is.SameAs(source.sharedMaterial));
+                    Assert.That(view.sharedMaterial, Is.SameAs(snapshotMaterial),
+                        "A snapshot keeps its pool material; the source's attack shader offset is baked into its position.");
                     Assert.That(view.gameObject.layer, Is.EqualTo(source.gameObject.layer));
                     Assert.That(view.sortingOrder, Is.LessThan(source.sortingOrder));
                     Assert.That(view.color.a, Is.GreaterThan(0f).And.LessThanOrEqualTo(DuelStepAfterimages.InitialAlpha));

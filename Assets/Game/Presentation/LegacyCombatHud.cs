@@ -141,6 +141,7 @@ namespace TurnLimbo.Presentation
         private bool disposed;
         private float transition, targetTransition, slotElapsed, slotDuration;
         private float cinematic, cinematicFrom, cinematicTarget, cinematicElapsed = .3f;
+        private float combatLetterboxRequest, combatLetterboxAccent;
         private float viewAngle, angleFrom, angleTarget, angleElapsed = .15f;
         private float logFrom = 1080, logTarget = 1080, logElapsed = .5f;
         private bool canOpenLog;
@@ -179,6 +180,22 @@ namespace TurnLimbo.Presentation
         /// <summary>How much of the whole HUD shows, 1 (as drawn) to 0 (<see cref="SetFade"/>).</summary>
         public float Fade => disposed ? 1f : fade.alpha;
         public bool LogOpen { get; private set; }
+
+        /// <summary>The additional depth of each normal combat band at full accent (HUD reference pixels). It stays
+        /// behind the queue and labels; the finishing blow's separate letterbox keeps its own framing.</summary>
+        public const float MaximumCombatLetterboxInset = 36f;
+        /// <summary>The combat camera's accent as eased for the bands, from 0 to 1.</summary>
+        public float CombatLetterboxAccent => combatLetterboxAccent;
+        /// <summary>The additional depth drawn now, over the existing 64-pixel combat band.</summary>
+        public float CombatLetterboxInset => MaximumCombatLetterboxInset * combatLetterboxAccent * cinematic;
+
+        /// <summary>Asks the existing combat bands to close in this frame. Refresh consumes the request on its real-time
+        /// clock; without another request they ease back out. Planning and Reset clear it.</summary>
+        public void SetCombatLetterboxAccent(float amount)
+        {
+            if (disposed) return;
+            combatLetterboxRequest = float.IsNaN(amount) || float.IsInfinity(amount) ? 0f : Mathf.Clamp01(amount);
+        }
 
         /// <summary>Fades the whole HUD, its speech bubbles and step cues included: 1 shows it as drawn, 0 hides it (and it
         /// takes no clicks). The 서막's final fall fades it with the arena's colour, which as an overlay it never gets;
@@ -260,6 +277,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginReturn()
         {
+            combatLetterboxRequest = 0f;
             SetCinematic(0);
             SetViewAngle(0);
         }
@@ -469,6 +487,7 @@ namespace TurnLimbo.Presentation
             queueCancellationLayer = Rect("Queue Cancellation Layer", root, Vector2.zero, Vector2.zero, Vector2.one * .5f);
             queueCancellationLayer.anchorMin = Vector2.zero;
             queueCancellationLayer.anchorMax = Vector2.one;
+            BuildBreakQueueFragments();
 
             // A held skill's explanation: the enemy's card drawn larger (PlayerExplanationScale), on a dark drop shadow.
             const float explain = PlayerExplanationScale;
@@ -515,6 +534,7 @@ namespace TurnLimbo.Presentation
             enemyExplanationHint.text = EnemyHint; enemyExplanationHint.color = DuelVisualTheme.Ink;
             FitExplanationLabel(enemyExplanationHint, 11);
             BuildForecastNotes();
+            BuildQueueComparison();
 
             BuildLogPanel(white);
 
@@ -803,8 +823,8 @@ namespace TurnLimbo.Presentation
             inputPanel.sizeDelta = new Vector2(DockWidth, DockHeight * (1 - OutQuad(transition)));
             cinematicElapsed = Mathf.Min(.3f, cinematicElapsed + actualDelta);
             cinematic = Mathf.Lerp(cinematicFrom, cinematicTarget, OutQuad(cinematicElapsed / .3f));
-            topBar.anchoredPosition = new Vector2(0, 64 * (1 - cinematic));
-            bottomBar.anchoredPosition = new Vector2(0, -64 * (1 - cinematic));
+            UpdateCombatLetterbox(session.Phase == LegacyDuelPhase.Planning && !isResolving, isResolving, actualDelta);
+            LayoutCinematicBands();
             angleElapsed = Mathf.Min(.15f, angleElapsed + delta);
             viewAngle = Mathf.Lerp(angleFrom, angleTarget, OutQuad(angleElapsed / .15f));
             attackView.localRotation = Quaternion.Euler(0, 0, viewAngle);
@@ -906,7 +926,8 @@ namespace TurnLimbo.Presentation
             // The clash motion reads the resolving slot before the rows hide a slot just completed (its cards' copies
             // play out the rest of their meeting; the turn's last slot stays shown and plays it on its own cards).
             AdvanceQueueClash(session, isResolving, currentSlot, delta);
-            playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving, -1, activeScale, session);
+            playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving,
+                queueComparisonVisible ? inspectedSlot : -1, activeScale, session);
             enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale, session);
             // Both rows in their panels over the dock, sliding one step toward the seam after each resolved slot.
             LayoutQueuePanels(isResolving, currentSlot, delta);
@@ -924,8 +945,11 @@ namespace TurnLimbo.Presentation
             enemyEffectFeedback.Tick(actualDelta);
             PositionFighterHud(playerStatus, player, camera, new Vector3(-.6f, 1.1f, 0),
                 ref playerHeadStack, ref playerHeadX);
-            PositionFighterHud(enemyStatus, enemy, camera, new Vector3(-.4f, 1f, 0),
-                ref enemyHeadStack, ref enemyHeadX);
+            bool rosterShown = RefreshEnemyRoster(session, player, enemy, camera, delta);
+            enemyStatus.Root.gameObject.SetActive(!rosterShown);
+            if (!rosterShown)
+                PositionFighterHud(enemyStatus, enemy, camera, new Vector3(-.4f, 1f, 0),
+                    ref enemyHeadStack, ref enemyHeadX);
             // After the rows were laid out in their panel.
             UpdateGuideEnemyFocus();
             playerStatus.Refresh(session.Player, delta);
@@ -937,10 +961,13 @@ namespace TurnLimbo.Presentation
         public void BeginTurn()
         {
             ClearHoldCancel();
+            ClearBreakQueueFragments();
             ForgetUsedTemporarySkills();
             targetTransition = transition = 0;
             cinematic = cinematicFrom = cinematicTarget = 0;
             cinematicElapsed = .3f;
+            combatLetterboxRequest = combatLetterboxAccent = 0f;
+            LayoutCinematicBands();
             viewAngle = angleFrom = angleTarget = 0;
             angleElapsed = .15f;
             slotAnimation = false;
@@ -1057,6 +1084,7 @@ namespace TurnLimbo.Presentation
         public void ShowExplanation(LegacySkill skill, bool enemy, CampaignOwnedSkill owned = null)
         {
             if (disposed || skill == null) return;
+            HideQueueComparison();
             var panel = enemy ? enemyExplanation : playerExplanation;
             (enemy ? playerExplanation : enemyExplanation).gameObject.SetActive(false);
             // The common idle action has no weapon type or Q/W/E style.
@@ -1141,17 +1169,20 @@ namespace TurnLimbo.Presentation
         }
 
         private void SetPlayerInfoSkill(LegacySkill skill, CampaignOwnedSkill owned)
+            => SetPlayerInfoSkill(playerInfo, skill, owned);
+
+        private void SetPlayerInfoSkill(SkillInfoView info, LegacySkill skill, CampaignOwnedSkill owned)
         {
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             if (displayedSession == null || effect?.HasCycle != true)
             {
-                playerInfo.SetSkill(skill, owned: owned);
+                info.SetSkill(skill, owned: owned);
                 return;
             }
 
             displayedSession.EffectivePowerRange(skill, out int min, out int max);
             string power = min == max ? min.ToString() : min + "–" + max;
-            playerInfo.SetSkill(skill, owned: owned, cycleUses: displayedSession.CycleUses(skill.Id),
+            info.SetSkill(skill, owned: owned, cycleUses: displayedSession.CycleUses(skill.Id),
                 effectiveCost: displayedSession.EffectiveCost(skill), effectivePower: power);
         }
 
@@ -1279,6 +1310,7 @@ namespace TurnLimbo.Presentation
 
         public void HideExplanation()
         {
+            HideQueueComparison();
             playerExplanation.gameObject.SetActive(false);
             enemyExplanation.gameObject.SetActive(false);
             bool wasInspecting = inspectedSlot >= 0;
@@ -1449,7 +1481,9 @@ namespace TurnLimbo.Presentation
             timeSpentRemaining = 0f;
             AdvanceTimeSpent(0f);
             playerStatus.Reset(); enemyStatus.Reset();
+            ResetEnemyRoster();
             ClearQueueCancellations();
+            ClearBreakQueueFragments();
             playerQueue.Clear(); enemyQueue.Clear();
             ResetQueuePanels();
             SetHoldProgress(-1, 0);
@@ -1546,7 +1580,8 @@ namespace TurnLimbo.Presentation
             // Stable local attachment points match the inherited idle sprites.
             // Project once, after arena/camera movement; never lag behind the actor.
             var screen = camera.WorldToScreenPoint(actor.TransformPoint(headAnchor));
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen, null, out var position)) return;
+            Camera hudCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen, hudCamera, out var position)) return;
             var halfCanvas = root.rect.size / 2;
             var statusSize = status.Root.sizeDelta;
             // Only the status panel rides the head now (2026-10-15): the queues stand in their panels over the dock. It is
@@ -1664,6 +1699,29 @@ namespace TurnLimbo.Presentation
             cinematicFrom = cinematic;
             cinematicTarget = target;
             cinematicElapsed = 0;
+        }
+
+        private void UpdateCombatLetterbox(bool planning, bool isResolving, float realDelta)
+        {
+            float target = isResolving && cinematicTarget > 0f ? combatLetterboxRequest : 0f;
+            combatLetterboxRequest = 0f;
+            if (planning)
+            {
+                combatLetterboxAccent = 0f;
+                return;
+            }
+            // Camera accents can keep unfolding through hit stop. Pause does not call Refresh at all.
+            float seconds = target > combatLetterboxAccent ? .12f : .25f;
+            float blend = 1f - Mathf.Exp(-3f * realDelta / seconds);
+            combatLetterboxAccent = Mathf.Lerp(combatLetterboxAccent, target, blend);
+            if (Mathf.Abs(combatLetterboxAccent - target) < .001f) combatLetterboxAccent = target;
+        }
+
+        private void LayoutCinematicBands()
+        {
+            float offset = 64f * (1f - cinematic) - CombatLetterboxInset;
+            topBar.anchoredPosition = new Vector2(0f, offset);
+            bottomBar.anchoredPosition = new Vector2(0f, -offset);
         }
 
         private void SetViewAngle(float target)
@@ -2093,6 +2151,7 @@ namespace TurnLimbo.Presentation
         {
             private const float DefaultPitch = LegacyQueuePanelLayout.DefaultCardSpacing;
             private readonly List<RectTransform> visibleItems = new List<RectTransform>();
+            private readonly List<int> visibleSlots = new List<int>();
             public bool GrowsLeft => player;
             public readonly RectTransform Root;
             public Vector2 DisplaySize { get; private set; }
@@ -2102,6 +2161,8 @@ namespace TurnLimbo.Presentation
             public int VisibleCount => visibleItems.Count;
             /// <summary>The queue's slots this turn, shown or consumed (as last refreshed).</summary>
             public int QueueLength => displayedQueue?.Count ?? 0;
+            /// <summary>The first slot removed by a break, or the queue's end. The resolving skill keeps its whole slot.</summary>
+            public int QueueEndSlot { get; private set; }
             /// <summary>The tuned card size over the built one (<see cref="QueueCardSize"/>): the cards' scale at rest.</summary>
             public float CardScale { get; set; } = 1f;
             private readonly bool player;
@@ -2138,6 +2199,9 @@ namespace TurnLimbo.Presentation
             private readonly List<Text> queuePowerSourceLabels = new List<Text>(), queuePowerTargetLabels = new List<Text>();
             private readonly List<RectTransform> cycleMarks = new List<RectTransform>();
             private readonly List<Text> cycleLabels = new List<Text>();
+            private readonly List<RectTransform> ownerMarks = new List<RectTransform>();
+            private readonly List<Image> ownerFrames = new List<Image>();
+            private readonly List<Text> ownerLabels = new List<Text>();
             // Each card's keyword mark (예약 효과·사용 효과, LegacyKeywordPreview.QueueMark) and what it should show.
             private readonly List<RectTransform> keywordMarks = new List<RectTransform>();
             private readonly List<Text> keywordLabels = new List<Text>();
@@ -2180,25 +2244,44 @@ namespace TurnLimbo.Presentation
                     AddKeywordMark(item);
                     if (!player) AddDodgeStrike(item);
                     AddCycleMark(item);
+                    if (!player) AddOwnerMark(item);
                     if (player) AddForecastMark(item);
                     restScales.Add(1f);
                 }
                 displayedQueue = queue;
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
+                int breakFrom = cycleSession == null ? -1 : player
+                    ? cycleSession.PlayerBreakCanceledFromSlotIndex : cycleSession.EnemyBreakCanceledFromSlotIndex;
+                QueueEndSlot = breakFrom >= 0 ? Mathf.Min(queue.Count, breakFrom) : queue.Count;
                 firstShown = consumed;
                 visibleItems.Clear();
+                visibleSlots.Clear();
                 keywordMarkValues.Clear();
+                var roster = !player ? cycleSession as ILegacyEnemyRosterView : null;
+                bool multipleEnemies = roster != null && roster.Enemies.Count > 1;
                 for (int i = 0; i < icons.Count; i++)
                 {
                     var item = icons[i].transform.parent.GetComponent<RectTransform>();
-                    bool visible = i < queue.Count && i >= consumed;
+                    bool visible = i < QueueEndSlot && i >= consumed && queue[i] != null &&
+                        (!multipleEnemies || !roster.IsEnemySlotCanceled(i));
                     item.gameObject.SetActive(visible);
+                    if (!player)
+                    {
+                        int owner = multipleEnemies && i < queue.Count ? roster.EnemyOwnerAtSlot(i) : -1;
+                        ownerMarks[i].gameObject.SetActive(visible && owner >= 0);
+                        if (visible && owner >= 0)
+                        {
+                            ownerFrames[i].color = EnemyIdentityColor(owner);
+                            ownerLabels[i].text = EnemyIdentityNumber(owner);
+                        }
+                    }
                     keywordMarkValues.Add(visible ? LegacyKeywordPreview.QueueMark(cycleSession, player, i, !resolving)
                         : LegacyKeywordMark.None);
                     if (!visible) { feedback[i].Clear(); continue; }
                     icons[i].sprite = iconFor(queue[i].IconId);
                     frames[i].color = schoolsNamed && !queue[i].IsWait ? SkillLaneStyle.Edge(queue[i].LaneIndex) : Border;
                     visibleItems.Add(item);
+                    visibleSlots.Add(i);
                     restScales[i] = (resolving && i == activeSlot ? Mathf.Min(scale, QueueActiveCardMaxScale) : 1) * CardScale;
                     item.localScale = Vector3.one * restScales[i];
                     highlights[i].enabled = !resolving && i == selected;
@@ -2237,9 +2320,20 @@ namespace TurnLimbo.Presentation
             /// <summary>Lays the shown cards out from the seam (the row's root): slot 1 at <paramref name="inner"/> from it, the
             /// rest a <paramref name="spacing"/> further out each, the whole row <paramref name="slide"/> slots further out while
             /// it slides in (<see cref="LegacyQueuePanelLayout"/>). <paramref name="cardSize"/> is a card as drawn.</summary>
-            public void Layout(float spacing, float inner, float slide, float cardSize)
+            public void Layout(float spacing, float inner, float slide, float cardSize, int windowStart, int windowCapacity)
             {
                 CurrentPitch = spacing;
+                // Refresh restores every live logical slot; this shared window is applied only after both sides have
+                // refreshed, so Tab, the newest reservation and resolution all reveal the same range on either side.
+                for (int index = visibleItems.Count - 1; index >= 0; index--)
+                {
+                    int slot = visibleSlots[index];
+                    if (slot >= windowStart && slot < windowStart + windowCapacity) continue;
+                    visibleItems[index].gameObject.SetActive(false);
+                    visibleItems.RemoveAt(index);
+                    visibleSlots.RemoveAt(index);
+                }
+                firstShown = Mathf.Max(firstShown, windowStart);
                 int count = visibleItems.Count;
                 if (count == 0)
                 {
@@ -2247,17 +2341,18 @@ namespace TurnLimbo.Presentation
                     return;
                 }
                 float side = player ? -1f : 1f, half = cardSize / 2f;
-                float first = LegacyQueuePanelLayout.CardDistance(0, inner, spacing, slide);
-                float last = LegacyQueuePanelLayout.CardDistance(count - 1, inner, spacing, slide);
+                float first = LegacyQueuePanelLayout.CardDistance(visibleSlots[0] - firstShown, inner, spacing, slide);
+                float last = LegacyQueuePanelLayout.CardDistance(visibleSlots[count - 1] - firstShown, inner, spacing, slide);
                 DisplaySize = new Vector2(last - first + cardSize, cardSize);
                 HorizontalSpan = player ? new Vector2(-(last + half), -(first - half)) : new Vector2(first - half, last + half);
                 for (int index = 0; index < count; index++)
                 {
                     RectTransform item = visibleItems[index];
-                    var position = new Vector2(side * LegacyQueuePanelLayout.CardDistance(index, inner, spacing, slide), 0f);
+                    int slot = visibleSlots[index];
+                    var position = new Vector2(side * LegacyQueuePanelLayout.CardDistance(slot - firstShown, inner, spacing, slide), 0f);
                     // The clash motion's card is drawn off its place (its row's span keeps the place); every other card
                     // stands upright where the row puts it.
-                    if (firstShown + index == poseIndex)
+                    if (slot == poseIndex)
                     {
                         item.anchoredPosition = position + poseOffset;
                         item.localRotation = Quaternion.Euler(0f, 0f, poseTilt);
@@ -2517,6 +2612,30 @@ namespace TurnLimbo.Presentation
                 cycleLabels.Add(label);
             }
 
+            // The owner sits inside the lower-left rim, clear of the keyword above, cycle count at right and school's
+            // coloured frame. Only multi-enemy battles show it; its numeral also appears over that enemy's head.
+            private void AddOwnerMark(RectTransform item)
+            {
+                var badge = Image("Enemy Owner Mark", item, white, new Vector2(-23f, -23f),
+                    Vector2.one * 22f, Accent);
+                var label = Rect("Enemy Number", badge.transform, Vector2.zero,
+                    Vector2.one * 22f, Vector2.one * .5f).gameObject.AddComponent<Text>();
+                label.font = font;
+                label.fontSize = 16;
+                label.alignment = TextAnchor.MiddleCenter;
+                label.color = DuelVisualTheme.Ink;
+                label.raycastTarget = false;
+                label.supportRichText = false;
+                badge.gameObject.SetActive(false);
+                ownerMarks.Add(badge.rectTransform);
+                ownerFrames.Add(badge);
+                ownerLabels.Add(label);
+            }
+
+            public RectTransform GetOwnerMark(int index)
+                => index >= 0 && index < ownerMarks.Count && ownerMarks[index].gameObject.activeInHierarchy
+                    ? ownerMarks[index] : null;
+
             /// <summary>The enemy's slots the player's skill will dodge by itself (자동 회피), struck through.</summary>
             public void SetDodgedSlots(List<int> slots)
             {
@@ -2683,8 +2802,10 @@ namespace TurnLimbo.Presentation
                 DisplaySize = Vector2.zero;
                 HorizontalSpan = Vector2.zero;
                 visibleItems.Clear();
+                visibleSlots.Clear();
                 CurrentPitch = DefaultPitch;
                 displayedQueue = null;
+                QueueEndSlot = 0;
                 preview = null;
                 previewSlot = feedbackSlot = -1;
                 currentFeedback = null;

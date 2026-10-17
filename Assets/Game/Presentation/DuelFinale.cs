@@ -6,7 +6,7 @@ using UnityEngine;
 namespace TurnLimbo.Presentation
 {
     /// <summary>The finishing blow, in every battle (missions, stages and training, won or lost): the hit that ends the
-    /// duel plays on in a long slow motion with the decisive close-up held on the fallen fighter while letterbox bars slide
+    /// duel plays on in a long slow motion with the decisive close-up held on the local player while letterbox bars slide
     /// in, then a freeze frame; the 서막's forced loss then drains to black and white (the flashback grade) while the bars
     /// slide out. The order and timing are <see cref="LegacyFinishingBlow"/>'s; this draws them (the bars, the grey, the
     /// overlays fading with the colour) and starts the arena's close-up. The controller runs the battle's clock at

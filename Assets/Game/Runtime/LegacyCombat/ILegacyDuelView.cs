@@ -21,6 +21,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The player's reservations: live while planning, the committed queue while it resolves.</summary>
         IReadOnlyList<LegacySkill> PlayerQueue { get; }
         IReadOnlyList<LegacySkill> EnemyQueue { get; }
+        /// <summary>The first later reservation canceled by a new break this turn, or -1. Original queue entries remain
+        /// readable for their shatter animation; these and later entries never execute or refund ACT. The current skill
+        /// finishes all its hits. Both cutoffs reset at the next planning turn, even while resistance remains broken.</summary>
+        int PlayerBreakCanceledFromSlotIndex { get; }
+        int EnemyBreakCanceledFromSlotIndex { get; }
         /// <summary>The slot resolving now, or null. The same object for as long as that slot plays.</summary>
         ILegacySlotView CurrentSlot { get; }
         /// <summary>The slot resolving now as the queue cards' clash motion reads it (<see cref="LegacyClashMotion.Classify"/>),

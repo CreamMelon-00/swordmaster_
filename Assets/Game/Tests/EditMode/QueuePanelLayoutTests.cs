@@ -13,11 +13,47 @@ namespace TurnLimbo.Core.Tests
         private const float Room = LegacyQueuePanelLayout.DefaultPanelWidth - 2f * LegacyQueuePanelLayout.Padding;
 
         [Test]
-        public void TheDefaultPanel_HoldsAtLeastSixCardsAtFullSpacing()
+        public void TheDefaultPanel_HoldsTenCompactCardsAtFullSpacing()
         {
-            for (int count = 0; count <= 6; count++)
+            for (int count = 0; count <= 10; count++)
                 Assert.That(LegacyQueuePanelLayout.Spacing(Room, Card, count, Full), Is.EqualTo(Full), count + " cards");
-            Assert.That(Card + 5 * Full, Is.LessThanOrEqualTo(Room), "Six cards side by side fit one default panel.");
+            Assert.That(Card + 9 * Full, Is.LessThanOrEqualTo(Room), "Ten readable cards fit one default panel.");
+        }
+
+        [Test]
+        public void LongQueues_KeepReadableIcons_AndBoundTheShownWindowInsteadOfOverlapping()
+        {
+            foreach (float room in new[] { 236f, Room, 748f })
+                foreach (int count in new[] { 1, 10, 11, 12, 13, 20, 30, 200 })
+                {
+                    float card = LegacyQueuePanelLayout.CardSize(room, count, Card, Full);
+                    float spacing = LegacyQueuePanelLayout.ReadableSpacing(card, Card, Full);
+                    int capacity = LegacyQueuePanelLayout.Capacity(room, card, spacing);
+                    int shown = System.Math.Min(count, capacity);
+                    Assert.That(card, Is.InRange(LegacyQueuePanelLayout.MinimumCardSize, Card));
+                    Assert.That(spacing, Is.GreaterThanOrEqualTo(card + LegacyQueuePanelLayout.MinimumCardGap - Tolerance));
+                    Assert.That(card + (shown - 1) * spacing, Is.LessThanOrEqualTo(room + .01f), room + " / " + count);
+                }
+            float twelve = LegacyQueuePanelLayout.CardSize(Room, 12, Card, Full);
+            Assert.That(LegacyQueuePanelLayout.Capacity(Room, twelve,
+                LegacyQueuePanelLayout.ReadableSpacing(twelve, Card, Full)), Is.EqualTo(12), "A fitted edge never loses its last card to rounding.");
+        }
+
+        [Test]
+        public void TheSharedWindow_FollowsInspectionReservationAndResolution_AndNeverReturnsConsumedSlots()
+        {
+            const int count = 30, capacity = 12;
+            Assert.That(LegacyQueuePanelLayout.WindowStart(count, 0, capacity, 0), Is.Zero);
+            Assert.That(LegacyQueuePanelLayout.WindowStart(count, 0, capacity, 29), Is.EqualTo(18));
+            for (int focus = 0; focus < count; focus++)
+            {
+                int start = LegacyQueuePanelLayout.WindowStart(count, 0, capacity, focus);
+                Assert.That(focus, Is.InRange(start, start + capacity - 1), "Every Tab slot can be revealed.");
+                Assert.That(LegacyQueuePanelLayout.WindowStart(count, focus, capacity, focus), Is.EqualTo(focus),
+                    "The resolving pair remains the innermost, even late in a long turn.");
+            }
+            Assert.That(LegacyQueuePanelLayout.WindowStart(8, 3, 12, 7), Is.EqualTo(3));
+            Assert.That(LegacyQueuePanelLayout.WindowStart(0, 99, 0, -4), Is.Zero);
         }
 
         [Test]

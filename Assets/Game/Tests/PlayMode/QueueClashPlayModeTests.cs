@@ -310,7 +310,8 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(hud.TryGetPosedQueueCard(true, out _, out _) || hud.TryGetPosedQueueCard(false, out _, out _), Is.False,
                 "…and rest.");
             foreach (bool playerSide in new[] { true, false })
-                Assert.That(hud.GetQueuedSkillAnchor(playerSide, last).localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(Quaternion.Angle(hud.GetQueuedSkillAnchor(playerSide, last).localRotation, Quaternion.identity),
+                    Is.LessThan(.05f), "The settled card is upright within Unity's quaternion comparison tolerance.");
         }
 
         [UnityTest]
@@ -539,7 +540,8 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(card, Is.Not.Null);
             Assert.That(card.anchoredPosition.x, Is.EqualTo(restX).Within(.01f));
             Assert.That(card.anchoredPosition.y, Is.EqualTo(0f).Within(.01f));
-            Assert.That(card.localRotation, Is.EqualTo(Quaternion.identity));
+            Assert.That(Quaternion.Angle(card.localRotation, Quaternion.identity), Is.LessThan(.05f),
+                "The resting card is upright within Unity's quaternion comparison tolerance.");
         }
 
         private static void AssertSamePose(LegacyCardPose a, LegacyCardPose b)
@@ -609,10 +611,10 @@ namespace TurnLimbo.Presentation.Tests
         private sealed class ClashScope : IDisposable
         {
             private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
-            private readonly DuelPresentationSettings originalSettings, originalArenaSettings;
+            private readonly DuelPresentationSettings originalSettings, originalArenaSettings, originalHudSettings;
             private readonly LegacyQueuedDuel originalSession;
             private readonly bool originallyEnabled;
-            private readonly FieldInfo arenaSettings;
+            private readonly FieldInfo arenaSettings, hudSettings;
             private readonly Action<float, Keyboard> advance;
             public DuelPrototypeController Controller { get; }
             public DuelPresentationSettings Settings { get; }
@@ -628,6 +630,8 @@ namespace TurnLimbo.Presentation.Tests
                 originalSession = Controller.Session;
                 arenaSettings = typeof(LegacyArenaView).GetField("settings", PrivateInstance);
                 originalArenaSettings = (DuelPresentationSettings)arenaSettings.GetValue(Controller.ArenaView);
+                hudSettings = typeof(LegacyCombatHud).GetField("presentationSettings", PrivateInstance);
+                originalHudSettings = (DuelPresentationSettings)hudSettings.GetValue(Controller.Hud);
                 Settings = Object.Instantiate(originalSettings);
                 try
                 {
@@ -635,6 +639,8 @@ namespace TurnLimbo.Presentation.Tests
                         Settings);
                     Set("presentationSettings", Settings);
                     arenaSettings.SetValue(Controller.ArenaView, Settings);
+                    // The HUD keeps the settings supplied when it was built. Tune the same copy on all three readers.
+                    hudSettings.SetValue(Controller.Hud, Settings);
                     advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,
                         typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance));
                     Set("mission", null);
@@ -666,6 +672,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Set("presentationSettings", originalSettings);
                 arenaSettings.SetValue(Controller.ArenaView, originalArenaSettings);
+                hudSettings.SetValue(Controller.Hud, originalHudSettings);
                 Set("session", originalSession);
                 // Leave a fresh arc and lobby behind, as the other flow tests do.
                 Controller.StartNewGame();

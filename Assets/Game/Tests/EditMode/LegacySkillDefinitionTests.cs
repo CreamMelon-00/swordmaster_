@@ -540,7 +540,8 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(CampaignEnemyRhythms.Script(CampaignEnemyRhythm.Gatekeeper).Turn(1).Select(s => s.Id), Is.EqualTo(new[] { 1, 3 }));
 
                 var run = new CampaignRun();
-                Assert.That(run.GetStage(5).EnemyCounterBasis, Is.SameAs(LegacySkillDefinitions.Skill(7)));
+                Assert.That(run.GetStage(5).EnemyCounterBasis, Is.Null, "The trio reserves its guards in its shared queue.");
+                Assert.That(run.GetStage(6).EnemyCounterBasis, Is.SameAs(LegacySkillDefinitions.Skill(7)));
                 Assert.That(run.GetStage(7).EnemyCounterBasis, Is.SameAs(LegacySkillDefinitions.Skill(4)));
                 Assert.That(run.TryStartStage(1), Is.True);
                 Assert.That(run.CreateDuel().EnemyQueue.Select(s => s.Name), Is.EqualTo(new[] { "새 베기", "연속 베기" }));

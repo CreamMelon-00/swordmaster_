@@ -74,6 +74,10 @@ namespace TurnLimbo.Presentation
         private DuelTensionLook tensionLook = DuelTensionLook.Off;
         private LegacyHealthReading tensionReading;
         private bool tensionRequested;
+        private const float HeartbeatHealthShare = .3f, HeartbeatRiseSeconds = .32f, HeartbeatFadeSeconds = .45f;
+        private static readonly Color HeartbeatInk = new Color(.48f, .012f, .025f, 1f);
+        private float heartbeatAmount, heartbeatPhase, heartbeatDanger;
+        private bool heartbeatSuspended;
 
         /// <summary>How far the tension shows now, 0 to 1 (eased in and out on real time).</summary>
         public float TensionAmount => tensionLight.TensionAmount;
@@ -88,6 +92,10 @@ namespace TurnLimbo.Presentation
         public LegacyFlowTurn LastFlowTurn => tensionLight.LastTurn;
         /// <summary>The look the light last asked for (<see cref="SetTensionLighting"/>).</summary>
         public DuelTensionLook TensionLook => tensionLook;
+        /// <summary>The local player's low-health warning, eased on real time; an opponent's low health never starts it.</summary>
+        public float LowHealthHeartbeatAmount => heartbeatSuspended ? 0f : heartbeatAmount;
+        /// <summary>The warning's two heart beats per cycle (0 to 1), independent of the slowed battle clock.</summary>
+        public float LowHealthHeartbeatPulse => LowHealthHeartbeatAmount * HeartbeatEnvelope(heartbeatPhase);
 
         /// <summary>This frame's health, as the rules have it now, from the player's side (a versus screen's own player), and
         /// the look to light it with. Asked for frame by frame like the time pressure: the next Tick consumes it, so an arena
@@ -100,9 +108,20 @@ namespace TurnLimbo.Presentation
             tensionRequested = true;
         }
 
+        /// <summary>The duel ended or its connection closed: leave no red warning over the next screen, even when the
+        /// last combat picture is kept and there will be no further arena Tick. Other tension lighting is preserved.</summary>
+        public void ClearLowHealthHeartbeat()
+        {
+            if (disposed) return;
+            ClearHeartbeat();
+            RefreshExposure();
+            ApplyGrade();
+        }
+
         // Each Tick, before the grade: read this frame's request (or none) and let the real time pass.
         private void TickLighting(float realDelta)
         {
+            TickHeartbeat(realDelta);
             if (tensionRequested) tensionLight.Observe(tensionReading, tensionLook.Tuning);
             else tensionLight.Release();
             tensionRequested = false;
@@ -115,12 +134,81 @@ namespace TurnLimbo.Presentation
             tensionLight.Clear();
             tensionRequested = false;
             tensionReading = LegacyHealthReading.None;
+            ClearHeartbeat();
+            heartbeatSuspended = false;
         }
 
         // A scene in the middle of the battle plays under the neutral light: the tension is kept for its end, a swell ends.
-        private float SetLightingAside() => tensionLight.SetAside();
+        private float SetLightingAside()
+        {
+            // Keep the warning's phase with the battle, without painting red over the scene or ticking its heart.
+            heartbeatSuspended = true;
+            return tensionLight.SetAside();
+        }
 
-        private void PutLightingBack(float tension) => tensionLight.PutBack(tension);
+        private void PutLightingBack(float tension)
+        {
+            heartbeatSuspended = false;
+            tensionLight.PutBack(tension);
+        }
+
+        private void TickHeartbeat(float realDelta)
+        {
+            if (heartbeatSuspended) return;
+            // No request means no battle (including training); a fall leaves the finale its own light immediately.
+            if (!tensionRequested || !tensionReading.IsKnown || tensionReading.AnyoneFell ||
+                !tensionLook.Tuning.TensionEnabled)
+            {
+                ClearHeartbeat();
+                return;
+            }
+            float share = tensionReading.PlayerShare;
+            float target = 0f;
+            if (share <= HeartbeatHealthShare)
+            {
+                heartbeatDanger = 1f - share / HeartbeatHealthShare;
+                target = Mathf.Lerp(.45f, 1f, heartbeatDanger);
+            }
+            if (realDelta <= 0f) return;
+            heartbeatAmount = Mathf.MoveTowards(heartbeatAmount, target,
+                realDelta / (target >= heartbeatAmount ? HeartbeatRiseSeconds : HeartbeatFadeSeconds));
+            if (heartbeatAmount <= 0f)
+            {
+                ClearHeartbeat();
+                return;
+            }
+            float period = Mathf.Lerp(1.04f, .58f, heartbeatDanger);
+            heartbeatPhase = Mathf.Repeat(heartbeatPhase + realDelta / period, 1f);
+        }
+
+        private void ClearHeartbeat() => heartbeatAmount = heartbeatPhase = heartbeatDanger = 0f;
+
+        private static float HeartbeatEnvelope(float phase)
+        {
+            // A strong beat, a softer echo, then a long rest: distinguish a heartbeat from a continuous red flash.
+            float first = HeartbeatBeat(phase, .04f, .11f, .21f);
+            float second = HeartbeatBeat(phase, .25f, .31f, .43f) * .68f;
+            return Mathf.Max(first, second);
+        }
+
+        private static float HeartbeatBeat(float phase, float start, float peak, float end)
+        {
+            if (phase <= start || phase >= end) return 0f;
+            float amount = phase <= peak ? (phase - start) / (peak - start) : (end - phase) / (end - peak);
+            return amount * amount * (3f - 2f * amount);
+        }
+
+        private float HeartbeatExposure => -(LowHealthHeartbeatAmount * .025f + LowHealthHeartbeatPulse * .075f);
+
+        private float HeartbeatVignette(float under)
+        {
+            float amount = LowHealthHeartbeatAmount * .045f + LowHealthHeartbeatPulse * .19f;
+            return amount > 0f ? Mathf.Max(under, Mathf.Min(.82f, under + amount * (1f - flashbackAmount))) : under;
+        }
+
+        private Color HeartbeatVignetteInk(Color under)
+            => Color.Lerp(under, HeartbeatInk,
+                (LowHealthHeartbeatAmount * .22f + LowHealthHeartbeatPulse * .68f) * (1f - flashbackAmount));
 
         // The exposure the light adds (EV): the tension's dimming and the swell's lift; a flashback drains it with the colour.
         private float LightingExposure
@@ -128,8 +216,8 @@ namespace TurnLimbo.Presentation
             get
             {
                 float tension = TensionAmount, swell = FlowSwellAmount;
-                if (tension <= 0f && swell <= 0f) return 0f;
-                return (1f - flashbackAmount) * (swell * tensionLook.SwellExposure - tension * tensionLook.Dimming);
+                return (1f - flashbackAmount) *
+                    (swell * tensionLook.SwellExposure - tension * tensionLook.Dimming + HeartbeatExposure);
             }
         }
 

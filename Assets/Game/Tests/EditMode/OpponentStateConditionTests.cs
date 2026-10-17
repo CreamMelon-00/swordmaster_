@@ -114,11 +114,11 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void Benedicere_ChecksThePlayer_AfterThePlayersOwnInitialEffects()
         {
-            // Slot 1: the broken player's plain 10% recovery (르프리즈 before 2026-10-13) restores 5 first, so 베네디체레 then
-            // meets a whole player.
+            // Break in a setup turn: later reservations in that turn are now canceled. In the next turn, the still-broken
+            // player's plain 10% recovery (르프리즈 before 2026-10-13) restores 5 first, so 베네디체레 meets a whole player.
             Installed(PlainReprise(Rows()), () =>
             {
-                LegacyQueuedDuel duel = AfterFirstSlot(new[] { Skill(Laudare), Skill(Benedicere) }, Probe(900, 20), Lane0(Skill(Reprise)));
+                LegacyQueuedDuel duel = AfterSetupTurn(Skill(Laudare), Probe(900, 20), Skill(Benedicere), Skill(Reprise));
                 Assert.That(duel.Player.IsResistanceBroken, Is.True);
                 LegacyCurrentSlot slot = duel.BeginNextSlot();
                 Assert.That(slot.PlayerFeedback.ResistanceRestored, Is.EqualTo(5));
@@ -277,13 +277,14 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void ThePlayersMultiplier_IsArmedOnlyIfItStillHolds_AfterTheEnemysInitialEffects()
         {
-            // 프레디카레 made to double on a broken target, used by the player against an enemy broken in slot 0.
+            // 프레디카레 made to double on a target broken in a setup turn. The next turn's reservations can execute while
+            // resistance remains broken, so both initial effects still participate in the ordering being tested.
             List<string[]> rows = PlainReprise(Rows());
             Set(rows, Praedicare, Column.OpponentState, "붕괴");
             Installed(rows, () =>
             {
                 // The enemy's plain 르프리즈 restores 5 at the slot's start, so the strike meets a whole enemy.
-                LegacyQueuedDuel recovered = AfterFirstSlot(new[] { Probe(900, 1), Skill(Reprise) }, Probe(901, 50), Skill(Praedicare));
+                LegacyQueuedDuel recovered = AfterSetupTurn(Probe(900, 1), Probe(901, 50), Skill(Reprise), Skill(Praedicare));
                 Assert.That(recovered.Enemy.IsResistanceBroken, Is.True);
                 LegacyCurrentSlot slot = recovered.BeginNextSlot();
                 Assert.That(slot.EnemyFeedback.ResistanceRestored, Is.EqualTo(5));
@@ -292,7 +293,7 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(recovered.ResolveNextHit().PlayerAttackConditionMet, Is.False);
 
                 // A plain guard leaves the enemy broken: armed from the start, and the hit is multiplied.
-                LegacyQueuedDuel stillBroken = AfterFirstSlot(new[] { Probe(900, 1), Guard(903, 4) }, Probe(901, 50), Skill(Praedicare));
+                LegacyQueuedDuel stillBroken = AfterSetupTurn(Probe(900, 1), Probe(901, 50), Guard(903, 4), Skill(Praedicare));
                 LegacyCurrentSlot armed = stillBroken.BeginNextSlot();
                 Assert.That(armed.PlayerFeedback.ConditionalDamagePercent, Is.EqualTo(200));
                 Assert.That(armed.PlayerFeedback.ConditionMet && armed.PlayerFeedback.EffectActivated, Is.True);
@@ -304,6 +305,22 @@ namespace TurnLimbo.Core.Tests
         }
 
         private static LegacySkill Skill(int id) => LegacySkillDefinitions.Skill(id);
+
+        // A break cancels only that turn's later reservations. Test effect order in the following turn, while the
+        // broken state persists, so the recovery being examined is a real executable skill rather than a canceled one.
+        private static LegacyQueuedDuel AfterSetupTurn(LegacySkill setupEnemy, LegacySkill setupPlayer,
+            LegacySkill nextEnemy, LegacySkill nextPlayer)
+        {
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 50, new[] { Lane0(setupPlayer), Lane0(nextPlayer) },
+                new EnemyScript(new[] { new[] { nextEnemy } }, new[] { new[] { setupEnemy } }), 7);
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            duel.ResolveNextSlot();
+            duel.BeginNextTurn();
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
+            return duel;
+        }
 
         private static LegacyQueuedDuel AfterFirstSlot(LegacySkill[] enemy, params LegacySkill[] player)
             => AfterFirstSlot(enemy, 50, player);

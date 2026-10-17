@@ -20,6 +20,7 @@ namespace TurnLimbo.Presentation
         private float bindPlayerOffset, bindEnemyOffset;
         // A signature move's strike trail: tinted ghosts of the fighter's frames while its attack plays (made on first use).
         private const float SignatureTrailInterval = .035f;
+        private const float EnemySlowSignatureTrailInterval = .085f;
         private const int SignatureAfterimageCapacity = 16;
         private DuelStepAfterimages signatureAfterimages;
         private SignatureTrail playerSignatureTrail, enemySignatureTrail;
@@ -162,6 +163,7 @@ namespace TurnLimbo.Presentation
             if (signatureAfterimages == null)
                 signatureAfterimages = new DuelStepAfterimages(arenaRoot.transform, spriteMaterial, ArenaLayer,
                     mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames, SignatureAfterimageCapacity, "Signature");
+            signatureAfterimages.GroupedSortingCeiling = enemyFigures.Count > 1 ? -4 : -2;
             var trail = new SignatureTrail
             {
                 Armed = true,
@@ -195,15 +197,16 @@ namespace TurnLimbo.Presentation
                 trail.Armed = false;
                 return;
             }
-            if (!animationPlaying || actor == player && stepping || !TryGetSkillFrame(actor, out _))
+            if (!animationPlaying || actor == player && (stepping || IsCinematicSlowMotion) || !TryGetSkillFrame(actor, out _))
             {
                 trail.Clock = 0f;
                 return;
             }
             if (!(realDelta > 0f) || float.IsInfinity(realDelta)) return;
             trail.Clock += realDelta;
-            if (trail.Clock < SignatureTrailInterval) return;
-            trail.Clock %= SignatureTrailInterval;
+            float interval = IsCinematicSlowMotion ? EnemySlowSignatureTrailInterval : SignatureTrailInterval;
+            if (trail.Clock < interval) return;
+            trail.Clock %= interval;
             signatureAfterimages?.Emit(actor.Renderer, trail.Ink, trail.Lifetime, Vector3.zero, 0f, 0f,
                 actor.Renderer.sortingOrder - 1, actor == player ? player.LowerRenderer : null);
         }

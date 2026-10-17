@@ -15,7 +15,8 @@ namespace TurnLimbo.Presentation
     public sealed partial class LegacyArenaView : IDisposable
     {
         private const float ForestActorY = -.5f;
-        private const float CorridorActorDepth = .95f;
+        // The whole +/-1.2 depth band stays below the corridor's wall/floor seam, including the rear fighter's ring.
+        private const float CorridorActorDepth = 1.8f;
         /// <summary>How an incoming hit met the target's own action in the rules.</summary>
         public enum HitExchange
         {
@@ -55,7 +56,7 @@ namespace TurnLimbo.Presentation
         private readonly GameObject arenaRoot;
         private readonly LegacyDuelArt art;
         private readonly Actor player;
-        private readonly Actor enemy;
+        private Actor enemy;
         private readonly MobStudentAnimationSet mobAnimations;
         private readonly EnemyStudentAnimationSet enemyAnimations;
         private EnemyStudentAnimationSet cadetAAnimations;
@@ -95,11 +96,11 @@ namespace TurnLimbo.Presentation
         private readonly DuelStepAfterimages stepAfterimages;
         private readonly Material breakMaterial;
         private readonly DuelBreakAura playerBreakAura;
-        private readonly DuelBreakAura enemyBreakAura;
+        private DuelBreakAura enemyBreakAura;
         private readonly DuelPowerAura playerPowerAura;
-        private readonly DuelPowerAura enemyPowerAura;
+        private DuelPowerAura enemyPowerAura;
         // 이아's yellow 수훈 afterimages, driven by her power aura (left while it is up, on its clock).
-        private readonly DuelAuraAfterimages enemyAuraAfterimages;
+        private DuelAuraAfterimages enemyAuraAfterimages;
         // A cutscene's flashback: 1 turns the whole arena black and white over the battle grade.
         private float flashbackAmount;
         // The 서막's 수훈 atmosphere (0..1): a warm golden filter and a deeper, amber vignette over the battle grade.
@@ -133,7 +134,7 @@ namespace TurnLimbo.Presentation
         private Suspension suspension;
         private LegacyStepAction stepAction;
         private float stepTime;
-        private float stepDistance;
+        private float stepDistance, stepYApplied;
         private float stepPlaybackDuration = StepDuration;
         private float stepApplied;
         private int nextStepSample;
@@ -142,6 +143,7 @@ namespace TurnLimbo.Presentation
         private float pressureTrailSampleTime;
         private float stepFocusTime;
         private float stepFocusDuration;
+        private float stepFocusReleaseDuration;
         private float stepFocusStrength;
         private float stepSlowTime;
         private float stepSlowScale = 1f;
@@ -158,7 +160,6 @@ namespace TurnLimbo.Presentation
         private bool resolving;
         private bool approaching;
         private bool returning;
-        private bool inspecting;
         private float movementTime;
         private float approachMovementSpeed = 1f;
         private float pursuitMovementSpeed = 1f;
@@ -166,7 +167,6 @@ namespace TurnLimbo.Presentation
         private float returnSettleSeconds = ReturnDuration;
         private float planningTime = 10f;
         private float fatalTime;
-        private Transform fatalTarget;
         private float cameraRotation;
         private int rotationSign;
         private Vector3 cameraJolt;
@@ -218,14 +218,15 @@ namespace TurnLimbo.Presentation
         public float HudFloor => hudFloor;
         /// <summary>Where the fighters' feet stand (world y): their ground line, where their shadows lie
         /// (<see cref="MobStudentAnimationSet.GroundOffset"/> under the actors).</summary>
-        public float FeetY => ActorGroundY + MobStudentAnimationSet.GroundOffset;
+        public float FeetY => RosterFeetY;
         /// <summary>Whether a cutscene is playing in the middle of the battle (<see cref="SuspendForCutscene"/>).</summary>
         public bool IsSuspendedForCutscene => suspension != null;
         public int ActiveStepAfterimageCount => stepAfterimages.ActiveCount;
         public bool IsStepping => stepping;
+        public float StepGestureDuration => stepPlaybackDuration;
         public bool IsPressureAttackTrailActive => pressureAttackTrail;
-        public float StepFocusAmount => stepFocusDuration > 0f
-            ? stepFocusStrength * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(stepFocusTime / stepFocusDuration)) : 0f;
+        public float StepFocusAmount => stepFocusReleaseDuration > 0f
+            ? stepFocusStrength * Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(stepFocusTime / stepFocusReleaseDuration)) : 0f;
         // The controller owns a custom combat clock. Never change global time,
         // and ease out on real time even during hit stop or manual slow motion.
         public float StepPresentationSpeed => stepSlowTime > 0f
@@ -260,7 +261,7 @@ namespace TurnLimbo.Presentation
         public bool IsPursuing => resolving && !approaching && !returning && (player.Chasing || enemy.Chasing);
         public Vector3 PlayerKnockbackTarget => player.Pushing ? player.PushEnd : player.Renderer.transform.localPosition;
         public Vector3 EnemyKnockbackTarget => enemy.Pushing ? enemy.PushEnd : enemy.Renderer.transform.localPosition;
-        public bool IsInRange => Separation >= 0f && Separation <= ContactDistance + 0.01f;
+        public bool IsInRange => Separation >= 0f && Separation <= ContactDistance + 0.01f && !enemySideRecovery;
         public bool IsReturning => returning;
         public bool ReturnComplete => !returning;
         public bool IsFatalFocus => fatalTime > 0f;
@@ -380,6 +381,7 @@ namespace TurnLimbo.Presentation
             if (!dummyAnimations.HasRequiredAssets)
                 Debug.LogWarning("Training dummy resources are incomplete: " + string.Join(", ", dummyAnimations.MissingResources));
             stepAfterimages = new DuelStepAfterimages(arenaRoot.transform, spriteMaterial, ArenaLayer, mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames);
+            InitializeSlowAfterimages();
             InitializeAttackMotion();
             InitializeWeaponTrail();
             var shadowSprites = Resources.LoadAll<Sprite>("LegacyArena/Shadow/Circle");
@@ -399,6 +401,8 @@ namespace TurnLimbo.Presentation
             enemyAuraAfterimages = new DuelAuraAfterimages(enemy.Renderer, arenaRoot.transform,
                 breakMaterial != null ? breakMaterial : spriteMaterial, ArenaLayer, this.settings);
             enemyPowerAura.Afterimages = enemyAuraAfterimages;
+            BuildDepthPresentation();
+            InitializeEnemyRoster();
             effectPrefab = Resources.Load<GameObject>("LegacyArena/VFX/DefaultParticle");
             Reset();
         }
@@ -416,19 +420,24 @@ namespace TurnLimbo.Presentation
         /// <summary>Cutscenes and combat camera updates advance only the scenery currently shown.</summary>
         public void TickBackdrop(Camera camera, bool inspecting, float scaledDelta, float focusDarkening = 0f)
         {
+            // Queue inspection belongs to the HUD; it no longer dims or focuses the scenery.
             if (BackdropKind == ArenaBackdropKind.Forest)
-                ForestBackdrop.Tick(camera, inspecting, scaledDelta, focusDarkening);
-            else CorridorBackdrop.Tick(camera, inspecting, scaledDelta, focusDarkening);
+                ForestBackdrop.Tick(camera, false, scaledDelta, focusDarkening);
+            else CorridorBackdrop.Tick(camera, false, scaledDelta, focusDarkening);
         }
 
         public void Reset()
         {
+            ClearSlowMovement();
+            ClearCombatShot();
+            if (enemyFigures.Count > 0) SelectActiveEnemy(0);
             ClearAttackMotion();
             // The tension lighting first: the step's cancel and the grade below light the fresh arena without it.
             ClearLighting();
-            approaching = returning = resolving = inspecting = false;
+            approaching = returning = resolving = false;
             CancelStep();
             stepAfterimages.Reset();
+            ClearSlowMotionAfterimages();
             movementTime = fatalTime = cameraJoltTime = idleTime = fatalExposure = impactFlashTime = 0f;
             approachMovementSpeed = pursuitMovementSpeed = settings.MovementSpeedMultiplier;
             approachSettleSeconds = settings.ApproachSettleSeconds;
@@ -440,7 +449,6 @@ namespace TurnLimbo.Presentation
             cameraJolt = Vector3.zero;
             cameraRotation = 0f;
             rotationSign = 0;
-            fatalTarget = null;
             planningTime = 10f;
             aberration.intensity.value = 0f;
             colorAdjustments.postExposure.value = 0f;
@@ -455,6 +463,7 @@ namespace TurnLimbo.Presentation
             // A new duel never resumes a suspended one; what it hid comes back with nothing to show.
             suspension = null;
             impactGlow.Hidden = stepAfterimages.Hidden = false;
+            slowAfterimages.Hidden = false;
             playerBreakAura.Hidden = enemyBreakAura.Hidden = false;
             ApplyGrade();
             ResetActor(player, new Vector3(-5f, ActorGroundY, 0f));
@@ -488,6 +497,8 @@ namespace TurnLimbo.Presentation
             }
             ClearDirector();
             openingPlacementAvailable = true;
+            ResetDepthMovement();
+            ResetEnemyRoster();
         }
 
         /// <summary>Starts a freshly reset duel where the preceding cutscene left the fighters. Call immediately after
@@ -517,6 +528,12 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            ClearSlowMovement();
+            ClearSlowMotionAfterimages();
+            ClearCombatShot();
+            ResetEnemyEnsembleIntent();
+            enemyHandoffTravel = false;
+            enemySideRecovery = false;
             openingPlacementAvailable = false;
             ClearBladeBind();
             ClearSignatureTrails(false);
@@ -553,14 +570,14 @@ namespace TurnLimbo.Presentation
         /// pose under a cold grade. Asked for frame by frame; the next Tick consumes it.</param>
         public void SetPlanningState(float timeRemaining, bool isInspecting, bool bulletTime = false)
         {
+            RequestPlanningDepth();
             planningTime = Mathf.Clamp(timeRemaining, 0f, 10f);
-            inspecting = isInspecting;
             bulletTimeRequested = bulletTime;
         }
 
         /// <summary>The planning clock's pressure this frame, 0 to 1 (<see cref="LegacyTimePressure.Target"/>): the planning
         /// framing, Tab's included, pushes in by up to <see cref="DuelPresentationSettings.TimePressureCameraPush"/> of its
-        /// size, easing in and out on real time, on top of whatever bullet time or Tab does. Asked for frame by frame like
+        /// size, easing in and out on real time. Asked for frame by frame like
         /// bullet time; the next Tick consumes it, so an arena ticked without it eases back.</summary>
         public void SetTimePressure(float target)
         {
@@ -571,7 +588,7 @@ namespace TurnLimbo.Presentation
         /// clearance included (<see cref="LegacyCombatHud.QueuePanelFloor"/>; 0 for none). The battle framings (planning and
         /// combat) keep the fighters' feet (<see cref="FeetY"/>) at or above it, moving the camera down only as far as that
         /// takes (<see cref="LegacyQueuePanelLayout.CameraCeiling"/>): the forest's framing already clears the panels and does
-        /// not move; the corridor's lower floor moves a little. Tab's close-up and the decisive close-up keep their framing; a
+        /// not move; the corridor's lower floor moves a little. The decisive close-up keeps its framing; a
         /// step's push-in and a 수훈 cut-in let it go as far as they pull. Asked for frame by frame like the time pressure:
         /// the next Tick consumes it, so an arena ticked without it (a cutscene, a test) frames as before.</summary>
         public void SetHudFloor(float screenShare)
@@ -581,6 +598,8 @@ namespace TurnLimbo.Presentation
 
         public void BeginApproach()
         {
+            ClearUpcomingEnemy();
+            BeginDepthApproach();
             openingPlacementAvailable = false;
             // The commit takes the camera to the combat framing; the next planning turn starts without the push.
             timePressureTarget = timePressureAmount = 0f;
@@ -588,7 +607,7 @@ namespace TurnLimbo.Presentation
             cameraJoltTime = 0f;
             cameraJolt = Vector3.zero;
             resolving = approaching = true;
-            inspecting = returning = false;
+            returning = false;
             movementTime = 0f;
             approachMovementSpeed = settings.MovementSpeedMultiplier;
             approachSettleSeconds = settings.ApproachSettleSeconds;
@@ -602,16 +621,21 @@ namespace TurnLimbo.Presentation
         public void CloseDistance(float scaledDelta)
         {
             if (IsInRange || approaching || returning || HasPendingPush || stepping) return;
-            float playerStartX = player.Renderer.transform.localPosition.x;
-            float enemyStartX = enemy.Renderer.transform.localPosition.x;
+            Vector3 playerStart = player.Renderer.transform.localPosition;
+            Vector3 enemyStart = enemy.Renderer.transform.localPosition;
             MoveFightersCloser(Mathf.Max(0f, scaledDelta), PursuitSpeed * pursuitMovementSpeed, !IsPursuing);
+            // Tick owns depth once per frame; a contact retry here must not advance it a second time.
+            RefreshDepthPresentation();
             SamplePlayerLowerBody(scaledDelta, scaledDelta);
-            SampleMovementPose(player, playerStartX, scaledDelta);
-            SampleMovementPose(enemy, enemyStartX, scaledDelta);
+            SampleMovementPose(player, playerStart, scaledDelta);
+            SampleMovementPose(enemy, enemyStart, scaledDelta);
         }
 
         public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
         {
+            ClearUpcomingEnemy();
+            enemyHandoffTravel = false;
+            BeginDepthSlot();
             ClearAttackMotion();
             if (!resolving) combatCameraPivot = DuelCenter;
             resolving = true;
@@ -668,6 +692,11 @@ namespace TurnLimbo.Presentation
 
         public void EndTurn()
         {
+            ClearSlowMovement();
+            ClearSlowMotionAfterimages();
+            ClearCombatShot();
+            ClearUpcomingEnemy();
+            BeginDepthReturn();
             ClearAttackMotion();
             ClearBladeBind();
             ClearSignatureTrails(false);
@@ -700,27 +729,35 @@ namespace TurnLimbo.Presentation
                 (action != LegacyStepAction.Dodge && action != LegacyStepAction.Pressure)) return;
             stepAction = action;
             if (action == LegacyStepAction.Dodge && success) dodgedThisSlot = true;
-            stepTime = stepApplied = 0f;
+            stepTime = stepApplied = stepYApplied = 0f;
+            player.GroundVelocity = Vector2.zero;
             // Snapshot a gesture's distance and duration together: live tuning
             // takes effect on the next input, never changes a travelled endpoint.
+            bool cinematicSuccess = cinematic && success && !stepFeedbackStartedThisSlot;
+            float travel = cinematicSuccess ? SuccessfulSlowStepTravel : 1f;
             stepDistance = (action == LegacyStepAction.Dodge ? -settings.StepDodgeDistance : settings.StepPressureDistance)
-                * settings.MovementDistanceMultiplier;
+                * settings.MovementDistanceMultiplier * travel;
+            stepDodgeSideDistance = GroundDodgeSideDistance * travel;
+            stepDodgeDepthSide = ChooseDodgeDepthSide();
             stepPlaybackDuration = StepDuration / settings.MovementSpeedMultiplier;
+            if (cinematicSuccess) stepPlaybackDuration *= 1.8f;
             nextStepSample = 1;
             stepping = true;
             player.LowerTravelActive = player.HasLowerTravelProgress = false;
-            stepAfterimages.Emit(player.Renderer, action, player.LowerRenderer);
             if (action == LegacyStepAction.Pressure && HasRemainingPlayerAttack())
             {
                 pressureAttackTrail = true;
                 pressureTrailSampleTime = 0f;
             }
             if (cinematic) PresentStepFeedback(action, success, successStreak);
+            PrepareSlowAfterimageSampling();
+            if (!IsCinematicSlowMotion) stepAfterimages.Emit(player.Renderer, action, player.LowerRenderer);
         }
 
         public const int MaximumSlowStreak = 5;
         /// <summary>Combat-clock speed of the decisive close-up; step slow motion never goes deeper.</summary>
-        public const float DecisiveSlowMotionScale = 0.15f;
+        public const float DecisiveSlowMotionScale = 0.08f;
+        public const float DecisiveFocusSeconds = .84f;
 
         /// <summary>The success slow motion for a streak: deeper and longer with each consecutive success.
         /// A switched-off base (duration 0 or scale 1) stays off, and the streak stops at the decisive tier.</summary>
@@ -751,7 +788,7 @@ namespace TurnLimbo.Presentation
             }
             // The dash already samples its path. Between hits, retain the armed
             // trail without stamping idle poses; the next attack resumes it.
-            if (!animationPlaying || stepping || !TryGetSkillFrame(player, out _))
+            if (!animationPlaying || stepping || IsCinematicSlowMotion || !TryGetSkillFrame(player, out _))
             {
                 pressureTrailSampleTime = 0f;
                 return;
@@ -806,7 +843,8 @@ namespace TurnLimbo.Presentation
                 if (stepFeedbackStartedThisSlot) return;
                 stepFeedbackStartedThisSlot = true;
                 StepSlowMotionFor(settings, successStreak, out stepSlowTime, out stepSlowScale);
-                stepFocusDuration = settings.StepFocusDuration;
+                stepFocusReleaseDuration = .18f;
+                stepFocusDuration = Mathf.Max(settings.StepFocusDuration, stepSlowTime + stepFocusReleaseDuration);
                 stepFocusStrength = 1f;
             }
             else
@@ -815,6 +853,7 @@ namespace TurnLimbo.Presentation
                 // or extend an ongoing success focus or slow-motion window.
                 if (stepFocusTime > 0f || stepSlowTime > 0f) return;
                 stepFocusDuration = Mathf.Min(0.12f, settings.StepFocusDuration);
+                stepFocusReleaseDuration = stepFocusDuration;
                 stepFocusStrength = 0.25f;
             }
             stepFocusAction = action;
@@ -846,6 +885,9 @@ namespace TurnLimbo.Presentation
                 }
             }
             enemyAppearance = appearance;
+            enemy.Appearance = appearance;
+            enemy.AnimationSet = appearance == EnemyAppearance.CadetA || appearance == EnemyAppearance.CadetB
+                ? GetOrLoadCadetAnimations(appearance) : enemyAnimations;
             // SwordGirl faces right by default; the opposing fighter faces left.
             enemy.Renderer.flipX = EnemyIsElisa;
             ResetMovementPose(enemy);
@@ -939,13 +981,18 @@ namespace TurnLimbo.Presentation
                 // outward displacement instead of cancelling or reversing it.
                 float direction = playerAttacks ? 1f : -1f;
                 Vector3 position = target.Renderer.transform.localPosition;
-                float remaining = target.Pushing ? Mathf.Max(0f, (target.PushEnd.x - position.x) * direction) : 0f;
-                float queued = Mathf.Min(MaximumPendingKnockback, remaining + distance);
+                Vector2 away = GroundPushDirection(attacker, target, playerAttacks);
+                Vector2 remaining = target.Pushing ? (Vector2)(target.PushEnd - position) : Vector2.zero;
+                if (remaining.x * direction < 0f) remaining = Vector2.zero;
+                Vector2 queued = Vector2.ClampMagnitude(remaining + away * distance, MaximumPendingKnockback);
                 target.PushStart = position;
-                target.PushEnd = position + Vector3.right * (direction * queued);
+                target.PushEnd = position + (Vector3)queued;
+                target.PushEnd.y = Mathf.Clamp(target.PushEnd.y, ActorGroundY - MaximumGroundDepth,
+                    ActorGroundY + MaximumGroundDepth);
                 target.PushTime = 0f;
                 target.PushPlaybackDuration = PushDuration / settings.MovementSpeedMultiplier;
                 target.Pushing = true;
+                target.GroundVelocity = Vector2.zero;
                 // The anchored dummy cannot follow up, so the player closes the gap it opened.
                 Actor chaser = attacker == enemy && EnemyIsDummy ? target : attacker;
                 chaser.Chasing = true;
@@ -963,36 +1010,41 @@ namespace TurnLimbo.Presentation
             impactGlow.Emit(impactPosition, guarded, fatal);
             if (settings.GlowEnabled && settings.FlashExposure > 0f)
                 impactFlashTime = Mathf.Min(0.12f, settings.GlowDuration);
-            if (fatal && closeUp && fatalTime <= 0f)
-            {
-                fatalTime = 0.75f;
-                fatalTarget = target.Renderer.transform;
-                cameraRotation = UnityEngine.Random.Range(5f, 10f) * (UnityEngine.Random.value > 0.5f ? 1f : -1f);
-            }
-            if (fatal && closeUp)
-            {
-                aberration.intensity.value = 1f;
-                fatalExposure = 1f;
-                saturationPulse = playerAttacks ? 25f : -80f;
-                ApplyGrade();
-            }
+            if (fatal && closeUp) PresentDecisiveFocus(playerAttacks);
             RefreshExposure();
         }
 
-        /// <summary>The finishing blow (after its decisive <see cref="PresentHit"/>): the close-up stays on the fallen fighter
-        /// for <paramref name="seconds"/> of real time instead of its usual 0.75 s, for the whole of the long slow motion,
+        /// <summary>A break or heavy hit's close-up and grade, without fabricating a hit, damage or physical impulse.
+        /// Skill effects that break resistance use the same presentation as an impact. An active focus is not renewed.</summary>
+        public void PresentDecisiveFocus(bool playerAttacks)
+        {
+            if (disposed || suspension != null) return;
+            if (fatalTime <= 0f)
+            {
+                fatalTime = DecisiveFocusSeconds;
+                cameraRotation = UnityEngine.Random.Range(5f, 10f) * (UnityEngine.Random.value > .5f ? 1f : -1f);
+            }
+            aberration.intensity.value = 1f;
+            fatalExposure = 1f;
+            saturationPulse = playerAttacks ? 25f : -80f;
+            PrepareSlowAfterimageSampling();
+            ApplyGrade();
+            RefreshExposure();
+        }
+
+        /// <summary>The finishing blow (after its decisive <see cref="PresentHit"/>): the close-up stays on the player
+        /// for <paramref name="seconds"/> of real time instead of its usual 0.84 s, for the whole of the long slow motion,
         /// and the hit's grade (aberration, exposure, saturation pulse) fades on real time meanwhile, so the slow clock does
-        /// not keep the flash on screen. When both fell (a draw) the close-up keeps its target. <see cref="BeginTurn"/> and
+        /// not keep the flash on screen. The local player remains the camera's subject even on a loss or draw. <see cref="BeginTurn"/> and
         /// <see cref="Reset"/> end it.</summary>
         public void HoldFinishingFocus(bool playerFell, bool enemyFell, float seconds)
         {
             if (disposed || !(seconds > 0f)) return;
             finishingFocus = true;
-            if (playerFell != enemyFell) fatalTarget = (playerFell ? player : enemy).Renderer.transform;
-            else if (fatalTarget == null) fatalTarget = enemy.Renderer.transform;
             if (fatalTime <= 0f)
                 cameraRotation = UnityEngine.Random.Range(5f, 10f) * (UnityEngine.Random.value > 0.5f ? 1f : -1f);
             fatalTime = Mathf.Max(fatalTime, seconds);
+            PrepareSlowAfterimageSampling();
         }
 
         /// <summary>The 서막's 수훈 atmosphere, 0 (none) to 1: a warm golden filter and a deeper amber vignette over the
@@ -1026,7 +1078,11 @@ namespace TurnLimbo.Presentation
 
         public void Tick(float scaledDelta) => Tick(scaledDelta, Time.unscaledDeltaTime);
 
-        public void Tick(float scaledDelta, float realDelta)
+        public void Tick(float scaledDelta, float realDelta) => Tick(scaledDelta, realDelta, false);
+
+        // Controllers may rewind a sampled pose to a windup, bind or exact impact after Tick. Age the trail here,
+        // then let them snapshot only that final, actually displayed pose through SampleSlowAfterimages.
+        internal void Tick(float scaledDelta, float realDelta, bool deferSlowAfterimages)
         {
             if (disposed) return;
             openingPlacementAvailable = false;
@@ -1048,7 +1104,10 @@ namespace TurnLimbo.Presentation
             // staging gap at normal speed, so there is room to edge in again. A staging gap at contact turns it off.
             float staging = settings.BattleStagingSeparation;
             if (bulletTime && !bulletTimeWasActive)
+            {
                 bulletTimeParting = staging > ContactDistance + .001f && Separation < staging - .001f;
+                if (enemyFigures.Count > 1) BeginRosterPlanning();
+            }
             if (!bulletTime) bulletTimeParting = false;
             bulletTimeWasActive = bulletTime;
             if (!bulletTime) bulletTimeRelease = 0f;
@@ -1061,11 +1120,13 @@ namespace TurnLimbo.Presentation
             float idleSpeed = bulletTime ? Mathf.Lerp(1f, settings.BattlePoseSpeed, bulletTimeAmount) : 1f;
             idleTime += scaledDelta * settings.AnimationPlaybackSpeed * idleSpeed;
             fatalTime = Mathf.Max(0f, fatalTime - Mathf.Max(0f, realDelta));
+            TickSlowMovement(realDelta);
             cameraJoltTime = Mathf.Max(0f, cameraJoltTime - realDelta);
-            // The finishing blow's long slow motion would keep the hit's flash on screen; its close-up fades it on real time.
-            float gradeDelta = finishingFocus ? realDelta : scaledDelta;
-            aberration.intensity.value = Mathf.MoveTowards(aberration.intensity.value, 0f, gradeDelta * 0.75f);
-            fatalExposure = Mathf.MoveTowards(fatalExposure, 0f, gradeDelta * 0.75f);
+            // Deep slow motion holds the pose, not the white flash or colour split over it.
+            bool slowCloseUp = finishingFocus || IsFatalFocus;
+            float gradeDelta = slowCloseUp ? realDelta : scaledDelta;
+            aberration.intensity.value = Mathf.MoveTowards(aberration.intensity.value, 0f, gradeDelta * (slowCloseUp ? 4.5f : .75f));
+            fatalExposure = Mathf.MoveTowards(fatalExposure, 0f, gradeDelta * (slowCloseUp ? 5f : .75f));
             impactFlashTime = Mathf.Max(0f, impactFlashTime - Mathf.Max(0f, realDelta));
             // The tension lighting reads this frame's health (or eases out without it) on real time, before the grade.
             TickLighting(realDelta);
@@ -1082,8 +1143,8 @@ namespace TurnLimbo.Presentation
             bool stepMovedThisFrame = stepping;
             TickStep(realDelta);
             // Pushes and dodge/pressure afterimages keep their authored poses. Only travel uses the movement pose.
-            float playerTravelStartX = player.Renderer.transform.localPosition.x;
-            float enemyTravelStartX = enemy.Renderer.transform.localPosition.x;
+            Vector3 playerTravelStart = player.Renderer.transform.localPosition;
+            Vector3 enemyTravelStart = enemy.Renderer.transform.localPosition;
             float movementSampleDelta = scaledDelta;
             if (approaching)
             {
@@ -1099,18 +1160,22 @@ namespace TurnLimbo.Presentation
                 if (movementTime >= returnSettleSeconds && !HasPendingPush) returning = resolving = false;
             }
             else if (IsPursuing && !stepMovedThisFrame) MoveFightersCloser(scaledDelta, PursuitSpeed * pursuitMovementSpeed, false);
-            else if (bulletTime && !stepMovedThisFrame && !HasPendingPush)
+            else if (bulletTime && !stepMovedThisFrame && (enemyFigures.Count > 1 || !HasPendingPush))
             {
-                if (bulletTimeParting)
+                if (enemyFigures.Count > 1)
+                    movementSampleDelta = TickRosterPlanning(scaledDelta, realDelta);
+                else if (bulletTimeParting)
                 {
                     movementSampleDelta = realDelta;
                     bulletTimeParting = PartFighters(realDelta);
                 }
                 else DriftFightersCloser(scaledDelta);
             }
+            TickDepthMovement(scaledDelta, realDelta);
+            TickInactiveEnemies(scaledDelta, realDelta, bulletTime && !stepMovedThisFrame);
             SamplePlayerLowerBody(scaledDelta, stepMovedThisFrame ? realDelta : scaledDelta, stepMovedThisFrame);
-            SampleMovementPose(player, playerTravelStartX, movementSampleDelta);
-            SampleMovementPose(enemy, enemyTravelStartX, movementSampleDelta);
+            SampleMovementPose(player, playerTravelStart, movementSampleDelta);
+            SampleMovementPose(enemy, enemyTravelStart, movementSampleDelta);
             foreach (var effect in effects)
             {
                 if (!effect.Active) continue;
@@ -1128,6 +1193,7 @@ namespace TurnLimbo.Presentation
                 }
             }
             TickDirectorPush(realDelta);
+            TickCombatShot(realDelta);
             TickCamera(scaledDelta, realDelta);
             RefreshStepBackdrop(scaledDelta);
             impactGlow.Tick(Mathf.Max(0f, realDelta));
@@ -1136,6 +1202,9 @@ namespace TurnLimbo.Presentation
             enemyBreakAura.Tick(scaledDelta);
             playerPowerAura.Tick(scaledDelta);
             enemyPowerAura.Tick(scaledDelta);
+            TickDefeatedFigure(enemy, scaledDelta);
+            RefreshDepthPresentation();
+            TickSlowAfterimages(realDelta, deferSlowAfterimages);
         }
 
         /// <summary>Shows which fighters are broken (incoming HP damage x2). The cue lasts until the
@@ -1165,7 +1234,7 @@ namespace TurnLimbo.Presentation
             while (nextStepSample < 3 && nextTime >= stepPlaybackDuration * nextStepSample / 3f)
             {
                 ApplyStepOffset(stepPlaybackDuration * nextStepSample / 3f);
-                stepAfterimages.Emit(player.Renderer, stepAction, player.LowerRenderer);
+                if (!IsCinematicSlowMotion) stepAfterimages.Emit(player.Renderer, stepAction, player.LowerRenderer);
                 nextStepSample++;
             }
             ApplyStepOffset(nextTime);
@@ -1182,7 +1251,8 @@ namespace TurnLimbo.Presentation
             if (offset > 0f)
                 offset = Mathf.Min(offset, Mathf.Max(0f, enemy.Renderer.transform.localPosition.x -
                     MinimumStepSeparation - transform.localPosition.x));
-            Vector3 displacement = Vector3.right * offset;
+            float desiredY = GroundDodgeLateral(desired);
+            Vector3 displacement = new Vector3(offset, desiredY - stepYApplied, 0f);
             transform.localPosition += displacement;
             // Knockback owns a separate interpolation. Translate both endpoints
             // so its next sample preserves this gesture instead of snapping back.
@@ -1192,17 +1262,18 @@ namespace TurnLimbo.Presentation
                 player.PushEnd += displacement;
             }
             stepApplied = desired;
+            stepYApplied = desiredY;
         }
 
         private void CancelStep()
         {
             stepping = false;
             ClearPressureAttackTrail();
-            stepTime = stepDistance = stepApplied = 0f;
+            stepTime = stepDistance = stepApplied = stepYApplied = 0f;
             stepPlaybackDuration = StepDuration;
             nextStepSample = 0;
             bool hadFocus = stepFocusTime > 0f;
-            stepFocusTime = stepFocusDuration = stepFocusStrength = stepSlowTime = 0f;
+            stepFocusTime = stepFocusDuration = stepFocusReleaseDuration = stepFocusStrength = stepSlowTime = 0f;
             stepSlowScale = 1f;
             stepFeedbackStartedThisSlot = false;
             // The sky and the scenery lose the step's darkening at once (the tension lighting's stays).
@@ -1211,15 +1282,12 @@ namespace TurnLimbo.Presentation
             {
                 // Phase changes cancel the special framing immediately. With
                 // no focus in progress, preserve the legacy camera behaviour.
-                ArenaCamera.orthographicSize = resolving ? settings.CombatCameraSize : inspecting ? 3.5f : 5f + planningTime / 10f;
+                ArenaCamera.orthographicSize = resolving ? settings.CombatCameraSize : 5f + planningTime / 10f;
                 combatCameraPivot = DuelCenter;
-                Vector3 pivot = resolving ? DuelCenter : inspecting
-                    ? enemy.Renderer.transform.localPosition + new Vector3(0f, 0.5f, 0f)
-                    : DuelCenter + new Vector3(0f, -1f, 0f);
-                pivot.y += CameraCompensation(ArenaCamera.orthographicSize, inspecting ? 1f : 0f);
-                // As TickCamera frames it: the feet over the duel HUD's queue panels (not under Tab).
-                if (!inspecting)
-                    pivot.y = Mathf.Min(pivot.y, LegacyQueuePanelLayout.CameraCeiling(FeetY, ArenaCamera.orthographicSize, hudFloor));
+                Vector3 pivot = resolving ? DuelCenter : DuelCenter + new Vector3(0f, -1f, 0f);
+                pivot.y += CameraCompensation(ArenaCamera.orthographicSize, 0f);
+                // As TickCamera frames it: the feet stay over the duel HUD's queue panels.
+                pivot.y = Mathf.Min(pivot.y, LegacyQueuePanelLayout.CameraCeiling(FeetY, ArenaCamera.orthographicSize, hudFloor));
                 pivot.z = -10f;
                 ArenaCamera.transform.localPosition = pivot;
                 ArenaCamera.transform.localRotation = Quaternion.Euler(0f, 0f, CameraRotate ? cameraRotation : 0f);
@@ -1237,7 +1305,7 @@ namespace TurnLimbo.Presentation
             if (tension > 0f) darkness = 1f - (1f - darkness) * (1f - tension);
             ArenaCamera.backgroundColor = new Color(NormalSkyColor.r * (1f - darkness),
                 NormalSkyColor.g * (1f - darkness), NormalSkyColor.b * (1f - darkness), 1f);
-            TickBackdrop(ArenaCamera, inspecting, scaledDelta, darkness);
+            TickBackdrop(ArenaCamera, false, scaledDelta, darkness);
         }
 
         private void RefreshExposure()
@@ -1293,9 +1361,9 @@ namespace TurnLimbo.Presentation
             bool playerMayMove = !player.Pushing;
             bool enemyMayMove = !EnemyIsDummy && !enemy.Pushing;
             if (!playerMayMove && !enemyMayMove) return;
-            float step = Mathf.Min(excess / (playerMayMove && enemyMayMove ? 2f : 1f), speed * delta);
-            if (playerMayMove) player.Renderer.transform.localPosition += Vector3.right * step;
-            if (enemyMayMove) enemy.Renderer.transform.localPosition -= Vector3.right * step;
+            float share = excess / (playerMayMove && enemyMayMove ? 2f : 1f);
+            if (playerMayMove) TravelOnGround(player, new Vector2(share, 0f), speed, delta);
+            if (enemyMayMove) TravelOnGround(enemy, new Vector2(-share, 0f), speed, delta);
         }
 
         /// <summary>전투 planning start: both figures step back (on real time) to the staging gap. Returns whether they
@@ -1309,9 +1377,9 @@ namespace TurnLimbo.Presentation
             bool enemyMayMove = !EnemyIsDummy && !enemy.Pushing;
             if (!playerMayMove && !enemyMayMove) return false;
             if (realDelta <= 0f) return true;
-            float step = Mathf.Min(shortfall / (playerMayMove && enemyMayMove ? 2f : 1f), BulletTimePartSpeed * realDelta);
-            if (playerMayMove) player.Renderer.transform.localPosition -= Vector3.right * step;
-            if (enemyMayMove) enemy.Renderer.transform.localPosition += Vector3.right * step;
+            float share = shortfall / (playerMayMove && enemyMayMove ? 2f : 1f);
+            if (playerMayMove) TravelOnGround(player, new Vector2(-share, 0f), BulletTimePartSpeed, realDelta);
+            if (enemyMayMove) TravelOnGround(enemy, new Vector2(share, 0f), BulletTimePartSpeed, realDelta);
             return Separation < target - .001f;
         }
 
@@ -1337,6 +1405,8 @@ namespace TurnLimbo.Presentation
         internal void SuspendForCutscene()
         {
             if (disposed || suspension != null) return;
+            ClearCombatShot();
+            ClearUpcomingEnemy();
             Vector3 playerAttackOffset = player.AttackVisualOffset, enemyAttackOffset = enemy.AttackVisualOffset;
             Vector3 playerAttackRecoil = player.AttackRecoilOffset, enemyAttackRecoil = enemy.AttackRecoilOffset;
             ClearAttackMotion(false);
@@ -1366,6 +1436,8 @@ namespace TurnLimbo.Presentation
                 saved.HiddenEffects.Add(effect);
             }
             impactGlow.Hidden = stepAfterimages.Hidden = true;
+            ClearSlowMotionAfterimages();
+            slowAfterimages.Hidden = true;
             playerBreakAura.Hidden = enemyBreakAura.Hidden = true;
             // The 수훈 ghosts trace frames the scene is about to move: the scene starts its own trail (its aura ticks them).
             enemyAuraAfterimages.Clear();
@@ -1378,6 +1450,9 @@ namespace TurnLimbo.Presentation
             // The sky and the scenery lose the tension lighting's darkening with it (a step's focus keeps its own).
             RefreshStepBackdrop();
             suspension = saved;
+            SuspendEnemyRoster();
+            depthWasVisibleForCutscene = depthPresentationVisible;
+            SetDepthPresentationVisible(false);
         }
 
         /// <summary>The cutscene in the middle of the battle is over: the fighters, camera, grade and the hit's effects are
@@ -1413,11 +1488,15 @@ namespace TurnLimbo.Presentation
             foreach (var effect in saved.HiddenEffects)
                 if (effect.Active) effect.Instance.SetActive(true);
             impactGlow.Hidden = stepAfterimages.Hidden = false;
+            ClearSlowMotionAfterimages();
+            slowAfterimages.Hidden = false;
             playerBreakAura.Hidden = enemyBreakAura.Hidden = false;
             // The scene's 수훈 ghosts were left where it staged her, not where the battle has her: her trail starts afresh.
             enemyAuraAfterimages.Clear();
             // The backdrop follows the camera that is back, with the step focus's darkening as it was.
             RefreshStepBackdrop();
+            SetDepthPresentationVisible(depthWasVisibleForCutscene);
+            ResumeEnemyRoster();
         }
 
         /// <summary>The fatal pulse plus the 전투 planning grade (less colour, a cold filter), the 수훈 atmosphere (a warm
@@ -1441,8 +1520,8 @@ namespace TurnLimbo.Presentation
             // The tension lighting deepens the edges toward an ember; a flow's swell opens them a moment.
             float lighting = LightingVignette;
             float edges = BaseVignette + settings.EmpowermentVignette * empowermentAmount;
-            vignette.intensity.value = lighting != 0f ? Mathf.Max(0f, edges + lighting) : edges;
-            vignette.color.value = LightingVignetteInk(Color.Lerp(Color.black, EmpowermentVignetteColor, empowermentAmount));
+            vignette.intensity.value = HeartbeatVignette(lighting != 0f ? Mathf.Max(0f, edges + lighting) : edges);
+            vignette.color.value = HeartbeatVignetteInk(LightingVignetteInk(Color.Lerp(Color.black, EmpowermentVignetteColor, empowermentAmount)));
         }
 
         // Takes the hit shake's last offset off the camera, leaving the place the camera follows.
@@ -1455,12 +1534,28 @@ namespace TurnLimbo.Presentation
 
         private void MoveFightersCloser(float delta, float speed, bool bothMayApproach)
         {
-            float excess = Separation - ContactDistance;
+            float travelScale = enemyHandoffTravel ? settings.EnemyHandoffSpeedMultiplier : 1f;
+            if (enemyFigures.Count > 1 && (enemySideRecovery || Separation < 0f) && delta > 0f && !stepping)
+            {
+                // Sustained pursuit may have carried Elisa past a waiting opponent. Recover the side relationship
+                // through actual footwork before the new exchange, including a negative signed separation.
+                float shortfall = Mathf.Max(0f, ContactDistance - Separation);
+                Vector2 recovery = new Vector2(shortfall * .5f, 0f);
+                if (!player.Pushing) TravelOnGround(player, -recovery, speed, delta, travelScale, true);
+                if (!enemy.Pushing) TravelOnGround(enemy, recovery, speed, delta, travelScale, true);
+                // Passing x=0 is not yet enough room for two bodies; finish this finite safety step.
+                enemySideRecovery = Separation < ContactDistance - .01f;
+                return;
+            }
+            float excess = Mathf.Max(0f, Separation - ContactDistance);
             if (excess <= 0f || delta <= 0f || stepping) return;
-            bool playerMayMove = !player.Pushing && (bothMayApproach || player.Chasing && player.ChaseDelay <= 0f);
-            bool enemyMayMove = !EnemyIsDummy && !enemy.Pushing && (bothMayApproach || enemy.Chasing && enemy.ChaseDelay <= 0f);
+            bool playerMayMove = !player.Pushing && !enemyHandoffTravel &&
+                (bothMayApproach || player.Chasing && player.ChaseDelay <= 0f);
+            bool enemyMayMove = !EnemyIsDummy && !enemy.Pushing &&
+                (bothMayApproach || enemyHandoffTravel || enemy.Chasing && enemy.ChaseDelay <= 0f);
             if (!playerMayMove && !enemyMayMove) return;
-            float step = Mathf.Min(excess / (playerMayMove && enemyMayMove ? 2f : 1f), speed * delta);
+            float divisor = playerMayMove && enemyMayMove ? 2f : 1f;
+            Vector2 correction = new Vector2(excess, 0f) / divisor;
             if (playerMayMove)
             {
                 if (!player.LowerTravelActive)
@@ -1472,9 +1567,9 @@ namespace TurnLimbo.Presentation
                     player.LowerTravelActive = true;
                 }
                 player.HasLowerTravelProgress = true;
-                player.Renderer.transform.localPosition += Vector3.right * step;
+                TravelOnGround(player, correction, speed, delta, travelScale, true);
             }
-            if (enemyMayMove) enemy.Renderer.transform.localPosition -= Vector3.right * step;
+            if (enemyMayMove) TravelOnGround(enemy, -correction, speed, delta, travelScale, true);
         }
 
         internal void HoldSlotAtTime(float elapsed)
@@ -1492,6 +1587,13 @@ namespace TurnLimbo.Presentation
 
         private void SampleActorPose(Actor actor)
         {
+            if (actor.Defeated && actor != player)
+            {
+                EnemyStudentAnimationSet fallenAnimations = AnimationsFor(actor);
+                if (fallenAnimations.HasRequiredAssets) actor.Renderer.sprite = fallenAnimations.GetHurt(actor.ReactionVariant);
+                return;
+            }
+            if (TrySampleUpcomingPreparation(actor)) return;
             bool active = TryGetSkillFrame(actor, out float clipTime);
             // Only the sampled attack pose changes. Its cycle, hit index, contact and combat clock stay authoritative.
             // Preserve half-cycle contact so a held blade bind still shows the authored contact cel.
@@ -1528,8 +1630,8 @@ namespace TurnLimbo.Presentation
                     : dummyAnimations.GetIdle(actor.IdleClock);
                 return;
             }
-            EnemyStudentAnimationSet animationSet = ActiveEnemyAnimations;
-            if (actor == enemy && animationSet.HasRequiredAssets)
+            EnemyStudentAnimationSet animationSet = AnimationsFor(actor);
+            if (actor != player && animationSet.HasRequiredAssets)
             {
                 if (actor.ReactionTime > 0f)
                 {
@@ -1561,7 +1663,7 @@ namespace TurnLimbo.Presentation
             if (actor.Clips.TryGetValue(clipName, out var clip)) clip.SampleAnimation(actor.Renderer.gameObject, time);
         }
 
-        private void SampleMovementPose(Actor actor, float startX, float elapsed)
+        private void SampleMovementPose(Actor actor, Vector3 start, float elapsed)
         {
             if (actor == enemy && EnemyIsDummy)
             {
@@ -1570,8 +1672,8 @@ namespace TurnLimbo.Presentation
                 return;
             }
 
-            float travelX = actor.Renderer.transform.localPosition.x - startX;
-            if (Mathf.Abs(travelX) > .00001f) actor.Moving = true;
+            Vector2 travel = actor.Renderer.transform.localPosition - start;
+            if (travel.sqrMagnitude > .0000000001f) actor.Moving = true;
             // A stopped combat clock holds the displayed pose; a real stop returns to idle.
             else if (elapsed > 0f) actor.Moving = false;
             SampleActor(actor);
@@ -1584,7 +1686,7 @@ namespace TurnLimbo.Presentation
             if (!mobAnimations.HasRequiredAssets || mobAnimations.UsesFullBodyFrames) return;
             Vector3 position = player.Renderer.transform.localPosition;
             float displacement = position.x - player.LastVisualPosition.x;
-            bool moving = Mathf.Abs(displacement) > .00001f;
+            bool moving = ((Vector2)(position - player.LastVisualPosition)).sqrMagnitude > .0000000001f;
             if (moving)
             {
                 if (stepProgress)
@@ -1592,7 +1694,7 @@ namespace TurnLimbo.Presentation
                 else if (player.HasLowerTravelProgress)
                     player.LowerAnimationTime = LowerCycleTime(Mathf.Abs(position.x - player.LowerTravelStartX) / player.LowerTravelDistance);
                 else player.LowerAnimationTime += Mathf.Max(0f, movementDelta);
-                player.Retreating = displacement < 0f;
+                if (Mathf.Abs(displacement) > .00001f) player.Retreating = displacement < 0f;
             }
             else if (scaledDelta > 0f)
             {
@@ -1649,6 +1751,7 @@ namespace TurnLimbo.Presentation
             // A 수훈 cut-in eases toward the enemy and back; the decisive close-up keeps the camera while it runs.
             float cutIn = IsFatalFocus ? 0f : cutInAmount;
             if (cutIn > 0f) sharpness = Mathf.Max(CutInSharpness, sharpness);
+            if (CombatShotMotionWeight > 0f) sharpness = Mathf.Max(14f, sharpness);
             var blend = 1f - Mathf.Exp(-sharpness * Mathf.Max(0f, realDelta));
             if (resolving || IsFatalFocus)
             {
@@ -1657,18 +1760,17 @@ namespace TurnLimbo.Presentation
                 if (Mathf.Abs(drift) > settings.CameraFollowDeadZone)
                     combatCameraPivot.x = center.x - Mathf.Sign(drift) * settings.CameraFollowDeadZone;
                 combatCameraPivot.y = center.y;
-                size = IsFatalFocus ? 3f : settings.CombatCameraSize;
+                size = IsFatalFocus ? 2.8f : settings.CombatCameraSize;
                 // The director's push for a Major slot (SetDirectorPush); the decisive close-up keeps its own framing.
                 if (!IsFatalFocus) size *= 1f - directorPushAmount;
-                pivot = IsFatalFocus && fatalTarget != null ? fatalTarget.localPosition
+                pivot = IsFatalFocus ? player.Renderer.transform.localPosition + new Vector3(.35f, 0f, 0f)
                     : combatCameraPivot;
             }
             else
             {
-                size = inspecting ? 3.5f : 5f + planningTime / 10f;
-                pivot = inspecting ? enemy.Renderer.transform.localPosition + new Vector3(0f, 0.5f, 0f)
-                    : DuelCenter + new Vector3(0f, -1f, 0f);
-                // The running clock's last share pushes the framing in a touch; Tab and bullet time keep their own.
+                size = 5f + planningTime / 10f;
+                pivot = DuelCenter + new Vector3(0f, -1f, 0f);
+                // The running clock's last share pushes the normal planning framing in a touch.
                 size *= 1f - settings.TimePressureCameraPush * timePressureAmount;
             }
             if (cutIn > 0f)
@@ -1677,13 +1779,15 @@ namespace TurnLimbo.Presentation
                 pivot = Vector3.Lerp(pivot, enemyFocus, cutIn * CutInPull);
                 size = Mathf.Lerp(size, settings.EmpowermentCutInCameraSize, cutIn);
             }
+            FrameEnemyRoster(ref pivot, ref size);
+            float shotBank = ApplyCombatShot(ref pivot, ref size);
             float focus = IsFatalFocus ? 0f : StepFocusAmount;
             float direction = stepFocusAction == LegacyStepAction.Dodge ? -1f : 1f;
             if (focus > 0f)
             {
                 Vector3 playerFocus = player.Renderer.transform.localPosition +
                     new Vector3(direction * 0.4f, 0.2f, 0f);
-                pivot = Vector3.Lerp(pivot, playerFocus, focus * 0.6f);
+                pivot = Vector3.Lerp(pivot, playerFocus, focus * 0.95f);
                 pivot.x += direction * focus * 0.15f;
                 size = Mathf.Max(1.5f, size - settings.StepCameraZoom * focus);
                 // A quick push-in and slower release make the gesture legible
@@ -1691,12 +1795,17 @@ namespace TurnLimbo.Presentation
                 blend = 1f - Mathf.Pow(0.72f, Mathf.Max(0f, realDelta) * 60f);
             }
             // Keep the wide corridor shot fixed while close-ups can still follow the whole figure.
-            pivot.y += CameraCompensation(size, inspecting || IsFatalFocus ? 1f : Mathf.Max(focus, cutIn));
+            pivot.y += CameraCompensation(size, IsFatalFocus ? 1f : Mathf.Max(focus, cutIn));
             // The duel HUD's queue panels over the bottom of the screen: the feet stay above them (SetHudFloor). Only ever
-            // down, only as far as needed; Tab's and the decisive close-ups keep theirs, a push-in or cut-in as far as it pulls.
-            float floorWeight = inspecting || IsFatalFocus ? 0f : 1f - Mathf.Clamp01(Mathf.Max(focus, cutIn));
+            // down, only as far as needed; the decisive close-up keeps its framing, a push-in or cut-in as far as it pulls.
+            float floorWeight = IsFatalFocus ? 0f : 1f - Mathf.Clamp01(Mathf.Max(focus, cutIn));
             float ceiling = LegacyQueuePanelLayout.CameraCeiling(FeetY, size, hudFloor);
+            if (depthPresentationVisible && suspension == null)
+                ceiling = Mathf.Min(ceiling,
+                    LegacyQueuePanelLayout.CameraCeiling(LowestGroundVisualY, size, hudFloor + .01f));
             if (floorWeight > 0f && pivot.y > ceiling) pivot.y = Mathf.Lerp(pivot.y, ceiling, floorWeight);
+            FitPlayerSlowMotionShot(ref pivot, ref size, IsFatalFocus ? 1f : focus);
+            FitCombatShot(ref pivot, ref size);
             pivot.z = -10f;
             if (cameraJoltTime > 0f) pivot += cameraJolt * (cameraJoltTime / 0.1f);
             ArenaCamera.orthographicSize = Mathf.Lerp(ArenaCamera.orthographicSize, size, blend);
@@ -1704,6 +1813,7 @@ namespace TurnLimbo.Presentation
             var rotationBlend = 1f - Mathf.Pow(IsFatalFocus ? 0.8f : 0.95f, Mathf.Max(0f, realDelta) * 60f);
             float rotation = CameraRotate || IsFatalFocus ? cameraRotation : 0f;
             if (!IsFatalFocus) rotation += direction * focus * 2.5f;
+            rotation += shotBank;
             ArenaCamera.transform.localRotation = Quaternion.Lerp(ArenaCamera.transform.localRotation,
                 Quaternion.Euler(0f, 0f, rotation), rotationBlend);
             float elapsed = Mathf.Max(0f, realDelta);
@@ -1778,6 +1888,7 @@ namespace TurnLimbo.Presentation
             shadow.transform.localPosition = new Vector3(x, -2.23f, 0f);
             shadow.transform.localScale = new Vector3(3f, 0.7f, 1f);
             shadow.color = new Color(0f, 0f, 0f, 0.6117647f);
+            actor.GroundShadow = shadow;
             return shadow;
         }
 
@@ -1802,6 +1913,11 @@ namespace TurnLimbo.Presentation
             actor.Renderer.transform.localPosition = position;
             actor.Renderer.transform.localScale = Vector3.one;
             actor.Renderer.color = Color.white;
+            if (actor.GroundShadow != null) actor.GroundShadow.color = new Color(0f, 0f, 0f, .6117647f);
+            actor.Renderer.gameObject.SetActive(true);
+            actor.Renderer.enabled = true;
+            actor.Defeated = false;
+            actor.DefeatElapsed = 0f;
             if (actor.LowerRenderer != null) actor.LowerRenderer.color = Color.white;
             actor.Pushing = false;
             actor.Chasing = false;
@@ -1809,6 +1925,12 @@ namespace TurnLimbo.Presentation
             actor.PushStart = actor.PushEnd = position;
             actor.PushTime = 0f;
             actor.PushPlaybackDuration = PushDuration;
+            actor.GroundVelocity = Vector2.zero;
+            actor.GroundTravelRequested = false;
+            actor.GroundBrakeArmed = false;
+            actor.GroundBrakeAcceleration = Vector2.zero;
+            actor.GroundDepthBrakeArmed = false;
+            actor.GroundDepthBrakeAcceleration = 0f;
             actor.FlashTime = actor.AnimationTime = 0f;
             actor.ReactionTime = 0f;
             actor.ReactionIsBlock = false;
@@ -1830,12 +1952,16 @@ namespace TurnLimbo.Presentation
         public void Dispose()
         {
             if (disposed) return;
+            if (enemyFigures.Count > 0) SelectEnemyContext(0);
             disposed = true;
             CancelStep();
             stepAfterimages.Dispose();
+            slowAfterimages.Dispose();
+            DisposeDepthPresentation();
             DisposeAttackMotion();
             weaponTrails?.Dispose();
             DisposeDirector();
+            CorridorBackdrop.Dispose();
             mobAnimations.Dispose();
             enemyAnimations.Dispose();
             cadetAAnimations?.Dispose();
@@ -1847,6 +1973,7 @@ namespace TurnLimbo.Presentation
             playerPowerAura.Dispose();
             enemyPowerAura.Dispose();
             enemyAuraAfterimages.Dispose();
+            DisposeAdditionalEnemies();
             Object.Destroy(arenaRoot);
             if (spriteMaterial != null) Object.Destroy(spriteMaterial);
             if (breakMaterial != null) Object.Destroy(breakMaterial);
@@ -1857,12 +1984,23 @@ namespace TurnLimbo.Presentation
 
         private sealed class Actor
         {
+            public EnemyAppearance Appearance;
+            public EnemyStudentAnimationSet AnimationSet;
+            public bool Defeated;
+            public float DefeatElapsed;
             public Vector3 AttackVisualOffset, AttackRecoilOffset;
             public readonly MaterialPropertyBlock AttackDrawProperties = new MaterialPropertyBlock();
             public readonly Dictionary<int, int> AttackEchoMasks = new Dictionary<int, int>();
             public readonly HashSet<int> WeaponTrailHits = new HashSet<int>();
             public SpriteRenderer Renderer;
             public SpriteRenderer LowerRenderer;
+            public SpriteRenderer GroundShadow;
+            public Vector2 GroundVelocity;
+            public bool GroundTravelRequested;
+            public Vector2 GroundBrakeAcceleration;
+            public bool GroundBrakeArmed;
+            public bool GroundDepthBrakeArmed;
+            public float GroundDepthBrakeAcceleration;
             public readonly Dictionary<string, AnimationClip> Clips = new Dictionary<string, AnimationClip>(StringComparer.OrdinalIgnoreCase);
             public LegacySkill Skill;
             public float AnimationTime, FlashTime, PushTime, ChaseDelay;

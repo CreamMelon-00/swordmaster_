@@ -96,6 +96,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacyFighterState Enemy => Opponent.State;
         public IReadOnlyList<LegacySkill> PlayerQueue => Me.Queue;
         public IReadOnlyList<LegacySkill> EnemyQueue => Opponent.Queue;
+        public int PlayerBreakCanceledFromSlotIndex => Me.BreakCanceledFromSlotIndex;
+        public int EnemyBreakCanceledFromSlotIndex => Opponent.BreakCanceledFromSlotIndex;
         public LocalVersusPerspectiveSlot CurrentSlot => Slot(Match.CurrentSlot);
         ILegacySlotView ILegacyDuelView.CurrentSlot => CurrentSlot;
         /// <summary>The current slot's clash from this side (<see cref="LocalVersusMatch.CurrentClash"/>): the guest's view is

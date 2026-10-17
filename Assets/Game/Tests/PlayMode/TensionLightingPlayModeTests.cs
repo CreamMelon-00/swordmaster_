@@ -369,8 +369,8 @@ namespace TurnLimbo.Presentation.Tests
                 try
                 {
                     JsonUtility.FromJsonOverwrite("{\"tensionLightingEnabled\":true,\"tensionHealthPercent\":30," +
-                        "\"tensionEaseInSeconds\":0.8,\"tensionEaseOutSeconds\":1.2" +
-                        (string.IsNullOrEmpty(tuning) ? "" : "," + tuning) + "}", Settings);
+                        "\"tensionEaseInSeconds\":0.8,\"tensionEaseOutSeconds\":1.2}", Settings);
+                    if (!string.IsNullOrEmpty(tuning)) JsonUtility.FromJsonOverwrite("{" + tuning + "}", Settings);
                     Set("presentationSettings", Settings);
                     arenaSettings.SetValue(Controller.ArenaView, Settings);
                     Set("mission", null);

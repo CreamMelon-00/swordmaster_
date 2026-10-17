@@ -56,7 +56,7 @@ namespace TurnLimbo.Presentation
         {
             if (actor.Skill?.Kind != LegacySkillKind.Attack) return;
             Vector3 offset = attackSpriteMaterial == null ? Vector3.zero : arenaRoot.transform.TransformVector(
-                Vector3.right * (actor == player ? slotAttackLungeDistance : -slotAttackLungeDistance));
+                Vector3.right * (actor == player ? AttackLungeDistanceFor(actor) : -AttackLungeDistanceFor(actor)));
             EmitWeaponTrail(actor, hit, offset);
         }
 

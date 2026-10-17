@@ -6,7 +6,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// panels face each other just above the command dock: the player's queue (the viewer's, in versus) on the left, the
     /// opponent's on the right, mirrored round the centre seam. Slot 1 is the card nearest the seam on both sides and later
     /// slots go outward, so slot k stands at the same distance from the centre on both sides and the pairs read as mirror
-    /// images. Both rows share one spacing: the full one while the longer row fits its panel, tighter when it would not. After
+    /// images. Both rows share one readable card size and spacing; a long queue shows a shared window of slots. After
     /// each resolved slot both rows slide one step toward the seam, so the pair being resolved is always the innermost. The
     /// panels can keep the fighters' feet clear of them by moving the arena camera down (<see cref="CameraCeiling"/>). Lengths
     /// are HUD units at the 1920x1080 reference; slides are in slots.</summary>
@@ -14,8 +14,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
     {
         /// <summary>The defaults the presentation settings start from: one panel's width, a card's side, the full spacing
         /// between neighbouring cards, the gap between the two panels at the seam, and a slide's battle seconds.</summary>
-        public const float DefaultPanelWidth = 560f, DefaultCardSize = 64f, DefaultCardSpacing = 72f, DefaultSeamGap = 56f,
+        public const float DefaultPanelWidth = 560f, DefaultCardSize = 48f, DefaultCardSpacing = 54f, DefaultSeamGap = 56f,
             DefaultSlideSeconds = .22f;
+        /// <summary>Long queues shrink together only this far; a window then keeps every shown icon readable and separate.</summary>
+        public const float MinimumCardSize = 40f, MinimumCardGap = 4f;
         /// <summary>The panels' gap over the dock while planning (clear of the timer gear riding its top edge), their bottom
         /// over the screen's while the dock is folded away (a resolving turn: they settle over the lower letterbox band, just
         /// above the step hint's line at 19 to 41), and the room kept between their top and the fighters' feet.</summary>
@@ -26,6 +28,49 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const float Padding = 6f;
         /// <summary>The most slots one slide carries: several slots consumed at once (a skipped stretch) snap the rest.</summary>
         public const float MaximumSlide = 2f;
+
+        /// <summary>The shared card side for a turn's full queue. It fits as many as possible at the requested proportions,
+        /// down to <see cref="MinimumCardSize"/>; longer queues use <see cref="Capacity"/> rather than overlap.</summary>
+        public static float CardSize(float room, int count, float preferredSize, float preferredSpacing)
+        {
+            preferredSize = Math.Max(MinimumCardSize, Finite(preferredSize, DefaultCardSize));
+            room = Math.Max(1f, Finite(room, preferredSize));
+            if (count < 2) return Math.Min(room, preferredSize);
+            float ratio = Math.Max(1f + MinimumCardGap / preferredSize,
+                Finite(preferredSpacing, DefaultCardSpacing) / preferredSize);
+            float fitted = room / (1f + (count - 1) * ratio);
+            return Math.Min(room, Math.Min(preferredSize, Math.Max(MinimumCardSize, fitted)));
+        }
+
+        /// <summary>The readable spacing for a card size: the configured proportions with at least a small clear gap.</summary>
+        public static float ReadableSpacing(float cardSize, float preferredSize, float preferredSpacing)
+        {
+            cardSize = Math.Max(1f, Finite(cardSize, DefaultCardSize));
+            preferredSize = Math.Max(1f, Finite(preferredSize, DefaultCardSize));
+            return Math.Max(cardSize + MinimumCardGap,
+                Math.Max(0f, Finite(preferredSpacing, DefaultCardSpacing)) * cardSize / preferredSize);
+        }
+
+        /// <summary>The number of separate cards that fit the panel. A partial last card is never included.</summary>
+        public static int Capacity(float room, float cardSize, float spacing)
+        {
+            room = Math.Max(1f, Finite(room, cardSize));
+            cardSize = Math.Max(1f, Finite(cardSize, DefaultCardSize));
+            spacing = Math.Max(cardSize + MinimumCardGap, Finite(spacing, DefaultCardSpacing));
+            return Math.Max(1, 1 + (int)Math.Floor(Math.Max(0f, room - cardSize) / spacing + .0001f));
+        }
+
+        /// <summary>A shared absolute slot window: follows the current resolution, inspected slot, or newest reservation.
+        /// Earlier consumed slots never return, and both sides keep identical logical indices opposite each other.</summary>
+        public static int WindowStart(int count, int consumed, int capacity, int focus)
+        {
+            count = Math.Max(0, count);
+            consumed = Math.Min(count, Math.Max(0, consumed));
+            capacity = Math.Max(1, capacity);
+            if (count - consumed <= capacity) return consumed;
+            focus = Math.Max(consumed, Math.Min(count - 1, focus));
+            return Math.Min(count - capacity, Math.Max(consumed, focus - capacity + 1));
+        }
 
         /// <summary>The spacing both rows use for the longer row's <paramref name="count"/> cards of
         /// <paramref name="cardSize"/> in <paramref name="room"/> (a panel's width less its padding): the full

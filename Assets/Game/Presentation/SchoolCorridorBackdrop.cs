@@ -11,13 +11,20 @@ namespace TurnLimbo.Presentation
         private const float WorldUnitsPerPixel = 12.4f / 724f;
         private const float PaddedWorldHeight = 916f * WorldUnitsPerPixel;
         private const float PaddedCenterY = -1.5f + (160f - 32f) * WorldUnitsPerPixel * .5f;
+        private const float FloorStripPixels = 32f;
+        private const float FloorCoverageMargin = .1f;
         private readonly Transform root;
         private readonly Material material;
         private readonly int arenaLayer;
         private readonly Layer[] layers;
+        private readonly Sprite floorStrip;
+        private readonly List<SpriteRenderer> floorExtensions = new List<SpriteRenderer>(5);
         private Color tint = Color.white;
+        private bool disposed;
 
         public IReadOnlyList<Layer> Layers => layers;
+        /// <summary>Cached continuations of the interior's existing floor, below its authored lower edge.</summary>
+        public IReadOnlyList<SpriteRenderer> FloorExtensions => floorExtensions;
         public bool IsVisible => root.gameObject.activeSelf;
         public bool HasRequiredAssets => layers[0].Sprite != null && layers[1].Sprite != null && layers[2].Sprite != null;
 
@@ -36,6 +43,18 @@ namespace TurnLimbo.Presentation
                 // The reframed floor starts near y=-2.7, just above the actors' feet.
                 new Layer("Interior Windows", "SchoolCorridor/corridor-interior", 1f, PaddedWorldHeight, PaddedCenterY, -5)
             };
+            Sprite interior = layers[2].Sprite;
+            if (interior != null)
+            {
+                Rect strip = interior.rect;
+                strip.height = Mathf.Min(FloorStripPixels, strip.height);
+                // Reflect the bottom edge downward. Its last row meets the original last row, so exposing more
+                // floor never creates a new seam or moves the wall. The source point-filtered texture is shared.
+                floorStrip = Sprite.Create(interior.texture, strip, new Vector2(.5f, 0f),
+                    interior.pixelsPerUnit, 0, SpriteMeshType.FullRect);
+                floorStrip.name = "School Corridor Floor Continuation";
+                floorStrip.hideFlags = HideFlags.DontSave;
+            }
         }
 
         public void SetVisible(bool visible) => root.gameObject.SetActive(visible);
@@ -48,7 +67,7 @@ namespace TurnLimbo.Presentation
 
         public void Tick(Camera camera, bool inspecting, float scaledDelta, float focusDarkening = 0f)
         {
-            if (camera == null) return;
+            if (camera == null || disposed) return;
             tint = Color.Lerp(tint, inspecting ? new Color(.6f, .6f, .6f, 1f) : Color.white,
                 Mathf.Clamp01(scaledDelta * 5f));
             float darkness = float.IsNaN(focusDarkening) || float.IsInfinity(focusDarkening)
@@ -59,6 +78,9 @@ namespace TurnLimbo.Presentation
             float angle = camera.transform.eulerAngles.z * Mathf.Deg2Rad;
             float visibleWidth = 2f * camera.orthographicSize *
                 (camera.aspect * Mathf.Abs(Mathf.Cos(angle)) + Mathf.Abs(Mathf.Sin(angle)));
+            float visibleBottom = root.InverseTransformPoint(camera.transform.position - Vector3.up *
+                (camera.orthographicSize * (Mathf.Abs(Mathf.Cos(angle)) +
+                    camera.aspect * Mathf.Abs(Mathf.Sin(angle))))).y;
             foreach (Layer layer in layers)
             {
                 if (layer.Sprite == null) continue;
@@ -78,6 +100,17 @@ namespace TurnLimbo.Presentation
                     // Mirrored joins put the same source edge on both sides of each seam.
                     tile.flipX = (tileIndex & 1) != 0;
                     tile.color = focusedTint;
+                    if (layer == layers[2] && floorStrip != null)
+                    {
+                        SpriteRenderer extension = floorExtensions[index];
+                        extension.flipX = tile.flipX;
+                        extension.color = focusedTint;
+                        float top = layer.Y + extension.transform.localPosition.y * layer.Scale;
+                        float height = Mathf.Max(FloorStripPixels * WorldUnitsPerPixel,
+                            top - visibleBottom + FloorCoverageMargin);
+                        extension.transform.localScale = new Vector3(1f,
+                            height / (floorStrip.rect.height / floorStrip.pixelsPerUnit * layer.Scale), 1f);
+                    }
                 }
             }
         }
@@ -94,7 +127,30 @@ namespace TurnLimbo.Presentation
                 renderer.sortingOrder = layer.SortingOrder;
                 if (material != null) renderer.sharedMaterial = material;
                 layer.tiles.Add(renderer);
+                if (layer == layers[2] && floorStrip != null)
+                {
+                    var floor = new GameObject("Floor Continuation") { layer = arenaLayer };
+                    floor.transform.SetParent(child.transform, false);
+                    // One source-pixel overlap closes a subpixel gap while camera rotation is being eased.
+                    float bottom = -layer.Sprite.pivot.y / layer.Sprite.pixelsPerUnit;
+                    floor.transform.localPosition = new Vector3(0f,
+                        bottom + 1f / layer.Sprite.pixelsPerUnit, 0f);
+                    var extension = floor.AddComponent<SpriteRenderer>();
+                    extension.sprite = floorStrip;
+                    extension.flipY = true;
+                    extension.sortingOrder = layer.SortingOrder;
+                    if (material != null) extension.sharedMaterial = material;
+                    floorExtensions.Add(extension);
+                }
             }
+        }
+
+        public void Dispose()
+        {
+            if (disposed) return;
+            disposed = true;
+            // The arena owns the hierarchy and imported texture. Only this derived sprite belongs to the backdrop.
+            if (floorStrip != null) Object.Destroy(floorStrip);
         }
 
         public sealed class Layer

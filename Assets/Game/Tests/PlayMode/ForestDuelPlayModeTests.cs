@@ -106,13 +106,20 @@ namespace TurnLimbo.Presentation.Tests
                 Vector3 playerPosition = player.localPosition;
                 Vector3 enemyPosition = enemy.localPosition;
                 arena.EndTurn();
+                Assert.That(player.localPosition, Is.EqualTo(playerPosition), "Ending a turn cannot teleport the fighter.");
+                Assert.That(enemy.localPosition, Is.EqualTo(enemyPosition));
                 arena.Tick(LegacyArenaView.ReturnDuration + .01f, LegacyArenaView.ReturnDuration + .01f);
                 Assert.That(arena.ReturnComplete, Is.True);
-                Assert.That(player.localPosition, Is.EqualTo(playerPosition));
-                Assert.That(enemy.localPosition, Is.EqualTo(enemyPosition));
+                for (int frame = 0; frame < 60; frame++) arena.Tick(.01f, .01f);
+                Assert.That(Vector3.Distance(player.localPosition, playerPosition), Is.LessThanOrEqualTo(.181f),
+                    "Residual momentum is limited to a short planting step, preserving the displaced battlefield.");
+                Assert.That(Vector3.Distance(enemy.localPosition, enemyPosition), Is.LessThanOrEqualTo(.181f));
+                Assert.That(player.localPosition.x, Is.GreaterThan(30f), "Neither fighter returns toward its original spawn.");
+                Assert.That(enemy.localPosition.x, Is.GreaterThan(30f));
+                playerPosition = player.localPosition; enemyPosition = enemy.localPosition;
                 arena.BeginTurn();
                 arena.Tick(.1f, .1f);
-                Assert.That(player.localPosition, Is.EqualTo(playerPosition), "Planning must not reset the ongoing battlefield.");
+                Assert.That(player.localPosition, Is.EqualTo(playerPosition), "Once planted, the ongoing battlefield remains still.");
                 Assert.That(enemy.localPosition, Is.EqualTo(enemyPosition));
                 arena.BeginApproach();
                 arena.Tick(.01f, .01f);

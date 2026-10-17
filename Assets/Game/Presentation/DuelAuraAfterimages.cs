@@ -61,6 +61,11 @@ namespace TurnLimbo.Presentation
         public int ActiveCount => disposed ? 0 : pool.ActiveCount;
         /// <summary>The pool's object; every ghost lives under it.</summary>
         public Transform Root => pool.Root;
+        public int GroupedSortingCeiling
+        {
+            get => pool.GroupedSortingCeiling;
+            set => pool.GroupedSortingCeiling = value;
+        }
 
         /// <summary>Lets <paramref name="seconds"/> of the aura's clock pass: the ghosts age, and a new one is left when one
         /// is due while the aura is up (<paramref name="strength"/>, its fade, 0 to 1) and the figure shows. No time (hit

@@ -41,6 +41,17 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0f, 1f), Tooltip("칼끼리 맞댄 저항 피해와 성공한 방어의 밀림 비율. 체력 피해·붕괴·마무리의 밀림은 유지합니다.")]
         private float bladeRecoilScale = .35f;
 
+        [Header("자동 전투 동선 — 바닥의 앞뒤 이동")]
+        [SerializeField, Tooltip("접근·교전·턴 정리 중 바닥을 따라 앞뒤로 이동합니다. 타격 판정과 기술 사용 순서는 바꾸지 않습니다.")]
+        private bool autoDepthEnabled = true;
+        // Retain the old lane fields for serialized assets; the physical footwork no longer chooses fixed Y bands.
+        [SerializeField, HideInInspector]
+        private float combatDepthSpread = .45f;
+        [SerializeField, Range(.1f, 8f), Tooltip("바닥의 앞뒤 방향 이동 속도(월드 단위/초). 현재 위치에서 이어서 이동합니다.")]
+        private float combatDepthTravelSpeed = 2.8f;
+        [SerializeField, HideInInspector]
+        private float combatDepthExchangeOffset = .28f;
+
         [Header("공격 강조 — 다음 스킬부터 적용")]
         [SerializeField, Tooltip("준비 자세에서 뒤로 모았다가 타격 순간 몸체가 앞으로 뻗고 짧은 잔상을 남깁니다. 동작 그림의 완급도 함께 적용합니다.")]
         private bool attackRhythmEnabled = true;
@@ -66,12 +77,19 @@ namespace TurnLimbo.Presentation
         private float cameraFollowDeadZone = 0.35f;
         [SerializeField, Range(0f, 0.35f), Tooltip("일반 타격의 작은 방향성 흔들림(월드 단위). 0으로 끕니다. 동시 타격이 겹쳐도 이동량을 더하지 않습니다.")]
         private float impactCameraShake = 0.08f;
+        [SerializeField, Tooltip("기술의 준비·타격·회수를 따라 카메라가 뒤로 모였다가 공격 방향으로 따라갑니다. 전투 판정과 재생 속도는 바꾸지 않습니다.")]
+        private bool combatCameraMotionEnabled = true;
+        [SerializeField, Range(0f, 1f), Tooltip("교전 카메라의 이동·당김·기울기와 전투 레터박스의 강도. 0이면 기존의 안정된 구도로 표시합니다.")]
+        private float combatCameraMotionStrength = 1f;
 
         [Header("이동 연출 — 다음 동작부터 적용")]
         [SerializeField, Range(0.5f, 2.5f), Tooltip("피격 밀림과 회피·압박의 이동 거리 배율. 판정 사거리와 캐릭터 최소 간격은 유지합니다.")]
         private float movementDistanceMultiplier = 1.4f;
         [SerializeField, Range(0.5f, 2f), Tooltip("접근·추격·밀림·스텝 이동 속도 배율. 애니메이션 프레임과 공격 간격은 바꾸지 않습니다.")]
         private float movementSpeedMultiplier = 1.2f;
+        [Header("다인전 교대 — 실행 중 즉시 적용")]
+        [SerializeField, Range(1f, 2f), Tooltip("다인전에서 다음 적의 선행 접근·교전 진입·이전 적의 퇴장 속도 배율. 교대 직전의 기술 사이 대기도 같은 비율로 줄입니다. 준비 이동과 공격 재생에는 적용하지 않습니다.")]
+        private float enemyHandoffSpeedMultiplier = 1.35f;
 
         [Header("피해 숫자 — 다음 표시부터 적용")]
         [SerializeField, Range(80, 240), Tooltip("기본 글자 크기. 작은 피해도 읽을 수 있는 크기를 유지합니다.")]
@@ -85,9 +103,9 @@ namespace TurnLimbo.Presentation
 
         [Header("마무리 일격 — 다음 마무리 일격부터 적용 (모든 전투, 승패 무관)")]
         [SerializeField, Range(0f, 4f), Tooltip("전투를 끝낸 타격 뒤 슬로모션 시간(실제 초). 쓰러진 쪽을 집중 카메라로 계속 비춥니다. 일반 결정타의 0.75초보다 길게 둡니다. 0이면 슬로 없이 정지 화면으로 갑니다.")]
-        private float finishingSlowMotionSeconds = 1.6f;
+        private float finishingSlowMotionSeconds = 1.75f;
         [SerializeField, Range(0.02f, 1f), Tooltip("마무리 일격 슬로모션의 전투 시계 속도. 일반 결정타는 0.15배입니다. 1이면 느려지지 않습니다.")]
-        private float finishingSlowMotionScale = 0.12f;
+        private float finishingSlowMotionScale = 0.06f;
         [SerializeField, Range(0f, 2f), Tooltip("레터박스(위아래 검은 띠)가 다 들어오는 시간(실제 초). 0이면 바로 들어옵니다. 결과 창이나 종료 장면이 나오기 전에 걷힙니다.")]
         private float finishingBarSeconds = 0.4f;
         [SerializeField, Range(0f, 2f), Tooltip("슬로모션 뒤 화면이 완전히 멈추는 정지 화면 시간(실제 초). 0이면 정지 화면 없이 넘어갑니다.")]
@@ -208,11 +226,11 @@ namespace TurnLimbo.Presentation
         private int slotForecastMargin = LegacySlotForecast.DefaultMargin;
 
         [Header("전투 큐 패널 — 실행 중 즉시 적용 (조작대 위 양쪽 큐, Docs/CompactHudDesign.md)")]
-        [SerializeField, Range(360f, 760f), Tooltip("조작대 위 양쪽 큐 패널 하나의 너비(1920x1080 기준 HUD 단위). 왼쪽은 내 큐(대전에서는 보는 사람의 큐), 오른쪽은 상대 큐이고, 1번 칸이 가운데 이음매 쪽입니다. 화면 끝(여백 16)을 넘지 않게 줄어듭니다. 기본 560은 카드 7장이 원래 간격으로 들어가고, 더 길면 간격이 좁아집니다.")]
+        [SerializeField, Range(360f, 760f), Tooltip("조작대 위 양쪽 큐 패널 하나의 너비(1920x1080 기준 HUD 단위). 왼쪽은 내 큐(대전에서는 보는 사람의 큐), 오른쪽은 상대 큐입니다. 화면 끝(여백 16)을 넘지 않게 줄어듭니다. 기본 560은 카드 10장이 원래 크기로 들어갑니다. 긴 큐는 두 줄이 함께 최소 40까지 작아진 뒤, 현재 확인·예약·진행 중인 칸을 따라 같은 범위만 보여 줍니다.")]
         private float queuePanelWidth = LegacyQueuePanelLayout.DefaultPanelWidth;
-        [SerializeField, Range(48f, 80f), Tooltip("큐 카드 한 장의 크기(HUD 단위). 카드에 붙은 표식(반격·맞물림·예상·순환·키워드)도 함께 커지고 작아집니다.")]
+        [SerializeField, Range(48f, 80f), Tooltip("큐 카드 한 장의 기본 크기(HUD 단위). 긴 큐는 두 줄이 함께 최소 40까지 작아지고, 그 뒤에는 읽을 수 있는 범위만 보여 줍니다. 카드에 붙은 표식(반격·맞물림·예상·순환·키워드)도 함께 작아집니다.")]
         private float queueCardSize = LegacyQueuePanelLayout.DefaultCardSize;
-        [SerializeField, Range(48f, 104f), Tooltip("이웃한 큐 카드 중심 사이의 간격(HUD 단위). 긴 쪽 큐가 패널에 들어가지 않으면 두 큐가 함께 좁아져(최소 12) 같은 칸이 늘 같은 거리에 마주 봅니다. 카드 크기보다 작으면 늘 조금 겹칩니다.")]
+        [SerializeField, Range(48f, 104f), Tooltip("기본 크기에서 이웃한 큐 카드 중심 사이의 간격(HUD 단위). 카드가 작아지면 같은 비율로 줄고 카드 사이에는 최소 4를 남깁니다. 같은 논리 칸이 양쪽에서 늘 같은 거리에 마주 봅니다.")]
         private float queueCardSpacing = LegacyQueuePanelLayout.DefaultCardSpacing;
         [SerializeField, Range(0f, 240f), Tooltip("가운데 이음매에서 두 패널 사이의 간격(HUD 단위). 두 1번 칸이 이 간격을 사이에 두고 마주 봅니다. 코치 카드가 조작대 위에 펼쳐져 있는 동안은 카드를 가리지 않도록 저절로 넓어집니다.")]
         private float queueSeamGap = LegacyQueuePanelLayout.DefaultSeamGap;
@@ -222,7 +240,7 @@ namespace TurnLimbo.Presentation
         private float queuePanelDockGap = LegacyQueuePanelLayout.DefaultDockGap;
         [SerializeField, Range(0f, 120f), Tooltip("진행 중(조작대가 접힌 동안) 패널 아래 가장자리의 높이(화면 아래에서 HUD 단위). 기본 46이면 아래 레터박스 띠(0~64) 위, 스텝 안내 줄(19~41) 바로 위에 앉습니다. 조작대가 접히고 펴질 때 함께 내려가고 올라옵니다.")]
         private float queuePanelResolvingBottom = LegacyQueuePanelLayout.DefaultResolvingBottom;
-        [SerializeField, Tooltip("켜면 전장 카메라가 인물의 발을 큐 패널 위(아래 간격만큼 띄워)에 두도록, 필요한 만큼만 아래로 내려갑니다(복도 배경에서 편성 화면 최대 약 60, 진행 화면 약 45, 화면 기준 HUD 단위). 숲처럼 이미 충분히 높으면 움직이지 않고, Tab 확대·결정타 확대·스텝 집중·수훈 컷인은 자기 구도를 지킵니다. 끄면 카메라는 예전 그대로이고 패널이 발을 가릴 수 있습니다.")]
+        [SerializeField, Tooltip("켜면 전장 카메라가 인물의 발을 큐 패널 위(아래 간격만큼 띄워)에 두도록, 필요한 만큼만 아래로 내려갑니다(복도 배경에서 편성 화면 최대 약 60, 진행 화면 약 45, 화면 기준 HUD 단위). 숲처럼 이미 충분히 높으면 움직이지 않고, 결정타 확대·스텝 집중·수훈 컷인은 자기 구도를 지킵니다. 끄면 카메라는 예전 그대로이고 패널이 발을 가릴 수 있습니다.")]
         private bool queuePanelKeepsFightersClear = true;
         [SerializeField, Range(0f, 60f), Tooltip("큐 패널 위쪽 가장자리와 인물의 발 사이에 남기는 간격(HUD 단위).")]
         private float queuePanelFighterClearance = LegacyQueuePanelLayout.DefaultFighterClearance;
@@ -300,7 +318,7 @@ namespace TurnLimbo.Presentation
         private Color clashSparkTailInk = DefaultClashSparkTailInk;
 
         [Header("연출 감독 — 칸의 무게에 따른 속도·강조 (켜기·속도·히트 스톱·상한은 다음 턴부터, 카메라·타격음·이음매 배율은 바로; Docs/PresentationTuning.md)")]
-        [SerializeField, Tooltip("진행 중 칸마다 무게(Minor·Normal·Major·Climax, 아래 '칸 등급 기준')를 매겨 Minor 칸은 빨리 넘기고 Major 칸은 카메라를 당기고 히트 스톱을 길게 하며, 위력이 비슷한 합은 팽팽한 합으로 붙잡습니다. 첫 타격 전(스텝 판정 구간)의 시간은 건드리지 않고, 판정도 바꾸지 않습니다. 끄면 칸의 빠르기(Minor 칸·일방 공격 가속), 히트 스톱, 팽팽한 합, Major 칸의 카메라 당김·겹친 타격음·이음매 강조가 예전 그대로입니다(등급은 계속 매깁니다). 간파 신호와 시그니처 기술의 예고 빛·잔상·카메라 당김은 각자의 스위치(간파 신호의 Read Cue Enabled, 시그니처 기술의 Signature Treatment Enabled)로 끄고, 결정적 한 수와 긴장 조명도 각자의 스위치를 따릅니다.")]
+        [SerializeField, Tooltip("진행 중 칸마다 무게(Minor·Normal·Major·Climax, 아래 '칸 등급 기준')를 매겨 Minor 칸은 빨리 넘기고 Major 칸은 카메라를 당기고 히트 스톱을 길게 하며, 위력이 비슷한 합은 팽팽한 합으로 붙잡습니다. 첫 타격 전(스텝 판정 구간)의 시간은 건드리지 않고, 판정도 바꾸지 않습니다. 끄면 칸의 빠르기(Minor 칸·일방 공격 가속), 히트 스톱, 팽팽한 합, Major 칸의 카메라 당김·겹친 타격음·이음매 강조가 예전 그대로입니다(등급은 계속 매깁니다). 간파 신호와 시그니처 기술의 예고 빛·잔상·카메라 당김은 각자의 스위치(간파 신호의 Read Cue Enabled, 시그니처 기술의 Signature Treatment Enabled)로 끄고, 긴장 조명도 자신의 스위치를 따릅니다.")]
         private bool showDirectorEnabled = true;
         [SerializeField, Range(1f, 4f), Tooltip("Minor 칸(양쪽 모두 공격이 없는 칸: 방어끼리·숨고르기·빈칸)의 첫 타격 뒤 남은 시간과 그 뒤 다음 칸까지의 간격을 이 배만큼 짧게 합니다. 줄인 시간은 그 턴의 Major 강조에 씁니다. 1이면 그대로입니다.")]
         private float minorSlotSpeed = LegacyShowPacingTuning.DefaultMinorSpeed;
@@ -399,26 +417,8 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0f, 1f), Tooltip("시그니처 잔상이 처음 남을 때의 불투명도.")]
         private float signatureAfterimageAlpha = .55f;
 
-        [Header("결정적 한 수 — 다음 전투부터 적용 (결과 창 위 다시보기)")]
-        [SerializeField, Tooltip("전투 중 가장 무게가 큰 칸(등급, 같으면 점수, 같으면 먼저 것)을 작은 그림으로 녹화해 두었다가, 승리·패배·무승부 결과 창 위에 '결정적 한 수'로 한 번 다시 보여 줍니다. 클릭이나 Enter·Space·Esc로 넘기면 결과 창이 바로 보입니다. 녹화는 후보 칸(공격·간파·시그니처가 있는 칸)이 진행되는 동안만 하고, 결과를 보여 주거나 다시 시작·로비로 가면 모두 놓습니다. 결과 창은 녹화가 안 되는 환경이나 이 값을 끈 경우에도 그대로입니다. 수련과 종료 장면이 이어지는 임무 승리에는 없습니다.")]
-        private bool replayEnabled = true;
-        [SerializeField, Range(6f, 30f), Tooltip("녹화하는 초당 그림 수(실제 시간).")]
-        private float replayFramesPerSecond = LegacyReplayTuning.DefaultFramesPerSecond;
-        [SerializeField, Range(1f, 4f), Tooltip("다시보기의 최대 길이(녹화 기준 실제 초). 더 긴 칸은 마지막 부분을 남깁니다. 메모리 상한(두 묶음 합쳐 24MB)을 넘으면 저절로 줄입니다.")]
-        private float replayMaxSeconds = LegacyReplayTuning.DefaultMaximumSeconds;
-        [SerializeField, Range(0f, 1f), Tooltip("칸이 끝난 뒤에도 이어 녹화하는 시간(실제 초): 튕겨 나는 모습과 피해 숫자. 다음 칸이 시작되면 거기서 끊습니다.")]
-        private float replayTailSeconds = LegacyReplayTuning.DefaultTailSeconds;
-        [SerializeField, Range(.25f, 1f), Tooltip("다시보기 속도(1이면 녹화한 그대로, 작을수록 느리게).")]
-        private float replayPlaybackSpeed = LegacyReplayTuning.DefaultPlaybackSpeed;
-        [SerializeField, Range(0f, 2f), Tooltip("다시보기의 마지막 그림을 붙잡아 두는 시간(실제 초). 그 뒤 0.3초에 걸쳐 사라지고 결과 창이 드러납니다.")]
-        private float replayHoldSeconds = LegacyReplayTuning.DefaultHoldSeconds;
-        [SerializeField, Range(160, 480), Tooltip("녹화 그림의 가로 픽셀(세로는 화면 비율). 클수록 선명하지만 메모리를 더 씁니다(320 × 180, 초당 15장, 2.5초: 두 묶음 합쳐 약 17.5MB).")]
-        private int replayWidth = LegacyReplayTuning.DefaultWidth;
-        [SerializeField, Tooltip("마무리 일격(Climax) 칸도 다시보기 후보로 둡니다. 켜면 마무리 일격이 늘 가장 높아 거의 늘 그것을 보여 줍니다. 기본은 꺼서, 마무리 연출이 이미 보여 준 쓰러짐 대신 거기까지 이끈 순간을 보여 줍니다.")]
-        private bool replayIncludesFinishingBlow;
-
         [Header("긴장 조명 — 실행 중 즉시 적용 (조명만: 판정·시간·스텝과 무관, 수련에는 없음)")]
-        [SerializeField, Tooltip("어느 쪽이든 체력이 아래 비율 이하로 떨어지면 전장의 빛이 바뀝니다: 배경과 하늘이 어두워지고(인물은 그대로), 화면이 조금 어두워지며, 가장자리(비네트)가 짙은 불씨 색으로 깊어집니다. 회복해 그 비율을 넘거나 다시 시작하면 돌아옵니다. 대전에서는 두 화면이 같습니다. 끄면 빛이 바뀌지 않습니다(아래 흐름의 빛과는 따로).")]
+        [SerializeField, Tooltip("어느 쪽이든 체력이 아래 비율 이하로 떨어지면 배경·화면이 어두워지고 가장자리가 짙은 불씨 색으로 깊어집니다. 내 체력 30% 이하에서는 붉은 가장자리가 심장처럼 맥동하며, 낮을수록 강하고 빨라집니다. 대전의 맥동은 각자 자신의 체력을 따릅니다. 회복·전투 종료·재시작에 걷히고, 끄면 긴장 조명과 저체력 맥동이 함께 꺼집니다(아래 흐름의 빛과는 따로).")]
         private bool tensionLightingEnabled = true;
         [SerializeField, Range(0, 99), Tooltip("긴장 조명이 켜지는 체력 비율(%, 최대 체력 기준). 내 체력이나 상대 체력 중 하나라도 이 비율 이하이면 켜집니다. 0이면 끕니다.")]
         private int tensionHealthPercent = LegacyTensionTuning.DefaultHealthPercent;
@@ -483,17 +483,17 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0f, 3f), Tooltip("압박의 앞 이동 거리(월드 단위). 캐릭터 최소 간격은 유지합니다.")]
         private float stepPressureDistance = 1.1f;
         [SerializeField, Range(0f, 1f), Tooltip("성공한 스텝의 슬로모션 지속 시간(실제 초). 0으로 끕니다.")]
-        private float stepSlowMotionDuration = 0.28f;
+        private float stepSlowMotionDuration = 0.56f;
         [SerializeField, Range(0.05f, 1f), Tooltip("성공 순간 전투 시계 속도. 1이면 슬로모션 없음. 이동·카메라·잔상은 실제 시간을 사용합니다.")]
-        private float stepSlowMotionScale = 0.25f;
-        [SerializeField, Range(0.5f, 1f), Tooltip("이번 턴 연속 성공 한 번마다 성공 슬로모션 속도에 곱하는 값(더 느려짐). 5연속까지 적용하며, 붕괴·마무리 일격의 0.15배보다 느려지지 않습니다.")]
+        private float stepSlowMotionScale = 0.12f;
+        [SerializeField, Range(0.5f, 1f), Tooltip("이번 턴 연속 성공 한 번마다 성공 슬로모션 속도에 곱하는 값(더 느려짐). 5연속까지 적용하며, 붕괴·강타의 0.08배보다 느려지지 않습니다.")]
         private float stepStreakSlowScaleFactor = 0.88f;
         [SerializeField, Range(0f, 0.2f), Tooltip("이번 턴 연속 성공 한 번마다 성공 슬로모션에 더하는 시간(실제 초). 5연속까지 적용합니다.")]
         private float stepStreakSlowDurationStep = 0.05f;
         [SerializeField, Range(0.05f, 2f), Tooltip("플레이어 카메라 집중·배경 암전 지속 시간(실제 초).")]
-        private float stepFocusDuration = 0.36f;
+        private float stepFocusDuration = 0.78f;
         [SerializeField, Range(0f, 1.5f), Tooltip("성공 순간 카메라가 추가로 당겨지는 양. 0이면 추가 확대 없음.")]
-        private float stepCameraZoom = 0.5f;
+        private float stepCameraZoom = 1.1f;
         [SerializeField, Range(0f, 0.85f), Tooltip("성공 순간 배경만 어두워지는 양. 캐릭터·스킬·체력 UI는 어두워지지 않습니다.")]
         private float stepBackdropDarkening = 0.55f;
 
@@ -506,6 +506,8 @@ namespace TurnLimbo.Presentation
         [Header("전투 불릿타임 — 실행 중 즉시 적용 (결투에는 쓰지 않음)")]
         [SerializeField, Range(0f, 2f), Tooltip("전투의 편성 중 두 사람이 서로에게 다가가는 속도(한 사람당, 초당 전장 단위). Tab을 누르면 편성 시간과 함께 0.2배로 느려집니다. 0이면 다가가지 않습니다.")]
         private float battleDriftSpeed = 0.15f;
+        [SerializeField, Tooltip("다수 적 전투의 준비 중 접근 속도 배율. X=첫 번째 적, Y=두 번째 적, Z=세 번째 적. 각 0.1~2이며 기본 접근 속도에 곱합니다. 결투와 공격 재생 속도에는 적용하지 않습니다.")]
+        private Vector3 enemyPlanningSpeedFactors = new Vector3(0.8f, 1f, 1.2f);
         [SerializeField, Range(4f, 10f), Tooltip("편성이 시작될 때 이보다 가까이 붙어 있으면, 먼저 정상 속도로 이 간격까지 물러섰다가 다시 다가갑니다. 4면 물러서지 않습니다.")]
         private float battleStagingSeparation = 5.4f;
         [SerializeField, Range(4f, 10f), Tooltip("편성 중 다가가다 멈추는 거리. 교전 거리 4보다 가까워지지 않고, 이미 가까우면 더 다가가지 않습니다. 편성 시작의 물러섬과는 별개입니다.")]
@@ -547,6 +549,10 @@ namespace TurnLimbo.Presentation
         public float ReturnSettleSeconds => Safe(returnSettleSeconds, 0f, .3f, .04f);
         public float TurnCleanupSeconds => Safe(turnCleanupSeconds, 0f, .3f, .04f);
         public float BladeRecoilScale => Safe(bladeRecoilScale, 0f, 1f, .35f);
+        public bool AutoDepthEnabled => autoDepthEnabled;
+        public float CombatDepthSpread => Safe(combatDepthSpread, 0f, 1.2f, .45f);
+        public float CombatDepthTravelSpeed => Safe(combatDepthTravelSpeed, .1f, 8f, 2.8f);
+        public float CombatDepthExchangeOffset => Safe(combatDepthExchangeOffset, 0f, .6f, .28f);
         public bool AttackRhythmEnabled => attackRhythmEnabled;
         public float AttackRhythmStrength => Safe(attackRhythmStrength, 0f, 1f, LegacyAttackRhythm.DefaultStrength);
         public float AttackLungeDistance => Safe(attackLungeDistance, 0f, 1f, LegacyAttackRhythm.DefaultLungeDistance);
@@ -557,14 +563,17 @@ namespace TurnLimbo.Presentation
         public float CameraFollowSharpness => Safe(cameraFollowSharpness, 1f, 20f, 6f);
         public float CameraFollowDeadZone => Safe(cameraFollowDeadZone, 0f, 1.5f, 0.35f);
         public float ImpactCameraShake => Safe(impactCameraShake, 0f, 0.35f, 0.08f);
+        public bool CombatCameraMotionEnabled => combatCameraMotionEnabled;
+        public float CombatCameraMotionStrength => Safe(combatCameraMotionStrength, 0f, 1f, 1f);
         public float MovementDistanceMultiplier => Safe(movementDistanceMultiplier, 0.5f, 2.5f, 1.4f);
         public float MovementSpeedMultiplier => Safe(movementSpeedMultiplier, 0.5f, 2f, 1.2f);
+        public float EnemyHandoffSpeedMultiplier => Safe(enemyHandoffSpeedMultiplier, 1f, 2f, 1.35f);
         public int DamageTextFontSize => Mathf.Clamp(damageTextFontSize, 80, 240);
         public float CriticalDamageScale => Safe(criticalDamageScale, 1f, 1.8f, 1.3f);
         /// <summary>The share of the target's maximum health one hit must take as health to be decisive (0..100; 0 is off).</summary>
         public int DecisiveHealthDamagePercent => Mathf.Clamp(decisiveHealthDamagePercent, 0, 100);
-        public float FinishingSlowMotionSeconds => Safe(finishingSlowMotionSeconds, 0f, 4f, 1.6f);
-        public float FinishingSlowMotionScale => Safe(finishingSlowMotionScale, 0.02f, 1f, 0.12f);
+        public float FinishingSlowMotionSeconds => Safe(finishingSlowMotionSeconds, 0f, 4f, 1.75f);
+        public float FinishingSlowMotionScale => Safe(finishingSlowMotionScale, 0.02f, 1f, 0.06f);
         public float FinishingBarSeconds => Safe(finishingBarSeconds, 0f, 2f, 0.4f);
         public float FinishingFreezeSeconds => Safe(finishingFreezeSeconds, 0f, 2f, 0.5f);
         public float FinalFallGreySeconds => Safe(finalFallGreySeconds, 0f, 3f, 0.9f);
@@ -813,20 +822,6 @@ namespace TurnLimbo.Presentation
         public bool SignatureWindupGlow => signatureWindupGlow;
         public float SignatureAfterimageSeconds => Safe(signatureAfterimageSeconds, 0f, 1f, .3f);
         public float SignatureAfterimageAlpha => Safe(signatureAfterimageAlpha, 0f, 1f, .55f);
-        /// <summary>결정적 한 수 (<see cref="LegacyReplayTuning"/>): whether the battle's most important slot is recorded and
-        /// replayed on its result, its pictures a second, longest length, tail, playback speed, last picture's hold, width,
-        /// and whether the finishing blow may be it.</summary>
-        public bool ReplayEnabled => replayEnabled;
-        public LegacyReplayTuning ReplayTuning => new LegacyReplayTuning(replayEnabled,
-            Safe(replayFramesPerSecond, LegacyReplayTuning.MinimumFramesPerSecond, LegacyReplayTuning.MaximumFramesPerSecond,
-                LegacyReplayTuning.DefaultFramesPerSecond),
-            Safe(replayMaxSeconds, LegacyReplayTuning.MinimumSeconds, LegacyReplayTuning.MaximumSeconds,
-                LegacyReplayTuning.DefaultMaximumSeconds),
-            Safe(replayTailSeconds, 0f, LegacyReplayTuning.MaximumTailSeconds, LegacyReplayTuning.DefaultTailSeconds),
-            Safe(replayPlaybackSpeed, LegacyReplayTuning.MinimumPlaybackSpeed, 1f, LegacyReplayTuning.DefaultPlaybackSpeed),
-            Safe(replayHoldSeconds, 0f, LegacyReplayTuning.MaximumHoldSeconds, LegacyReplayTuning.DefaultHoldSeconds),
-            Mathf.Clamp(replayWidth, LegacyReplayTuning.MinimumWidth, LegacyReplayTuning.MaximumWidth),
-            replayIncludesFinishingBlow);
         /// <summary>긴장 조명 (<see cref="LegacyTensionLight"/>, <see cref="DuelTensionLook"/>): low health's tension (on/off,
         /// its health share, its real-second eases, the scenery's darkening, the picture's dimming, the vignette's depth and
         /// ember) and the flow's swell (on/off, on a break too, the lead margin, its exposure, the vignette's opening, its
@@ -875,16 +870,26 @@ namespace TurnLimbo.Presentation
         public float StepMinimumWindow => Safe(stepMinimumWindow, 0.02f, 0.1f, LegacyStepTiming.DefaultMinimumWindow);
         public float StepDodgeDistance => Safe(stepDodgeDistance, 0f, 3f, 1.4f);
         public float StepPressureDistance => Safe(stepPressureDistance, 0f, 3f, 1.1f);
-        public float StepSlowMotionDuration => Safe(stepSlowMotionDuration, 0f, 1f, 0.28f);
-        public float StepSlowMotionScale => Safe(stepSlowMotionScale, 0.05f, 1f, 0.25f);
+        public float StepSlowMotionDuration => Safe(stepSlowMotionDuration, 0f, 1f, 0.56f);
+        public float StepSlowMotionScale => Safe(stepSlowMotionScale, 0.05f, 1f, 0.12f);
         public float StepStreakSlowScaleFactor => Safe(stepStreakSlowScaleFactor, 0.5f, 1f, 0.88f);
         public float StepStreakSlowDurationStep => Safe(stepStreakSlowDurationStep, 0f, 0.2f, 0.05f);
-        public float StepFocusDuration => Safe(stepFocusDuration, 0.05f, 2f, 0.36f);
-        public float StepCameraZoom => Safe(stepCameraZoom, 0f, 1.5f, 0.5f);
+        public float StepFocusDuration => Safe(stepFocusDuration, 0.05f, 2f, 0.78f);
+        public float StepCameraZoom => Safe(stepCameraZoom, 0f, 1.5f, 1.1f);
         public float StepBackdropDarkening => Safe(stepBackdropDarkening, 0f, 0.85f, 0.55f);
         public float StepSoundVolume => Safe(stepSoundVolume, 0f, 1f, 0.7f);
         public float StepRingGlowIntensity => Safe(stepRingGlowIntensity, 0f, 3f, 1.6f);
         public float BattleDriftSpeed => Safe(battleDriftSpeed, 0f, 2f, 0.15f);
+        public float EnemyPlanningSpeedFactor(int enemyIndex)
+        {
+            switch (enemyIndex)
+            {
+                case 0: return Safe(enemyPlanningSpeedFactors.x, 0.1f, 2f, 0.8f);
+                case 1: return Safe(enemyPlanningSpeedFactors.y, 0.1f, 2f, 1f);
+                case 2: return Safe(enemyPlanningSpeedFactors.z, 0.1f, 2f, 1.2f);
+                default: return 1f;
+            }
+        }
         public float BattleStagingSeparation => Safe(battleStagingSeparation, 4f, 10f, 5.4f);
         public float BattleDriftMinimumSeparation => Safe(battleDriftMinimumSeparation, 4f, 10f, 5f);
         public float BattlePoseSpeed => Safe(battlePoseSpeed, 0f, 1f, 0f);
@@ -928,13 +933,18 @@ namespace TurnLimbo.Presentation
             returnSettleSeconds = ReturnSettleSeconds;
             turnCleanupSeconds = TurnCleanupSeconds;
             bladeRecoilScale = BladeRecoilScale;
+            combatDepthSpread = CombatDepthSpread;
+            combatDepthTravelSpeed = CombatDepthTravelSpeed;
+            combatDepthExchangeOffset = CombatDepthExchangeOffset;
             attackRhythmStrength = AttackRhythmStrength;
             attackLungeDistance = AttackLungeDistance;
             weaponTrailStrength = WeaponTrailStrength;
             weaponTrailSeconds = WeaponTrailSeconds;
             combatCameraSize = CombatCameraSize; cameraFollowSharpness = CameraFollowSharpness;
+            combatCameraMotionStrength = CombatCameraMotionStrength;
             cameraFollowDeadZone = CameraFollowDeadZone; impactCameraShake = ImpactCameraShake;
             movementDistanceMultiplier = MovementDistanceMultiplier; movementSpeedMultiplier = MovementSpeedMultiplier;
+            enemyHandoffSpeedMultiplier = EnemyHandoffSpeedMultiplier;
             damageTextFontSize = DamageTextFontSize; criticalDamageScale = CriticalDamageScale;
             decisiveHealthDamagePercent = DecisiveHealthDamagePercent;
             finishingSlowMotionSeconds = FinishingSlowMotionSeconds; finishingSlowMotionScale = FinishingSlowMotionScale;
@@ -1001,10 +1011,6 @@ namespace TurnLimbo.Presentation
                 LegacyShowPacingTuning.DefaultSignatureHitStopScale);
             signatureCameraPush = SignatureCameraPush; signatureImpactVolume = SignatureImpactVolume;
             signatureAfterimageSeconds = SignatureAfterimageSeconds; signatureAfterimageAlpha = SignatureAfterimageAlpha;
-            LegacyReplayTuning replay = ReplayTuning;
-            replayFramesPerSecond = replay.FramesPerSecond; replayMaxSeconds = replay.MaximumClipSeconds;
-            replayTailSeconds = replay.TailSeconds; replayPlaybackSpeed = replay.PlaybackSpeed;
-            replayHoldSeconds = replay.HoldSeconds; replayWidth = replay.Width;
             tensionHealthPercent = TensionHealthPercent; tensionEaseInSeconds = TensionEaseInSeconds;
             tensionEaseOutSeconds = TensionEaseOutSeconds; tensionBackdropDarkening = TensionBackdropDarkening;
             tensionDimming = TensionDimming; tensionVignette = TensionVignette; tensionVignetteInk = TensionVignetteInk;
@@ -1024,6 +1030,7 @@ namespace TurnLimbo.Presentation
             stepBackdropDarkening = StepBackdropDarkening;
             stepSoundVolume = StepSoundVolume; stepRingGlowIntensity = StepRingGlowIntensity;
             battleDriftSpeed = BattleDriftSpeed; battleStagingSeparation = BattleStagingSeparation;
+            enemyPlanningSpeedFactors = new Vector3(EnemyPlanningSpeedFactor(0), EnemyPlanningSpeedFactor(1), EnemyPlanningSpeedFactor(2));
             battleDriftMinimumSeparation = BattleDriftMinimumSeparation;
             battlePoseSpeed = BattlePoseSpeed; battleDesaturation = BattleDesaturation; battleCoolTint = BattleCoolTint;
             battleCycleReleaseSeconds = BattleCycleReleaseSeconds;

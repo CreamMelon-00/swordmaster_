@@ -142,6 +142,21 @@ namespace TurnLimbo.Core.Tests
         public void Campaign_GuardCounterHasAForecastedTargetFromStageThree(int stageNumber)
         {
             LegacyQueuedDuel duel = StageDuel(stageNumber);
+            if (stageNumber == 5)
+            {
+                Assert.That(duel.Enemies.Count, Is.EqualTo(3));
+                Assert.That(duel.EnemyQueue.Count, Is.EqualTo(6));
+                Assert.That(duel.EnemyQueue.Any(skill => skill.Kind == LegacySkillKind.Defence), Is.True,
+                    "The trio's shared opening still gives the imported guard-reading skill a target.");
+                Assert.That(duel.EnemyCounter, Is.Null, "The trio has no extra counter outside its shared queue.");
+                foreach (LegacySkill skill in duel.EnemyQueue)
+                {
+                    LegacySkill basis = LegacySkillDefinitions.Skill(skill.Id);
+                    Assert.That(skill.MinPower, Is.EqualTo(Math.Max(1, basis.MinPower * 70 / 100)));
+                    Assert.That(skill.MaxPower, Is.EqualTo(Math.Max(1, basis.MaxPower * 70 / 100)));
+                }
+                return;
+            }
             EnemyScript script = CampaignEnemyRhythms.Script(CampaignEnemyRhythms.ForStage(stageNumber));
             Assert.That(script, Is.Not.Null);
             int firstGuardTurn = 0;

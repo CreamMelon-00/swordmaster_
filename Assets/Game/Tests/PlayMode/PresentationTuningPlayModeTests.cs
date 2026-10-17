@@ -176,10 +176,10 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Assert.That(settings.StepDodgeDistance, Is.EqualTo(1.4f));
                 Assert.That(settings.StepPressureDistance, Is.EqualTo(1.1f));
-                Assert.That(settings.StepSlowMotionDuration, Is.EqualTo(.28f));
-                Assert.That(settings.StepSlowMotionScale, Is.EqualTo(.25f));
-                Assert.That(settings.StepFocusDuration, Is.EqualTo(.36f));
-                Assert.That(settings.StepCameraZoom, Is.EqualTo(.5f));
+                Assert.That(settings.StepSlowMotionDuration, Is.EqualTo(.56f));
+                Assert.That(settings.StepSlowMotionScale, Is.EqualTo(.12f));
+                Assert.That(settings.StepFocusDuration, Is.EqualTo(.78f));
+                Assert.That(settings.StepCameraZoom, Is.EqualTo(1.1f));
                 Assert.That(settings.StepBackdropDarkening, Is.EqualTo(.55f));
                 JsonUtility.FromJsonOverwrite("{\"stepDodgeDistance\":-1,\"stepPressureDistance\":999," +
                     "\"stepSlowMotionDuration\":-1,\"stepSlowMotionScale\":0,\"stepFocusDuration\":999," +

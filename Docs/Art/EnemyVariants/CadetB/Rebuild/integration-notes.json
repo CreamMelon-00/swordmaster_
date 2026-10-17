@@ -1,0 +1,1841 @@
+{
+  "captured_at_kst": "2026-10-17T23:16:05.839999+09:00",
+  "snapshot": "C:\\Users\\User\\.codex\\visualizations\\2026\\10\\16\\01a1451f-e124-7450-9281-6a5fa77f3745\\cadet-b-pre-rebuild-20261017",
+  "snapshot_manifest": "C:\\Users\\User\\.codex\\visualizations\\2026\\10\\16\\01a1451f-e124-7450-9281-6a5fa77f3745\\cadet-b-pre-rebuild-20261017\\manifest.json",
+  "runtime_png_count": 121,
+  "copied_file_count": 260,
+  "native": {
+    "path": "C:\\Users\\User\\Documents\\swordmaster_\\Docs\\Art\\EnemyVariants\\CadetB\\CadetB-AllAnimations.aseprite",
+    "dimensions": [
+      256,
+      224
+    ],
+    "frame_count": 121,
+    "tag_count": 15,
+    "clips": [
+      {
+        "name": "idle",
+        "native_from_1_based": 1,
+        "native_to_1_based": 8,
+        "direction": 0,
+        "frame_count": 8,
+        "runtime_relative_paths": [
+          "idle/frame-01.png",
+          "idle/frame-02.png",
+          "idle/frame-03.png",
+          "idle/frame-04.png",
+          "idle/frame-05.png",
+          "idle/frame-06.png",
+          "idle/frame-07.png",
+          "idle/frame-08.png"
+        ],
+        "native_duration_ms": [
+          160,
+          160,
+          160,
+          160,
+          160,
+          160,
+          160,
+          160
+        ],
+        "runtime_duration_ms": [
+          180,
+          140,
+          160,
+          140,
+          160,
+          140,
+          160,
+          180
+        ]
+      },
+      {
+        "name": "slash",
+        "native_from_1_based": 9,
+        "native_to_1_based": 20,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "slash/frame-01.png",
+          "slash/frame-02.png",
+          "slash/frame-03.png",
+          "slash/frame-04.png",
+          "slash/frame-05.png",
+          "slash/frame-06.png",
+          "slash/frame-07.png",
+          "slash/frame-08.png",
+          "slash/frame-09.png",
+          "slash/frame-10.png",
+          "slash/frame-11.png",
+          "slash/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "slash-2",
+        "native_from_1_based": 21,
+        "native_to_1_based": 32,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "slash-2/frame-01.png",
+          "slash-2/frame-02.png",
+          "slash-2/frame-03.png",
+          "slash-2/frame-04.png",
+          "slash-2/frame-05.png",
+          "slash-2/frame-06.png",
+          "slash-2/frame-07.png",
+          "slash-2/frame-08.png",
+          "slash-2/frame-09.png",
+          "slash-2/frame-10.png",
+          "slash-2/frame-11.png",
+          "slash-2/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "slash-3",
+        "native_from_1_based": 33,
+        "native_to_1_based": 44,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "slash-3/frame-01.png",
+          "slash-3/frame-02.png",
+          "slash-3/frame-03.png",
+          "slash-3/frame-04.png",
+          "slash-3/frame-05.png",
+          "slash-3/frame-06.png",
+          "slash-3/frame-07.png",
+          "slash-3/frame-08.png",
+          "slash-3/frame-09.png",
+          "slash-3/frame-10.png",
+          "slash-3/frame-11.png",
+          "slash-3/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "pierce",
+        "native_from_1_based": 45,
+        "native_to_1_based": 56,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "pierce/frame-01.png",
+          "pierce/frame-02.png",
+          "pierce/frame-03.png",
+          "pierce/frame-04.png",
+          "pierce/frame-05.png",
+          "pierce/frame-06.png",
+          "pierce/frame-07.png",
+          "pierce/frame-08.png",
+          "pierce/frame-09.png",
+          "pierce/frame-10.png",
+          "pierce/frame-11.png",
+          "pierce/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "pierce-2",
+        "native_from_1_based": 57,
+        "native_to_1_based": 68,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "pierce-2/frame-01.png",
+          "pierce-2/frame-02.png",
+          "pierce-2/frame-03.png",
+          "pierce-2/frame-04.png",
+          "pierce-2/frame-05.png",
+          "pierce-2/frame-06.png",
+          "pierce-2/frame-07.png",
+          "pierce-2/frame-08.png",
+          "pierce-2/frame-09.png",
+          "pierce-2/frame-10.png",
+          "pierce-2/frame-11.png",
+          "pierce-2/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "pierce-3",
+        "native_from_1_based": 69,
+        "native_to_1_based": 80,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "pierce-3/frame-01.png",
+          "pierce-3/frame-02.png",
+          "pierce-3/frame-03.png",
+          "pierce-3/frame-04.png",
+          "pierce-3/frame-05.png",
+          "pierce-3/frame-06.png",
+          "pierce-3/frame-07.png",
+          "pierce-3/frame-08.png",
+          "pierce-3/frame-09.png",
+          "pierce-3/frame-10.png",
+          "pierce-3/frame-11.png",
+          "pierce-3/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "blunt",
+        "native_from_1_based": 81,
+        "native_to_1_based": 92,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "blunt/frame-01.png",
+          "blunt/frame-02.png",
+          "blunt/frame-03.png",
+          "blunt/frame-04.png",
+          "blunt/frame-05.png",
+          "blunt/frame-06.png",
+          "blunt/frame-07.png",
+          "blunt/frame-08.png",
+          "blunt/frame-09.png",
+          "blunt/frame-10.png",
+          "blunt/frame-11.png",
+          "blunt/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "blunt-2",
+        "native_from_1_based": 93,
+        "native_to_1_based": 104,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "blunt-2/frame-01.png",
+          "blunt-2/frame-02.png",
+          "blunt-2/frame-03.png",
+          "blunt-2/frame-04.png",
+          "blunt-2/frame-05.png",
+          "blunt-2/frame-06.png",
+          "blunt-2/frame-07.png",
+          "blunt-2/frame-08.png",
+          "blunt-2/frame-09.png",
+          "blunt-2/frame-10.png",
+          "blunt-2/frame-11.png",
+          "blunt-2/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "blunt-3",
+        "native_from_1_based": 105,
+        "native_to_1_based": 116,
+        "direction": 0,
+        "frame_count": 12,
+        "runtime_relative_paths": [
+          "blunt-3/frame-01.png",
+          "blunt-3/frame-02.png",
+          "blunt-3/frame-03.png",
+          "blunt-3/frame-04.png",
+          "blunt-3/frame-05.png",
+          "blunt-3/frame-06.png",
+          "blunt-3/frame-07.png",
+          "blunt-3/frame-08.png",
+          "blunt-3/frame-09.png",
+          "blunt-3/frame-10.png",
+          "blunt-3/frame-11.png",
+          "blunt-3/frame-12.png"
+        ],
+        "native_duration_ms": [
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100,
+          100
+        ],
+        "runtime_duration_ms": [
+          140,
+          100,
+          120,
+          60,
+          70,
+          90,
+          70,
+          100,
+          90,
+          90,
+          130,
+          200
+        ]
+      },
+      {
+        "name": "poses-block",
+        "native_from_1_based": 117,
+        "native_to_1_based": 117,
+        "direction": 0,
+        "frame_count": 1,
+        "runtime_relative_paths": [
+          "poses/block.png"
+        ],
+        "native_duration_ms": [
+          100
+        ],
+        "runtime_duration_ms": null
+      },
+      {
+        "name": "poses-block-2",
+        "native_from_1_based": 118,
+        "native_to_1_based": 118,
+        "direction": 0,
+        "frame_count": 1,
+        "runtime_relative_paths": [
+          "poses/block-2.png"
+        ],
+        "native_duration_ms": [
+          100
+        ],
+        "runtime_duration_ms": null
+      },
+      {
+        "name": "poses-hurt",
+        "native_from_1_based": 119,
+        "native_to_1_based": 119,
+        "direction": 0,
+        "frame_count": 1,
+        "runtime_relative_paths": [
+          "poses/hurt.png"
+        ],
+        "native_duration_ms": [
+          100
+        ],
+        "runtime_duration_ms": null
+      },
+      {
+        "name": "poses-hurt-2",
+        "native_from_1_based": 120,
+        "native_to_1_based": 120,
+        "direction": 0,
+        "frame_count": 1,
+        "runtime_relative_paths": [
+          "poses/hurt-2.png"
+        ],
+        "native_duration_ms": [
+          100
+        ],
+        "runtime_duration_ms": null
+      },
+      {
+        "name": "move-frame-01",
+        "native_from_1_based": 121,
+        "native_to_1_based": 121,
+        "direction": 0,
+        "frame_count": 1,
+        "runtime_relative_paths": [
+          "move/frame-01.png"
+        ],
+        "native_duration_ms": [
+          100
+        ],
+        "runtime_duration_ms": null
+      }
+    ]
+  },
+  "runtime_contract": {
+    "source": "Assets/Game/Presentation/EnemyStudentAnimationSet.cs",
+    "resource_root": "EnemyVariants/CadetB/Animations/",
+    "required_sprite_count": 121,
+    "idle_duration_ms": [
+      180,
+      140,
+      160,
+      140,
+      160,
+      140,
+      160,
+      180
+    ],
+    "attack_duration_ms": [
+      140,
+      100,
+      120,
+      60,
+      70,
+      90,
+      70,
+      100,
+      90,
+      90,
+      130,
+      200
+    ],
+    "contact_frame_1_based": 5,
+    "contact_starts_at_ms": 420,
+    "clip_total_ms": 1260,
+    "attack_time_mapping": "phase <= 0.5: phase*2*0.42 seconds; phase > 0.5: 0.42+(phase-0.5)*2*0.84 seconds",
+    "static_move_pose": true
+  },
+  "importer_unique_settings": {
+    "pivot": [
+      "{x: 0.4765625, y: 0.09821428571428571}"
+    ],
+    "ppu": [
+      "40"
+    ],
+    "filterMode": [
+      "0"
+    ],
+    "mipmaps": [
+      "0"
+    ],
+    "spriteMode": [
+      "1"
+    ],
+    "textureCompression": [
+      "0"
+    ]
+  },
+  "importer_records": [
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-01.png",
+      "guid": "731cdb6783a04049a784d4dd63f7e2d4",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-02.png",
+      "guid": "631574ca71694e168fd18c338cef4910",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-03.png",
+      "guid": "4403bfedff704a8ab8fd6f6031bc8158",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-04.png",
+      "guid": "efec59539c8a4a1aaa63af092b686725",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-05.png",
+      "guid": "6744e604ca314a369bd998480ab61784",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-06.png",
+      "guid": "67ccf2e4aadb4459af7b574275d9041e",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-07.png",
+      "guid": "073502505940431d9595d2f43f3316b4",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-08.png",
+      "guid": "daf1c89402e940f391fc70a2690108c9",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-09.png",
+      "guid": "3f768171c8574e7daaa77c7ec707c1c9",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-10.png",
+      "guid": "d971f75cbe8244488ff7856c332b716b",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-11.png",
+      "guid": "05cd71d4b79d49079f54ee8adb17d235",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt/frame-12.png",
+      "guid": "1fd34ad514f4495cbda96ff0e844e4ec",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-01.png",
+      "guid": "62ca02338b2647b7af11b58f52a40001",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-02.png",
+      "guid": "b56a9e5b220f418e83c5214b469fa90f",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-03.png",
+      "guid": "812e9b5dd260421f803bd7ef96534bad",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-04.png",
+      "guid": "331e8c1c50a6432ca619b3f8bc92ce4a",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-05.png",
+      "guid": "edc5191cf90842d7ac2e41e1f8e05de7",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-06.png",
+      "guid": "81605e4d783e4f6e9a15f6fc7de9c51a",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-07.png",
+      "guid": "7504c317e1b9455d9729e148cb49aa56",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-08.png",
+      "guid": "60ce761bfd3c4307b2d6412cb94909d8",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-09.png",
+      "guid": "07f4e1f941af4bdc9484d85a508299bf",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-10.png",
+      "guid": "f9d5530f9ff84db2ba8c244f7b1d5f1c",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-11.png",
+      "guid": "45a676a244cf46ea91e2cb91e25419ff",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-2/frame-12.png",
+      "guid": "01c4f06c451541299478d3e8d209363e",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-01.png",
+      "guid": "fc5f7f230f1a4786b1146cbce3cb2bc7",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-02.png",
+      "guid": "f77d1110269542218b6743b666103734",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-03.png",
+      "guid": "6aca8190ca7246b392f65ea5e4bb2282",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-04.png",
+      "guid": "46d8b07b955a4137b9b8b0addd2c9187",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-05.png",
+      "guid": "37d87e7624294d61871067f93aa40197",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-06.png",
+      "guid": "63fd0f9775294e1bb1d6a0eeaa6a5010",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-07.png",
+      "guid": "2c0f9eb2aef346e3993b0e024aa2feea",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-08.png",
+      "guid": "21571942efc54ac9a081959f53458a5c",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-09.png",
+      "guid": "b0ce6b497d4b423281259872aa1b7493",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-10.png",
+      "guid": "13650eb578624b28ad4030dfb78d0a34",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-11.png",
+      "guid": "5034a252067f45e487c9d9d33a099e40",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/blunt-3/frame-12.png",
+      "guid": "9cbdde7f20bd4141863273256a8d3bd7",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/idle/frame-01.png",
+      "guid": "7b1b07965c7b4dc994d95e195e7c3616",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/idle/frame-02.png",
+      "guid": "56be4808651944deb0b85af568495fb5",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/idle/frame-03.png",
+      "guid": "c004398cb18c4aab90cf3c70d4b01d93",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/idle/frame-04.png",
+      "guid": "070263dd74d343efa6cf25101ae59e90",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/idle/frame-05.png",
+      "guid": "653d352835284c3aa39fe1002ff148bb",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/idle/frame-06.png",
+      "guid": "80924e0c7702422f90d3605824ba9e00",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/idle/frame-07.png",
+      "guid": "ee887756be4c4ae5b699d60828165f70",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/idle/frame-08.png",
+      "guid": "075eca3b99d048039402d2c002981dc1",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/move/frame-01.png",
+      "guid": "39e10dd90bd94134b2324e29b0e829b8",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-01.png",
+      "guid": "4abcef1fca82420aa8c4e1ae1f2d8da4",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-02.png",
+      "guid": "7ce575476c6c4542a3c49b262d89ac73",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-03.png",
+      "guid": "e96fba6c0b8c464b893f9a94dd6a485b",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-04.png",
+      "guid": "8c5d616b23304c11a65cac90c0e65a5f",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-05.png",
+      "guid": "ce96f05e50834cf4b90280ad8e75410e",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-06.png",
+      "guid": "8ac1d9868444427c9d60128d38b715a7",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-07.png",
+      "guid": "9ade88962d054410872800650247ff26",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-08.png",
+      "guid": "5d5a55314844414e81078523242fee86",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-09.png",
+      "guid": "39b2642beeec4a2f87c9735cf914009b",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-10.png",
+      "guid": "1ef857ee18324e0c999bc8e07f7d30bf",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-11.png",
+      "guid": "6f8cb3395eab46259ac9df43096d7ba1",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce/frame-12.png",
+      "guid": "feca883a34f04661b8f55769174a4186",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-01.png",
+      "guid": "6d18dd5457e245eba85dc4f18a2b9870",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-02.png",
+      "guid": "70d32a5927a143d08feb6c1bf98c34d5",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-03.png",
+      "guid": "e144e27335a5449c890df21567cab307",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-04.png",
+      "guid": "5e7e00f80d4e40bc9e7238cc8ed914fc",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-05.png",
+      "guid": "6a0f4b352569454c9c0dd7e085cfbb76",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-06.png",
+      "guid": "d31e77b3a6db4c41acf69000847ede8d",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-07.png",
+      "guid": "55ecf22474f64cdda043c7423bb996ff",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-08.png",
+      "guid": "7586736017c54309a935c3535f0c56ac",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-09.png",
+      "guid": "e66d607f253148268ec98b0b10a45d1c",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-10.png",
+      "guid": "4b085d1877104ebb84f63408782922bd",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-11.png",
+      "guid": "815a7f6da28e45a4ad1dc04e991efcb3",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-2/frame-12.png",
+      "guid": "8727d41f402044ca94228d9cd4041890",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-01.png",
+      "guid": "8a0ffc37c213421586328d35052b1f4d",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-02.png",
+      "guid": "6aa911ce0208434882039c435394ab14",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-03.png",
+      "guid": "00b1058b9f15479ea53e893fe8021634",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-04.png",
+      "guid": "a3b2c25789cb4774a423283fddcb37a2",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-05.png",
+      "guid": "f5d564f757df4c69af28c2e0431f3a66",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-06.png",
+      "guid": "9f0de4d88f24430aac13cc8fa1945371",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-07.png",
+      "guid": "bc27ffbb0d444cd18cf28dd70ecff029",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-08.png",
+      "guid": "b31da215053543c7b297058226287049",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-09.png",
+      "guid": "3bf9c0a1a63446bd8db31f353f25db3c",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-10.png",
+      "guid": "9a1d3f0a336042d7aca0ab59d3b26c06",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-11.png",
+      "guid": "8566364f34504abdbbf9460773f0702d",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/pierce-3/frame-12.png",
+      "guid": "2248c67de2d54a7a9c5374703f537640",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/block-2.png",
+      "guid": "82a0f64acbf3459d984a0f30b25dc630",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/block.png",
+      "guid": "8336a6b1f36f406f9b361c7cae642903",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/hurt-2.png",
+      "guid": "2f1cfa602860486fa228badce4b4a1ff",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/poses/hurt.png",
+      "guid": "61b00462780546c4969a0b1212d97862",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-01.png",
+      "guid": "2ff7d7dc891841f084e5fca33b2ae2f3",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-02.png",
+      "guid": "53240823fc1e442eac5302fe89bb5ec7",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-03.png",
+      "guid": "4eb33bb9ff04448fb17437a15e805c3c",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-04.png",
+      "guid": "f2125292f5f640fcbd2a7060b560c219",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-05.png",
+      "guid": "b2a43965c1954ccc9504e3134ab89b50",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-06.png",
+      "guid": "503b3841d0ba4cf0a83ce38f04dba176",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-07.png",
+      "guid": "e9f4b92779c04ce687fd1bfee1357308",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-08.png",
+      "guid": "9cd082c623384701a2f12db1c70e8c74",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-09.png",
+      "guid": "7977d2b720174e58952a6d39dce469cf",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-10.png",
+      "guid": "6f667f3ba0db4eedadd0dd47607585f2",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-11.png",
+      "guid": "6e2ac15531ed4bccaf682e6456527380",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash/frame-12.png",
+      "guid": "65e96343d77e47118d8c0840a9874436",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-01.png",
+      "guid": "233f39b30bef4655bdf7939f256d67bf",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-02.png",
+      "guid": "bd13dccb6f4345ae9e85c025b5a66e00",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-03.png",
+      "guid": "7d6406c95ad94dc586c9d5db0a62dba6",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-04.png",
+      "guid": "147587fb0c23435d860f3c444d8bf33a",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-05.png",
+      "guid": "6b64c972a29947ad9d17d5a063e4496d",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-06.png",
+      "guid": "38a5d4f715d44e9ca252cf5272a741af",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-07.png",
+      "guid": "6daca8e9c0144076b2ce6107cb69402e",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-08.png",
+      "guid": "bb8a14389d524716ba53c22d6773ff1a",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-09.png",
+      "guid": "6eeb1185fd8f452c80d5e8e984efaf07",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-10.png",
+      "guid": "b87f35b819e947ff8804bf98a03865fa",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-11.png",
+      "guid": "b0adf55130fd438084138fef203fa742",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-2/frame-12.png",
+      "guid": "70a33857d9f44f2581585760f1344b31",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-01.png",
+      "guid": "eaa61c939cf343d5ad2304f37fe9b07a",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-02.png",
+      "guid": "0bf6de80042d4dde9c0c3a7a8f6c0527",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-03.png",
+      "guid": "59d52169a4084764809f2cac77e6d4f1",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-04.png",
+      "guid": "2c3ec261f02042f2b7f30dc280ba0681",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-05.png",
+      "guid": "8b7a5bb2b10d49beb7b4a43392c4b00d",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-06.png",
+      "guid": "3ae52445c3d24fc5be740f096a9cf2ef",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-07.png",
+      "guid": "92f112e65b3845dca5e0769883117913",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-08.png",
+      "guid": "fb9f625b755a4515907054425ccfa2ee",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-09.png",
+      "guid": "06862d6972d24179a421ca47206d9c20",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-10.png",
+      "guid": "629dbfb7faeb4fd2a094850d14fbcbbc",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-11.png",
+      "guid": "a32e23ce5cac42fc9ddfb50ae06d3285",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    },
+    {
+      "path": "Assets/Game/Resources/EnemyVariants/CadetB/Animations/slash-3/frame-12.png",
+      "guid": "7b46b38b32c84f76b55fa53e631947c4",
+      "pivot": "{x: 0.4765625, y: 0.09821428571428571}",
+      "ppu": "40",
+      "filterMode": "0",
+      "mipmaps": "0",
+      "spriteMode": "1",
+      "textureCompression": "0"
+    }
+  ],
+  "minimum_integration_plan": [
+    "Keep all 121 existing runtime paths and all .meta files/GUIDs; replace PNG bytes only after author review.",
+    "Assemble the rebuilt authored PNGs into CadetB-AllAnimations.aseprite using unchanged 1-based clip ranges. Give the new native source actual runtime idle/attack durations so Aseprite previews reproduce the combat clock.",
+    "Replace the old build_cadet_b.lua character-transfer entry point with a rebuild-source export entry point. Do not run the legacy palette/head/garment conversion or cadet_authored_pixels repair hooks against new art.",
+    "Keep export_native_cadet_b.lua as assembly utility or point it at the new source. Ensure no source/PNG circular overwrite without an explicit authoritative source.",
+    "Replace legacy validate_cadet_b.lua source-silhouette/baseline comparison with rebuilt-source frame parity, dimensions, binary alpha, palette and importer invariants. A visual review remains required for anatomy and trousers.",
+    "Refresh only Cadet B contact sheet and README; preserve the pre-rebuild snapshot above."
+  ],
+  "current_writes": "Only immutable backup and this integration note have been written. Runtime/native/builder files are unchanged by this task."
+}

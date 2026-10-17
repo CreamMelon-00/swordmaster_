@@ -51,7 +51,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator MultiHit_UsesPlaybackAndAttackGap_ReturnsToIdle_AndFinishesAfterLastClip()
+        public IEnumerator MultiHit_UsesPlaybackAndAttackGap_UsesRestOrTravelPose_AndFinishesAfterLastClip()
         {
             yield return null;
             using (var scope = new TempoScope(true, 1))
@@ -78,8 +78,8 @@ namespace TurnLimbo.Presentation.Tests
                     if (hit < 2)
                     {
                         scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
-                        Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"),
-                            "The attack gap is idle time, not a stretched attack pose.");
+                        Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^(?:idle|move)-frame-[0-9]+$"),
+                            "The attack gap permits idle or closing footwork, never a stretched attack pose.");
                         Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "poses-block(?:-2)?")),
                             "The enemy's finished one-hit attack guards while the player keeps striking.");
                     }

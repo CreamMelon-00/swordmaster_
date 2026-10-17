@@ -211,7 +211,7 @@ namespace TurnLimbo.Presentation.Tests
                         Transform socket = Named(lobby.Root.transform, "Loadout Slot " + SkillLaneStyle.Key(lane) + " " + (slot + 1));
                         Assert.That(socket.Find("Role Pip"), Is.Null, "No core mark on a socket…");
                         Assert.That(socket.GetComponentsInChildren<Text>(true).Length, Is.EqualTo(1), "…its ACT the only text.");
-                        Assert.That(socket.Find("Slot ACT").GetComponent<Text>().text, Is.EqualTo("ACT " + run.GetLoadoutSlot(lane, slot).Skill.Cost));
+                        Assert.That(socket.Find("Slot ACT Plate/Slot ACT").GetComponent<Text>().text, Is.EqualTo("ACT " + run.GetLoadoutSlot(lane, slot).Skill.Cost));
                     }
                 CampaignOwnedSkill freed = run.GetLoadoutSlot(1, 0);
                 Assert.That(run.TryUnequipSkill(freed.SkillId), Is.True);
@@ -255,7 +255,7 @@ namespace TurnLimbo.Presentation.Tests
                             Transform socket = Named(hud.Root.transform, "Versus Slot " + key + " " + (slot + 1));
                             Assert.That(socket.Find("Role Pip"), Is.Null, "No core mark on a socket…");
                             Assert.That(socket.GetComponentsInChildren<Text>(true).Length, Is.EqualTo(1), "…its ACT the only text.");
-                            Assert.That(socket.Find("Slot ACT").GetComponent<Text>().text, Is.EqualTo("ACT " + loadout.GetSkill(lane, slot).Cost));
+                            Assert.That(socket.Find("Slot ACT Plate/Slot ACT").GetComponent<Text>().text, Is.EqualTo("ACT " + loadout.GetSkill(lane, slot).Cost));
                         }
                     }
                     foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills)

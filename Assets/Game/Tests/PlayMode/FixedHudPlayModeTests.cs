@@ -174,7 +174,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator TabInspection_ZoomsToEnemy_AndKeepsQueuePanelsAndConstantSizeStatus()
+        public IEnumerator TabInspection_KeepsNormalPlanningCamera_AndQueuePanelsAndConstantSizeStatus()
         {
             yield return null;
             DuelPrototypeController controller = FindPrototype();
@@ -185,7 +185,6 @@ namespace TurnLimbo.Presentation.Tests
             Transform enemy = controller.ArenaView.EnemyRenderer.transform;
             RectTransform status = Get<RectTransform>(root, "EnemyStatus");
             Canvas.ForceUpdateCanvases();
-            float initialZoom = camera.orthographicSize;
             Vector2 initialStatusSize = ScreenRect(status).size;
             Vector2[] initialCardSizes = CaptureQueueCardSizes(root);
             try
@@ -193,8 +192,8 @@ namespace TurnLimbo.Presentation.Tests
                 Press(keyboard.tabKey);
                 yield return new WaitForSecondsRealtime(.55f);
                 yield return null;
-                Assert.That(camera.orthographicSize, Is.LessThan(initialZoom), "Tab must still use the real enemy inspection zoom.");
-                float inspectionZoom = camera.orthographicSize;
+                Assert.That(controller.Hud.IsQueueComparisonVisible, Is.True);
+                AssertInspectionKeepsPlanningCamera(controller, true);
                 Assert.That(Get<RectTransform>(root, "Enemy Skill Explain").gameObject.activeSelf, Is.True);
                 AssertHeadStatus(status, enemy, new Vector3(-.4f, 1f, 0), camera, root);
                 AssertPanelLayout(root);
@@ -204,7 +203,8 @@ namespace TurnLimbo.Presentation.Tests
                 Release(keyboard.tabKey);
                 yield return new WaitForSecondsRealtime(.55f);
                 yield return null;
-                Assert.That(camera.orthographicSize, Is.GreaterThan(inspectionZoom), "Releasing Tab must restore the normal view.");
+                Assert.That(controller.Hud.IsQueueComparisonVisible, Is.False);
+                AssertInspectionKeepsPlanningCamera(controller, false);
                 Assert.That(Get<RectTransform>(root, "Enemy Skill Explain").gameObject.activeSelf, Is.False);
                 AssertPanelLayout(root);
                 Assert.That(Vector2.Distance(ScreenRect(status).size, initialStatusSize), Is.LessThan(.01f));
@@ -337,12 +337,11 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator LongSkillQueues_StayOnOneRowGrowingOutward_AndTightenOnlyToFitTheirPanels()
+        public IEnumerator LongSkillQueues_KeepReadableMirroredCards_AndWindowTheOverflow()
         {
             yield return null;
             AssertLongQueue(6);
-            // Far more than fits a panel: both rows tighten together instead of leaving their panels, and the status panels
-            // stay on their fighters' heads.
+            // Far more than fits a panel: both sides share a readable window instead of overlapping icons.
             AssertLongQueue(24);
         }
 
@@ -375,7 +374,7 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     bool playerSide = name == "Player Requests";
                     var cards = VisibleQueueCards(root.Find(name));
-                    Assert.That(cards.Count, Is.EqualTo(skillCount));
+                    Assert.That(cards.Count, Is.EqualTo(Mathf.Min(skillCount, controller.Hud.QueueWindowCapacity)));
                     Assert.That(cards[0].anchoredPosition.x, Is.EqualTo(playerSide ? -inner : inner).Within(.01f),
                         name + ": slot 1 sits at the panel's inner end, by the centre seam.");
                     float pitch = Mathf.Abs(cards[1].anchoredPosition.x - cards[0].anchoredPosition.x);
@@ -387,13 +386,16 @@ namespace TurnLimbo.Presentation.Tests
                         if (index > 0)
                             Assert.That(Mathf.Sign(cards[index].anchoredPosition.x - cards[index - 1].anchoredPosition.x),
                                 Is.EqualTo(playerSide ? -1f : 1f), name + " grows outward.");
-                        if (pitch >= 72f - .01f)
-                            for (int previous = 0; previous < index; previous++)
-                                Assert.That(ScreenRect(cards[index]).Overlaps(ScreenRect(cards[previous])), Is.False,
-                                    name + " cards at full spacing must not overlap.");
+                        for (int previous = 0; previous < index; previous++)
+                            Assert.That(ScreenRect(cards[index]).Overlaps(ScreenRect(cards[previous])), Is.False,
+                                name + " keeps every visible icon separate, even in a long queue.");
                     }
-                    if (skillCount <= 6) Assert.That(pitch, Is.EqualTo(72f).Within(.01f), name + ": six cards fit at full spacing.");
-                    if (skillCount >= 24) Assert.That(pitch, Is.LessThan(72f), name + " tightens to fit its panel.");
+                    if (skillCount <= 6) Assert.That(pitch, Is.EqualTo(controller.PresentationSettings.QueueCardSpacing).Within(.01f));
+                    if (skillCount >= 24)
+                    {
+                        Assert.That(controller.Hud.QueueCardWidth, Is.EqualTo(LegacyQueuePanelLayout.MinimumCardSize).Within(.01f));
+                        Assert.That(controller.Hud.QueueWindowStart, Is.GreaterThan(0), "The newest reservation stays in view.");
+                    }
                 }
                 // A long row never drags the panels together.
                 Assert.That(ScreenRect(Get<RectTransform>(root, "PlayerStatus")).Overlaps(ScreenRect(Get<RectTransform>(root, "EnemyStatus"))),
@@ -426,6 +428,43 @@ namespace TurnLimbo.Presentation.Tests
             controller.Hud.Refresh(controller.Session, controller.TurnTimeRemaining, resolving, -1,
                 arena.ArenaCamera, arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, delta);
             Canvas.ForceUpdateCanvases();
+        }
+
+        private static void AssertInspectionKeepsPlanningCamera(DuelPrototypeController controller, bool inspecting)
+        {
+            bool wasEnabled = controller.enabled;
+            controller.enabled = false;
+            try
+            {
+                LegacyArenaView arena = controller.ArenaView;
+                Camera camera = arena.ArenaCamera;
+                float clock = controller.TurnTimeRemaining;
+                float floor = controller.Hud.QueuePanelFloor;
+                // Hold the same clock, actor positions and HUD floor while comparing both inspection states.
+                arena.SetPlanningState(clock, inspecting);
+                for (int frame = 0; frame < 4; frame++)
+                {
+                    arena.SetHudFloor(floor);
+                    arena.Tick(0f, 1f);
+                }
+                float size = camera.orthographicSize;
+                Vector3 position = camera.transform.localPosition;
+                Quaternion rotation = camera.transform.localRotation;
+                arena.SetPlanningState(clock, !inspecting);
+                for (int frame = 0; frame < 4; frame++)
+                {
+                    arena.SetHudFloor(floor);
+                    arena.Tick(0f, 1f);
+                }
+                Assert.That(camera.orthographicSize, Is.EqualTo(size).Within(.001f),
+                    "Tab and normal planning use the same zoom at the same remaining time.");
+                Assert.That(Vector3.Distance(camera.transform.localPosition, position), Is.LessThan(.001f),
+                    "Tab cannot move the camera toward the enemy.");
+                Assert.That(Quaternion.Angle(camera.transform.localRotation, rotation), Is.LessThan(.001f));
+                arena.SetPlanningState(clock, inspecting);
+                RefreshHud(controller, false, 0f);
+            }
+            finally { controller.enabled = wasEnabled; }
         }
 
         private static Vector2[] CaptureQueuePositions(Transform root)

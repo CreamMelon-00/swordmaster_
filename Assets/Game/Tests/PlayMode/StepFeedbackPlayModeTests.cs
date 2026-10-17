@@ -36,7 +36,12 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.ArenaCamera.transform.localPosition.x, Is.LessThan(arena.DuelCenter.x - .3f));
                 Assert.That(Quaternion.Angle(arena.ArenaCamera.transform.localRotation, Quaternion.identity),
                     Is.GreaterThan(.1f), "A step carries its own small directional tilt even with random combat tilt disabled.");
-                Assert.That(arena.ActiveStepAfterimageCount, Is.EqualTo(3));
+                Assert.That(arena.ActiveStepAfterimageCount, Is.Zero,
+                    "The successful gesture uses the dedicated slow trail instead of stacking ordinary path copies.");
+                Assert.That(arena.ActiveSlowAfterimageCount, Is.Zero, "The first slow snapshot waits for its sparse real-time interval.");
+                arena.Tick(0f, arena.StepGestureDuration - .06f);
+                Assert.That(arena.ActiveStepAfterimageCount, Is.Zero);
+                Assert.That(arena.ActiveSlowAfterimageCount, Is.LessThanOrEqualTo(2));
                 Assert.That(Time.timeScale, Is.EqualTo(originalTimeScale));
             }
             yield return null;
@@ -85,7 +90,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.StepFocusAmount, Is.EqualTo(focus));
                 Assert.That(arena.StepPresentationSpeed, Is.EqualTo(speed));
                 Assert.That(arena.ActiveStepAfterimageCount, Is.LessThanOrEqualTo(DuelStepAfterimages.Capacity));
-                arena.Tick(0f, .3f);
+                arena.Tick(0f, Mathf.Max(fixture.Settings.StepFocusDuration,
+                    fixture.Settings.StepSlowMotionDuration + .18f) + .01f);
                 Assert.That(arena.StepFocusAmount, Is.Zero);
                 Assert.That(arena.StepPresentationSpeed, Is.EqualTo(1f));
                 // Even an incorrectly repeated success must not reopen the same
@@ -178,10 +184,11 @@ namespace TurnLimbo.Presentation.Tests
                 arena.PerformStep(LegacyStepAction.Pressure, true);
                 arena.Tick(0f, .22f);
                 Assert.That(arena.IsFatalFocus, Is.True);
-                Assert.That(arena.ArenaCamera.orthographicSize, Is.GreaterThan(2.95f).And.LessThan(3.05f),
-                    "Step zoom must not subtract another half unit from the fatal target's size of three.");
+                Assert.That(arena.ArenaCamera.orthographicSize, Is.GreaterThan(2.7f).And.LessThan(3.8f),
+                    "The decisive close-up retains its full-body fit instead of stacking a step zoom on top.");
                 Assert.That(arena.ArenaCamera.transform.localPosition.x, Is.EqualTo(
-                    arena.EnemyRenderer.transform.localPosition.x).Within(.1f));
+                    arena.PlayerRenderer.transform.localPosition.x).Within(.5f),
+                    "Slow motion follows the player, including when the decisive hit landed on the opponent.");
             }
             yield return null;
         }
@@ -199,13 +206,52 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Arena.PerformStep(LegacyStepAction.Dodge, true);
                 Assert.That(fixture.Arena.StepPresentationSpeed, Is.EqualTo(.4f));
                 Assert.That(fixture.Arena.ForestBackdrop.Layers[0].Tiles[0].color.r, Is.EqualTo(.7f).Within(.001f));
-                fixture.Arena.Tick(0f, LegacyArenaView.StepDuration / fixture.Settings.MovementSpeedMultiplier);
+                fixture.Arena.Tick(0f, fixture.Arena.StepGestureDuration);
                 Assert.That(fixture.Arena.PlayerRenderer.transform.localPosition.x,
-                    Is.EqualTo(start.x - 2f * fixture.Settings.MovementDistanceMultiplier).Within(.001f));
+                    Is.EqualTo(start.x - 2f * fixture.Settings.MovementDistanceMultiplier * 1.45f).Within(.001f));
                 fixture.Arena.PerformStep(LegacyStepAction.Pressure, false);
-                fixture.Arena.Tick(0f, LegacyArenaView.StepDuration / fixture.Settings.MovementSpeedMultiplier);
+                fixture.Arena.Tick(0f, fixture.Arena.StepGestureDuration);
                 Assert.That(fixture.Arena.PlayerRenderer.transform.localPosition.x,
-                    Is.EqualTo(start.x - 1.6f * fixture.Settings.MovementDistanceMultiplier).Within(.001f));
+                    Is.EqualTo(start.x - (2f * 1.45f - .4f) * fixture.Settings.MovementDistanceMultiplier).Within(.001f));
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator SuccessHoldsFocusThroughTheSlowWindow_AndOnlyItsFirstManualGestureIsExtended()
+        {
+            using (var fixture = new ArenaFixture())
+            {
+                LegacyArenaView arena = fixture.Arena;
+                float normalDuration = LegacyArenaView.StepDuration / fixture.Settings.MovementSpeedMultiplier;
+                arena.PerformStep(LegacyStepAction.Dodge, true);
+                Assert.That(arena.StepGestureDuration, Is.EqualTo(normalDuration * 1.8f).Within(.0001f));
+                arena.Tick(0f, normalDuration);
+                Assert.That(arena.IsStepping, Is.True, "A successful sidestep remains readable beyond the ordinary gesture.");
+                arena.Tick(0f, normalDuration);
+                Assert.That(arena.IsStepping, Is.False);
+                float remainingSlow = fixture.Settings.StepSlowMotionDuration - normalDuration * 2f - .07f;
+                arena.Tick(0f, Mathf.Max(0f, remainingSlow));
+                Assert.That(arena.StepFocusAmount, Is.EqualTo(1f), "The camera holds its close-up while the combat clock crawls.");
+                Assert.That(arena.StepPresentationSpeed, Is.EqualTo(fixture.Settings.StepSlowMotionScale).Within(.0001f));
+                arena.Tick(0f, .16f);
+                Assert.That(arena.StepFocusAmount, Is.InRange(.1f, .9f), "The last part releases the focus on real time.");
+                arena.Tick(0f, .3f);
+                Assert.That(arena.StepFocusAmount, Is.Zero);
+                Assert.That(arena.StepPresentationSpeed, Is.EqualTo(1f));
+
+                arena.PerformStep(LegacyStepAction.Pressure, true);
+                Assert.That(arena.StepGestureDuration, Is.EqualTo(normalDuration).Within(.0001f),
+                    "Repeating a success in this skill cannot reopen its cinematic movement.");
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
+                arena.PerformStep(LegacyStepAction.Dodge, true, cinematic: false);
+                Assert.That(arena.StepGestureDuration, Is.EqualTo(normalDuration).Within(.0001f),
+                    "A skill's automatic dodge keeps the normal travel time.");
+                Assert.That(arena.StepFocusAmount, Is.Zero);
+                arena.PerformStep(LegacyStepAction.Pressure, false);
+                Assert.That(arena.StepGestureDuration, Is.EqualTo(normalDuration).Within(.0001f));
+                arena.Tick(0f, normalDuration);
+                Assert.That(arena.IsStepping, Is.False);
             }
             yield return null;
         }

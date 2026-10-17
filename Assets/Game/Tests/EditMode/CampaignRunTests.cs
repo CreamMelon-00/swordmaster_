@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
@@ -208,7 +209,7 @@ namespace TurnLimbo.Core.Tests
                 CampaignStage stage = run.CurrentStage;
                 LegacyQueuedDuel duel = run.CreateDuel(number);
                 Assert.That(duel.PlayerCounter, Is.Null, "The player earns counters later.");
-                int expectedId = number >= 7 ? 4 : number >= 5 ? 7 : 0;
+                int expectedId = number >= 7 ? 4 : number == 6 ? 7 : 0;
                 if (expectedId == 0)
                 {
                     Assert.That(stage.EnemyCounterBasis, Is.Null);
@@ -402,7 +403,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void AllStages_IncreaseStatsAndEnemyPowerWithoutChangingPlayerRecovery()
+        public void AllStages_UseTheirStatsAndRhythmsWithoutChangingPlayerRecovery()
         {
             var run = NewBattleRun();
             int rewardTotal = 0;
@@ -413,9 +414,9 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(stage.Number, Is.EqualTo(number));
                 Assert.That(stage.Name, Is.Not.Empty);
                 Assert.That(names.Add(stage.Name), Is.True);
-                Assert.That(stage.EnemyHealth, Is.EqualTo(80 + 15 * (number - 1)));
-                Assert.That(stage.EnemyResistance, Is.EqualTo(15 + 3 * (number - 1)));
-                Assert.That(stage.EnemyPowerBonus, Is.EqualTo(number - 1));
+                Assert.That(stage.EnemyHealth, Is.EqualTo(number == 5 ? 50 : 80 + 15 * (number - 1)));
+                Assert.That(stage.EnemyResistance, Is.EqualTo(number == 5 ? 10 : 15 + 3 * (number - 1)));
+                Assert.That(stage.EnemyPowerBonus, Is.EqualTo(number == 5 ? 0 : number - 1));
                 Assert.That(stage.Reward, Is.EqualTo(60 + 10 * (number - 1)));
 
                 LegacyQueuedDuel duel = run.CreateDuel(number);
@@ -427,12 +428,14 @@ namespace TurnLimbo.Core.Tests
                 EnemyScript script = CampaignEnemyRhythms.Script(stage.EnemyRhythm);
                 IReadOnlyList<LegacySkill> expected = script == null
                     ? new[] { LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(2) } : script.Turn(1);
-                Assert.That(duel.EnemyQueue.Count, Is.EqualTo(expected.Count), "Stage " + number);
-                for (int index = 0; index < expected.Count; index++)
+                Assert.That(duel.Enemies.Count, Is.EqualTo(stage.EnemyCount));
+                Assert.That(duel.EnemyQueue.Count, Is.EqualTo(number == 5 ? 6 : expected.Count), "Stage " + number);
+                for (int index = 0; index < duel.EnemyQueue.Count; index++)
                 {
-                    Assert.That(duel.EnemyQueue[index].Id, Is.EqualTo(expected[index].Id));
-                    Assert.That(duel.EnemyQueue[index].MinPower, Is.EqualTo(expected[index].MinPower + stage.EnemyPowerBonus));
-                    Assert.That(duel.EnemyQueue[index].MaxPower, Is.EqualTo(expected[index].MaxPower + stage.EnemyPowerBonus));
+                    LegacySkill basis = number == 5 ? LegacySkillDefinitions.Skill(duel.EnemyQueue[index].Id) : expected[index];
+                    if (number != 5) Assert.That(duel.EnemyQueue[index].Id, Is.EqualTo(basis.Id));
+                    Assert.That(duel.EnemyQueue[index].MinPower, Is.EqualTo(number == 5 ? Math.Max(1, basis.MinPower * 70 / 100) : basis.MinPower + stage.EnemyPowerBonus));
+                    Assert.That(duel.EnemyQueue[index].MaxPower, Is.EqualTo(number == 5 ? Math.Max(1, basis.MaxPower * 70 / 100) : basis.MaxPower + stage.EnemyPowerBonus));
                 }
 
                 Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);

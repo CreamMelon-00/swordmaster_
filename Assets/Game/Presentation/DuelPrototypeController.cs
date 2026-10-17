@@ -170,9 +170,6 @@ namespace TurnLimbo.Presentation
         private bool bladeBindHitPending, releasingBladeBindHit;
         // While a blade bind holds, the camera comes in by this share of a Major slot's push.
         private const float BladeBindCameraShare = .6f;
-        // 결정적 한 수 (2026-10-15): the battle's most important slot, recorded while candidate slots play and replayed once
-        // over its result (not in training, nor when a mission's outro scene comes between).
-        private DuelDecisiveReplay decisiveReplay;
 
         public LegacyQueuedDuel Session => session;
         public CampaignRun Campaign => campaign;
@@ -269,7 +266,7 @@ namespace TurnLimbo.Presentation
         public bool IsResolving => viewPhase != ViewPhase.Planning && viewPhase != ViewPhase.Outcome;
         public bool CanChoose => !IsPaused && viewPhase == ViewPhase.Planning && session.Phase == LegacyDuelPhase.Planning;
         public int PlayerHealth => session.Player.Health;
-        public int EnemyHealth => session.Enemy.Health;
+        public int EnemyHealth => RemainingEnemyHealth;
         public DuelMatchOutcome Outcome => session.Outcome;
         public float TurnTimeRemaining => planningTime;
         /// <summary>The planning clock this turn started at: the stage's duration plus the seconds the last turn's skills earned
@@ -314,8 +311,6 @@ namespace TurnLimbo.Presentation
                 return showDirector.PlaybackSpeed;
             }
         }
-        /// <summary>결정적 한 수: the battle's decisive-moment recording and its replay over the result.</summary>
-        public DuelDecisiveReplay DecisiveReplay => decisiveReplay;
         public float ActiveSlotPlaybackSpeed => slotPlaybackSpeed;
         public float ActiveSlotAttackInterval => slotAttackInterval;
         public float ActiveSlotDuration => slotDuration;
@@ -436,7 +431,6 @@ namespace TurnLimbo.Presentation
                 () => StartTraining(), () => OpenFieldMenu(), id => CollectFieldPickup(id));
             resultHud = new BattleResultHud(transform, art, () => DismissBattleResult(),
                 () => RetryBattleResult(), () => AdvanceFromBattleResult());
-            decisiveReplay = new DuelDecisiveReplay(transform, art, () => presentationSettings);
             pauseHud = new DuelPauseHud(transform, art, () => ResumeBattle(),
                 () => RetryPausedBattle(), () => AbandonPausedBattle());
             coachHud = new MissionCoachHud(transform, art, () => AdvanceGuide(),
@@ -479,6 +473,7 @@ namespace TurnLimbo.Presentation
                 return;
             }
             // Break impulses use real time even during the finale's frozen frame and the result hand-off.
+            hud.AdvanceBreakQueueFragments(realDelta);
             breakImpactCue.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
             // Level-up is its own overlay, so it can finish over a result even after the duel HUD closes.
@@ -551,15 +546,6 @@ namespace TurnLimbo.Presentation
             }
             if (IsShowingResult)
             {
-                // 결정적 한 수 plays over the card first: the result's keys (and Space) end it, and never reach the card on
-                // the same frame (a click on it ends it too).
-                if (decisiveReplay.IsPlaying)
-                {
-                    if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame ||
-                        keyboard.spaceKey.wasPressedThisFrame)) decisiveReplay.Skip();
-                    else decisiveReplay.Tick(realDelta);
-                    return;
-                }
                 if (keyboard != null && (keyboard.enterKey.wasPressedThisFrame || keyboard.escapeKey.wasPressedThisFrame))
                     DismissBattleResult();
                 return;
@@ -689,8 +675,18 @@ namespace TurnLimbo.Presentation
             // 긴장 조명: both fighters' health as the rules have it now lights the arena (not in training, where nothing
             // is at stake; the dummy never falls).
             if (!IsTrainingBattle)
-                arena.SetTensionLighting(LegacyHealthReading.Of(session.Player, session.Enemy), presentationSettings.TensionLighting);
-            arena.Tick(delta, realDelta);
+                arena.SetTensionLighting(BattleHealthReading(), presentationSettings.TensionLighting);
+            RefreshUpcomingEnemy();
+            if (!finale.IsRunning && session.CurrentSlot != null &&
+                (viewPhase == ViewPhase.SkillWindup || viewPhase == ViewPhase.PlayingSlot))
+            {
+                float progress = viewPhase == ViewPhase.SkillWindup
+                    ? .2f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotAnticipationDuration))
+                    : .2f + .8f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotDuration));
+                RequestCombatCameraShot(arena, progress, session.CurrentSlot.PlayerSkill ?? session.CurrentSlot.PendingPlayerCounter,
+                    session.CurrentSlot.EnemySkill);
+            }
+            arena.Tick(delta, realDelta, deferSlowAfterimages: true);
             phaseTime += delta;
             switch (viewPhase)
             {
@@ -763,8 +759,7 @@ namespace TurnLimbo.Presentation
             arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
             // A signature move's strike trail, sampled like the pressure trail after this frame's holds.
             arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot);
-            // 결정적 한 수: a picture of the arena camera when one is due (only while a candidate slot or its tail records).
-            if (!combatDebugInstance) decisiveReplay.Capture(realDelta, arena.ArenaCamera);
+            if (viewPhase != ViewPhase.Outcome) arena.SampleSlowAfterimages(realDelta);
             if (viewPhase != ViewPhase.Outcome)
             {
                 RefreshHudClock(delta, realDelta);
@@ -795,6 +790,9 @@ namespace TurnLimbo.Presentation
 
         private void PrepareNextSlot(bool waitBetweenSlots = false)
         {
+            // Keep original slot indices for forecasts, but a wholly canceled tail has no action to animate.
+            if (HasOnlyBreakCanceledSlotsLeft(session, session.LastResolvedSlot + 1))
+                while (!session.IsFinished && !session.IsTurnResolved) session.ResolveNextSlot();
             if (session.IsFinished || session.IsTurnResolved)
             {
                 SetViewPhase(ViewPhase.AfterTurn);
@@ -807,14 +805,41 @@ namespace TurnLimbo.Presentation
                 // The exhausted attack's empty gap is compressed without speeding its clip or funding extra emphasis.
                 betweenSlotsDuration = showDirector.ShortenGap(Mathf.Max(0f, presentationSettings.SkillInterval))
                     * showDirector.PlaybackGapScale;
+                if (IsGroupBattle && ((ILegacyEnemyRosterView)session).EnemyIndexForSlot(highlightedSlot) != arena.ActiveEnemyIndex)
+                    betweenSlotsDuration /= presentationSettings.EnemyHandoffSpeedMultiplier;
                 if (betweenSlotsDuration > 0f)
                 {
                     SetViewPhase(ViewPhase.BetweenSlots);
                     return;
                 }
             }
+            SelectArenaEnemyForSlot(highlightedSlot);
             SetViewPhase(ViewPhase.ClosingDistance);
             if (arena.IsInRange) BeginSlotAnimation();
+        }
+
+        internal static bool HasOnlyBreakCanceledSlotsLeft(ILegacyDuelView duel, int nextSlot)
+        {
+            if (duel is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1)
+            {
+                if (duel.Phase != LegacyDuelPhase.Resolving || duel.CurrentSlot != null) return false;
+                int count = Mathf.Max(duel.PlayerQueue.Count, duel.EnemyQueue.Count);
+                for (int slot = nextSlot; slot < count; slot++)
+                {
+                    bool playerActs = slot < duel.PlayerQueue.Count && duel.PlayerQueue[slot] != null &&
+                        (duel.PlayerBreakCanceledFromSlotIndex < 0 || slot < duel.PlayerBreakCanceledFromSlotIndex);
+                    bool enemyActs = slot < duel.EnemyQueue.Count && duel.EnemyQueue[slot] != null && !roster.IsEnemySlotCanceled(slot);
+                    if (playerActs || enemyActs) return false;
+                }
+                return true;
+            }
+            if (duel.Phase != LegacyDuelPhase.Resolving || duel.CurrentSlot != null ||
+                (duel.PlayerBreakCanceledFromSlotIndex < 0 && duel.EnemyBreakCanceledFromSlotIndex < 0)) return false;
+            bool playerEmpty = nextSlot >= duel.PlayerQueue.Count ||
+                (duel.PlayerBreakCanceledFromSlotIndex >= 0 && nextSlot >= duel.PlayerBreakCanceledFromSlotIndex);
+            bool enemyEmpty = nextSlot >= duel.EnemyQueue.Count ||
+                (duel.EnemyBreakCanceledFromSlotIndex >= 0 && nextSlot >= duel.EnemyBreakCanceledFromSlotIndex);
+            return playerEmpty && enemyEmpty;
         }
 
         // Uses the playback speed and attack gap snapshotted when the slot began.
@@ -826,10 +851,11 @@ namespace TurnLimbo.Presentation
 
         private void BeginSlotAnimation()
         {
+            LegacyFighterState facing = EnemyFacingNextSlot();
             int playerResistanceBefore = session.Player.Resistance;
-            int enemyResistanceBefore = session.Enemy.Resistance;
+            int enemyResistanceBefore = facing.Resistance;
             bool playerWasBroken = session.Player.IsResistanceBroken;
-            bool enemyWasBroken = session.Enemy.IsResistanceBroken;
+            bool enemyWasBroken = facing.IsResistanceBroken;
             LegacyCurrentSlot slot = session.BeginNextSlot();
             highlightedSlot = slot.SlotIndex;
             // The director rates what the slot's start already tells (a Major slot pushes the camera in from its windup).
@@ -856,8 +882,6 @@ namespace TurnLimbo.Presentation
             arena.BeginSlot(playerAction, slot.EnemySkill);
             // A signature move's windup glow gathers to its first strike (the steps' windup is untouched).
             BeginSignatures(startRank, playerAction, slot.EnemySkill, slotAnticipationDuration + slotImpactTime);
-            // 결정적 한 수: a candidate slot is recorded from its windup (never in training).
-            if (!IsTrainingBattle && !combatDebugInstance) decisiveReplay.BeginSlot(startRank, arena.ArenaCamera);
             // 자동 회피: the skill steps back from the attack by itself as the slot starts, with the dodge's sound but none of a
             // timed step's slow motion; A is not taken in this slot (D still is).
             if (slot.AutoDodge && slot.DodgeSucceeded)
@@ -1008,6 +1032,12 @@ namespace TurnLimbo.Presentation
                     CompleteResolvedSkillSlot(slot);
                     return;
                 }
+                // One member falling ends this skill's remaining cycles, while the other members keep the battle going.
+                if (IsGroupBattle && session.Enemy.IsDefeated && slot.IsResolved)
+                {
+                    slotDuration = animationClipEnd;
+                    hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
+                }
                 // A long frame must not batch several impacts before any push
                 // has been observed, nor immediately finish the final animation.
                 if (phaseTime >= animationClipEnd)
@@ -1026,7 +1056,6 @@ namespace TurnLimbo.Presentation
         {
             RecordResolvedSkillSlot(slot);
             session.CompleteCurrentSlot();
-            decisiveReplay.EndSlot(showDirector.SlotRank, slot.PlayerSkill, slot.EnemySkill);
             showDirector.EndSlot();
             PrepareNextSlot(true);
         }
@@ -1064,6 +1093,17 @@ namespace TurnLimbo.Presentation
         private void ShowSlotWeight(int slotIndex, LegacySlotRank rank)
             => hud.SetClashEmphasis(slotIndex, showDirector.Enabled && rank.Tier == LegacySlotTier.Major
                 ? presentationSettings.MajorClashScale : 1f);
+
+        // Presentation intent is read from the current exchange only. It never advances a skill or the battle clock.
+        internal static void RequestCombatCameraShot(LegacyArenaView target, float progress,
+            LegacySkill playerSkill, LegacySkill enemySkill)
+        {
+            bool playerAttacks = playerSkill?.Kind == LegacySkillKind.Attack;
+            bool enemyAttacks = enemySkill?.Kind == LegacySkillKind.Attack;
+            bool unopposed = playerAttacks && (enemySkill == null || enemySkill.IsWait) ||
+                enemyAttacks && (playerSkill == null || playerSkill.IsWait);
+            target.SetCombatShot(progress, playerAttacks, enemyAttacks, unopposed);
+        }
 
         // The camera push this frame: a Major slot's from its start to its end, part of it through a blade bind.
         private float DirectorCameraPush
@@ -1198,6 +1238,10 @@ namespace TurnLimbo.Presentation
         {
             bool playerBroke = !playerWasBroken && session.Player.IsResistanceBroken;
             bool enemyBroke = !enemyWasBroken && session.Enemy.IsResistanceBroken;
+            // A current skill can restore resistance after an opening effect broke it. Cancellation still happened.
+            hud.PlayBreakQueueCancellation(true, session.PlayerBreakCanceledFromSlotIndex);
+            hud.PlayBreakQueueCancellation(false, session.EnemyBreakCanceledFromSlotIndex);
+            if (IsGroupBattle) hud.PlayEnemyQueueCancellation();
             if (playerBroke)
             {
                 hud.ShowBreakCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
@@ -1211,12 +1255,13 @@ namespace TurnLimbo.Presentation
             // A direct effect has no impact animation to play the decisive sound. A deferred effect can also
             // break someone whose hit was dodged, so use the presented hit for each target instead of the slot phase.
             bool needsBreakSound = (playerBroke && !playerHitPresented) || (enemyBroke && !enemyHitPresented);
+            if (needsBreakSound) arena.PresentDecisiveFocus(!playerBroke);
             if (needsBreakSound && criticalSound != null)
             {
                 effectsSource.pitch = playerBroke ? .82f : .96f;
                 effectsSource.PlayOneShot(criticalSound, .72f);
             }
-            arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
+            RefreshEnemyRosterState();
         }
 
         /// <summary>What a fighter took in a moment, for the barks: whether its resistance broke just now, and the health it
@@ -1268,6 +1313,7 @@ namespace TurnLimbo.Presentation
             int playerResistanceBefore = session.Player.Resistance;
             int enemyResistanceBefore = session.Enemy.Resistance;
             int[] temporaryBefore = LegacyKeywordPreview.TemporaryCounts(session);
+            CaptureEnemyTurnResistance();
             session.BeginNextTurn();
             ClearHeldKeys();
             // 제한시간: the last turn's skills may have earned this turn more time, but only if that turn's clock ran (a
@@ -1278,6 +1324,7 @@ namespace TurnLimbo.Presentation
             highlightedSlot = -1;
             inspectingEnemy = 0;
             laneHolds.DropExplanation();
+            SelectArenaEnemyForSlot(0);
             arena.BeginTurn();
             hud.BeginTurn();
             skillActivationCue.Reset();
@@ -1289,9 +1336,8 @@ namespace TurnLimbo.Presentation
             // The automatic refill, a full turn after the one in which resistance broke.
             if (session.Player.Resistance > playerResistanceBefore)
                 hud.ShowRecoveryCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
-            if (session.Enemy.Resistance > enemyResistanceBefore)
-                hud.ShowRecoveryCallout(false, arena.EnemyRenderer.transform.position, arena.EnemyRenderer.transform);
-            arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
+            AnnounceEnemyTurnRecovery(enemyResistanceBefore);
+            RefreshEnemyRosterState();
             SetViewPhase(ViewPhase.Planning);
             // The enemy's new queue is up: 엘리사's eye plays over it on the turn's first frame.
             enemyQueueRevealPending = true;
@@ -1503,6 +1549,7 @@ namespace TurnLimbo.Presentation
             string feed = LegacyKeywordPreview.CycleFeedCue(session.PlayerQueue, session.CycleUses);
             LegacySkill feeder = LegacyKeywordPreview.FirstCycleFeeder(session.PlayerQueue);
             session.Commit();
+            SelectArenaEnemyForSlot(0);
             EnsureDirectorTurn();
             skillActivationCue.Reset();
             if (feed != null) skillActivationCue.ShowKeyword(true, feeder, feed);
@@ -1864,10 +1911,6 @@ namespace TurnLimbo.Presentation
             if (shown?.Empowerment == null || missionEmpowered) return;
             battlePausedForEvent = true;
             empowermentCues.SetPaused(true);
-            // The slot that brought the event may be the decisive moment: its recording ends here, rated as it stands.
-            LegacyCurrentSlot eventSlot = session.CurrentSlot;
-            decisiveReplay.EndSlot(showDirector.SlotRank, eventSlot?.PlayerSkill, eventSlot?.EnemySkill);
-            decisiveReplay.StopRecording();
             // The scene answers the moment: no bubble waits over it.
             barks.Hide();
             hud.Root.SetActive(false);
@@ -2603,7 +2646,7 @@ namespace TurnLimbo.Presentation
             var result = new BattleResult(session.Outcome, false,
                 campaign.StageNumber, campaign.CurrentStage.Name,
                 campaign.LastReward, campaign.Currency, session.RoundNumber,
-                session.Player.Health, session.Enemy.Health, firstClear && victory,
+                session.Player.Health, RemainingEnemyHealth, firstClear && victory,
                 campaign.HighestUnlockedStage > unlockedBefore &&
                 campaign.StageLimit >= campaign.HighestUnlockedStage ? campaign.HighestUnlockedStage : 0,
                 victory,
@@ -2623,8 +2666,6 @@ namespace TurnLimbo.Presentation
                 campaign.StageNumber == prologue.CurrentMission.RequiredClearedStage ? prologue.CurrentMission : null;
             battleResult = result;
             resultHud.Show(result, null, arrived != null ? $"새 임무 '{arrived.Title}' 도착 · 학원 게시판에서 확인하세요." : null);
-            // 결정적 한 수 over the card, once (nothing kept or capture off: the card as ever).
-            decisiveReplay.Play();
         }
 
         private void FinishTraining()
@@ -2637,7 +2678,6 @@ namespace TurnLimbo.Presentation
                 Mathf.Max(1, session.RoundNumber), session.Player.Health, session.Enemy.Health,
                 false, 0, false, curriculumOpen: false, isTraining: true);
             EndDuelPresentation();
-            decisiveReplay.Clear();
             battleResult = result;
             resultHud.ShowTraining(result, targetHealth, campaign.TrainingDummyHealth);
         }
@@ -2674,8 +2714,6 @@ namespace TurnLimbo.Presentation
                 if (firstWin && lost.Number == PrologueMissions.Count)
                     pendingAcademyNotice = BattleResultHud.PrologueCompleteNotice(campaign.IsCurriculumOpen);
                 EndDuelPresentation();
-                // The outro owns the moment: no replay.
-                decisiveReplay.Clear();
                 if (!PlayMissionScene(lost, lost.OutroCutscene, lost.OutroDialogue, ShowBriefing, aura, fromGrey))
                     ShowBriefing();
                 return;
@@ -2719,8 +2757,6 @@ namespace TurnLimbo.Presentation
             if (victory && PlayMissionScene(mission, mission.OutroCutscene, mission.OutroDialogue,
                 () => ShowResult(result, unlockNotice)))
             {
-                // The outro scene comes between the battle and its result: no replay after it.
-                if (!IsShowingResult) decisiveReplay.Clear();
                 return;
             }
             ShowResult(result, unlockNotice);
@@ -2728,13 +2764,14 @@ namespace TurnLimbo.Presentation
 
         private void EndDuelPresentation()
         {
+            arena.ClearLowHealthHeartbeat();
+            arena.ClearSlowMotionAfterimages();
             pauseHud.Hide();
             ClearMissionEvent();
             ClearBattleCinematics();
             effectsSource.Stop();
             hitStopRemaining = 0f;
             ClearShowDirector();
-            decisiveReplay.StopRecording();
             stepAudio.Stop();
             skillActivationCue.Reset();
             planningTime = 0f;
@@ -2752,8 +2789,6 @@ namespace TurnLimbo.Presentation
             battleResult = result;
             // Post-prologue missions return to the field even when another mission is ready.
             resultHud.Show(result, result.IsMission && (prologue.IsArcComplete || !IsNextMissionAvailable), unlockNotice);
-            // 결정적 한 수 over the card (after an outro scene there is none to play).
-            decisiveReplay.Play();
         }
 
         private void BeginMissionBattle(int number, bool carryIntroPositions = false)
@@ -2888,9 +2923,10 @@ namespace TurnLimbo.Presentation
             hud.ClearSkillFeedback();
             arena.SetEnemyAppearance(EnemyAppearance.Student);
             arena.Reset();
+            arena.ConfigureEnemyRoster(new[] { EnemyAppearance.Student });
+            hud.SetEnemyActors(arena.EnemyActorTransforms);
             hitStopRemaining = 0f;
             ClearShowDirector();
-            decisiveReplay.Clear();
             SetViewPhase(ViewPhase.Outcome);
             planningTime = 0f;
             ClearHeldKeys();
@@ -2939,7 +2975,6 @@ namespace TurnLimbo.Presentation
             hitStopRemaining = betweenSlotsDuration = slotDuration = slotAttackInterval = slotImpactTime = slotCycleDuration = 0f;
             slotAnticipationDuration = slotStepWindow = 0f;
             ClearShowDirector();
-            decisiveReplay.Clear();
             slotPlaybackSpeed = 1f;
             planningDuration = PlanningDuration + (IsMission ? 0 : campaign.CurriculumStats.PlanningSeconds);
             committedTurnClockRan = false;
@@ -2953,6 +2988,8 @@ namespace TurnLimbo.Presentation
             arena.SetBackdrop(IsMission && mission.Number <= PrologueMissions.Count
                 ? ArenaBackdropKind.Forest : ArenaBackdropKind.SchoolCorridor);
             arena.Reset();
+            ConfigureBattleEnemies(IsTrainingBattle ? EnemyAppearance.TrainingDummy
+                : IsMission ? mission.EnemyAppearance : CampaignEnemyVariant.ForStage(campaign.StageNumber));
             if (playerOpeningX.HasValue && enemyOpeningX.HasValue)
                 arena.SetOpeningPositions(playerOpeningX.Value, enemyOpeningX.Value);
             hud.Reset();
@@ -2963,7 +3000,7 @@ namespace TurnLimbo.Presentation
             else if (IsTrainingBattle) hud.SetStage(1, 1, TrainingOpponentName);
             else hud.SetStage(campaign.StageNumber, campaign.StageCount, campaign.CurrentStage.Name);
             // A mission names its enemy as the battle knows it (이아 in the 서막's last mission, unlike its briefing).
-            hud.SetEnemyName(IsMission ? mission.BattleEnemyName : null);
+            hud.SetEnemyName(IsMission ? mission.BattleEnemyName : IsGroupBattle ? "훈련생 3인조" : null);
             // Each attempt hears its barks afresh: a retry may say its start line again.
             barks.Begin(BarkResource);
             SetViewPhase(ViewPhase.Planning);
@@ -3019,7 +3056,7 @@ namespace TurnLimbo.Presentation
         /// the dummy in training. A stage's enemy has no name yet, so its card shows the silhouette alone: a place name is
         /// not a fighter's (and stage 8's has 결투 in it). Once stage enemies are named, their name goes here.</summary>
         private string StartCardOpponent => IsTrainingBattle ? TrainingOpponentName : IsMission ? mission.BattleEnemyName
-            : string.Empty;
+            : IsGroupBattle ? "훈련생 3인조" : string.Empty;
 
         /// <summary>The opponent's silhouette on the start card: a mission's briefing silhouette, else the dummy's or the
         /// knight's, as the arena draws the enemy.</summary>
@@ -3123,11 +3160,12 @@ namespace TurnLimbo.Presentation
         private void RefreshHudClock(float delta, float realDelta)
         {
             // Every frame, after this frame's poses: the outline follows the actor's current sprite.
-            arena.SetResistanceBroken(session.Player.IsResistanceBroken, session.Enemy.IsResistanceBroken);
+            RefreshEnemyRosterState();
             hud.SetLaneCycleCost(LaneCycleCost, CanAffordLaneCycle);
             hud.SetReservationClock(planningTime, PlanningTimerRuns);
             // The coach's card, while it is up over the dock's centre, opens the queue panels' seam round it.
             hud.SetQueueSeamReserve(CoachSeamReserve);
+            hud.SetCombatLetterboxAccent(arena.CombatLetterboxAccent);
             hud.Refresh(session, planningTime, IsResolving, highlightedSlot, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform, delta, realDelta, turnPlanningDuration);
             // On real time, over the head HUDs as just laid out.
@@ -3150,8 +3188,12 @@ namespace TurnLimbo.Presentation
             hud.SetExplanationFloor(coachHud != null && coachHud.IsVisible ? coachHud.TopEdge : 0f);
             if (IsInspecting && session.EnemyQueue.Count > 0)
             {
-                hud.SetInspectedSlot(Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1));
-                hud.ShowExplanation(session.EnemyQueue[Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1)], true);
+                int slot = Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1);
+                hud.SetInspectedSlot(slot);
+                LegacySkill reserved = slot < session.PlayerQueue.Count ? session.PlayerQueue[slot] : null;
+                CampaignOwnedSkill owned = reserved != null ? campaign.GetOwnedSkill(reserved.Id) : null;
+                hud.ShowQueueComparison(session.EnemyQueue[slot], reserved,
+                    ReferenceEquals(owned?.Skill, reserved) ? owned : null);
             }
             else if (CanChoose && laneHolds.ExplainedSkill != null)
             {
@@ -3186,7 +3228,6 @@ namespace TurnLimbo.Presentation
             cutsceneHud?.Dispose();
             pauseHud?.Dispose();
             resultHud?.Dispose();
-            decisiveReplay?.Dispose();
             coachHud?.Dispose();
             briefingHud?.Dispose();
             onlineVersus?.Dispose();

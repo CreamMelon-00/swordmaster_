@@ -544,7 +544,9 @@ namespace TurnLimbo.Presentation
                 new Vector2(-192f, -7f), new Vector2(384f, 48f), 18,
                 run.IsStageCleared(selectedStageNumber) ? Accent : Muted);
             Label("Selected Stage Stats", preview.transform,
-                $"적 체력  {stage.EnemyHealth}     저항  {stage.EnemyResistance}\n위력  +{stage.EnemyPowerBonus}",
+                stage.EnemyCount > 1
+                    ? $"상대 {stage.EnemyCount}명  ·  공유 대기열\n각 체력  {stage.EnemyHealth}     저항  {stage.EnemyResistance}"
+                    : $"적 체력  {stage.EnemyHealth}     저항  {stage.EnemyResistance}\n위력  +{stage.EnemyPowerBonus}",
                 new Vector2(-192f, -76f), new Vector2(384f, 62f), 22, Foreground);
             if (run.IsCurriculumOpen)
             {

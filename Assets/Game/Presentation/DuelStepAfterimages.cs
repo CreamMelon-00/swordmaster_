@@ -1,6 +1,7 @@
 using System;
 using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
 namespace TurnLimbo.Presentation
@@ -44,6 +45,8 @@ namespace TurnLimbo.Presentation
         public int PoolSize => views.Length;
         /// <summary>The pool's object; every ghost lives under it.</summary>
         public Transform Root => root;
+        /// <summary>World order behind every whole-figure group in this arena (-2 for a duel, -4 for four fighters).</summary>
+        public int GroupedSortingCeiling { get; set; } = -2;
 
         /// <summary>Keeps every afterimage off screen without ending it, while a cutscene plays in the middle of a battle.</summary>
         public bool Hidden
@@ -127,11 +130,16 @@ namespace TurnLimbo.Presentation
             view.FootY = float.IsNaN(footY) || float.IsInfinity(footY) ? 0f : footY;
             view.Moves = view.Drift != Vector3.zero || view.Swell > 0f;
             view.Lifetime = lifetime;
+            view.Source = source;
             view.Renderer.sprite = source.sprite;
             view.Renderer.flipX = source.flipX;
             view.Renderer.flipY = source.flipY;
             view.Renderer.sortingLayerID = source.sortingLayerID;
-            view.Renderer.sortingOrder = sortingOrder;
+            // Complete fighters now sort as groups at 0/-1. A world-space ghost lives outside those groups, so keep it
+            // behind both figures rather than tying the rear group's order; aura ghosts requested at -3 stay there.
+            int drawnOrder = source.TryGetComponent(out SortingGroup sourceGroup) && sourceGroup.enabled
+                ? Mathf.Min(sortingOrder, GroupedSortingCeiling) : sortingOrder;
+            view.Renderer.sortingOrder = drawnOrder;
             view.Tint = tint;
             Paint(view.Renderer, view.Tint);
             if (view.LowerRenderer != null)
@@ -144,7 +152,7 @@ namespace TurnLimbo.Presentation
                     view.LowerRenderer.flipX = lowerSource.flipX;
                     view.LowerRenderer.flipY = lowerSource.flipY;
                     view.LowerRenderer.sortingLayerID = lowerSource.sortingLayerID;
-                    view.LowerRenderer.sortingOrder = sortingOrder + (lowerSource.sortingOrder - source.sortingOrder);
+                    view.LowerRenderer.sortingOrder = drawnOrder + (lowerSource.sortingOrder - source.sortingOrder);
                     Vector3 lowerPosition = lowerSource.transform.position +
                         lowerSource.transform.TransformVector(ReadAttackOffset(lowerSource));
                     view.LowerRenderer.transform.localPosition = source.transform.InverseTransformPoint(lowerPosition) - attackOffset;
@@ -191,6 +199,14 @@ namespace TurnLimbo.Presentation
         {
             for (int index = 0; index < views.Length; index++) Deactivate(views[index]);
             nextView = 0;
+        }
+
+        /// <summary>Removes one figure's copies without erasing another figure's trail in the same pool.</summary>
+        public void ClearSource(SpriteRenderer source)
+        {
+            if (disposed || source == null) return;
+            for (int index = 0; index < views.Length; index++)
+                if (views[index].Source == source) Deactivate(views[index]);
         }
 
         public void Dispose()
@@ -242,6 +258,7 @@ namespace TurnLimbo.Presentation
         private static void Deactivate(View view)
         {
             view.Active = false;
+            view.Source = null;
             view.Age = 0f;
             view.Renderer.sprite = null;
             if (view.LowerRenderer != null) view.LowerRenderer.sprite = null;
@@ -258,6 +275,7 @@ namespace TurnLimbo.Presentation
             public float Lifetime = DuelStepAfterimages.Lifetime;
             public Color Tint;
             public bool Active;
+            public SpriteRenderer Source;
             // Where it was left and how it moves over its life (drift and swell; neither for a step's ghost).
             public Vector3 Origin, OriginScale, Drift;
             public float Swell, FootY;

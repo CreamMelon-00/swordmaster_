@@ -176,7 +176,7 @@ namespace TurnLimbo.Presentation
     public static class OnlineVersusProtocol
     {
         // Increment when the combat simulation changes without a corresponding skill-sheet edit.
-        public const string CombatRulesVersion = "local-versus-rules-4";
+        public const string CombatRulesVersion = "local-versus-rules-5";
         private const ulong Offset = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
@@ -258,6 +258,7 @@ namespace TurnLimbo.Presentation
                 for (int i = 0; i < skills.Count; i++) AddInt(ref hash, skills[i].Id);
             }
             AddInt(ref hash, fighter.Queue.Count);
+            AddInt(ref hash, fighter.BreakCanceledFromSlotIndex);
             for (int i = 0; i < fighter.Queue.Count; i++) AddInt(ref hash, fighter.Queue[i].Id);
 
             // Include cycle counters for every playable skill so custom versus loadouts

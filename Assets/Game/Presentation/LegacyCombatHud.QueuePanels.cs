@@ -25,13 +25,16 @@ namespace TurnLimbo.Presentation
         // How far the tabs over a card (취소/반환 and keyword marks) rise past its top edge, at the built card size: a held
         // explanation opens above them.
         private const float QueueMarkRise = 30f;
+        private const float QueueRangeHeight = 18f;
         // From the theme itself: static fields of another part of this class may not be set yet when these are.
         private static readonly Color QueueTraySurface = new Color(DuelVisualTheme.Surface.r, DuelVisualTheme.Surface.g,
             DuelVisualTheme.Surface.b, .82f);
         private static readonly Color QueueTrayBorder = new Color(DuelVisualTheme.Border.r, DuelVisualTheme.Border.g,
             DuelVisualTheme.Border.b, .9f);
         private RectTransform queuePanels, playerQueuePanel, enemyQueuePanel, queueSeam;
+        private Text playerQueueRange, enemyQueueRange;
         private float queueCardScale = 1f;
+        private int queueWindowStart, queueWindowCapacity;
         // The slide toward the seam: where it began (slots out), its battle seconds so far, and the slots consumed it follows.
         private float queueSlideFrom, queueSlideElapsed;
         private int queueConsumed;
@@ -54,6 +57,10 @@ namespace TurnLimbo.Presentation
 
         /// <summary>The spacing both rows use now (the tuned one unless the longer row had to tighten).</summary>
         public float QueueSpacing => disposed ? 0f : playerQueue.CurrentPitch;
+
+        /// <summary>The first absolute slot shown in both rows, and how many readable slots fit either panel.</summary>
+        public int QueueWindowStart => disposed ? 0 : queueWindowStart;
+        public int QueueWindowCapacity => disposed ? 0 : queueWindowCapacity;
 
         /// <summary>The slots both rows have still to slide toward the seam (0 at rest).</summary>
         public float QueueSlide => disposed ? 0f
@@ -102,6 +109,11 @@ namespace TurnLimbo.Presentation
                 new Vector2(LegacyQueuePanelLayout.DefaultPanelWidth, height), QueueTraySurface, QueueTrayBorder).rectTransform;
             enemyQueuePanel = Panel(EnemyQueuePanelName, queuePanels, Vector2.zero,
                 new Vector2(LegacyQueuePanelLayout.DefaultPanelWidth, height), QueueTraySurface, QueueTrayBorder).rectTransform;
+            playerQueueRange = Text("Player Queue Range", playerQueuePanel, Vector2.zero,
+                new Vector2(280f, QueueRangeHeight), 16, TextAnchor.MiddleCenter);
+            enemyQueueRange = Text("Enemy Queue Range", enemyQueuePanel, Vector2.zero,
+                new Vector2(280f, QueueRangeHeight), 16, TextAnchor.MiddleCenter);
+            playerQueueRange.color = enemyQueueRange.color = DuelVisualTheme.Muted;
             queueSeam = Rect(QueueSeamName, queuePanels, Vector2.zero, new Vector2(12f, QueueCardSize), Vector2.one * .5f);
             Color line = DuelVisualTheme.Accent;
             line.a = .5f;
@@ -113,8 +125,20 @@ namespace TurnLimbo.Presentation
         // The cards' scale at rest, from the tuned card size (decorations scale with their card).
         private void ApplyQueueCardSize()
         {
-            queueCardScale = Mathf.Max(.25f, QueueCardSetting / QueueCardSize);
+            // Use the full turn's queues so resolution never grows or spreads its remaining cards after a consumed slot.
+            int count = displayedSession == null ? 0
+                : Mathf.Max(displayedSession.PlayerQueue.Count, displayedSession.EnemyQueue.Count);
+            float card = LegacyQueuePanelLayout.CardSize(QueueCardRoom(), count, QueueCardSetting, QueueCardSpacing);
+            queueCardScale = card / QueueCardSize;
             playerQueue.CardScale = enemyQueue.CardScale = queueCardScale;
+        }
+
+        private float QueueCardRoom()
+        {
+            float width = root.rect.width > 1f ? root.rect.width : 1920f;
+            float seam = Mathf.Max(QueueSeamGap * .5f, queueSeamReserve);
+            float outer = Mathf.Min(seam + QueuePanelWidth, width * .5f - ScreenMargin);
+            return Mathf.Max(1f, outer - seam - LegacyQueuePanelLayout.Padding * 2f);
         }
 
         /// <summary>Lays both panels and their rows out for this frame (after both rows took their cards): over the dock, or
@@ -130,15 +154,19 @@ namespace TurnLimbo.Presentation
             // The dock's own fold (Refresh's transition) carries the panels down to the letterbox band and back up.
             float fold = OutQuad(Mathf.Clamp01(transition));
             float trayBottom = Mathf.Lerp(DockBottomInset + DockHeight + QueuePanelDockGap, QueuePanelResolvingBottom, fold);
-            float trayHeight = card + pad * 2f;
-            float cardLine = trayBottom + pad + card * .5f;
             float seam = Mathf.Max(QueueSeamGap * .5f, queueSeamReserve);
-            float outer = Mathf.Min(seam + QueuePanelWidth, half.x - ScreenMargin);
-            float trayWidth = Mathf.Max(card + pad * 2f, outer - seam);
-            // The turn's whole queues decide how far the rows tighten (while planning every slot is shown), so the spacing
-            // holds while slots are consumed: the next pair slides in from exactly where it stood.
+            float room = QueueCardRoom(), trayWidth = room + pad * 2f;
+            // Card size and spacing stay fixed for this turn. A shared window then replaces the unreadable overlap of
+            // very long queues; the same logical slot remains opposite itself on both sides.
             int count = Mathf.Max(playerQueue.QueueLength, enemyQueue.QueueLength);
-            float spacing = LegacyQueuePanelLayout.Spacing(trayWidth - pad * 2f, card, count, QueueCardSpacing);
+            float spacing = LegacyQueuePanelLayout.ReadableSpacing(card, QueueCardSetting, QueueCardSpacing);
+            queueWindowCapacity = LegacyQueuePanelLayout.Capacity(room, card, spacing);
+            float viewportRoom = half.x - ScreenMargin - seam - pad;
+            // Reserve the small range line for the whole turn if even the longest slide could need it. Changing the
+            // visible outer count mid-slide must never move the active pair up and down.
+            int smallestSlideCapacity = Mathf.Min(queueWindowCapacity, LegacyQueuePanelLayout.Capacity(
+                viewportRoom - LegacyQueuePanelLayout.MaximumSlide * spacing, card, spacing));
+            float rangeHeight = count > smallestSlideCapacity ? QueueRangeHeight : 0f;
 
             // A consumed slot hides its card at once (as before); the rest start where they stood and slide in.
             int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
@@ -156,17 +184,28 @@ namespace TurnLimbo.Presentation
                 if (queueSlideElapsed >= seconds) queueSlideFrom = queueSlideElapsed = 0f;
             }
             float slide = LegacyQueuePanelLayout.Slide(queueSlideFrom, queueSlideElapsed, seconds);
+            // Coach cards can leave very narrow panels at a screen edge. Reveal an outer card only once its whole
+            // sliding footprint fits the viewport; both rows lose/reveal that same slot, while the current pair stays.
+            queueWindowCapacity = Mathf.Min(queueWindowCapacity,
+                LegacyQueuePanelLayout.Capacity(viewportRoom - slide * spacing, card, spacing));
+            int end = Mathf.Max(playerQueue.QueueEndSlot, enemyQueue.QueueEndSlot);
+            int focus = resolving ? consumed : inspectedSlot >= 0 ? inspectedSlot : playerQueue.QueueLength;
+            queueWindowStart = LegacyQueuePanelLayout.WindowStart(end, consumed, queueWindowCapacity, focus);
+            float trayHeight = card + pad * 2f + rangeHeight;
+            float cardLine = trayBottom + rangeHeight + pad + card * .5f;
 
             float inner = seam + pad + card * .5f, lineY = cardLine - half.y;
             playerQueue.Root.anchoredPosition = enemyQueue.Root.anchoredPosition = new Vector2(0f, lineY);
             // The resolving pair's clash motion (LegacyCombatHud.Clash.cs) poses its cards for the rows' layout.
             PoseQueueClash(inner, spacing, slide, lineY, consumed, delta);
-            playerQueue.Layout(spacing, inner, slide, card);
-            enemyQueue.Layout(spacing, inner, slide, card);
+            playerQueue.Layout(spacing, inner, slide, card, queueWindowStart, queueWindowCapacity);
+            enemyQueue.Layout(spacing, inner, slide, card, queueWindowStart, queueWindowCapacity);
             float trayY = trayBottom + trayHeight * .5f - half.y;
             playerQueuePanel.anchoredPosition = new Vector2(-(seam + trayWidth * .5f), trayY);
             enemyQueuePanel.anchoredPosition = new Vector2(seam + trayWidth * .5f, trayY);
             playerQueuePanel.sizeDelta = enemyQueuePanel.sizeDelta = new Vector2(trayWidth, trayHeight);
+            UpdateQueueRange(playerQueueRange, playerQueue.QueueEndSlot, consumed, rangeHeight, trayWidth, trayHeight);
+            UpdateQueueRange(enemyQueueRange, enemyQueue.QueueEndSlot, consumed, rangeHeight, trayWidth, trayHeight);
             queueSeam.anchoredPosition = new Vector2(0f, lineY);
             queueSeam.localScale = Vector3.one * queueCardScale;
             queuePanelTop = trayBottom + trayHeight;
@@ -175,12 +214,29 @@ namespace TurnLimbo.Presentation
                 ? Mathf.Clamp01((queuePanelTop + QueuePanelFighterClearance) / size.y) : 0f;
         }
 
+        private void UpdateQueueRange(Text label, int end, int consumed, float height, float width, float trayHeight)
+        {
+            bool shown = height > 0f && end > consumed &&
+                (queueWindowStart > consumed || end - queueWindowStart > queueWindowCapacity);
+            label.gameObject.SetActive(shown);
+            if (!shown) return;
+            int first = Mathf.Max(consumed, queueWindowStart), last = Mathf.Min(end, queueWindowStart + queueWindowCapacity);
+            string text = first >= end ? "이전 " + (end - consumed)
+                : (first + 1) + "–" + last + " / " + end;
+            if (label.text != text) label.text = text;
+            label.rectTransform.anchoredPosition = new Vector2(0f, -trayHeight * .5f + height * .5f);
+            label.rectTransform.sizeDelta = new Vector2(Mathf.Max(1f, width - 12f), height);
+        }
+
         // Reset: no slide, no seam reserve (the controller asks again every frame).
         private void ResetQueuePanels()
         {
             queueSlideFrom = queueSlideElapsed = 0f;
             queueConsumed = 0;
             queueSeamReserve = 0f;
+            queueWindowStart = queueWindowCapacity = 0;
+            if (playerQueueRange != null) playerQueueRange.gameObject.SetActive(false);
+            if (enemyQueueRange != null) enemyQueueRange.gameObject.SetActive(false);
         }
     }
 }

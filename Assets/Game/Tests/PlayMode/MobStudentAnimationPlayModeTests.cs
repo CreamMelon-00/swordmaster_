@@ -119,9 +119,11 @@ namespace TurnLimbo.Presentation.Tests
                 arena.Tick(0f, .2f);
                 Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerHeld));
                 Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyHeld));
-                // With the authored 1.2 movement multiplier, the opening gap closes in about .078 s.
-                arena.Tick(.01f, .01f);
-                arena.Tick(.01f, .01f);
+                // Acceleration and the final planting step keep the run pose until the physical travel has stopped.
+                for (int frame = 0; frame < 120 && (!arena.ApproachComplete ||
+                    arena.PlayerRenderer.sprite.name == "move-frame-01" || arena.EnemyRenderer.sprite.name == "enemy-move-frame-01"); frame++)
+                    arena.Tick(.01f, .01f);
+                Assert.That(arena.ApproachComplete, Is.True);
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
 
@@ -132,7 +134,8 @@ namespace TurnLimbo.Presentation.Tests
                 arena.CloseDistance(.02f);
                 Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("move-frame-01"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-move-frame-01"));
-                arena.Tick(.01f, .01f);
+                for (int frame = 0; frame < 120 && (arena.PlayerRenderer.sprite.name == "move-frame-01" ||
+                    arena.EnemyRenderer.sprite.name == "enemy-move-frame-01"); frame++) arena.Tick(.01f, .01f);
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
 

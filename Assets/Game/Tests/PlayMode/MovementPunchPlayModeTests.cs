@@ -35,15 +35,18 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Arena.Reset();
                 fixture.Arena.BeginApproach();
                 fixture.Arena.Tick(.01f, 0f);
-                Assert.That(fixture.PlayerX, Is.EqualTo(-5f + LegacyArenaView.ApproachSpeed * .01f).Within(.001f));
-                Assert.That(fixture.EnemyX, Is.EqualTo(5f - LegacyArenaView.ApproachSpeed * .01f).Within(.001f));
+                float approachTravel = fixture.PlayerX + 5f;
+                Assert.That(approachTravel, Is.GreaterThan(0f).And.LessThan(LegacyArenaView.ApproachSpeed * .01f),
+                    "Approach accelerates from rest instead of starting at its speed cap.");
+                Assert.That(5f - fixture.EnemyX, Is.EqualTo(approachTravel).Within(.001f));
                 fixture.Arena.Tick(.2f, 0f);
                 Assert.That(fixture.Arena.ApproachComplete, Is.True);
                 Assert.That(fixture.Arena.Separation, Is.EqualTo(LegacyArenaView.ContactDistance).Within(.001f));
                 fixture.Arena.Reset();
                 fixture.Arena.CloseDistance(.01f);
-                Assert.That(fixture.PlayerX, Is.EqualTo(-5f + LegacyArenaView.PursuitSpeed * .01f).Within(.001f));
-                Assert.That(fixture.EnemyX, Is.EqualTo(5f - LegacyArenaView.PursuitSpeed * .01f).Within(.001f));
+                float pursuitTravel = fixture.PlayerX + 5f;
+                Assert.That(pursuitTravel, Is.GreaterThan(0f).And.LessThan(LegacyArenaView.PursuitSpeed * .01f));
+                Assert.That(5f - fixture.EnemyX, Is.EqualTo(pursuitTravel).Within(.001f));
 
                 fixture.PrepareCombat();
                 float targetStart = fixture.EnemyX;
@@ -173,6 +176,7 @@ namespace TurnLimbo.Presentation.Tests
         public IEnumerator LiveTuning_KeepsActiveGesturesStable_AndChangesTheirNextStart()
         {
             using (var fixture = new ArenaFixture())
+            using (var unchanged = new ArenaFixture())
             {
                 fixture.Configure(1f, 1f);
                 fixture.PrepareCombat();
@@ -199,7 +203,8 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Arena.Tick(.025f, 0f);
                 fixture.Configure(2f, 2f);
                 fixture.Arena.Tick(.025f, 0f);
-                Assert.That(fixture.Arena.EnemyKnockbackTarget, Is.EqualTo(firstTarget));
+                Assert.That(fixture.Arena.EnemyKnockbackTarget.x, Is.EqualTo(firstTarget.x),
+                    "The committed horizontal impulse stays fixed while ground motion can carry its Y.");
                 Assert.That(fixture.Arena.HasPendingPush, Is.True);
                 Assert.That(fixture.EnemyX, Is.EqualTo(targetStart + 2.3f * .75f).Within(.001f));
                 fixture.Arena.Tick(.05f, 0f);
@@ -213,30 +218,51 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Configure(1f, 1f);
                 fixture.Arena.Reset();
                 fixture.Arena.BeginApproach();
+                unchanged.Configure(1f, 1f);
+                unchanged.Arena.Reset();
+                unchanged.Arena.BeginApproach();
                 fixture.Arena.Tick(.01f, 0f);
-                float duringApproach = fixture.PlayerX;
+                unchanged.Arena.Tick(.01f, 0f);
                 fixture.Configure(2f, 2f);
                 fixture.Arena.Tick(.01f, 0f);
-                Assert.That(fixture.PlayerX - duringApproach, Is.EqualTo(LegacyArenaView.ApproachSpeed * .01f).Within(.001f));
+                unchanged.Arena.Tick(.01f, 0f);
+                Assert.That(fixture.PlayerX, Is.EqualTo(unchanged.PlayerX).Within(.001f),
+                    "Changing the asset does not alter an approach that already began.");
                 fixture.Arena.Reset();
                 fixture.Arena.BeginApproach();
                 fixture.Arena.Tick(.01f, 0f);
-                Assert.That(fixture.PlayerX + 5f, Is.EqualTo(LegacyArenaView.ApproachSpeed * 2f * .01f).Within(.001f));
+                unchanged.Arena.Reset();
+                unchanged.Arena.BeginApproach();
+                unchanged.Arena.Tick(.01f, 0f);
+                Assert.That(fixture.PlayerX + 5f, Is.GreaterThan(unchanged.PlayerX + 5f),
+                    "The next approach accelerates using the new movement multiplier.");
 
                 fixture.Configure(1f, 1f);
                 fixture.PrepareCombat();
                 fixture.Arena.EnemyRenderer.transform.localPosition += Vector3.right * 10f;
+                unchanged.PrepareCombat();
+                unchanged.Arena.EnemyRenderer.transform.localPosition += Vector3.right * 10f;
                 float pursuitStart = fixture.PlayerX;
+                float unchangedPursuitStart = unchanged.PlayerX;
                 fixture.Arena.PresentHit(true, 1, 0, false, false, 1);
+                unchanged.Arena.PresentHit(true, 1, 0, false, false, 1);
                 fixture.Configure(2f, 2f);
                 fixture.Arena.Tick(.05f, 0f);
-                Assert.That(fixture.PlayerX - pursuitStart, Is.EqualTo(LegacyArenaView.PursuitSpeed * .05f).Within(.001f));
-                fixture.Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
-                pursuitStart = fixture.PlayerX;
-                fixture.Arena.PresentHit(true, 1, 0, false, false, 1);
-                fixture.Arena.Tick(LegacyArenaView.PursuitDelay, 0f);
+                unchanged.Arena.Tick(.05f, 0f);
                 Assert.That(fixture.PlayerX - pursuitStart,
-                    Is.EqualTo(LegacyArenaView.PursuitSpeed * 2f * LegacyArenaView.PursuitDelay).Within(.001f));
+                    Is.EqualTo(unchanged.PlayerX - unchangedPursuitStart).Within(.001f),
+                    "The active pursuit retains the multiplier captured by its slot.");
+                fixture.Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
+                unchanged.Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
+                pursuitStart = fixture.PlayerX;
+                unchangedPursuitStart = unchanged.PlayerX;
+                fixture.Arena.PresentHit(true, 1, 0, false, false, 1);
+                unchanged.Arena.PresentHit(true, 1, 0, false, false, 1);
+                fixture.Arena.Tick(LegacyArenaView.PursuitDelay, 0f);
+                unchanged.Arena.Tick(LegacyArenaView.PursuitDelay, 0f);
+                Assert.That(fixture.PlayerX - pursuitStart,
+                    Is.GreaterThan(unchanged.PlayerX - unchangedPursuitStart),
+                    "A new slot uses the new pursuit multiplier while preserving its current momentum.");
             }
             yield return null;
         }

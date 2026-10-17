@@ -76,7 +76,8 @@ namespace TurnLimbo.Presentation.Tests
         {
             var enemyRandom = new Choices(2, 0, 1);
             var playerRandom = new Choices(1, 2);
-            using (var s = new Scope(enemyRandom, playerRandom))
+            // Isolate the reaction/idle pose contract from automatic ground travel, which correctly chooses a walk pose.
+            using (var s = new Scope(enemyRandom, playerRandom, autoDepth: false))
             {
                 var a = s.Arena;
                 a.BeginSlot(Attack(Types[0], 1), Attack(Types[0], 1));
@@ -157,9 +158,19 @@ namespace TurnLimbo.Presentation.Tests
         private sealed class Scope:IDisposable
         {
             private readonly GameObject host=new GameObject("Enemy variant test");private readonly LegacyDuelArt art=new LegacyDuelArt();
+            private readonly DuelPresentationSettings settings;
             public LegacyArenaView Arena{get;}
-            public Scope(System.Random enemy,System.Random player=null){Arena=LegacyArenaView.Create(host.transform,art,null,null,player,enemy,new FirstReaction());}
-            public void Dispose(){Arena.Dispose();art.Dispose();Object.Destroy(host);}
+            public Scope(System.Random enemy,System.Random player=null,bool autoDepth=true)
+            {
+                if (!autoDepth)
+                {
+                    settings=ScriptableObject.CreateInstance<DuelPresentationSettings>();
+                    typeof(DuelPresentationSettings).GetField("autoDepthEnabled",BindingFlags.Instance|BindingFlags.NonPublic)
+                        .SetValue(settings,false);
+                }
+                Arena=LegacyArenaView.Create(host.transform,art,settings,null,player,enemy,new FirstReaction());
+            }
+            public void Dispose(){Arena.Dispose();art.Dispose();Object.Destroy(host);if(settings!=null)Object.Destroy(settings);}
         }
         private sealed class FirstReaction : System.Random { public override int Next(int maxValue) => 0; }
         private sealed class Choices:System.Random

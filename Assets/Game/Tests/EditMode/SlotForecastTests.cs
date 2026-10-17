@@ -48,10 +48,10 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void Forecast_MatchesAverageRolls_WithThePlayersCounterAndABreak()
         {
-            // The enemy's queue is longer: its third attack meets the player's counter (no dodge in a forecast). 깊은 찌르기
-            // breaks the enemy's low resistance in slot 1, so the next slot lands on a broken target.
+            // The first two queued attacks leave one resistance. The enemy's third attack then meets the player's counter
+            // (no dodge in a forecast), which breaks it while both current skills finish; its fourth attack is canceled.
             LegacySkill[] enemyTurn = { Skill(1), Skill(1), Skill(3), Skill(2) };
-            Func<bool, LegacyQueuedDuel> make = fixedRolls => new LegacyQueuedDuel(100, 50, 100, 12,
+            Func<bool, LegacyQueuedDuel> make = fixedRolls => new LegacyQueuedDuel(100, 50, 100, 25,
                 Pick(fixedRolls, LegacyInitialSkills.All), new EnemyScript(new[] { Pick(fixedRolls, enemyTurn) }), 9,
                 playerCounter: new LegacyCounter(Pick(fixedRolls, Skill(2))), playerActGainBonus: 2);
             LegacyQueuedDuel duel = make(false), twin = make(true);
@@ -59,10 +59,12 @@ namespace TurnLimbo.Core.Tests
 
             IReadOnlyList<LegacySlotForecast> forecast = duel.ForecastTurn();
             Assert.That(forecast.Count, Is.EqualTo(4));
-            Assert.That(forecast[1].EnemyBroken, Is.True, "깊은 찌르기 breaks the enemy's 12 resistance.");
-            Assert.That(forecast[1].Summary, Does.Contain("상대 저항 -").And.Contain("(붕괴)"));
+            Assert.That(forecast[1].EnemyBroken, Is.False, "The queued skills leave one resistance for the counter.");
             Assert.That(forecast[2].PlayerSkill.Id, Is.EqualTo(2), "The player's counter answers the one-sided attack.");
+            Assert.That(forecast[2].EnemyBroken, Is.True);
+            Assert.That(forecast[2].Summary, Does.Contain("상대 저항 -").And.Contain("(붕괴)"));
             Assert.That(forecast[3].PlayerSkill, Is.Null, "Its one use is spent.");
+            Assert.That(forecast[3].EnemySkill, Is.Null, "The newly broken enemy's later reservation is canceled.");
             AssertMatchesResolution(forecast, twin);
         }
 

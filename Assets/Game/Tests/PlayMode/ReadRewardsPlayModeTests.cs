@@ -15,9 +15,8 @@ namespace TurnLimbo.Presentation.Tests
     /// <summary>The read rewards in the campaign's battles (2026-10-15): the player's 간파 bursts gold on the player's seam
     /// card, stamps a small '간파' over it and lights the player's fighter, once per slot, never for the enemy's read, and
     /// switches off; a signature move gathers its school's dye in its windup, trails its strike, comes closer and stops
-    /// longer, while its step window keeps its time; and the decisive-moment replay (결정적 한 수) keeps a battle's Major
-    /// slot (not the finishing blow), plays it over the result, ends at a key with the result still there, releases every
-    /// picture, and leaves the result as ever when switched off, unsupported or reset.</summary>
+    /// longer, while its step window keeps its time. Battle results are immediately usable, without recording or an
+    /// intervening replay, and a restart clears the read and signature effects.</summary>
     public sealed class ReadRewardsPlayModeTests : InputTestFixture
     {
         private const float Step = 1f / 500f, HitStop = .04f;
@@ -116,81 +115,58 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator TheDecisiveMoment_IsKept_PlaysOverTheResult_EndsAtAKey_AndReleasesEveryPicture()
+        public IEnumerator AHeavyHitAndVictory_CreateNoReplay_AndTheFirstEnterDismissesTheResult()
         {
             yield return null;
-            using (var scope = new RewardsScope(ReplayDuel(), stage: true))
+            using (var scope = new RewardsScope(ResultDuel(), stage: true))
             {
                 DuelPrototypeController controller = scope.Controller;
-                DuelDecisiveReplay replay = controller.DecisiveReplay;
+                AssertNoBattleReplay(controller);
                 Assert.That(controller.QueueLane(0) && controller.QueueLane(1), Is.True);
                 controller.CommitTurn();
+                scope.Until(() => controller.Session.CurrentSlot != null && controller.Session.CurrentSlot.HitsResolved > 0);
+                AssertNoBattleReplay(controller);
                 scope.Until(() => controller.IsShowingResult);
                 Assert.That(controller.ResultHud.IsVisible, Is.True, "The result comes as ever.");
                 Assert.That(controller.Result.Outcome, Is.EqualTo(DuelMatchOutcome.PlayerVictory));
-                if (replay.CaptureFailed)
-                {
-                    // No graphics here: nothing was recorded, nothing plays, and the result works.
-                    Assert.That(replay.IsPlaying || replay.HasClip, Is.False);
-                    Assert.That(replay.AllocatedPictureCount, Is.Zero);
-                    Assert.That(controller.DismissBattleResult(), Is.True);
-                    yield break;
-                }
-                Assert.That(replay.IsPlaying, Is.True, "결정적 한 수 plays over the card.");
-                Assert.That(replay.Recorder.ClipRank.SlotIndex, Is.EqualTo(0), "The break, not the finishing blow.");
-                Assert.That(replay.Recorder.ClipRank.Tier, Is.EqualTo(LegacySlotTier.Major));
-                Assert.That(replay.Recorder.ClipPlayerSkill.Id, Is.EqualTo(980));
-                Assert.That(replay.Recorder.ClipEnemySkill.Id, Is.EqualTo(982));
-                Assert.That(replay.AllocatedPictureCount, Is.EqualTo(replay.Recorder.ClipFrameCount),
-                    "Only the kept clip's pictures are left.");
-                Assert.That(FindActive<Text>(replay.Root, DuelDecisiveReplay.TitleName).text, Is.EqualTo(DuelDecisiveReplay.Title));
-                int first = replay.ShownIndex;
-                scope.Advance(.3f);
-                Assert.That(replay.ShownIndex, Is.GreaterThan(first), "It plays.");
+                AssertNoBattleReplay(controller);
 
-                // The controller's own frames read the key, as in play.
+                // The first Enter acts on the result itself; there is no replay to dismiss first.
                 var keyboard = InputSystem.AddDevice<Keyboard>();
                 controller.enabled = true;
                 Press(keyboard.enterKey);
                 yield return null;
                 yield return null;
-                Assert.That(replay.IsPlaying, Is.False, "Enter ends it…");
-                Assert.That(controller.IsShowingResult && controller.ResultHud.IsVisible, Is.True, "…and the card is there.");
-                Assert.That(replay.AllocatedPictureCount, Is.Zero, "Every picture released.");
-                yield return null;
-                Assert.That(controller.IsShowingResult, Is.True, "The held key never reaches the card.");
+                Assert.That(controller.IsShowingResult || controller.ResultHud.IsVisible, Is.False);
                 Release(keyboard.enterKey);
                 yield return null;
                 controller.enabled = false;
-                Assert.That(controller.DismissBattleResult(), Is.True);
             }
         }
 
         [UnityTest]
-        public IEnumerator SwitchedOff_OrReset_TheResultStandsAsEver_AndNothingIsLeft()
+        public IEnumerator TheFirstResultRetryWorks_AndRestartClearsReadAndSignatureEffects()
         {
             yield return null;
-            using (var scope = new RewardsScope(ReplayDuel(), "\"replayEnabled\":false", stage: true))
+            using (var scope = new RewardsScope(ResultDuel(), stage: true))
             {
                 DuelPrototypeController controller = scope.Controller;
                 Assert.That(controller.QueueLane(0) && controller.QueueLane(1), Is.True);
                 controller.CommitTurn();
                 scope.Until(() => controller.IsShowingResult);
-                Assert.That(controller.DecisiveReplay.IsPlaying || controller.DecisiveReplay.HasClip, Is.False);
-                Assert.That(controller.DecisiveReplay.AllocatedPictureCount, Is.Zero);
                 Assert.That(controller.ResultHud.IsVisible, Is.True);
-                Assert.That(controller.DismissBattleResult(), Is.True);
+                Assert.That(controller.RetryBattleResult(), Is.True);
+                Assert.That(controller.IsShowingResult || controller.ResultHud.IsVisible, Is.False);
+                AssertNoBattleReplay(controller);
             }
-            using (var scope = new RewardsScope(ReplayDuel(), stage: true))
+            using (var scope = new RewardsScope(ResultDuel(), stage: true))
             {
                 DuelPrototypeController controller = scope.Controller;
                 Assert.That(controller.QueueLane(0) && controller.QueueLane(1), Is.True);
                 controller.CommitTurn();
                 scope.Until(() => controller.Session.CurrentSlot != null && controller.Session.CurrentSlot.HitsResolved > 0);
                 controller.RestartMatch();
-                Assert.That(controller.DecisiveReplay.IsRecording || controller.DecisiveReplay.HasClip, Is.False);
-                Assert.That(controller.DecisiveReplay.Recorder, Is.Null);
-                Assert.That(controller.DecisiveReplay.AllocatedPictureCount, Is.Zero, "A reset releases every picture.");
+                AssertNoBattleReplay(controller);
                 Assert.That(controller.Hud.IsReadCuePlaying, Is.False);
                 Assert.That(controller.ArenaView.ActiveSignatureAfterimageCount, Is.Zero);
             }
@@ -208,7 +184,10 @@ namespace TurnLimbo.Presentation.Tests
         {
             LegacySkill estocada = LegacySkillDefinitions.Skill(51);
             var times = new SignatureTimes { WindowOpens = -1f, WindowCloses = -1f, FirstHit = -1f };
-            using (var scope = new RewardsScope(Duel(estocada, Attack(982, 14, 0)), tuning))
+            // Isolate the signature treatment: a blade bind deliberately defers damage until release and spends the
+            // signature's longer hit stop at contact. Its separate fixture covers that handoff.
+            string signatureTuning = "\"bladeBindSeconds\":0" + (string.IsNullOrEmpty(tuning) ? string.Empty : "," + tuning);
+            using (var scope = new RewardsScope(Duel(estocada, Attack(982, 14, 0)), signatureTuning))
             {
                 DuelPrototypeController controller = scope.Controller;
                 Assert.That(controller.QueueLane(estocada.LaneIndex), Is.True);
@@ -250,19 +229,19 @@ namespace TurnLimbo.Presentation.Tests
 
         // A break that leaves the enemy standing (30 against 4 with 5 resistance: 25 over, broken), then the finishing blow
         // against nothing (80 at 75 health).
-        private static LegacyQueuedDuel ReplayDuel()
+        private static LegacyQueuedDuel ResultDuel()
             => new LegacyQueuedDuel(100, 50, 100, 5, new[] { Attack(980, 30, 0), Attack(981, 80, 1) },
                 new[] { Attack(982, 4, 0) }, new[] { 1 }, 1, meshPercent: 0);
 
         private static LegacySkill Attack(int id, int power, int lane)
             => new LegacySkill(id, "보상 공격", 0, power, power, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, lane, "검증");
 
-        private static T FindActive<T>(GameObject root, string name) where T : Component
+        private static void AssertNoBattleReplay(DuelPrototypeController controller)
         {
-            foreach (T component in root.GetComponentsInChildren<T>(false))
-                if (component.name == name) return component;
-            Assert.Fail(name + " is not on screen.");
-            return null;
+            foreach (Canvas canvas in controller.GetComponentsInChildren<Canvas>(true))
+                Assert.That(canvas.name, Is.Not.EqualTo("Decisive Replay"), "No hidden replay screen takes input.");
+            foreach (RenderTexture texture in Resources.FindObjectsOfTypeAll<RenderTexture>())
+                Assert.That(texture.name, Does.Not.StartWith("Decisive Replay "), "Battles no longer record offscreen pictures.");
         }
 
         /// <summary>The real controller on a given duel, driven with chosen real seconds, on a copy of the project's
@@ -279,13 +258,11 @@ namespace TurnLimbo.Presentation.Tests
                 "\"readCueEnabled\":true,\"readStampEnabled\":true,\"readCueSeconds\":0.9,\"readFighterAccent\":true," +
                 "\"signatureSkillIds\":[51,53,56],\"signatureTreatmentEnabled\":true,\"signatureHitStopScale\":4.5," +
                 "\"signatureCameraPush\":0.16,\"signatureWindupGlow\":true,\"signatureAfterimageSeconds\":0.3," +
-                "\"signatureAfterimageAlpha\":0.55,\"replayEnabled\":true,\"replayFramesPerSecond\":15," +
-                "\"replayMaxSeconds\":2.5,\"replayTailSeconds\":0.4,\"replayPlaybackSpeed\":0.6,\"replayHoldSeconds\":0.6," +
-                "\"replayWidth\":320,\"replayIncludesFinishingBlow\":false,\"finishingSlowMotionSeconds\":0.2," +
+                "\"signatureAfterimageAlpha\":0.55,\"finishingSlowMotionSeconds\":0.2," +
                 "\"finishingFreezeSeconds\":0.1";
-            private readonly DuelPresentationSettings originalSettings, originalArenaSettings;
+            private readonly DuelPresentationSettings originalSettings, originalArenaSettings, originalHudSettings;
             private readonly bool originalEnabled, stage;
-            private readonly FieldInfo arenaSettings;
+            private readonly FieldInfo arenaSettings, hudSettings;
             private readonly Action<float, Keyboard> advance;
             public DuelPrototypeController Controller { get; }
             public DuelPresentationSettings Settings { get; }
@@ -306,6 +283,8 @@ namespace TurnLimbo.Presentation.Tests
                 originalSettings = Controller.PresentationSettings;
                 arenaSettings = typeof(LegacyArenaView).GetField("settings", PrivateInstance);
                 originalArenaSettings = (DuelPresentationSettings)arenaSettings.GetValue(Controller.ArenaView);
+                hudSettings = typeof(LegacyCombatHud).GetField("presentationSettings", PrivateInstance);
+                originalHudSettings = (DuelPresentationSettings)hudSettings.GetValue(Controller.Hud);
                 Settings = Object.Instantiate(originalSettings);
                 try
                 {
@@ -313,6 +292,8 @@ namespace TurnLimbo.Presentation.Tests
                     if (!string.IsNullOrEmpty(tuning)) JsonUtility.FromJsonOverwrite("{" + tuning + "}", Settings);
                     Set("presentationSettings", Settings);
                     arenaSettings.SetValue(Controller.ArenaView, Settings);
+                    // The HUD retains its constructor settings; use this scope's copy on every settings reader.
+                    hudSettings.SetValue(Controller.Hud, Settings);
                     // A stage battle, so the end of the duel is a result (the campaign completes it).
                     if (stage) Controller.RestartMatch();
                     Set("mission", null);
@@ -365,6 +346,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Set("presentationSettings", originalSettings);
                 arenaSettings.SetValue(Controller.ArenaView, originalArenaSettings);
+                hudSettings.SetValue(Controller.Hud, originalHudSettings);
                 if (stage) Controller.RestartJourney();
                 else Controller.RestartMatch();
                 Controller.enabled = originalEnabled;

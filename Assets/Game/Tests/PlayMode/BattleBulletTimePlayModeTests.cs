@@ -29,28 +29,31 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Encounter, Is.EqualTo(EncounterKind.Battle), "Stages are 전투.");
                 Assert.That(arena.Separation, Is.EqualTo(10f).Within(1e-4f));
                 Assert.That(arena.BulletTimeAmount, Is.Zero);
+                Vector3 player = arena.PlayerRenderer.transform.localPosition, enemy = arena.EnemyRenderer.transform.localPosition;
 
-                scope.Advance(1f);
+                scope.AdvanceFor(1f);
                 Assert.That(controller.TurnTimeRemaining, Is.EqualTo(9f).Within(1e-4f), "The 10-second planning rule is unchanged.");
-                Assert.That(arena.Separation, Is.EqualTo(8f).Within(1e-3f), "Each figure edges in at the drift speed.");
-                Assert.That(arena.DuelCenter.x, Is.EqualTo(0f).Within(1e-4f), "…symmetrically, so the planning camera stays put.");
+                AssertApproaching(arena, player, enemy);
+                Assert.That(arena.Separation, Is.GreaterThanOrEqualTo(8f).And.LessThan(9f),
+                    "The figures accelerate into the configured slow approach, without exceeding its speed cap.");
+                Assert.That(arena.DuelCenter.x, Is.EqualTo(0f).Within(1e-4f), "The approach is symmetric around the camera's subject.");
                 Assert.That(arena.BulletTimeAmount, Is.EqualTo(1f));
                 ColorAdjustments grade = Grade(arena);
                 Assert.That(grade.saturation.value, Is.EqualTo(-30f).Within(1e-3f));
                 Assert.That(grade.colorFilter.value.b, Is.EqualTo(1f).Within(1e-4f));
                 Assert.That(grade.colorFilter.value.r, Is.LessThan(1f), "A cold filter.");
-                // Planning travel shows the single run cel (Docs/Art/Movement: 계획 이동), held while they edge in.
                 Sprite run = arena.PlayerRenderer.sprite;
-                Assert.That(run.name, Does.StartWith("move-frame-"), "Edging in holds the run pose.");
+                Assert.That(run.name, Does.StartWith("move-frame-"), "Slow planning travel holds a movement pose.");
 
-                scope.Advance(2f);
-                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "They stop at the drift floor…");
-                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(run), "…holding the one run cel all the way.");
-                scope.Advance(.5f);
-                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "…and stay there.");
+                scope.AdvanceFor(1f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(run), "The planning movement cel stays held while approaching.");
+                scope.AdvanceFor(1f);
+                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "They brake at the drift floor.");
+                scope.AdvanceFor(.5f);
+                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "The slow approach never crosses its floor.");
                 Sprite held = arena.PlayerRenderer.sprite;
-                Assert.That(held.name, Does.StartWith("idle-frame-"), "Standing at the floor, the held pose is an idle frame.");
-                scope.Advance(.5f);
+                Assert.That(held.name, Does.StartWith("idle-frame-"), "At the floor, the held pose becomes idle.");
+                scope.AdvanceFor(.5f);
                 Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(held), "The idle motion stays stopped while planning.");
                 Assert.That(controller.TurnTimeRemaining, Is.EqualTo(6f).Within(1e-4f));
 
@@ -66,7 +69,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [Test]
-        public void PlanningFromCloseQuarters_StepsBackToTheStagingGapThenEdgesInAgain()
+        public void PlanningFromCloseQuarters_AcceleratesBackToTheStagingGapThenEdgesInAgain()
         {
             using (var scope = new BulletScope())
             {
@@ -75,13 +78,32 @@ namespace TurnLimbo.Presentation.Tests
                 arena.PlayerRenderer.transform.localPosition = new Vector3(-1f, -.5f, 0f);
                 arena.EnemyRenderer.transform.localPosition = new Vector3(3f, -.5f, 0f);
                 scope.Advance(.1f);
-                Assert.That(arena.Separation, Is.EqualTo(5.2f).Within(1e-3f), "They step back at normal speed first…");
+                float elapsed = .1f;
+                Assert.That(arena.Separation, Is.GreaterThan(4f).And.LessThan(5.2f),
+                    "They accelerate into the step back rather than beginning at full speed.");
                 Assert.That(arena.DuelCenter.x, Is.EqualTo(1f).Within(1e-4f), "…around where they stood.");
-                scope.Advance(.5f);
-                Assert.That(arena.Separation, Is.EqualTo(7f).Within(1e-3f), "…up to the staging gap…");
-                scope.Advance(1f);
-                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "…then edge in again under bullet time.");
-                Assert.That(scope.Controller.TurnTimeRemaining, Is.EqualTo(8.4f).Within(1e-3f), "The clock is untouched.");
+                bool reachedStaging = false;
+                for (int frame = 0; frame < 120 && !reachedStaging; frame++)
+                {
+                    float before = arena.Separation;
+                    scope.Advance(.02f);
+                    elapsed += .02f;
+                    Assert.That(arena.Separation, Is.GreaterThanOrEqualTo(before - .0001f), "The staging step completes before the slow approach resumes.");
+                    Assert.That(arena.DuelCenter.x, Is.EqualTo(1f).Within(1e-4f));
+                    Assert.That(arena.Separation, Is.LessThanOrEqualTo(7.001f), "The outward movement brakes at the staging gap.");
+                    reachedStaging = arena.Separation >= 6.999f;
+                }
+                Assert.That(reachedStaging, Is.True, "They reach the staging gap before turning inward.");
+                Assert.That(arena.Separation, Is.EqualTo(7f).Within(.02f));
+                Vector3 player = arena.PlayerRenderer.transform.localPosition, enemy = arena.EnemyRenderer.transform.localPosition;
+                scope.AdvanceFor(.5f);
+                elapsed += .5f;
+                AssertApproaching(arena, player, enemy);
+                Assert.That(arena.Separation, Is.GreaterThan(5f).And.LessThan(7f), "They resume the slower approach after stepping back.");
+                scope.AdvanceFor(1.5f);
+                elapsed += 1.5f;
+                Assert.That(arena.Separation, Is.EqualTo(5f).Within(.001f), "The return approach stops at the drift floor.");
+                Assert.That(scope.Controller.TurnTimeRemaining, Is.EqualTo(10f - elapsed).Within(1e-3f), "The clock is untouched.");
             }
         }
 
@@ -108,28 +130,40 @@ namespace TurnLimbo.Presentation.Tests
             {
                 DuelPrototypeController controller = scope.Controller;
                 LegacyArenaView arena = controller.ArenaView;
-                scope.Advance(1f);
-                Assert.That(arena.Separation, Is.EqualTo(8f).Within(1e-3f));
+                scope.AdvanceFor(1f);
+                Assert.That(arena.Separation, Is.LessThan(10f).And.GreaterThan(5f), "Ordinary planning already approaches slowly.");
                 Assert.That(arena.BulletTimeAmount, Is.EqualTo(1f));
+                float beforeNormal = arena.Separation;
+                scope.AdvanceFor(.1f);
+                float ordinaryTravel = beforeNormal - arena.Separation;
+                Assert.That(ordinaryTravel, Is.GreaterThan(0f));
+                float beforeRelease = arena.Separation;
+                float clockBeforeRelease = controller.TurnTimeRemaining;
                 Assert.That(controller.CycleLanes(), Is.True);
-                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(8f).Within(1e-3f), "The second is spent…");
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(clockBeforeRelease - 1f).Within(1e-3f), "The second is spent…");
                 Assert.That(arena.IsBulletTimeReleased, Is.True, "…and bullet time lets go.");
 
-                scope.Advance(.1f);
+                scope.AdvanceFor(.1f);
                 Assert.That(arena.BulletTimeAmount, Is.Zero, "The look drops away at once.");
-                Assert.That(arena.Separation, Is.EqualTo(6.8f).Within(1e-3f), "They catch up six times faster.");
+                Assert.That(beforeRelease - arena.Separation, Is.GreaterThan(ordinaryTravel * 2f),
+                    "The release accelerates into a visibly faster catch-up than ordinary planning.");
+                Assert.That(arena.Separation, Is.GreaterThanOrEqualTo(5f), "Even catch-up respects the approach floor.");
+                float firstCatchup = arena.Separation;
                 // Past the 0.3 s release, so float steps cannot leave a sliver of it.
-                scope.Advance(.25f);
+                scope.AdvanceFor(.25f);
                 Assert.That(arena.IsBulletTimeReleased, Is.False);
-                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f));
-                scope.Advance(.35f);
+                Assert.That(arena.Separation, Is.GreaterThanOrEqualTo(5f).And.LessThan(firstCatchup), "The release closes the gap without passing its floor.");
+                scope.AdvanceFor(.35f);
                 Assert.That(arena.BulletTimeAmount, Is.EqualTo(1f), "Then bullet time eases back in.");
-                Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "…holding at the floor.");
+                scope.AdvanceFor(1f);
+                Assert.That(arena.Separation, Is.EqualTo(5f).Within(.001f), "Normal drift continues after release and brakes at the same floor.");
+                scope.AdvanceFor(.5f);
+                Assert.That(arena.Separation, Is.EqualTo(5f).Within(.0001f), "After braking at the floor, planning holds the reached position.");
             }
         }
 
         [UnityTest]
-        public IEnumerator TabInspection_DeepensTheDriftWithThePlanningClock()
+        public IEnumerator TabInspection_SlowsTheApproachWithThePlanningClock()
         {
             yield return null;
             using (var scope = new BulletScope())
@@ -138,15 +172,20 @@ namespace TurnLimbo.Presentation.Tests
                 Press(keyboard.tabKey);
                 yield return null;
                 scope.Advance(0f, keyboard);
-                scope.Advance(1f, keyboard);
+                Vector3 player = scope.Controller.ArenaView.PlayerRenderer.transform.localPosition;
+                Vector3 enemy = scope.Controller.ArenaView.EnemyRenderer.transform.localPosition;
+                scope.AdvanceFor(1f, keyboard);
                 Release(keyboard.tabKey);
                 Assert.That(scope.Controller.TurnTimeRemaining, Is.EqualTo(9.8f).Within(1e-3f), "Tab slows the clock as before.");
-                Assert.That(scope.Controller.ArenaView.Separation, Is.EqualTo(9.6f).Within(1e-3f), "…and the drift with it.");
+                AssertApproaching(scope.Controller.ArenaView, player, enemy);
+                Assert.That(scope.Controller.ArenaView.Separation, Is.GreaterThanOrEqualTo(9.6f).And.LessThan(10f),
+                    "The approach uses Tab's slower clock, rather than stopping or running at ordinary speed.");
+                Assert.That(scope.Controller.ArenaView.BulletTimeAmount, Is.EqualTo(1f), "The planning look still eases in on real time.");
             }
         }
 
         [UnityTest]
-        public IEnumerator ReadingAHeldExplanation_SlowsTheDriftWithThePlanningClock_LikeTab()
+        public IEnumerator ReadingAHeldExplanation_SlowsTheApproachWithThePlanningClock_LikeTab()
         {
             yield return null;
             using (var scope = new BulletScope())
@@ -158,21 +197,28 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 scope.Advance(0f, keyboard);
                 yield return null;
-                // Opening takes 0.35 s of the ordinary pace: the figures edge in 0.35 each, the clock spends 0.35 s.
+                Vector3 player = arena.PlayerRenderer.transform.localPosition, enemy = arena.EnemyRenderer.transform.localPosition;
+                // Opening first spends ordinary planning time; after it opens, both the timer and approach slow down.
                 scope.Advance(controller.PresentationSettings.ExplanationHoldSeconds, keyboard);
                 Assert.That(controller.IsReadingExplanation, Is.True);
-                Assert.That(arena.Separation, Is.EqualTo(9.3f).Within(1e-3f));
+                AssertApproaching(arena, player, enemy);
+                float beforeReading = arena.Separation;
                 float reading = controller.PresentationSettings.ExplanationTimeScale;
-                scope.Advance(1f, keyboard);
+                scope.AdvanceFor(1f, keyboard);
                 Assert.That(controller.TurnTimeRemaining, Is.EqualTo(9.65f - reading).Within(1e-3f), "Reading slows the clock…");
-                Assert.That(arena.Separation, Is.EqualTo(9.3f - 2f * reading).Within(1e-3f), "…and the drift with it, as Tab does.");
+                float readingTravel = beforeReading - arena.Separation;
+                Assert.That(readingTravel, Is.GreaterThan(0f).And.LessThanOrEqualTo(2f * reading + .001f),
+                    "The approach keeps moving on the explanation's slower clock.");
                 Release(keyboard.qKey);
                 yield return null;
                 scope.Advance(0f, keyboard);
                 Assert.That(controller.IsReadingExplanation, Is.False);
                 Assert.That(controller.Session.PlayerQueue, Is.Empty, "Letting go of an explanation never queues.");
-                scope.Advance(1f, keyboard);
-                Assert.That(arena.Separation, Is.EqualTo(9.3f - 2f * reading - 2f).Within(1e-3f), "Closed, the drift runs on.");
+                float beforeClosing = arena.Separation;
+                scope.AdvanceFor(1f, keyboard);
+                Assert.That(beforeClosing - arena.Separation, Is.GreaterThan(readingTravel * 2f),
+                    "Closing the card restores ordinary planning travel.");
+                AssertApproaching(arena, player, enemy);
             }
         }
 
@@ -250,6 +296,15 @@ namespace TurnLimbo.Presentation.Tests
             return adjustments;
         }
 
+        private static void AssertApproaching(LegacyArenaView arena, Vector3 playerBefore, Vector3 enemyBefore)
+        {
+            Vector3 player = arena.PlayerRenderer.transform.localPosition, enemy = arena.EnemyRenderer.transform.localPosition;
+            Assert.That(player.x, Is.GreaterThan(playerBefore.x), "The player approaches the opponent during planning.");
+            Assert.That(enemy.x, Is.LessThan(enemyBefore.x), "The opponent approaches the player during planning.");
+            Assert.That(player.y, Is.EqualTo(playerBefore.y).Within(.0001f), "Planning never invents a Y destination.");
+            Assert.That(enemy.y, Is.EqualTo(enemyBefore.y).Within(.0001f));
+        }
+
         private sealed class BulletScope : IDisposable
         {
             private const BindingFlags PrivateInstance = BindingFlags.NonPublic | BindingFlags.Instance;
@@ -280,6 +335,14 @@ namespace TurnLimbo.Presentation.Tests
             }
 
             public void Advance(float delta, Keyboard keyboard = null) => advance(delta, keyboard);
+
+            // The movement solver caps a single hitch at .25 seconds; use ordinary frames for elapsed-time assertions.
+            public void AdvanceFor(float seconds, Keyboard keyboard = null)
+            {
+                int frames = Mathf.CeilToInt(seconds / .02f);
+                float delta = seconds / frames;
+                for (int frame = 0; frame < frames; frame++) advance(delta, keyboard);
+            }
 
             public void Dispose()
             {

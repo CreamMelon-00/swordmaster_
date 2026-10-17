@@ -20,16 +20,20 @@ MonoBehaviour:
   midY: -1.2
   nearHeight: 12.6
   nearY: -0.75
-  animationPlaybackSpeed: 0.6
-  attackInterval: 0.025
-  skillInterval: 0.06
+  animationPlaybackSpeed: 0.42
+  attackInterval: 0.035714287
+  skillInterval: 0.08571429
   exhaustedSideSpeed: 1
   exhaustedGapScale: 0.25
   hitStopDuration: 0.04
-  approachSettleSeconds: 0.04
-  returnSettleSeconds: 0.04
-  turnCleanupSeconds: 0.04
+  approachSettleSeconds: 0.057142857
+  returnSettleSeconds: 0.057142857
+  turnCleanupSeconds: 0.057142857
   bladeRecoilScale: 0.35
+  autoDepthEnabled: 1
+  combatDepthSpread: 0.45
+  combatDepthTravelSpeed: 2.8
+  combatDepthExchangeOffset: 0.28
   attackRhythmEnabled: 1
   attackRhythmStrength: 1
   attackLungeDistance: 0.6
@@ -40,13 +44,16 @@ MonoBehaviour:
   cameraFollowSharpness: 6
   cameraFollowDeadZone: 0.35
   impactCameraShake: 0.08
+  combatCameraMotionEnabled: 1
+  combatCameraMotionStrength: 1
   movementDistanceMultiplier: 1.4
-  movementSpeedMultiplier: 1.2
+  movementSpeedMultiplier: 0.84
+  enemyHandoffSpeedMultiplier: 1.35
   damageTextFontSize: 168
   criticalDamageScale: 1.3
   decisiveHealthDamagePercent: 25
-  finishingSlowMotionSeconds: 1.6
-  finishingSlowMotionScale: 0.12
+  finishingSlowMotionSeconds: 1.75
+  finishingSlowMotionScale: 0.06
   finishingBarSeconds: 0.4
   finishingFreezeSeconds: 0.5
   finalFallGreySeconds: 0.9
@@ -83,6 +90,8 @@ MonoBehaviour:
   skillGearRatchetBounce: 6
   gearTickVolume: 0.5
   gearRatchetVolume: 0.6
+  queueCardSize: 48
+  queueCardSpacing: 54
   meshPercent: 10
   meshBurstSeconds: 0.6
   meshGearSize: 30
@@ -104,16 +113,17 @@ MonoBehaviour:
   stepMinimumWindow: 0.04
   stepDodgeDistance: 1.4
   stepPressureDistance: 1.1
-  stepSlowMotionDuration: 0.28
-  stepSlowMotionScale: 0.25
+  stepSlowMotionDuration: 0.56
+  stepSlowMotionScale: 0.12
   stepStreakSlowScaleFactor: 0.88
   stepStreakSlowDurationStep: 0.05
-  stepFocusDuration: 0.36
-  stepCameraZoom: 0.5
+  stepFocusDuration: 0.78
+  stepCameraZoom: 1.1
   stepBackdropDarkening: 0.55
   stepSoundVolume: 0.7
   stepRingGlowIntensity: 1.6
   battleDriftSpeed: 0.15
+  enemyPlanningSpeedFactors: {x: 0.8, y: 1, z: 1.2}
   battleStagingSeparation: 5.4
   battleDriftMinimumSeparation: 5
   battlePoseSpeed: 0

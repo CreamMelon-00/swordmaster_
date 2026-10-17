@@ -64,12 +64,22 @@ namespace TurnLimbo.Core.Tests
             Assert.That(first.PlayerDisplayedDamage, Is.GreaterThan(first.PlayerHealthDamage));
             Assert.That(first.EnemyDisplayedDamage, Is.GreaterThan(first.EnemyHealthDamage));
             duel.CompleteCurrentSlot();
+            // Both sides broke, so the next reservation is canceled. Exercise the floor's displayed damage with a fresh
+            // skill next turn instead: the fighters are still alive at one HP and the break cancellation has expired.
+            LegacySlotResult canceled = duel.ResolveNextSlot();
+            Assert.That(canceled.PlayerSkill, Is.Null);
+            Assert.That(canceled.EnemySkill, Is.Null);
+            Assert.That(duel.IsTurnResolved && !duel.IsFinished, Is.True);
+            duel.BeginNextTurn();
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            duel.Commit();
             duel.BeginNextSlot();
             LegacyHitResult second = duel.ResolveNextHit();
             Assert.That((second.PlayerHealthDamage, second.EnemyHealthDamage), Is.EqualTo((0, 0)));
             Assert.That(second.PlayerDisplayedDamage, Is.GreaterThan(0));
             Assert.That(second.EnemyDisplayedDamage, Is.GreaterThan(0));
             duel.CompleteCurrentSlot();
+            while (!duel.IsTurnResolved) duel.ResolveNextSlot();
             Assert.That(duel.IsTurnResolved && !duel.IsFinished, Is.True);
 
             duel.Reset();

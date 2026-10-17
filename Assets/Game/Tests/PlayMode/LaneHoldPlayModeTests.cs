@@ -62,6 +62,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.HoldCancel(0).activeSelf, Is.True, "The safety interval gives a brief cancel cue.");
                 Assert.That(scope.Get("Input/Keys/Current Q/Hold Cancel/Hold Cancel Label").GetComponent<Text>().text,
                     Is.EqualTo("입력 취소"));
+                // The release belongs to the frame just read, not the later cue lifetime ticks.
+                yield return null;
                 scope.Advance(.37f, keyboard);
                 Assert.That(scope.HoldCancel(0).GetComponent<CanvasGroup>().alpha, Is.InRange(.1f, .9f),
                     "The short cue fades before it disappears.");

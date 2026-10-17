@@ -16,11 +16,68 @@ namespace TurnLimbo.Presentation.Tests
     /// <see cref="LegacyQueuePanelLayout"/>): after each resolved slot both rows slide one step toward the centre seam on the
     /// battle's clock and come to rest, without ever holding the resolution; a reset and a new turn put them at rest; the
     /// coach's card opens the seam so it covers no card; and the arena keeps the fighters' feet over the panels in the
-    /// corridor's framing while the forest's and Tab's framings do not move. The head-queue layout tests became the panel
+    /// corridor's framing while the forest already clears them and Tab keeps the same planning view. The head-queue layout tests became the panel
     /// tests in <see cref="FixedHudPlayModeTests"/>.</summary>
     public sealed class QueuePanelPlayModeTests : InputTestFixture
     {
         private const float Frame = 1f / 60f;
+
+        [UnityTest]
+        public IEnumerator ThirtyReservations_UseOneMirroredWindow_ThatFollowsTabAndTheResolvingSlot()
+        {
+            yield return null;
+            DuelPrototypeController controller = FindPrototype();
+            controller.RestartMatch();
+            LegacyCombatHud hud = controller.Hud;
+            LegacyQueuedDuel duel = ThreeSlotDuel(30);
+            try
+            {
+                Refresh(controller, duel, false, -1, 0f);
+                Assert.That(hud.QueueWindowCapacity, Is.InRange(2, 29));
+                Assert.That(hud.QueueWindowStart, Is.EqualTo(30 - hud.QueueWindowCapacity), "New reservations stay visible.");
+                Assert.That(hud.GetQueuedSkillAnchor(true, 29), Is.Not.Null);
+                Assert.That(hud.GetQueuedSkillAnchor(false, 29), Is.Not.Null);
+                Assert.That(hud.GetQueuedSkillAnchor(true, 0), Is.Null, "The overflow is hidden, never piled over other cards.");
+                foreach (int slot in new[] { 0, 17, 29 })
+                {
+                    hud.SetInspectedSlot(slot);
+                    Refresh(controller, duel, false, -1, 0f);
+                    Assert.That(hud.GetQueuedSkillAnchor(true, slot), Is.Not.Null);
+                    Assert.That(hud.GetQueuedSkillAnchor(false, slot), Is.Not.Null);
+                    AssertMirror(Cards(hud.Root.transform, "Player Requests"), Cards(hud.Root.transform, "Enemy Requests"));
+                }
+                hud.SetInspectedSlot(-1);
+                Refresh(controller, duel, true, 17, 0f);
+                Refresh(controller, duel, true, 17, controller.PresentationSettings.QueueSlideSeconds + .01f);
+                Assert.That(hud.QueueWindowStart, Is.EqualTo(17));
+                RectTransform mine = hud.GetQueuedSkillAnchor(true, 17), theirs = hud.GetQueuedSkillAnchor(false, 17);
+                Assert.That(mine, Is.Not.Null);
+                Assert.That(theirs, Is.Not.Null);
+                Assert.That(mine.anchoredPosition.x, Is.EqualTo(-theirs.anchoredPosition.x).Within(.01f));
+                Assert.That(hud.GetQueuedSkillAnchor(true, 16), Is.Null, "Consumed slots never reappear.");
+
+                // A coach-like central reserve leaves the panels against the viewport edges. Even a two-slot slide
+                // must keep its complete visible cards on screen, while retaining the active pair and its mirror.
+                RectTransform root = (RectTransform)hud.Root.transform;
+                hud.SetQueueSeamReserve(root.rect.width * .5f - 220f);
+                Refresh(controller, duel, true, 19, 0f);
+                Assert.That(hud.QueueSlide, Is.EqualTo(LegacyQueuePanelLayout.MaximumSlide).Within(.001f));
+                Assert.That(hud.GetQueuedSkillAnchor(true, 19), Is.Not.Null);
+                Assert.That(hud.GetQueuedSkillAnchor(false, 19), Is.Not.Null);
+                foreach (string row in new[] { "Player Requests", "Enemy Requests" })
+                    foreach (RectTransform card in Cards(root, row))
+                    {
+                        var corners = new Vector3[4];
+                        card.GetWorldCorners(corners);
+                        float left = root.InverseTransformPoint(corners[0]).x;
+                        float right = root.InverseTransformPoint(corners[2]).x;
+                        Assert.That(left, Is.GreaterThanOrEqualTo(-root.rect.width * .5f));
+                        Assert.That(right, Is.LessThanOrEqualTo(root.rect.width * .5f));
+                    }
+                AssertMirror(Cards(root, "Player Requests"), Cards(root, "Enemy Requests"));
+            }
+            finally { hud.SetInspectedSlot(-1); hud.SetQueueSeamReserve(0f); controller.RestartMatch(); }
+        }
 
         [UnityTest]
         public IEnumerator AfterEachResolvedSlot_BothRowsSlideOneStepTowardTheSeam_AndComeToRest()
@@ -144,7 +201,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator TheCorridorFraming_KeepsTheFeetOverThePanels_TheForestAndTabFramingsDoNotMove()
+        public IEnumerator TheCorridorFraming_KeepsTheFeetOverThePanels_AndTabKeepsTheSamePlanningView()
         {
             yield return null;
             DuelPrototypeController controller = FindPrototype();
@@ -165,6 +222,9 @@ namespace TurnLimbo.Presentation.Tests
                 // The tightest planning framing (the clock run down): the corridor's feet would sit under the panels.
                 arena.SetPlanningState(0f, false);
                 Settle(arena, 0f);
+                // Compact icons may already clear the corridor. Request a little more clearance to exercise the
+                // camera's floor response as well, independent of the current panel-size tuning.
+                floor = Mathf.Max(floor, FeetShare(arena) + .025f);
                 Assert.That(FeetShare(arena), Is.LessThan(floor), "Unframed, the corridor's feet fall behind the panels…");
                 Settle(arena, floor);
                 Assert.That(arena.HudFloor, Is.EqualTo(floor).Within(1e-5f));
@@ -173,11 +233,17 @@ namespace TurnLimbo.Presentation.Tests
                 float lowered = camera.transform.localPosition.y;
                 Settle(arena, 0f);
                 Assert.That(camera.transform.localPosition.y, Is.GreaterThan(lowered), "An arena ticked without it frames as before.");
-                // Tab's close-up keeps its framing.
+                // Inspecting a queue keeps the same clock, framing and HUD clearance as normal planning.
+                arena.SetPlanningState(10f, false);
+                Settle(arena, floor);
+                Vector3 normalPosition = camera.transform.localPosition;
+                float normalSize = camera.orthographicSize;
                 arena.SetPlanningState(10f, true);
                 Settle(arena, floor);
-                Assert.That(camera.transform.localPosition.y,
-                    Is.EqualTo(arena.EnemyRenderer.transform.localPosition.y + .5f).Within(.01f), "Tab's framing does not move.");
+                Assert.That(Vector3.Distance(camera.transform.localPosition, normalPosition), Is.LessThan(.001f),
+                    "Tab keeps both fighters in the normal planning view.");
+                Assert.That(camera.orthographicSize, Is.EqualTo(normalSize).Within(.001f));
+                Assert.That(FeetShare(arena), Is.GreaterThanOrEqualTo(floor - .002f));
 
                 // The forest's framing already clears the panels: unchanged.
                 arena.SetBackdrop(ArenaBackdropKind.Forest);
@@ -196,14 +262,14 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         // A free duel committed with three reservations against three enemy skills, for the HUD alone.
-        private static LegacyQueuedDuel ThreeSlotDuel()
+        private static LegacyQueuedDuel ThreeSlotDuel(int count = 3)
         {
             var free = new List<LegacySkill>();
             foreach (LegacySkill source in LegacyInitialSkills.All)
                 free.Add(new LegacySkill(source.Id, source.Name, 0, source.MinPower, source.MaxPower,
                     source.Kind, source.Property, source.AttackCount, source.LaneIndex, source.Description, source.AnimationName));
-            var duel = new LegacyQueuedDuel(1000, 50, 1000, 15, free, LegacyInitialSkills.All, new[] { 3 }, 1);
-            for (int lane = 0; lane < 3; lane++) Assert.That(duel.TryQueueLane(lane), Is.True);
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 15, free, LegacyInitialSkills.All, new[] { count }, 1);
+            for (int index = 0; index < count; index++) Assert.That(duel.TryQueueLane(index % 3), Is.True);
             return duel;
         }
 
