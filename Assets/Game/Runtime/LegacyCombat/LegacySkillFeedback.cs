@@ -73,11 +73,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int powerBuffPercent, int protectionBuffPercent, int grantedPowerBuffPercent = 0,
             int grantedProtectionBuffPercent = 0, int grantedBuffSlots = 0,
             int actGainGranted = 0, int resistanceRestored = 0, int opponentResistanceReduced = 0,
-            bool opponentBroken = false)
+            bool opponentBroken = false, int actStolen = 0, int actReceived = 0)
         {
             ConditionMet = conditionMet;
             EffectActivated = effectActivated;
             ActGainGranted = actGainGranted;
+            ActStolen = actStolen;
+            ActReceived = actReceived;
             ResistanceRestored = resistanceRestored;
             OpponentResistanceReduced = opponentResistanceReduced;
             OpponentBroken = opponentBroken;
@@ -98,6 +100,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             ConditionMet = source.ConditionMet || conditionalDamagePercent > 0;
             EffectActivated = source.EffectActivated || conditionalDamagePercent > 0;
             ActGainGranted = source.ActGainGranted;
+            ActStolen = source.ActStolen;
+            ActReceived = source.ActReceived;
             ResistanceRestored = source.ResistanceRestored;
             OpponentResistanceReduced = source.OpponentResistanceReduced;
             OpponentBroken = source.OpponentBroken;
@@ -139,6 +143,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool EffectActivated { get; }
         /// <summary>ACT added to the player's next-turn recovery, not to their current ACT.</summary>
         public int ActGainGranted { get; }
+        /// <summary>Current, unspent ACT removed from the opponent by this cast; recovery for the next turn is unchanged.</summary>
+        public int ActStolen { get; }
+        /// <summary>The stolen ACT actually received after this fighter's maximum, including room opened by a simultaneous steal.</summary>
+        public int ActReceived { get; }
         /// <summary>Actual resistance restored at slot start, after the maximum cap.</summary>
         public int ResistanceRestored { get; }
         /// <summary>Actual resistance removed directly from the opposing fighter, after the zero cap; a break counts

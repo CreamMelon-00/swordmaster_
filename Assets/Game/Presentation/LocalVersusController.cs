@@ -187,6 +187,7 @@ namespace TurnLimbo.Presentation
             battleHud.Root.SetActive(false);
             hud = new LocalVersusHud(parent, art, Exit);
             hud.SetActorAnchors(arena.ArenaCamera, arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
+            hud.SetQueueAnchors(battleHud.PlayerQueuePanel, battleHud.EnemyQueuePanel);
             hud.Hide();
             resultHud = new BattleResultHud(parent, art, Exit, () => Rematch(), null);
             activationCue = new DuelSkillActivationCue(battleHud.Root.transform, art.UIFont);

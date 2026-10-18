@@ -23,6 +23,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         ProtectionSpend,
         /// <summary>A flat payoff for hits from distinct attack techniques reserved ahead.</summary>
         AheadHitPower,
+        /// <summary>ACT 강탈; conditional until the technique is used, then the actual ACT removed from its opponent.</summary>
+        ActSteal,
     }
 
     /// <summary>One queued card's keyword mark: its words, what it stands for and whether it gains nothing (a second copy,
@@ -102,6 +104,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                       effect.AheadPowerMax + " · +" + LegacyKeywordLinks.AheadPowerBonus(queue, slot, skill));
             if (effect.HasProtectionSpend)
                 parts.Add("보호 소모 시 +" + effect.ConsumeProtectionPowerBonus);
+            if (effect.HasActSteal)
+                parts.Add("상대 ACT " + effect.ActStealThreshold + "+ · 강탈 " + effect.ActStealAmount);
             if (effect.HasAheadHitPower)
                 parts.Add(!LegacyKeywordLinks.IsFirstOfKind(queue, slot, skill) ? UsedThisTurn
                     : "총타수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
@@ -145,6 +149,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             if (effect.HasProtectionSpend)
                 parts.Add("사용 시 보호가 남아 있으면 모두 소모 · 기본 위력 +" + effect.ConsumeProtectionPowerBonus);
+            if (effect.HasActSteal)
+                parts.Add(LegacySkillLabels.ActStealKeyword + " · 사용 시 상대 ACT가 " + effect.ActStealThreshold +
+                    " 이상이면 ACT " + effect.ActStealAmount + " 강탈");
             if (effect.HasAheadHitPower)
                 parts.Add(!first ? Used("총타수 보너스")
                     : "서로 다른 앞 공격 총타수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
@@ -188,6 +195,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     ? new LegacyKeywordMark(AutoBreathTag, LegacyKeywordMarkKind.AutoBreath, false) : LegacyKeywordMark.None;
             LegacySkillEffect effect = EffectOf(skill);
             if (effect == null) return LegacyKeywordMark.None;
+            if (effect.HasActSteal)
+            {
+                ILegacySlotView current = view.CurrentSlot;
+                LegacySkillFeedback actual = !planning && current != null && current.SlotIndex == slotIndex
+                    ? playerRow ? current.PlayerFeedback : current.EnemyFeedback : null;
+                return actual != null
+                    ? new LegacyKeywordMark("강탈 " + actual.ActStolen, LegacyKeywordMarkKind.ActSteal, actual.ActStolen == 0)
+                    : new LegacyKeywordMark("강탈 " + effect.ActStealAmount + "?", LegacyKeywordMarkKind.ActSteal, false);
+            }
             bool first = LegacyKeywordLinks.IsFirstOfKind(queue, slotIndex);
             if (effect.HasProtectionSpend)
             {

@@ -89,10 +89,13 @@ namespace TurnLimbo.Core.Tests
         {
             var left = new[] { Attack(100, 1, 5), LegacySkillDefinitions.Skill(45) };
             var match = NewMatch(left, new[] { Attack(200, 1, 1) });
+            Assert.That(match.TryCommit(0) && match.TryCommit(1), Is.True);
+            match.BeginNextTurn();
+            Assert.That(match.TryCommit(1), Is.True, "Build up ACT before paying for both the canceled skill and posture.");
             Assert.That(match.TryQueueLane(0, 0), Is.True);
             Assert.That(match.TryQueueBreath(0), Is.True);
             Assert.That(match.TryQueueLane(0, 2), Is.True);
-            Assert.That(match.Left.Act, Is.EqualTo(1));
+            Assert.That(match.Left.Act, Is.EqualTo(2));
             Assert.That(match.Left.Queue.Count, Is.EqualTo(2));
             Assert.That(match.Left.Queue[0].IsWait, Is.True);
             Assert.That(match.Left.Queue[1].Id, Is.EqualTo(45));

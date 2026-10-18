@@ -259,6 +259,47 @@ namespace TurnLimbo.Presentation.Tests
                     }
         }
 
+        [TestCase(0, true)]
+        [TestCase(0, false)]
+        [TestCase(1, true)]
+        [TestCase(1, false)]
+        public void StateHash_IncludesEachOwnersActualActStolenAndReceivedFeedback(int owner, bool changeStolen)
+        {
+            LegacySkill steal = LegacySkillDefinitions.Skill(62);
+            var match = new LocalVersusMatch(new[] { steal }, new[] { steal }, randomSeed: 17);
+            for (int turn = 0; turn < 3; turn++)
+            {
+                while (match.Phase == LegacyDuelPhase.Planning)
+                    Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
+                match.BeginNextTurn();
+            }
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int player = match.CurrentPlanner;
+                Assert.That(match.TryQueueLane(player, 2), Is.True);
+                Assert.That(match.TryCommit(player), Is.True);
+            }
+            LocalVersusSlot slot = match.BeginNextSlot();
+            LegacySkillFeedback original = owner == 0 ? slot.LeftFeedback : slot.RightFeedback;
+            Assert.That(original.ActStolen, Is.EqualTo(3));
+            Assert.That(original.ActReceived, Is.EqualTo(3));
+            string before = OnlineVersusProtocol.ComputeStateHash(match);
+            int leftAct = match.Left.Act, rightAct = match.Right.Act;
+
+            // Isolate the digest's feedback input: replace only this immutable snapshot, keeping both wallets identical.
+            var replacement = (LegacySkillFeedback)Activator.CreateInstance(typeof(LegacySkillFeedback),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
+                new object[] { steal, original.ConditionMet, original.EffectActivated, 0, 0, 0, 0, 0, 0, 0, 0, false,
+                    original.ActStolen + (changeStolen ? 1 : 0), original.ActReceived + (changeStolen ? 0 : 1) }, null);
+            System.Reflection.PropertyInfo property = typeof(LocalVersusSlot).GetProperty(owner == 0 ? "LeftFeedback" : "RightFeedback");
+            property.SetValue(slot, replacement);
+            Assert.That(match.Left.Act, Is.EqualTo(leftAct));
+            Assert.That(match.Right.Act, Is.EqualTo(rightAct));
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.Not.EqualTo(before));
+            property.SetValue(slot, original);
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.EqualTo(before));
+        }
+
         private static LegacyStatusCollection Statuses(LocalVersusFighter fighter)
             => (LegacyStatusCollection)typeof(LocalVersusFighter).GetField("StatusEffects",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(fighter);

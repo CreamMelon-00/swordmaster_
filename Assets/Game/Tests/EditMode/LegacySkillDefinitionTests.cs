@@ -109,7 +109,7 @@ namespace TurnLimbo.Core.Tests
         {
             LegacySkill posture = LegacySkillDefinitions.Skill(45);
             Assert.That((posture.Name, posture.Cost, posture.MinPower, posture.MaxPower, posture.AttackCount, posture.LaneIndex),
-                Is.EqualTo(("자세 잡기", 1, 3, 5, 1, 2)));
+                Is.EqualTo(("자세 잡기", 3, 3, 5, 1, 2)));
             Assert.That((posture.Kind, posture.Property),
                 Is.EqualTo((LegacySkillKind.Defence, LegacySkillProperty.Defence)));
             Assert.That(posture.IconId, Is.EqualTo(21), "Its dedicated focus-and-guard icon.");
@@ -123,6 +123,19 @@ namespace TurnLimbo.Core.Tests
             Assert.That(definition.Text.Info.Description,
                 Does.Contain("2개 이상 취소하면 이번 턴 다음 기술 1개 위력 ×취소 수 (최대 ×5)"));
             Assert.That(definition.Text.Info.Description, Does.Not.Contain("ACT"));
+        }
+
+        [Test]
+        public void FourthStageReward_StealsCurrentAct_WithoutGrantingNextTurnRecovery()
+        {
+            LegacySkill skill = LegacySkillDefinitions.Skill(62);
+            Assert.That((skill.Name, skill.Cost, skill.MinPower, skill.MaxPower, skill.AttackCount, skill.LaneIndex),
+                Is.EqualTo(("기세 훔치기", 2, 3, 5, 1, 2)));
+            Assert.That((skill.Kind, skill.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Penetrate)));
+            Assert.That(skill.IconId, Is.EqualTo(14));
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill).Effect;
+            Assert.That(effect.HasActSteal, Is.True);
+            Assert.That((effect.ActStealThreshold, effect.ActStealAmount, effect.ActGain), Is.EqualTo((8, 3, 0)));
         }
 
         [Test]
@@ -302,11 +315,11 @@ namespace TurnLimbo.Core.Tests
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
             Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[]
                 { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50,
-                    51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 500, 501, 502, 600 }));
+                    51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 500, 501, 502, 600 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(table.InitialCounterSkills.Select(s => s.Id), Is.EqualTo(new[] { 600 }));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id),
-                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 60, 61 }));
+                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 60, 61, 62 }));
             Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
             Assert.That(table.TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),

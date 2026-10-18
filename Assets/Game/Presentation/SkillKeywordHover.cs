@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약" };
+        private static readonly string[] Terms = { "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약" };
         // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
         // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
@@ -96,6 +96,10 @@ namespace TurnLimbo.Presentation
         {
             switch (term)
             {
+                case "ACT 강탈":
+                    explanation = "사용 시 상대의 남은 ACT가 조건 이상이면 ACT를 빼앗아 즉시 얻습니다. " +
+                        "기술당 한 번 적용되며 자신의 최대 ACT를 넘지 않습니다. ACT를 쓰지 않는 적에게는 적용되지 않습니다.";
+                    return true;
                 case "보호 소모":
                     explanation = "사용할 때 자신에게 남은 보호를 모두 없앱니다. 보호가 없으면 부가 위력을 얻지 못하며, 강화·취약은 소모하지 않습니다.";
                     return true;

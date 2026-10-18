@@ -83,6 +83,13 @@ namespace TurnLimbo.Presentation
             }
             if (feedback.ActGainGranted > 0)
                 detail = Join(detail, "다음 턴 ACT 회복 +" + feedback.ActGainGranted);
+            if (feedback.ActStolen > 0)
+            {
+                detail = Join(detail, playerSide
+                    ? "ACT 강탈 " + feedback.ActStolen + " · 내 ACT +" + feedback.ActReceived
+                    : "내 ACT -" + feedback.ActStolen + " · 상대 ACT +" + feedback.ActReceived);
+                if (playerSide) tint = ActInk;
+            }
             if (feedback.ProtectionSpendPowerBonus > 0)
             {
                 detail = Join(detail, "보호 소모 · 기본 위력 +" + feedback.ProtectionSpendPowerBonus);
@@ -115,7 +122,7 @@ namespace TurnLimbo.Presentation
             view.Outline.effectColor = tint;
             view.Tint = tint;
             view.BurstStyle = !playerSide ? DuelSkillBurstStyle.Danger
-                : feedback.OpponentResistanceReduced > 0 || feedback.ConditionalDamagePercent > 0 ||
+                : feedback.OpponentResistanceReduced > 0 || feedback.ConditionalDamagePercent > 0 || feedback.ActStolen > 0 ||
                     feedback.ProtectionSpendPowerBonus > 0 || feedback.AheadHitPowerBonus > 0 ? DuelSkillBurstStyle.Strike
                 : feedback.ResistanceRestored > 0 ? DuelSkillBurstStyle.Recovery
                 : DuelSkillBurstStyle.Shield;

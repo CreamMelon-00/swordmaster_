@@ -53,7 +53,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkill costly = Attack(900, 10);
             LegacySkill posture = LegacySkillDefinitions.Skill(45);
             var duel = new LegacyQueuedDuel(100, 50, 100, 50,
-                new[] { costly, posture }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+                new[] { costly, posture }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0, playerActGainBonus: 2);
             Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
             Assert.That(duel.TryQueueBreath(), Is.True);
             Assert.That(duel.TryQueueLane(2), Is.True);
@@ -145,12 +145,12 @@ namespace TurnLimbo.Core.Tests
                 LegacySkillDefinitions.Install(() => modifiedSheet);
                 LegacySkill replacement = LegacySkillDefinitions.Skill(45);
                 var duel = new LegacyQueuedDuel(100, 50, 100, 50,
-                    new[] { Attack(900, 10), replacement }, Array.Empty<LegacySkill>(), new[] { 0 });
+                    new[] { Attack(900, 10), replacement }, Array.Empty<LegacySkill>(), new[] { 0 }, playerActGainBonus: 2);
                 Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
-                Assert.That(duel.Act, Is.EqualTo(1));
+                Assert.That(duel.Act, Is.EqualTo(3));
                 Assert.That(duel.TryQueueLane(2), Is.True);
                 CollectionAssert.AreEqual(new[] { 45 }, Ids(duel.PlayerQueue));
-                Assert.That(duel.Act, Is.EqualTo(2), "Two prior ACT are returned; the new skill still costs one.");
+                Assert.That(duel.Act, Is.EqualTo(2), "Two prior ACT are returned; the new skill costs three.");
                 Assert.That(duel.QueuePowerSourceSlotIndex, Is.EqualTo(-1),
                     "The return keyword alone does not grant a power multiplier.");
             }
@@ -211,7 +211,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkill sharpening = LegacySkillDefinitions.Skill(46);
             var duel = new LegacyQueuedDuel(100, 50, 10000, 0,
                 new[] { sharpening, LegacySkillDefinitions.Skill(45) },
-                Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+                Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0, playerActGainBonus: 1);
 
             Assert.That(duel.TryQueueLane(1), Is.True);
             Assert.That(duel.TryQueueLane(2), Is.True);
@@ -297,7 +297,7 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(duel.Act, Is.EqualTo(3), "The second reservation costs two ACT.");
                 Assert.That(duel.TryQueueLane(2), Is.True);
                 CollectionAssert.AreEqual(new[] { 45 }, Ids(duel.PlayerQueue));
-                Assert.That(duel.Act, Is.EqualTo(4), "Return refunds the spent two ACT, then charges one ACT.");
+                Assert.That(duel.Act, Is.EqualTo(2), "Return refunds the spent two ACT, then charges three ACT.");
                 Assert.That(duel.CycleUses(46), Is.EqualTo(1), "The removed reservation was not used.");
             }
             finally

@@ -274,6 +274,66 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator ActSteal_ThroughTheRealCommandStream_KeepsBothPeersAndTheirMirroredBadgesInSync()
+        {
+            yield return null;
+            using (var pair = new Pair())
+            {
+                Assert.That(pair.Host.Loadout.TryPlaceSkill(62, 2, 0), Is.True);
+                pair.ReadyBoth();
+                pair.Host.Online.Hud.StartButton.onClick.Invoke();
+                pair.DeliverHost();
+                pair.Guest.Online.Tick(0f, null);
+                pair.AssertSameBattle();
+
+                // Build real carried ACT through the same finalized-queue messages used in a live match.
+                for (int round = 1; round <= 3; round++)
+                {
+                    while (pair.Host.Duel.Match.Phase == LegacyDuelPhase.Planning)
+                    {
+                        if (pair.Host.Duel.Match.CurrentPlanner == 0) pair.HostAction(pair.Host.Duel.TryCommit);
+                        else pair.GuestAction(OnlineVersusAction.Pass, pair.Guest.Duel.TryCommit);
+                    }
+                    pair.AdvanceUntil(() => pair.Host.Duel.Match.RoundNumber > round &&
+                        pair.Guest.Duel.Match.RoundNumber > round);
+                    pair.AssertSameBattle();
+                }
+                Assert.That(pair.Host.Duel.Match.Left.Act, Is.EqualTo(10));
+                Assert.That(pair.Host.Duel.Match.Right.Act, Is.EqualTo(10));
+                Assert.That(pair.Host.Duel.Match.CurrentPlanner, Is.EqualTo(1));
+                pair.GuestAction(OnlineVersusAction.Pass, pair.Guest.Duel.TryCommit);
+                pair.HostAction(() => pair.Host.Duel.TryQueueLane(2));
+                Assert.That(pair.Host.Duel.Match.Left.Queue[0].Id, Is.EqualTo(62));
+                Assert.That(pair.Host.Duel.Match.Left.Act, Is.EqualTo(8));
+                Assert.That(pair.Guest.Duel.Match.Left.Act, Is.EqualTo(8));
+                Assert.That(pair.Host.Duel.Match.Right.Act, Is.EqualTo(10), "Reserving the skill cannot steal yet.");
+                pair.HostAction(pair.Host.Duel.TryCommit);
+
+                pair.AdvanceUntil(() => pair.Host.Duel.Match.CurrentSlot != null &&
+                    pair.Guest.Duel.Match.CurrentSlot != null);
+                pair.AssertSameBattle();
+                Assert.That(pair.Host.Duel.Match.CurrentSlot.LeftFeedback.ActStolen, Is.EqualTo(3));
+                Assert.That(pair.Guest.Duel.Match.CurrentSlot.LeftFeedback.ActStolen, Is.EqualTo(3));
+                Assert.That(pair.Host.Duel.Match.CurrentSlot.LeftFeedback.ActReceived, Is.EqualTo(2));
+                Assert.That(pair.Guest.Duel.Match.CurrentSlot.LeftFeedback.ActReceived, Is.EqualTo(2));
+                Assert.That(pair.Host.Duel.Perspective.Act, Is.EqualTo(10));
+                Assert.That(pair.Guest.Duel.Perspective.Act, Is.EqualTo(7));
+                Assert.That(pair.Host.Duel.Hud.OwnActText, Is.EqualTo("나  ACT 10 / 10"));
+                Assert.That(pair.Host.Duel.Hud.OpponentActText, Is.EqualTo("상대  ACT 7 / 10"));
+                Assert.That(pair.Guest.Duel.Hud.OwnActText, Is.EqualTo("나  ACT 7 / 10"));
+                Assert.That(pair.Guest.Duel.Hud.OpponentActText, Is.EqualTo("상대  ACT 10 / 10"));
+
+                pair.AdvanceUntil(() => pair.Host.Duel.Match.RoundNumber == 5 &&
+                    pair.Guest.Duel.Match.RoundNumber == 5);
+                pair.AssertSameBattle();
+                Assert.That(pair.Host.Duel.Match.Left.Act, Is.EqualTo(10));
+                Assert.That(pair.Host.Duel.Match.Right.Act, Is.EqualTo(10));
+                Assert.That(pair.Host.Duel.Match.Left.NextActGain, Is.EqualTo(3));
+                Assert.That(pair.Host.Duel.Match.Right.NextActGain, Is.EqualTo(3));
+            }
+        }
+
         private static OnlineVersusMessage Decode(string json)
         {
             Assert.That(OnlineVersusMessage.TryDecode(json, out OnlineVersusMessage result, out string error),
@@ -380,6 +440,19 @@ namespace TurnLimbo.Presentation.Tests
 
             public void DeliverHost() => Deliver(Host, Guest);
             public void DeliverGuest() => Deliver(Guest, Host);
+
+            public void AdvanceUntil(Func<bool> complete)
+            {
+                for (int frame = 0; frame < 6000 && !complete(); frame++)
+                {
+                    Host.Online.Tick(.01f, null);
+                    Guest.Online.Tick(.01f, null);
+                    DeliverGuest();
+                    DeliverHost();
+                    Guest.Online.Tick(0f, null);
+                }
+                Assert.That(complete(), Is.True, "Both controllers must reach the requested battle boundary.");
+            }
 
             public void HostAction(Func<bool> submit)
             {

@@ -95,7 +95,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(fixture.View.Root, "Keyword 2 Text").text, Does.Contain("×5"));
                 Assert.That(fixture.View.EffectText.text, Does.Contain("예약 시").And.Contain("앞에 예약된 기술 모두 취소"));
                 Assert.That(fixture.View.EffectText.text, Does.Contain("2개 이상 취소하면").And.Contain("다음 기술 1개 위력 ×취소 수"));
-                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("1"));
+                Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("3"));
             }
             yield return null;
         }
@@ -349,7 +349,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var run = new CampaignRun();
                 float fixedHeight = fixture.View.Height;
-                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(42), "Every row of the shipped sheet, temporary and counter rows included.");
+                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(43), "Every row of the shipped sheet, temporary and counter rows included.");
                 foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 {
                     foreach (bool enemy in new[] { false, true })

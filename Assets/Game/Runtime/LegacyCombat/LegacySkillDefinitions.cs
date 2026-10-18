@@ -55,6 +55,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         /// <summary>Extra ACT the player recovers next turn. Enemies never recover ACT.</summary>
         public int ActGain { get; internal set; }
+        /// <summary>사용 효과 <c>상대 ACT N 이상이면 ACT M 강탈</c>: the opponent's current, unspent ACT must be at least N
+        /// when the technique is actually used. Campaign enemies have no ACT pool, so this effect never triggers on them.</summary>
+        public int ActStealThreshold { get; internal set; }
+        /// <summary>Current ACT removed from the opponent on a qualifying use and immediately given to this fighter,
+        /// up to its ACT cap. Applies once per technique, never once per hit; independent of next-turn ACT recovery.</summary>
+        public int ActStealAmount { get; internal set; }
+        public bool HasActSteal => ActStealThreshold > 0 && ActStealAmount > 0;
         /// <summary>Power bonus granted to this fighter's following slots this turn.</summary>
         public int BuffPowerPercent { get; internal set; }
         /// <summary>Received-damage reduction for the following slots; negative values make them vulnerable.</summary>
@@ -155,7 +162,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// time cost; a remover may not carry one, since taking its own work back and reserving again would repeat it.</summary>
         public bool HasReserveGain => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn;
         /// <summary>Whether the row writes its 사용 효과 cell.</summary>
-        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower;
+        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal;
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
         public bool HasOpponentStateCondition => OpponentState != LegacyOpponentState.None;

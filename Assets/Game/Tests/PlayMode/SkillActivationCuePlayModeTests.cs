@@ -87,6 +87,69 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator ActSteal_ShowsTheRealTransferFromBothViewersSides_AndNeverAnnouncesAnUnmetCondition()
+        {
+            yield return null;
+            LegacySkill steal = LegacySkillDefinitions.Skill(62);
+            using (var fixture = new Fixture())
+            {
+                // Saving through two empty turns gives both fighters 9 ACT. The caster pays 2, then receives all 3.
+                LocalVersusMatch match = BeginActStealSlot(2);
+                Assert.That(match.Left.Act, Is.EqualTo(10));
+                Assert.That(match.Right.Act, Is.EqualTo(6));
+                LocalVersusPerspectiveSlot host = new LocalVersusPerspective(match, 0).CurrentSlot;
+                Assert.That(host.PlayerFeedback.ActStolen, Is.EqualTo(3));
+                Assert.That(host.PlayerFeedback.ActReceived, Is.EqualTo(3));
+                Assert.That(fixture.Cue.Show(true, host.PlayerSkill, host.PlayerFeedback), Is.True);
+                Assert.That(fixture.PlayerTitle.text, Is.EqualTo("기세 훔치기 성공!"));
+                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("ACT 강탈 3 · 내 ACT +3"));
+                Assert.That(fixture.PlayerDetail.text, Does.Not.Contain("다음 턴"), "The stolen ACT is gained immediately.");
+                fixture.Tick(.02f);
+                Assert.That(fixture.PlayerBurst.gameObject.activeSelf, Is.True);
+
+                fixture.Cue.Reset();
+                LocalVersusPerspectiveSlot guest = new LocalVersusPerspective(match, 1).CurrentSlot;
+                Assert.That(guest.EnemySkill, Is.SameAs(steal));
+                Assert.That(fixture.Cue.Show(false, guest.EnemySkill, guest.EnemyFeedback), Is.True);
+                Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 기세 훔치기 성공!"));
+                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("내 ACT -3 · 상대 ACT +3"));
+                fixture.Tick(.02f);
+                Assert.That(fixture.EnemyBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Danger));
+
+                fixture.Cue.Reset();
+                LocalVersusMatch belowThreshold = BeginActStealSlot(0);
+                Assert.That(belowThreshold.Right.Act, Is.EqualTo(3));
+                Assert.That(belowThreshold.CurrentSlot.LeftFeedback.ActStolen, Is.Zero);
+                Assert.That(fixture.Cue.Show(true, steal, belowThreshold.CurrentSlot.LeftFeedback), Is.False);
+                Assert.That(fixture.Player.gameObject.activeSelf, Is.False);
+                Assert.That(fixture.PlayerDetail.text, Is.Empty);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ActSteal_ReportsTheFullTargetLossAndOnlyTheCappedAmountActuallyReceived()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                // At 10 ACT the caster pays 2. The target loses 3, but the caster has room for only 2.
+                LocalVersusMatch match = BeginActStealSlot(3);
+                Assert.That(match.Left.Act, Is.EqualTo(10));
+                Assert.That(match.Right.Act, Is.EqualTo(7));
+                LocalVersusPerspectiveSlot host = new LocalVersusPerspective(match, 0).CurrentSlot;
+                Assert.That(host.PlayerFeedback.ActStolen, Is.EqualTo(3));
+                Assert.That(host.PlayerFeedback.ActReceived, Is.EqualTo(2));
+                Assert.That(fixture.Cue.Show(true, host.PlayerSkill, host.PlayerFeedback), Is.True);
+                Assert.That(fixture.PlayerDetail.text, Is.EqualTo("ACT 강탈 3 · 내 ACT +2"));
+
+                fixture.Cue.Reset();
+                LocalVersusPerspectiveSlot guest = new LocalVersusPerspective(match, 1).CurrentSlot;
+                Assert.That(fixture.Cue.Show(false, guest.EnemySkill, guest.EnemyFeedback), Is.True);
+                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("내 ACT -3 · 상대 ACT +2"));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator OpeningESkill_ShowsAnAppliedResistanceCutOnlyAgainstAnAttack()
         {
             yield return null;
@@ -481,6 +544,23 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Tick(.02f);
                 Assert.That(fixture.PlayerBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Strike));
             }
+        }
+
+        private static LocalVersusMatch BeginActStealSlot(int emptyTurns)
+        {
+            LegacySkill steal = LegacySkillDefinitions.Skill(62);
+            var match = new LocalVersusMatch(new[] { steal }, new[] { steal });
+            for (int turn = 0; turn < emptyTurns; turn++)
+            {
+                int opener = match.CurrentPlanner;
+                Assert.That(match.TryCommit(opener) && match.TryCommit(1 - opener), Is.True);
+                match.BeginNextTurn();
+            }
+            if (match.CurrentPlanner == 1) Assert.That(match.TryCommit(1), Is.True);
+            Assert.That(match.TryQueueLane(0, 2) && match.TryCommit(0), Is.True);
+            if (match.Phase == LegacyDuelPhase.Planning) Assert.That(match.TryCommit(1), Is.True);
+            match.BeginNextSlot();
+            return match;
         }
 
         private static LegacySkill Fixed(int id, LegacySkillKind kind, int power)

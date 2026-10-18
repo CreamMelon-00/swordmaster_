@@ -16,7 +16,7 @@ namespace TurnLimbo.Core.Tests
         // Sheet rows of the shipped table as written: the header is row 1, then ids in table order.
         private const int Row1 = 2, Row2 = 3, Row5 = 6, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row19 = 19, Row42 = 20, Row43 = 21,
             Row44 = 22, Row45 = 23, Row46 = 24, Row59 = 37,
-            Row500 = 40, Row501 = 41, Row502 = 42;
+            Row500 = 41, Row501 = 42, Row502 = 43;
 
         /// <summary>The shipped table as the writer lays it out, one string array per sheet row.</summary>
         private static List<string[]> Rows()
@@ -751,7 +751,8 @@ namespace TurnLimbo.Core.Tests
                 : "비워 두거나 앞 <대상>마다 위력 +N (최대 M)(<대상>은 숨고르기, 순환 기술, 저항 감소 기술, N은 1~10, M은 1~4의 정수, " +
                     "예: 앞 숨고르기마다 위력 +4 (최대 4)), 앞 <대상>마다 다음 턴 제한시간 +N초 (최대 M)(N은 1~3, M은 1~3의 정수, " +
                     "예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), 자동 회피, " +
-                    "보호 소모 위력 +N, 앞 공격 총타수 M 이상 위력 +N(N은 1~50, M은 1~20의 정수)";
+                    "보호 소모 위력 +N, 앞 공격 총타수 M 이상 위력 +N(N은 1~50, M은 1~20의 정수), " +
+                    "상대 ACT N 이상이면 ACT M 강탈(N과 M은 1~10의 정수)";
             Assert.That(Problem(rows), Is.EqualTo($"{row3}행 '{column}': '{cell}'은(는) 쓸 수 없습니다. {allowed} 중 하나를 적으세요."));
         }
 

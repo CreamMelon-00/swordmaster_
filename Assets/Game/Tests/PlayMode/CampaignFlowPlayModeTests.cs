@@ -318,7 +318,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(8));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(760));
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
-                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(15), "Nine starting, five stage rewards (7 gives 알티바호), 가로베기.");
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(16), "Nine starting, six stage rewards (4 gives 기세 훔치기, 7 gives 알티바호), 가로베기.");
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(8));
                 controller.RestartJourney();

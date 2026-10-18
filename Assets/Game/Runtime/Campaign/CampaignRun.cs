@@ -788,7 +788,9 @@ namespace TurnLimbo.Runtime.Campaign
         private static CampaignSave NormalizeSave(CampaignSave save, out bool droppedCurriculum)
         {
             droppedCurriculum = false;
-            if (save == null || save.CurriculumTreeVersion == CampaignCurriculum.TreeVersion) return save;
+            if (save == null) return null;
+            save = NormalizePostureExperience(save);
+            if (save.CurriculumTreeVersion == CampaignCurriculum.TreeVersion) return save;
             CampaignSave reset = save.ForCurriculumTree(CampaignCurriculum.TreeVersion, out droppedCurriculum);
             var owned = new HashSet<int>();
             foreach (LegacySkill skill in LegacyInitialSkills.All) owned.Add(skill.Id);
@@ -824,6 +826,31 @@ namespace TurnLimbo.Runtime.Campaign
             if (IsCounterDefinition(counterSkillId) && !owned.Contains(counterSkillId)) counterSkillId = 0;
             return new CampaignSave(reset.Currency, reset.ClearedStages, reset.CurriculumCompleted, reset.CurriculumPoints,
                 lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups, reset.CurriculumTreeVersion, counterSkillId);
+        }
+
+        // 자세 잡기 used to cost 1 ACT, so legitimate older saves can hold up to 30 clashes. Its new cost lowers
+        // that cap: keep a previously capped skill usable without accepting negative or impossible old experience.
+        private static CampaignSave NormalizePostureExperience(CampaignSave save)
+        {
+            LegacySkill posture = LegacySkillDefinitions.Find(45)?.Skill;
+            if (posture == null) return save;
+            int maximum = CampaignOwnedSkill.ExperienceRequiredForCost(posture.Cost) * CampaignOwnedSkill.MaxLevel;
+            const int previousMaximum = 10 * CampaignOwnedSkill.MaxLevel;
+            if (maximum >= previousMaximum) return save;
+            var experience = new List<KeyValuePair<int, int>>();
+            bool changed = false;
+            foreach (KeyValuePair<int, int> entry in save.SkillExperience)
+            {
+                if (entry.Key == 45 && entry.Value > maximum && entry.Value <= previousMaximum)
+                {
+                    experience.Add(new KeyValuePair<int, int>(entry.Key, maximum));
+                    changed = true;
+                }
+                else experience.Add(entry);
+            }
+            return changed ? new CampaignSave(save.Currency, save.ClearedStages, save.CurriculumCompleted,
+                save.CurriculumPoints, save.Loadout, save.TrainingVictoryCount, experience, save.FieldPickups,
+                save.CurriculumTreeVersion, save.CounterSkillId) : save;
         }
 
         private string ValidateSave(CampaignSave save)
@@ -1047,7 +1074,7 @@ namespace TurnLimbo.Runtime.Campaign
             EnemyResistance = number == 5 ? 10 : 15 + 3 * (number - 1);
             EnemyPowerBonus = number == 5 ? 0 : number - 1;
             Reward = 60 + 10 * (number - 1);
-            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 5 ? 46 : number == 7 ? 16 : 0;
+            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 4 ? 62 : number == 5 ? 46 : number == 7 ? 16 : 0;
             // Placeholder counters until enemy archetypes exist: a guard (막기, 7) that taxes a
             // one-sided attack from stage five, then a strong thrust (정교한 찌르기, 4) from stage seven.
             enemyCounterSkillId = number >= 7 ? 4 : number == 6 ? 7 : 0;

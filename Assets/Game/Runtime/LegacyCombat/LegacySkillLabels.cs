@@ -12,6 +12,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const string CycleFeedPhrase = "순환 +1", AutoBreathPhrase = "숨고르기 +1";
         /// <summary>사용 효과 phrase for <see cref="LegacySkillEffect.AutoDodge"/>.</summary>
         public const string AutoDodgePhrase = "자동 회피";
+        /// <summary>ACT 강탈 tests the opponent's remaining ACT when used and transfers current ACT, not next-turn recovery.</summary>
+        public const string ActStealKeyword = "ACT 강탈";
+        public const int MinimumActStealValue = 1, MaximumActStealValue = 10;
         /// <summary>Bounds for 보호 소모 위력 +N and 앞 공격 총타수 M 이상 위력 +N.</summary>
         public const int MinimumUsePowerBonus = 1, MaximumUsePowerBonus = 50;
         public const int MinimumAttackHitsRequired = 1, MaximumAttackHitsRequired = 20;
@@ -39,6 +42,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             @"^보호\s*소모\s*위력\s*\+\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
         private static readonly Regex AheadAttackHitsPattern = new Regex(
             @"^앞\s*공격\s*총\s*타수\s*([0-9]{1,3})\s*이상\s*위력\s*\+\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
+        private static readonly Regex ActStealPattern = new Regex(
+            @"^상대\s*ACT\s*([0-9]{1,3})\s*이상이면\s*ACT\s*([0-9]{1,3})\s*강탈$", RegexOptions.CultureInvariant);
         // 앞 <대상>마다 다음 턴 제한시간 +n초 (최대 m), spaces optional between the parts.
         private static readonly Regex AheadTimePattern = new Regex(
             @"^앞\s*(숨고르기|순환\s*기술|저항\s*감소\s*기술)\s*마다\s*다음\s*턴\s*제한\s*시간\s*\+\s*([0-9]{1,3})\s*초\s*\(\s*최대\s*([0-9]{1,3})\s*\)$",
@@ -186,7 +191,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         /// <summary>A row's 사용 효과 as the sheet writes it: <c>앞 숨고르기마다 위력 +4 (최대 4)</c>,
-        /// <c>앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)</c>, <see cref="AutoDodgePhrase"/>, or empty for none.</summary>
+        /// <c>앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)</c>, <see cref="AutoDodgePhrase"/>,
+        /// <c>상대 ACT 8 이상이면 ACT 3 강탈</c>, or empty for none.</summary>
         public static string UseEffect(LegacySkillEffect effect)
         {
             if (effect == null) return string.Empty;
@@ -204,6 +210,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.HasAheadHitPower)
                 return "앞 공격 총타수 " + effect.AheadAttackHitsRequired.ToString(CultureInfo.InvariantCulture) +
                     " 이상 위력 +" + effect.AheadAttackHitsPowerBonus.ToString(CultureInfo.InvariantCulture);
+            if (effect.HasActSteal)
+                return "상대 ACT " + effect.ActStealThreshold.ToString(CultureInfo.InvariantCulture) +
+                    " 이상이면 ACT " + effect.ActStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈";
             return string.Empty;
         }
 
@@ -254,7 +263,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         /// <summary>Reads one 사용 효과 phrase into <paramref name="effect"/>: <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c> (n 1-10,
-        /// m 1-4), <c>앞 &lt;대상&gt;마다 다음 턴 제한시간 +n초 (최대 m)</c> (n 1-3, m 1-3), or <see cref="AutoDodgePhrase"/>; spaces
+        /// m 1-4), <c>앞 &lt;대상&gt;마다 다음 턴 제한시간 +n초 (최대 m)</c> (n 1-3, m 1-3), <see cref="AutoDodgePhrase"/>,
+        /// or <c>상대 ACT n 이상이면 ACT m 강탈</c> (n and m 1-10); spaces
         /// between the parts are optional. False, with nothing set, for blank or anything else.</summary>
         internal static bool TryReadUseEffect(string text, LegacySkillEffect effect)
         {
@@ -262,6 +272,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Compact(trimmed) == Compact(AutoDodgePhrase))
             {
                 effect.AutoDodge = true;
+                return true;
+            }
+            Match actSteal = ActStealPattern.Match(trimmed);
+            if (actSteal.Success)
+            {
+                int threshold = int.Parse(actSteal.Groups[1].Value, CultureInfo.InvariantCulture);
+                int amount = int.Parse(actSteal.Groups[2].Value, CultureInfo.InvariantCulture);
+                if (threshold < MinimumActStealValue || threshold > MaximumActStealValue ||
+                    amount < MinimumActStealValue || amount > MaximumActStealValue) return false;
+                effect.ActStealThreshold = threshold;
+                effect.ActStealAmount = amount;
                 return true;
             }
             Match protectionSpend = ProtectionSpendPattern.Match(trimmed);

@@ -10,7 +10,8 @@ namespace TurnLimbo.Presentation
     /// <summary>Versus's thin PvP layer over the duel HUD (<see cref="LegacyCombatHud"/>, the one the campaign's battles use,
     /// which <see cref="LocalVersusController"/> drives from the viewer's side). It shows only what single play has no place
     /// for: whose reservation turn it is (내 차례 / 상대 차례 / 판정 중 / 승부 종료) on a plate under the turn header, a hint under
-    /// that (the current planning step or a request waiting for the host), each fighter's identity at its feet with a ring
+    /// that (the current planning step or a request waiting for the host), both fighters' remaining ACT beside their queues,
+    /// each fighter's identity at its feet with a ring
     /// under the one whose turn it is, and the way out: a 타이틀 [Esc] button and a confirmation that never pauses the duel
     /// (the clocks are the host's). Match rules, input and the result card stay with the controller.</summary>
     public sealed partial class LocalVersusHud : IDisposable
@@ -35,6 +36,11 @@ namespace TurnLimbo.Presentation
         private readonly GameObject hintPlate;
         private readonly GameObject exitOverlay;
         private readonly Button titleButton, confirmExitButton, cancelExitButton;
+        public const string OwnActBadgeName = "Versus Own ACT", OpponentActBadgeName = "Versus Opponent ACT";
+        private const float ActBadgeWidth = 190f, ActBadgeHeight = 44f, ActBadgeGap = 10f;
+        private readonly ActBadge[] actBadges = new ActBadge[2];
+        private readonly RectTransform[] actQueueAnchors = new RectTransform[2];
+        private readonly int actStealThreshold;
         private bool disposed;
 
         public GameObject Root => root.gameObject;
@@ -46,12 +52,18 @@ namespace TurnLimbo.Presentation
         /// <summary>The turn plate's words and the hint under it ("" while there is none).</summary>
         public string TurnText => activeLabel.text;
         public string HintText => hintPlate.activeSelf ? hintLabel.text : string.Empty;
+        public string OwnActText => actBadges[0].Label.text;
+        public string OpponentActText => actBadges[1].Label.text;
+        public bool OwnActAtRisk => actBadges[0].AtRisk;
+        public bool OpponentActAtRisk => actBadges[1].AtRisk;
 
         /// <param name="exit">The confirmation's 타이틀로: leaves the duel.</param>
         public LocalVersusHud(Transform parent, LegacyDuelArt art, Action exit)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
+            actStealThreshold = LegacySkillDefinitions.Find(62)?.Effect?.ActStealThreshold ?? 8;
+            if (actStealThreshold <= 0) actStealThreshold = 8;
             root = Rect("Local Versus HUD", parent, Vector2.zero, Vector2.zero);
             var canvas = root.gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -93,6 +105,7 @@ namespace TurnLimbo.Presentation
             exitRect.anchorMin = exitRect.anchorMax = exitRect.pivot = Vector2.one;
             exitRect.anchoredPosition = new Vector2(-26f, -18f);
             BuildTurnMarkers();
+            BuildActBadges();
 
             // Its own canvas keeps the question over the result card as well; nothing pauses while it is up.
             var exitVeil = Panel("Versus Exit Confirmation", root, Vector2.zero, Vector2.zero,
@@ -133,6 +146,96 @@ namespace TurnLimbo.Presentation
             hintLabel.text = hint;
             hintLabel.color = mine && requestPending ? DuelVisualTheme.Accent : DuelVisualTheme.Muted;
             RefreshTurnMarkers(current, localPlayer, planning);
+            RefreshActBadges(current, localPlayer);
+        }
+
+        /// <summary>The duel HUD's queue trays, already in viewer order: own on the left, opponent on the right. The ACT
+        /// badges follow their outer edges as the command dock folds, so both values remain visible during resolution.</summary>
+        public void SetQueueAnchors(RectTransform ownQueue, RectTransform opponentQueue)
+        {
+            actQueueAnchors[0] = ownQueue;
+            actQueueAnchors[1] = opponentQueue;
+        }
+
+        private void BuildActBadges()
+        {
+            for (int side = 0; side < 2; side++)
+            {
+                Image plate = Panel(side == 0 ? OwnActBadgeName : OpponentActBadgeName, battleLayer,
+                    Vector2.zero, new Vector2(ActBadgeWidth, ActBadgeHeight), DuelVisualTheme.Surface);
+                DuelVisualTheme.Frame(plate);
+                Text label = Label("Versus ACT Amount", plate.transform, new Vector2(0f, 2f),
+                    new Vector2(ActBadgeWidth - 12f, 34f), 22, DuelVisualTheme.Foreground);
+                Image track = Panel("ACT Track", plate.transform, new Vector2(0f, -15f),
+                    new Vector2(ActBadgeWidth - 20f, 3f), DuelVisualTheme.Track);
+                Image fill = Panel("ACT Fill", track.transform, Vector2.zero, Vector2.zero, DuelVisualTheme.Accent);
+                RectTransform fillRect = fill.rectTransform;
+                fillRect.anchorMin = Vector2.zero;
+                fillRect.anchorMax = new Vector2(0f, 1f);
+                fillRect.pivot = new Vector2(0f, .5f);
+                actBadges[side] = new ActBadge(plate, label, fill);
+            }
+        }
+
+        private void RefreshActBadges(LocalVersusMatch current, int localPlayer)
+        {
+            Vector2 size = root.rect.size;
+            if (size.x < 1f || size.y < 1f) size = new Vector2(1920f, 1080f);
+            for (int side = 0; side < 2; side++)
+            {
+                ActBadge badge = actBadges[side];
+                LocalVersusFighter fighter = current.GetFighter(side == 0 ? localPlayer : 1 - localPlayer);
+                if (badge.Act != fighter.Act || badge.Maximum != fighter.MaximumAct)
+                {
+                    badge.Act = fighter.Act;
+                    badge.Maximum = fighter.MaximumAct;
+                    badge.AtRisk = fighter.Act >= actStealThreshold;
+                    badge.Label.text = (side == 0 ? "나" : "상대") + "  ACT " + fighter.Act + " / " + fighter.MaximumAct;
+                    badge.Plate.color = badge.AtRisk ? DuelVisualTheme.Danger
+                        : side == 0 ? DuelVisualTheme.Paper : DuelVisualTheme.Surface;
+                    badge.Label.color = badge.AtRisk || side == 0 ? DuelVisualTheme.Ink : DuelVisualTheme.Foreground;
+                    badge.Fill.color = badge.AtRisk ? DuelVisualTheme.Ink
+                        : side == 0 ? DuelVisualTheme.Border : DuelVisualTheme.Accent;
+                    badge.Fill.rectTransform.anchorMax = new Vector2(
+                        fighter.MaximumAct > 0 ? Mathf.Clamp01((float)fighter.Act / fighter.MaximumAct) : 0f, 1f);
+                }
+
+                float direction = side == 0 ? -1f : 1f;
+                RectTransform queue = actQueueAnchors[side];
+                Vector2 point;
+                if (queue != null)
+                {
+                    Vector3 edge = queue.TransformPoint(new Vector3(direction * queue.rect.width * .5f, 0f, 0f));
+                    Vector3 local = root.InverseTransformPoint(edge);
+                    point = new Vector2(local.x, local.y);
+                    point.x += direction * (ActBadgeGap + ActBadgeWidth * .5f);
+                }
+                else
+                {
+                    // Direct HUD users without queue anchors still see the values by the normal planning trays.
+                    point = new Vector2(direction * (LegacyQueuePanelLayout.DefaultPanelWidth +
+                        LegacyQueuePanelLayout.DefaultSeamGap * .5f + ActBadgeGap + ActBadgeWidth * .5f),
+                        -size.y * .5f + 300f);
+                }
+                point.x = Mathf.Clamp(point.x, -size.x * .5f + ActBadgeWidth * .5f + 12f,
+                    size.x * .5f - ActBadgeWidth * .5f - 12f);
+                badge.Plate.rectTransform.anchoredPosition = point;
+            }
+        }
+
+        private sealed class ActBadge
+        {
+            public readonly Image Plate, Fill;
+            public readonly Text Label;
+            public int Act = -1, Maximum = -1;
+            public bool AtRisk;
+
+            public ActBadge(Image plate, Text label, Image fill)
+            {
+                Plate = plate;
+                Label = label;
+                Fill = fill;
+            }
         }
 
         /// <summary>The turn plate's words for <paramref name="localPlayer"/>.</summary>
