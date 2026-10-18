@@ -294,7 +294,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Only the host accepts its connected opponent's requested command.</summary>
         public bool TryApplyOnlinePeerAction(OnlineVersusAction action, int lane, int round)
         {
-            if (!active || !onlineHost ||
+            if (!active || !onlineHost || !IsPlanningShown ||
                 match.Phase != LegacyDuelPhase.Planning || match.CurrentPlanner != 1 || match.RoundNumber != round)
                 return false;
             // The host's clocks decide: a reservation the guest's clock cannot pay for is refused.
@@ -311,7 +311,7 @@ namespace TurnLimbo.Presentation
         /// <summary>The guest applies only a host-approved command, in its original turn order.</summary>
         public bool ApplyOnlineAcceptedAction(int player, OnlineVersusAction action, int lane, int round)
         {
-            if (!active || onlineHost || match.Phase != LegacyDuelPhase.Planning ||
+            if (!active || onlineHost || !IsPlanningShown || match.Phase != LegacyDuelPhase.Planning ||
                 match.CurrentPlanner != player || match.RoundNumber != round)
                 return false;
             LegacySkill[] cancelled = CancelledQueue(player, action, lane);
@@ -414,6 +414,7 @@ namespace TurnLimbo.Presentation
             if (startCard.IsShowing)
             {
                 AdvanceStartCard(realDelta);
+                ConsumeHeldLaneKeys(keyboard);
                 return;
             }
             // The finishing blow's freeze frame: nothing moves until the result comes.
@@ -518,7 +519,7 @@ namespace TurnLimbo.Presentation
 
         private void BeginMatch()
         {
-            // Another match on the same screens is a rematch: its start card is the short one, on both peers alike.
+            // Another match on the same screens uses the retry setting, with the same minimum coin reveal on both peers.
             bool rematch = match != null;
             match = new LocalVersusMatch(leftSkills, rightSkills,
                 randomSeed: onlineSeed, roundLimit: RoundLimit, openingPlayer: onlineOpeningPlayer);
@@ -587,8 +588,8 @@ namespace TurnLimbo.Presentation
         private bool CanInspect => IsPlanningShown && !hud.IsExitConfirming;
 
         /// <summary>The start card ('나' on the left, '상대' on the right, both 엘리사) holds the match from its start to its first
-        /// planning turn: no clock, no input. It cannot be skipped, so both peers reach planning together; a rematch gets the
-        /// short one on both.</summary>
+        /// planning turn: no clock, no input. The central coin reveals the host's opening-player result. It cannot be
+        /// skipped, and a rematch also holds long enough to show its new toss.</summary>
         private void BeginStartCard(bool rematch)
         {
             float seconds = !StartCardsEnabled ? 0f : rematch ? settings.StartCardRetrySeconds : settings.StartCardSeconds;
@@ -597,7 +598,7 @@ namespace TurnLimbo.Presentation
                 startCard.Clear();
                 return;
             }
-            startCard.Show(seconds, OpponentName, DuelStartCard.PlayerSilhouette, LocalName, mirrorOpponent: true);
+            startCard.ShowVersusCoinToss(seconds, match.OpeningPlayer, view.LocalPlayer);
             battleHud.Root.SetActive(false);
             hud.SetBattleVisible(false);
         }
@@ -688,7 +689,7 @@ namespace TurnLimbo.Presentation
             => holds.Read(lane, keyHeld, keyPressed, keyReleased, realDelta, battleHud, settings, view.GetLane(lane),
                 queueOnRelease);
 
-        // Keys pressed before or during the exit question cannot queue a skill when released after it.
+        // Keys held across the opening toss or exit question cannot queue a skill when released afterwards.
         private void ConsumeHeldLaneKeys(Keyboard keyboard)
         {
             if (keyboard == null) return;

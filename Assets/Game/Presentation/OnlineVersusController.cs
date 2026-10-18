@@ -17,6 +17,7 @@ namespace TurnLimbo.Presentation
         private VersusLoadout remoteLoadout;
         private readonly OnlineRelayLink link;
         private readonly Action<string> messageSender;
+        private readonly Func<int> openingPlayerSource;
         private readonly Action returnToTitle;
         private readonly Queue<OnlineVersusMessage> accepted = new Queue<OnlineVersusMessage>();
         private readonly Queue<OnlineVersusMessage> digests = new Queue<OnlineVersusMessage>();
@@ -32,7 +33,7 @@ namespace TurnLimbo.Presentation
         private bool readyChangePending;
         private bool localRematch, remoteRematch, sentFinalDigest, disposed, previousRunInBackground;
         private int generation, nextRequestSequence, lastRequestSequence, nextAppliedSequence, lastAppliedSequence;
-        private int lastDigestRound, lastDigestSequence, rematchCount;
+        private int lastDigestRound, lastDigestSequence;
         private int nextReadySequence, lastReadySequence;
         private float clockBroadcast, handshakeElapsed, handshakeRetryElapsed;
 
@@ -48,10 +49,17 @@ namespace TurnLimbo.Presentation
 
         internal OnlineVersusController(Transform parent, LegacyDuelArt art, LocalVersusController duel,
             Action returnToTitle, Action<string> messageSender)
+            : this(parent, art, duel, returnToTitle, messageSender, null)
+        {
+        }
+
+        internal OnlineVersusController(Transform parent, LegacyDuelArt art, LocalVersusController duel,
+            Action returnToTitle, Action<string> messageSender, Func<int> openingPlayerSource)
         {
             this.duel = duel ?? throw new ArgumentNullException(nameof(duel));
             this.returnToTitle = returnToTitle ?? throw new ArgumentNullException(nameof(returnToTitle));
             this.messageSender = messageSender;
+            this.openingPlayerSource = openingPlayerSource ?? DrawOpeningPlayer;
             link = new OnlineRelayLink();
             link.PeerJoined += OnPeerJoined;
             link.PeerLeft += OnPeerLeft;
@@ -78,7 +86,6 @@ namespace TurnLimbo.Presentation
             ResetReadyRequests();
             localRematch = remoteRematch = false;
             remoteLoadout = null;
-            rematchCount = 0;
             phase = OnlineInvitePhase.Choice;
             message = matchId = pendingFailure = null;
             hud.Show();
@@ -399,8 +406,21 @@ namespace TurnLimbo.Presentation
         private void StartHostBattle()
         {
             if (remoteLoadout == null) return;
+            int opening;
+            try
+            {
+                // This draw belongs to the room host, independently of the deterministic combat generator.
+                // A rematch draws again: the same player can win two or more tosses in succession.
+                opening = openingPlayerSource();
+                if (opening < 0 || opening > 1)
+                    throw new InvalidOperationException("The opening player must be 0 or 1.");
+            }
+            catch (Exception)
+            {
+                Fail("동전 던지기 결과를 확인할 수 없습니다. 다시 방을 만들어 주세요.");
+                return;
+            }
             int seed = Guid.NewGuid().GetHashCode();
-            int opening = rematchCount % 2;
             string id = Guid.NewGuid().ToString("N");
             if (!Send(new OnlineVersusMessage { Kind = OnlineVersusMessageKind.Start,
                 MatchId = id, Seed = seed, OpeningPlayer = opening, RulesHash = rulesHash,
@@ -413,10 +433,19 @@ namespace TurnLimbo.Presentation
                 localLoadout, remoteLoadout);
         }
 
+        private static int DrawOpeningPlayer()
+        {
+            var sample = new byte[1];
+            using (var random = System.Security.Cryptography.RandomNumberGenerator.Create())
+                random.GetBytes(sample);
+            return sample[0] & 1;
+        }
+
         private void ReceiveStart(OnlineVersusMessage packet)
         {
             if (host || !peerConnected || !rulesMatched || !localReady ||
                 !string.Equals(packet.RulesHash, rulesHash, StringComparison.Ordinal)) return;
+            if (battle && string.Equals(packet.MatchId, matchId, StringComparison.Ordinal)) return;
             if (battle && (duel.Match == null || !duel.Match.IsFinished)) return;
             var left = new VersusLoadout();
             var right = new VersusLoadout();
@@ -500,7 +529,9 @@ namespace TurnLimbo.Presentation
 
         private void ApplyAcceptedInOrder()
         {
-            if (host || !battle || duel.Match == null) return;
+            // A delayed Start can leave this screen's coin toss behind the host's. Preserve its accepted commands
+            // until this screen has revealed the result and returned to planning.
+            if (host || !battle || duel.Match == null || duel.IsShowingStartCard) return;
             while (accepted.Count > 0)
             {
                 // The host sends a round's planning digest before any command of that round, so verify it first: the
@@ -535,7 +566,7 @@ namespace TurnLimbo.Presentation
         private void ReceiveClock(OnlineVersusMessage packet)
         {
             if (host || !battle || packet.MatchId != matchId || duel.Match == null ||
-                packet.Round != duel.Match.RoundNumber) return;
+                packet.Round != duel.Match.RoundNumber || duel.IsShowingStartCard) return;
             duel.SyncOnlineClocks(packet.LeftClock, packet.RightClock);
         }
 
@@ -615,7 +646,6 @@ namespace TurnLimbo.Presentation
         {
             if (!host || !localRematch || !remoteRematch || !peerConnected ||
                 duel.Match == null || !duel.Match.IsFinished) return;
-            rematchCount++;
             StartHostBattle();
         }
 

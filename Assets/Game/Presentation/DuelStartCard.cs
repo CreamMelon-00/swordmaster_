@@ -16,7 +16,7 @@ namespace TurnLimbo.Presentation
     /// (<c>Docs/DuelAndBattle.md</c>). A click anywhere on it asks to skip it (the controller also takes Enter, Space and
     /// Escape). Its own overlay canvas sits over the duel HUD (100), the coach (300) and its bars
     /// (<see cref="DuelLetterbox"/>, 350), under the result (400) and the cutscene layers (450).</summary>
-    public sealed class DuelStartCard : IDisposable
+    public sealed partial class DuelStartCard : IDisposable
     {
         public const int SortingOrder = 355;
         public const string PlayerName = "엘리사";
@@ -98,6 +98,7 @@ namespace TurnLimbo.Presentation
             swords = Graphic<DuelCrossedSwords>("Crossed Swords", mark);
             Stretch(swords.rectTransform);
             swords.raycastTarget = false;
+            CreateCoinToss();
             Hide();
         }
 
@@ -125,6 +126,7 @@ namespace TurnLimbo.Presentation
             bool mirrorOpponent = false)
         {
             if (disposed) return;
+            ResetCoinToss();
             timeline.Begin(seconds);
             if (!timeline.IsShowing)
             {
@@ -184,6 +186,7 @@ namespace TurnLimbo.Presentation
             swords.Spread = Mathf.Lerp(MarkOpenSpread, DuelCrossedSwords.RestSpread, mark);
             swords.rectTransform.localScale = Vector3.one * Mathf.Lerp(MarkStartScale, 1f, mark);
             swordsGroup.alpha = timeline.MarkOpacity;
+            ApplyCoinToss();
         }
 
         private void Place(Side side, float slide)
@@ -200,6 +203,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             letterbox.SetAmount(0f);
             veil.color = Color.clear;
+            ResetCoinToss();
             root.gameObject.SetActive(false);
         }
 

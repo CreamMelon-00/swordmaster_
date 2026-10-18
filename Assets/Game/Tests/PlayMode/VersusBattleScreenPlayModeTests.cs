@@ -373,7 +373,9 @@ namespace TurnLimbo.Presentation.Tests
                 scope.StartHost(LegacyInitialSkills.All, LegacyInitialSkills.All);
                 DuelStartCard card = versus.StartCard;
                 Assert.That(versus.IsShowingStartCard, Is.True);
-                Assert.That(card.Timeline.Seconds, Is.EqualTo(scope.Settings.StartCardSeconds).Within(1e-4f));
+                float seconds = Mathf.Max(scope.Settings.StartCardSeconds, DuelStartCard.MinimumCoinTossSeconds);
+                Assert.That(card.Timeline.Seconds, Is.EqualTo(seconds).Within(1e-4f));
+                Assert.That(card.IsCoinToss, Is.True);
                 Assert.That(card.PlayerLabel.text, Is.EqualTo(LocalVersusController.LocalName));
                 Assert.That(card.OpponentLabel.text, Is.EqualTo(LocalVersusController.OpponentName));
                 Assert.That(card.OpponentFigure.sprite, Is.SameAs(card.PlayerFigure.sprite), "Both fighters are 엘리사.");
@@ -385,14 +387,77 @@ namespace TurnLimbo.Presentation.Tests
 
                 card.SkipButton.onClick.Invoke();
                 Assert.That(versus.IsShowingStartCard, Is.True, "Neither peer can cut its card short.");
-                versus.Tick(scope.Settings.StartCardSeconds * .5f, null);
+                versus.Tick(seconds * .5f, null);
                 Assert.That(versus.LeftClock, Is.EqualTo(Seconds), "No clock runs under the card.");
-                versus.Tick(scope.Settings.StartCardSeconds * .5f + .01f, null);
+                versus.Tick(seconds * .5f + .01f, null);
                 Assert.That(versus.IsShowingStartCard, Is.False);
                 Assert.That(versus.BattleHud.Root.activeSelf, Is.True);
                 Assert.That(versus.Hud.IsBattleVisible, Is.True);
                 versus.Tick(1f, null);
                 Assert.That(versus.LeftClock, Is.EqualTo(Seconds - 1f).Within(1e-4f));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CoinToss_BlocksBothOwnersCommandsAndClocks_UntilItsOpeningResultHasBeenShown()
+        {
+            yield return null;
+            foreach (int opening in new[] { 0, 1 })
+            {
+                using (var scope = new VersusScope())
+                {
+                    LocalVersusController versus = scope.Versus;
+                    versus.StartCardsEnabled = true;
+                    scope.StartHost(LegacyInitialSkills.All, LegacyInitialSkills.All, opening);
+                    float seconds = versus.StartCard.Timeline.Seconds;
+                    Assert.That(versus.StartCard.CoinResultRevealed, Is.False);
+                    Assert.That(versus.TryQueueLane(0), Is.False);
+                    Assert.That(versus.TryCommit(), Is.False);
+                    Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.False);
+                    Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.False);
+                    Assert.That(versus.Match.Left.Queue, Is.Empty);
+                    Assert.That(versus.Match.Right.Queue, Is.Empty);
+                    versus.Tick(seconds * .7f, null);
+                    Assert.That(versus.StartCard.CoinResultRevealed, Is.True);
+                    Assert.That(versus.StartCard.CoinResultText, Is.EqualTo(opening == 0 ? "선공 · 나" : "선공 · 상대"));
+                    Assert.That(versus.LeftClock, Is.EqualTo(Seconds));
+                    Assert.That(versus.RightClock, Is.EqualTo(Seconds));
+                    Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.False);
+                    versus.Tick(seconds * .3f + .01f, null);
+                    Assert.That(versus.IsShowingStartCard, Is.False);
+                    Assert.That(versus.Match.CurrentPlanner, Is.EqualTo(opening));
+                    Assert.That(opening == 0 ? versus.TryQueueLane(0)
+                        : versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator LaneKeyHeldDuringCoinToss_DoesNotReserveWhenReleasedAfterTheReveal()
+        {
+            yield return null;
+            using (var scope = new VersusScope())
+            {
+                Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+                LocalVersusController versus = scope.Versus;
+                versus.StartCardsEnabled = true;
+                scope.StartHost(LegacyInitialSkills.All, LegacyInitialSkills.All);
+                Press(keyboard.qKey);
+                yield return null;
+                versus.Tick(versus.StartCard.Timeline.Seconds + .01f, keyboard);
+                Assert.That(versus.IsShowingStartCard, Is.False);
+                Release(keyboard.qKey);
+                yield return null;
+                versus.Tick(0f, keyboard);
+                Assert.That(versus.Match.Left.Queue, Is.Empty, "A press made during the toss cannot become a planning tap.");
+
+                Press(keyboard.qKey);
+                yield return null;
+                versus.Tick(0f, keyboard);
+                Release(keyboard.qKey);
+                yield return null;
+                versus.Tick(0f, keyboard);
+                Assert.That(versus.Match.Left.Queue.Count, Is.EqualTo(1), "A new tap after the toss still reserves normally.");
             }
         }
 
@@ -434,13 +499,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Caption(retry), Is.EqualTo(BattleResultHud.VersusWaitingCaption));
                 Assert.That(retry.interactable, Is.False);
 
-                // Both agreed: the host starts the rematch on the same screens, with the short start card.
+                // Both agreed: the host starts the rematch on the same screens with a new coin result.
                 versus.StartCardsEnabled = true;
                 scope.StartHost(new[] { Finisher }, LegacyInitialSkills.All, opening: 1);
                 Assert.That(versus.Match, Is.Not.SameAs(match));
                 Assert.That(versus.IsShowingResult, Is.False);
                 Assert.That(versus.StartCard.Timeline.Seconds,
-                    Is.EqualTo(scope.Settings.StartCardRetrySeconds).Within(1e-4f));
+                    Is.EqualTo(Mathf.Max(scope.Settings.StartCardRetrySeconds, DuelStartCard.MinimumCoinTossSeconds)).Within(1e-4f));
             }
         }
 

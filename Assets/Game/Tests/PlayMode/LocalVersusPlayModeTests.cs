@@ -238,7 +238,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(retry.GetComponentInChildren<Text>(true).text, Is.EqualTo(BattleResultHud.VersusWaitingCaption));
                 Assert.That(versus.Match, Is.SameAs(first));
 
-                // Both voted: the host starts the rematch with the other opener (the room counts its rematches).
+                // Both voted: the host starts the rematch with a new opening result supplied by the room.
                 versus.StartOnline(Seed + 1, 0, true, 1, LegacyInitialSkills.All, LegacyInitialSkills.All,
                     (action, lane) => { }, () => rematchVotes++);
                 Assert.That(versus.IsActive, Is.True);
@@ -253,8 +253,9 @@ namespace TurnLimbo.Presentation.Tests
                 float retryCard = versus.PresentationSettings.StartCardRetrySeconds;
                 Assert.That(versus.IsShowingStartCard, Is.EqualTo(retryCard > 0f));
                 if (retryCard > 0f)
-                    Assert.That(versus.StartCard.Timeline.Seconds, Is.EqualTo(retryCard).Within(1e-4f),
-                        "A rematch opens with the short start card.");
+                    Assert.That(versus.StartCard.Timeline.Seconds,
+                        Is.EqualTo(Mathf.Max(retryCard, DuelStartCard.MinimumCoinTossSeconds)).Within(1e-4f),
+                        "A rematch leaves time for its new coin result.");
                 Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo(saveBefore));
             }
         }

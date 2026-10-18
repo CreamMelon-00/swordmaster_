@@ -334,6 +334,154 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator CoinToss_HostChoosesEitherSide_AndBothPeersRevealTheSameResultWithoutSpendingClock()
+        {
+            yield return null;
+            foreach (int opening in new[] { 0, 1 })
+            {
+                int hostDraws = 0, guestDraws = 0;
+                using (var pair = new Pair(() => { hostDraws++; return opening; },
+                    () => { guestDraws++; throw new InvalidOperationException("A guest never tosses the coin."); }))
+                {
+                    pair.EnableCoinCards();
+                    pair.ReadyBoth();
+                    pair.Host.Online.Hud.StartButton.onClick.Invoke();
+                    OnlineVersusMessage start = Decode(pair.Host.Outgoing.Peek());
+                    Assert.That(start.Kind, Is.EqualTo(OnlineVersusMessageKind.Start));
+                    Assert.That(start.OpeningPlayer, Is.EqualTo(opening));
+                    pair.DeliverHost();
+                    pair.AssertSameBattle();
+                    Assert.That(hostDraws, Is.EqualTo(1));
+                    Assert.That(guestDraws, Is.Zero);
+                    Assert.That(pair.Host.Duel.Match.OpeningPlayer, Is.EqualTo(opening));
+                    Assert.That(pair.Guest.Duel.Match.OpeningPlayer, Is.EqualTo(opening));
+                    Assert.That(pair.Host.Duel.StartCard.IsCoinToss, Is.True);
+                    Assert.That(pair.Guest.Duel.StartCard.IsCoinToss, Is.True);
+                    Assert.That(pair.Host.Duel.StartCard.CoinResultRevealed, Is.False);
+                    Assert.That(pair.Guest.Duel.StartCard.CoinResultRevealed, Is.False);
+                    Assert.That(pair.Host.Duel.StartCard.Timeline.Seconds,
+                        Is.GreaterThanOrEqualTo(DuelStartCard.MinimumCoinTossSeconds));
+                    Assert.That(pair.Host.Duel.TryBreath(), Is.False);
+                    Assert.That(pair.Guest.Duel.TryBreath(), Is.False);
+                    Assert.That(pair.Host.Duel.TryApplyOnlinePeerAction(OnlineVersusAction.Breath, -1, 1), Is.False);
+                    Assert.That(pair.Host.Outgoing, Is.Empty);
+                    Assert.That(pair.Guest.Outgoing, Is.Empty);
+
+                    pair.AdvanceUntil(() => pair.Host.Duel.StartCard.CoinResultRevealed &&
+                        pair.Guest.Duel.StartCard.CoinResultRevealed);
+                    Assert.That(pair.Host.Duel.IsShowingStartCard && pair.Guest.Duel.IsShowingStartCard, Is.True);
+                    Assert.That(pair.Host.Duel.StartCard.CoinResultText, Does.Contain("선공"));
+                    Assert.That(pair.Guest.Duel.StartCard.CoinResultText, Does.Contain("선공"));
+                    Assert.That(pair.Host.Duel.StartCard.CoinResultText,
+                        Is.Not.EqualTo(pair.Guest.Duel.StartCard.CoinResultText), "The same winner is described from each viewer's side.");
+                    Assert.That(pair.Host.Duel.LeftClock, Is.EqualTo(LocalVersusController.PlanningSeconds));
+                    Assert.That(pair.Host.Duel.RightClock, Is.EqualTo(LocalVersusController.PlanningSeconds));
+                    Assert.That(pair.Guest.Duel.LeftClock, Is.EqualTo(LocalVersusController.PlanningSeconds));
+                    Assert.That(pair.Guest.Duel.RightClock, Is.EqualTo(LocalVersusController.PlanningSeconds));
+                    pair.WaitForOpening();
+                    if (opening == 0) pair.HostAction(pair.Host.Duel.TryBreath);
+                    else pair.GuestAction(OnlineVersusAction.Breath, pair.Guest.Duel.TryBreath);
+                    Assert.That(pair.Host.Duel.Match.GetFighter(opening).Queue.Count, Is.EqualTo(1));
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CoinToss_RematchesDrawAgain_AllowTheSameWinner_AndIgnoreReplayedStartPackets()
+        {
+            yield return null;
+            var choices = new Queue<int>(new[] { 0, 0, 1 });
+            int hostDraws = 0, guestDraws = 0;
+            using (var pair = new Pair(() => { hostDraws++; return choices.Dequeue(); },
+                () => { guestDraws++; return 1; }))
+            {
+                pair.EnableCoinCards();
+                pair.ReadyBoth();
+                pair.Host.Online.Hud.StartButton.onClick.Invoke();
+                var matchIds = new HashSet<string>();
+                foreach (int opening in new[] { 0, 0, 1 })
+                {
+                    OnlineVersusMessage start = Decode(pair.Host.Outgoing.Peek());
+                    Assert.That(start.Kind, Is.EqualTo(OnlineVersusMessageKind.Start));
+                    Assert.That(start.OpeningPlayer, Is.EqualTo(opening));
+                    Assert.That(matchIds.Add(start.MatchId), Is.True);
+                    pair.DeliverHost();
+                    pair.AssertSameBattle();
+                    Assert.That(pair.Host.Duel.Match.OpeningPlayer, Is.EqualTo(opening));
+                    Assert.That(pair.Guest.Duel.Match.OpeningPlayer, Is.EqualTo(opening));
+                    Assert.That(pair.Host.Duel.StartCard.IsCoinToss && pair.Guest.Duel.StartCard.IsCoinToss, Is.True);
+                    pair.WaitForOpening();
+                    if (hostDraws == 3) break;
+
+                    pair.FinishAsDraw();
+                    pair.Guest.Receive(start.Encode());
+                    Assert.That(pair.Guest.Duel.Match.IsFinished, Is.True, "An old Start cannot restart a completed match.");
+                    Assert.That(pair.Guest.Duel.IsShowingStartCard, Is.False);
+                    pair.AssertSameBattle();
+                    Assert.That(pair.Host.Duel.Rematch(), Is.True);
+                    Assert.That(hostDraws, Is.EqualTo(matchIds.Count), "One vote cannot toss the coin or restart the match.");
+                    Assert.That(pair.Guest.Duel.Rematch(), Is.True);
+                    pair.DeliverGuest();
+                }
+                Assert.That(hostDraws, Is.EqualTo(3));
+                Assert.That(guestDraws, Is.Zero);
+                Assert.That(choices, Is.Empty);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CoinToss_AcceptedCommandsWaitForALateGuestsReveal_AndClocksStayFrozenUnderItsCard()
+        {
+            yield return null;
+            using (var pair = new Pair())
+            {
+                pair.EnableCoinCards();
+                pair.ReadyBoth();
+                pair.Host.Online.Hud.StartButton.onClick.Invoke();
+                pair.DeliverHost();
+                pair.Host.Online.Tick(pair.Host.Duel.StartCard.Timeline.Seconds + .01f, null);
+                pair.DeliverHost();
+                Assert.That(pair.Host.Duel.IsShowingStartCard, Is.False);
+                Assert.That(pair.Guest.Duel.IsShowingStartCard, Is.True);
+                pair.Host.Online.Tick(.6f, null);
+                Assert.That(pair.Host.Duel.LeftClock, Is.LessThan(LocalVersusController.PlanningSeconds));
+                pair.DeliverHost();
+                Assert.That(pair.Guest.Duel.LeftClock, Is.EqualTo(LocalVersusController.PlanningSeconds),
+                    "A periodic clock packet cannot consume the late guest's opening presentation.");
+                Assert.That(pair.Host.Duel.TryBreath(), Is.True);
+                pair.DeliverHost();
+                Assert.That(pair.Host.Duel.Match.Left.Queue.Count, Is.EqualTo(1));
+                Assert.That(pair.Guest.Duel.Match.Left.Queue, Is.Empty);
+                Assert.That(pair.Guest.Online.IsInBattle, Is.True);
+                Assert.That(Get<Queue<OnlineVersusMessage>>(pair.Guest.Online, "accepted").Count, Is.EqualTo(1));
+
+                pair.Guest.Online.Tick(pair.Guest.Duel.StartCard.Timeline.Seconds + .01f, null);
+                pair.AssertSameBattle();
+                Assert.That(pair.Guest.Duel.Match.Left.Queue.Count, Is.EqualTo(1));
+                Assert.That(Get<Queue<OnlineVersusMessage>>(pair.Guest.Online, "accepted"), Is.Empty);
+                Assert.That(pair.Guest.Duel.LeftClock, Is.EqualTo(pair.Host.Duel.LeftClock));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator CoinToss_InvalidHostChoice_DoesNotSendAnInvalidStartOrBeginBattle()
+        {
+            yield return null;
+            foreach (int invalid in new[] { -1, 2 })
+            using (var pair = new Pair(() => invalid))
+            {
+                pair.ReadyBoth();
+                pair.Host.Online.Hud.StartButton.onClick.Invoke();
+                Assert.That(pair.Host.Online.IsInBattle, Is.False);
+                Assert.That(pair.Guest.Online.IsInBattle, Is.False);
+                Assert.That(pair.Host.Duel.Match, Is.Null);
+                Assert.That(pair.Host.Outgoing, Is.Empty);
+                Assert.That(Get<OnlineInvitePhase>(pair.Host.Online, "phase"), Is.EqualTo(OnlineInvitePhase.Error));
+                Assert.That(pair.Host.Online.Hud.IsVisible, Is.True);
+            }
+        }
+
         private static OnlineVersusMessage Decode(string json)
         {
             Assert.That(OnlineVersusMessage.TryDecode(json, out OnlineVersusMessage result, out string error),
@@ -363,17 +511,18 @@ namespace TurnLimbo.Presentation.Tests
             public VersusLoadout Loadout => Get<VersusLoadout>(Online, "localLoadout");
             public VersusLoadoutHud LoadoutHud => Get<VersusLoadoutHud>(Online, "loadoutHud");
 
-            public Peer(bool host, LegacyDuelArt art, DuelPresentationSettings settings)
+            public Peer(bool host, LegacyDuelArt art, DuelPresentationSettings settings, Func<int> openingPlayerSource)
             {
                 root = new GameObject(host ? "Ready Cancellation Host" : "Ready Cancellation Guest");
                 arena = LegacyArenaView.Create(root.transform, art, settings);
                 Duel = new LocalVersusController(root.transform, art, arena, () => { }, settings);
                 ConstructorInfo constructor = typeof(OnlineVersusController).GetConstructor(Private, null,
                     new[] { typeof(Transform), typeof(LegacyDuelArt), typeof(LocalVersusController),
-                        typeof(Action), typeof(Action<string>) }, null);
+                        typeof(Action), typeof(Action<string>), typeof(Func<int>) }, null);
                 Assert.That(constructor, Is.Not.Null);
                 Online = (OnlineVersusController)constructor.Invoke(new object[] {
-                    root.transform, art, Duel, (Action)(() => { }), (Action<string>)(json => Outgoing.Enqueue(json))
+                    root.transform, art, Duel, (Action)(() => { }), (Action<string>)(json => Outgoing.Enqueue(json)),
+                    openingPlayerSource
                 });
                 Online.Start();
                 EnterLobby(host);
@@ -415,15 +564,42 @@ namespace TurnLimbo.Presentation.Tests
             private readonly DuelPresentationSettings settings;
             public readonly Peer Host, Guest;
 
-            public Pair()
+            public Pair(Func<int> hostOpeningSource = null, Func<int> guestOpeningSource = null)
             {
                 scene = Object.FindAnyObjectByType<DuelPrototypeController>();
                 if (scene != null) { sceneEnabled = scene.enabled; scene.enabled = false; }
                 runInBackground = Application.runInBackground;
                 art = new LegacyDuelArt();
                 settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
-                Host = new Peer(true, art, settings);
-                Guest = new Peer(false, art, settings);
+                Host = new Peer(true, art, settings, hostOpeningSource ?? (() => 0));
+                Guest = new Peer(false, art, settings, guestOpeningSource ?? (() => 0));
+            }
+
+            public void EnableCoinCards()
+            {
+                Host.Duel.StartCardsEnabled = Guest.Duel.StartCardsEnabled = true;
+            }
+
+            public void WaitForOpening()
+                => AdvanceUntil(() => !Host.Duel.IsShowingStartCard && !Guest.Duel.IsShowingStartCard);
+
+            public void FinishAsDraw()
+            {
+                // Empty finalized queues exercise the real command stream through the existing round limit.
+                while (!Host.Duel.Match.IsFinished || !Guest.Duel.Match.IsFinished)
+                {
+                    if (Host.Duel.Match.Phase == LegacyDuelPhase.Planning)
+                    {
+                        if (Host.Duel.Match.CurrentPlanner == 0) HostAction(Host.Duel.TryCommit);
+                        else GuestAction(OnlineVersusAction.Pass, Guest.Duel.TryCommit);
+                    }
+                    else AdvanceUntil(() => (Host.Duel.Match.IsFinished && Guest.Duel.Match.IsFinished) ||
+                        (Host.Duel.Match.Phase == LegacyDuelPhase.Planning &&
+                         Guest.Duel.Match.Phase == LegacyDuelPhase.Planning), .1f);
+                }
+                Assert.That(Host.Duel.Match.Outcome, Is.EqualTo(LocalVersusOutcome.Draw));
+                Assert.That(Guest.Duel.Match.Outcome, Is.EqualTo(LocalVersusOutcome.Draw));
+                AssertSameBattle();
             }
 
             public void ReadyBoth()
@@ -441,12 +617,12 @@ namespace TurnLimbo.Presentation.Tests
             public void DeliverHost() => Deliver(Host, Guest);
             public void DeliverGuest() => Deliver(Guest, Host);
 
-            public void AdvanceUntil(Func<bool> complete)
+            public void AdvanceUntil(Func<bool> complete, float delta = .01f)
             {
                 for (int frame = 0; frame < 6000 && !complete(); frame++)
                 {
-                    Host.Online.Tick(.01f, null);
-                    Guest.Online.Tick(.01f, null);
+                    Host.Online.Tick(delta, null);
+                    Guest.Online.Tick(delta, null);
                     DeliverGuest();
                     DeliverHost();
                     Guest.Online.Tick(0f, null);
