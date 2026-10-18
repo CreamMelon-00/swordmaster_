@@ -247,6 +247,7 @@ namespace TurnLimbo.Presentation
         /// a hit that completes its slot in the same frame (a finishing blow) still shows its meeting.</summary>
         public void ObserveClash(ILegacyDuelView session)
         {
+            ObserveCombatReadout(session);
             if (disposed || session == null || !ClashMotionEnabled) return;
             LegacyClashInput input = session.CurrentClash;
             if (liveClash != null && liveClash.Slot != input.SlotIndex)

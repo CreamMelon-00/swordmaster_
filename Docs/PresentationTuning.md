@@ -1,5 +1,7 @@
 # 배경·템포·카메라·이동·피해 숫자 튜닝
 
+2026-10-18 가시성 보강: 접촉 판독 구간(실제 0.14초와 최소 한 카메라 프레임)에는 플레이어와 현재 상대를 확보하고 이후 기존 주인공 클로즈업으로 이어진다. 판정·타격 정지·슬로모션 수명·연출 자산 값은 유지한다. 전체 스프라이트의 투명 여백이나 대기 적 때문에 판독 화면을 넓히지 않고 기존 고정 몸 여백을 사용한다. 자세한 계약과 피해 설명은 `CombatReadability.md`를 따른다.
+
 ## 열기와 저장
 
 Unity 상단 **Turn Limbo → 연출 튜닝 열기**를 누르면 `Assets/Game/Resources/DuelPresentationSettings.asset`이 선택된다. Inspector에서 조절한다. Project에서 `DuelPresentationSettings`를 검색해 선택해도 된다.

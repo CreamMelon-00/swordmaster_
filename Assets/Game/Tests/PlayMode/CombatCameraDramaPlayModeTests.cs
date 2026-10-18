@@ -65,6 +65,9 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Arena.GetEnemyRenderer(1).transform.localPosition = new Vector3(13f, scope.Arena.ActorGroundY + .7f, 0f);
                 scope.Arena.GetEnemyRenderer(2).transform.localPosition = new Vector3(18f, scope.Arena.ActorGroundY - .6f, 0f);
                 scope.Arena.BeginSlot(Attack(), Attack());
+                // Compare the roster overview and the directed shot after the new contact-reading stage.
+                scope.Arena.ObserveCombatContact();
+                scope.Arena.Tick(0f, LegacyArenaView.ContactReadSeconds + .001f);
                 foreach (Vector2Int size in new[] { new Vector2Int(1280, 720), new Vector2Int(960, 720) })
                 {
                     scope.Resize(size);

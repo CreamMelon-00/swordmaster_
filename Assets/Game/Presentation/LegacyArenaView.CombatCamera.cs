@@ -128,7 +128,7 @@ namespace TurnLimbo.Presentation
             float left = Mathf.Min(player.Renderer.transform.localPosition.x, enemy.Renderer.transform.localPosition.x) - sideMargin;
             float right = Mathf.Max(player.Renderer.transform.localPosition.x, enemy.Renderer.transform.localPosition.x) + sideMargin;
             float top = Mathf.Max(player.Renderer.transform.localPosition.y, enemy.Renderer.transform.localPosition.y) + 1.75f;
-            float bottom = depthPresentationVisible ? LowestGroundVisualY
+            float bottom = depthPresentationVisible && !IsReadingContact ? LowestGroundVisualY
                 : Mathf.Min(PlayerGroundPosition.y, GroundPosition(enemy).y) - .1f;
             float bottomInset = Mathf.Max(.035f, hudFloor + .015f);
             size = Mathf.Max(size, Mathf.Max((right - left) / (2f * aspect),

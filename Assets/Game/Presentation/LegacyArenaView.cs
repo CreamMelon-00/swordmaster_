@@ -439,6 +439,7 @@ namespace TurnLimbo.Presentation
             stepAfterimages.Reset();
             ClearSlowMotionAfterimages();
             movementTime = fatalTime = cameraJoltTime = idleTime = fatalExposure = impactFlashTime = 0f;
+            contactRead.Clear();
             approachMovementSpeed = pursuitMovementSpeed = settings.MovementSpeedMultiplier;
             approachSettleSeconds = settings.ApproachSettleSeconds;
             returnSettleSeconds = settings.ReturnSettleSeconds;
@@ -528,6 +529,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            contactRead.Clear();
             ClearSlowMovement();
             ClearSlowMotionAfterimages();
             ClearCombatShot();
@@ -633,6 +635,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
         {
+            contactRead.AwaitImpact();
             ClearUpcomingEnemy();
             enemyHandoffTravel = false;
             BeginDepthSlot();
@@ -692,6 +695,7 @@ namespace TurnLimbo.Presentation
 
         public void EndTurn()
         {
+            contactRead.ReleasePending();
             ClearSlowMovement();
             ClearSlowMotionAfterimages();
             ClearCombatShot();
@@ -912,6 +916,7 @@ namespace TurnLimbo.Presentation
         public void PresentHit(bool playerAttacks, int hpDamage, int resistanceDamage, bool guarded,
             bool fatal, int pushPower = -1, HitExchange exchange = HitExchange.None, bool closeUp = true)
         {
+            ObserveCombatContact();
             var attacker = playerAttacks ? player : enemy;
             var target = playerAttacks ? enemy : player;
             float damage = Mathf.Max(0, hpDamage) + Mathf.Max(0, resistanceDamage);
@@ -1088,6 +1093,7 @@ namespace TurnLimbo.Presentation
             openingPlacementAvailable = false;
             scaledDelta = Mathf.Max(0f, scaledDelta);
             realDelta = realDelta > 0f && !float.IsInfinity(realDelta) ? realDelta : 0f;
+            if (suspension == null) contactRead.Advance(realDelta);
             stepFocusTime = Mathf.Max(0f, stepFocusTime - realDelta);
             stepSlowTime = Mathf.Max(0f, stepSlowTime - realDelta);
             // Bullet time eases in on real time and lets go at once on the commit, so the release reads as time
@@ -1195,6 +1201,7 @@ namespace TurnLimbo.Presentation
             TickDirectorPush(realDelta);
             TickCombatShot(realDelta);
             TickCamera(scaledDelta, realDelta);
+            if (suspension == null) contactRead.FrameShown();
             RefreshStepBackdrop(scaledDelta);
             impactGlow.Tick(Mathf.Max(0f, realDelta));
             // After the actors and the lower body were sampled for this frame.
@@ -1745,11 +1752,13 @@ namespace TurnLimbo.Presentation
             RemoveHitShakeOffset();
             float size;
             Vector3 pivot;
+            bool readingContact = IsReadingContact;
+            bool cameraCloseUp = IsCameraCloseUp;
             // A stable two-person shot follows sustained travel, not every small
             // recoil or sprite-frame change. Camera easing always uses real time.
-            float sharpness = IsFatalFocus ? Mathf.Max(10f, settings.CameraFollowSharpness) : settings.CameraFollowSharpness;
+            float sharpness = cameraCloseUp ? Mathf.Max(10f, settings.CameraFollowSharpness) : settings.CameraFollowSharpness;
             // A 수훈 cut-in eases toward the enemy and back; the decisive close-up keeps the camera while it runs.
-            float cutIn = IsFatalFocus ? 0f : cutInAmount;
+            float cutIn = cameraCloseUp ? 0f : cutInAmount;
             if (cutIn > 0f) sharpness = Mathf.Max(CutInSharpness, sharpness);
             if (CombatShotMotionWeight > 0f) sharpness = Mathf.Max(14f, sharpness);
             var blend = 1f - Mathf.Exp(-sharpness * Mathf.Max(0f, realDelta));
@@ -1760,10 +1769,10 @@ namespace TurnLimbo.Presentation
                 if (Mathf.Abs(drift) > settings.CameraFollowDeadZone)
                     combatCameraPivot.x = center.x - Mathf.Sign(drift) * settings.CameraFollowDeadZone;
                 combatCameraPivot.y = center.y;
-                size = IsFatalFocus ? 2.8f : settings.CombatCameraSize;
+                size = cameraCloseUp ? 2.8f : settings.CombatCameraSize;
                 // The director's push for a Major slot (SetDirectorPush); the decisive close-up keeps its own framing.
-                if (!IsFatalFocus) size *= 1f - directorPushAmount;
-                pivot = IsFatalFocus ? player.Renderer.transform.localPosition + new Vector3(.35f, 0f, 0f)
+                if (!cameraCloseUp) size *= 1f - directorPushAmount;
+                pivot = cameraCloseUp ? player.Renderer.transform.localPosition + new Vector3(.35f, 0f, 0f)
                     : combatCameraPivot;
             }
             else
@@ -1779,7 +1788,7 @@ namespace TurnLimbo.Presentation
                 pivot = Vector3.Lerp(pivot, enemyFocus, cutIn * CutInPull);
                 size = Mathf.Lerp(size, settings.EmpowermentCutInCameraSize, cutIn);
             }
-            FrameEnemyRoster(ref pivot, ref size);
+            if (!readingContact) FrameEnemyRoster(ref pivot, ref size);
             float shotBank = ApplyCombatShot(ref pivot, ref size);
             float focus = IsFatalFocus ? 0f : StepFocusAmount;
             float direction = stepFocusAction == LegacyStepAction.Dodge ? -1f : 1f;
@@ -1795,27 +1804,29 @@ namespace TurnLimbo.Presentation
                 blend = 1f - Mathf.Pow(0.72f, Mathf.Max(0f, realDelta) * 60f);
             }
             // Keep the wide corridor shot fixed while close-ups can still follow the whole figure.
-            pivot.y += CameraCompensation(size, IsFatalFocus ? 1f : Mathf.Max(focus, cutIn));
+            pivot.y += CameraCompensation(size, cameraCloseUp ? 1f : Mathf.Max(focus, cutIn));
             // The duel HUD's queue panels over the bottom of the screen: the feet stay above them (SetHudFloor). Only ever
             // down, only as far as needed; the decisive close-up keeps its framing, a push-in or cut-in as far as it pulls.
-            float floorWeight = IsFatalFocus ? 0f : 1f - Mathf.Clamp01(Mathf.Max(focus, cutIn));
+            float floorWeight = cameraCloseUp ? 0f : 1f - Mathf.Clamp01(Mathf.Max(focus, cutIn));
             float ceiling = LegacyQueuePanelLayout.CameraCeiling(FeetY, size, hudFloor);
-            if (depthPresentationVisible && suspension == null)
+            if (depthPresentationVisible && suspension == null && !readingContact)
                 ceiling = Mathf.Min(ceiling,
                     LegacyQueuePanelLayout.CameraCeiling(LowestGroundVisualY, size, hudFloor + .01f));
             if (floorWeight > 0f && pivot.y > ceiling) pivot.y = Mathf.Lerp(pivot.y, ceiling, floorWeight);
-            FitPlayerSlowMotionShot(ref pivot, ref size, IsFatalFocus ? 1f : focus);
+            if (!readingContact) FitPlayerSlowMotionShot(ref pivot, ref size, cameraCloseUp ? 1f : focus);
             FitCombatShot(ref pivot, ref size);
             pivot.z = -10f;
             if (cameraJoltTime > 0f) pivot += cameraJolt * (cameraJoltTime / 0.1f);
             ArenaCamera.orthographicSize = Mathf.Lerp(ArenaCamera.orthographicSize, size, blend);
             ArenaCamera.transform.localPosition = Vector3.Lerp(ArenaCamera.transform.localPosition, pivot, blend);
-            var rotationBlend = 1f - Mathf.Pow(IsFatalFocus ? 0.8f : 0.95f, Mathf.Max(0f, realDelta) * 60f);
-            float rotation = CameraRotate || IsFatalFocus ? cameraRotation : 0f;
+            var rotationBlend = 1f - Mathf.Pow(cameraCloseUp ? 0.8f : 0.95f, Mathf.Max(0f, realDelta) * 60f);
+            float rotation = readingContact && IsFatalFocus ? 0f : CameraRotate || cameraCloseUp ? cameraRotation : 0f;
             if (!IsFatalFocus) rotation += direction * focus * 2.5f;
             rotation += shotBank;
             ArenaCamera.transform.localRotation = Quaternion.Lerp(ArenaCamera.transform.localRotation,
                 Quaternion.Euler(0f, 0f, rotation), rotationBlend);
+            bool fitPair = (resolving || IsFatalFocus) && !cameraCloseUp && cutIn <= .001f;
+            if (fitPair) FitContactCamera();
             float elapsed = Mathf.Max(0f, realDelta);
             hitShake.Advance(elapsed);
             float amplitude = hitShake.Amplitude;
@@ -1826,8 +1837,14 @@ namespace TurnLimbo.Presentation
             float time = hitShakeClock * HitShakeFrequency;
             hitShakeOffset = new Vector3(Mathf.PerlinNoise(time, .37f) * 2f - 1f, Mathf.PerlinNoise(.71f, time) * 2f - 1f, 0f)
                 * amplitude;
+            Vector3 unshakenPosition = ArenaCamera.transform.localPosition;
             ArenaCamera.transform.localPosition += hitShakeOffset;
             hitShakeApplied = true;
+            if (fitPair)
+            {
+                FitContactCamera();
+                hitShakeOffset = ArenaCamera.transform.localPosition - unshakenPosition;
+            }
         }
 
         private void EmitImpact(Vector3 position)

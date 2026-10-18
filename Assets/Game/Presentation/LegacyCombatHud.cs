@@ -115,7 +115,7 @@ namespace TurnLimbo.Presentation
         private const int MaximumDamageTexts = 32;
         private const int MaximumCalloutTexts = 4;
         private const int MaximumStateTexts = 4;
-        public const string BreakCalloutText = "붕괴 ×2";
+        public const string BreakCalloutText = "저항 붕괴";
         public const string RecoveryCalloutText = "저항 회복";
         /// <summary>The enemy explanation's badge until the player has opened all three schools.</summary>
         public const string EnemySkillCaption = "상대 기술";
@@ -484,6 +484,7 @@ namespace TurnLimbo.Presentation
             BuildQueueSparks();
             // The 간파 cue over the cards and their sparks (LegacyCombatHud.Reads.cs).
             BuildReadCue();
+            BuildCombatReadout();
             queueCancellationLayer = Rect("Queue Cancellation Layer", root, Vector2.zero, Vector2.zero, Vector2.one * .5f);
             queueCancellationLayer.anchorMin = Vector2.zero;
             queueCancellationLayer.anchorMax = Vector2.one;
@@ -931,6 +932,10 @@ namespace TurnLimbo.Presentation
             enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale, session);
             // Both rows in their panels over the dock, sliding one step toward the seam after each resolved slot.
             LayoutQueuePanels(isResolving, currentSlot, delta);
+            RefreshCombatReadout(session);
+            if (QueuePanelKeepsFightersClear && CombatReadoutTop > 0f)
+                queuePanelFloor = Mathf.Max(queuePanelFloor, Mathf.Clamp01((CombatReadoutTop + QueuePanelFighterClearance) /
+                    (root.rect.height > 1f ? root.rect.height : 1080f)));
             // The ring and socket where the next reservation meets the opponent, and the reservation sparks.
             UpdateQueueCues(session, planning, actualDelta);
             // The 간파 cue follows the player's card where the rows now have it, on real time.
@@ -960,6 +965,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            ResetCombatReadout();
             ClearHoldCancel();
             ClearBreakQueueFragments();
             ForgetUsedTemporarySkills();
@@ -1336,11 +1342,14 @@ namespace TurnLimbo.Presentation
 
         /// <param name="resistance">The number is resistance loss, not HP damage: it keeps the steel
         /// resistance colours even when emphasised, so the two kinds never look alike.</param>
-        public void ShowHitDamage(bool targetPlayer, int damage, Vector3 worldPosition, bool critical = false, bool resistance = false)
+        public void ShowHitDamage(bool targetPlayer, int damage, Vector3 worldPosition, bool critical = false, bool resistance = false,
+            LegacyDamageReason reasons = LegacyDamageReason.None, bool resistanceBroke = false, LegacySkill attacker = null,
+            bool mixedResources = false)
         {
             if (disposed || worldCamera == null) return;
-            DamageView view = AcquireDamageView();
             damage = Mathf.Max(0, damage);
+            if (resistanceBroke && damage == 0) return; // The break callout is the result, rather than a large zero HP hit.
+            DamageView view = AcquireDamageView();
             critical &= damage > 0;
             int sequence = targetPlayer ? playerDamageSequence : enemyDamageSequence;
             if (targetPlayer) playerDamageSequence = (sequence + 1) % 3;
@@ -1353,6 +1362,14 @@ namespace TurnLimbo.Presentation
             view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
             view.Text.text = damage.ToString();
             view.Text.fontSize = presentationSettings != null ? presentationSettings.DamageTextFontSize : 168;
+            string recipient = targetPlayer ? "내" : "상대";
+            if (!targetPlayer && displayedSession is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1)
+                recipient += " " + (roster.ActiveEnemyIndex + 1);
+            string reason = damage == 0 && (reasons & LegacyDamageReason.GuardReduction) != 0
+                ? "완전 방어" : LegacyDamageReasonText.Primary(reasons, attacker);
+            view.Detail.text = recipient + " " + (mixedResources ? "체력·저항" : resistance ? "저항" : "체력") +
+                (string.IsNullOrEmpty(reason) ? string.Empty : " · " + reason);
+            view.Detail.rectTransform.anchoredPosition = new Vector2(0f, -(view.Text.fontSize * .5f + 24f));
             view.Duration = view.Remaining = critical ? 1.25f : 1.05f;
             view.Scale = (.8f + Mathf.Clamp01(damage / 24f) * .25f) *
                 (critical ? (presentationSettings != null ? presentationSettings.CriticalDamageScale : 1.3f) : 1f);
@@ -1364,7 +1381,7 @@ namespace TurnLimbo.Presentation
             ApplyDamageFrame(view);
         }
 
-        /// <summary>Calls out that a fighter's resistance just broke: incoming HP damage is doubled.</summary>
+        /// <summary>Calls out a new resistance break, distinct from a later doubled HP hit.</summary>
         public void ShowBreakCallout(bool playerSide, Vector3 worldPosition, Transform follow = null) =>
             ShowStateCallout(playerSide, worldPosition, follow, BreakCalloutText, BreakCalloutInk, BreakCalloutOutline, 1.05f);
 
@@ -1442,7 +1459,23 @@ namespace TurnLimbo.Presentation
                 var outline = text.gameObject.AddComponent<Outline>();
                 outline.effectDistance = new Vector2(3f, -3f);
                 outline.useGraphicAlpha = true;
-                var created = new DamageView(text, outline);
+                Text detail = null;
+                if (name == "Damage")
+                {
+                    detail = Text("Damage Detail", text.transform, new Vector2(0f, -108f), new Vector2(640f, 48f), 32,
+                        TextAnchor.MiddleCenter);
+                    detail.supportRichText = false;
+                    detail.fontStyle = FontStyle.Bold;
+                    detail.resizeTextForBestFit = true;
+                    detail.resizeTextMinSize = 24;
+                    detail.resizeTextMaxSize = 32;
+                    detail.verticalOverflow = VerticalWrapMode.Truncate;
+                    var edge = detail.gameObject.AddComponent<Outline>();
+                    edge.effectColor = new Color(.08f, .025f, .02f, .95f);
+                    edge.effectDistance = new Vector2(1.5f, -1.5f);
+                    edge.useGraphicAlpha = true;
+                }
+                var created = new DamageView(text, outline, detail);
                 pool.Add(created);
                 return created;
             }
@@ -1560,6 +1593,7 @@ namespace TurnLimbo.Presentation
             Color color = damage.Color;
             color.a = Mathf.Clamp01(damage.Remaining / (damage.Duration * .3f));
             damage.Text.color = color;
+            if (damage.Detail != null) damage.Detail.color = color;
             // Reproject the original impact, while the rise/stagger stays in UI
             // units so zoom, hit stop and slow motion cannot distort the number.
             if (worldCamera != null)
@@ -2874,6 +2908,7 @@ namespace TurnLimbo.Presentation
         {
             public readonly Text Text;
             public readonly Outline Outline;
+            public readonly Text Detail;
             public Vector3 WorldPosition;
             /// <summary>When set, the view tracks this transform instead of the fixed impact point.</summary>
             public Transform Follow;
@@ -2882,7 +2917,7 @@ namespace TurnLimbo.Presentation
             public Color Color;
             public float Direction;
             public float Duration, Remaining, Scale;
-            public DamageView(Text text, Outline outline) { Text = text; Outline = outline; }
+            public DamageView(Text text, Outline outline, Text detail = null) { Text = text; Outline = outline; Detail = detail; }
         }
     }
 }

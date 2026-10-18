@@ -320,7 +320,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     LegacySkillConditions.MatchesOpponent(slot.PlayerSkill, slot.EnemySkill),
                     LegacySkillConditions.MatchesOpponent(slot.EnemySkill, slot.PlayerSkill),
                     slot.PlayerStateConditionHeld, slot.EnemyStateConditionHeld,
-                    mesh.IsMeshed ? mesh.SlotIndex - mesh.ChainStart + 1 : 0);
+                    mesh.IsMeshed ? mesh.SlotIndex - mesh.ChainStart + 1 : 0,
+                    playerResistanceLost: slot.PlayerStartingResistance - Player.Resistance,
+                    enemyResistanceLost: slot.EnemyStartingResistance - Enemy.Resistance);
             }
         }
 
@@ -893,7 +895,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 LegacyHitImpact pressure = enemy.ReceiveFlatHealthDamage(PressureBonus(slot, 0));
                 enemyImpact = new LegacyHitImpact(enemyImpact.PushPower + pressure.PushPower,
-                    enemyImpact.DisplayedDamage + pressure.DisplayedDamage);
+                    enemyImpact.DisplayedDamage + pressure.DisplayedDamage, enemyImpact.DamageReasons |
+                    (pressure.DisplayedDamage > 0 ? LegacyDamageReason.PressureBonus : LegacyDamageReason.None));
             }
             LegacyHitImpact playerImpact = ResolveSingleHit(slot.EnemySkill, slot.PlayerSkill, slot.EnemyPower,
                 slot.PlayerPower, player, slot.PlayerReceivedMultiplier, false, out _);
@@ -931,7 +934,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     int bonus = PressureBonus(slot, hitIndex);
                     LegacyHitImpact pressureImpact = Enemy.ReceiveFlatHealthDamage(bonus);
                     enemyImpact = new LegacyHitImpact(enemyImpact.PushPower + pressureImpact.PushPower,
-                        enemyImpact.DisplayedDamage + pressureImpact.DisplayedDamage);
+                        enemyImpact.DisplayedDamage + pressureImpact.DisplayedDamage, enemyImpact.DamageReasons |
+                        (pressureImpact.DisplayedDamage > 0 ? LegacyDamageReason.PressureBonus : LegacyDamageReason.None));
                 }
             }
             if (enemyAttacked && !slot.DodgeSucceeded)
@@ -1157,8 +1161,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // 조건 피해 배율: the target's state as this hit lands (its health and resistance before the hit), so a
             // multi-hit attack may meet it partway through; a breaking hit's overflow takes it if the condition held.
             conditionMet = effect != null && effect.ConditionalDamagePercent > 0 && effect.OpponentStateHolds(target);
-            return target.ReceiveHit(power, resistanceHit, receivedMultiplier, halveDamage, brokenBonus,
+            LegacyHitImpact impact = target.ReceiveHit(power, resistanceHit, receivedMultiplier, halveDamage, brokenBonus,
                 conditionMet ? effect.ConditionalDamagePercent : 0);
+            return power < attackerPower ? impact.WithReasons(LegacyDamageReason.GuardReduction) : impact;
         }
 
         private LegacySkillFeedback ApplyInitialSkillEffects(LegacySkill skill, LegacySkill opposingSkill,

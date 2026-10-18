@@ -103,7 +103,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int playerLargestHitTaken = 0, int enemyLargestHitTaken = 0, bool playerDefeated = false, bool enemyDefeated = false,
             bool playerConditionMatched = false, bool enemyConditionMatched = false,
             bool playerStateConditionHeld = false, bool enemyStateConditionHeld = false,
-            int playerMeshChainPosition = 0, int enemyMeshChainPosition = 0)
+            int playerMeshChainPosition = 0, int enemyMeshChainPosition = 0,
+            int playerResistanceLost = 0, int enemyResistanceLost = 0)
         {
             if (playerMaxHealth < 0) throw new ArgumentOutOfRangeException(nameof(playerMaxHealth));
             if (enemyMaxHealth < 0) throw new ArgumentOutOfRangeException(nameof(enemyMaxHealth));
@@ -120,6 +121,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyMaxHealth = enemyMaxHealth;
             PlayerHealthLost = playerHealthLost;
             EnemyHealthLost = enemyHealthLost;
+            PlayerResistanceLost = playerResistanceLost;
+            EnemyResistanceLost = enemyResistanceLost;
             PlayerLargestHitTaken = playerLargestHitTaken;
             EnemyLargestHitTaken = enemyLargestHitTaken;
             PlayerDefeated = playerDefeated;
@@ -143,6 +146,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The health the player has lost since the slot began (pressure, a broken target's doubling included).</summary>
         public int PlayerHealthLost { get; }
         public int EnemyHealthLost { get; }
+        /// <summary>Net resistance loss since the slot began, including initial effects; negative means recovery.</summary>
+        public int PlayerResistanceLost { get; }
+        public int EnemyResistanceLost { get; }
         /// <summary>The most health the player lost to one hit of this slot (the decisive close-up judges hits alone).</summary>
         public int PlayerLargestHitTaken { get; }
         public int EnemyLargestHitTaken { get; }
@@ -164,12 +170,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             => new LegacySlotFacts(Clash.Mirrored(), EnemySkillId, PlayerSkillId, EnemyMaxHealth, PlayerMaxHealth,
                 EnemyHealthLost, PlayerHealthLost, EnemyLargestHitTaken, PlayerLargestHitTaken, EnemyDefeated, PlayerDefeated,
                 EnemyConditionMatched, PlayerConditionMatched, EnemyStateConditionHeld, PlayerStateConditionHeld,
-                EnemyMeshChainPosition, PlayerMeshChainPosition);
+                EnemyMeshChainPosition, PlayerMeshChainPosition, EnemyResistanceLost, PlayerResistanceLost);
 
         public bool Equals(LegacySlotFacts other)
             => Clash == other.Clash && PlayerSkillId == other.PlayerSkillId && EnemySkillId == other.EnemySkillId &&
                 PlayerMaxHealth == other.PlayerMaxHealth && EnemyMaxHealth == other.EnemyMaxHealth &&
                 PlayerHealthLost == other.PlayerHealthLost && EnemyHealthLost == other.EnemyHealthLost &&
+                PlayerResistanceLost == other.PlayerResistanceLost && EnemyResistanceLost == other.EnemyResistanceLost &&
                 PlayerLargestHitTaken == other.PlayerLargestHitTaken && EnemyLargestHitTaken == other.EnemyLargestHitTaken &&
                 PlayerDefeated == other.PlayerDefeated && EnemyDefeated == other.EnemyDefeated &&
                 PlayerConditionMatched == other.PlayerConditionMatched && EnemyConditionMatched == other.EnemyConditionMatched &&
@@ -190,6 +197,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 hash = hash * 31 + EnemyMaxHealth;
                 hash = hash * 31 + PlayerHealthLost;
                 hash = hash * 31 + EnemyHealthLost;
+                hash = hash * 31 + PlayerResistanceLost;
+                hash = hash * 31 + EnemyResistanceLost;
                 hash = hash * 31 + PlayerLargestHitTaken;
                 hash = hash * 31 + EnemyLargestHitTaken;
                 hash = hash * 31 + PlayerMeshChainPosition;

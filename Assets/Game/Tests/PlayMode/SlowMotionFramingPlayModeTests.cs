@@ -94,6 +94,10 @@ namespace TurnLimbo.Presentation.Tests
                 Arena.GetEnemyRenderer(2).transform.localPosition = new Vector3(18f, Arena.ActorGroundY - 1.2f, 0f);
                 Arena.BeginSlot(Attack(), Attack());
                 Hud.EndTurn(); Hud.BeginCombat();
+                // This suite compares the established slow close-up after the contact has been read.
+                // The pre-contact two-person shot is covered by ContactCameraReadabilityPlayModeTests.
+                Arena.ObserveCombatContact();
+                Arena.Tick(0f, LegacyArenaView.ContactReadSeconds + .001f);
             }
 
             public void Advance(float duration, bool directed)

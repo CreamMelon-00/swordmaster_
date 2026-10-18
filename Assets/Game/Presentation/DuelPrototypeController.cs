@@ -956,6 +956,7 @@ namespace TurnLimbo.Presentation
                 bool playerWasBroken = session.Player.IsResistanceBroken;
                 bool enemyWasBroken = session.Enemy.IsResistanceBroken;
                 LegacyHitResult hit = session.ResolveNextHit();
+                arena.ObserveCombatContact();
                 arena.PresentWeaponTrailContact(hit.HitIndex, hit.PlayerAttacked, hit.EnemyAttacked);
                 // The queue panels' clash motion reads the hit now: a finishing blow completes its slot before the HUD's frame.
                 hud.ObserveClash(session);
@@ -985,7 +986,7 @@ namespace TurnLimbo.Presentation
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
                         enemyHealthBefore > 0 && session.Enemy.Health <= 0,
-                        Exchange(hit.EnemySkill, hit.EnemyAttacked));
+                        Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill);
                 if (hit.EnemyAttacked && !hit.PlayerDodged)
                 {
                     decisiveNow |= PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
@@ -993,7 +994,7 @@ namespace TurnLimbo.Presentation
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
                         playerHealthBefore > 0 && session.Player.Health <= 0,
-                        Exchange(hit.PlayerSkill, hit.PlayerAttacked));
+                        Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill);
                     if (missionEmpowered) empowermentCues.NotifyEnemyHit(mission.Empowerment, hit.EnemySkill);
                 }
                 // A Major slot's first presented hit: a longer stop and a second impact under it (never the finishing
@@ -1278,7 +1279,7 @@ namespace TurnLimbo.Presentation
         // Returns whether the hit was decisive (a break, the finishing blow, a heavy hit).
         private bool PresentHit(bool playerAttacks, int healthDamage, int resistanceDamage,
             int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, bool finishingBlow,
-            LegacyArenaView.HitExchange exchange)
+            LegacyArenaView.HitExchange exchange, LegacyDamageReason damageReasons, LegacySkill attackingSkill)
         {
             // Only decisive moments get the slow close-up, tilt and critical sound: a break, the finishing blow, or one hit
             // taking a set share of the target's maximum health (LegacyDecisiveHit). A merely big number is still gold and larger.
@@ -1289,9 +1290,10 @@ namespace TurnLimbo.Presentation
             // the body, even when the health change was clamped at zero.
             bool bodyHit = healthDamage > 0 || displayedDamage > resistanceDamage;
             if (bodyHit) exchange = LegacyArenaView.HitExchange.None;
-            // Steel only when the number is the resistance lost. A break that overflows nothing
-            // shows its 0 HP as before; the break callout tells the rest.
+            // Steel only when the number is the resistance lost. A break with no HP overflow
+            // is announced by its state callout instead of a misleading zero.
             bool resistanceNumber = !bodyHit && resistanceDamage > 0 && displayedDamage == resistanceDamage;
+            bool mixedResources = bodyHit && resistanceDamage > 0 && !resistanceBroke;
             // Both sides of a simultaneous clash share the same real-time stop.
             if (!releasingBladeBindHit)
                 hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
@@ -1300,7 +1302,8 @@ namespace TurnLimbo.Presentation
                 emphasised && !releasingBladeBindHit, pushPower, exchange, decisive);
             if (decisive) hud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
-            hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber);
+            hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber,
+                damageReasons, resistanceBroke, attackingSkill, mixedResources);
             effectsSource.pitch = resistanceBroke ? (playerAttacks ? .96f : .82f) : Random.Range(0.75f, 1.25f);
             art.PlayClash(effectsSource, false, Random.value >= 0.5f);
             if (decisive && criticalSound != null)

@@ -1,6 +1,19 @@
 # 첫 전투·연출·컴팩트 HUD 검증
 
-최근 검증일: 2026-10-18. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
+최근 Unity 실행 검증일: 2026-10-18. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
+
+## 전투 가시성: 최신 본 기준 독립 C# 검증 (2026-10-18)
+
+최신 `f1aa66c`를 받은 뒤 현재 합·피해 원인·접촉 판독 구도를 구현했다(`CombatReadability.md`). 이전 기준의 작업은 폐기했고 최신 다인전·붕괴 예약 취소·주인공 클로즈업 위에 다시 연결했다. 회사 PC에서 Unity Editor는 실행하지 않았다.
+
+- **기준:** `f1aa66c` 원본 Core 6·Runtime 85·EditMode 74파일 컴파일 성공, 독립 NUnit **1,463/1,463 통과**. 기존 `CutscenePlaybackTests.AuthoredOpening_FullAndBothSkipBranchesReachTheCorrectLines` 3개 사례는 Unity `Resources.Load<TextAsset>`가 필요해 독립 실행 범위에서 분리했다. 테스트 소스를 비활성화하지 않았고 수정 후에도 같은 범위를 적용했다.
+- **수정 후:** Core 6·Runtime 88·EditMode 77파일을 설치된 Unity 6000.4.0f1의 Mono C# 컴파일러와 NUnit 내장 runner로 컴파일했다. **1,512/1,512 통과**, 실패·건너뜀 0. 기준 1,463개 이름 모두 보존·통과했고 신규 49개는 `ClashReadoutTests` 13개, `LegacyDamageReasonTests` 21개, `ContactCameraTests` 15개다. 컴파일 전후 소스 171개 SHA256 일치.
+- **범위:** 실제 양쪽 손익·붕괴 후 연타·다인전 현재 상대·대전 관점·실제 적용된 피해 배율과 감소·혼합 압박 피해의 메타데이터를 확인했다. 카메라의 정지/비정상 시간·긴 프레임·판독 후 해제·반복 접촉·미러·회전·HUD 안전 영역도 순수 C#으로 확인했다. 기존 판정·난수·붕괴 예약 취소 검사는 모두 통과했다.
+- **PlayMode 준비:** 현재 합 5개, 피해 숫자 4개, 접촉 카메라 6개 시나리오를 추가했다. 기존 슬로모션/교전 카메라 테스트 두 곳은 접촉 판독 후 상태를 준비하도록 하고 기존 검증 항목을 유지했다. 이 PlayMode 검사는 실행하지 않았다.
+- **구문 검사:** Presentation 116·PlayMode 113, 총 229개 파일을 기본 조건과 Unity Editor/Windows 조건 두 가지로 검사해 오류 0. 검사 전후 229개 SHA256 일치, 컴파일/구문 검사한 총 400개 소스가 최종 파일과도 일치했다. UI 타입 컴파일을 확인한 결과는 아니다.
+- **제한:** Unity 타입 컴파일·PlayMode·실제 화면 배치와 연출 속도에서의 가독성·온라인 두 장치 확인은 미실행이다. 순수 C# 통과와 구문 검사는 Unity 실행 검증을 대신하지 않는다. 별도 Inspector 설정 없이 기존 생성 경로에 연결했다.
+
+증거는 Git 제외 경로 `Temp/CombatReadabilityRebasedValidation/`에 보존한다. `Baseline/`은 최신 본 기준 결과, `Current/PureEditModeResults.xml`·`PureEditModeRun.log`는 최종 실행, `SourceHashes.json`은 소스 일치, `PlainValidationComparison.json`·`ValidationComparison.json`은 기존/신규 검사와 최종 소스 비교다. UI 구문 검사 결과는 같은 `Current/`의 `SyntaxOnly.log`·`SyntaxSourceHashes.json`에 기록한다. 과거 기준의 결과는 별도 경로에 남아 있으며 이번 통과 수치에 합산하지 않는다.
 
 ## 슬로모션 잔상 중복 제거·개수 제한 (2026-10-18)
 

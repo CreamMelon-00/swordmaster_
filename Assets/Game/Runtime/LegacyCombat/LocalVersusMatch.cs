@@ -402,6 +402,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             RightPushPower = rightImpact.PushPower;
             LeftDisplayedDamage = leftImpact.DisplayedDamage;
             RightDisplayedDamage = rightImpact.DisplayedDamage;
+            LeftDamageReasons = leftImpact.DamageReasons;
+            RightDamageReasons = rightImpact.DamageReasons;
             LeftAttackConditionMet = leftCondition;
             RightAttackConditionMet = rightCondition;
             IsFinalHit = slot.IsResolved;
@@ -426,6 +428,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// resistance taken when the resistance held. 0 when the right fighter did not attack.</summary>
         public int LeftDisplayedDamage { get; }
         public int RightDisplayedDamage { get; }
+        /// <summary>Modifiers on the hit received by this fighter; presentation only.</summary>
+        public LegacyDamageReason LeftDamageReasons { get; }
+        public LegacyDamageReason RightDamageReasons { get; }
         public bool LeftAttackConditionMet { get; }
         public bool RightAttackConditionMet { get; }
         public bool IsFinalHit { get; }
@@ -640,7 +645,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 slot.LeftStartingHealth > 0 && Left.State.IsDefeated, slot.RightStartingHealth > 0 && Right.State.IsDefeated,
                 LegacySkillConditions.MatchesOpponent(slot.LeftSkill, slot.RightSkill),
                 LegacySkillConditions.MatchesOpponent(slot.RightSkill, slot.LeftSkill),
-                slot.LeftStateConditionHeld, slot.RightStateConditionHeld);
+                slot.LeftStateConditionHeld, slot.RightStateConditionHeld,
+                playerResistanceLost: slot.LeftStartingResistance - Left.State.Resistance,
+                enemyResistanceLost: slot.RightStartingResistance - Right.State.Resistance);
             return perspectivePlayer == 0 ? left : left.Mirrored();
         }
 
@@ -958,8 +965,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacySkillEffect effect = LegacySkillDefinitions.Find(attack)?.Effect;
             int brokenBonus = target.IsResistanceBroken ? effect?.BrokenTargetDamagePercent ?? 0 : 0;
             conditionMet = effect != null && effect.ConditionalDamagePercent > 0 && effect.OpponentStateHolds(target);
-            return target.ReceiveHit(power, defence != null && defence.Kind == LegacySkillKind.Attack,
+            LegacyHitImpact impact = target.ReceiveHit(power, defence != null && defence.Kind == LegacySkillKind.Attack,
                 received, false, brokenBonus, conditionMet ? effect.ConditionalDamagePercent : 0);
+            return power < attackPower ? impact.WithReasons(LegacyDamageReason.GuardReduction) : impact;
         }
 
         private LocalVersusOutcome DetermineOutcome()

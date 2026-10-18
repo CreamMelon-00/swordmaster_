@@ -199,6 +199,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyPushPower = left ? hit.RightPushPower : hit.LeftPushPower;
             PlayerDisplayedDamage = left ? hit.LeftDisplayedDamage : hit.RightDisplayedDamage;
             EnemyDisplayedDamage = left ? hit.RightDisplayedDamage : hit.LeftDisplayedDamage;
+            PlayerDamageReasons = left ? hit.LeftDamageReasons : hit.RightDamageReasons;
+            EnemyDamageReasons = left ? hit.RightDamageReasons : hit.LeftDamageReasons;
             PlayerAttackConditionMet = left ? hit.LeftAttackConditionMet : hit.RightAttackConditionMet;
             EnemyAttackConditionMet = left ? hit.RightAttackConditionMet : hit.LeftAttackConditionMet;
             IsFinalHit = hit.IsFinalHit;
@@ -220,6 +222,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyPushPower { get; }
         public int PlayerDisplayedDamage { get; }
         public int EnemyDisplayedDamage { get; }
+        public LegacyDamageReason PlayerDamageReasons { get; }
+        public LegacyDamageReason EnemyDamageReasons { get; }
         public bool PlayerAttackConditionMet { get; }
         public bool EnemyAttackConditionMet { get; }
         public bool IsFinalHit { get; }

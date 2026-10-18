@@ -300,6 +300,157 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator ResourceAndCauseCaptionsKeepNumericAmounts_AndFadeAndExpireWithTheirNumber()
+        {
+            yield return null;
+            using (var fixture = new HudFixture())
+            {
+                fixture.Hud.ShowHitDamage(false, 12, Vector3.zero, resistance: true,
+                    reasons: LegacyDamageReason.GuardReduction);
+                fixture.Hud.ShowHitDamage(true, 24, Vector3.zero, reasons: LegacyDamageReason.BrokenDouble);
+                List<Text> numbers = DamageTexts(fixture.Hud, true);
+                Text resistance = FindNumber(numbers, "12"), health = FindNumber(numbers, "24");
+                Text resistanceDetail = DamageDetail(resistance), healthDetail = DamageDetail(health);
+                Assert.That(resistanceDetail.text, Is.EqualTo("상대 저항 · 방어 감소"));
+                Assert.That(healthDetail.text, Is.EqualTo("내 체력 · 붕괴 ×2"));
+                Assert.That(resistanceDetail.raycastTarget, Is.False);
+                Assert.That(healthDetail.raycastTarget, Is.False);
+                fixture.Refresh(.85f);
+                foreach (Text number in numbers)
+                {
+                    Text detail = DamageDetail(number);
+                    Assert.That(detail.transform.parent, Is.SameAs(number.transform));
+                    Assert.That(number.color.a, Is.InRange(.001f, .999f));
+                    Assert.That(detail.color, Is.EqualTo(number.color), "Type and cause share the number's fade and resource ink.");
+                    Assert.That(detail.gameObject.activeInHierarchy, Is.True);
+                }
+                fixture.Refresh(.21f);
+                foreach (Text number in numbers)
+                {
+                    Assert.That(number.gameObject.activeSelf, Is.False);
+                    Assert.That(DamageDetail(number).gameObject.activeInHierarchy, Is.False);
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AZeroBreakingHitUsesTheBreakCallout_WhileOrdinaryZeroStillExplainsTheFullBlock()
+        {
+            yield return null;
+            using (var fixture = new HudFixture())
+            {
+                fixture.Hud.ShowHitDamage(false, 0, Vector3.zero, true, resistanceBroke: true);
+                Assert.That(DamageTexts(fixture.Hud, false), Is.Empty, "A resistance break should not allocate a giant zero HP number.");
+                fixture.Hud.ShowBreakCallout(false, Vector3.zero);
+                Text callout = null;
+                foreach (Text text in fixture.Hud.Root.GetComponentsInChildren<Text>(true))
+                    if (text.gameObject.name == "State Callout" && text.gameObject.activeSelf) callout = text;
+                Assert.That(callout, Is.Not.Null);
+                Assert.That(callout.text, Is.EqualTo("저항 붕괴"));
+                fixture.Hud.ShowHitDamage(true, 0, Vector3.zero, true, reasons: LegacyDamageReason.GuardReduction);
+                Text zero = OnlyNumber(fixture.Hud);
+                Assert.That(zero.text, Is.EqualTo("0"));
+                Assert.That(DamageDetail(zero).text, Is.EqualTo("내 체력 · 완전 방어"));
+                AssertNormalInk(zero);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ActualPressureMixAndBreakingOverflowNameTheRightResources_AndReuseClearsTheOldCause()
+        {
+            yield return null;
+            using (var fixture = new HudFixture())
+            {
+                var pressure = new LegacyQueuedDuel(1000, 50, 1000, 50,
+                    new[] { DamageAttack(990, 11, 3) }, new[] { DamageAttack(991, 1) }, new[] { 1 }, meshPercent: 0);
+                Assert.That(pressure.TryQueueLane(0), Is.True);
+                pressure.Commit();
+                pressure.BeginNextSlot();
+                Assert.That(pressure.TryStep(LegacyStepAction.Pressure, true, out bool succeeded) && succeeded, Is.True);
+                LegacyHitResult mixedHit = pressure.ResolveNextHit();
+                Assert.That((mixedHit.EnemyHealthDamage, mixedHit.EnemyResistanceDamage, mixedHit.EnemyDisplayedDamage),
+                    Is.EqualTo((4, 3, 7)));
+                fixture.Refresh(pressure, 0f);
+                fixture.Hud.ShowHitDamage(false, mixedHit.EnemyDisplayedDamage, Vector3.zero,
+                    reasons: mixedHit.EnemyDamageReasons, attacker: mixedHit.PlayerSkill, mixedResources: true);
+                Text mixed = OnlyNumber(fixture.Hud), detail = DamageDetail(mixed);
+                Assert.That(mixed.text, Is.EqualTo("7"));
+                Assert.That(detail.text, Is.EqualTo("상대 체력·저항 · 압박 추가 피해"));
+                fixture.Refresh(2f);
+                Assert.That(mixed.gameObject.activeSelf, Is.False);
+
+                var overflow = new LegacyQueuedDuel(1000, 50, 1000, 3,
+                    new[] { DamageAttack(990, 12) }, new[] { DamageAttack(991, 1) }, new[] { 1 }, meshPercent: 0);
+                Assert.That(overflow.TryQueueLane(0), Is.True);
+                overflow.Commit();
+                overflow.BeginNextSlot();
+                LegacyHitResult breakingHit = overflow.ResolveNextHit();
+                Assert.That((breakingHit.EnemyHealthDamage, breakingHit.EnemyResistanceDamage, breakingHit.EnemyDisplayedDamage),
+                    Is.EqualTo((9, 3, 9)), "A breaking hit's displayed damage is its HP overflow, not HP plus spent resistance.");
+                fixture.Refresh(overflow, 0f);
+                fixture.Hud.ShowHitDamage(false, breakingHit.EnemyDisplayedDamage, Vector3.zero,
+                    reasons: breakingHit.EnemyDamageReasons, resistanceBroke: true, attacker: breakingHit.PlayerSkill);
+                Text recycled = OnlyNumber(fixture.Hud);
+                Assert.That(recycled, Is.SameAs(mixed));
+                Assert.That(DamageDetail(recycled), Is.SameAs(detail));
+                Assert.That(recycled.text, Is.EqualTo("9"));
+                Assert.That(detail.text, Is.EqualTo("상대 체력"), "Neither the previous pressure cause nor its mixed resource type survives reuse.");
+                Assert.That(detail.color.a, Is.EqualTo(1f));
+                Assert.That(detail.GetComponents<Outline>().Length, Is.EqualTo(1));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator TrioDamageKeepsItsOriginalTargetNumber_WhenTheActiveEnemyOrDisplayedSessionChanges()
+        {
+            yield return null;
+            using (var fixture = new HudFixture())
+            {
+                var guard = new LegacySkill(991, "막기", 0, 1, 1, LegacySkillKind.Defence,
+                    LegacySkillProperty.Defence, 1, 0, "검증");
+                var script = new EnemyScript(new IReadOnlyList<LegacySkill>[] { new[] { guard } });
+                var trio = new LegacyQueuedDuel(1000, 50, new[] { DamageAttack(990, 12) }, new[]
+                {
+                    new LegacyEnemyDefinition("선봉", 1, 50, script),
+                    new LegacyEnemyDefinition("검객", 1, 50, script),
+                    new LegacyEnemyDefinition("기습꾼", 1, 50, script)
+                }, randomSeed: 17, meshPercent: 0);
+                Assert.That(trio.TryQueueLane(0), Is.True);
+                trio.Commit();
+                trio.BeginNextSlot();
+                int target = trio.ActiveEnemyIndex;
+                fixture.Refresh(trio, 0f);
+                LegacyHitResult hit = trio.ResolveNextHit();
+                fixture.Hud.ShowHitDamage(false, hit.EnemyDisplayedDamage, Vector3.zero,
+                    reasons: hit.EnemyDamageReasons, attacker: hit.PlayerSkill);
+                Text original = OnlyNumber(fixture.Hud), detail = DamageDetail(original);
+                string caption = "상대 " + (target + 1) + " 체력 · 방어 감소";
+                Assert.That(detail.text, Is.EqualTo(caption));
+                trio.CompleteCurrentSlot();
+                trio.BeginNextSlot();
+                Assert.That(trio.ActiveEnemyIndex, Is.Not.EqualTo(target));
+                fixture.Refresh(trio, .1f);
+                Assert.That(detail.text, Is.EqualTo(caption));
+                fixture.Refresh(.1f); // A separate, one-on-one session now owns the HUD.
+                Assert.That(detail.text, Is.EqualTo(caption));
+                fixture.Hud.ShowHitDamage(false, 5, Vector3.zero);
+                Text newNumber = FindNumber(DamageTexts(fixture.Hud, true), "5");
+                Assert.That(DamageDetail(newNumber).text, Is.EqualTo("상대 체력"));
+                Assert.That(detail.text, Is.EqualTo(caption));
+            }
+        }
+
+        private static LegacySkill DamageAttack(int id, int power, int hits = 1)
+            => new LegacySkill(id, "베기", 0, power, power, LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, 0, "검증");
+
+        private static Text DamageDetail(Text number)
+        {
+            Transform child = number.transform.Find("Damage Detail");
+            Assert.That(child, Is.Not.Null);
+            return child.GetComponent<Text>();
+        }
+
         private static List<Text> DamageTexts(LegacyCombatHud hud, bool activeOnly)
         {
             var result = new List<Text>();
@@ -393,10 +544,13 @@ namespace TurnLimbo.Presentation.Tests
             }
 
             public void Refresh(float realDelta)
+                => Refresh(Duel, realDelta);
+
+            public void Refresh(ILegacyDuelView session, float realDelta)
             {
                 // The combat clock is deliberately stopped. Damage feedback must
                 // still complete on its own explicit real-time presentation clock.
-                Hud.Refresh(Duel, 10f, true, -1, Camera, player, enemy, 0f, realDelta);
+                Hud.Refresh(session, 10f, true, session.CurrentSlot?.SlotIndex ?? -1, Camera, player, enemy, 0f, realDelta);
                 Canvas.ForceUpdateCanvases();
             }
 

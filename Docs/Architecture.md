@@ -6,6 +6,8 @@
 
 ## 의존 방향
 
+현재 전투 가시성(2026-10-18): `LegacyClashReadout`·`LegacyDamageReason`이 실제 합과 피해의 원인을, `LegacyContactReadWindow`·`LegacyContactCamera`가 접촉 판독 시계와 구도를 소유한다. HUD/arena의 `.Readability.cs`가 기존 표시 경로에 연결한다. 다인전은 현재 상대만 판독하고, 접촉 뒤에는 기존 주인공 중심 클로즈업으로 이어진다. 옛 기록의 피격자 중심 확대와 붕괴 순간 `붕괴 ×2` 문구는 현재 각각 주인공 중심 확대와 `저항 붕괴`로 바뀌었다. 최신 계약은 `CombatReadability.md`를 따른다.
+
 ```text
 Presentation  ->  Runtime  ->  Core
 Core.Tests    ->  Core / Runtime

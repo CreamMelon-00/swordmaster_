@@ -57,6 +57,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int scaled = Round(power * receivedMultiplier);
             if (resistanceHit)
             {
+                LegacyDamageReason reasons = receivedMultiplier < 1d && scaled < power
+                    ? LegacyDamageReason.ProtectionReduction : LegacyDamageReason.None;
                 if (Resistance <= scaled)
                 {
                     // Original ShieldDamage calls Damage before setting shield to
@@ -65,11 +67,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     LegacyHitImpact impact = ReceiveHealthDamage(scaled - Resistance, receivedMultiplier,
                         halveDamage, brokenTargetDamagePercent, conditionalDamagePercent);
                     Resistance = halveDamage ? Resistance - Round(Resistance / 2d) : 0;
-                    return impact;
+                    if (halveDamage && Resistance > 0) reasons |= LegacyDamageReason.PressureGuard;
+                    return impact.WithReasons(reasons);
                 }
-                if (halveDamage) scaled = Round(scaled / 2d);
+                if (halveDamage)
+                {
+                    int before = scaled;
+                    scaled = Round(scaled / 2d);
+                    if (scaled < before) reasons |= LegacyDamageReason.PressureGuard;
+                }
                 Resistance -= scaled;
-                return new LegacyHitImpact(scaled, scaled);
+                return new LegacyHitImpact(scaled, scaled, reasons);
             }
             return ReceiveHealthDamage(power, receivedMultiplier, halveDamage, brokenTargetDamagePercent, conditionalDamagePercent);
         }
@@ -79,21 +87,37 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             int pushPower = Round(power * receivedMultiplier);
             int damage = pushPower;
-            if (Resistance <= 0) damage *= 2;
+            LegacyDamageReason reasons = receivedMultiplier < 1d && damage < power
+                ? LegacyDamageReason.ProtectionReduction : LegacyDamageReason.None;
+            if (Resistance <= 0)
+            {
+                damage *= 2;
+                if (damage > pushPower) reasons |= LegacyDamageReason.BrokenDouble;
+            }
             if (halveDamage)
             {
                 // Apply defensive pressure after normal guard/buff/broken rules,
                 // before HP clamping. Keep the combat's existing ties-to-even rounding.
+                int before = damage;
                 pushPower = Round(pushPower / 2d);
                 damage = Round(damage / 2d);
+                if (damage < before) reasons |= LegacyDamageReason.PressureGuard;
             }
             if (brokenTargetDamagePercent > 0)
+            {
+                int before = damage;
                 damage = Round(damage * (1d + brokenTargetDamagePercent / 100d));
+                if (damage != before) reasons |= LegacyDamageReason.BrokenBonus;
+            }
             // 조건 피해 배율 last, on whatever the rules above left; the knockback (push power) keeps the plain value.
             if (conditionalDamagePercent > 0)
+            {
+                int before = damage;
                 damage = Round(damage * (conditionalDamagePercent / 100d));
+                if (damage != before) reasons |= LegacyDamageReason.ConditionalMultiplier;
+            }
             Health = Math.Max(HealthFloor, Health - damage);
-            return new LegacyHitImpact(pushPower, damage);
+            return new LegacyHitImpact(pushPower, damage, reasons);
         }
 
         internal LegacyHitImpact ReceiveFlatHealthDamage(int power)
@@ -129,13 +153,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
     internal readonly struct LegacyHitImpact
     {
-        public LegacyHitImpact(int pushPower, int displayedDamage)
+        public LegacyHitImpact(int pushPower, int displayedDamage, LegacyDamageReason damageReasons = LegacyDamageReason.None)
         {
             PushPower = pushPower;
             DisplayedDamage = displayedDamage;
+            DamageReasons = damageReasons;
         }
         public int PushPower { get; }
         public int DisplayedDamage { get; }
+        public LegacyDamageReason DamageReasons { get; }
+        public LegacyHitImpact WithReasons(LegacyDamageReason reasons)
+            => new LegacyHitImpact(PushPower, DisplayedDamage, DamageReasons | reasons);
     }
 
     public sealed class LegacySlotResult
@@ -269,6 +297,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyPushPower = enemyImpact.PushPower;
             PlayerDisplayedDamage = playerImpact.DisplayedDamage;
             EnemyDisplayedDamage = enemyImpact.DisplayedDamage;
+            PlayerDamageReasons = playerImpact.DamageReasons;
+            EnemyDamageReasons = enemyImpact.DamageReasons;
             IsFinalHit = slot.IsResolved;
             Outcome = outcome;
             EnemyReachedHealthThreshold = enemyReachedHealthThreshold;
@@ -293,6 +323,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyPushPower { get; }
         public int PlayerDisplayedDamage { get; }
         public int EnemyDisplayedDamage { get; }
+        /// <summary>Modifiers on the hit received by the player, including a guard that prevented all damage.</summary>
+        public LegacyDamageReason PlayerDamageReasons { get; }
+        public LegacyDamageReason EnemyDamageReasons { get; }
         public bool IsFinalHit { get; }
         public DuelMatchOutcome Outcome { get; }
         /// <summary>This is the hit that first brought the enemy to the duel's health threshold or below

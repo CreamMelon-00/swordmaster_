@@ -935,6 +935,7 @@ namespace TurnLimbo.Presentation
                 bool playerWasBroken = view.Player.IsResistanceBroken;
                 bool enemyWasBroken = view.Enemy.IsResistanceBroken;
                 LocalVersusPerspectiveHit hit = view.Hit(match.ResolveNextHit());
+                arena.ObserveCombatContact();
                 arena.PresentWeaponTrailContact(hit.HitIndex, hit.PlayerAttacked, hit.EnemyAttacked);
                 // The queue panels' clash motion reads the hit now: a finishing blow completes its slot before the HUD's frame.
                 battleHud.ObserveClash(view);
@@ -951,14 +952,14 @@ namespace TurnLimbo.Presentation
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
                         enemyHealthBefore > 0 && view.Enemy.Health <= 0,
-                        DuelPrototypeController.Exchange(hit.EnemySkill, hit.EnemyAttacked));
+                        DuelPrototypeController.Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill);
                 if (hit.EnemyAttacked)
                     decisiveNow |= PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
                         playerHealthBefore > 0 && view.Player.Health <= 0,
-                        DuelPrototypeController.Exchange(hit.PlayerSkill, hit.PlayerAttacked));
+                        DuelPrototypeController.Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill);
                 AnnounceBreaks(playerWasBroken, enemyWasBroken, hit.EnemyAttacked, hit.PlayerAttacked);
                 // 간파: the viewer's own read paid off (each screen cues its own), once per slot.
                 CueRead(slot.SlotIndex);
@@ -1117,7 +1118,7 @@ namespace TurnLimbo.Presentation
         // Returns whether the hit was decisive (a break, the finishing blow, a heavy hit).
         private bool PresentHit(bool playerAttacks, int healthDamage, int resistanceDamage,
             int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, bool finishingBlow,
-            LegacyArenaView.HitExchange exchange)
+            LegacyArenaView.HitExchange exchange, LegacyDamageReason damageReasons, LegacySkill attackingSkill)
         {
             // Only decisive moments get the slow close-up, tilt and critical sound: a break, the finishing blow, or one hit
             // taking a set share of the target's maximum health. A merely big number is still gold and larger.
@@ -1128,6 +1129,7 @@ namespace TurnLimbo.Presentation
             bool bodyHit = healthDamage > 0 || displayedDamage > resistanceDamage;
             if (bodyHit) exchange = LegacyArenaView.HitExchange.None;
             bool resistanceNumber = !bodyHit && resistanceDamage > 0 && displayedDamage == resistanceDamage;
+            bool mixedResources = bodyHit && resistanceDamage > 0 && !resistanceBroke;
             // Both sides of a simultaneous clash share the same real-time stop.
             if (!releasingBladeBindHit)
                 hitStopRemaining = Mathf.Max(hitStopRemaining, settings.HitStopDuration);
@@ -1135,7 +1137,8 @@ namespace TurnLimbo.Presentation
                 emphasised && !releasingBladeBindHit, pushPower, exchange, decisive);
             if (decisive) battleHud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
-            battleHud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber);
+            battleHud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber,
+                damageReasons, resistanceBroke, attackingSkill, mixedResources);
             effects.pitch = resistanceBroke ? (playerAttacks ? .96f : .82f) : UnityEngine.Random.Range(.75f, 1.25f);
             art.PlayClash(effects, false, UnityEngine.Random.value >= .5f);
             if (decisive && criticalSound != null)
