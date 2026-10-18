@@ -343,7 +343,7 @@ namespace TurnLimbo.Presentation.Tests
                 DragCard(fixture, "Loadout Owned Skill 2", "Loadout Slot Q 1");
                 Assert.That(fixture.PlaceCalls, Is.EqualTo(2));
                 Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero);
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장 전 변경"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장하지 않은 변경 사항"));
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.True);
             }
         }
@@ -364,7 +364,7 @@ namespace TurnLimbo.Presentation.Tests
                 AssertSocketShows(Button(fixture.Hud.Root, "Loadout Slot Q 1"), fixture.Run.GetLoadoutSlot(0, 0));
                 AssertSocketShows(Button(fixture.Hud.Root, "Loadout Slot Q 2"), fixture.Run.GetLoadoutSlot(0, 1));
                 Assert.That(fixture.Run.GetEquippedLane(0)[0].SkillId, Is.EqualTo(1), "Combat order stays committed until save.");
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장 전 변경"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Is.EqualTo("저장하지 않은 변경 사항"));
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.True);
                 Assert.That(fixture.State.SelectedSkillId, Is.EqualTo(1));
                 Assert.That(fixture.State.SelectedSlot, Is.EqualTo(1));

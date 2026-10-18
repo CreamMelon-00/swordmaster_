@@ -471,7 +471,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.GetOwnedSkill(pierce.SkillId), Is.Not.Null, "The technique is owned at once.");
                 Assert.That(controller.Campaign.EquippedSkillCount, Is.EqualTo(equipped), "…and never equipped by itself.");
                 Assert.That(controller.AcademyField.ArrivalNotice, Does.StartWith("새 기술 · " + skill.Name)
-                    .And.Contain("열이 열리면").And.Not.Contain("강공").And.Not.Contain("W"),
+                    .And.Contain("열을 해금하면").And.Not.Contain("강공").And.Not.Contain("W"),
                     "The field names the technique but not its closed lane.");
                 Assert.That(scope.Load().Campaign.FieldPickups, Is.EqualTo(new[] { pierce.Id }), "Taking a pickup is saved at once.");
                 Assert.That(controller.CollectFieldPickup(pierce.Id), Is.False, "Each pickup is taken once.");

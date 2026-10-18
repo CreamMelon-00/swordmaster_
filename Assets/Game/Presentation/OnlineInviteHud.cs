@@ -230,7 +230,7 @@ namespace TurnLimbo.Presentation
                 : connecting ? "연결을 확인하고 있습니다..."
                 : view.Host && !view.PeerConnected ? "초대 코드를 친구에게 보내세요."
                 : view.Host ? "두 사람이 준비하면 대전을 시작할 수 있습니다."
-                : "준비를 누르고 친구의 시작을 기다려 주세요.";
+                : "준비를 누른 뒤 친구가 대전을 시작할 때까지 기다려 주세요.";
             messageLabel.text = string.IsNullOrWhiteSpace(view.Message) ? fallback : view.Message;
             messageLabel.color = view.Phase == OnlineInvitePhase.Error
                 ? DuelVisualTheme.Danger : DuelVisualTheme.Muted;

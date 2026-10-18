@@ -498,7 +498,7 @@ namespace TurnLimbo.Presentation
             var panel = Rect("Stages Panel", pageRoot, new Vector2(0f, -24f), new Vector2(1800f, 850f));
             panel.localScale = Vector3.one * Mathf.Min(1f, LedgerWidth / 1800f);
             Label("Tab Heading", panel, "복도의 기록", new Vector2(-844f, 357f), new Vector2(730f, 54f), 38);
-            Label("Tab Subtitle", panel, "발자국을 따라 목적지를 고르세요. 선택한 상대는 오른쪽 장부에 기록됩니다.",
+            Label("Tab Subtitle", panel, "목적지를 고르면 오른쪽에서 상대 정보를 확인할 수 있습니다.",
                 new Vector2(-844f, 312f), new Vector2(1130f, 34f), 18, Muted);
             if (nextMission != null && nextMissionAvailable)
                 Button("Stages Open Mission", panel, $"새 임무  {nextMission.Title}  ▶", new Vector2(630f, 345f),
@@ -538,7 +538,7 @@ namespace TurnLimbo.Presentation
             Label("Selected Stage Name", preview.transform, $"{stage.Number}. {stage.Name}",
                 new Vector2(-192f, 43f), new Vector2(384f, 54f), 30);
             Label("Selected Stage State", preview.transform, run.HasLoadoutChanges
-                ? "편성 변경 미저장 · 편성에서 저장 또는 되돌리기 후 출정"
+                ? "편성 변경 사항을 저장하거나 취소한 뒤 출정하세요."
                 : run.IsStageWaitingForMission(selectedStageNumber) ? MissionWaitText()
                 : StageState(run, selectedStageNumber),
                 new Vector2(-192f, -7f), new Vector2(384f, 48f), 18,

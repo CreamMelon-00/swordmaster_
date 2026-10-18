@@ -458,7 +458,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(availability.text, Is.EqualTo("전투를 마칠 때마다 수련 점수가 쌓입니다."));
                 Button(root, "Curriculum Node quick-draw").onClick.Invoke();
                 AssertPrimary(primary, "완료한 과정", false);
-                Assert.That(availability.text, Is.EqualTo("익혔습니다. 얻은 기술은 편성에서 장착하세요."));
+                Assert.That(availability.text, Is.EqualTo("익힌 기술은 편성에서 장착하세요."));
                 primary.onClick.Invoke();
                 Assert.That(fixture.SelectCalls, Is.EqualTo(1));
 
@@ -1051,7 +1051,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(CampaignCurriculumHud.LearnedDetail(tree, tree.Find("battement"), LegacySkillDefinitions.Skill(52),
                 Array.Empty<CurriculumNode>(), true), Is.EqualTo("편성에서 장착할 수 있습니다."), "A bridge opens nothing and ends no course.");
             Assert.That(CampaignCurriculumHud.LearnedDetail(tree, tree.Find("battement"), LegacySkillDefinitions.Skill(52),
-                Array.Empty<CurriculumNode>(), false), Is.EqualTo("이 기술의 열이 열리면 편성할 수 있습니다."));
+                Array.Empty<CurriculumNode>(), false), Is.EqualTo("이 기술을 쓰는 열을 해금하면 편성할 수 있습니다."));
             Assert.That(CampaignCurriculumHud.LearnedDetail(tree, tree.Find("vital-thrust"), vital,
                 new[] { tree.Find("cadence") }, true), Is.EqualTo("새로 열린 과정: 카덴스"));
             Assert.That(CampaignCurriculumHud.LearnedDetail(tree, tree.Find("doublet"), LegacySkillDefinitions.Skill(56),

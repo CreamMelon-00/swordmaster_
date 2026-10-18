@@ -531,7 +531,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(AcademyFieldView.PickupNotice(pierce, true, true),
                 Is.EqualTo($"새 기술 · {pierce.Name}(W 강공)\nEsc 메뉴의 편성에서 장착할 수 있습니다."));
             string closed = AcademyFieldView.PickupNotice(pierce, true, false);
-            Assert.That(closed, Is.EqualTo($"새 기술 · {pierce.Name}\n이 기술의 열이 열리면 편성할 수 있습니다."));
+            Assert.That(closed, Is.EqualTo($"새 기술 · {pierce.Name}\n이 기술을 쓰는 열을 해금하면 편성할 수 있습니다."));
             Assert.That(closed, Does.Not.Contain("W").And.Not.Contain("강공"), "A closed lane is never named.");
             Assert.That(AcademyFieldView.PickupNotice(pierce, false, true), Is.EqualTo($"{pierce.Name} · 이미 익힌 기술입니다."));
         }

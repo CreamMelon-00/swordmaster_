@@ -93,7 +93,7 @@ namespace TurnLimbo.Core.Tests
             PrologueMission mission = StoryMissions.Get(3);
             IReadOnlyList<MissionGuideBeat> beats = mission.CreateGuide().Beats;
             Assert.That(beats[1].Title, Is.EqualTo("베기를 예약하세요"));
-            Assert.That(beats[2].Description, Is.EqualTo("베기가 열의 뒤로 돌아가고 막기가 올라왔습니다. 두 번째 순번의 내려치기를 막기로 받아내세요."));
+            Assert.That(beats[2].Description, Is.EqualTo("베기가 열의 뒤로 가고 막기가 맨 앞에 왔습니다. 두 번째 순번의 내려치기를 막기로 받아내세요."));
             Assert.That(beats[2].Description, Is.SameAs(beats[2].Description), "The coach reads the same string every frame.");
             Assert.That(beats[5].Description, Is.EqualTo("타격 속성 공격을 막기로 받아내 다음 턴 ACT를 2 더 얻었습니다. 상대의 큐를 보고 막을 자리를 고르세요."));
             Assert.That(mission.Objectives[0], Is.EqualTo("상대의 내려치기를 막기로 받아낸다"));
@@ -113,7 +113,7 @@ namespace TurnLimbo.Core.Tests
                 LegacySkillDefinitions.Install(() => sheet);
                 Assert.That(beats[1].Title, Is.EqualTo("새 칼을 예약하세요"));
                 Assert.That(beats[2].Description,
-                    Is.EqualTo("새 칼이 열의 뒤로 돌아가고 튕겨냄이 올라왔습니다. 두 번째 순번의 내려치기를 튕겨냄으로 받아내세요."));
+                    Is.EqualTo("새 칼이 열의 뒤로 가고 튕겨냄이 맨 앞에 왔습니다. 두 번째 순번의 내려치기를 튕겨냄으로 받아내세요."));
                 Assert.That(beats[5].Description,
                     Is.EqualTo("타격 속성 공격을 튕겨냄으로 받아내 다음 턴 ACT를 2 더 얻었습니다. 상대의 큐를 보고 막을 자리를 고르세요."));
                 Assert.That(mission.Objectives[0], Is.EqualTo("상대의 내려치기를 튕겨냄으로 받아낸다"));

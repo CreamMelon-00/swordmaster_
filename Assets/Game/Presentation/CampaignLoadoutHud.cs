@@ -225,7 +225,7 @@ namespace TurnLimbo.Presentation
             foreach (int lane in openLanes)
                 if (run.GetLoadoutCount(lane) < SlotsPerLane) hasEmptySlot = true;
             status.text = hasEmptySlot ? "빈 칸을 채워야 저장할 수 있습니다"
-                : run.HasLoadoutChanges ? "저장 전 변경" : string.Empty;
+                : run.HasLoadoutChanges ? "저장하지 않은 변경 사항" : string.Empty;
             saveButton.interactable = run.CanSaveLoadout && run.HasLoadoutChanges;
             saveButton.GetComponentInChildren<Text>().color = saveButton.interactable ? DuelVisualTheme.Ink : Foreground;
             cancelButton.interactable = run.HasLoadoutChanges;

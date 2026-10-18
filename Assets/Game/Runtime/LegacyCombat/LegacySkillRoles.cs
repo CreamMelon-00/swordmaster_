@@ -78,7 +78,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (skill == null) return string.Empty;
             return LegacySkillDefinitions.Find(skill)?.Text.Detail
-                ?? (skill.Kind == LegacySkillKind.Defence ? "방어 수치로 상대 공격을 줄입니다." : AttackDamageDetail);
+                ?? (skill.Kind == LegacySkillKind.Defence ? "방어 수치만큼 상대 공격의 피해를 줄입니다." : AttackDamageDetail);
         }
     }
 }

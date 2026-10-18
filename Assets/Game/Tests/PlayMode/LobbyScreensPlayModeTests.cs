@@ -282,7 +282,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Finish();
                 Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("깊은 찌르기"),
                     "Leaving the page must not discard the selected lane and skill.");
-                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Does.StartWith("저장 전 변경"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Status").text, Does.StartWith("저장하지 않은 변경 사항"));
                 Assert.That(fixture.Run.HasLoadoutChanges, Is.True);
                 CollectionAssert.AreEqual(draft, SlotIds(fixture.Run));
                 Assert.That(fixture.Run.GetEquippedLane(0)[0].SkillId, Is.EqualTo(savedQFirst), "Navigation must not save the combat order.");

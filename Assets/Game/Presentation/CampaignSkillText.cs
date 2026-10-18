@@ -8,7 +8,7 @@ namespace TurnLimbo.Presentation
         public static string Effect(LegacySkill skill)
             => LegacySkillDefinitions.Find(skill)?.Text.Effect
                 ?? (skill.Kind == LegacySkillKind.Defence
-                    ? "방어 수치만큼 같은 순서의 상대 공격 피해를 줄입니다."
+                    ? "같은 칸의 상대 공격 피해를 방어 수치만큼 줄입니다."
                     : skill.AttackCount > 1 ? string.Empty : "표시된 위력으로 한 번 공격합니다.");
 
         public static string Power(LegacySkill skill) => skill.MinPower == skill.MaxPower ? skill.MinPower.ToString()

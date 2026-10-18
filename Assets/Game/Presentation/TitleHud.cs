@@ -131,7 +131,7 @@ namespace TurnLimbo.Presentation
             // Enter continues when it can and otherwise presses 새 게임, so the hint follows it.
             continueCaption.text = canContinue ? "이어하기  [Enter]" : "이어하기";
             newGameCaption.text = canContinue ? "새 게임" : "새 게임  [Enter]";
-            summary.text = continueSummary ?? (noticeText != null ? "이어할 수 있는 저장이 없습니다." : "저장된 진행이 없습니다.");
+            summary.text = continueSummary ?? (noticeText != null ? "불러올 수 있는 저장 데이터가 없습니다." : "저장된 진행이 없습니다.");
             notice.text = noticeText ?? string.Empty;
             confirmNewGame = confirmBeforeNewGame;
             ClearSelection();

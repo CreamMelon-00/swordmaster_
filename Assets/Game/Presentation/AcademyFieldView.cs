@@ -502,7 +502,7 @@ namespace TurnLimbo.Presentation
             return laneOpen
                 ? $"새 기술 · {skill.Name}({SkillLaneStyle.Key(skill.LaneIndex)} {SkillLaneStyle.Name(skill.LaneIndex)})\n" +
                   "Esc 메뉴의 편성에서 장착할 수 있습니다."
-                : $"새 기술 · {skill.Name}\n이 기술의 열이 열리면 편성할 수 있습니다.";
+                : $"새 기술 · {skill.Name}\n이 기술을 쓰는 열을 해금하면 편성할 수 있습니다.";
         }
 
         private void PositionStages()

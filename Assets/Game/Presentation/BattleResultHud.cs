@@ -288,12 +288,12 @@ namespace TurnLimbo.Presentation
                     : toLobby ? "「깨어남」은 이미 마쳤습니다.\n여정을 계속하면 학원으로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
             if (!result.Victory)
                 return result.Outcome == DuelMatchOutcome.Draw ? "승부가 나지 않았습니다. 재도전하거나 기술 편성을 바꿔보세요."
-                    : "학원 메뉴에서 편성을 바꾸거나 다시 도전해보세요.";
+                    : "학원에서 편성을 바꾸거나 다시 도전할 수 있습니다.";
             string clear = result.FirstClear
                 ? string.IsNullOrEmpty(result.FirstClearSkillName) ? "첫 클리어!"
                     : $"첫 클리어! 새 기술 '{result.FirstClearSkillName}' 획득"
                 : "다시 클리어했습니다.";
-            return result.UnlockedStageNumber > 0 ? clear + $"\n새 전투 묶음 개방! ({result.UnlockedStageNumber:00}까지)"
+            return result.UnlockedStageNumber > 0 ? clear + $"\n새 스테이지가 열렸습니다. ({result.UnlockedStageNumber:00}까지)"
                 : clear + "\n학원으로 돌아가 다음 상대를 골라보세요.";
         }
 
