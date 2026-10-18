@@ -8,8 +8,8 @@ using UnityEngine.InputSystem;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Versus's battle: a <see cref="LocalVersusMatch"/> (public alternating reservations, a 20-second chess clock
-    /// each, free 넘기기, two passes in a row resolve both queues; no steps, 맞물림 or 반격) played on the arena and shown on
+    /// <summary>Versus's battle: a <see cref="LocalVersusMatch"/> (one complete public queue per planner, a 20-second clock
+    /// each, free 넘기기, both planners confirming resolves their queues; no steps, 맞물림 or 반격) played on the arena and shown on
     /// the campaign's duel HUD (<see cref="LegacyCombatHud"/>) from the viewer's side (<see cref="LocalVersusPerspective"/>):
     /// the viewer is always the HUD's player, on the arena's left, so the guest sees the match mirrored. It is the online
     /// friend duel's battle engine and has no other way in (one keyboard's two-player play is gone):
@@ -32,8 +32,9 @@ namespace TurnLimbo.Presentation
         public const int RoundLimit = 20;
         /// <summary>The start card's names: the viewer on the left, the opponent on the right.</summary>
         public const string LocalName = "나", OpponentName = "상대";
-        /// <summary>The duel HUD's commit seal passes the reservation turn in versus.</summary>
-        public const string PassLabel = "패스";
+        /// <summary>The duel HUD's seal finalizes the viewer's complete queue.</summary>
+        public const string CommitLabel = "예약 확정";
+        public const string PassLabel = CommitLabel;
         /// <summary>The stage plate's and the result card's title.</summary>
         public const string MatchTitle = "온라인 대전";
         private enum ViewPhase { Planning, Approaching, Closing, PlayingSlot, BetweenSlots, AfterTurn, Returning, Finished }
@@ -178,10 +179,10 @@ namespace TurnLimbo.Presentation
             if (settings == null) settings = ownedSettings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
             this.settings = settings;
             queueOnRelease = TryQueueLane;
-            battleHud = new LegacyCombatHud(parent, art, lane => TryQueueLane(lane), () => TryPass(), null,
+            battleHud = new LegacyCombatHud(parent, art, lane => TryQueueLane(lane), () => TryCommit(), null,
                 settings, () => TryBreath(), () => TryCycle());
             battleHud.SetStatusArena(arena);
-            battleHud.SetCommitLabel(PassLabel);
+            battleHud.SetCommitLabel(CommitLabel);
             battleHud.SetStageText(StageText);
             battleHud.Root.SetActive(false);
             hud = new LocalVersusHud(parent, art, Exit);
@@ -253,11 +254,12 @@ namespace TurnLimbo.Presentation
             requestOnlineRematch = null;
         }
 
-        // Tab holds every command but 패스, as in the campaign's battles.
+        // Tab holds every command but queue confirmation, as in the campaign's battles.
         public bool TryQueueLane(int lane) => !inspecting && SubmitAction(OnlineVersusAction.QueueLane, lane);
         public bool TryCycle() => !inspecting && SubmitAction(OnlineVersusAction.Cycle, -1);
         public bool TryBreath() => !inspecting && SubmitAction(OnlineVersusAction.Breath, -1);
-        public bool TryPass() => SubmitAction(OnlineVersusAction.Pass, -1);
+        public bool TryCommit() => SubmitAction(OnlineVersusAction.Pass, -1);
+        public bool TryPass() => TryCommit();
 
         private bool SubmitAction(OnlineVersusAction action, int lane)
         {
@@ -343,7 +345,7 @@ namespace TurnLimbo.Presentation
                 case OnlineVersusAction.QueueLane: return match.TryQueueLane(player, lane);
                 case OnlineVersusAction.Cycle: return match.TryCycleLanes(player);
                 case OnlineVersusAction.Breath: return match.TryQueueBreath(player);
-                case OnlineVersusAction.Pass: return match.TryPass(player);
+                case OnlineVersusAction.Pass: return match.TryCommit(player);
                 default: return false;
             }
         }
@@ -366,8 +368,7 @@ namespace TurnLimbo.Presentation
             clocks[player] = LegacyPlanningClock.Spend(clocks[player], seconds, true);
         }
 
-        // ApplyMatchAction's check alone: whether the match would take the command now. A pass always would on the
-        // player's own turn.
+        // ApplyMatchAction's read-only checks, including whether this planner can finalize their queue.
         private bool CanApplyMatchAction(int player, OnlineVersusAction action, int lane)
         {
             switch (action)
@@ -375,7 +376,7 @@ namespace TurnLimbo.Presentation
                 case OnlineVersusAction.QueueLane: return match.CanQueueLane(player, lane);
                 case OnlineVersusAction.Cycle: return match.CanCycleLanes(player);
                 case OnlineVersusAction.Breath: return match.CanQueueBreath(player);
-                case OnlineVersusAction.Pass: return match.CurrentPlanner == player;
+                case OnlineVersusAction.Pass: return match.CanCommit(player);
                 default: return false;
             }
         }
@@ -631,7 +632,7 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>The current planner's clock runs on real time while that player holds the reservation turn (never under
-        /// the start card). Only the host passes for a player whose clock ran out; the guest's clocks follow the host's.</summary>
+        /// the start card). Only the host finalizes an expired queue; the guest's clocks follow the host's.</summary>
         private bool AdvanceClock(float realDelta)
         {
             if (!IsPlanningShown || realDelta <= 0f) return false;
@@ -639,10 +640,9 @@ namespace TurnLimbo.Presentation
             clocks[planner] = Mathf.Max(0f, clocks[planner] - realDelta);
             if (clocks[planner] > 0f || !onlineHost) return false;
             int round = match.RoundNumber;
-            // A pass that runs out the clock may be the one that commits the turn: read its 순환 +1 cues first, like every
-            // other action.
+            // The second confirmation starts combat: capture its 순환 +1 cues before applying the action.
             CaptureFeedCues();
-            if (!match.TryPass(planner)) return false;
+            if (!match.TryCommit(planner)) return false;
             AfterAction(planner, OnlineVersusAction.Pass, -1, null);
             OnlineActionApplied?.Invoke(planner, OnlineVersusAction.Pass, -1, round);
             return true;
@@ -650,7 +650,7 @@ namespace TurnLimbo.Presentation
 
         /// <summary>The campaign's planning keys (<see cref="DuelPrototypeController"/>): Q/W/E and the pointer on the gears'
         /// windows by <see cref="DuelLaneHolds"/> (a tap queues, a hold explains), 1/2/3 queue at once, Shift 넘기기, S
-        /// 숨고르기, Space/Enter the seal (패스), L the log, and Tab (held) reads the opponent's queue, ←/→ along it. Only the
+        /// 숨고르기, Space/Enter the seal (예약 확정), L the log, and Tab (held) reads the opponent's queue, ←/→ along it. Only the
         /// viewer's own turn acts (<see cref="CanPlan"/>); nothing here slows time.</summary>
         private void ReadPlanningInput(Keyboard keyboard, float realDelta)
         {
@@ -661,7 +661,7 @@ namespace TurnLimbo.Presentation
                 if (keyboard.leftArrowKey.wasPressedThisFrame) inspectingEnemy = Mathf.Max(0, inspectingEnemy - 1);
                 if (keyboard.rightArrowKey.wasPressedThisFrame)
                     inspectingEnemy = Mathf.Min(view.EnemyQueue.Count - 1, inspectingEnemy + 1);
-                if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame) TryPass();
+                if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame) TryCommit();
                 return;
             }
             if (keyboard == null)
@@ -680,7 +680,7 @@ namespace TurnLimbo.Presentation
             if (keyboard.digit1Key.wasPressedThisFrame) TryQueueLane(0);
             if (keyboard.digit2Key.wasPressedThisFrame) TryQueueLane(1);
             if (keyboard.digit3Key.wasPressedThisFrame) TryQueueLane(2);
-            if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame) TryPass();
+            if (keyboard.spaceKey.wasPressedThisFrame || keyboard.enterKey.wasPressedThisFrame) TryCommit();
         }
 
         private void ReadLaneHold(int lane, bool keyHeld, bool keyPressed, bool keyReleased, float realDelta)
@@ -714,7 +714,7 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>A reservation was applied to the match: the viewer's own is presented as in the campaign's battles (the
-        /// gears turn, the selection sound), then two passes in a row start the resolution.</summary>
+        /// gears turn, the selection sound). Each player confirms once after building their whole queue.</summary>
         private void AfterAction(int player, OnlineVersusAction action, int lane, LegacySkill[] cancelled)
         {
             if (view.IsPlayerSide(player)) PresentOwnAction(action, lane, cancelled);
@@ -730,8 +730,8 @@ namespace TurnLimbo.Presentation
                     battleHud.ClearHoldCancel();
                     // The lane's gear turns a slot: the queued skill to the upper right, the next one up into the window.
                     battleHud.PlayLaneTurn(lane);
-                    // 예약 효과: the time it cost, and the 일회성 copies it set. The timer has already turned to the opponent's
-                    // clock, so the '-4초' rises over the reserved lane's window (its cost read '3 ACT · 4초').
+                    // 예약 효과: the time it cost, and the 일회성 copies it set. The planner's clock continues running;
+                    // '-4초' rises over the reserved lane's window (its cost read '3 ACT · 4초').
                     if (lastActionSeconds > 0f) battleHud.ShowLaneTimeSpent(lane, lastActionSeconds);
                     LocalVersusFighter self = view.Me;
                     // When the opponent holds a card in the slot just reserved into, a spark bursts at both cards.
@@ -764,7 +764,7 @@ namespace TurnLimbo.Presentation
             holds.DropExplanation();
         }
 
-        // 순환 +1 rises as the turn commits, inside the action that commits it (the second pass in a row): what it raises on
+        // 순환 +1 rises as the turn commits, inside its second confirmation: what it raises on
         // each side is read before every action and said once the resolution begins.
         private void CaptureFeedCues()
         {
@@ -787,7 +787,7 @@ namespace TurnLimbo.Presentation
         {
             if (match.Phase != LegacyDuelPhase.Planning)
             {
-                // Two passes in a row: both queues resolve (or the last turn ended with nothing queued: a draw).
+                // Both full queues are confirmed (or the last turn ended with nothing queued: a draw).
                 holds.Clear(battleHud);
                 inspecting = false;
                 battleHud.HideExplanation();

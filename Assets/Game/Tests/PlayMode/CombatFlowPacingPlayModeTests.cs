@@ -139,11 +139,10 @@ namespace TurnLimbo.Presentation.Tests
             using (var guest = new VersusScope(compact, hits, 1))
             {
                 for (int index = 0; index < count; index++)
-                {
                     Accepted(host, guest, 0, OnlineVersusAction.QueueLane, 0);
-                    Accepted(host, guest, 1, OnlineVersusAction.QueueLane, 0);
-                }
                 Accepted(host, guest, 0, OnlineVersusAction.Pass, -1);
+                for (int index = 0; index < count; index++)
+                    Accepted(host, guest, 1, OnlineVersusAction.QueueLane, 0);
                 Accepted(host, guest, 1, OnlineVersusAction.Pass, -1);
                 Assert.That(host.Versus.IsResolving && guest.Versus.IsResolving, Is.True);
                 var trace = new TurnTrace();

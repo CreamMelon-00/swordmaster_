@@ -87,9 +87,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var match = new LocalVersusMatch(new[] { Guard(990, 4) }, new[] { Attack(991, "찌르기", 10) });
                 ILegacyDuelView hostView = new LocalVersusPerspective(match, 0), guestView = new LocalVersusPerspective(match, 1);
-                Assert.That(match.TryQueueLane(0, 0) && match.TryQueueLane(1, 0), Is.True);
-                int planner = match.CurrentPlanner;
-                Assert.That(match.TryPass(planner) && match.TryPass(1 - planner), Is.True);
+                Assert.That(match.TryQueueLane(0, 0) && match.TryCommit(0) && match.TryQueueLane(1, 0), Is.True);
+                Assert.That(match.TryCommit(1), Is.True);
                 match.BeginNextSlot();
                 host.Refresh(hostView, true, 0);
                 guest.Refresh(guestView, true, 0);

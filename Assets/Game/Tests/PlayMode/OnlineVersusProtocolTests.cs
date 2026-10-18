@@ -202,14 +202,14 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(right.TryQueueLane(0, 0), Is.True);
             Assert.That(OnlineVersusProtocol.ComputeStateHash(right), Is.EqualTo(afterQueue));
 
-            Assert.That(left.TryCycleLanes(1), Is.True);
+            Assert.That(left.TryCycleLanes(0), Is.True);
             Assert.That(OnlineVersusProtocol.ComputeStateHash(left), Is.Not.EqualTo(afterQueue));
-            Assert.That(right.TryCycleLanes(1), Is.True);
+            Assert.That(right.TryCycleLanes(0), Is.True);
             Assert.That(OnlineVersusProtocol.ComputeStateHash(right),
                 Is.EqualTo(OnlineVersusProtocol.ComputeStateHash(left)));
 
-            Assert.That(left.TryPass(1), Is.True);
-            Assert.That(right.TryPass(1), Is.True);
+            Assert.That(left.TryCommit(0), Is.True);
+            Assert.That(right.TryCommit(0), Is.True);
             Assert.That(OnlineVersusProtocol.ComputeStateHash(right),
                 Is.EqualTo(OnlineVersusProtocol.ComputeStateHash(left)));
         }

@@ -17,6 +17,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(host.IsMyTurn, Is.True);
             Assert.That(guest.IsOpponentsTurn, Is.True);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(host.IsMyTurn, Is.True, "The opening player keeps the whole planning phase.");
+            Assert.That(guest.IsMyTurn, Is.False);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueBreath(1), Is.True);
 
             Assert.That(host.Player, Is.SameAs(match.Left.State));
@@ -44,8 +47,10 @@ namespace TurnLimbo.Core.Tests
             Assert.That(max, Is.EqualTo(leftMax));
             Assert.That(host.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
             Assert.That(guest.RoundNumber, Is.EqualTo(1));
-            Assert.That(host.IsMyTurn, Is.True);
-            Assert.That(guest.IsMyTurn, Is.False);
+            Assert.That(host.IsMyTurn, Is.False);
+            Assert.That(guest.IsMyTurn, Is.True);
+            Assert.That(host.EnemyQueue[0].IsWait, Is.True);
+            Assert.That(match.CommittedPlannerCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -80,8 +85,8 @@ namespace TurnLimbo.Core.Tests
             var host = new LocalVersusPerspective(match, 0);
             var guest = new LocalVersusPerspective(match, 1);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 2), Is.True);
-            Assert.That(match.TryPass(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Commit(match);
             Assert.That(host.CurrentSlot, Is.Null);
@@ -128,6 +133,7 @@ namespace TurnLimbo.Core.Tests
             var host = new LocalVersusPerspective(match, 0);
             var guest = new LocalVersusPerspective(match, 1);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Commit(match);
             match.BeginNextSlot();
@@ -164,8 +170,8 @@ namespace TurnLimbo.Core.Tests
             var match = NewMatch(new[] { Attack(100, 1, 10) }, new[] { Attack(200, 1, 10) });
             var guest = new LocalVersusPerspective(match, 1);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueBreath(1), Is.True);
-            Assert.That(match.TryPass(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Commit(match);
 
@@ -190,6 +196,7 @@ namespace TurnLimbo.Core.Tests
             // A clash against whole resistance shows the resistance it took.
             match.BeginNextTurn();
             Assert.That(match.TryQueueLane(1, 0), Is.True);
+            Assert.That(match.TryCommit(1), Is.True);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
             Commit(match);
             match.BeginNextSlot();
@@ -209,6 +216,7 @@ namespace TurnLimbo.Core.Tests
             var guest = new LocalVersusPerspective(match, 1);
             Assert.That(host.Outcome, Is.EqualTo(DuelMatchOutcome.InProgress));
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueBreath(1), Is.True);
             Commit(match);
             match.ResolveNextSlot();
@@ -226,6 +234,7 @@ namespace TurnLimbo.Core.Tests
             var match = NewMatch(new[] { Attack(100, 1, 5) }, new[] { Attack(200, 1, 5) });
             var guest = new LocalVersusPerspective(match, 1);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Assert.That(guest.Features, Is.EqualTo(CombatFeature.All));
             Assert.That(guest.PlayerCounter, Is.Null);
@@ -255,18 +264,14 @@ namespace TurnLimbo.Core.Tests
             var match = NewMatch(new[] { Attack(200, 1, 1) }, new[] { attack, cancel });
             var host = new LocalVersusPerspective(match, 0);
             var guest = new LocalVersusPerspective(match, 1);
-            Assert.That(match.TryPass(0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
-            Assert.That(match.TryPass(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
-            Assert.That(match.TryPass(0), Is.True);
             Assert.That(match.TryQueueLane(1, 2), Is.True);
             Assert.That(guest.QueuePowerSourceSlotIndex, Is.Zero);
             Assert.That(guest.QueuePowerRemovedSkillCount, Is.EqualTo(2));
             Assert.That(guest.QueuePowerTargetSlotIndex, Is.EqualTo(-1), "No technique follows the cancel yet.");
-            Assert.That(match.TryPass(0), Is.True);
             Assert.That(match.TryQueueBreath(1), Is.True);
-            Assert.That(match.TryPass(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
 
             // The same reservations in a single-player duel read the same boost.
@@ -365,9 +370,8 @@ namespace TurnLimbo.Core.Tests
 
         private static void Commit(LocalVersusMatch match)
         {
-            int first = match.CurrentPlanner;
-            Assert.That(match.TryPass(first), Is.True);
-            Assert.That(match.TryPass(1 - first), Is.True);
+            while (match.Phase == LegacyDuelPhase.Planning)
+                Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
         }
     }
 }

@@ -207,20 +207,20 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
                 for (int index = 0; index < 2; index++)
-                {
                     Accepted(host, guest, 0, OnlineVersusAction.QueueLane, index);
-                    Accepted(host, guest, 1, OnlineVersusAction.QueueLane, index);
-                }
                 Accepted(host, guest, 0, OnlineVersusAction.Pass, -1);
-                Accepted(host, guest, 1, OnlineVersusAction.QueueLane, 2);
+                for (int index = 0; index < 3; index++)
+                    Accepted(host, guest, 1, OnlineVersusAction.QueueLane, index);
                 Press(keyboard.tabKey);
                 yield return null;
                 host.Tick(0f, keyboard); guest.Tick(0f, keyboard);
                 AssertMirror(host, guest, 0);
-                float hostClock = host.Versus.LeftClock, guestClock = guest.Versus.LeftClock;
+                float hostClock = host.Versus.RightClock, guestClock = guest.Versus.RightClock;
+                float committedClock = host.Versus.LeftClock;
                 host.Tick(.5f, keyboard); guest.Tick(.5f, keyboard);
-                Assert.That(host.Versus.LeftClock, Is.EqualTo(hostClock - .5f).Within(.0001f));
-                Assert.That(guest.Versus.LeftClock, Is.EqualTo(guestClock - .5f).Within(.0001f));
+                Assert.That(host.Versus.RightClock, Is.EqualTo(hostClock - .5f).Within(.0001f));
+                Assert.That(guest.Versus.RightClock, Is.EqualTo(guestClock - .5f).Within(.0001f));
+                Assert.That(host.Versus.LeftClock, Is.EqualTo(committedClock), "The committed opening queue's clock stays frozen.");
                 Assert.That(host.Versus.TryQueueLane(0), Is.False);
                 Press(keyboard.rightArrowKey);
                 yield return null;

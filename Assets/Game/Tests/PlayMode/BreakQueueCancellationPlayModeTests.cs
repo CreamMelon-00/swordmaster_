@@ -139,10 +139,10 @@ namespace TurnLimbo.Presentation.Tests
                 for (int i = 0; i < 4; i++)
                 {
                     Assert.That(match.TryQueueLane(0, 0), Is.True);
-                    Assert.That(match.TryQueueLane(1, 0), Is.True);
                 }
-                Assert.That(match.TryPass(0), Is.True);
-                Assert.That(match.TryPass(1), Is.True);
+                Assert.That(match.TryCommit(0), Is.True);
+                for (int i = 0; i < 4; i++) Assert.That(match.TryQueueLane(1, 0), Is.True);
+                Assert.That(match.TryCommit(1), Is.True);
                 scope.Begin();
                 LocalVersusSlot current = match.CurrentSlot;
                 for (int frame = 0; frame < 1200 && current.HitsResolved == 0; frame++) scope.Versus.Tick(.01f, null);

@@ -10,7 +10,7 @@ namespace TurnLimbo.Presentation
     /// <summary>Versus's thin PvP layer over the duel HUD (<see cref="LegacyCombatHud"/>, the one the campaign's battles use,
     /// which <see cref="LocalVersusController"/> drives from the viewer's side). It shows only what single play has no place
     /// for: whose reservation turn it is (내 차례 / 상대 차례 / 판정 중 / 승부 종료) on a plate under the turn header, a hint under
-    /// that (the pass streak, a request waiting for the host, the last turn), each fighter's identity at its feet with a ring
+    /// that (the current planning step or a request waiting for the host), each fighter's identity at its feet with a ring
     /// under the one whose turn it is, and the way out: a 타이틀 [Esc] button and a confirmation that never pauses the duel
     /// (the clocks are the host's). Match rules, input and the result card stay with the controller.</summary>
     public sealed partial class LocalVersusHud : IDisposable
@@ -23,9 +23,9 @@ namespace TurnLimbo.Presentation
         public const int ExitSortingOrder = 410;
         public const string MyTurnText = "내 차례", OpponentTurnText = "상대 차례", ResolvingText = "판정 중",
             FinishedText = "승부 종료";
-        public const string RequestPendingHint = "전송 중", PassToResolveHint = "한 번 더 패스하면 판정합니다",
-            OpponentPassToResolveHint = "상대가 패스하면 판정합니다", OpponentChoosingHint = "상대가 기술을 고르는 중입니다",
-            LastTurnHint = "마지막 턴입니다";
+        public const string RequestPendingHint = "전송 중", FirstPlannerHint = "기술을 모두 예약한 뒤 확정하세요.",
+            ResponsePlannerHint = "상대 예약을 확인하고 대응하세요.", WaitingForResponseHint = "예약 완료 · 상대를 기다립니다.",
+            OpponentChoosingHint = "상대가 기술을 예약하는 중입니다.";
         public const string ExitQuestion = "대전을 끝내고 타이틀로 돌아갈까요?";
         private const float TurnPlateY = -98f, HintPlateY = -136f;
         private readonly LegacyDuelArt art;
@@ -145,17 +145,15 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>The hint under the turn plate for <paramref name="localPlayer"/>, or "" for none: the request waiting for
-        /// the host, a pass that the next pass resolves, the opponent choosing, the match's last turn.</summary>
+        /// the host, the whole queue to prepare, the public queue to answer, or the opponent still planning.</summary>
         public static string Hint(LocalVersusMatch match, int localPlayer, bool requestPending)
         {
             if (match == null) throw new ArgumentNullException(nameof(match));
             if (match.Phase != LegacyDuelPhase.Planning || match.CurrentPlanner < 0) return string.Empty;
             bool mine = match.CurrentPlanner == localPlayer;
             if (mine && requestPending) return RequestPendingHint;
-            // One pass yields the turn; the next one in a row resolves both queues.
-            if (match.ConsecutivePasses > 0) return mine ? PassToResolveHint : OpponentPassToResolveHint;
-            if (!mine) return OpponentChoosingHint;
-            return match.RoundNumber >= match.RoundLimit ? LastTurnHint : string.Empty;
+            if (!mine) return match.CommittedPlannerCount > 0 ? WaitingForResponseHint : OpponentChoosingHint;
+            return match.CommittedPlannerCount > 0 ? ResponsePlannerHint : FirstPlannerHint;
         }
 
         /// <summary>Shows or hides the battle's layer: the start card and the result card take its place. The exit

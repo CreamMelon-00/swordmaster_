@@ -247,7 +247,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 BoostRemoved = BoostCap > 0 ? removed : 0;
             }
             // 예약 효과 숨고르기 +1, as the campaign's: one free breath right after the skill, once per turn. The same action
-            // that reserved the skill reserves it, so the reservation turn passes once.
+            // that reserved the skill reserves it, without ending this fighter's planning phase.
             if (effect != null && effect.ReserveBreath && (ReserveEffectsUsedThisTurn & LegacyReserveEffect.Breath) == 0)
             {
                 QueueSkills.Add(LegacyCommonActions.Breathe);
@@ -452,14 +452,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LocalVersusOutcome Outcome { get; }
     }
 
-    /// <summary>Public alternating reservations for two players (the online friend duel: both peers run the same match from
-    /// one seed); no dodge, pressure or meshing.</summary>
+    /// <summary>Public queue planning for two players: the opening player finalizes a whole queue, then the other plans a
+    /// response before both queues resolve. Both online peers run the same match from one seed; no dodge, pressure or meshing.</summary>
     public sealed class LocalVersusMatch
     {
         public const int MaximumBreathsPerTurn = 3;
         private readonly int randomSeed, initialOpeningPlayer;
         private Random random;
-        private int consecutivePasses, nextSlot, slotCount;
+        private int committedPlannerCount, nextSlot, slotCount;
         // A forecast's copy (ForecastTurn) rolls every power at its range's average and never draws from the generator.
         private readonly bool averageRolls;
 
@@ -494,7 +494,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             OpeningPlayer = source.OpeningPlayer;
             CurrentPlanner = source.CurrentPlanner;
             LastPassPlayer = source.LastPassPlayer;
-            consecutivePasses = source.consecutivePasses;
+            committedPlannerCount = source.committedPlannerCount;
             Outcome = source.Outcome;
             Phase = LegacyDuelPhase.Planning;
         }
@@ -595,7 +595,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int RoundLimit { get; }
         public int OpeningPlayer { get; private set; }
         public int CurrentPlanner { get; private set; }
-        public int ConsecutivePasses => consecutivePasses;
+        /// <summary>Players who have finalized their queues this turn; a later reservation never clears a commitment.</summary>
+        public int CommittedPlannerCount => committedPlannerCount;
+        /// <summary>Compatibility name for <see cref="CommittedPlannerCount"/>.</summary>
+        public int ConsecutivePasses => CommittedPlannerCount;
         public int LastPassPlayer { get; private set; }
         public LegacyDuelPhase Phase { get; private set; }
         public LocalVersusOutcome Outcome { get; private set; }
@@ -649,14 +652,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool TryQueueLane(int playerIndex, int laneIndex)
         {
             if (!IsCurrentPlanner(playerIndex) || !GetFighter(playerIndex).QueueLane(laneIndex)) return false;
-            NextPlannerAfterAction();
             return true;
         }
 
         public bool TryQueueBreath(int playerIndex)
         {
             if (!IsCurrentPlanner(playerIndex) || !GetFighter(playerIndex).QueueBreath()) return false;
-            NextPlannerAfterAction();
             return true;
         }
 
@@ -677,15 +678,22 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool CanCycleLanes(int playerIndex)
             => IsCurrentPlanner(playerIndex) && GetFighter(playerIndex).CanCycleLanes();
 
-        /// <summary>One pass yields; two consecutive passes start resolving the visible queues.</summary>
-        public bool TryPass(int playerIndex)
+        /// <summary>Whether this player can finalize their current queue, including an empty one.</summary>
+        public bool CanCommit(int playerIndex) => IsCurrentPlanner(playerIndex);
+
+        /// <summary>Finalize this player's entire queue. The first commitment gives the other player the planning phase;
+        /// the second starts resolving. A committed player cannot reserve again until the next combat turn.</summary>
+        public bool TryCommit(int playerIndex)
         {
             if (!IsCurrentPlanner(playerIndex)) return false;
             LastPassPlayer = playerIndex;
-            if (++consecutivePasses == 2) Commit();
+            if (++committedPlannerCount == 2) Commit();
             else CurrentPlanner = 1 - CurrentPlanner;
             return true;
         }
+
+        /// <summary>Compatibility command for <see cref="TryCommit"/> (the online Pass command keeps its wire value).</summary>
+        public bool TryPass(int playerIndex) => TryCommit(playerIndex);
 
         public LocalVersusSlot BeginNextSlot()
         {
@@ -827,13 +835,6 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private bool IsCurrentPlanner(int playerIndex)
             => Phase == LegacyDuelPhase.Planning && playerIndex >= 0 && playerIndex <= 1 && CurrentPlanner == playerIndex;
 
-        private void NextPlannerAfterAction()
-        {
-            consecutivePasses = 0;
-            LastPassPlayer = -1;
-            CurrentPlanner = 1 - CurrentPlanner;
-        }
-
         private void Commit()
         {
             // 순환 +1 from each side's committed queue, as LegacyQueuedDuel.Commit.
@@ -859,7 +860,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 Right.BeginTurn();
             }
             CurrentSlot = null;
-            nextSlot = slotCount = consecutivePasses = 0;
+            nextSlot = slotCount = committedPlannerCount = 0;
             LastPassPlayer = -1;
             CurrentPlanner = OpeningPlayer;
             Phase = LegacyDuelPhase.Planning;

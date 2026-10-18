@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace TurnLimbo.Presentation
 {
+    // Pass retains its wire value and now confirms the player's entire queue.
     public enum OnlineVersusAction { QueueLane, Cycle, Breath, Pass }
     public enum OnlineVersusMessageKind { Hello, Ready, Start, Request, Applied, Clock, TurnDigest, Rematch, Error }
 
@@ -178,7 +179,7 @@ namespace TurnLimbo.Presentation
     public static class OnlineVersusProtocol
     {
         // Increment when the combat simulation changes without a corresponding skill-sheet edit.
-        public const string CombatRulesVersion = "local-versus-rules-7";
+        public const string CombatRulesVersion = "local-versus-rules-8";
         private const ulong Offset = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
@@ -233,7 +234,7 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, (int)match.Outcome);
             AddInt(ref hash, match.OpeningPlayer);
             AddInt(ref hash, match.CurrentPlanner);
-            AddInt(ref hash, match.ConsecutivePasses);
+            AddInt(ref hash, match.CommittedPlannerCount);
             AddInt(ref hash, match.LastPassPlayer);
             AddInt(ref hash, match.ResolutionSlotCount);
             AddSlot(ref hash, match.CurrentSlot);

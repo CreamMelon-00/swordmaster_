@@ -422,9 +422,9 @@ namespace TurnLimbo.Presentation.Tests
                 var match = new LocalVersusMatch(new[] { Attack(970, 12) }, new[] { Attack(971, 8) }, 100, 50, 100, 50, randomSeed: 17);
                 ILegacyDuelView hostView = new LocalVersusPerspective(match, 0), guestView = new LocalVersusPerspective(match, 1);
                 Assert.That(match.TryQueueLane(0, 0), Is.True);
+                Assert.That(match.TryCommit(0), Is.True);
                 Assert.That(match.TryQueueLane(1, 0), Is.True);
-                int first = match.CurrentPlanner;
-                Assert.That(match.TryPass(first) && match.TryPass(1 - first), Is.True);
+                Assert.That(match.TryCommit(1), Is.True);
                 match.BeginNextSlot();
                 for (int frame = 0; frame < 6; frame++)
                 {

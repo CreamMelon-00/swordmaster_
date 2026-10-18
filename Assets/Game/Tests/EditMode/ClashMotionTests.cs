@@ -400,6 +400,7 @@ namespace TurnLimbo.Core.Tests
             ILegacyDuelView host = new LocalVersusPerspective(match, 0), guest = new LocalVersusPerspective(match, 1);
             Assert.That(match.CurrentClash(0), Is.EqualTo(LegacyClashInput.None));
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Commit(match);
             match.BeginNextSlot();
@@ -426,6 +427,7 @@ namespace TurnLimbo.Core.Tests
             var host = new LocalVersusPerspective(match, 0);
             var guest = new LocalVersusPerspective(match, 1);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Commit(match);
             match.BeginNextSlot();
@@ -479,8 +481,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(match.TryQueueLane(0, 0), Is.True);
             Assert.That(LegacyClashMotion.NextOpponentSlot(guest), Is.Zero, "The guest's first reservation meets the host's card.");
             Assert.That(LegacyClashMotion.NextOpponentSlot(host), Is.EqualTo(-1));
-            Assert.That(match.TryQueueLane(1, 0), Is.True);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.TryQueueLane(1, 0), Is.True);
             Assert.That(LegacyClashMotion.NextOpponentSlot(guest), Is.EqualTo(1));
             Assert.That(LegacyClashMotion.NextOpponentSlot(host), Is.EqualTo(-1));
         }
@@ -537,9 +540,8 @@ namespace TurnLimbo.Core.Tests
 
         private static void Commit(LocalVersusMatch match)
         {
-            int first = match.CurrentPlanner;
-            Assert.That(match.TryPass(first), Is.True);
-            Assert.That(match.TryPass(1 - first), Is.True);
+            while (match.Phase == LegacyDuelPhase.Planning)
+                Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
         }
     }
 }

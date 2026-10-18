@@ -232,14 +232,18 @@ namespace TurnLimbo.Core.Tests
         public void Versus_PursuitReadsEachOwnersQueue_AndForecastsMatchBothSidesWithoutMutation()
         {
             var match = Match(PursuitSkills());
-            QueueBoth(match, 0);
-            QueueBoth(match, 0);
+            Assert.That(match.TryQueueLane(0, 0) && match.TryQueueLane(0, 0), Is.True);
             string before = MatchSnapshot(match);
             Assert.That(match.ForecastIfQueued(0, 2).EnemyHealthDamage, Is.EqualTo(18));
-            Assert.That(match.ForecastIfQueued(1, 2).EnemyHealthDamage, Is.EqualTo(18));
             Assert.That(MatchSnapshot(match), Is.EqualTo(before));
-            QueueBoth(match, 2);
-            QueueBoth(match, 2);
+            Assert.That(match.TryQueueLane(0, 2) && match.TryQueueLane(0, 2), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.TryQueueLane(1, 0) && match.TryQueueLane(1, 0), Is.True);
+            before = MatchSnapshot(match);
+            Assert.That(match.ForecastIfQueued(1, 2).EnemyResistanceDamage, Is.EqualTo(18),
+                "The responder's same bonus now clashes with the confirmed leading queue.");
+            Assert.That(MatchSnapshot(match), Is.EqualTo(before));
+            Assert.That(match.TryQueueLane(1, 2) && match.TryQueueLane(1, 2), Is.True);
             before = MatchSnapshot(match);
             for (int player = 0; player < 2; player++)
             {
@@ -287,12 +291,12 @@ namespace TurnLimbo.Core.Tests
         {
             int first = match.CurrentPlanner;
             Assert.That(match.TryQueueLane(first, lane), Is.True);
+            Assert.That(match.TryCommit(first), Is.True);
             Assert.That(match.TryQueueLane(1 - first, lane), Is.True);
         }
         private static LocalVersusSlotResult[] Resolve(LocalVersusMatch match)
         {
-            Assert.That(match.TryPass(match.CurrentPlanner), Is.True);
-            Assert.That(match.TryPass(match.CurrentPlanner), Is.True);
+            Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
             var results = new List<LocalVersusSlotResult>();
             while (!match.IsTurnResolved) results.Add(match.ResolveNextSlot());
             return results.ToArray();

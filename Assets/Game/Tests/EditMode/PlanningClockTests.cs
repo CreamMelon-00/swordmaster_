@@ -144,7 +144,6 @@ namespace TurnLimbo.Core.Tests
                 LegacySkillDefinitions.Skill(VitalThrust) };
             var match = new LocalVersusMatch(skills, skills, randomSeed: 3, leftHealth: 500, rightHealth: 500);
             Assert.That(match.TryQueueLane(0, Q), Is.True);
-            Assert.That(match.TryPass(1), Is.True);
             Assert.That(match.TryQueueLane(0, Q), Is.True);
             Assert.That(Ids(match.Left.Queue), Is.EqualTo(new[] { DiagonalCut, QuickSteps }));
             var forecast = new List<LegacySlotForecast>();
@@ -153,7 +152,7 @@ namespace TurnLimbo.Core.Tests
             match.ForecastTurn(1, forecast);
             Assert.That(forecast.Select(slot => slot.NextTurnSeconds), Is.EqualTo(new[] { 0, 0 }), "Only the user's own clock.");
             Assert.That(match.Left.NextPlanningSeconds, Is.Zero, "Forecasting changes nothing.");
-            Assert.That(match.TryPass(1) && match.TryPass(0), Is.True);
+            Assert.That(match.TryCommit(0) && match.TryCommit(1), Is.True);
             match.ResolveNextSlot();
             LocalVersusSlot slot = match.BeginNextSlot();
             Assert.That((slot.LeftPlanningSecondsGained, slot.RightPlanningSecondsGained), Is.EqualTo((2, 0)));

@@ -133,11 +133,11 @@ namespace TurnLimbo.Presentation.Tests
             using (var guest = new VersusScope(1))
             {
                 for (int index = 0; index < 4; index++)
-                {
                     Accepted(host, guest, 0, OnlineVersusAction.QueueLane, 0);
-                    Accepted(host, guest, 1, index < 2 ? OnlineVersusAction.QueueLane : OnlineVersusAction.Pass, index < 2 ? 0 : -1);
-                }
                 Accepted(host, guest, 0, OnlineVersusAction.Pass, -1);
+                for (int index = 0; index < 2; index++)
+                    Accepted(host, guest, 1, OnlineVersusAction.QueueLane, 0);
+                Accepted(host, guest, 1, OnlineVersusAction.Pass, -1);
                 float[] expected = { 1f, 1.1f, 2.4f, 2.6f };
                 for (int index = 0; index < expected.Length; index++)
                 {

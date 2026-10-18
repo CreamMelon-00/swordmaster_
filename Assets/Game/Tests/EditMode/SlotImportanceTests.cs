@@ -581,6 +581,7 @@ namespace TurnLimbo.Core.Tests
             ILegacyDuelView host = new LocalVersusPerspective(match, 0), guest = new LocalVersusPerspective(match, 1);
             Assert.That(host.CurrentSlotFacts, Is.EqualTo(LegacySlotFacts.None));
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Commit(match);
             match.BeginNextSlot();
@@ -607,6 +608,7 @@ namespace TurnLimbo.Core.Tests
             var host = new LocalVersusPerspective(match, 0);
             var guest = new LocalVersusPerspective(match, 1);
             Assert.That(match.TryQueueLane(0, LegacySkillDefinitions.Skill(7).LaneIndex), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, LegacySkillDefinitions.Skill(5).LaneIndex), Is.True);
             Commit(match);
             match.BeginNextSlot();
@@ -619,6 +621,7 @@ namespace TurnLimbo.Core.Tests
             var broken = new LocalVersusMatch(new[] { LegacySkillDefinitions.Skill(19) }, new[] { AttackSkill(955, 3) },
                 100, 50, 100, 0, randomSeed: 17);
             Assert.That(broken.TryQueueLane(0, LegacySkillDefinitions.Skill(19).LaneIndex), Is.True);
+            Assert.That(broken.TryCommit(0), Is.True);
             Assert.That(broken.TryQueueLane(1, 0), Is.True);
             Commit(broken);
             broken.BeginNextSlot();
@@ -633,8 +636,8 @@ namespace TurnLimbo.Core.Tests
             var match = new LocalVersusMatch(new[] { AttackSkill(956, 60) }, new[] { AttackSkill(957, 5) }, 100, 50, 50, 50,
                 randomSeed: 17);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
-            Assert.That(match.TryPass(1), Is.True);
-            Assert.That(match.TryPass(0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.TryCommit(1), Is.True);
             match.BeginNextSlot();
             match.ResolveNextHit();
             LegacySlotFacts host = match.CurrentSlotFacts(0), guest = match.CurrentSlotFacts(1);
@@ -712,9 +715,8 @@ namespace TurnLimbo.Core.Tests
 
         private static void Commit(LocalVersusMatch match)
         {
-            int first = match.CurrentPlanner;
-            Assert.That(match.TryPass(first), Is.True);
-            Assert.That(match.TryPass(1 - first), Is.True);
+            while (match.Phase == LegacyDuelPhase.Planning)
+                Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
         }
     }
 }

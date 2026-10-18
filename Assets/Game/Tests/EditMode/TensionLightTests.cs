@@ -374,10 +374,9 @@ namespace TurnLimbo.Core.Tests
             hostLight.Observe(LegacyHealthReading.Of(host.Player, host.Enemy), tuning);
             guestLight.Observe(LegacyHealthReading.Of(guest.Player, guest.Enemy), tuning);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
-            int first = match.CurrentPlanner;
-            Assert.That(match.TryPass(first), Is.True);
-            Assert.That(match.TryPass(1 - first), Is.True);
+            Assert.That(match.TryCommit(1), Is.True);
             match.BeginNextSlot();
             match.ResolveNextHit();
             Assert.That(host.Enemy.IsResistanceBroken && guest.Player.IsResistanceBroken, Is.True);

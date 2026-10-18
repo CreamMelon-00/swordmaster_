@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace TurnLimbo.Presentation
 {
     /// <summary>Each fighter's foot marker: both fighters are 엘리사, so a plate at her feet says whose she is (내 캐릭터 /
-    /// 상대, or 내 행동 차례 / 상대 행동 차례 while she holds the reservation turn, with a pulsing ring). The viewer's own fighter
+    /// 상대, or 내 예약 차례 / 상대 예약 차례 while she holds the planning turn, with a pulsing ring). The viewer's own fighter
     /// is always on the arena's left, as in single play. The markers belong to the arena, so they draw under the duel HUD
     /// (<see cref="FootMarkerSortingOrder"/>): its log, a held skill's explanation and the Tab card cover them as they cover
     /// the fighters.</summary>
@@ -16,8 +16,8 @@ namespace TurnLimbo.Presentation
         public const int FootMarkerSortingOrder = 90;
         public const string FootMarkerLayerName = "Versus Foot Markers";
         public const string OwnMarkerName = "Versus Own Foot Marker", OpponentMarkerName = "Versus Opponent Foot Marker";
-        public const string OwnText = "내 캐릭터", OpponentText = "상대", OwnActingText = "내 행동 차례",
-            OpponentActingText = "상대 행동 차례";
+        public const string OwnText = "내 캐릭터", OpponentText = "상대", OwnActingText = "내 예약 차례",
+            OpponentActingText = "상대 예약 차례";
         // 0: the viewer's own fighter (the arena's left), 1: the opponent's (the right).
         private readonly RectTransform[] footMarkers = new RectTransform[2];
         private readonly Image[] footPlates = new Image[2];

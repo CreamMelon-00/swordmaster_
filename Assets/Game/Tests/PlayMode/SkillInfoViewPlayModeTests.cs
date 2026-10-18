@@ -198,7 +198,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Keywords(fixture.View.Root), Does.Not.Contain("ACT"), "쿠페 has one mechanic since 2026-10-12.");
                 Assert.That(fixture.View.EffectText.text,
                     Does.Contain("방어 기술").And.Contain("저항 즉시 15 감소"));
-                Assert.That(CampaignSkillText.Effect(Skill(42)), Does.Contain("체력 피해로 이어지지"));
+                Assert.That(CampaignSkillText.Effect(Skill(42)),
+                    Does.Contain("방어 기술").And.Contain("기술 시작 시 상대 저항을 15 직접 낮춥니다"));
 
                 // ACT recovery seen on the enemy's card stays the player's own. 쿠페 lost its ACT recovery on 2026-10-12, so
                 // 탐색 (43) stands in for it and 쿠페 joins the skills that must not claim the limit.
@@ -560,7 +561,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("에스토카다"));
                 Assert.That(Label(detail, "ACT Value").text, Does.Contain("3"));
                 Assert.That(Label(detail, "Curriculum Detail Values").text, Does.Contain("14–18"));
-                Assert.That(Keywords(detail), Does.Contain("감소마다 +5"));
+                Assert.That(Keywords(detail), Does.Contain("감소 1종당 +5"));
                 // Each node shows the skill it grants: 준비 10, 플레슈 12, 르프리즈 19, 쿠페 42.
                 foreach (string id in new[] { "preparation", "advance", "fighting-spirit", "quick-draw" })
                 {

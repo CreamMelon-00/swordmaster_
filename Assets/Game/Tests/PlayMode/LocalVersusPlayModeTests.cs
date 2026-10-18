@@ -24,7 +24,7 @@ namespace TurnLimbo.Presentation.Tests
         private const int Seed = 11;
 
         [UnityTest]
-        public IEnumerator HostOnlyMatch_AlternatesPublicReservations_ResolvesAndLeavesToTitleWithoutChangingSave()
+        public IEnumerator HostOnlyMatch_CommitsWholePublicQueues_ResolvesAndLeavesToTitleWithoutChangingSave()
         {
             yield return null;
             using (var scope = new SaveScope())
@@ -50,7 +50,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(match.Left.Queue, Is.Empty);
                 Assert.That(match.Right.Queue, Is.Empty);
 
-                // The host's own desk. Every reservation hands the turn over, and both queues stay public on screen.
+                // The host builds its entire queue before handing the planning turn to the guest.
                 versus.Tick(0f, null);
                 Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
                 Button lane = ButtonNamed(versus.BattleHud.Root, "Current Q");
@@ -58,28 +58,33 @@ namespace TurnLimbo.Presentation.Tests
                 lane.onClick.Invoke();
                 Assert.That(match.Left.Queue.Count, Is.EqualTo(1));
                 Assert.That(match.Right.Queue, Is.Empty);
-                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(match.CurrentPlanner, Is.Zero);
                 versus.Tick(0f, null);
-                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
-                Assert.That(lane.interactable, Is.False, "The opponent's turn holds the host's desk.");
+                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
+                Assert.That(lane.interactable, Is.True, "The host keeps its desk while building the queue.");
+                Assert.That(versus.TryBreath(), Is.True);
+                Assert.That(match.Left.Queue.Count, Is.EqualTo(2));
+                Button commit = ButtonNamed(versus.BattleHud.Root, "AButton");
+                commit.onClick.Invoke();
+                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(match.CommittedPlannerCount, Is.EqualTo(1));
+                versus.Tick(0f, null);
+                Assert.That(lane.interactable, Is.False, "The opponent's planning turn holds the host's desk.");
                 lane.onClick.Invoke();
-                Assert.That(match.Left.Queue.Count, Is.EqualTo(1), "Only the viewer's own turn acts.");
+                Assert.That(match.Left.Queue.Count, Is.EqualTo(2), "A committed queue cannot be changed.");
                 Assert.That(match.Right.Queue, Is.Empty, "Nobody reserves for the opponent on this screen.");
 
                 // The guest's reservation, as the host accepts it.
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
-                Assert.That(match.Left.Queue.Count, Is.EqualTo(1));
+                Assert.That(match.Left.Queue.Count, Is.EqualTo(2));
                 Assert.That(match.Right.Queue.Count, Is.EqualTo(1));
-                Assert.That(match.CurrentPlanner, Is.Zero);
+                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
                 versus.Tick(0f, null);
-                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
+                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
                 Assert.That(versus.BattleHud.GetQueuedSkillAnchor(false, 0), Is.Not.Null,
                     "The opponent's reservation rides its public queue row.");
 
-                // The seal is 패스: one yields the turn, the next in a row (the opponent's) resolves both queues.
-                Button pass = ButtonNamed(versus.BattleHud.Root, "AButton");
-                pass.onClick.Invoke();
-                Assert.That(match.ConsecutivePasses, Is.EqualTo(1));
+                // The guest finishes its response queue; its commit resolves both complete queues.
                 Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
@@ -203,9 +208,9 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(first.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
                     Assert.That(first.OpeningPlayer, Is.EqualTo((round - 1) % 2));
                     Assert.That(first.CurrentPlanner, Is.EqualTo(first.OpeningPlayer));
-                    // Two passes in a row, whoever opens: the host's own, and the guest's as the host accepts it.
-                    for (int pass = 0; pass < 2; pass++)
-                        Assert.That(first.CurrentPlanner == 0 ? versus.TryPass()
+                    // Each player confirms an empty queue, whoever opens this turn.
+                    for (int planner = 0; planner < 2; planner++)
+                        Assert.That(first.CurrentPlanner == 0 ? versus.TryCommit()
                             : versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, round), Is.True);
                     if (round == first.RoundLimit) break;
 

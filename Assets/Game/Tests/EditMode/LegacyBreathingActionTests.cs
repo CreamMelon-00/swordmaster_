@@ -411,20 +411,21 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(turn[1].PlayerHealthDamage, Is.EqualTo(4), "The breath takes the attack without a guard.");
                 Assert.That(duel.PlayerMeshIfQueued(0).SlotIndex, Is.EqualTo(2));
 
-                // Versus: the same, and one action passes the reservation turn once.
+                // Versus: the same, while every reservation remains with the planner until confirmation.
                 LegacySkill[] skills = { guard };
                 var match = new LocalVersusMatch(skills, skills);
                 Assert.That(match.ForecastIfQueued(0, 0).SlotIndex, Is.Zero);
                 Assert.That(match.TryQueueLane(0, 0), Is.True);
                 CollectionAssert.AreEqual(new[] { 907, -1 }, Ids(match.Left.Queue));
-                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(match.CurrentPlanner, Is.EqualTo(0));
                 Assert.That((match.Left.BreathsQueuedThisTurn, match.Left.ReserveEffectsUsedThisTurn, match.Left.AutoBreathSlotIndex),
                     Is.EqualTo((0, LegacyReserveEffect.Breath, 1)));
                 Assert.That(new LocalVersusPerspective(match, 0).AutoBreathSlotIndex, Is.EqualTo(1));
-                Assert.That(match.TryPass(1) && match.TryQueueLane(0, 0), Is.True);
+                Assert.That(match.TryQueueLane(0, 0), Is.True);
                 CollectionAssert.AreEqual(new[] { 907, -1, 907 }, Ids(match.Left.Queue));
+                Assert.That(match.TryCommit(0), Is.True);
                 Assert.That(match.TryQueueBreath(0), Is.False, "Right holds the reservation turn now.");
-                Assert.That(match.TryPass(1) && match.TryPass(0), Is.True);
+                Assert.That(match.TryCommit(1), Is.True);
                 while (!match.IsTurnResolved) match.ResolveNextSlot();
                 match.BeginNextTurn();
                 Assert.That(match.Left.ReserveEffectsUsedThisTurn, Is.EqualTo(LegacyReserveEffect.None));

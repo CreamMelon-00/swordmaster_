@@ -23,8 +23,8 @@ namespace TurnLimbo.Presentation.Tests
                 var match = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All, roundLimit: 2);
                 hud.Refresh(match, 0);
                 Assert.That(hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
-                Assert.That(hud.HintText, Is.Empty);
-                Assert.That(Named(hud.Root, "Versus Turn Hint").activeSelf, Is.False, "No hint, no plate.");
+                Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.FirstPlannerHint));
+                Assert.That(Named(hud.Root, "Versus Turn Hint").activeSelf, Is.True);
                 hud.Refresh(match, 1);
                 Assert.That(hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
                 Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.OpponentChoosingHint));
@@ -32,17 +32,17 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.OpponentChoosingHint),
                     "Only the player whose turn it is can be waiting for the host.");
 
-                Assert.That(match.TryPass(0), Is.True);
+                Assert.That(match.TryCommit(0), Is.True);
                 hud.Refresh(match, 1);
                 Assert.That(hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
-                Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.PassToResolveHint));
+                Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.ResponsePlannerHint));
                 hud.Refresh(match, 1, requestPending: true);
                 Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.RequestPendingHint));
                 Assert.That(Named(hud.Root, "Versus Turn Hint").activeSelf, Is.True);
                 hud.Refresh(match, 0);
-                Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.OpponentPassToResolveHint));
+                Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.WaitingForResponseHint));
 
-                Assert.That(match.TryPass(1), Is.True);
+                Assert.That(match.TryCommit(1), Is.True);
                 hud.Refresh(match, 0);
                 Assert.That(hud.TurnText, Is.EqualTo(LocalVersusHud.ResolvingText));
                 Assert.That(hud.HintText, Is.Empty);
@@ -51,9 +51,9 @@ namespace TurnLimbo.Presentation.Tests
                 hud.Refresh(match, 1);
                 Assert.That(match.RoundNumber, Is.EqualTo(2));
                 Assert.That(hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
-                Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.LastTurnHint));
+                Assert.That(hud.HintText, Is.EqualTo(LocalVersusHud.FirstPlannerHint));
 
-                Assert.That(match.TryPass(1) && match.TryPass(0), Is.True);
+                Assert.That(match.TryCommit(1) && match.TryCommit(0), Is.True);
                 Assert.That(match.Outcome, Is.EqualTo(LocalVersusOutcome.Draw));
                 hud.Refresh(match, 0);
                 Assert.That(hud.TurnText, Is.EqualTo(LocalVersusHud.FinishedText));
@@ -117,6 +117,11 @@ namespace TurnLimbo.Presentation.Tests
 
                 Assert.That(match.TryQueueLane(0, 0), Is.True);
                 hud.Refresh(match, 0);
+                Assert.That(Label(own).text, Is.EqualTo(LocalVersusHud.OwnActingText));
+                Assert.That(Ring(own).activeSelf, Is.True, "Reserving a skill keeps the planning turn.");
+                Assert.That(Ring(opponent).activeSelf, Is.False);
+                Assert.That(match.TryCommit(0), Is.True);
+                hud.Refresh(match, 0);
                 Assert.That(Label(own).text, Is.EqualTo(LocalVersusHud.OwnText));
                 Assert.That(Label(opponent).text, Is.EqualTo(LocalVersusHud.OpponentActingText));
                 Assert.That(Ring(own).activeSelf, Is.False);
@@ -127,7 +132,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(own).text, Is.EqualTo(LocalVersusHud.OwnActingText));
                 Assert.That(Label(opponent).text, Is.EqualTo(LocalVersusHud.OpponentText));
 
-                Assert.That(match.TryPass(1) && match.TryPass(0), Is.True);
+                Assert.That(match.TryCommit(1), Is.True);
                 hud.Refresh(match, 1);
                 Assert.That(Ring(own).activeSelf, Is.False);
                 Assert.That(Ring(opponent).activeSelf, Is.False);

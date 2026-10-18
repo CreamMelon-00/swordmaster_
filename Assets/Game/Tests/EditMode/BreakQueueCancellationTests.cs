@@ -164,7 +164,9 @@ namespace TurnLimbo.Core.Tests
             match.BeginNextTurn();
             Assert.That(brokenView.Player.IsResistanceBroken, Is.True);
             Assert.That(brokenView.PlayerBreakCanceledFromSlotIndex, Is.EqualTo(-1));
-            for (int i = 0; i < 4; i++) Assert.That(match.TryQueueLane(match.CurrentPlanner, 0), Is.True);
+            for (int i = 0; i < 2; i++) Assert.That(match.TryQueueLane(match.CurrentPlanner, 0), Is.True);
+            Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
+            for (int i = 0; i < 2; i++) Assert.That(match.TryQueueLane(match.CurrentPlanner, 0), Is.True);
             Commit(match);
             match.ResolveNextSlot();
             LocalVersusSlotResult next = match.ResolveNextSlot();
@@ -234,13 +236,14 @@ namespace TurnLimbo.Core.Tests
 
         private static void QueueThree(LocalVersusMatch match)
         {
-            for (int i = 0; i < 6; i++) Assert.That(match.TryQueueLane(match.CurrentPlanner, 0), Is.True);
+            for (int i = 0; i < 3; i++) Assert.That(match.TryQueueLane(match.CurrentPlanner, 0), Is.True);
+            Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
+            for (int i = 0; i < 3; i++) Assert.That(match.TryQueueLane(match.CurrentPlanner, 0), Is.True);
         }
 
         private static void Commit(LocalVersusMatch match)
         {
-            Assert.That(match.TryPass(match.CurrentPlanner), Is.True);
-            Assert.That(match.TryPass(match.CurrentPlanner), Is.True);
+            Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
         }
     }
 }

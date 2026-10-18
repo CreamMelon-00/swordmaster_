@@ -57,8 +57,9 @@ namespace TurnLimbo.Presentation.Tests
                 // The guest (Right) guards the host's attack: its own cue on the guest's screen, the opponent's on the host's.
                 var match = new LocalVersusMatch(new[] { hit }, new[] { guard });
                 Assert.That(match.TryQueueLane(0, 2), Is.True);
+                Assert.That(match.TryCommit(0), Is.True);
                 Assert.That(match.TryQueueLane(1, 0), Is.True);
-                Assert.That(match.TryPass(0) && match.TryPass(1), Is.True);
+                Assert.That(match.TryCommit(1), Is.True);
                 LocalVersusSlot slot = match.BeginNextSlot();
                 LocalVersusPerspectiveSlot guest = new LocalVersusPerspective(match, 1).Slot(slot);
                 Assert.That(guest.PlayerSkill, Is.SameAs(guard));

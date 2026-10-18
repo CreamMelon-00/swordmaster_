@@ -307,14 +307,12 @@ namespace TurnLimbo.Core.Tests
                 LegacySkill[] skills = { KeywordSheet.Skill(901), KeywordSheet.Skill(902), KeywordSheet.Skill(903) };
                 var match = new LocalVersusMatch(skills, skills, randomSeed: 3);
                 Assert.That(match.TryQueueLane(0, Q), Is.True);
-                Assert.That(match.TryPass(1), Is.True);
                 Assert.That(match.TryQueueLane(0, W), Is.True);
-                Assert.That(match.TryPass(1), Is.True);
                 Assert.That(match.TryQueueLane(0, E), Is.True);
                 var view = new LocalVersusPerspective(match, 0);
                 Assert.That(Enumerable.Range(0, 3).Select(view.CycleUsesAtSlot), Is.EqualTo(new[] { 1, 1, 0 }));
                 Assert.That(new LocalVersusPerspective(match, 1).EnemyCycleUsesAtSlot(0), Is.EqualTo(1), "The opponent reads it too.");
-                Assert.That(match.TryPass(1) && match.TryPass(0), Is.True);
+                Assert.That(match.TryCommit(0) && match.TryCommit(1), Is.True);
                 Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
                 Assert.That((match.Left.CycleUses(901), match.Left.CycleUses(902)), Is.EqualTo((1, 1)));
                 var damage = new List<int>();
@@ -323,11 +321,10 @@ namespace TurnLimbo.Core.Tests
 
                 LegacySkill[] breathers = { KeywordSheet.Skill(904) };
                 match = new LocalVersusMatch(breathers, breathers, randomSeed: 3);
-                Assert.That(match.TryQueueBreath(0) && match.TryPass(1) && match.TryQueueBreath(0) && match.TryPass(1), Is.True);
+                Assert.That(match.TryQueueBreath(0) && match.TryQueueBreath(0), Is.True);
                 Assert.That(match.TryQueueLane(0, E), Is.True);
-                Assert.That(match.TryPass(1), Is.True);
                 Assert.That(match.TryQueueLane(0, E), Is.False, "904 costs 2 of the opening 3 ACT: one copy only.");
-                Assert.That(match.TryPass(0), Is.True, "Right passed last, so Left's pass commits.");
+                Assert.That(match.TryCommit(0) && match.TryCommit(1), Is.True, "Both players finish their complete queues.");
                 Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
                 damage.Clear();
                 while (!match.IsTurnResolved) damage.Add(match.ResolveNextSlot().RightHealthDamage);

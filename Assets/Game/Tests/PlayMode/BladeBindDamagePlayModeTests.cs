@@ -130,10 +130,10 @@ namespace TurnLimbo.Presentation.Tests
         {
             yield return null;
             LocalVersusMatch expected = new LocalVersusMatch(new[] { Attack(88211, 30, 3) }, new[] { Attack(88212, 27, 3) }, randomSeed: 7);
-            expected.TryQueueLane(0, 0);
-            expected.TryQueueLane(1, 0);
-            expected.TryPass(0);
-            expected.TryPass(1);
+            Assert.That(expected.TryQueueLane(0, 0), Is.True);
+            Assert.That(expected.TryCommit(0), Is.True);
+            Assert.That(expected.TryQueueLane(1, 0), Is.True);
+            Assert.That(expected.TryCommit(1), Is.True);
             expected.BeginNextSlot();
             expected.ResolveNextHit();
             var afterFirst = State(expected);
@@ -146,10 +146,10 @@ namespace TurnLimbo.Presentation.Tests
                 var untouched = State(host.Versus.Match);
                 Assert.That(host.Versus.TryQueueLane(0), Is.True);
                 Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.QueueLane, 0, 1), Is.True);
+                Assert.That(host.Versus.TryCommit(), Is.True);
+                Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(host.Versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
                 Assert.That(guest.Versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.QueueLane, 0, 1), Is.True);
-                Assert.That(host.Versus.TryPass(), Is.True);
-                Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(host.Versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(guest.Versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.Pass, -1, 1), Is.True);
                 UntilBoth(host, guest, () => host.Versus.BladeBindTimeRemaining > 0f && guest.Versus.BladeBindTimeRemaining > 0f);
@@ -207,8 +207,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 LocalVersusController versus = scope.Versus;
                 Assert.That(versus.TryQueueLane(0), Is.True);
+                Assert.That(versus.TryCommit(), Is.True);
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
-                Assert.That(versus.TryPass(), Is.True);
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 for (int frame = 0; frame < MaximumFrames && versus.BladeBindTimeRemaining == 0f; frame++) versus.Tick(Frame, null);
                 Assert.That(versus.BladeBindTimeRemaining, Is.GreaterThan(0f));

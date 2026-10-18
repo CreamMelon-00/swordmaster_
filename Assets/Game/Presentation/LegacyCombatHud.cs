@@ -592,8 +592,8 @@ namespace TurnLimbo.Presentation
         /// <summary>The debug spectator's controls replace the central turn badge.</summary>
         public void SetTurnHeaderVisible(bool visible) => turnHeader.gameObject.SetActive(visible);
 
-        /// <summary>The commit seal's word: <see cref="CommitLabel"/> in the campaign's battles; versus, where the seal passes
-        /// the reservation turn (two passes in a row resolve both queues), calls it 패스. Null or empty goes back to
+        /// <summary>The commit seal's word: <see cref="CommitLabel"/> in the campaign's battles; versus finalizes the whole
+        /// queue with 예약 확정. Null or empty goes back to
         /// <see cref="CommitLabel"/>. <see cref="Reset"/> keeps it.</summary>
         public void SetCommitLabel(string label)
         {

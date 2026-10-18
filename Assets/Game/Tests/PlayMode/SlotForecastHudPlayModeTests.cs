@@ -126,7 +126,7 @@ namespace TurnLimbo.Presentation.Tests
                     Set(settings, "slotForecastEnabled", true);
 
                     var match = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All, randomSeed: 3);
-                    Assert.That(match.TryQueueLane(0, 1) && match.TryQueueLane(1, 0), Is.True);
+                    Assert.That(match.TryQueueLane(0, 1) && match.TryCommit(0) && match.TryQueueLane(1, 0), Is.True);
                     var view = new LocalVersusPerspective(match, 0);
                     fixture.Hud.Reset();
                     fixture.Hud.Refresh(view, 10f, false, -1, null, null, null);

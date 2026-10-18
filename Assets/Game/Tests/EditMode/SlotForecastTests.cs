@@ -238,6 +238,7 @@ namespace TurnLimbo.Core.Tests
         {
             var match = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All, randomSeed: 4);
             Assert.That(match.TryQueueLane(0, 2), Is.True, "Left: 기세 꺾기.");
+            Assert.That(match.TryCommit(0), Is.True);
             var guest = new LocalVersusPerspective(match, 1);
             Assert.That(guest.IsOpponentsTurn, Is.False);
             LegacySlotForecast thrust = guest.ForecastIfQueued(1);
@@ -252,10 +253,10 @@ namespace TurnLimbo.Core.Tests
             guest.ForecastTurn(queued);
             Assert.That(Describe(queued[0]), Is.EqualTo(Describe(thrust)));
             var host = new LocalVersusPerspective(match, 0);
-            Assert.That(host.IsMyTurn, Is.True);
+            Assert.That(host.IsMyTurn, Is.False);
             Assert.That(guest.ForecastIfQueued(1), Is.Null, "The guest's 1 ACT left cannot pay for 정교한 찌르기.");
             LegacySlotForecast cut = guest.ForecastIfQueued(0);
-            Assert.That(cut, Is.Not.Null, "Off its turn too: 베기 fits the guest's 1 ACT.");
+            Assert.That(cut, Is.Not.Null, "베기 fits the guest's 1 ACT.");
             Assert.That(cut.SlotIndex, Is.EqualTo(1));
             Assert.That(cut.EnemySkill, Is.Null, "The host has nothing in slot 2 yet.");
             Assert.That(cut.EnemyHealthDamage, Is.GreaterThan(0), "A one-sided attack reaches health.");
@@ -298,15 +299,15 @@ namespace TurnLimbo.Core.Tests
 
         private static void PlayVersus(LocalVersusMatch match)
         {
-            // Left (0) opens: 베기, 기세 꺾기, 연속 베기; Right: 깊은 찌르기, 숨고르기, 기세 꺾기, 숨고르기 after Left passes once.
+            // Left confirms its three skills, then Right answers with a complete four-slot queue.
             Assert.That(match.TryQueueLane(0, 0), Is.True);
-            Assert.That(match.TryQueueLane(1, 1), Is.True);
             Assert.That(match.TryQueueLane(0, 2), Is.True);
-            Assert.That(match.TryQueueBreath(1), Is.True);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
-            Assert.That(match.TryQueueLane(1, 2), Is.True);
             Assert.That(match.TryQueueLane(0, 1), Is.False, "Left has spent its 3 ACT.");
-            Assert.That(match.TryPass(0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.TryQueueLane(1, 1), Is.True);
+            Assert.That(match.TryQueueBreath(1), Is.True);
+            Assert.That(match.TryQueueLane(1, 2), Is.True);
             Assert.That(match.TryQueueBreath(1), Is.True);
             Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
         }

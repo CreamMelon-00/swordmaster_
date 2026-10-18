@@ -138,7 +138,6 @@ namespace TurnLimbo.Core.Tests
             Assert.That(match.TryQueueLane(0, W), Is.True);
             Assert.That(Ids(match.Left.GetLane(Q)), Is.EqualTo(new[] { Grind, Grind, Grind, HorizontalCut }));
             Assert.That(Ids(match.Right.GetLane(Q)), Is.EqualTo(new[] { HorizontalCut }), "Only the reserver's lane.");
-            Assert.That(match.TryPass(1), Is.True);
             Assert.That(match.TryQueueLane(0, Q), Is.True);
             Assert.That(Ids(match.Left.Queue), Is.EqualTo(new[] { Whetstone, Grind }));
             Assert.That(Ids(match.Left.GetLane(Q)), Is.EqualTo(new[] { Grind, Grind, HorizontalCut }));
@@ -146,7 +145,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(LegacyKeywordPreview.QueueMark(view, true, 1, true).Kind, Is.EqualTo(LegacyKeywordMarkKind.Temporary));
             Assert.That(LegacyKeywordPreview.QueueMark(new LocalVersusPerspective(match, 1), false, 1, true).Text,
                 Is.EqualTo(LegacyKeywordPreview.TemporaryTag), "The opponent's copy is tagged too.");
-            Assert.That(match.TryPass(1) && match.TryPass(0), Is.True);
+            Assert.That(match.TryCommit(0) && match.TryCommit(1), Is.True);
             while (!match.IsTurnResolved) match.ResolveNextSlot();
             Assert.That(match.Left.CycleUses(Grind), Is.EqualTo(1));
             match.BeginNextTurn();

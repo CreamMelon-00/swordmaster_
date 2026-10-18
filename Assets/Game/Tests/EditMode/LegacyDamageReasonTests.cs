@@ -125,9 +125,8 @@ namespace TurnLimbo.Core.Tests
         {
             var match = new LocalVersusMatch(new[] { Attack(900, 10) }, new[] { Guard(901, 4) },
                 1000, 0, 1000, 0, randomSeed: 17);
-            Assert.That(match.TryQueueLane(0, 0) && match.TryQueueLane(1, 0), Is.True);
-            int first = match.CurrentPlanner;
-            Assert.That(match.TryPass(first) && match.TryPass(1 - first), Is.True);
+            Assert.That(match.TryQueueLane(0, 0) && match.TryCommit(0), Is.True);
+            Assert.That(match.TryQueueLane(1, 0) && match.TryCommit(1), Is.True);
             match.BeginNextSlot();
             LocalVersusHit hit = match.ResolveNextHit();
             LegacyDamageReason expected = LegacyDamageReason.GuardReduction | LegacyDamageReason.BrokenDouble;

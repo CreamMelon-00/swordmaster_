@@ -79,7 +79,7 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>A reservation's 제한시간 cost where the timer cannot show it: <c>-4초</c> in the danger ink over the
-        /// reserved lane's window. Versus uses it, since its timer turns to the opponent's clock as the reservation lands.</summary>
+        /// reserved lane's window. Versus uses this while the player continues building their queue.</summary>
         public void ShowLaneTimeSpent(int lane, float seconds)
         {
             if (disposed || !(seconds > 0f) || lane < 0 || lane >= lanePops.Length) return;

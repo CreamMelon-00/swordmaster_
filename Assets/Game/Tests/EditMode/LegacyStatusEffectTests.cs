@@ -284,12 +284,12 @@ namespace TurnLimbo.Core.Tests
         {
             int first = match.CurrentPlanner;
             Assert.That(match.TryQueueLane(first, first == 0 ? leftLane : rightLane), Is.True);
+            Assert.That(match.TryCommit(first), Is.True);
             Assert.That(match.TryQueueLane(1 - first, first == 0 ? rightLane : leftLane), Is.True);
         }
         private static LocalVersusSlotResult ResolveTurn(LocalVersusMatch match)
         {
-            Assert.That(match.TryPass(match.CurrentPlanner), Is.True);
-            Assert.That(match.TryPass(match.CurrentPlanner), Is.True);
+            Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
             LocalVersusSlotResult result = null;
             while (!match.IsTurnResolved) result = match.ResolveNextSlot();
             return result;

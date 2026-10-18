@@ -26,7 +26,7 @@ namespace TurnLimbo.Presentation.Tests
             LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "검증");
 
         [UnityTest]
-        public IEnumerator HostScreen_IsTheDuelHud_OwnTurnActs_OpponentsTurnWaits_AndTwoPassesResolve()
+        public IEnumerator HostScreen_IsTheDuelHud_WholeQueueKeepsThePlanner_AndBothCommitsResolve()
         {
             yield return null;
             using (var scope = new VersusScope())
@@ -52,17 +52,25 @@ namespace TurnLimbo.Presentation.Tests
 
                 laneQ.onClick.Invoke();
                 Assert.That(match.Left.Queue.Count, Is.EqualTo(1));
-                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(match.CurrentPlanner, Is.Zero, "A reservation keeps the host's planning turn.");
                 versus.Tick(0f, null);
                 Assert.That(versus.BattleHud.GetQueuedSkillAnchor(true, 0), Is.Not.Null,
                     "The host's reservation rides its own queue row.");
                 Assert.That(OnLeftPanel(versus.BattleHud, true, 0), Is.True, "…in the left panel over the dock: the viewer's.");
+                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
+                Assert.That(laneQ.interactable, Is.True);
+                Button seal = scope.HudButton("Input/Keys/AButton");
+                Assert.That(seal.interactable, Is.True);
+                seal.onClick.Invoke();
+                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(match.CommittedPlannerCount, Is.EqualTo(1));
+                versus.Tick(0f, null);
                 Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
-                Assert.That(versus.Hud.HintText, Is.EqualTo(LocalVersusHud.OpponentChoosingHint));
+                Assert.That(versus.Hud.HintText, Is.EqualTo(LocalVersusHud.WaitingForResponseHint));
                 Assert.That(versus.BattleHud.InputsHeld, Is.True);
                 Assert.That(laneQ.interactable, Is.False, "The dock waits through the opponent's turn.");
                 Assert.That(scope.HudButton("Input/Keys/AButton").interactable, Is.False);
-                Assert.That(versus.TryPass(), Is.False, "Only the viewer's own turn acts.");
+                Assert.That(versus.TryCommit(), Is.False, "A confirmed queue waits for the opponent's response.");
 
                 // The timer shows the current planner's chess clock.
                 versus.Tick(1.5f, null);
@@ -72,13 +80,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.HudText("Input/Keys/TimerBG/Time Remaining").text, Is.EqualTo("19s"));
 
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
-                versus.Tick(0f, null);
-                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
-                Assert.That(versus.Hud.HintText, Is.EqualTo(LocalVersusHud.PassToResolveHint));
-                Button seal = scope.HudButton("Input/Keys/AButton");
-                Assert.That(seal.interactable, Is.True);
-                seal.onClick.Invoke();
-                Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving), "The seal is 패스: the second in a row resolves.");
+                Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving), "Both complete queues are confirmed.");
                 Assert.That(versus.IsResolving, Is.True);
                 versus.Tick(0f, null);
                 Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.ResolvingText));
@@ -122,7 +124,7 @@ namespace TurnLimbo.Presentation.Tests
                 versus.Tick(0f, null);
                 Assert.That(versus.Hud.HintText, Is.EqualTo(LocalVersusHud.RequestPendingHint));
                 Assert.That(versus.BattleHud.InputsHeld, Is.True);
-                Assert.That(versus.TryPass(), Is.False, "A second command waits for the first.");
+                Assert.That(versus.TryCommit(), Is.False, "A second command waits for the first.");
 
                 Assert.That(versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.QueueLane, 0, 1), Is.True);
                 versus.Tick(0f, null);
@@ -131,24 +133,28 @@ namespace TurnLimbo.Presentation.Tests
                     "Right's queue is the guest's own row.");
                 Assert.That(OnLeftPanel(versus.BattleHud, true, 0), Is.True, "Mirrored: the guest's own queue is the left panel.");
                 Assert.That(versus.BattleHud.GetQueuedSkillAnchor(false, 0), Is.Null);
-                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
-
-                Assert.That(versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Breath, -1, 1), Is.True);
-                versus.Tick(0f, null);
-                Assert.That(versus.BattleHud.GetQueuedSkillAnchor(false, 0), Is.Not.Null,
-                    "Left's queue is the opponent's row.");
-                Assert.That(OnLeftPanel(versus.BattleHud, false, 0), Is.False, "…in the right panel, across the seam.");
                 Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.MyTurnText));
+                Assert.That(versus.BattleHud.InputsHeld, Is.False, "The accepted reservation reopens the guest's desk.");
 
                 // The host's clocks arrive by match side; the timer shows the planner's (the guest's own now).
                 versus.SyncOnlineClocks(12.5f, 7.2f);
                 Assert.That(versus.ShownClock, Is.EqualTo(7.2f).Within(1e-4f));
                 Assert.That(scope.HudText("Input/Keys/TimerBG/Time Remaining").text, Is.EqualTo("8s"));
-                // Only the host passes for a player whose clock ran out.
+                // Only the host confirms for a player whose clock ran out.
                 versus.SyncOnlineClocks(12.5f, 0f);
                 versus.Tick(.5f, null);
                 Assert.That(match.CurrentPlanner, Is.EqualTo(1));
-                Assert.That(match.ConsecutivePasses, Is.Zero);
+                Assert.That(match.CommittedPlannerCount, Is.Zero);
+
+                Assert.That(versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.Pass, -1, 1), Is.True);
+                Assert.That(versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Breath, -1, 1), Is.True);
+                versus.Tick(0f, null);
+                Assert.That(versus.BattleHud.GetQueuedSkillAnchor(false, 0), Is.Not.Null,
+                    "Left's response queue is the opponent's row.");
+                Assert.That(OnLeftPanel(versus.BattleHud, false, 0), Is.False, "…in the right panel, across the seam.");
+                Assert.That(versus.Hud.TurnText, Is.EqualTo(LocalVersusHud.OpponentTurnText));
+                Assert.That(versus.Hud.HintText, Is.EqualTo(LocalVersusHud.WaitingForResponseHint));
+                Assert.That(match.CurrentPlanner, Is.Zero, "A breath keeps the responder's planning turn too.");
             }
         }
 
@@ -169,11 +175,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(versus.LeftClock, Is.EqualTo(Seconds - 16f).Within(1e-3f));
                 Assert.That(versus.TryQueueLane(1), Is.False, "4 seconds left cannot pay 4 and keep half a second.");
                 Assert.That(versus.TryQueueLane(0), Is.True);
-                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(versus.TryQueueLane(0), Is.True, "잔걸음 behind 사선베기: +2 seconds next turn.");
                 Assert.That(versus.LeftClock, Is.EqualTo(Seconds - 16f).Within(1e-3f), "Neither costs time.");
+                Assert.That(versus.TryCommit(), Is.True);
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
-                Assert.That(versus.TryPass(), Is.True);
                 Assert.That(scope.TickUntil(() => match.RoundNumber == 2 && !versus.IsResolving), Is.True);
                 Assert.That(match.Left.PlanningSecondsBonus, Is.EqualTo(2));
                 Assert.That(versus.LeftClock, Is.EqualTo(Seconds + 2f), "The host's clock starts 2 seconds later…");
@@ -188,7 +193,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(versus.TryQueueLane(1), Is.True);
                 Assert.That(versus.LeftClock, Is.EqualTo(Seconds + 2f - 4f).Within(1e-3f), "The host takes the time as it applies.");
                 Assert.That(versus.BattleHud.GetLanePop(1), Is.EqualTo("-4초"),
-                    "The timer has turned to the guest's clock, so the cost rises over the reserved lane instead.");
+                    "The reservation's time cost rises over its lane while the host keeps planning.");
             }
 
             using (var scope = new VersusScope())
@@ -233,7 +238,6 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     Assert.That(versus.TryBreath(), Is.True);
                     Assert.That(versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.Breath, -1, 1), Is.True);
-                    Assert.That(versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Pass, -1, 1), Is.True);
                 }
                 Assert.That(versus.TryBreath(), Is.False);
                 Assert.That(scope.RequestedActions.Count, Is.EqualTo(LocalVersusMatch.MaximumBreathsPerTurn));
@@ -260,9 +264,8 @@ namespace TurnLimbo.Presentation.Tests
                 scope.StartHost(LegacyInitialSkills.All, new[] { hone });
                 LocalVersusMatch match = versus.Match;
                 // The opponent uses its 순환 skill once.
-                Assert.That(versus.TryPass(), Is.True);
+                Assert.That(versus.TryCommit(), Is.True);
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, hone.LaneIndex, 1), Is.True);
-                Assert.That(versus.TryPass(), Is.True);
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(scope.TickUntil(() => match.RoundNumber == 2 && !versus.IsResolving), Is.True);
                 Assert.That(match.Right.CycleUses(hone.Id), Is.EqualTo(1));
@@ -295,15 +298,17 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator HeldLane_ExplainsWithoutSlowingTheClock_TapQueues_TabReadsTheOpponentsQueue_SpacePasses()
+        public IEnumerator HeldLane_ExplainsWithoutSlowingTheClock_TapQueues_TabReadsTheOpponentsQueue_SpaceCommits()
         {
             yield return null;
             using (var scope = new VersusScope())
             {
                 Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
                 LocalVersusController versus = scope.Versus;
-                scope.StartHost(LegacyInitialSkills.All, LegacyInitialSkills.All);
+                scope.StartHost(LegacyInitialSkills.All, LegacyInitialSkills.All, opening: 1);
                 LocalVersusMatch match = versus.Match;
+                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
+                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 float tap = scope.Settings.LaneTapSeconds, explain = scope.Settings.ExplanationHoldSeconds;
 
                 // The frame a press is first seen counts no time held; the held frames after it do.
@@ -333,9 +338,7 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 versus.Tick(0f, keyboard);
                 Assert.That(match.Left.Queue.Count, Is.EqualTo(1), "A tap queues on release.");
-                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
-
-                Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
+                Assert.That(match.CurrentPlanner, Is.Zero);
                 Press(keyboard.tabKey);
                 yield return null;
                 before = versus.LeftClock;
@@ -344,7 +347,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.HudPart("Enemy Skill Explain").gameObject.activeSelf, Is.True);
                 Assert.That(scope.HudText("Enemy Skill Explain/Name").text, Is.EqualTo(match.Right.Queue[0].Name));
                 Assert.That(versus.LeftClock, Is.EqualTo(before - .5f).Within(1e-4f), "Tab never slows the clock.");
-                Assert.That(versus.TryQueueLane(1), Is.False, "Tab holds every command but 패스.");
+                Assert.That(versus.TryQueueLane(1), Is.False, "Tab holds reservation commands while inspecting.");
                 Release(keyboard.tabKey);
                 yield return null;
                 versus.Tick(0f, keyboard);
@@ -354,8 +357,8 @@ namespace TurnLimbo.Presentation.Tests
                 yield return null;
                 versus.Tick(0f, keyboard);
                 Release(keyboard.spaceKey);
-                Assert.That(match.ConsecutivePasses, Is.EqualTo(1), "Space is the seal: 패스.");
-                Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(match.CommittedPlannerCount, Is.EqualTo(2), "Space confirms the complete response queue.");
+                Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
             }
         }
 
@@ -403,8 +406,8 @@ namespace TurnLimbo.Presentation.Tests
                 scope.StartHost(new[] { Finisher }, LegacyInitialSkills.All);
                 LocalVersusMatch match = versus.Match;
                 Assert.That(versus.TryQueueLane(0), Is.True);
+                Assert.That(versus.TryCommit(), Is.True);
                 Assert.That(versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
-                Assert.That(versus.TryPass(), Is.True);
                 bool sawFinale = false;
                 Assert.That(scope.TickUntil(() =>
                 {
@@ -451,8 +454,8 @@ namespace TurnLimbo.Presentation.Tests
                 scope.StartGuest(new[] { Finisher }, LegacyInitialSkills.All, opening: 0);
                 LocalVersusMatch match = versus.Match;
                 Assert.That(versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.QueueLane, 0, 1), Is.True);
-                Assert.That(versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Pass, -1, 1), Is.True);
+                Assert.That(versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(scope.TickUntil(() => versus.IsShowingResult), Is.True);
                 Assert.That(versus.Perspective.Outcome, Is.EqualTo(DuelMatchOutcome.EnemyVictory));
                 Assert.That(scope.ResultText("Result Heading").text, Is.EqualTo("패배"));
@@ -479,10 +482,10 @@ namespace TurnLimbo.Presentation.Tests
                 // The same commands reach both screens.
                 Assert.That(host.Versus.TryQueueLane(0), Is.True);
                 Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.QueueLane, 0, 1), Is.True);
+                Assert.That(host.Versus.TryCommit(), Is.True);
+                Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(host.Versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(guest.Versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.Pass, -1, 1), Is.True);
-                Assert.That(host.Versus.TryPass(), Is.True);
-                Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Pass, -1, 1), Is.True);
                 int hostFrames = FramesToResult(host, out int hostFinale);
                 int guestFrames = FramesToResult(guest, out int guestFinale);
                 Assert.That(hostFinale, Is.GreaterThan(0));

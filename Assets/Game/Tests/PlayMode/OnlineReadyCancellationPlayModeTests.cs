@@ -200,6 +200,80 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator CompleteQueues_TravelThroughTheRealCommandStream_AndAlternateTheLeadingPlayerNextTurn()
+        {
+            yield return null;
+            using (var pair = new Pair())
+            {
+                pair.ReadyBoth();
+                pair.Host.Online.Hud.StartButton.onClick.Invoke();
+                pair.DeliverHost();
+                pair.Guest.Online.Tick(0f, null);
+                pair.AssertSameBattle();
+                Peer host = pair.Host, guest = pair.Guest;
+                Assert.That(host.Duel.Match.CurrentPlanner, Is.Zero);
+                Assert.That(guest.Duel.TryBreath(), Is.False, "The responder cannot send a reservation before confirmation.");
+                Assert.That(guest.Outgoing, Is.Empty);
+
+                // Breaths keep the exchange nonlethal while exercising multiple actual reservations per player.
+                pair.HostAction(host.Duel.TryBreath);
+                pair.HostAction(host.Duel.TryBreath);
+                Assert.That(host.Duel.Match.Left.Queue.Count, Is.EqualTo(2));
+                Assert.That(host.Duel.Match.Right.Queue, Is.Empty);
+                Assert.That(host.Duel.Match.CurrentPlanner, Is.Zero, "Individual reservations never hand over planning.");
+                Assert.That(guest.Duel.Match.CurrentPlanner, Is.Zero);
+                pair.HostAction(host.Duel.TryCommit);
+                Assert.That(host.Duel.Match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(host.Duel.Match.CommittedPlannerCount, Is.EqualTo(1));
+                Assert.That(host.Duel.TryBreath(), Is.False, "A confirmed leading queue is locked.");
+                Assert.That(host.Duel.TryCycle(), Is.False);
+
+                pair.GuestAction(OnlineVersusAction.Breath, guest.Duel.TryBreath);
+                pair.GuestAction(OnlineVersusAction.Breath, guest.Duel.TryBreath);
+                Assert.That(host.Duel.Match.Right.Queue.Count, Is.EqualTo(2));
+                Assert.That(host.Duel.Match.Left.Queue.Count, Is.EqualTo(2));
+                Assert.That(host.Duel.Match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(guest.Duel.Match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(host.Duel.Match.CommittedPlannerCount, Is.EqualTo(1), "Responding reservations preserve the first confirmation.");
+                pair.GuestAction(OnlineVersusAction.Pass, guest.Duel.TryCommit);
+                Assert.That(host.Duel.IsResolving && guest.Duel.IsResolving, Is.True);
+
+                for (int frame = 0; frame < 6000 &&
+                    (host.Duel.Match.RoundNumber < 2 || guest.Duel.Match.RoundNumber < 2); frame++)
+                {
+                    host.Online.Tick(.01f, null);
+                    guest.Online.Tick(.01f, null);
+                    pair.DeliverGuest();
+                    pair.DeliverHost();
+                    guest.Online.Tick(0f, null);
+                }
+                pair.AssertSameBattle();
+                Assert.That(host.Duel.Match.RoundNumber, Is.EqualTo(2));
+                Assert.That(guest.Duel.Match.RoundNumber, Is.EqualTo(2));
+                Assert.That(host.Duel.Match.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
+                Assert.That(host.Duel.Match.CurrentPlanner, Is.EqualTo(1), "The previous responder leads the next complete queue.");
+                Assert.That(guest.Duel.Match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(host.Duel.TryBreath(), Is.False);
+
+                pair.GuestAction(OnlineVersusAction.Breath, guest.Duel.TryBreath);
+                pair.GuestAction(OnlineVersusAction.Breath, guest.Duel.TryBreath);
+                Assert.That(host.Duel.Match.CurrentPlanner, Is.EqualTo(1));
+                Assert.That(host.Duel.Match.Left.Queue, Is.Empty);
+                pair.GuestAction(OnlineVersusAction.Pass, guest.Duel.TryCommit);
+                Assert.That(host.Duel.Match.CurrentPlanner, Is.Zero);
+                Assert.That(guest.Duel.TryBreath(), Is.False, "The guest's confirmed leading queue is locked too.");
+                Assert.That(guest.Outgoing, Is.Empty);
+                pair.HostAction(host.Duel.TryBreath);
+                pair.HostAction(host.Duel.TryBreath);
+                Assert.That(host.Duel.Match.CurrentPlanner, Is.Zero);
+                Assert.That(host.Duel.Match.Right.Queue.Count, Is.EqualTo(2));
+                Assert.That(host.Duel.Match.CommittedPlannerCount, Is.EqualTo(1));
+                pair.HostAction(host.Duel.TryCommit);
+                Assert.That(host.Duel.IsResolving && guest.Duel.IsResolving, Is.True);
+            }
+        }
+
         private static OnlineVersusMessage Decode(string json)
         {
             Assert.That(OnlineVersusMessage.TryDecode(json, out OnlineVersusMessage result, out string error),
@@ -306,6 +380,35 @@ namespace TurnLimbo.Presentation.Tests
 
             public void DeliverHost() => Deliver(Host, Guest);
             public void DeliverGuest() => Deliver(Guest, Host);
+
+            public void HostAction(Func<bool> submit)
+            {
+                Assert.That(submit(), Is.True);
+                DeliverHost();
+                Guest.Online.Tick(0f, null);
+                AssertSameBattle();
+            }
+
+            public void GuestAction(OnlineVersusAction action, Func<bool> submit)
+            {
+                int sequence = Get<int>(Host.Online, "nextAppliedSequence") + 1;
+                Assert.That(Guest.Outgoing, Is.Empty);
+                Assert.That(submit(), Is.True);
+                Assert.That(Get<bool>(Guest.Duel, "pendingOnlineRequest"), Is.True);
+                Assert.That(Guest.Outgoing.Count, Is.EqualTo(1));
+                OnlineVersusMessage request = Decode(Guest.Outgoing.Peek());
+                Assert.That((request.Kind, request.Player, request.Action, request.Round),
+                    Is.EqualTo((OnlineVersusMessageKind.Request, 1, action, Guest.Duel.Match.RoundNumber)));
+                Assert.That(Guest.Duel.TryBreath(), Is.False, "The guest waits for each command acknowledgement.");
+                DeliverGuest();
+                OnlineVersusMessage accepted = Decode(Host.Outgoing.Peek());
+                Assert.That((accepted.Kind, accepted.Player, accepted.Action, accepted.Sequence),
+                    Is.EqualTo((OnlineVersusMessageKind.Applied, 1, action, sequence)));
+                DeliverHost();
+                Guest.Online.Tick(0f, null);
+                Assert.That(Get<bool>(Guest.Duel, "pendingOnlineRequest"), Is.False);
+                AssertSameBattle();
+            }
 
             private static void Deliver(Peer source, Peer destination)
             {

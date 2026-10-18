@@ -220,10 +220,10 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Assert.That(host.Versus.TryQueueLane(0), Is.True);
                 Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.QueueLane, 0, 1), Is.True);
+                Assert.That(host.Versus.TryCommit(), Is.True);
+                Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(host.Versus.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
                 Assert.That(guest.Versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.QueueLane, 0, 1), Is.True);
-                Assert.That(host.Versus.TryPass(), Is.True);
-                Assert.That(guest.Versus.ApplyOnlineAcceptedAction(0, OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(host.Versus.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 Assert.That(guest.Versus.ApplyOnlineAcceptedAction(1, OnlineVersusAction.Pass, -1, 1), Is.True);
                 UntilBoth(host, guest, () => host.Versus.Match.CurrentSlot != null && guest.Versus.Match.CurrentSlot != null);

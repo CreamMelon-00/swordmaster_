@@ -7,40 +7,62 @@ namespace TurnLimbo.Core.Tests
     public sealed class LocalVersusMatchTests
     {
         [Test]
-        public void Planning_AlternatesOnReservations_AndTwoPassesCommit()
+        public void Planning_KeepsTheWholeQueueWithOnePlayer_UntilBothPlayersCommit()
         {
             var match = NewMatch(new[] { Attack(100, 1, 5) }, new[] { Attack(200, 1, 5) });
             Assert.That(match.CurrentPlanner, Is.Zero);
             Assert.That(match.TryQueueLane(1, 0), Is.False);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
-            Assert.That(match.CurrentPlanner, Is.EqualTo(1));
-            Assert.That(match.TryQueueBreath(1), Is.True);
             Assert.That(match.CurrentPlanner, Is.Zero);
-            Assert.That(match.TryPass(0), Is.True);
-            Assert.That(match.ConsecutivePasses, Is.EqualTo(1));
+            Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryQueueBreath(0), Is.True);
+            Assert.That(match.CurrentPlanner, Is.Zero);
+            Assert.That(match.CommittedPlannerCount, Is.Zero);
+            Assert.That(match.TryQueueLane(1, 0), Is.False);
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+            Assert.That(match.CommittedPlannerCount, Is.EqualTo(1));
+            Assert.That(match.ConsecutivePasses, Is.EqualTo(match.CommittedPlannerCount));
             Assert.That(match.LastPassPlayer, Is.Zero);
-            Assert.That(match.TryPass(1), Is.True);
+            Assert.That(match.TryQueueLane(0, 0), Is.False, "The opening queue is final.");
+            Assert.That(match.TryQueueBreath(0), Is.False);
+            Assert.That(match.TryCommit(0), Is.False);
+            Assert.That(match.TryQueueBreath(1), Is.True);
+            Assert.That(match.TryQueueLane(1, 0), Is.True);
+            Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+            Assert.That(match.CommittedPlannerCount, Is.EqualTo(1), "Responding never unlocks the first queue.");
+            Assert.That(match.TryCommit(1), Is.True);
             Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
             Assert.That(match.CurrentPlanner, Is.EqualTo(-1));
-            Assert.That(match.ResolutionSlotCount, Is.EqualTo(1));
+            Assert.That(match.CommittedPlannerCount, Is.EqualTo(2));
+            Assert.That(match.ResolutionSlotCount, Is.EqualTo(3));
             Assert.That(match.Left.Queue[0].Id, Is.EqualTo(100));
+            Assert.That(match.Left.Queue[1].Id, Is.EqualTo(100));
+            Assert.That(match.Left.Queue[2].IsWait, Is.True);
             Assert.That(match.Right.Queue[0].IsWait, Is.True);
+            Assert.That(match.Right.Queue[1].Id, Is.EqualTo(200));
         }
 
         [Test]
-        public void FreeCycle_RetainsPlanner_AndActionAfterPassClearsPassStreak()
+        public void FreeCycleAndResponseReservations_KeepTheFirstCommitmentLocked()
         {
             var match = NewMatch(new[] { Attack(100, 1, 4), Attack(101, 1, 7) },
                 new[] { Attack(200, 1, 4) });
             Assert.That(match.TryCycleLanes(0), Is.True);
             Assert.That(match.CurrentPlanner, Is.Zero);
             Assert.That(match.Left.GetLane(0)[0].Id, Is.EqualTo(101));
-            Assert.That(match.TryPass(0), Is.True);
+            Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
-            Assert.That(match.ConsecutivePasses, Is.Zero);
-            Assert.That(match.TryPass(0), Is.True);
+            Assert.That(match.CommittedPlannerCount, Is.EqualTo(1));
+            Assert.That(match.LastPassPlayer, Is.Zero);
+            Assert.That(match.TryCommit(0), Is.False);
+            Assert.That(match.TryCycleLanes(0), Is.False);
+            Assert.That(match.TryCycleLanes(1), Is.False, "The response lane has only one skill.");
             Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
             Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+            Assert.That(match.TryCommit(1), Is.True);
+            Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
         }
 
         [Test]
@@ -50,6 +72,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(match.TryQueueLane(0, 0), Is.True);
             Assert.That(match.Left.Act, Is.Zero);
             Assert.That(match.Right.Act, Is.EqualTo(3));
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Assert.That(match.Right.Act, Is.EqualTo(2));
             Commit(match);
@@ -67,9 +90,7 @@ namespace TurnLimbo.Core.Tests
             var left = new[] { Attack(100, 1, 5), LegacySkillDefinitions.Skill(45) };
             var match = NewMatch(left, new[] { Attack(200, 1, 1) });
             Assert.That(match.TryQueueLane(0, 0), Is.True);
-            Assert.That(match.TryPass(1), Is.True);
             Assert.That(match.TryQueueBreath(0), Is.True);
-            Assert.That(match.TryPass(1), Is.True);
             Assert.That(match.TryQueueLane(0, 2), Is.True);
             Assert.That(match.Left.Act, Is.EqualTo(1));
             Assert.That(match.Left.Queue.Count, Is.EqualTo(2));
@@ -84,7 +105,6 @@ namespace TurnLimbo.Core.Tests
             var match = NewMatch(new[] { cycle }, new[] { Attack(200, 1, 1) });
             Assert.That(match.TryQueueLane(0, 1), Is.True);
             Assert.That(match.Left.EffectiveCost(cycle), Is.EqualTo(1));
-            Assert.That(match.TryPass(1), Is.True);
             Assert.That(match.TryQueueLane(0, 1), Is.True);
             Assert.That(match.Left.Act, Is.EqualTo(1));
             Assert.That(match.Left.CycleUses(46), Is.Zero);
@@ -104,6 +124,7 @@ namespace TurnLimbo.Core.Tests
             var match = NewMatch(new[] { Attack(100, 1, 30, hits: 3) },
                 new[] { Attack(200, 1, 30, hits: 3) }, health: 5, resistance: 0);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Commit(match);
             LocalVersusSlot slot = match.BeginNextSlot();
@@ -124,6 +145,7 @@ namespace TurnLimbo.Core.Tests
             var match = NewMatch(new[] { Attack(100, 1, 30, hits: 3) },
                 new[] { Attack(200, 1, 1) }, health: 5, resistance: 0);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueBreath(1), Is.True);
             Commit(match);
             match.BeginNextSlot();
@@ -139,11 +161,8 @@ namespace TurnLimbo.Core.Tests
             var match = NewMatch(new[] { Attack(100, 0, 6), LegacySkillDefinitions.Skill(45) },
                 new[] { Attack(200, 1, 1) });
             Assert.That(match.TryQueueLane(0, 0), Is.True);
-            Assert.That(match.TryPass(1), Is.True);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
-            Assert.That(match.TryPass(1), Is.True);
             Assert.That(match.TryQueueLane(0, 2), Is.True);
-            Assert.That(match.TryPass(1), Is.True);
             Assert.That(match.TryQueueLane(0, 0), Is.True);
             Assert.That(match.Left.Queue.Count, Is.EqualTo(2));
             Commit(match);
@@ -157,6 +176,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkill skill = LegacySkillDefinitions.Skill(1);
             var match = NewMatch(new[] { skill }, new[] { skill });
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0), Is.True);
             Commit(match);
             LocalVersusSlot slot = match.BeginNextSlot();
@@ -173,6 +193,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkill hit = LegacySkillDefinitions.Skill(5);
             var leftGuards = NewMatch(new[] { guard }, new[] { hit });
             Assert.That(leftGuards.TryQueueLane(0, 0), Is.True);
+            Assert.That(leftGuards.TryCommit(0), Is.True);
             Assert.That(leftGuards.TryQueueLane(1, 2), Is.True);
             Commit(leftGuards);
             leftGuards.BeginNextSlot();
@@ -181,6 +202,7 @@ namespace TurnLimbo.Core.Tests
 
             var rightGuards = NewMatch(new[] { hit }, new[] { guard });
             Assert.That(rightGuards.TryQueueLane(0, 2), Is.True);
+            Assert.That(rightGuards.TryCommit(0), Is.True);
             Assert.That(rightGuards.TryQueueLane(1, 0), Is.True);
             Commit(rightGuards);
             rightGuards.BeginNextSlot();
@@ -200,8 +222,36 @@ namespace TurnLimbo.Core.Tests
             Assert.That(match.IsFinished, Is.True);
             match.Reset();
             Assert.That(match.CurrentPlanner, Is.EqualTo(1));
+            Assert.That(match.CommittedPlannerCount, Is.Zero);
             Assert.That(match.Left.Act, Is.EqualTo(3));
             Assert.That(match.Right.Act, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void EmptyCommitments_AdvanceTurns_AndAlternateTheOpeningPlayerUntilTheLimit()
+        {
+            var match = new LocalVersusMatch(new[] { Attack(100, 1, 1) }, new[] { Attack(200, 1, 1) },
+                roundLimit: 3, openingPlayer: 1);
+            for (int turn = 1; turn <= 3; turn++)
+            {
+                int opening = turn % 2;
+                Assert.That(match.RoundNumber, Is.EqualTo(turn));
+                Assert.That(match.OpeningPlayer, Is.EqualTo(opening));
+                Assert.That(match.CurrentPlanner, Is.EqualTo(opening));
+                Assert.That(match.CommittedPlannerCount, Is.Zero);
+                Assert.That(match.TryCommit(opening), Is.True, "An empty queue can be finalized or time out.");
+                Assert.That(match.TryCommit(opening), Is.False, "One player cannot finalize twice.");
+                Assert.That(match.TryCommit(1 - opening), Is.True);
+                Assert.That(match.ResolutionSlotCount, Is.Zero);
+                if (turn < 3)
+                {
+                    Assert.That(match.IsTurnResolved, Is.True);
+                    Assert.That(match.IsFinished, Is.False);
+                    match.BeginNextTurn();
+                }
+            }
+            Assert.That(match.IsFinished, Is.True);
+            Assert.That(match.Outcome, Is.EqualTo(LocalVersusOutcome.Draw));
         }
 
         [Test]
@@ -218,6 +268,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(match.CanCycleLanes(1), Is.False);
             Assert.That(match.CanQueueBreath(0), Is.True);
             Assert.That(match.CanCycleLanes(0), Is.True);
+            Assert.That(match.CanCommit(0), Is.True);
+            Assert.That(match.CanCommit(1), Is.False);
+            Assert.That(match.CanCommit(-1) || match.CanCommit(2), Is.False);
             Assert.That(match.CurrentPlanner, Is.Zero, "Reading changes nothing.");
             Assert.That(match.Left.GetLane(0)[0].Id, Is.EqualTo(100));
             Assert.That(match.Left.LaneCyclesThisTurn, Is.Zero);
@@ -226,6 +279,10 @@ namespace TurnLimbo.Core.Tests
             Assert.That(match.TryCycleLanes(0), Is.True);
             Assert.That(match.CanQueueLane(0, 0), Is.True, "The lane rotation brought the 1-ACT skill forward.");
             Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.CanCommit(0), Is.True, "Reserving a skill retains the planning phase.");
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.CanCommit(0), Is.False);
+            Assert.That(match.CanCommit(1), Is.True);
 
             // One skill per lane has nothing to turn; breaths stop at the turn's limit.
             Assert.That(match.CanCycleLanes(1), Is.False);
@@ -234,13 +291,13 @@ namespace TurnLimbo.Core.Tests
             {
                 Assert.That(match.CanQueueBreath(1), Is.True);
                 Assert.That(match.TryQueueBreath(1), Is.True);
-                Assert.That(match.TryPass(0), Is.True);
+                Assert.That(match.CommittedPlannerCount, Is.EqualTo(1));
             }
             Assert.That(match.CanQueueBreath(1), Is.False);
             Assert.That(match.TryQueueBreath(1), Is.False);
             Assert.That(match.CanQueueLane(1, 0), Is.True);
 
-            Assert.That(match.TryPass(1), Is.True, "Left passed last, so this pass resolves.");
+            Assert.That(match.TryCommit(1), Is.True, "The response finalizes the second whole queue.");
             Assert.That(match.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
             Assert.That(match.CanQueueLane(1, 0) || match.CanQueueBreath(1) || match.CanCycleLanes(0), Is.False,
                 "Nothing is taken outside planning.");
@@ -256,9 +313,8 @@ namespace TurnLimbo.Core.Tests
 
         private static void Commit(LocalVersusMatch match)
         {
-            int first = match.CurrentPlanner;
-            Assert.That(match.TryPass(first), Is.True);
-            Assert.That(match.TryPass(1 - first), Is.True);
+            while (match.Phase == LegacyDuelPhase.Planning)
+                Assert.That(match.TryCommit(match.CurrentPlanner), Is.True);
         }
 
         private static void ResolveTurn(LocalVersusMatch match)
