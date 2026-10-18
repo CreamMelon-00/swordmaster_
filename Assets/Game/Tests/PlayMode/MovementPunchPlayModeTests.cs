@@ -252,8 +252,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.PlayerX - pursuitStart,
                     Is.EqualTo(unchanged.PlayerX - unchangedPursuitStart).Within(.001f),
                     "The active pursuit retains the multiplier captured by its slot.");
-                fixture.Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
-                unchanged.Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
+                fixture.Arena.BeginSlot(Blunt(), Blunt());
+                unchanged.Arena.BeginSlot(Blunt(), Blunt());
                 pursuitStart = fixture.PlayerX;
                 unchangedPursuitStart = unchanged.PlayerX;
                 fixture.Arena.PresentHit(true, 1, 0, false, false, 1);
@@ -317,6 +317,9 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
         }
 
+        private static LegacySkill Blunt() => new LegacySkill(88712, "타격 이동 검증", 0, 10, 10,
+            LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 0, string.Empty);
+
         private sealed class ArenaFixture : IDisposable
         {
             private readonly GameObject host;
@@ -351,7 +354,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Arena.Reset();
                 Arena.CloseDistance(1f);
-                Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
+                Arena.BeginSlot(Blunt(), Blunt());
             }
 
             public float MeasureEnemyTargetDistance(int hp, int resistance, bool guarded, int power)

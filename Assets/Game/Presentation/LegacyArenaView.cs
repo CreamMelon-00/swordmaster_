@@ -38,7 +38,7 @@ namespace TurnLimbo.Presentation
         public const float MinimumKnockback = 0.7f;
         public const float MaximumKnockback = 3f;
         public const float MaximumPendingKnockback = 6f;
-        public const float GuardKnockbackMultiplier = 0.35f;
+        public const float GuardKnockbackMultiplier = 0.1f;
         public const float OriginalClipDuration = 1f / 6f;
         public const float OriginalImpactTime = 1f / 12f;
         public const float ReactionPoseDuration = 0.16f;
@@ -432,6 +432,7 @@ namespace TurnLimbo.Presentation
             ClearCombatShot();
             if (enemyFigures.Count > 0) SelectActiveEnemy(0);
             ClearAttackMotion();
+            ClearSlotMovement();
             // The tension lighting first: the step's cancel and the grade below light the fresh arena without it.
             ClearLighting();
             approaching = returning = resolving = false;
@@ -529,6 +530,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            ClearSlotMovement();
             contactRead.Clear();
             ClearSlowMovement();
             ClearSlowMotionAfterimages();
@@ -600,6 +602,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginApproach()
         {
+            ClearSlotMovement();
             ClearUpcomingEnemy();
             BeginDepthApproach();
             openingPlacementAvailable = false;
@@ -622,7 +625,7 @@ namespace TurnLimbo.Presentation
 
         public void CloseDistance(float scaledDelta)
         {
-            if (IsInRange || approaching || returning || HasPendingPush || stepping) return;
+            if (IsReadyForSlot || approaching || returning || HasPendingPush || stepping) return;
             Vector3 playerStart = player.Renderer.transform.localPosition;
             Vector3 enemyStart = enemy.Renderer.transform.localPosition;
             MoveFightersCloser(Mathf.Max(0f, scaledDelta), PursuitSpeed * pursuitMovementSpeed, !IsPursuing);
@@ -635,6 +638,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
         {
+            PrepareSlotMovement(playerSkill, enemySkill);
             contactRead.AwaitImpact();
             ClearUpcomingEnemy();
             enemyHandoffTravel = false;
@@ -689,12 +693,14 @@ namespace TurnLimbo.Presentation
         {
             if (disposed || ReferenceEquals(player.Skill, skill)) return;
             player.Skill = skill;
+            PrepareSlotMovement(skill, enemy.Skill);
             player.AttackVariants.Clear();
             SampleActor(player);
         }
 
         public void EndTurn()
         {
+            ClearSlotMovement();
             contactRead.ReleasePending();
             ClearSlowMovement();
             ClearSlowMotionAfterimages();
@@ -909,6 +915,9 @@ namespace TurnLimbo.Presentation
                 EnemyStudentAnimationSet.CadetBResourceRoot, "cadet-b"));
         }
 
+        private static bool PushesTarget(Actor attacker) => attacker.Skill?.Kind == LegacySkillKind.Attack &&
+            attacker.Skill.Property == LegacySkillProperty.Hit;
+
         /// <param name="fatal">A heavy hit: it lands on the body, shakes twice as hard and glows gold.</param>
         /// <param name="closeUp">With <paramref name="fatal"/>, also starts the slow close-up and colour flash.
         /// The controller reserves it for decisive moments: a resistance break, a finishing blow, or one hit taking a set
@@ -979,7 +988,8 @@ namespace TurnLimbo.Presentation
             // broken resistance or a finishing blow keeps its full displacement and weight.
             if (hpDamage <= 0 && !fatal && (bladeBlock || guarded)) distance *= settings.BladeRecoilScale;
             // The dummy stands on a fixed base: it sways but is never pushed back.
-            if (target == enemy && EnemyIsDummy) distance = 0f;
+            // Only blunt attacks displace the target. Slash cuts in place; penetration commits the attacker instead.
+            if (!PushesTarget(attacker) || target == enemy && EnemyIsDummy) distance = 0f;
             if (distance > 0f)
             {
                 // Actor sides remain stable. Repeated hits add to the unfinished
@@ -1556,9 +1566,9 @@ namespace TurnLimbo.Presentation
             }
             float excess = Mathf.Max(0f, Separation - ContactDistance);
             if (excess <= 0f || delta <= 0f || stepping) return;
-            bool playerMayMove = !player.Pushing && !enemyHandoffTravel &&
+            bool playerMayMove = !playerGuardsSlot && !player.Pushing && (!enemyHandoffTravel || enemyGuardsSlot) &&
                 (bothMayApproach || player.Chasing && player.ChaseDelay <= 0f);
-            bool enemyMayMove = !EnemyIsDummy && !enemy.Pushing &&
+            bool enemyMayMove = !enemyGuardsSlot && !EnemyIsDummy && !enemy.Pushing &&
                 (bothMayApproach || enemyHandoffTravel || enemy.Chasing && enemy.ChaseDelay <= 0f);
             if (!playerMayMove && !enemyMayMove) return;
             float divisor = playerMayMove && enemyMayMove ? 2f : 1f;

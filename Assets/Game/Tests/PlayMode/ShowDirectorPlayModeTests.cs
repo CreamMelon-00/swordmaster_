@@ -154,8 +154,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(enemyFigure.localPosition.x, Is.EqualTo(enemyAt.x).Within(1e-4f));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(slotTime));
                 float playerSpring = playerAt.x - arena.PlayerKnockbackTarget.x, enemySpring = arena.EnemyKnockbackTarget.x - enemyAt.x;
-                Assert.That(playerSpring, Is.GreaterThan(0f), "Both spring apart…");
-                Assert.That(enemySpring, Is.EqualTo(playerSpring).Within(1e-4f), "…alike.");
+                Assert.That(playerSpring, Is.Zero.Within(1e-4f), "A slash bind releases the pose without pushing either body.");
+                Assert.That(enemySpring, Is.Zero.Within(1e-4f));
 
                 scope.Until(() => controller.CanChoose);
                 Assert.That(controller.Session.RoundNumber, Is.EqualTo(2), "The turn ends.");

@@ -261,7 +261,9 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-idle-frame-01"));
                 a.BeginSlot(null, LegacySkillDefinitions.Skill(7));
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-block"));
-                a.BeginSlot(null, null);
+                var blunt = new LegacySkill(88714, "학생 밀림 검증", 0, 12, 12, LegacySkillKind.Attack,
+                    LegacySkillProperty.Hit, 1, 0, string.Empty);
+                a.BeginSlot(blunt, null);
                 a.PresentHit(true, 40, 20, false, false, 12);
                 Assert.That(a.EnemyRenderer.sprite.name, Is.EqualTo("enemy-poses-hurt"));
                 Assert.That(a.IsEnemyHurtPlaying, Is.False, "The student uses its own poses, not the dummy's reaction.");

@@ -1,3 +1,4 @@
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 
 namespace TurnLimbo.Presentation
@@ -25,6 +26,7 @@ namespace TurnLimbo.Presentation
 
         // Reuse the same distance for the body, sword's contact trail and culling bounds. Pose re-sampling only reads it.
         private float AttackLungeDistanceFor(Actor actor) => slotAttackLungeDistance *
+            (actor.Skill?.Property == LegacySkillProperty.Penetrate ? 1.5f : 1f) *
             (actor == player ? 1f + SlowPlayerLungeExtra * slowMovementAmount : 1f);
 
         private void ClearSlowMovement() => slowMovementAmount = 0f;

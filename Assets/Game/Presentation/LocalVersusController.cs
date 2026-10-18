@@ -479,7 +479,7 @@ namespace TurnLimbo.Presentation
                     break;
                 case ViewPhase.Closing:
                     if (!arena.IsPursuing) arena.CloseDistance(delta);
-                    if (arena.IsInRange) BeginSlot();
+                    if (arena.IsReadyForSlot) BeginSlot();
                     break;
                 case ViewPhase.PlayingSlot:
                     PlaySlot(delta);
@@ -842,8 +842,9 @@ namespace TurnLimbo.Presentation
                     return;
                 }
             }
+            arena.PrepareSlotMovement(view, nextSlotIndex);
             SetViewPhase(ViewPhase.Closing);
-            if (arena.IsInRange) BeginSlot();
+            if (arena.IsReadyForSlot) BeginSlot();
         }
 
         // Uses the playback speed and attack gap snapshotted when the slot began.
@@ -915,12 +916,12 @@ namespace TurnLimbo.Presentation
                 LegacyArenaView.OriginalClipDuration / slotPlaybackSpeed;
             if (!slot.IsResolved && phaseTime >= attackTime)
             {
-                if (!releasingBladeBindHit && !arena.IsInRange)
+                if (!releasingBladeBindHit && !arena.IsReadyForSlot)
                 {
                     // Movement keeps running while this contact frame waits: no strike lands out of reach, and a long
                     // chase never fires several deferred hits together.
                     if (!arena.IsPursuing) arena.CloseDistance(delta);
-                    if (!arena.IsInRange)
+                    if (!arena.IsReadyForSlot)
                     {
                         phaseTime = attackTime;
                         arena.HoldSlotAtTime(phaseTime);

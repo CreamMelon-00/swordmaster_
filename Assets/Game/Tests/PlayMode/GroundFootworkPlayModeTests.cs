@@ -145,7 +145,8 @@ namespace TurnLimbo.Presentation.Tests
                 host.Arena.SetDepthPerspective(0); guest.Arena.SetDepthPerspective(1);
                 host.Place(-2f, -.04f, 2f, .04f);
                 guest.Place(-2f, .04f, 2f, -.04f);
-                host.Arena.BeginSlot(Attack(), Attack()); guest.Arena.BeginSlot(Attack(), Attack());
+                host.Arena.BeginSlot(Attack(LegacySkillProperty.Hit), Attack(LegacySkillProperty.Hit));
+                guest.Arena.BeginSlot(Attack(LegacySkillProperty.Hit), Attack(LegacySkillProperty.Hit));
                 Vector3 hostStart = host.Arena.EnemyRenderer.transform.localPosition;
                 Vector3 guestStart = guest.Arena.PlayerRenderer.transform.localPosition;
                 host.Arena.PresentHit(true, 12, 0, false, false, 12);
@@ -315,7 +316,7 @@ namespace TurnLimbo.Presentation.Tests
                     else
                     {
                         scope.Place(-2f, -.04f, 2f, .04f);
-                        scope.Arena.BeginSlot(Attack(), Attack());
+                        scope.Arena.BeginSlot(Attack(LegacySkillProperty.Hit), Attack());
                         scope.Arena.PresentHit(true, 12, 0, false, false, 12);
                     }
                     float time = 0f;
@@ -384,8 +385,9 @@ namespace TurnLimbo.Presentation.Tests
             actor.GetType().GetField("GroundVelocity", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic).SetValue(actor, velocity);
         }
 
-        private static LegacySkill Attack() => new LegacySkill(88311, "보법 검증", 0, 12, 12, LegacySkillKind.Attack,
-            LegacySkillProperty.Slash, 3, 0, string.Empty, iconId: 1);
+        private static LegacySkill Attack(LegacySkillProperty property = LegacySkillProperty.Slash)
+            => new LegacySkill(88311, "보법 검증", 0, 12, 12, LegacySkillKind.Attack,
+                property, 3, 0, string.Empty, iconId: 1);
         [Serializable] private sealed class DodgeBalanceTrace
         {
             public List<float> displacements = new List<float>();

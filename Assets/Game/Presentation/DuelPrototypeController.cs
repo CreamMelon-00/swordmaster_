@@ -718,7 +718,7 @@ namespace TurnLimbo.Presentation
                     break;
                 case ViewPhase.ClosingDistance:
                     if (!arena.IsPursuing) arena.CloseDistance(delta);
-                    if (arena.IsInRange) BeginSlotAnimation();
+                    if (arena.IsReadyForSlot) BeginSlotAnimation();
                     break;
                 case ViewPhase.SkillWindup:
                     arena.HoldSlotAtTime(0f);
@@ -814,8 +814,9 @@ namespace TurnLimbo.Presentation
                 }
             }
             SelectArenaEnemyForSlot(highlightedSlot);
+            arena.PrepareSlotMovement(session, highlightedSlot);
             SetViewPhase(ViewPhase.ClosingDistance);
-            if (arena.IsInRange) BeginSlotAnimation();
+            if (arena.IsReadyForSlot) BeginSlotAnimation();
         }
 
         internal static bool HasOnlyBreakCanceledSlotsLeft(ILegacyDuelView duel, int nextSlot)
@@ -934,13 +935,13 @@ namespace TurnLimbo.Presentation
             if (!slot.IsResolved && phaseTime >= attackTime)
             {
                 bool firstStepImpact = slot.HitsResolved == 0 && (slot.DodgeSucceeded || slot.PressureSucceeded);
-                if (!releasingBladeBindHit && !arena.IsInRange && !firstStepImpact)
+                if (!releasingBladeBindHit && !arena.IsReadyForSlot && !firstStepImpact)
                 {
                     // Movement keeps running while this contact frame waits.
                     // Pausing the slot clock prevents off-screen air strikes or
                     // several deferred hits firing together after a long chase.
                     if (!arena.IsPursuing) arena.CloseDistance(delta);
-                    if (!arena.IsInRange)
+                    if (!arena.IsReadyForSlot)
                     {
                         phaseTime = attackTime;
                         arena.HoldSlotAtTime(phaseTime);

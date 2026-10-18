@@ -14,12 +14,47 @@ namespace TurnLimbo.Presentation
         private Material attackSpriteMaterial;
         private DuelStepAfterimages attackEchoes;
         private float slotAttackLungeDistance;
+        private bool playerGuardsSlot, enemyGuardsSlot;
+        private bool slotRequiresContact = true;
 
         /// <summary>World-space displacement of the drawn body only; combat transforms and range stay authoritative.</summary>
         public Vector3 PlayerAttackVisualOffset => player.AttackVisualOffset;
         public Vector3 EnemyAttackVisualOffset => enemy.AttackVisualOffset;
         public int ActiveAttackEchoCount => attackEchoes?.ActiveCount ?? 0;
         public int AttackEchoPoolSize => attackEchoes?.PoolSize ?? 0;
+
+        /// <summary>A slot without attacks can finish its stances where the fighters stand.</summary>
+        public bool SlotRequiresContact => slotRequiresContact;
+        public bool IsReadyForSlot => !SlotRequiresContact || IsInRange;
+
+        /// <summary>Prepares travel before the next slot starts, without advancing its skills or animation.</summary>
+        public void PrepareSlotMovement(LegacySkill playerSkill, LegacySkill enemySkill)
+        {
+            playerGuardsSlot = playerSkill?.Kind == LegacySkillKind.Defence;
+            enemyGuardsSlot = enemySkill?.Kind == LegacySkillKind.Defence;
+            slotRequiresContact = playerSkill?.Kind == LegacySkillKind.Attack || enemySkill?.Kind == LegacySkillKind.Attack;
+            player.Chasing = enemy.Chasing = false;
+        }
+
+        public void PrepareSlotMovement(ILegacyDuelView duel, int slotIndex)
+        {
+            if (duel == null) throw new System.ArgumentNullException(nameof(duel));
+            if (slotIndex < 0) throw new System.ArgumentOutOfRangeException(nameof(slotIndex));
+            bool playerCanceled = duel.PlayerBreakCanceledFromSlotIndex >= 0 &&
+                slotIndex >= duel.PlayerBreakCanceledFromSlotIndex;
+            bool enemyCanceled = duel is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1
+                ? roster.IsEnemySlotCanceled(slotIndex)
+                : duel.EnemyBreakCanceledFromSlotIndex >= 0 && slotIndex >= duel.EnemyBreakCanceledFromSlotIndex;
+            LegacySkill playerSkill = !playerCanceled && slotIndex < duel.PlayerQueue.Count ? duel.PlayerQueue[slotIndex] : null;
+            LegacySkill enemySkill = !enemyCanceled && slotIndex < duel.EnemyQueue.Count ? duel.EnemyQueue[slotIndex] : null;
+            PrepareSlotMovement(playerSkill, enemySkill);
+        }
+
+        private void ClearSlotMovement()
+        {
+            playerGuardsSlot = enemyGuardsSlot = false;
+            slotRequiresContact = true;
+        }
 
         private void InitializeAttackMotionMaterial()
         {

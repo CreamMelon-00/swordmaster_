@@ -110,7 +110,9 @@ namespace TurnLimbo.Presentation.Tests
                 float dodgeDistance = settings.StepDodgeDistance * settings.MovementDistanceMultiplier;
                 float halfStepDuration = LegacyArenaView.StepDuration / settings.MovementSpeedMultiplier * .5f;
                 arena.CloseDistance(1f);
-                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
+                var blunt = new LegacySkill(88713, "타격 밀림 검증", 0, 6, 6, LegacySkillKind.Attack,
+                    LegacySkillProperty.Hit, 1, 0, string.Empty);
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), blunt);
                 arena.PresentHit(false, 6, 0, false, false, 6);
                 Vector3 originalEndpoint = arena.PlayerKnockbackTarget;
                 arena.Tick(.025f, .025f);

@@ -84,7 +84,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator CompactBladeRecoil_LeavesBodyHitsAndExistingPushesIntact_AndSharesTheBindRelease()
+        public IEnumerator CompactBladeRecoil_LeavesBodyHitsAndExistingPushesIntact_AndPreservesEachBindRelease()
         {
             using (var original = new ArenaFixture())
             using (var compact = new ArenaFixture())
@@ -134,10 +134,12 @@ namespace TurnLimbo.Presentation.Tests
                 float oldRelease = original.Arena.EnemyKnockbackTarget.x - originalEnemyAt;
                 float newRelease = compact.Arena.EnemyKnockbackTarget.x - compactEnemyAt;
                 Assert.That(oldRelease, Is.GreaterThan(0f));
-                Assert.That(originalPlayerAt - original.Arena.PlayerKnockbackTarget.x, Is.EqualTo(oldRelease).Within(.001f));
-                Assert.That(compactPlayerAt - compact.Arena.PlayerKnockbackTarget.x, Is.EqualTo(newRelease).Within(.001f));
+                float oldPlayerRelease = originalPlayerAt - original.Arena.PlayerKnockbackTarget.x;
+                float newPlayerRelease = compactPlayerAt - compact.Arena.PlayerKnockbackTarget.x;
+                Assert.That(oldPlayerRelease, Is.GreaterThan(0f).And.LessThan(oldRelease), "Each target keeps the push from its own incoming hit.");
+                Assert.That(newPlayerRelease, Is.EqualTo(oldPlayerRelease * .35f).Within(.001f));
                 Assert.That(newRelease, Is.EqualTo(oldRelease * .35f).Within(.001f),
-                    "Share the reduced pending pushes and keep the extra spring snapshotted at the bind's start.");
+                    "Keep each reduced pending push and the extra spring snapshotted at the bind's start.");
                 Assert.That(compact.PlayerX, Is.EqualTo(compactPlayerAt));
                 Assert.That(compact.EnemyX, Is.EqualTo(compactEnemyAt), "Release queues movement instead of teleporting either fighter.");
             }
@@ -181,7 +183,9 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Arena.Reset();
                 Arena.CloseDistance(1f);
-                Arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
+                var blunt = new LegacySkill(88711, "타격 이동 검증", 0, 10, 10, LegacySkillKind.Attack,
+                    LegacySkillProperty.Hit, 1, 0, string.Empty);
+                Arena.BeginSlot(blunt, blunt);
             }
             public float MeasureEnemyPush(int hp, int resistance, bool guarded, bool fatal,
                 LegacyArenaView.HitExchange exchange = LegacyArenaView.HitExchange.None)

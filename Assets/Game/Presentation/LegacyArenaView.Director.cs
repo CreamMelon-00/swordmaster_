@@ -70,7 +70,7 @@ namespace TurnLimbo.Presentation
         /// battle's clock stands still) the two fighters hold their contact frames, lean into each other by
         /// <paramref name="press"/> each and sway together by <paramref name="sway"/> one way and then the other just as far
         /// (<see cref="LegacyBladeBind"/>), striking <paramref name="sparks"/> sparks between the blades; at the end both
-        /// spring apart alike: the knock-backs the hit queued are shared out evenly, plus <paramref name="spring"/> each
+        /// release their own queued knock-backs; only a blunt attack adds <paramref name="spring"/> to its target,
         /// scaled by the blade-contact recoil setting (they
         /// move once the battle's clock runs again). A small shake rumbles meanwhile. Only while resolving; a bind already
         /// holding lets go first.</summary>
@@ -107,18 +107,16 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>The blade bind is over (its time has run, or the controller's has): the fighters stand where it found
-        /// them, and both spring apart alike. Nothing while none holds.</summary>
+        /// them, retaining only the displacement caused by each incoming blunt attack. Nothing while none holds.</summary>
         public void FinishBladeBind()
         {
             if (disposed || bindSeconds <= 0f) return;
             int sparks = LegacyBladeBind.SparksBetween(bindElapsed / bindSeconds, 1f, bindSparks);
             for (int spark = 0; spark < sparks; spark++) EmitBindSpark();
             ApplyBindOffsets(0f, 0f);
-            // Both took a hit: the knock-backs the hit queued (held through the bind) are shared out evenly, so the two
-            // spring apart alike and no farther in all than without the bind, plus the already scaled extra spring each.
-            float even = (Pending(player, -1f) + Pending(enemy, 1f)) * .5f + bindSpring;
-            SpringApart(player, -1f, even);
-            SpringApart(enemy, 1f, even);
+            // Preserve each incoming impact separately: sharing the impulses would let a slash push the other fighter.
+            SpringApart(player, -1f, Pending(player, -1f) + (PushesTarget(enemy) ? bindSpring : 0f));
+            SpringApart(enemy, 1f, Pending(enemy, 1f) + (PushesTarget(player) ? bindSpring : 0f));
             bindSeconds = bindElapsed = 0f;
         }
 

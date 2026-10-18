@@ -53,7 +53,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 LegacyArenaView arena = controller.ArenaView;
                 arena.Reset();
-                arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
+                arena.BeginSlot(Blunt(), Blunt());
                 float start = arena.EnemyRenderer.transform.localPosition.x;
                 arena.PresentHit(true, 8, 0, false, false, 8);
                 float firstTarget = arena.EnemyKnockbackTarget.x;
@@ -95,7 +95,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 LegacyArenaView arena = controller.ArenaView;
                 arena.Reset();
-                arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
+                arena.BeginSlot(Blunt(), null);
                 arena.PresentHit(true, 12, 0, false, false, 12);
                 arena.Tick(LegacyArenaView.PushDuration + .01f, LegacyArenaView.PushDuration + .01f);
                 Transform player = arena.PlayerRenderer.transform;
@@ -464,10 +464,13 @@ namespace TurnLimbo.Presentation.Tests
             return controller;
         }
 
+        private static LegacySkill Blunt() => new LegacySkill(88715, "타격 밀림 검증", 0, 12, 12,
+            LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 0, string.Empty);
+
         private static float MeasureEnemyPush(LegacyArenaView arena, int hpDamage, int resistanceDamage, bool guarded, int rawPower)
         {
             arena.Reset();
-            arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
+            arena.BeginSlot(Blunt(), null);
             float start = arena.EnemyRenderer.transform.localPosition.x;
             arena.PresentHit(true, hpDamage, resistanceDamage, guarded, false, rawPower);
             arena.Tick(LegacyArenaView.PushDuration + .01f, LegacyArenaView.PushDuration + .01f);
