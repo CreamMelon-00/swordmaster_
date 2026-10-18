@@ -110,7 +110,25 @@ namespace TurnLimbo.Runtime.LegacyCombat
             GrantedProtectionBuffPercent = source.GrantedProtectionBuffPercent;
             GrantedBuffSlots = source.GrantedBuffSlots;
             HasGrantedBeneficialBuff = source.HasGrantedBeneficialBuff;
+            ProtectionSpendPowerBonus = source.ProtectionSpendPowerBonus;
+            AheadHitPowerBonus = source.AheadHitPowerBonus;
+            AheadAttackHits = source.AheadAttackHits;
         }
+
+        private LegacySkillFeedback(LegacySkillFeedback source, int protectionSpendPowerBonus,
+            int aheadHitPowerBonus, int aheadAttackHits) : this(source, source.ConditionalDamagePercent)
+        {
+            ProtectionSpendPowerBonus = Math.Max(0, protectionSpendPowerBonus);
+            AheadHitPowerBonus = Math.Max(0, aheadHitPowerBonus);
+            AheadAttackHits = Math.Max(0, aheadAttackHits);
+            bool activated = ProtectionSpendPowerBonus > 0 || AheadHitPowerBonus > 0;
+            ConditionMet = source.ConditionMet || activated;
+            EffectActivated = source.EffectActivated || activated;
+        }
+
+        /// <summary>The actual base-power bonuses of this cast. They do not grant a percentage buff or future uses.</summary>
+        internal LegacySkillFeedback WithUsePowerBonuses(int protectionSpendPowerBonus, int aheadHitPowerBonus, int aheadAttackHits)
+            => new LegacySkillFeedback(this, protectionSpendPowerBonus, aheadHitPowerBonus, aheadAttackHits);
 
         /// <summary>This snapshot with the 조건 피해 배율 the slot's hits carry from its start; zero keeps it as it is.</summary>
         internal LegacySkillFeedback WithConditionalDamage(int percent)
@@ -149,5 +167,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Initial use count of the newly granted buff; this immutable snapshot never ticks down.</summary>
         public int GrantedBuffSlots { get; }
         public bool HasGrantedBeneficialBuff { get; }
+        /// <summary>Flat base power gained by actually consuming protection, zero when none was present.</summary>
+        public int ProtectionSpendPowerBonus { get; }
+        /// <summary>Flat base power gained by this turn's first qualifying hit-count payoff.</summary>
+        public int AheadHitPowerBonus { get; }
+        /// <summary>The distinct preceding attack techniques' total hits when this skill started, including an unmet threshold.</summary>
+        public int AheadAttackHits { get; }
     }
 }

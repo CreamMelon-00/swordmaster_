@@ -40,13 +40,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
         PlanningTimeCost = 1 << 21,
         /// <summary>사용 효과 앞 X마다 다음 턴 제한시간: adds next turn's planning time per breath or kind ahead of it.</summary>
         NextTurnTime = 1 << 22,
+        /// <summary>Consumes the fighter's remaining protection for a flat base-power bonus.</summary>
+        ProtectionSpend = 1 << 23,
+        /// <summary>Gains base power when the distinct attack techniques ahead reach a hit-count threshold.</summary>
+        AheadHitPower = 1 << 24,
     }
 
     /// <summary>Presentation metadata for implemented rules, never a new combat authority.</summary>
     public static class LegacySkillRoles
     {
         internal const string AttackDamageDetail =
-            "상대 공격과 대결: 저항 피해 / 방어·빈 행동: 체력 피해 (방어 수치 차감)";
+            "공격 대결: 저항부터 피해 / 방어·빈 행동: 체력 피해 (방어 위력 차감)";
 
         public static LegacySkillRole Get(LegacySkill skill)
         {

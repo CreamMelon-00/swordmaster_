@@ -109,7 +109,7 @@ namespace TurnLimbo.Core.Tests
             duel.Commit();
 
             Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(10));
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(26));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(30));
             Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(20));
         }
 
@@ -203,7 +203,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(10, true)]
         [TestCase(12, false)]
         [TestCase(12, true)]
-        public void PendingSlotBuffs_ExpireAtTurnBoundaryAndReset(int id, bool reset)
+        public void PendingStatuses_CarryAcrossTurnBoundaryAndClearOnReset(int id, bool reset)
         {
             var duel = Duel(new[] { Imported(id, 4), Attack(100, 20, lane: 1) },
                 new[] { Attack(900, 4) }, new[] { 1 });
@@ -214,8 +214,10 @@ namespace TurnLimbo.Core.Tests
 
             Queue(duel, 1);
             ResolveTurn(duel);
-            Assert.That(duel.Enemy.Resistance, Is.EqualTo(1000 - (reset ? 0 : 4) - 20));
-            Assert.That(duel.Player.Resistance, Is.EqualTo(1000 - (reset ? 0 : 4) - 4));
+            int attackPower = !reset && id == 10 ? 30 : 20;
+            int receivedPower = !reset && id == 12 ? 6 : 4;
+            Assert.That(duel.Enemy.Resistance, Is.EqualTo(1000 - (reset ? 0 : 4) - attackPower));
+            Assert.That(duel.Player.Resistance, Is.EqualTo(1000 - (reset ? 0 : 4) - receivedPower));
             Assert.That(duel.NextActGain, Is.EqualTo(3));
         }
 
@@ -227,8 +229,8 @@ namespace TurnLimbo.Core.Tests
             Queue(duel, 0, 3);
             duel.Commit();
             duel.ResolveNextSlot();
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(12));
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(30));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(15));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(40));
         }
 
         [Test]
@@ -254,9 +256,9 @@ namespace TurnLimbo.Core.Tests
             duel.Commit();
             duel.ResolveNextSlot();
 
-            Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(8));
+            Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(5));
             Assert.That(duel.ResolveNextSlot().PlayerResistanceDamage, Is.EqualTo(15),
-                "W's one-slot protection expires before Forward's vulnerability applies again.");
+                "W's one-attack protection expires before Forward's vulnerability applies again.");
         }
 
         [Test]
@@ -531,7 +533,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Ready_QueuedBreatheConsumesTheNextSlotBonusInsteadOfPassingItToAnAttack()
+        public void Ready_QueuedBreatheKeepsPowerForTheFollowingActualTechnique()
         {
             var duel = Duel(new[] { Imported(10, 10), Attack(100, 20) },
                 new[] { Attack(900, 1) }, new[] { 3 });
@@ -546,7 +548,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(waiting.PlayerSkill.IsWait, Is.True);
             Assert.That(waiting.EnemyHealthDamage, Is.Zero);
             Assert.That(waiting.EnemyResistanceDamage, Is.Zero);
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(20));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(30));
         }
 
         [Test]

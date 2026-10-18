@@ -254,7 +254,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             $"예: 앞 숨고르기마다 위력 +4 (최대 4)), 앞 <대상>마다 다음 턴 제한시간 +N초 (최대 M)(" +
             $"N은 {LegacySkillLabels.MinimumAheadSeconds}~{LegacySkillLabels.MaximumAheadSeconds}, " +
             $"M은 {LegacySkillLabels.MinimumAheadTimeCount}~{LegacySkillLabels.MaximumAheadTimeCount}의 정수, " +
-            $"예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), {LegacySkillLabels.AutoDodgePhrase}";
+            $"예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), {LegacySkillLabels.AutoDodgePhrase}, " +
+            $"보호 소모 위력 +N, 앞 공격 총타수 M 이상 위력 +N(N은 {LegacySkillLabels.MinimumUsePowerBonus}~" +
+            $"{LegacySkillLabels.MaximumUsePowerBonus}, M은 {LegacySkillLabels.MinimumAttackHitsRequired}~" +
+            $"{LegacySkillLabels.MaximumAttackHitsRequired}의 정수)";
         /// <summary>The problem a 예약 효과 <c>제한시간 +n초</c> gets (time gained at reservation).</summary>
         public const string ReserveTimeGainProblem = "예약 때 시간을 늘리는 효과는 반환으로 되풀이할 수 있어 쓰지 않습니다";
 
@@ -593,6 +596,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     $"'{LegacySkillLabels.ReserveEffect(effect)}'을(를) 쓸 수 없습니다. 앞 기술을 거두고 다시 예약해 같은 효과를 되풀이할 수 있습니다.");
             if (effect.AutoDodge && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.UseEffect}' '{LegacySkillLabels.AutoDodgePhrase}'은(는) 공격 기술에만 쓸 수 있습니다.");
+            if ((effect.HasProtectionSpend || effect.HasAheadHitPower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
+                r.RowProblem($"'{Column.UseEffect}' '{LegacySkillLabels.UseEffect(effect)}'은(는) 공격 기술에만 쓸 수 있습니다.");
             if ((highPower || variablePower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.HighPower}'과(와) '{Column.VariablePower}'은(는) 공격에만 붙일 수 있습니다.");
             if (text.Info != null && (text.Info.Main == null || text.Info.Description == null))

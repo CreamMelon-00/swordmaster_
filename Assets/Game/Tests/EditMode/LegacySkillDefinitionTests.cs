@@ -68,7 +68,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(deep.AttackCount, Is.EqualTo(1));
             Assert.That(precise.AttackCount, Is.EqualTo(1));
             Assert.That(parry.Kind, Is.EqualTo(LegacySkillKind.Defence));
-            Assert.That(LegacySkillDefinitions.Find(parry).Effect.BuffProtectionPercent, Is.EqualTo(25));
+            Assert.That(LegacySkillDefinitions.Find(parry).Effect.BuffProtectionPercent, Is.EqualTo(50));
             Assert.That(LegacySkillDefinitions.Find(parry).Effect.BuffSlots, Is.EqualTo(1));
 
             LegacySkill pressure = LegacySkillDefinitions.Skill(5);
@@ -79,7 +79,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentResistanceReduction, Is.EqualTo(10));
             Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Defence));
             Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentResistanceReduction, Is.EqualTo(15));
-            Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffPowerPercent, Is.EqualTo(20));
+            Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffPowerPercent, Is.EqualTo(50));
             Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffSlots, Is.EqualTo(2));
         }
 
@@ -118,8 +118,10 @@ namespace TurnLimbo.Core.Tests
             Assert.That(definition.Effect.QueuePowerMultiplierCap, Is.EqualTo(5));
             Assert.That((LegacySkillRoles.Get(posture) & LegacySkillRole.QueueCancel) != 0, Is.True);
             Assert.That(definition.Text.Info.Main, Is.EqualTo("취소"));
-            Assert.That(definition.Text.Info.Description, Does.Contain("앞에 예약한 스킬을 취소"));
-            Assert.That(definition.Text.Info.Description, Does.Contain("(취소한 스킬 수)배만큼 다음 스킬 1개의 위력 증가"));
+            Assert.That(definition.Text.Info.Description, Does.StartWith("예약 시"));
+            Assert.That(definition.Text.Info.Description, Does.Contain("앞에 예약된 기술 모두 취소"));
+            Assert.That(definition.Text.Info.Description,
+                Does.Contain("2개 이상 취소하면 이번 턴 다음 기술 1개 위력 ×취소 수 (최대 ×5)"));
             Assert.That(definition.Text.Info.Description, Does.Not.Contain("ACT"));
         }
 
@@ -248,12 +250,15 @@ namespace TurnLimbo.Core.Tests
             Assert.That(finisher.HighPower, Is.True);
             Assert.That(finisher.Text.Info.Secondary, Is.EqualTo("상대 체력 30% 이하"));
             Assert.That(finisher.Text.Info.EnemySecondary, Is.EqualTo("내 체력 30% 이하"));
+            Assert.That(benedicere.Description,
+                Does.Contain("상대가 붕괴 상태").And.Contain("자신의 최대 저항의 25%"));
+            Assert.That(praedicare.Description,
+                Does.Contain("상대 체력이 30% 이하").And.Contain("체력 피해가 2배"));
 
             var run = new CampaignRun();
             foreach (LegacySkillDefinition definition in new[] { guard, finisher })
             {
                 Assert.That(LegacySkillDefinitions.Table.IsEnemy(definition), Is.True);
-                Assert.That(definition.Skill.Description, Is.EqualTo("서막 4 임무 이아의 수훈 기술."));
                 Assert.That(definition.Text.Effect, Is.Null, "Never in the lobby.");
                 Assert.That(CampaignCurriculum.Default.FindGranting(definition.Skill.Id), Is.Null);
                 Assert.That(run.TryEquipSkill(definition.Skill.Id), Is.False);
@@ -297,11 +302,11 @@ namespace TurnLimbo.Core.Tests
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
             Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[]
                 { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50,
-                    51, 52, 53, 54, 55, 56, 57, 58, 59, 500, 501, 502, 600 }));
+                    51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 500, 501, 502, 600 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(table.InitialCounterSkills.Select(s => s.Id), Is.EqualTo(new[] { 600 }));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id),
-                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58 }));
+                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 60, 61 }));
             Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
             Assert.That(table.TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
@@ -322,6 +327,8 @@ namespace TurnLimbo.Core.Tests
         [TestCase(57, "잔걸음", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 5, 7, 1, 33)]
         [TestCase(58, "숫돌", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 34)]
         [TestCase(59, "갈아내기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 2, 4, 1, 35)]
+        [TestCase(60, "돌파", 1, LegacySkillKind.Attack, LegacySkillProperty.Slash, 2, 8, 12, 1, 10)]
+        [TestCase(61, "추격", 2, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 2, 5, 7, 1, 14)]
         [TestCase(15, "사선베기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 4, 5, 2, 11)]
         [TestCase(17, "호흡", 0, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 13)]
         [TestCase(19, "르프리즈", 2, LegacySkillKind.Defence, LegacySkillProperty.Defence, 2, 7, 11, 1, 13)]
@@ -339,9 +346,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(definition.HighPower || definition.VariablePower, Is.False, "급소 찌르기 lost its 고화력 tag.");
             Assert.That(definition.Text.Effect, Is.Not.Null.And.Not.Empty, "Every new and revised row has its 로비 효과.");
             Assert.That(definition.Text.Info, Is.Not.Null, "and its badges.");
-            Assert.That(skill.Description, Does.Contain(minPower + "~" + maxPower), "설명 states the new range.");
+            // The range is verified above; effect copy need not repeat the separately displayed power facts.
             if (kind == LegacySkillKind.Attack)
-                Assert.That(definition.Text.Detail, Does.EndWith("상대 공격과 대결: 저항 피해 / 방어·빈 행동: 체력 피해 (방어 수치 차감)"));
+                Assert.That(definition.Text.Detail, Does.EndWith("공격 대결: 저항부터 피해 / 방어·빈 행동: 체력 피해 (방어 위력 차감)"));
             LegacySkillEffect effect = definition.Effect;
             switch (id)
             {
@@ -378,6 +385,16 @@ namespace TurnLimbo.Core.Tests
                 case 59:
                     Assert.That((effect.CyclePowerPerUse, effect.CycleCostPerUse, effect.CycleMaxCount), Is.EqualTo((3, 0, 2)));
                     Assert.That(effect.HasReserveEffect || effect.HasUseEffect, Is.False);
+                    break;
+                case 60:
+                    Assert.That(effect.HasProtectionSpend && effect.HasUseEffect, Is.True);
+                    Assert.That(effect.ConsumeProtectionPowerBonus, Is.EqualTo(10));
+                    Assert.That(effect.HasAheadHitPower, Is.False);
+                    break;
+                case 61:
+                    Assert.That(effect.HasAheadHitPower && effect.HasUseEffect, Is.True);
+                    Assert.That((effect.AheadAttackHitsRequired, effect.AheadAttackHitsPowerBonus), Is.EqualTo((5, 12)));
+                    Assert.That(effect.HasProtectionSpend, Is.False);
                     break;
                 case 15:
                     Assert.That((effect.CyclePowerPerUse, effect.CycleCostPerUse, effect.CycleMaxCount), Is.EqualTo((2, 0, 2)));

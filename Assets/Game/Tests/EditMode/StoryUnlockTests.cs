@@ -329,7 +329,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.IsCurriculumOpen, Is.True, "Mission 8 opens it.");
             // 4 (서막) + 4 first clears × 4 + 4 (missions 5-8) = 24 of the tree's 33.
             Assert.That(run.CurriculumPoints, Is.EqualTo(24));
-            Assert.That(run.Curriculum.Tree.Nodes.Sum(node => node.Cost), Is.EqualTo(33));
+            Assert.That(run.Curriculum.Tree.Nodes.Sum(node => node.Cost), Is.EqualTo(37));
             Assert.That(run.AffordableCurriculumNodeCount, Is.EqualTo(1), "Only the trunk's first node is open yet.");
         }
 

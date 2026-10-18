@@ -180,6 +180,7 @@ namespace TurnLimbo.Presentation
             queueOnRelease = TryQueueLane;
             battleHud = new LegacyCombatHud(parent, art, lane => TryQueueLane(lane), () => TryPass(), null,
                 settings, () => TryBreath(), () => TryCycle());
+            battleHud.SetStatusArena(arena);
             battleHud.SetCommitLabel(PassLabel);
             battleHud.SetStageText(StageText);
             battleHud.Root.SetActive(false);

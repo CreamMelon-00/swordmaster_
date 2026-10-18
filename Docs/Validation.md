@@ -1,5 +1,17 @@
 # 첫 전투·연출·컴팩트 HUD 검증
 
+## 돌파·추격 신규 스킬 (2026-10-18)
+
+ID 60 돌파(W·ACT 2·참격 8~12·1타)와 61 추격(E·ACT 2·관통 5~7·1타)을 추가했다. 돌파는 실제 보호를 전량 소모하면 기본 위력 +10이며 같은 칸의 피격에도 보호를 포기한다. 취약·강화는 유지한다. 추격은 앞에 예약된 공격을 ID 종류마다 한 번씩 세어 총 5타 이상이면 기본 위력 +12, 부가 효과는 턴당 첫 복사본만 받는다. 캠페인·다인전·대전 양쪽·예상 피해·발동 안내에 연결했다. 커리큘럼은 기존 저장과 트리 버전 2를 유지하며 각 2점의 새 선택 과정 두 개를 추가해 19과정·37점이다. 신규 그림은 추가하지 않고 기존 10·14번 그림을 재사용한다.
+
+- **기준:** 변경 전 현재 작업 트리의 Core·Runtime·EditMode를 독립 컴파일하고 NUnit **1,570/1,570 통과**, 소스·CSV 177개 검사 전후 SHA256 일치를 확인했다. `Temp/BreakthroughPursuitValidation/Baseline/`에 결과와 DLL을 보존했다.
+- **최종 규칙:** Core 6·Runtime 90·EditMode 81파일 컴파일 성공, 독립 NUnit **1,609/1,609 통과**, 실패·건너뜀 0. 기존 1,570개 test-case 이름 모두 보존·통과했고 신규 39개를 추가했다. 보호 전량 소모·취약 상쇄 상태·동시 피격·재부여·강화 적용 순서, 추격 4/5 경계·동일 ID 중복·첫 사본·취소/반환·다인전 소유·대전 대칭, 반복 예상 조회의 원본 무변이와 실판정 일치, 시트 파싱/왕복/오류 범위, 새 과정의 양쪽 선행 경로와 편성·저장복구를 검사했다. 컴파일·실행 전후 소스·CSV 178개 SHA256 일치. 기존과 같이 Unity Resources 실행이 필요한 오프닝 3개 사례는 독립 C# 실행 범위에서 제외했다.
+- **데이터:** CSV 40→42행, 신규 ID는 60·61뿐이며 기존 40행의 모든 셀은 동일하다. 사용 효과는 기존 열의 새 구절로 조절하고 저장 형식은 바꾸지 않았다. `BeforeSkills.csv`, `DataComparison.json`에 전후 대조를 보존했다.
+- **UI:** Presentation·PlayMode 235파일을 두 전처리 조건으로 검사해 구문 오류 0, 검사 전후 해시 일치. 실제 UnityEngine/uGUI로 기존 관련 8개와 발동 Burst를 합친 **9개 소스 타입 컴파일 성공**. 발동 Cue까지 합친 10개 검사는 기존 `DuelStepHud` 좌표 API 두 멤버를 Temp 대역으로 둔 제한적 검사이며 전체 Presentation 컴파일은 아니다. 설치된 Unity 6000.4/uGUI 2.0을 사용했으므로 프로젝트의 6000.5/uGUI 2.5에서의 전체 빌드를 대신하지 않는다.
+- **대전·내용:** 실제 `OnlineVersusProtocol` 및 기존 테스트 파일 컴파일, 비네이티브 해시 **7/7 통과**. 새 내용 검사 **51/51 통과**: 42종 설명, 새 역할과 조건·중복·미리보기 무변이, 19과정/37점, 규칙 버전 7, 새 Feedback 3필드의 양쪽 소유자별 해시 차이 6개와 원상 복구를 확인했다. 다인전에서 앞 공격이 취소되면 현재 추격의 배지는 공개 원본 큐 대신 실제 Feedback을 읽는다.
+- **최종 상태:** 검증한 실제 소스·CSV 고유 **413개**가 최종 파일과 모두 일치했다. 근거는 `Temp/BreakthroughPursuitValidation/Current/`의 XML·실행/컴파일 로그·해시, `FinalValidationSummary.json` 및 `Temp/BreakthroughPursuitUiValidation/Current/ValidationSummary.json`, `OnlineResults.xml`, `ContentResults.txt`, 컴파일 로그와 해시다.
+- **제한:** 신규 PlayMode 회귀는 상태 아이콘/툴팁 제거·취약 유지·타수 조건과 중복 사본·다인전 취소의 두 방향·커리큘럼 배치를 포함하지만 실제 실행하지 않았다. Unity Editor의 라이선스 IPC 실패 이후 재실행하지 않았으며 실제 화면의 배치·줄바꿈·발동 연출, 플레이어 빌드와 실제 두 장치 접속은 미확인이다. 수치는 초기 시험값이며 플레이 밸런스를 검증했다는 뜻은 아니다.
+
 ## 공격 속성별 동작 (2026-10-18, 회사 PC 독립 컴파일)
 
 - 참격·관통은 피격자를 밀지 않고, 관통의 공격 그림 전진은 1.5배로 늘렸다. 타격은 기존 밀침·추격을 사용한다. 방어는 해당 칸의 접근·추격에서 제외하고 타격 방어의 반동을 줄였다. 공격 없는 칸은 떨어진 자리에서도 진행하며, 다인전 방어 상대 교대 시에는 공격자가 접근한다. 힘겨루기 해제도 상대 타격이 만든 밀침만 각자 받는다. 동작 계약과 설정은 [PresentationTuning.md](PresentationTuning.md)를 따른다.
@@ -19,6 +31,39 @@
 - 증거는 `Temp/CounterCommitValidation`의 `Current`·`Head` XML 및 로그, `TypeCurrent` 타입 컴파일 로그, 소스 스냅샷과 해시에 있다. Unity Editor는 실행하지 않았으며, 실제 화면 배치·조작·반격 연출과 프로젝트 버전의 PlayMode 실행은 집에서 확인해야 한다.
 
 최근 Unity 실행 검증일: 2026-10-18. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
+
+## 스킬 설명 전수 검수 (2026-10-18)
+
+기존 39종의 설명·전투 상세·로비 효과·배지·요약을 실제 효과와 대조했다. 강화·보호 50%와 횟수는 일치했다. 자세 잡기의 예약 시점·최종 배율, 카덴스의 턴 확정 시점, 르프리즈·베네디체레의 자기 저항 회복, 종류별 보상과 부가 효과의 턴당 1회 표기를 바로잡았다. 적 기술의 제작 메모와 불필요한 부정문도 효과 설명으로 정리했다. 공통 공격 설명은 저항 초과·붕괴 후 체력 피해를 빠뜨리지 않도록 `저항부터 피해`로 통일했다.
+
+- 원본 39종 중 34종의 문구 69개 셀 변경. 해당 기술의 수치·효과·순서·비문구 열 변경은 0이다. 검수 도중 별도 반격 작업이 추가·변경한 임시 반격 기술은 이번 문구 수정에 포함하지 않았다. 전후 기록은 `Temp/SkillDescriptionAudit/Before.csv`, `CopyChanges.json`, `FinalDataComparison.json`에 보존한다.
+- 현재 Core 6·Runtime 90·EditMode 80파일 컴파일 성공. 독립 NUnit **1,570/1,570 통과**, 실패·건너뜀 0, 소스·CSV 177개 검사 전후 SHA256 일치. 기존과 같이 Unity Resources 실행이 필요한 오프닝 3개 사례는 독립 C# 실행 범위에서 제외했다. 결과는 `Temp/SkillDescriptionAudit/Current/PureEditModeResults.xml`, `PureEditModeRun.log`, `SourceHashes.json`이다.
+- Presentation·PlayMode 234파일을 두 전처리 조건으로 검사해 구문 오류 0, 검사 전후 SHA256 일치. 캠페인·대전의 ACT 안내 전환과 같은 카드의 모드 변경 갱신을 검증하는 PlayMode 사례를 추가했지만 실제 PlayMode는 실행하지 않았다.
+- 대전 상대도 자기 ACT를 회복하므로 캠페인의 플레이어 전용 안내를 문맥별로 분리했다. 보호·취약 상쇄와 최종 피해 감소 상한 100%를 공용 설명에 반영했다. 실제 UnityEngine DLL과 설치된 uGUI로 UI 관련 8개 소스의 부분 타입 컴파일에 성공했고, 독립 카드 내용 검사에서 ACT 모드 15개·보호 정의 2개를 통과했다. 근거는 `Temp/SkillDescriptionUiReview/StatusComponentsCompile.log`, `RegressionResults.txt`다. 설치된 Unity 6000.4/uGUI 2.0을 사용한 부분 검사이며 프로젝트 전체의 Unity 6000.5/uGUI 2.5 컴파일을 대신하지 않는다.
+- 실제 전투 화면의 줄바꿈·배치와 Unity PlayMode 실행은 미확인이다. 앞선 라이선스 IPC 실패 이후 Unity를 재실행하지 않았다.
+
+## 강화·보호 50% 상향 (2026-10-18)
+
+쳐내기·준비의 강화를 각각 20%·30%에서 50%로, 흘리기의 보호를 25%에서 50%로 올렸다. 횟수는 쳐내기 2·준비 1·흘리기 1이며, 플레슈의 취약과 나머지 기술 수치는 유지했다. 배포 CSV 39행 중 이 세 기술의 비율과 설명만 바뀌었다. 현재 규칙과 설명은 `StatusEffects.md`를 따른다.
+
+- 이전 상태 효과 구현의 독립 NUnit 1,527개 통과 결과를 기준으로 보존했다. 새 수치에서 Core 6·Runtime 90·EditMode 78파일을 컴파일하고 **1,527/1,527 통과**, 실패·건너뜀 0을 확인했다. 소스와 CSV 175개는 검사 전후 SHA256이 일치했다. 연타·가산 중첩·맞물림·피해 반올림·압박과 보호의 상호작용을 새 실제 수치로 검증했으며, 임의 20%·25%·30%를 전달하는 API 검사와 별도 60% 보호 입력 검사는 유지했다.
+- 첫 실행의 입력 형식 검사 한 곳은 예전 기본 20%·25%를 새 배포 행과 비교해 실패했다. 숫자만 쓰거나 공백과 %를 섞는 입력을 새 기본 50%로 맞춘 뒤 전체 검사를 다시 통과했다. 검사를 제외하거나 비활성화하지 않았다.
+- 관련 PlayMode의 실제 기술 설명·아이콘·피드백 기대값을 갱신했다. Presentation·PlayMode 233파일의 두 전처리 조건 구문 검사에서 오류 0이며 검사 전후 SHA256이 일치했다. 실제 Unity PlayMode 실행과 화면 검증은 이번 수치 변경에서 수행하지 않았다.
+
+근거는 `Temp/StatusStrength50Validation/Baseline/` 및 `Current/PureEditModeResults.xml`, `Current/PureEditModeRun.log`, `Current/SourceHashes.json`, `Current/SyntaxOnly.log`, `Current/SyntaxSourceHashes.json`에 보존한다.
+
+## 강화·보호·취약 상태 효과 (2026-10-18)
+
+기존 유지형 효과를 캐릭터 소유 상태로 모으고, 스킬 설명의 상태명·횟수, 발아래 아이콘과 공용 설명에 연결했다(`StatusEffects.md`). 강화는 실제 기술 사용, 보호·취약은 실제 수신 공격 기술 단위로 소모하며 턴을 넘어 유지한다. 연타는 1회, 성공 회피는 소모하지 않는다. 캠페인·다인전 개별 적·대전 양쪽·편성 예상의 복사본에 같은 규칙을 적용한다.
+
+- **기준:** 변경 전 HEAD의 소스와 Resources를 별도 스냅샷으로 보존하고 Core·Runtime·EditMode를 설치된 Unity 6000.4.0f1의 Mono 컴파일러로 컴파일했다. 독립 NUnit **1,512/1,512 통과**. Unity `Resources.Load<TextAsset>` 실행이 필요한 기존 오프닝 3개 사례는 이 독립 실행 범위에 포함하지 않았다.
+- **최종 규칙:** Core 6·Runtime 90·EditMode 78파일 컴파일 성공. 독립 NUnit **1,527/1,527 통과**, 실패·건너뜀 0. 신규 15개는 상태 행동 14개와 공용 이름·비율 정의 1개다. 턴 이월, 재시작 초기화, 숨·빈칸 유지, 새 상태의 부여 칸 제외, 연타 1회 소모, 성공 회피, 피해 0 방어, 재부여, 가산 강화·보호, 보호 표시 상한, 다인전 소유, 대전 양쪽과 예상의 원본 무변이를 확인했다. 컴파일·검사 전후 소스 및 배포 CSV **175개 SHA256 일치**.
+- **대전 통합:** 실제 `OnlineVersusProtocol`과 기존 테스트 파일을 별도 컴파일하고 Unity 네이티브 실행이 필요 없는 상태 해시·규칙 내용 해시 **7/7 통과**. 상태 종류·비율·남은 횟수·소유자를 상태 해시에 포함하고 전투 규칙 버전을 올렸다. 실제 두 장치의 접속 검증은 아니다.
+- **UI 타입:** 설치된 Unity 엔진 DLL 및 그 버전의 uGUI 2.0 소스로 만든 DLL을 참조하여 상태 아이콘·상태줄·테마·스킬 상세/부착물/내용·키워드 툴팁·캠페인 기술 문구 **8개 소스의 타입 컴파일 성공**. 원본 프로젝트가 사용하는 uGUI 2.5 및 Unity 6000.5.9f1에서의 전체 Presentation 컴파일 결과는 아니다.
+- **UI 구문:** Presentation·PlayMode **233파일**, 기본 조건과 Editor/Windows 조건 두 가지에서 구문 오류 0. 검사 전후 SHA256 일치. PlayMode 상태줄 4개 시나리오와 기존 머리 위 버프 줄 검사는 새 발아래 표시 계약에 맞춰 작성·갱신했으나 실행하지 않았다.
+- **실제 렌더 제한:** 원본을 건드리지 않는 별도 최소 프로젝트에서 설치된 Unity 6000.4를 숨김 batchmode로 실행했다. GPU/패키지 관리자 초기화 후 라이선스 IPC 연결 거부로 초기화에 실패해 렌더 probe는 실행되지 않았고 PNG는 생성되지 않았다. 그 검증 프로세스만 확인 후 종료했다. 실제 전투 화면의 배치·겹침·hover·가독성은 Unity 6000.5.9f1에서 추가 확인이 필요하다. 플레이어 빌드는 실행하지 않았다.
+
+근거는 Git 제외 경로 `Temp/StatusEffectsValidation/`의 `Baseline/`, `Current/PureEditModeResults.xml`, `Current/StatusOnlineResults.xml`, `Current/StatusComponents.log`, `Current/SyntaxOnly.log`와 각 소스 해시 파일에 보존했다. `Current/ValidationComparison.json`은 최종 검증 소스·CSV 408개가 현재 파일과 일치함을 기록하며, 규칙·문구에 맞춰 바뀐 기존 테스트 이름도 보존한다. 격리 실행의 환경 실패 로그는 `Temp/StatusEffectsVisualProject/ProbeEditor.log` 및 `Artifacts/ProbeEnvironmentFailure.txt`다. 원본 Editor·씬·프리팹·프로젝트 설정·사용자 저장 파일은 변경하지 않았다.
 
 ## 전투 가시성: 최신 본 기준 독립 C# 검증 (2026-10-18)
 

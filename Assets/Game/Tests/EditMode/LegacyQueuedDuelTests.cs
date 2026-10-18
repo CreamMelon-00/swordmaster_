@@ -756,8 +756,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(idle.EnemyHealthDamage, Is.Zero);
             Assert.That(idle.IsFinalHit, Is.True);
             duel.CompleteCurrentSlot();
-            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(119),
-                "The following 100-power attack gains 20%, then the enemy's 1-point guard is subtracted.");
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(149),
+                "The following 100-power attack gains 50%, then the enemy's 1-point guard is subtracted.");
         }
 
         [Test]

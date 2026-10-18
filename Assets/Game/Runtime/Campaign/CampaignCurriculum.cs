@@ -5,7 +5,8 @@ namespace TurnLimbo.Runtime.Campaign
     /// row (바트망 between 붕괴 and 순환, 숫돌 between 순환 and 판짜기), each needing one inner twist from both neighbours. A school's later nodes count or raise the keyword its
     /// introduction carries (Docs/Curriculum.md). Learning a node costs 수련 점수 (<see cref="CurriculumNode.Cost"/>, written on
     /// each node so the author tunes them one by one): the trunk and the introductions 1, the twists 2, the capstones and the
-    /// bridges 3, 33 for all 17. None excludes another, so every node can be completed. Each node is titled with the current
+    /// bridges 3, with two additional two-point bridge choices on the seventh row: 37 for all 19. None excludes another,
+    /// so every node can be completed. Each node is titled with the current
     /// sheet name of the technique it grants (a null title), and descriptions name other techniques with {기술:ID} tokens, so
     /// a renamed row reaches the tree. 16 알티바호 is stage 7's first-clear reward instead
     /// (<see cref="CampaignStage.FirstClearSkillId"/>).</summary>
@@ -83,6 +84,13 @@ namespace TurnLimbo.Runtime.Campaign
             new CurriculumNode("doublet", null, CurriculumBranch.Retraction, 4.5f, 5, new[] { 56 },
                 requiresAny: new[] { "breathing", "contretemps" }, statReward: TimeCapstone,
                 cost: 3, description: "판짜기의 정수: 예약 시 제한시간을 쓰고 앞 기술을 모두 반환합니다. 2개 이상 반환하면 다음 기술 하나의 위력이 2배가 됩니다."),
+            // Optional bridges use the existing pool, so either neighbouring route can unlock them.
+            new CurriculumNode("pursuit", null, CurriculumBranch.Bridge, 1.5f, 6, new[] { 61 },
+                requiresAny: new[] { "quick-draw", "diagonal-cut" },
+                cost: 2, description: "앞에 예약한 서로 다른 공격 기술의 총타수가 5 이상이면 기본 위력이 오릅니다."),
+            new CurriculumNode("breakthrough", null, CurriculumBranch.Bridge, 3.5f, 6, new[] { 60 },
+                requiresAny: new[] { "diagonal-cut", "breathing" },
+                cost: 2, description: "자신에게 남은 보호를 모두 소모해 이번 공격의 기본 위력을 높입니다."),
         });
     }
 }

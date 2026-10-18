@@ -19,15 +19,19 @@ namespace TurnLimbo.Presentation
             Description = description;
         }
 
-        public static SkillInfoContent For(LegacySkill skill, bool enemy)
+        public static SkillInfoContent For(LegacySkill skill, bool enemy, bool enemyActRecoveryIsPlayerOnly = true)
         {
             LegacySkillDefinition definition = LegacySkillDefinitions.Find(skill);
             LegacySkillInfo info = definition?.Text.Info;
+            bool actRecovery = (LegacySkillRoles.Get(skill) & LegacySkillRole.ActRecovery) != 0;
+            bool enemyMain = enemy && (!actRecovery || enemyActRecoveryIsPlayerOnly);
             SkillInfoContent content = info != null
-                ? new SkillInfoContent(enemy && info.EnemyMain != null ? info.EnemyMain : info.Main, info.MainSymbol, info.MainTone,
+                ? new SkillInfoContent(enemyMain && info.EnemyMain != null ? info.EnemyMain : info.Main, info.MainSymbol, info.MainTone,
                     enemy && info.EnemySecondary != null ? info.EnemySecondary : info.Secondary, info.SecondarySymbol,
                     info.SecondaryTone, info.Description)
                 : Generic(skill);
+            if (definition?.Effect.HasBuff == true)
+                content = WithStatusNames(content, definition.Effect);
             // Shared effect keywords take precedence over authored copy: queue removal first, then cycle. An authored
             // first badge naming an effect that reads the queue (예약 효과, 사용 효과: 숨고르기 +1, 앞 순환 +1, 일회성, 자동 회피,
             // 다음 턴 제한시간, …) comes next, so a forced keyword pushes it to the second badge instead of hiding it; the
@@ -49,10 +53,42 @@ namespace TurnLimbo.Presentation
             else if (hasCycle)
                 content = new SkillInfoContent("순환", LegacySkillSymbol.Cycle, LegacySkillTone.Cycle,
                     keptText, keptSymbol, keptTone, content.Description);
-            if (enemy && (LegacySkillRoles.Get(skill) & LegacySkillRole.ActRecovery) != 0)
+            if (enemy && enemyActRecoveryIsPlayerOnly && actRecovery)
                 content = new SkillInfoContent(content.Main, content.MainSymbol, content.MainTone, content.Secondary,
                     content.SecondarySymbol, content.SecondaryTone, PlayerOnlyActDescription(content.Description));
             return content;
+        }
+
+        private static SkillInfoContent WithStatusNames(SkillInfoContent content, LegacySkillEffect effect)
+        {
+            string power = effect.BuffPowerPercent > 0
+                ? LegacyStatusNames.Label(LegacyStatusKind.PowerUp, effect.BuffPowerPercent, effect.BuffSlots) : null;
+            bool vulnerable = effect.BuffProtectionPercent < 0;
+            string protection = effect.BuffProtectionPercent != 0
+                ? LegacyStatusNames.Label(vulnerable ? LegacyStatusKind.Vulnerability : LegacyStatusKind.Protection,
+                    Math.Abs(effect.BuffProtectionPercent), effect.BuffSlots) : null;
+            if (power == null && protection == null) return content;
+            string granted = power == null ? protection : protection == null ? power : power + ", " + protection;
+            // These simple status grants use the same short sentence as the sheet, with live tuned percentages/counts.
+            // More elaborate combinations retain their authored description so unrelated conditions are not hidden.
+            bool simple = !effect.HasCycle && effect.QueueRemovalMode == LegacyQueueRemovalMode.None &&
+                !effect.HasOpponentCondition && !effect.HasOpponentStateCondition && !effect.HasReserveEffect &&
+                !effect.HasUseEffect && effect.OpponentResistanceReduction == 0 && effect.ResistanceRecoveryPercent == 0 &&
+                effect.BrokenTargetDamagePercent == 0 && !effect.BreaksOpponent && effect.QueuePowerMultiplierCap == 0;
+            string description = simple ? "자신에게 " + granted + " 부여" : content.Description;
+            if (simple && effect.ActGain > 0)
+                description = "- 다음 턴 ACT 회복 +" + effect.ActGain + "\n- " + description;
+            LegacySkillSymbol protectionSymbol = vulnerable ? LegacySkillSymbol.Reduction : LegacySkillSymbol.Guard;
+            LegacySkillTone protectionTone = vulnerable ? LegacySkillTone.Reduction : LegacySkillTone.Defence;
+            if (effect.ActGain > 0)
+                return new SkillInfoContent(content.Main, content.MainSymbol, content.MainTone,
+                    granted, power != null ? LegacySkillSymbol.Followup : protectionSymbol,
+                    power != null ? LegacySkillTone.Followup : protectionTone, description);
+            return new SkillInfoContent(power ?? protection,
+                power != null ? LegacySkillSymbol.Followup : protectionSymbol,
+                power != null ? LegacySkillTone.Followup : protectionTone,
+                power != null && protection != null ? protection : string.Empty,
+                protectionSymbol, protectionTone, description);
         }
 
         private static string PlayerOnlyActDescription(string description)

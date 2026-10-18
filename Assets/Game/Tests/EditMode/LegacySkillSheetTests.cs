@@ -16,7 +16,7 @@ namespace TurnLimbo.Core.Tests
         // Sheet rows of the shipped table as written: the header is row 1, then ids in table order.
         private const int Row1 = 2, Row2 = 3, Row5 = 6, Row7 = 8, Row9 = 10, Row16 = 13, Row17 = 14, Row19 = 19, Row42 = 20, Row43 = 21,
             Row44 = 22, Row45 = 23, Row46 = 24, Row59 = 37,
-            Row500 = 38, Row501 = 39, Row502 = 40;
+            Row500 = 40, Row501 = 41, Row502 = 42;
 
         /// <summary>The shipped table as the writer lays it out, one string array per sheet row.</summary>
         private static List<string[]> Rows()
@@ -257,10 +257,10 @@ namespace TurnLimbo.Core.Tests
             Set(rows, 3, Column.Kind, "attack");
             Set(rows, 3, Column.Property, "  PENETRATE ");
             Set(rows, 3, Column.Lane, "w");
-            Set(rows, 9, Column.PowerBuff, "20");
+            Set(rows, 9, Column.PowerBuff, "50");
             Set(rows, 9, Column.InfoMainSymbol, "followup");
             Set(rows, 9, Column.InfoMainTone, "Followup");
-            Set(rows, 8, Column.ProtectionBuff, " 25 % ");
+            Set(rows, 8, Column.ProtectionBuff, " 50 % ");
             Set(rows, 2, Column.HighPower, "false");
             Set(rows, 4, Column.HighPower, "○");
             Set(rows, 6, Column.HighPower, "아니오");
@@ -732,6 +732,14 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.UseEffect, "앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 4)")]
         [TestCase(Column.UseEffect, "앞 순환 기술마다 다음 턴 제한시간 +0초 (최대 3)")]
         [TestCase(Column.UseEffect, "앞 순환 기술마다 다음 턴 제한시간 +2 (최대 3)")]
+        [TestCase(Column.UseEffect, "보호 소모 위력 +0")]
+        [TestCase(Column.UseEffect, "보호 소모 위력 +51")]
+        [TestCase(Column.UseEffect, "보호 소모 위력 -10")]
+        [TestCase(Column.UseEffect, "앞 공격 총타수 0 이상 위력 +12")]
+        [TestCase(Column.UseEffect, "앞 공격 총타수 21 이상 위력 +12")]
+        [TestCase(Column.UseEffect, "앞 공격 총타수 5 이상 위력 +0")]
+        [TestCase(Column.UseEffect, "앞 공격 총타수 5 이상 위력 +51")]
+        [TestCase(Column.UseEffect, "앞 공격 총타수 5 초과 위력 +12")]
         public void PhraseColumns_RefuseOtherPhrases_NamingTheOnesTheyRead(string column, string cell)
         {
             const int row3 = 4;
@@ -742,8 +750,43 @@ namespace TurnLimbo.Core.Tests
                     "제한시간 -N초(N은 1~5의 정수, 예: 제한시간 -4초)"
                 : "비워 두거나 앞 <대상>마다 위력 +N (최대 M)(<대상>은 숨고르기, 순환 기술, 저항 감소 기술, N은 1~10, M은 1~4의 정수, " +
                     "예: 앞 숨고르기마다 위력 +4 (최대 4)), 앞 <대상>마다 다음 턴 제한시간 +N초 (최대 M)(N은 1~3, M은 1~3의 정수, " +
-                    "예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), 자동 회피";
+                    "예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), 자동 회피, " +
+                    "보호 소모 위력 +N, 앞 공격 총타수 M 이상 위력 +N(N은 1~50, M은 1~20의 정수)";
             Assert.That(Problem(rows), Is.EqualTo($"{row3}행 '{column}': '{cell}'은(는) 쓸 수 없습니다. {allowed} 중 하나를 적으세요."));
+        }
+
+        [TestCase(1)]
+        [TestCase(50)]
+        public void NewAttackUseEffects_ParseTheirAllowedPowerAndHitBoundaries_AndRoundTrip(int bonus)
+        {
+            foreach (int required in new[] { 1, 20 })
+            {
+                List<string[]> rows = Rows();
+                Set(rows, 60, Column.UseEffect, "보호 소모 위력 +" + bonus);
+                Set(rows, 61, Column.UseEffect, $"앞 공격 총타수 {required} 이상 위력 +{bonus}");
+                LegacySkillTable parsed = Parse(rows);
+                LegacySkillTable reread = LegacySkillSheet.Parse("new use effects", LegacySkillSheet.Write(parsed));
+                foreach (LegacySkillTable table in new[] { parsed, reread })
+                {
+                    LegacySkillEffect protection = table.Find(60).Effect, hits = table.Find(61).Effect;
+                    Assert.That((protection.HasProtectionSpend, protection.ConsumeProtectionPowerBonus), Is.EqualTo((true, bonus)));
+                    Assert.That(protection.HasUseEffect && !protection.HasReserveEffect, Is.True);
+                    Assert.That(protection.Roles, Is.EqualTo(LegacySkillRole.ProtectionSpend));
+                    Assert.That((hits.HasAheadHitPower, hits.AheadAttackHitsRequired, hits.AheadAttackHitsPowerBonus),
+                        Is.EqualTo((true, required, bonus)));
+                    Assert.That(hits.HasUseEffect && !hits.HasReserveEffect, Is.True);
+                    Assert.That(hits.Roles, Is.EqualTo(LegacySkillRole.AheadHitPower));
+                }
+            }
+        }
+
+        [TestCase("보호 소모 위력 +10")]
+        [TestCase("앞 공격 총타수 5 이상 위력 +12")]
+        public void NewAttackUseEffects_RejectGuardRows(string phrase)
+        {
+            List<string[]> rows = Rows();
+            Set(rows, 7, Column.UseEffect, phrase);
+            Assert.That(Problem(rows), Is.EqualTo($"{Row7}행 (ID 7) '사용 효과' '{phrase}'은(는) 공격 기술에만 쓸 수 있습니다."));
         }
 
         [TestCase("제한시간 +4초")]
@@ -806,10 +849,10 @@ namespace TurnLimbo.Core.Tests
 
             // Any lane, as many as wanted; the three-per-lane rule counts starting rows only.
             string[] another = RowOf(rows, 59).ToArray();
-            another[Index(Column.Id)] = "60";
+            another[Index(Column.Id)] = "898";
             another[Index(Column.Lane)] = "E";
             rows.Add(another);
-            Assert.That(Parse(rows).TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59, 60 }));
+            Assert.That(Parse(rows).TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59, 898 }));
         }
 
         [Test]

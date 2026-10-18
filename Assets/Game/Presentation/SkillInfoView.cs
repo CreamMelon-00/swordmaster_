@@ -30,6 +30,7 @@ namespace TurnLimbo.Presentation
         private int? shownEffectiveCost;
         private string shownEffectivePower;
         private bool shownEnemy;
+        private bool shownEnemyActRecoveryIsPlayerOnly;
         private string shownAdditionalDescription;
 
         public GameObject Root => root.gameObject;
@@ -162,16 +163,19 @@ namespace TurnLimbo.Presentation
         }
 
         public void SetSkill(LegacySkill skill, bool enemy = false, string additionalDescription = null,
-            CampaignOwnedSkill owned = null, int cycleUses = -1, int? effectiveCost = null, string effectivePower = null)
+            CampaignOwnedSkill owned = null, int cycleUses = -1, int? effectiveCost = null, string effectivePower = null,
+            bool enemyActRecoveryIsPlayerOnly = true)
         {
             if (skill == null) { Clear(); return; }
             if (enemy || owned?.SkillId != skill.Id) owned = null;
             if (owned != null) skill = owned.Skill;
             int level = owned?.Level ?? 0, experience = owned?.Experience ?? 0;
             if (ReferenceEquals(shown, skill) && shownEnemy == enemy && shownAdditionalDescription == additionalDescription &&
+                shownEnemyActRecoveryIsPlayerOnly == enemyActRecoveryIsPlayerOnly &&
                 ReferenceEquals(shownOwned, owned) && shownLevel == level && shownExperience == experience &&
                 shownCycleUses == cycleUses && shownEffectiveCost == effectiveCost && shownEffectivePower == effectivePower) return;
             shown = skill; shownEnemy = enemy; shownAdditionalDescription = additionalDescription;
+            shownEnemyActRecoveryIsPlayerOnly = enemyActRecoveryIsPlayerOnly;
             shownOwned = owned; shownLevel = level; shownExperience = experience;
             shownCycleUses = cycleUses; shownEffectiveCost = effectiveCost; shownEffectivePower = effectivePower;
             stats.gameObject.SetActive(true);
@@ -188,7 +192,7 @@ namespace TurnLimbo.Presentation
             PowerText.text = effectivePower ?? CampaignSkillText.Power(skill);
             hitsLabel.text = string.Empty;
             hits.text = defence ? "같은 칸" : skill.AttackCount + "회";
-            SkillInfoContent content = SkillInfoContent.For(skill, enemy);
+            SkillInfoContent content = SkillInfoContent.For(skill, enemy, enemyActRecoveryIsPlayerOnly);
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             bool showCycleCount = cycleUses >= 0 && effect?.HasCycle == true;
             string cycleLabel = showCycleCount ? "순환 " + cycleUses + "/" + effect.CycleMaxCount : null;

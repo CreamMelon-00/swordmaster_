@@ -94,6 +94,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int BreathsRemainingThisTurn => Me.BreathsRemainingThisTurn;
         public LegacyFighterState Player => Me.State;
         public LegacyFighterState Enemy => Opponent.State;
+        public IReadOnlyList<LegacyStatusSnapshot> PlayerStatuses => Me.Statuses;
+        public IReadOnlyList<LegacyStatusSnapshot> EnemyStatuses => Opponent.Statuses;
         public IReadOnlyList<LegacySkill> PlayerQueue => Me.Queue;
         public IReadOnlyList<LegacySkill> EnemyQueue => Opponent.Queue;
         public int PlayerBreakCanceledFromSlotIndex => Me.BreakCanceledFromSlotIndex;

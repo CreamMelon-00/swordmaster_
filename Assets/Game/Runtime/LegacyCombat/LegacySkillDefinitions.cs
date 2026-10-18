@@ -119,6 +119,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// slot included) is dodged. Not a step: it costs no ACT, never narrows a step window, and the slot ignores the dodge
         /// key. Attacks only.</summary>
         public bool AutoDodge { get; internal set; }
+        /// <summary>사용 효과 보호 소모 위력 +n: removes every Protection status before either fighter's slot
+        /// multipliers are captured. Adds n to this attack's base power only if protection was actually removed;
+        /// PowerUp and Vulnerability remain. Reservation alone never spends a status.</summary>
+        public int ConsumeProtectionPowerBonus { get; internal set; }
+        public bool HasProtectionSpend => ConsumeProtectionPowerBonus > 0;
+        /// <summary>사용 효과 앞 공격 총타수 N 이상 위력 +M: counts each distinct attack id ahead once, using
+        /// its AttackCount. Waits, defences and this skill's own id do not count. Only the first copy gains the bonus.</summary>
+        public int AheadAttackHitsRequired { get; internal set; }
+        public int AheadAttackHitsPowerBonus { get; internal set; }
+        public bool HasAheadHitPower => AheadAttackHitsRequired > 0;
         /// <summary>예약 효과 <c>일회성 &lt;ID&gt; ×n</c>: the 일회성 row whose copies reserving this skill sets at the front of that
         /// row's lane, once per turn (<see cref="LegacyReserveEffect.Temporary"/>); 0 for none. The copies stay when this skill
         /// is later cancelled or returned, and every one left goes as the next planning turn begins.</summary>
@@ -145,7 +155,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// time cost; a remover may not carry one, since taking its own work back and reserving again would repeat it.</summary>
         public bool HasReserveGain => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn;
         /// <summary>Whether the row writes its 사용 효과 cell.</summary>
-        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge;
+        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower;
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
         public bool HasOpponentStateCondition => OpponentState != LegacyOpponentState.None;
@@ -190,6 +200,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (HasTemporarySpawn) roles |= LegacySkillRole.TemporarySpawn;
                 if (ReservePlanningSecondsCost > 0) roles |= LegacySkillRole.PlanningTimeCost;
                 if (HasAheadTime) roles |= LegacySkillRole.NextTurnTime;
+                if (HasProtectionSpend) roles |= LegacySkillRole.ProtectionSpend;
+                if (HasAheadHitPower) roles |= LegacySkillRole.AheadHitPower;
                 return roles;
             }
         }

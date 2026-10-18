@@ -313,8 +313,8 @@ namespace TurnLimbo.Core.Tests
             duel.BeginNextSlot();
             AssertStep(duel, LegacyStepAction.Pressure, true, true);
             LegacySlotResult result = duel.ResolveNextSlot();
-            Assert.That(result.EnemyHealthDamage, Is.EqualTo(24));
-            Assert.That(result.EnemyResistanceDamage, Is.EqualTo(18));
+            Assert.That(result.EnemyHealthDamage, Is.EqualTo(30));
+            Assert.That(result.EnemyResistanceDamage, Is.EqualTo(15));
         }
 
         [Test]

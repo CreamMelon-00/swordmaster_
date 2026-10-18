@@ -959,6 +959,7 @@ namespace TurnLimbo.Presentation
             UpdateGuideEnemyFocus();
             playerStatus.Refresh(session.Player, delta);
             enemyStatus.Refresh(session.Enemy, delta);
+            RefreshFighterStatuses(session, player, enemy, camera);
             UpdateDamage(actualDelta);
             UpdateLog(delta);
         }
@@ -1197,16 +1198,18 @@ namespace TurnLimbo.Presentation
         private void SetEnemyInfoSkill(LegacySkill skill)
         {
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            bool playerOnlyAct = !(displayedSession is LocalVersusPerspective);
             if (displayedSession == null || effect?.HasCycle != true)
             {
-                enemyInfo.SetSkill(skill, true);
+                enemyInfo.SetSkill(skill, true, enemyActRecoveryIsPlayerOnly: playerOnlyAct);
                 return;
             }
 
             displayedSession.EnemyEffectivePowerRange(skill, out int min, out int max);
             string power = min == max ? min.ToString() : min + "–" + max;
             enemyInfo.SetSkill(skill, true, cycleUses: displayedSession.EnemyCycleUses(skill.Id),
-                effectiveCost: displayedSession.EnemyEffectiveCost(skill), effectivePower: power);
+                effectiveCost: displayedSession.EnemyEffectiveCost(skill), effectivePower: power,
+                enemyActRecoveryIsPlayerOnly: playerOnlyAct);
         }
 
         private void UpdateConditionPreview()
@@ -1489,6 +1492,7 @@ namespace TurnLimbo.Presentation
         public void Reset()
         {
             if (disposed) return;
+            ClearFighterStatuses();
             SetTrainingMode(false);
             SetMissionMode(false);
             SetEnemyName(null);
@@ -2105,15 +2109,13 @@ namespace TurnLimbo.Presentation
             {
                 if (ReferenceEquals(shownBuffFeedback, value)) return;
                 shownBuffFeedback = value;
-                int rows = 0;
-                bool applied = value != null && value.HasBeneficialBuff;
-                bool granted = value != null && value.HasGrantedBeneficialBuff;
-                SetBuffRow(ActivePowerBuff, applied ? value.PowerBuffPercent : 0, "현재 위력 +", "%", ref rows);
-                SetBuffRow(ActiveProtectionBuff, applied ? value.ProtectionBuffPercent : 0, "현재 피해 감소 ", "%", ref rows);
-                string next = granted ? $"다음 {value.GrantedBuffSlots}칸 " : string.Empty;
-                SetBuffRow(GrantedPowerBuff, granted ? value.GrantedPowerBuffPercent : 0, next + "위력 +", "%", ref rows);
-                SetBuffRow(GrantedProtectionBuff, granted ? value.GrantedProtectionBuffPercent : 0, next + "피해 감소 ", "%", ref rows);
-                Root.sizeDelta = new Vector2(236, 92 + rows * 24);
+                // The persistent icons at the physical feet own status duration. Keep the old row objects dormant
+                // for existing references, rather than duplicating a current-slot snapshot above the HP gauges.
+                ActivePowerBuff.transform.parent.gameObject.SetActive(false);
+                ActiveProtectionBuff.transform.parent.gameObject.SetActive(false);
+                GrantedPowerBuff.transform.parent.gameObject.SetActive(false);
+                GrantedProtectionBuff.transform.parent.gameObject.SetActive(false);
+                Root.sizeDelta = new Vector2(236, 92);
             }
 
             private static void SetBuffRow(Text label, int percent, string prefix, string suffix, ref int rows)

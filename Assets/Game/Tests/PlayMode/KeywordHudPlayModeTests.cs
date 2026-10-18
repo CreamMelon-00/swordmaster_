@@ -79,6 +79,84 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator Pursuit_UpdatesTheFiveHitPreviewAndFirstCopyMarks_ThenUsesActualFeedback()
+        {
+            yield return null;
+            using (var fixture = new HudFixture())
+            {
+                LegacySkill Attack(int id, int hits) => new LegacySkill(id, "연타 검증", 0, 6, 6,
+                    LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, Q, "");
+                var pursuit = new LegacySkill(61, "추격", 0, 6, 6,
+                    LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 1, E, "");
+                var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                    new[] { Attack(88010, 2), Attack(88011, 3), pursuit }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+                fixture.Refresh(duel);
+                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 0/5 · +0"));
+                Assert.That(duel.TryQueueLane(Q), Is.True);
+                fixture.Refresh(duel);
+                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 2/5 · +0"));
+                Assert.That(duel.TryQueueLane(Q), Is.True);
+                fixture.Refresh(duel);
+                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 5/5 · +12"));
+                fixture.Hud.ShowExplanation(pursuit, false);
+                Assert.That(fixture.Hud.KeywordNote, Does.Contain("서로 다른 앞 공격 총타수 5/5"));
+                fixture.Hud.HideExplanation();
+                Assert.That(duel.TryQueueLane(E) && duel.TryQueueLane(E), Is.True);
+                fixture.Refresh(duel);
+                Assert.That(fixture.Hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("총타수 +12"));
+                Assert.That(fixture.Hud.GetKeywordMarkLabel(true, 3), Is.EqualTo("+0"));
+                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn));
+                duel.Commit();
+                duel.ResolveNextSlot();
+                duel.ResolveNextSlot();
+                duel.BeginNextSlot();
+                fixture.Refresh(duel);
+                Assert.That(duel.CurrentSlot.PlayerFeedback.AheadHitPowerBonus, Is.EqualTo(12));
+                Assert.That(fixture.Hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("총타수 +12"));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Pursuit_CurrentEnemyMarkUsesActualFeedbackAfterAnotherOwnersReservationWasCanceled()
+        {
+            yield return null;
+            foreach (bool canceledPursuit in new[] { false, true })
+            {
+                using (var fixture = new HudFixture())
+                {
+                    LegacySkill Attack(int id, int power, int hits = 1) => new LegacySkill(id, "대열 검증", 0, power, power,
+                        LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, Q, "");
+                    var guard = new LegacySkill(88012, "대기 방어", 0, 0, 0,
+                        LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, Q, "");
+                    var pursuit = new LegacySkill(61, "추격", 0, 6, 6,
+                        LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 1, E, "");
+                    var enemies = new[] {
+                        new LegacyEnemyDefinition("먼저 붕괴", 1000, 1, new EnemyScript(new[] {
+                            new[] { Attack(88010, 1), canceledPursuit ? pursuit : Attack(88011, 5, 5) } })),
+                        new LegacyEnemyDefinition("추격 담당", 1000, 1000, new EnemyScript(new[] {
+                            new[] { canceledPursuit ? Attack(88011, 5, 5) : guard, guard, pursuit } }))
+                    };
+                    var duel = new LegacyQueuedDuel(1000, 1000, new[] { Attack(88020, 100) }, enemies, meshPercent: 0);
+                    int firstOwnerSlot = duel.EnemyOwnerAtSlot(0) == 0 ? 0 : 1;
+                    if (firstOwnerSlot == 1) Assert.That(duel.TryQueueBreath(), Is.True);
+                    Assert.That(duel.TryQueueLane(Q), Is.True, "The strong attack faces A's first attack and breaks only A.");
+                    duel.Commit();
+                    for (int slot = 0; slot < 4; slot++) duel.ResolveNextSlot();
+                    duel.BeginNextSlot();
+                    Assert.That(duel.CurrentSlot.EnemySkill.Id, Is.EqualTo(61));
+                    Assert.That(duel.IsEnemySlotCanceled(firstOwnerSlot + 2), Is.True);
+                    int expectedBonus = canceledPursuit ? 12 : 0;
+                    Assert.That(LegacyKeywordLinks.AheadAttackHitsPowerBonus(duel.EnemyQueue, 4, pursuit),
+                        Is.EqualTo(canceledPursuit ? 0 : 12), "The public authored queue intentionally still includes canceled entries.");
+                    Assert.That(duel.CurrentSlot.EnemyFeedback.AheadHitPowerBonus, Is.EqualTo(expectedBonus));
+                    Assert.That(duel.CurrentSlot.EnemyFeedback.AheadAttackHits, Is.EqualTo(canceledPursuit ? 6 : 1));
+                    fixture.Refresh(duel);
+                    Assert.That(fixture.Hud.GetKeywordMarkLabel(false, 4), Is.EqualTo("총타수 +" + expectedBonus));
+                }
+            }
+        }
+
+        [UnityTest]
         public IEnumerator AutoDodge_MarksItsCard_AndTheForecastStrikesThroughTheAttackItWillDodge()
         {
             yield return null;
@@ -171,7 +249,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(oneShot, Does.Contain("예약하거나 턴이 끝나면 사라집니다"));
             Assert.That(SkillKeywordHover.TryExplain("제한시간", out string time), Is.True);
             Assert.That(time, Does.Contain("상대가 내게 닿기까지").And.Contain("시간이 멈춘 전투"));
-            foreach (string term in new[] { "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간" })
+            foreach (string term in new[] { "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "보호 소모", "총타수" })
                 Assert.That(SkillKeywordHover.TryExplain(term, out _), Is.True, term);
         }
 
@@ -189,9 +267,16 @@ namespace TurnLimbo.Presentation.Tests
             SkillInfoContent whetstone = SkillInfoContent.For(LegacySkillDefinitions.Skill(58), false);
             Assert.That((whetstone.Main, whetstone.MainSymbol), Is.EqualTo(("갈아내기 ×3", LegacySkillSymbol.OneShot)));
             SkillInfoContent steps = SkillInfoContent.For(LegacySkillDefinitions.Skill(57), false);
-            Assert.That((steps.Main, steps.MainSymbol), Is.EqualTo(("다음 턴 +2초", LegacySkillSymbol.Time)));
+            Assert.That((steps.Main, steps.MainSymbol), Is.EqualTo(("순환 1종당 +2초", LegacySkillSymbol.Time)));
+            foreach (int skillId in new[] { 17, 51, 53, 55, 57, 58 })
+                Assert.That(SkillInfoContent.For(LegacySkillDefinitions.Skill(skillId), false).Secondary,
+                    Is.EqualTo("효과 턴당 1회"), "The effect is limited, not reserving the skill: " + skillId);
             SkillInfoContent grind = SkillInfoContent.For(LegacySkillDefinitions.Skill(59), false);
             Assert.That((grind.Main, grind.Secondary, grind.SecondarySymbol), Is.EqualTo(("순환", "일회성", LegacySkillSymbol.OneShot)));
+            SkillInfoContent breakthrough = SkillInfoContent.For(LegacySkillDefinitions.Skill(60), false);
+            Assert.That((breakthrough.Main, breakthrough.Secondary), Is.EqualTo(("보호 소모", "위력 +10")));
+            SkillInfoContent pursuit = SkillInfoContent.For(LegacySkillDefinitions.Skill(61), false);
+            Assert.That((pursuit.Main, pursuit.Secondary), Is.EqualTo(("앞 공격 5타", "효과 턴당 1회")));
         }
 
         // A duel of the given sheet rows (each in its own lane) against one plain enemy attack a turn, with ACT to spare.

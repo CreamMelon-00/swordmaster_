@@ -79,13 +79,43 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         /// <summary>The base power <paramref name="skill"/> gains at <paramref name="slotIndex"/> of <paramref name="queue"/> from
-        /// its 사용 효과 <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c>: n per counted entry, at most m of them; 0 for a copy that is
-        /// not the queue's first. Both resolvers add it to the roll range beside the 순환 bonus, before buffs, 맞물림 and
+        /// its count-ahead or attack-hit-threshold 사용 효과; 0 for a copy that is not the queue's first. Both resolvers
+        /// add it to the roll range beside the 순환 bonus, before buffs, 맞물림 and
         /// multipliers. With <paramref name="slotIndex"/> at the queue's length it previews a skill about to be reserved.</summary>
         public static int AheadPowerBonus(IReadOnlyList<LegacySkill> queue, int slotIndex, LegacySkill skill)
         {
             LegacySkillEffect effect = AheadPowerEffect(skill);
-            return effect == null ? 0 : checked(AheadPowerCount(queue, slotIndex, skill) * effect.AheadPowerPerUnit);
+            int perEntry = effect == null ? 0 : checked(AheadPowerCount(queue, slotIndex, skill) * effect.AheadPowerPerUnit);
+            return checked(perEntry + AheadAttackHitsPowerBonus(queue, slotIndex, skill));
+        }
+
+        /// <summary>The total attack hits reserved ahead, counting each attack ID only once. Breaths, guards and the
+        /// candidate's own ID do not count. A missing candidate is read from slotIndex when that slot already exists.</summary>
+        public static int CountAheadAttackHits(IReadOnlyList<LegacySkill> queue, int slotIndex, LegacySkill skill = null)
+        {
+            if (queue == null) return 0;
+            if (skill == null && slotIndex >= 0 && slotIndex < queue.Count) skill = queue[slotIndex];
+            int end = Math.Min(Math.Max(0, slotIndex), queue.Count);
+            int hits = 0;
+            for (int index = 0; index < end; index++)
+            {
+                LegacySkill earlier = queue[index];
+                if (earlier == null || earlier.IsWait || earlier.Kind != LegacySkillKind.Attack ||
+                    (skill != null && earlier.Id == skill.Id) || !IsFirstOfKind(queue, index, earlier)) continue;
+                hits = checked(hits + earlier.AttackCount);
+            }
+            return hits;
+        }
+
+        /// <summary>The first copy's flat base-power payoff when the preceding distinct attacks reach its hit threshold.
+        /// This reads reservations, regardless of whether those earlier attacks hit or their conditions activated.</summary>
+        public static int AheadAttackHitsPowerBonus(IReadOnlyList<LegacySkill> queue, int slotIndex, LegacySkill skill)
+        {
+            if (skill == null || skill.IsWait || skill.Kind != LegacySkillKind.Attack) return 0;
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            return effect?.HasAheadHitPower == true && IsFirstOfKind(queue, slotIndex, skill) &&
+                CountAheadAttackHits(queue, slotIndex, skill) >= effect.AheadAttackHitsRequired
+                ? effect.AheadAttackHitsPowerBonus : 0;
         }
 
         /// <summary>The 순환 count the cycling skill with <paramref name="skillId"/> gains when <paramref name="queue"/> is

@@ -61,16 +61,16 @@ namespace TurnLimbo.Core.Tests
         public void CurriculumSkillRenumberedOrDeleted_IsAProblem()
         {
             List<string[]> rows = Rows();
-            Set(rows, 42, Column.Id, "60");
+            Set(rows, 42, Column.Id, "897");
             LegacySkillTable renumbered = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(renumbered), Is.EqualTo(new[]
             {
                 "ID 42 기술이 시트에 없습니다. 커리큘럼 과정 'quick-draw'이(가) 이 기술을 주므로 그 과정을 마치는 전투가 끝날 때 " +
                 "게임이 멈춥니다. ID를 바꾸거나 행을 지우지 마세요.",
             }));
-            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 60 쿠페: "));
+            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 897 쿠페: "));
 
-            rows.Remove(RowOf(rows, 60));
+            rows.Remove(RowOf(rows, 897));
             LegacySkillTable deleted = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(deleted).Single(), Does.StartWith("ID 42 기술이 시트에 없습니다."));
             Assert.That(CampaignSheetCheck.Warnings(deleted), Is.Empty);
@@ -146,10 +146,10 @@ namespace TurnLimbo.Core.Tests
             // A 획득 row the field grants needs no curriculum node.
             List<string[]> shipped = Rows();
             Assert.That(CampaignSheetCheck.Warnings(Parse(shipped)), Is.Empty);
-            Set(shipped, 50, Column.Id, "60");
+            Set(shipped, 50, Column.Id, "897");
             LegacySkillTable renumbered = Parse(shipped);
             Assert.That(CampaignSheetCheck.Problems(renumbered).Single(), Does.StartWith("ID 50 기술이 시트에 없습니다. 필드 습득물 'forest-finisher'"));
-            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 60 끝내기: "));
+            Assert.That(CampaignSheetCheck.Warnings(renumbered).Single(), Does.StartWith("ID 897 끝내기: "));
         }
 
         [TestCase(500)]
@@ -227,11 +227,11 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(CampaignCurriculum.Default.FindGranting(id), Is.Not.Null, "ID " + id);
             Assert.That(CampaignCurriculum.Default.FindGranting(59), Is.Null);
             List<string[]> rows = Rows();
-            Set(rows, 54, Column.Id, "60");
+            Set(rows, 54, Column.Id, "897");
             LegacySkillTable table = Parse(rows);
             Assert.That(CampaignSheetCheck.Problems(table).Single(),
                 Does.StartWith("ID 54 기술이 시트에 없습니다. 커리큘럼 과정 'esquive'이(가) 이 기술을 주므로"));
-            Assert.That(CampaignSheetCheck.Warnings(table).Single(), Does.StartWith("ID 60 에스키브: "));
+            Assert.That(CampaignSheetCheck.Warnings(table).Single(), Does.StartWith("ID 897 에스키브: "));
         }
 
         [Test]

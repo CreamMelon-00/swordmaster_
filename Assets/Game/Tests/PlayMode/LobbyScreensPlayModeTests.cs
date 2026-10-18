@@ -334,7 +334,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Hud.ShowTab(LobbyTab.Curriculum);
                 fixture.Click("Curriculum Node estocada");
                 GameObject curriculum = Named(fixture.Hud.Root, "Curriculum Selected Detail").gameObject;
-                Assert.That(Label(curriculum, "Keyword 1 Text").text, Does.Contain("감소마다 +5"));
+                Assert.That(Label(curriculum, "Keyword 1 Text").text, Does.Contain("감소 1종당 +5"));
                 AssertNoDamageRouting(curriculum);
                 AssertReadableBadge(Named(curriculum, "Keyword 1"), Label(curriculum, "Keyword 1 Text").color, 51);
 
@@ -349,7 +349,7 @@ namespace TurnLimbo.Presentation.Tests
                     combat.ShowExplanation(Skill(8), true);
                     popup = Named(combat.Root, "Enemy Skill Explain").gameObject;
                     AssertNoDamageRouting(popup);
-                    Assert.That(Label(popup, "Effect").text, Does.Contain("25%"));
+                    Assert.That(Label(popup, "Effect").text, Does.Contain("보호 50% 1"));
                 }
             }
             yield return null;

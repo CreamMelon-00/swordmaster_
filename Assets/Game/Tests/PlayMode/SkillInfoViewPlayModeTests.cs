@@ -93,8 +93,8 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(Skill(45));
                 Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("취소"));
                 Assert.That(Label(fixture.View.Root, "Keyword 2 Text").text, Does.Contain("×5"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("앞에 예약한 스킬을 취소"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("다음 스킬 1개의 위력 증가"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("예약 시").And.Contain("앞에 예약된 기술 모두 취소"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("2개 이상 취소하면").And.Contain("다음 기술 1개 위력 ×취소 수"));
                 Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("1"));
             }
             yield return null;
@@ -131,14 +131,14 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.View.EffectText.text, Does.Contain("타격").And.Contain("다음 턴"));
 
                 fixture.View.SetSkill(Skill(8));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("25%").And.Contain("다음 1칸"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("보호 50% 1"));
                 Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("이번 턴").And.Contain("바로 다음 1칸"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("자신에게 보호 50% 1 부여"));
 
                 fixture.View.SetSkill(Skill(9));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("20%").And.Contain("뒤 2칸"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("강화 50% 2"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("공격").And.Contain("방어").And.Contain("이번 턴").And.Contain("2"));
+                    Does.Contain("자신에게 강화 50% 2 부여"));
 
                 fixture.View.SetSkill(Skill(7), true);
                 Assert.That(VisibleText(fixture.View.Root), Does.Contain("플레이어 전용"),
@@ -175,16 +175,16 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 fixture.View.SetSkill(Skill(10));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("30%").And.Contain("다음 1칸"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("강화 50% 1"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("이번 턴").And.Contain("공격·방어").And.Contain("30%"));
-                Assert.That(CampaignSkillText.Effect(Skill(10)), Does.Contain("턴을 넘겨 유지되지"));
+                    Does.Contain("자신에게 강화 50% 1 부여"));
+                Assert.That(CampaignSkillText.Effect(Skill(10)), Does.Contain("강화 50% 1 부여"));
 
                 fixture.View.SetSkill(Skill(12));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT +2").And.Contain("다음 칸 취약"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT +2").And.Contain("취약 1"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("무리한 돌진").And.Contain("다음 턴 ACT 회복 +2").And.Contain("받는 피해 배율 +50%"));
-                Assert.That(CampaignSkillText.Effect(Skill(12)), Does.Contain("받는 피해").And.Contain("50%"));
+                    Does.Contain("다음 턴 ACT 회복 +2").And.Contain("자신에게 취약 1 부여"));
+                Assert.That(CampaignSkillText.Effect(Skill(12)), Does.Contain("취약 1 부여"));
 
                 fixture.View.SetSkill(Skill(19));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 회복").And.Contain("20%"));
@@ -218,6 +218,58 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(CampaignSkillText.Effect(Skill(17)), Does.Not.Contain("회복"));
             }
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator EnemyActRecovery_ChangesWithTheCombatRulesEvenWhenTheSameCardStaysSelected()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                foreach (int id in new[] { 1, 7, 12, 43, 49 })
+                {
+                    LegacySkill skill = Skill(id);
+                    fixture.View.SetSkill(skill, true);
+                    Assert.That(Keywords(fixture.View.Root), Does.Contain("플레이어 ACT"));
+                    Assert.That(fixture.View.EffectText.text, Does.Contain("플레이어 전용"));
+                    fixture.View.SetSkill(skill, true, enemyActRecoveryIsPlayerOnly: false);
+                    Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT +").And.Not.Contain("플레이어 ACT"));
+                    Assert.That(fixture.View.EffectText.text, Does.Contain("다음 턴 ACT 회복").And.Not.Contain("플레이어 전용"));
+                    fixture.View.SetSkill(skill, true);
+                    Assert.That(fixture.View.EffectText.text, Does.Contain("플레이어 전용"),
+                        "Returning to a campaign card invalidates the presentation cache too.");
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ActualEnemyExplanation_UsesBothVersusPerspectivesAndKeepsTheCampaignRestriction()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            using (var hud = new LegacyCombatHud(fixture.CanvasRoot.transform, new LegacyDuelArt(), null, null, null))
+            {
+                var campaign = new LegacyQueuedDuel();
+                var match = new LocalVersusMatch(new[] { Skill(1) }, new[] { Skill(1) });
+                foreach (int id in new[] { 1, 7, 12, 43, 49 })
+                {
+                    LegacySkill skill = Skill(id);
+                    hud.Refresh(campaign, 10f, false, -1, null, null, null);
+                    hud.ShowExplanation(skill, true);
+                    GameObject panel = hud.Root.transform.Find("Enemy Skill Explain").gameObject;
+                    Assert.That(VisibleText(panel), Does.Contain("플레이어 전용"));
+                    for (int localPlayer = 0; localPlayer < 2; localPlayer++)
+                    {
+                        hud.Refresh(new LocalVersusPerspective(match, localPlayer), 10f, false, -1, null, null, null);
+                        hud.ShowExplanation(skill, true);
+                        Assert.That(VisibleText(panel), Does.Contain("ACT +").And.Not.Contain("플레이어 전용").And.Not.Contain("플레이어 ACT"),
+                            "The opponent recovers their own ACT in both the host's and guest's view.");
+                    }
+                    hud.Refresh(campaign, 10f, false, -1, null, null, null);
+                    hud.ShowExplanation(skill, true);
+                    Assert.That(VisibleText(panel), Does.Contain("플레이어 전용"));
+                }
+            }
         }
 
         [UnityTest]
@@ -296,7 +348,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var run = new CampaignRun();
                 float fixedHeight = fixture.View.Height;
-                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(39), "Every row of the shipped sheet, 일회성 59 included.");
+                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(42), "Every row of the shipped sheet, temporary and counter rows included.");
                 foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 {
                     foreach (bool enemy in new[] { false, true })

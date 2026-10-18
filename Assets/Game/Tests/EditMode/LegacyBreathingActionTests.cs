@@ -263,7 +263,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void BreathConsumesAOneSlotBuffWithoutApplyingItToTheFollowingAttack()
+        public void BreathKeepsPowerStatusForTheFollowingActualTechnique()
         {
             LegacySkill ready = Attack(10, 4);
             var duel = Duel(new[] { ready, Attack(100, 20) },
@@ -275,11 +275,11 @@ namespace TurnLimbo.Core.Tests
             duel.ResolveNextSlot();
             LegacySlotResult waiting = duel.ResolveNextSlot();
             Assert.That(waiting.EnemyHealthDamage + waiting.EnemyResistanceDamage, Is.Zero);
-            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(20));
+            Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.EqualTo(30));
         }
 
         [Test]
-        public void ExistingReceivedDamageBuffsAdvanceOverBreathingLikeAnyOtherSlot()
+        public void IncomingAttackDuringBreath_ConsumesVulnerabilityAndAmplifiesThatAttack()
         {
             var duel = Duel(new[] { Attack(12, 1), Attack(100, 1) },
                 new[] { Attack(900, 4) }, 3);

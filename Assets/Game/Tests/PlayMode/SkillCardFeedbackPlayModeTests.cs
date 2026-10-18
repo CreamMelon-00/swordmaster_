@@ -253,7 +253,7 @@ namespace TurnLimbo.Presentation.Tests
                 duel.ResolveNextSlot();
                 LegacyCurrentSlot boosted = duel.BeginNextSlot(); fixture.ShowSlot(duel, boosted);
                 SkillCardFeedbackGraphic view = fixture.Queue(true, 1);
-                Assert.That(view.PowerBuffPercent, Is.EqualTo(30));
+                Assert.That(view.PowerBuffPercent, Is.EqualTo(50));
                 Assert.That(view.ActiveSparkCount, Is.EqualTo(SkillCardFeedbackGraphic.MaximumSparks));
                 Assert.That(view.raycastTarget, Is.False);
                 int nodeCount = fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length;
@@ -305,7 +305,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(duel.TryQueueBreath(), Is.True);
                     duel.Commit(); duel.ResolveNextSlot();
                     fixture.ShowSlot(duel, duel.BeginNextSlot());
-                    Assert.That(fixture.Queue(true, 1).ProtectionBuffPercent, Is.EqualTo(buffId == 8 ? 25 : 0));
+                    Assert.That(fixture.Queue(true, 1).ProtectionBuffPercent, Is.EqualTo(buffId == 8 ? 50 : 0));
                     Assert.That(fixture.Queue(true, 1).HasBuffParticles, Is.EqualTo(buffId == 8));
                     fixture.Hud.HideExplanation();
                     Assert.That(fixture.Queue(true, 1).HasBuffParticles, Is.EqualTo(buffId == 8),
@@ -322,14 +322,14 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator EnemyBuffRows_ShowNewlyGrantedDurationThenTheBuffAppliedToTheFollowingSkill()
+        public IEnumerator EnemyStatusIcons_ShowGrantedDurationThenOnlyUnspentCountsBesideTheFighter()
         {
             yield return null;
             using (var fixture = new Fixture())
             {
                 foreach (int id in new[] { 8, 9, 10 })
                 {
-                    int amount = id == 8 ? 25 : id == 9 ? 20 : 30;
+                    const int amount = 50;
                     int duration = id == 9 ? 2 : 1;
                     bool protection = id == 8;
                     var source = Skill(id, 0, id == 8 || id == 9 ? LegacySkillKind.Defence : LegacySkillKind.Attack);
@@ -337,10 +337,11 @@ namespace TurnLimbo.Presentation.Tests
                     var duel = Duel(new[] { guard }, new[] { source, guard, guard });
                     QueueThree(duel); duel.Commit();
                     fixture.ShowSlot(duel, duel.BeginNextSlot());
-                    Text granted = fixture.Buff(false, protection ? "Granted Protection Buff" : "Granted Power Buff");
-                    Assert.That(granted.text, Is.EqualTo(protection
-                        ? $"다음 {duration}칸 피해 감소 {amount}%" : $"다음 {duration}칸 위력 +{amount}%"));
-                    Assert.That(granted.gameObject.activeInHierarchy, Is.True);
+                    LegacyStatusStrip statuses = fixture.Hud.GetStatusStrip(false);
+                    Assert.That(statuses.Count, Is.EqualTo(1));
+                    Assert.That(statuses.GetStatus(0).Kind, Is.EqualTo(protection ? LegacyStatusKind.Protection : LegacyStatusKind.PowerUp));
+                    Assert.That(statuses.GetStatus(0).Percent, Is.EqualTo(amount));
+                    Assert.That(statuses.GetStatus(0).RemainingCount, Is.EqualTo(duration));
                     Assert.That(fixture.Queue(false, 0).HasBuffParticles, Is.False,
                         "Receiving a future buff must not label the granting skill's own power as boosted.");
                     Assert.That(fixture.Buff(false, "Active Power Buff").gameObject.activeInHierarchy, Is.False);
@@ -348,20 +349,19 @@ namespace TurnLimbo.Presentation.Tests
                     int nodes = fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length;
 
                     duel.ResolveNextSlot(); fixture.ShowSlot(duel, duel.BeginNextSlot());
-                    Text applied = fixture.Buff(false, protection ? "Active Protection Buff" : "Active Power Buff");
-                    Assert.That(applied.text, Is.EqualTo(protection
-                        ? $"현재 피해 감소 {amount}%" : $"현재 위력 +{amount}%"));
-                    Assert.That(applied.gameObject.activeInHierarchy, Is.True);
-                    Assert.That(granted.gameObject.activeInHierarchy, Is.False);
-                    Assert.That(fixture.Queue(false, 1).HasBuffParticles, Is.True);
+                    int remaining = protection ? duration : duration - 1;
+                    Assert.That(statuses.Count, Is.EqualTo(remaining > 0 ? 1 : 0));
+                    if (remaining > 0) Assert.That(statuses.GetStatus(0).RemainingCount, Is.EqualTo(remaining));
+                    AssertNoBuffRows(fixture, false);
+                    if (!protection) Assert.That(fixture.Queue(false, 1).HasBuffParticles, Is.True);
                     fixture.Hud.HideExplanation();
                     fixture.Refresh(duel, .5f, 0f);
-                    Assert.That(applied.gameObject.activeInHierarchy, Is.True);
+                    Assert.That(statuses.Count, Is.EqualTo(remaining > 0 ? 1 : 0));
                     Assert.That(fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodes));
-                    if (id == 8 || id == 10)
+                    if (id == 10)
                     {
                         duel.ResolveNextSlot(); fixture.ShowSlot(duel, duel.BeginNextSlot());
-                        Assert.That(applied.gameObject.activeInHierarchy, Is.False, "A one-slot bonus expires before the third skill.");
+                        Assert.That(statuses.Count, Is.Zero, "The preceding technique consumed its one use.");
                         Assert.That(fixture.Queue(false, 2).HasBuffParticles, Is.False);
                     }
                     fixture.Hud.Reset(); AssertNoBuffRows(fixture, false);
@@ -371,7 +371,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator BothFighters_ShowIndependentAppliedAndGrantedBuffsAndClearOnTurnOrRestart()
+        public IEnumerator BothFighters_ShowIndependentRemainingStatusesAndClearOnRestart()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -381,18 +381,21 @@ namespace TurnLimbo.Presentation.Tests
                     new[] { Skill(8, 0, LegacySkillKind.Defence, LegacySkillProperty.Defence), guard });
                 Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True); duel.Commit();
                 fixture.ShowSlot(duel, duel.BeginNextSlot());
-                Assert.That(fixture.Buff(true, "Granted Power Buff").text, Is.EqualTo("다음 2칸 위력 +20%"));
-                Assert.That(fixture.Buff(false, "Granted Protection Buff").text, Is.EqualTo("다음 1칸 피해 감소 25%"));
+                Assert.That(fixture.Hud.GetStatusStrip(true).GetStatus(0).Kind, Is.EqualTo(LegacyStatusKind.PowerUp));
+                Assert.That(fixture.Hud.GetStatusStrip(true).GetStatus(0).RemainingCount, Is.EqualTo(2));
+                Assert.That(fixture.Hud.GetStatusStrip(false).GetStatus(0).Kind, Is.EqualTo(LegacyStatusKind.Protection));
                 Assert.That(fixture.Buff(true, "Granted Protection Buff").gameObject.activeInHierarchy, Is.False);
                 Assert.That(fixture.Buff(false, "Granted Power Buff").gameObject.activeInHierarchy, Is.False);
                 duel.ResolveNextSlot(); fixture.ShowSlot(duel, duel.BeginNextSlot());
-                Assert.That(fixture.Buff(true, "Active Power Buff").text, Is.EqualTo("현재 위력 +20%"));
-                Assert.That(fixture.Buff(false, "Active Protection Buff").text, Is.EqualTo("현재 피해 감소 25%"));
+                Assert.That(fixture.Hud.GetStatusStrip(true).GetStatus(0).RemainingCount, Is.EqualTo(1));
+                Assert.That(fixture.Hud.GetStatusStrip(false).GetStatus(0).RemainingCount, Is.EqualTo(1));
                 fixture.Hud.BeginTurn();
                 AssertNoBuffRows(fixture, true); AssertNoBuffRows(fixture, false);
                 fixture.Hud.SetSkillFeedback(duel.CurrentSlot); fixture.Refresh(duel);
-                Assert.That(fixture.Buff(false, "Active Protection Buff").gameObject.activeInHierarchy, Is.True);
+                Assert.That(fixture.Hud.GetStatusStrip(false).Root.gameObject.activeInHierarchy, Is.True);
                 fixture.Hud.Reset(); AssertNoBuffRows(fixture, true); AssertNoBuffRows(fixture, false);
+                Assert.That(fixture.Hud.GetStatusStrip(true).Count, Is.Zero);
+                Assert.That(fixture.Hud.GetStatusStrip(false).Count, Is.Zero);
             }
         }
 
@@ -411,6 +414,10 @@ namespace TurnLimbo.Presentation.Tests
                     if (id == 12) { AssertNoBuffRows(fixture, true); AssertNoBuffRows(fixture, false); }
                     duel.ResolveNextSlot(); fixture.ShowSlot(duel, duel.BeginNextSlot());
                     AssertNoBuffRows(fixture, true); AssertNoBuffRows(fixture, false);
+                    Assert.That(fixture.Hud.GetStatusStrip(true).GetStatus(0).Kind,
+                        Is.EqualTo(id == 8 ? LegacyStatusKind.Protection : LegacyStatusKind.Vulnerability));
+                    Assert.That(fixture.Hud.GetStatusStrip(true).GetStatus(0).RemainingCount, Is.EqualTo(1),
+                        "A breathing slot neither spends incoming statuses nor hides their persistent icon.");
                     Assert.That(fixture.Queue(true, 1).HasBuffParticles, Is.False);
                     Assert.That(fixture.Queue(false, 1).HasBuffParticles, Is.False);
                 }
@@ -418,7 +425,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator MultipleBuffRows_StayReadableKeepGaugeAnchorsAndReuseNonBlockingObjects()
+        public IEnumerator MultipleStatuses_KeepTheHeadGaugesCompactAndReuseTheirIconObjects()
         {
             yield return null;
             using (var fixture = new Fixture())
@@ -428,7 +435,6 @@ namespace TurnLimbo.Presentation.Tests
                 var duel = Duel(new[] { power, flow, flow }, new[] { power, flow, flow });
                 QueueThree(duel); duel.Commit();
                 fixture.ShowSlot(duel, duel.BeginNextSlot());
-                int nodes = fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length;
                 var before = new Vector3[4]; var after = new Vector3[4];
                 fixture.Status(false).GetWorldCorners(before);
                 float originalGap = fixture.Status(false).Find("HP").position.y - before[0].y;
@@ -436,7 +442,8 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.ShowSlot(duel, duel.BeginNextSlot());
                 foreach (bool player in new[] { true, false })
                 {
-                    Assert.That(fixture.Status(player).sizeDelta.y, Is.EqualTo(164));
+                    Assert.That(fixture.Status(player).sizeDelta.y, Is.EqualTo(92));
+                    Assert.That(fixture.Hud.GetStatusStrip(player).Count, Is.GreaterThanOrEqualTo(1));
                     foreach (string rowName in BuffRowNames)
                     {
                         Text value = fixture.Buff(player, rowName);
@@ -448,6 +455,7 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 fixture.Status(false).GetWorldCorners(after);
                 Assert.That(fixture.Status(false).Find("HP").position.y - after[0].y, Is.EqualTo(originalGap).Within(.01f));
+                int nodes = fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length;
                 for (int frame = 0; frame < 40; frame++) fixture.Refresh(duel, .025f, 0f);
                 Assert.That(fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodes));
                 fixture.Hud.ClearSkillFeedback();

@@ -101,7 +101,7 @@ namespace TurnLimbo.Presentation.Tests
                     .Invoke(scope.Controller, null);
                 scope.Advance(null);
                 SkillCardFeedbackGraphic feedback = scope.Feedback(true, 1);
-                Assert.That(feedback.PowerBuffPercent, Is.EqualTo(30));
+                Assert.That(feedback.PowerBuffPercent, Is.EqualTo(50));
                 Assert.That(feedback.HasBuffParticles, Is.True);
                 Assert.That(feedback.ActiveSparkCount, Is.EqualTo(SkillCardFeedbackGraphic.MaximumSparks));
                 Assert.That(feedback.EffectActivated, Is.False,

@@ -400,6 +400,7 @@ namespace TurnLimbo.Presentation
             arena = LegacyArenaView.Create(transform, art, presentationSettings);
             hud = new LegacyCombatHud(transform, art, lane => QueueLane(lane), CommitTurn, RestartMatch,
                 presentationSettings, () => QueueBreath(), () => CycleLanes());
+            hud.SetStatusArena(arena);
             stepHud = new DuelStepHud(hud.Root.transform, art, presentationSettings);
             stepAudio = new DuelStepAudio(transform);
             resistanceFeedback = new DuelResistanceFeedback(hud.Root.transform, art.UIFont);

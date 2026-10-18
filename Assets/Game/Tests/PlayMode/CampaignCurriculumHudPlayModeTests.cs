@@ -336,8 +336,8 @@ namespace TurnLimbo.Presentation.Tests
                 int pieces = 0;
                 foreach (Transform child in content)
                     if (child.name.StartsWith("Connector ", StringComparison.Ordinal)) pieces++;
-                Assert.That(links, Is.EqualTo(21), "Fifteen 'all' links and six 'any' links in the 17-node tree.");
-                Assert.That(expected, Is.EqualTo(60), "Three of them are straight (two pieces); the rest turn (three).");
+                Assert.That(links, Is.EqualTo(25), "Fifteen 'all' links and ten 'any' links in the 19-node tree.");
+                Assert.That(expected, Is.EqualTo(72), "Three of them are straight (two pieces); the rest turn (three).");
                 Assert.That(pieces, Is.EqualTo(expected), "Only prerequisites draw connectors.");
             }
         }

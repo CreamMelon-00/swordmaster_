@@ -19,6 +19,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         Temporary,
         /// <summary>A count-ahead payoff in next turn's planning time, 앞 &lt;대상&gt;마다 다음 턴 제한시간 (<c>다음 턴 +4초</c>).</summary>
         AheadTime,
+        /// <summary>A conditional protection spend; planning never promises protection will survive until this cast.</summary>
+        ProtectionSpend,
+        /// <summary>A flat payoff for hits from distinct attack techniques reserved ahead.</summary>
+        AheadHitPower,
     }
 
     /// <summary>One queued card's keyword mark: its words, what it stands for and whether it gains nothing (a second copy,
@@ -96,6 +100,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 parts.Add(!LegacyKeywordLinks.IsFirstOfKind(queue, slot, skill) ? UsedThisTurn
                     : Unit(effect.AheadPowerTarget) + " " + LegacyKeywordLinks.AheadPowerCount(queue, slot, skill) + "/" +
                       effect.AheadPowerMax + " · +" + LegacyKeywordLinks.AheadPowerBonus(queue, slot, skill));
+            if (effect.HasProtectionSpend)
+                parts.Add("보호 소모 시 +" + effect.ConsumeProtectionPowerBonus);
+            if (effect.HasAheadHitPower)
+                parts.Add(!LegacyKeywordLinks.IsFirstOfKind(queue, slot, skill) ? UsedThisTurn
+                    : "총타수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
+                      effect.AheadAttackHitsRequired + " · +" + LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, slot, skill));
             LegacySkill spawned = LegacyKeywordLinks.TemporarySpawn(skill, out int copies);
             if (spawned != null && view.Features.HasLane(spawned.LaneIndex))
                 parts.Add(TemporaryUsed(view) ? UsedThisTurn : TemporarySpawnText(spawned, copies));
@@ -133,6 +143,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     : target + " " + LegacyKeywordLinks.AheadPowerCount(queue, slot, skill) + "/" + effect.AheadPowerMax +
                       " · 지금 예약하면 위력 +" + LegacyKeywordLinks.AheadPowerBonus(queue, slot, skill));
             }
+            if (effect.HasProtectionSpend)
+                parts.Add("사용 시 보호가 남아 있으면 모두 소모 · 기본 위력 +" + effect.ConsumeProtectionPowerBonus);
+            if (effect.HasAheadHitPower)
+                parts.Add(!first ? Used("총타수 보너스")
+                    : "서로 다른 앞 공격 총타수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
+                      effect.AheadAttackHitsRequired + " · 지금 예약하면 기본 위력 +" +
+                      LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, slot, skill));
             LegacySkill spawned = LegacyKeywordLinks.TemporarySpawn(skill, out int copies);
             if (spawned != null && view.Features.HasLane(spawned.LaneIndex))
                 parts.Add(TemporaryUsed(view) ? Used("일회성")
@@ -172,6 +189,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacySkillEffect effect = EffectOf(skill);
             if (effect == null) return LegacyKeywordMark.None;
             bool first = LegacyKeywordLinks.IsFirstOfKind(queue, slotIndex);
+            if (effect.HasProtectionSpend)
+            {
+                ILegacySlotView current = view.CurrentSlot;
+                LegacySkillFeedback actual = !planning && current != null && current.SlotIndex == slotIndex
+                    ? playerRow ? current.PlayerFeedback : current.EnemyFeedback : null;
+                return actual != null
+                    ? new LegacyKeywordMark(actual.ProtectionSpendPowerBonus > 0 ? "보호 +" + actual.ProtectionSpendPowerBonus : "+0",
+                        LegacyKeywordMarkKind.ProtectionSpend, actual.ProtectionSpendPowerBonus == 0)
+                    : new LegacyKeywordMark("보호 소모 시 +" + effect.ConsumeProtectionPowerBonus,
+                        LegacyKeywordMarkKind.ProtectionSpend, false);
+            }
+            if (effect.HasAheadHitPower)
+            {
+                ILegacySlotView current = view.CurrentSlot;
+                LegacySkillFeedback actual = !planning && current != null && current.SlotIndex == slotIndex
+                    ? playerRow ? current.PlayerFeedback : current.EnemyFeedback : null;
+                if (actual != null)
+                    return new LegacyKeywordMark("총타수 +" + actual.AheadHitPowerBonus,
+                        LegacyKeywordMarkKind.AheadHitPower, actual.AheadHitPowerBonus == 0);
+                int bonus = LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, slotIndex, skill);
+                return new LegacyKeywordMark(first ? "총타수 +" + bonus : "+0", LegacyKeywordMarkKind.AheadHitPower, bonus == 0);
+            }
             if (effect.HasAheadPower)
             {
                 int bonus = LegacyKeywordLinks.AheadPowerBonus(queue, slotIndex, skill);

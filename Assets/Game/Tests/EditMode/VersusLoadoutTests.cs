@@ -69,6 +69,22 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void BreakthroughAndPursuit_AreAvailableInTheFullPool_AndSurviveImportedLoadouts()
+        {
+            var loadout = new VersusLoadout();
+            Assert.That(VersusLoadout.IsExcluded(60) || VersusLoadout.IsExcluded(61), Is.False);
+            Assert.That(loadout.TryPlaceSkill(60, 1, 0), Is.True);
+            Assert.That(loadout.TryPlaceSkill(61, 2, 0), Is.True);
+            int[] ids = loadout.ExportIds();
+            var restored = new VersusLoadout();
+            Assert.That(restored.TryImportIds(ids), Is.True);
+            Assert.That(restored.GetSkillId(1, 0), Is.EqualTo(60));
+            Assert.That(restored.GetSkillId(2, 0), Is.EqualTo(61));
+            Assert.That(restored.ToSkills().Where(skill => skill.Id == 60 || skill.Id == 61).Select(skill => skill.Id),
+                Is.EqualTo(new[] { 60, 61 }));
+        }
+
+        [Test]
         public void Esquive_StaysOutOfTheVersusPool_WhileTheCampaignKeepsIt()
         {
             // 에스키브 dodges a whole slot by itself; in versus the later reserver of a slot sees the other's technique there.

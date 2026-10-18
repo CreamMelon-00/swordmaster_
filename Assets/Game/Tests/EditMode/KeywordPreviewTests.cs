@@ -174,6 +174,52 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void Pursuit_ShowsTheDistinctAheadHitThreshold_AndSpendsOnlyItsFirstCopiesEffect()
+        {
+            LegacySkill Attack(int id, int hits) => new LegacySkill(id, "attack", 0, 1, 1,
+                LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, Q, "");
+            LegacySkill chase = LegacySkillDefinitions.Skill(61);
+            var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                new[] { Attack(88010, 2), Attack(88011, 3), chase }, Array.Empty<LegacySkill>(), new[] { 0 },
+                playerActGainBonus: 7, meshPercent: 0);
+            Assert.That(LegacyKeywordPreview.LaneLine(duel, chase), Is.EqualTo("총타수 0/5 · +0"));
+            KeywordLinkTests.Queue(duel, Q, Q);
+            Assert.That(LegacyKeywordPreview.LaneLine(duel, chase), Is.EqualTo("총타수 5/5 · +12"));
+            Assert.That(LegacyKeywordPreview.Note(duel, chase), Is.EqualTo("서로 다른 앞 공격 총타수 5/5 · 지금 예약하면 기본 위력 +12"));
+            KeywordLinkTests.Queue(duel, E);
+            LegacyKeywordMark mark = LegacyKeywordPreview.QueueMark(duel, true, 2, true);
+            Assert.That((mark.Text, mark.Kind, mark.Spent), Is.EqualTo(("총타수 +12", LegacyKeywordMarkKind.AheadHitPower, false)));
+            Assert.That(LegacyKeywordPreview.LaneLine(duel, chase), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn));
+            KeywordLinkTests.Queue(duel, E);
+            mark = LegacyKeywordPreview.QueueMark(duel, true, 3, true);
+            Assert.That((mark.Text, mark.Kind, mark.Spent), Is.EqualTo(("+0", LegacyKeywordMarkKind.AheadHitPower, true)));
+        }
+
+        [Test]
+        public void BreakthroughPreview_KeepsItsProtectionCondition_WithoutSpendingLiveStatuses()
+        {
+            LegacySkill flow = new LegacySkill(8, "flow", 0, 1, 1,
+                LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, Q, "");
+            LegacySkill breakthrough = LegacySkillDefinitions.Skill(60);
+            var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                new[] { flow, breakthrough }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+            Assert.That(LegacyKeywordPreview.LaneLine(duel, breakthrough), Is.EqualTo("보호 소모 시 +10"));
+            KeywordLinkTests.Queue(duel, Q);
+            duel.Commit();
+            duel.ResolveNextSlot();
+            duel.BeginNextTurn();
+            Assert.That(duel.PlayerStatuses.Count, Is.EqualTo(1));
+            Assert.That(LegacyKeywordPreview.LaneLine(duel, breakthrough), Is.EqualTo("보호 소모 시 +10"));
+            Assert.That(LegacyKeywordPreview.Note(duel, breakthrough), Does.Contain("보호가 남아 있으면 모두 소모"));
+            Assert.That(duel.PlayerStatuses.Count, Is.EqualTo(1));
+            Assert.That(duel.PlayerStatuses[0].Kind, Is.EqualTo(LegacyStatusKind.Protection));
+            KeywordLinkTests.Queue(duel, W);
+            LegacyKeywordMark mark = LegacyKeywordPreview.QueueMark(duel, true, 0, true);
+            Assert.That((mark.Text, mark.Kind, mark.Spent), Is.EqualTo(("보호 소모 시 +10", LegacyKeywordMarkKind.ProtectionSpend, false)));
+            Assert.That(duel.PlayerStatuses.Count, Is.EqualTo(1));
+        }
+
+        [Test]
         public void Versus_EachSideReadsItsOwnQueue_AndTheOpponentsAutomaticBreathIsTagged()
         {
             KeywordSheet.WithKeywords(() =>

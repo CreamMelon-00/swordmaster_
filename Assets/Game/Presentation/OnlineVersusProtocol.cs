@@ -176,7 +176,7 @@ namespace TurnLimbo.Presentation
     public static class OnlineVersusProtocol
     {
         // Increment when the combat simulation changes without a corresponding skill-sheet edit.
-        public const string CombatRulesVersion = "local-versus-rules-5";
+        public const string CombatRulesVersion = "local-versus-rules-7";
         private const ulong Offset = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
@@ -219,7 +219,7 @@ namespace TurnLimbo.Presentation
 
         /// <summary>
         /// Hashes the public battle state after an action or turn. Both peers must use the same rules and seed;
-        /// the host remains authoritative because this digest does not expose hidden RNG or private buff fields.
+        /// the host remains authoritative because this digest does not expose hidden RNG state.
         /// </summary>
         public static string ComputeStateHash(LocalVersusMatch match)
         {
@@ -251,6 +251,15 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, fighter.NextPlanningSeconds);
             AddInt(ref hash, fighter.PlanningSecondsBonus);
             AddInt(ref hash, fighter.LaneCyclesThisTurn);
+            // Statuses survive a turn boundary and affect later casts, even when health and queues match.
+            var statuses = fighter.Statuses;
+            AddInt(ref hash, statuses.Count);
+            for (int i = 0; i < statuses.Count; i++)
+            {
+                AddInt(ref hash, (int)statuses[i].Kind);
+                AddInt(ref hash, statuses[i].Percent);
+                AddInt(ref hash, statuses[i].RemainingCount);
+            }
             for (int lane = 0; lane < 3; lane++)
             {
                 var skills = fighter.GetLane(lane);
@@ -281,6 +290,15 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, slot.HitsResolved);
             AddInt(ref hash, slot.LeftSkill == null ? 0 : slot.LeftSkill.Id);
             AddInt(ref hash, slot.RightSkill == null ? 0 : slot.RightSkill.Id);
+            AddUsePowerFeedback(ref hash, slot.LeftFeedback);
+            AddUsePowerFeedback(ref hash, slot.RightFeedback);
+        }
+
+        private static void AddUsePowerFeedback(ref ulong hash, LegacySkillFeedback feedback)
+        {
+            AddInt(ref hash, feedback?.ProtectionSpendPowerBonus ?? 0);
+            AddInt(ref hash, feedback?.AheadHitPowerBonus ?? 0);
+            AddInt(ref hash, feedback?.AheadAttackHits ?? 0);
         }
 
         private static void AddString(ref ulong hash, string value)

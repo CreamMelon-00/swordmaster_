@@ -210,22 +210,22 @@ namespace TurnLimbo.Core.Tests
             Assert.That(guarded.PlayerHealthDamage, Is.EqualTo(damageTaken));
         }
 
-        [TestCase(10, 35)]
-        [TestCase(20, 40)]
-        [TestCase(0, 30)]
+        [TestCase(10, 42)]
+        [TestCase(20, 47)]
+        [TestCase(0, 37)]
         public void MeshBonus_AddsIntoTheSamePercentAsPowerBuffs(int percent, int damage)
         {
-            // 쳐내기 (E) grants +20% power for two slots; the next 정공 meshes with it. At the default 10%,
-            // 25 × (100 + 20 + 20)% = 35, not 25 × 1.2 × 1.2 = 36. The feedback keeps reporting the buff alone.
+            // 쳐내기 (E) grants +50% power for two techniques; the next 정공 meshes with it. At the default 10%,
+            // floor(25 × (100 + 50 + 20)%) = 42, not 25 × 1.5 × 1.2 = 45. The feedback keeps reporting the buff alone.
             LegacySkill parry = LegacySkillDefinitions.Skill(9);
-            Assume.That(LegacySkillDefinitions.Find(parry).Effect.BuffPowerPercent, Is.EqualTo(20));
+            Assume.That(LegacySkillDefinitions.Find(parry).Effect.BuffPowerPercent, Is.EqualTo(50));
             Assume.That(parry.LaneIndex, Is.EqualTo(2));
             var duel = Duel(new[] { parry, Attack(100, 0, 25, cost: 0) }, percent: percent);
             Assert.That(duel.TryQueueLane(2) && duel.TryQueueLane(0), Is.True);
             duel.Commit();
             duel.ResolveNextSlot();
             LegacyCurrentSlot slot = duel.BeginNextSlot();
-            Assert.That(slot.PlayerFeedback.PowerBuffPercent, Is.EqualTo(20));
+            Assert.That(slot.PlayerFeedback.PowerBuffPercent, Is.EqualTo(50));
             Assert.That(slot.PlayerMesh.BonusPercent, Is.EqualTo(percent == 0 ? 0 : percent * 2));
             while (!duel.IsCurrentSlotResolved) duel.ResolveNextHit();
             Assert.That(duel.CompleteCurrentSlot().EnemyHealthDamage, Is.EqualTo(damage));
@@ -427,7 +427,8 @@ namespace TurnLimbo.Core.Tests
             LegacyQueuedDuel off = five.CreateDuel(1, meshPercent: 0);
             Assert.That(off.TryQueueLane(0) && off.TryQueueLane(2), Is.True);
             Assert.That(off.PlayerMesh(1).IsMeshed, Is.False, "The percent passes through.");
-            Assert.That(five.CreateGuide().Beats.Any(beat => beat.Description.Contains("맞물려")), Is.True,
+            Assert.That(five.CreateGuide().Beats.Any(beat => beat.Description.Contains("맞물려") ||
+                beat.Description.Contains("맞물림")), Is.True,
                 "Mission 5's coach tells that mixing the lanes meshes the gears.");
         }
 

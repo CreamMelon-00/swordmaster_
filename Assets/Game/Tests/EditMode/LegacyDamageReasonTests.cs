@@ -74,8 +74,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(hit.PlayerDamageReasons, Is.EqualTo(expectedReasons));
         }
 
-        [TestCase(1, 1, LegacyDamageReason.None)]
-        [TestCase(20, 15, LegacyDamageReason.ProtectionReduction)]
+        [TestCase(1, 0, LegacyDamageReason.ProtectionReduction)]
+        [TestCase(20, 10, LegacyDamageReason.ProtectionReduction)]
         public void Protection_ReportsOnlyAChangeThatSurvivesRounding(int power, int expectedDamage,
             LegacyDamageReason expectedReasons)
         {

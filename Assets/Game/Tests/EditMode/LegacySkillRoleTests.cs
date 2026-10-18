@@ -8,6 +8,31 @@ namespace TurnLimbo.Core.Tests
 {
     public sealed class LegacySkillRoleTests
     {
+        [Test]
+        public void SustainedStatusNames_KeepTunedStrengthAndExplainTheirCounters()
+        {
+            Assert.That(LegacyStatusNames.Name(LegacyStatusKind.PowerUp), Is.EqualTo("강화"));
+            Assert.That(LegacyStatusNames.Name(LegacyStatusKind.Protection), Is.EqualTo("보호"));
+            Assert.That(LegacyStatusNames.Name(LegacyStatusKind.Vulnerability), Is.EqualTo("취약"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.PowerUp, 20, 2), Is.EqualTo("강화 20% 2"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.PowerUp, 30, 1), Is.EqualTo("강화 30% 1"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.Protection, 25, 1), Is.EqualTo("보호 25% 1"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.Vulnerability, 50, 1), Is.EqualTo("취약 1"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.Vulnerability, 25, 2), Is.EqualTo("취약 25% 2"));
+            Assert.That(LegacyStatusNames.Description(LegacyStatusKind.PowerUp, 30),
+                Does.Contain("공격·방어").And.Contain("30%").And.Contain("숨고르기·빈 칸은 세지 않으며"));
+            Assert.That(LegacyStatusNames.Description(LegacyStatusKind.Vulnerability, 50),
+                Does.Contain("50%").And.Contain("연타는 1회").And.Contain("회피하면 소모하지").And.Contain("턴이 지나도 남습니다"));
+            Assert.That(LegacyStatusNames.Description(LegacyStatusKind.Vulnerability, 25),
+                Does.Contain("25%").And.Not.Contain("50%"));
+            Assert.That(LegacyStatusNames.Description(LegacyStatusKind.Protection, 150),
+                Does.Contain("보호 비율: 150%").And.Contain("취약").And.Contain("최대 100%").And.Not.Contain("150% 감소"));
+            Assert.That(LegacyStatusNames.Description(LegacyStatusKind.Protection, 0),
+                Does.Contain("표시된 비율").And.Not.Contain("보호 비율: 0%"));
+            Assert.That(LegacyStatusNames.Description(LegacyStatusKind.Vulnerability, 50),
+                Does.Contain("보호").And.Contain("상쇄"));
+        }
+
         [TestCase(1, LegacySkillRole.ResistanceOnClash | LegacySkillRole.ActRecovery, "ACT 회복")]
         [TestCase(2, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit, "기본 연타")]
         [TestCase(3, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower, "집중 단타")]
@@ -15,9 +40,9 @@ namespace TurnLimbo.Core.Tests
         [TestCase(5, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.DirectResistanceDamage, "공격 대응")]
         [TestCase(6, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.DirectResistanceDamage, "방어 대응")]
         [TestCase(7, LegacySkillRole.ActRecovery, "조건부 ACT")]
-        [TestCase(8, LegacySkillRole.DamageReduction, "다음 칸 보호")]
-        [TestCase(9, LegacySkillRole.FollowupPower, "후속 위력")]
-        [TestCase(10, LegacySkillRole.ResistanceOnClash | LegacySkillRole.FollowupPower, "다음 칸 강화")]
+        [TestCase(8, LegacySkillRole.DamageReduction, "보호 부여")]
+        [TestCase(9, LegacySkillRole.FollowupPower, "강화 부여")]
+        [TestCase(10, LegacySkillRole.ResistanceOnClash | LegacySkillRole.FollowupPower, "강화 부여")]
         [TestCase(12, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.ActRecovery | LegacySkillRole.Vulnerability, "무리한 돌진")]
         [TestCase(14, LegacySkillRole.ResistanceOnClash, "단타")]
         [TestCase(15, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.Cycle, "순환 연타")]
@@ -36,6 +61,8 @@ namespace TurnLimbo.Core.Tests
         [TestCase(57, LegacySkillRole.ResistanceOnClash | LegacySkillRole.NextTurnTime, "순환·시간")]
         [TestCase(58, LegacySkillRole.TemporarySpawn, "일회성 생성")]
         [TestCase(59, LegacySkillRole.ResistanceOnClash | LegacySkillRole.Cycle, "일회성 순환")]
+        [TestCase(60, LegacySkillRole.ResistanceOnClash | LegacySkillRole.ProtectionSpend, "보호 소모")]
+        [TestCase(61, LegacySkillRole.ResistanceOnClash | LegacySkillRole.AheadHitPower, "연타 마무리")]
         [TestCase(500, LegacySkillRole.ResistanceOnClash | LegacySkillRole.MultiHit | LegacySkillRole.HighPower | LegacySkillRole.OpponentBreak, "붕괴 연타")]
         [TestCase(501, LegacySkillRole.ResistanceRecovery, "조건부 저항 회복")]
         [TestCase(502, LegacySkillRole.ResistanceOnClash | LegacySkillRole.HighPower | LegacySkillRole.ConditionalDamage, "마무리 일격")]
@@ -47,9 +74,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(LegacySkillRoles.GetDetail(skill), Is.Not.Empty);
             if (skill.Kind == LegacySkillKind.Attack)
             {
-                StringAssert.Contains("상대 공격과 대결: 저항 피해", LegacySkillRoles.GetDetail(skill));
+                StringAssert.Contains("공격 대결: 저항부터 피해", LegacySkillRoles.GetDetail(skill));
                 StringAssert.Contains("방어·빈 행동: 체력 피해", LegacySkillRoles.GetDetail(skill));
-                StringAssert.Contains("방어 수치 차감", LegacySkillRoles.GetDetail(skill));
+                StringAssert.Contains("방어 위력 차감", LegacySkillRoles.GetDetail(skill));
             }
         }
 
@@ -60,7 +87,7 @@ namespace TurnLimbo.Core.Tests
         {
             var skill = new LegacySkill(900, "unknown", 1, 6, 8, LegacySkillKind.Attack, property, 1, 0, "");
             Assert.That(LegacySkillRoles.Get(skill), Is.EqualTo(LegacySkillRole.ResistanceOnClash));
-            StringAssert.Contains("상대 공격과 대결: 저항 피해", LegacySkillRoles.GetDetail(skill));
+            StringAssert.Contains("공격 대결: 저항부터 피해", LegacySkillRoles.GetDetail(skill));
             StringAssert.DoesNotContain("관통", LegacySkillRoles.GetDetail(skill));
             StringAssert.DoesNotContain("무시", LegacySkillRoles.GetDetail(skill));
         }
@@ -77,20 +104,20 @@ namespace TurnLimbo.Core.Tests
             string heavierStrike = LegacySkillRoles.GetDetail(FindSkill(4));
             StringAssert.Contains("ACT 3", heavierStrike);
             string attackCounter = LegacySkillRoles.GetDetail(FindSkill(5));
-            StringAssert.Contains("상대가 공격이면", attackCounter);
-            StringAssert.Contains("저항을 직접 10", attackCounter);
+            Assert.That(attackCounter, Does.Contain("같은 칸").And.Contain("공격 기술").And.Contain("기술 시작 시"));
+            StringAssert.Contains("상대 저항을 10 직접", attackCounter);
             string guardCounter = LegacySkillRoles.GetDetail(FindSkill(6));
-            StringAssert.Contains("상대가 방어이면", guardCounter);
-            StringAssert.Contains("저항을 직접 15", guardCounter);
+            Assert.That(guardCounter, Does.Contain("같은 칸").And.Contain("방어 기술").And.Contain("기술 시작 시"));
+            StringAssert.Contains("상대 저항을 15 직접", guardCounter);
             string guardedRecovery = LegacySkillRoles.GetDetail(FindSkill(7));
             StringAssert.Contains("상대가 타격 기술이면", guardedRecovery);
             StringAssert.Contains("다음 턴 ACT 회복량 +2", guardedRecovery);
             string reduction = LegacySkillRoles.GetDetail(FindSkill(8));
-            StringAssert.Contains("바로 다음 1슬롯", reduction);
-            StringAssert.Contains("25%", reduction);
+            StringAssert.Contains("보호 50% 1 부여", reduction);
+            StringAssert.Contains("50%", reduction);
             string parry = LegacySkillRoles.GetDetail(FindSkill(9));
-            StringAssert.Contains("바로 뒤 2슬롯", parry);
-            StringAssert.Contains("공격·방어 위력 +20%", parry);
+            StringAssert.Contains("강화 50% 2 부여", parry);
+            StringAssert.DoesNotContain("이번 턴", parry);
             StringAssert.DoesNotContain("다음 턴", parry);
         }
 
@@ -98,26 +125,26 @@ namespace TurnLimbo.Core.Tests
         public void AddedUtilityDetails_SeparateSlotTimingRecoveryAndConditionalResistanceDamage()
         {
             string preparation = LegacySkillRoles.GetDetail(FindSkill(10));
-            StringAssert.Contains("이번 턴의 바로 다음 1슬롯", preparation);
-            StringAssert.Contains("공격·방어 위력 +30%", preparation);
+            StringAssert.Contains("강화 50% 1 부여", preparation);
+            StringAssert.DoesNotContain("이번 턴", preparation);
             StringAssert.DoesNotContain("ACT", preparation);
 
             string advance = LegacySkillRoles.GetDetail(FindSkill(12));
             StringAssert.Contains("다음 턴 ACT 회복량 +2", advance);
-            StringAssert.Contains("플레이어 전용", advance);
-            StringAssert.Contains("이번 턴의 바로 다음 1슬롯", advance);
-            StringAssert.Contains("받는 피해 배율 +50%", advance);
+            StringAssert.DoesNotContain("플레이어 전용", advance);
+            StringAssert.Contains("취약 1 부여", advance);
+            StringAssert.DoesNotContain("다음 1슬롯", advance);
 
             string fightingSpirit = LegacySkillRoles.GetDetail(FindSkill(19));
-            StringAssert.Contains("기술 시작에 상대가 붕괴 상태이면 최대 저항의 20%", fightingSpirit);
+            StringAssert.Contains("기술 시작 시 상대가 붕괴 상태이면 자신의 최대 저항의 20%", fightingSpirit);
             StringAssert.DoesNotContain("반올림", fightingSpirit);
             StringAssert.DoesNotContain("피해 -30%", fightingSpirit);
 
             string draw = LegacySkillRoles.GetDetail(FindSkill(42));
-            StringAssert.Contains("기술 시작 시 같은 슬롯 상대가 방어이면", draw);
-            StringAssert.Contains("저항을 직접 15", draw);
+            Assert.That(draw, Does.Contain("같은 칸").And.Contain("방어 기술").And.Contain("기술 시작 시"));
+            StringAssert.Contains("상대 저항을 15 직접", draw);
             StringAssert.DoesNotContain("ACT", draw);
-            StringAssert.Contains("체력 피해로 이어지지", draw);
+            StringAssert.Contains("초과 감소는 체력 피해가 되지", draw);
         }
 
         [TestCase(14, 1, LegacySkillRole.ActRecovery)]

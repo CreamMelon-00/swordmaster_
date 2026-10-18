@@ -28,8 +28,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly List<int> playerQueueActCosts = new List<int>();
         private readonly Dictionary<int, int> cycleUses = new Dictionary<int, int>();
         private readonly List<LegacySkill> enemyQueue = new List<LegacySkill>();
-        private readonly List<SkillBuff> playerBuffs = new List<SkillBuff>();
-        private List<SkillBuff> enemyBuffs => enemyBuffsByOwner[activeEnemyIndex];
+        private LegacyStatusCollection playerStatuses = new LegacyStatusCollection();
+        private LegacyStatusCollection enemyStatuses => enemyStatusesByOwner[activeEnemyIndex];
+        private int playerStatusBoundary, enemyStatusBoundary;
+        private bool playerIncomingStatusConsumed, enemyIncomingStatusConsumed;
+        private int playerProtectionSpendPowerBonus, enemyProtectionSpendPowerBonus;
         private readonly int playerMaxHealth;
         private readonly int playerMaxResistance;
         private readonly int playerHealthFloor;
@@ -194,7 +197,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             playerQueueActCosts.AddRange(source.playerQueueActCosts);
             enemyQueue.AddRange(source.enemyQueue);
             foreach (KeyValuePair<int, int> uses in source.cycleUses) cycleUses.Add(uses.Key, uses.Value);
-            foreach (SkillBuff buff in source.playerBuffs) playerBuffs.Add(buff.Copy());
+            playerStatuses = source.playerStatuses.Copy();
             CopyEnemiesFrom(source);
             PlayerQueue = playerQueue.AsReadOnly();
             EnemyQueue = enemyQueue.AsReadOnly();
@@ -232,6 +235,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int NextActGain { get; private set; }
         public int PlayerBaseActGain => playerBaseActGain;
         public int PlayerMaximumAct => playerMaximumAct;
+        public IReadOnlyList<LegacyStatusSnapshot> PlayerStatuses => playerStatuses.Statuses;
+        public IReadOnlyList<LegacyStatusSnapshot> EnemyStatuses => enemyStatuses.Statuses;
         /// <summary>Uses begun in this duel (and 순환 +1 gained), capped by the skill sheet limit.</summary>
         public int CycleUses(int skillId) => cycleUses.TryGetValue(skillId, out int uses) ? uses : 0;
         /// <summary>The 순환 count the player's skill in <paramref name="slotIndex"/> reads as its slot starts (its power bonus
@@ -766,21 +771,31 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             LegacySkill pendingCounter = PlayerBreakCanceledFromSlotIndex < 0 && playerSkill == null && IsAttack(enemySkill) && PlayerCountersRemaining > 0
                 ? PlayerCounter.Skill : null;
+            // Spend protection before either received-damage snapshot: this attack forgoes protection even against
+            // the opponent's simultaneous hit. Vulnerability and all other statuses remain.
+            playerProtectionSpendPowerBonus = playerStatuses.SpendProtectionForPower(playerSkill);
+            enemyProtectionSpendPowerBonus = enemyStatuses.SpendProtectionForPower(enemySkill);
             // 맞물림 adds into the player's power percent beside the buffs. A counter fills an empty slot, which never meshes.
             LegacyMeshSlot playerMesh = LegacyMeshing.Find(committedPlayerQueue, nextSlot, meshPercent);
-            double playerAttackMultiplier = AttackMultiplier(playerBuffs, playerMesh.BonusPercent, out int playerPowerBuffPercent);
+            double playerAttackMultiplier = AttackMultiplier(playerStatuses, playerMesh.BonusPercent, out int playerPowerBuffPercent);
             // Queue power is a whole-skill multiplier, separate from additive buffs and meshing.
             playerAttackMultiplier *= QueuePowerMultiplierForSlot(nextSlot);
-            double enemyAttackMultiplier = AttackMultiplier(enemyBuffs, 0, out int enemyPowerBuffPercent);
-            double playerReceivedMultiplier = ReceivedMultiplier(playerBuffs, out int playerProtectionBuffPercent);
-            double enemyReceivedMultiplier = ReceivedMultiplier(enemyBuffs, out int enemyProtectionBuffPercent);
+            double enemyAttackMultiplier = AttackMultiplier(enemyStatuses, 0, out int enemyPowerBuffPercent);
+            double playerReceivedMultiplier = ReceivedMultiplier(playerStatuses, out int playerProtectionBuffPercent);
+            double enemyReceivedMultiplier = ReceivedMultiplier(enemyStatuses, out int enemyProtectionBuffPercent);
             // 사용 효과 앞 X마다 위력 adds into the roll beside 순환, for the queue's first copy of the skill.
             int playerPower = RollPower(playerSkill, playerAttackMultiplier, out int playerTotalPower,
-                checked(CyclePowerBonus(playerSkill) + LegacyKeywordLinks.AheadPowerBonus(committedPlayerQueue, nextSlot, playerSkill)));
+                checked(CyclePowerBonus(playerSkill) + LegacyKeywordLinks.AheadPowerBonus(committedPlayerQueue, nextSlot, playerSkill) +
+                    playerProtectionSpendPowerBonus));
             int playerCycleUses = CycleUsesRead(playerSkill);
             RecordCycleUse(playerSkill);
-            int enemyPower = RollPower(enemySkill, enemyAttackMultiplier, out _);
+            int enemyPower = RollPower(enemySkill, enemyAttackMultiplier, out _,
+                checked(enemyProtectionSpendPowerBonus + (enemyCounters ? 0
+                    : LegacyKeywordLinks.AheadPowerBonus(committedEnemyQueue, nextSlot, enemySkill))));
 
+            playerStatusBoundary = playerStatuses.GrantSerial;
+            enemyStatusBoundary = enemyStatuses.GrantSerial;
+            playerIncomingStatusConsumed = enemyIncomingStatusConsumed = false;
             CurrentSlot = new LegacyCurrentSlot(nextSlot, playerSkill, enemySkill,
                 playerPower, enemyPower, playerTotalPower,
                 playerReceivedMultiplier, enemyReceivedMultiplier, Player, Enemy);
@@ -820,16 +835,20 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             // Original UseBuff/AttackStart/End/BuffClear initializes power once
             // and applies effects before animation events deal individual hits.
-            TickBuffs(playerBuffs);
-            TickBuffs(enemyBuffs);
+            if (slot.PlayerSkill != null && !slot.PlayerSkill.IsWait) playerStatuses.ConsumeTechnique();
+            if (slot.EnemySkill != null && !slot.EnemySkill.IsWait) enemyStatuses.ConsumeTechnique();
             // 간파 (presentation only): each side's 상대 상태 조건 as the rules read it, the recovery's gate first of that
             // side's effects (the player's come first), a damage multiplier's once both sides' effects are in.
             if (LegacySkillConditions.RecoveryStateHolds(slot.PlayerSkill, Enemy)) slot.PlayerStateConditionHeld = true;
-            slot.PlayerFeedback = ApplyInitialSkillEffects(slot.PlayerSkill, slot.EnemySkill, playerBuffs, true,
+            slot.PlayerFeedback = ApplyInitialSkillEffects(slot.PlayerSkill, slot.EnemySkill, playerStatuses, true,
                 playerPowerBuffPercent, playerProtectionBuffPercent);
             if (LegacySkillConditions.RecoveryStateHolds(slot.EnemySkill, Player)) slot.EnemyStateConditionHeld = true;
-            slot.EnemyFeedback = ApplyInitialSkillEffects(slot.EnemySkill, slot.PlayerSkill, enemyBuffs, false,
+            slot.EnemyFeedback = ApplyInitialSkillEffects(slot.EnemySkill, slot.PlayerSkill, enemyStatuses, false,
                 enemyPowerBuffPercent, enemyProtectionBuffPercent);
+            slot.PlayerFeedback = WithUsePowerFeedback(slot.PlayerFeedback, slot.PlayerSkill, committedPlayerQueue,
+                slot.SlotIndex, playerProtectionSpendPowerBonus, slot.PlayerCountered);
+            slot.EnemyFeedback = WithUsePowerFeedback(slot.EnemyFeedback, slot.EnemySkill, committedEnemyQueue,
+                slot.SlotIndex, enemyProtectionSpendPowerBonus, slot.EnemyCountered);
             if (LegacySkillConditions.DamageStateHolds(slot.PlayerSkill, Enemy)) slot.PlayerStateConditionHeld = true;
             if (LegacySkillConditions.DamageStateHolds(slot.EnemySkill, Player)) slot.EnemyStateConditionHeld = true;
             // With both sides' initial effects in, a 조건 피해 배율 whose state condition already holds keeps holding for the
@@ -840,6 +859,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // An automatic dodge (자동 회피) is known from the start: the dodged hits carry nothing.
             slot.EnemyFeedback = slot.EnemyFeedback.WithConditionalDamage(slot.AutoDodge && slot.DodgeSucceeded ? 0
                 : ArmedConditionalDamage(slot.EnemySkill, slot.PlayerSkill, slot.EnemyPower, slot.PlayerPower, Player));
+        }
+
+        private static LegacySkillFeedback WithUsePowerFeedback(LegacySkillFeedback feedback, LegacySkill skill,
+            IReadOnlyList<LegacySkill> queue, int slotIndex, int protectionSpendBonus, bool counter = false)
+        {
+            bool countsHits = !counter && LegacySkillDefinitions.Find(skill)?.Effect.HasAheadHitPower == true;
+            return feedback.WithUsePowerBonuses(protectionSpendBonus,
+                countsHits ? LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, slotIndex, skill) : 0,
+                countsHits ? LegacyKeywordLinks.CountAheadAttackHits(queue, slotIndex, skill) : 0);
         }
 
         /// <summary>The 조건 피해 배율 a slot's hits carry from its start: the condition holds against <paramref name="target"/>
@@ -925,6 +953,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // Later hits in the slot stop once either fighter falls.
             if (playerAttacked)
             {
+                if (!enemyIncomingStatusConsumed)
+                {
+                    enemyStatuses.ConsumeIncomingAttack(enemyStatusBoundary);
+                    enemyIncomingStatusConsumed = true;
+                }
                 enemyImpact = ResolveSingleHit(slot.PlayerSkill, slot.EnemySkill,
                     slot.PlayerPower, slot.EnemyPower, Enemy, slot.EnemyReceivedMultiplier, false, out playerConditionMet);
                 if (slot.PressureSucceeded)
@@ -940,6 +973,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             if (enemyAttacked && !slot.DodgeSucceeded)
             {
+                if (!playerIncomingStatusConsumed)
+                {
+                    playerStatuses.ConsumeIncomingAttack(playerStatusBoundary);
+                    playerIncomingStatusConsumed = true;
+                }
                 bool halveDamage = slot.PressureSucceeded && slot.PlayerSkill != null &&
                     slot.PlayerSkill.Kind == LegacySkillKind.Defence;
                 playerImpact = ResolveSingleHit(slot.EnemySkill, slot.PlayerSkill,
@@ -1021,6 +1059,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public void Reset()
         {
             cycleUses.Clear();
+            playerStatuses.Clear();
             random = new Random(randomSeed);
             Player = new LegacyFighterState(playerMaxHealth, playerMaxResistance, playerHealthFloor);
             ResetEnemies();
@@ -1064,7 +1103,6 @@ namespace TurnLimbo.Runtime.LegacyCombat
             BeginEnemyTurn();
             slotStartDeferred = false;
             Player.BeginTurn();
-            playerBuffs.Clear();
             playerQueue.Clear();
             playerQueueActCosts.Clear();
             queuePowerSourceSlotIndex = -1;
@@ -1167,7 +1205,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         private LegacySkillFeedback ApplyInitialSkillEffects(LegacySkill skill, LegacySkill opposingSkill,
-            List<SkillBuff> buffs, bool player, int powerBuffPercent, int protectionBuffPercent)
+            LegacyStatusCollection statuses, bool player, int powerBuffPercent, int protectionBuffPercent)
         {
             if (skill == null || skill.IsWait)
                 return new LegacySkillFeedback(skill, false, false, powerBuffPercent, protectionBuffPercent);
@@ -1180,7 +1218,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             bool conditionMet = opponentMatched;
             bool effectActivated = false, opponentBroken = false;
             int actGainGranted = 0, resistanceRestored = 0, opponentResistanceReduced = 0;
-            SkillBuff grantedBuff = null;
+            bool grantedStatus = false;
             // 상대 상태 조건 gates the recovery: the opponent's state as the recovery applies, first of this side's
             // effects (the player's initial effects come before the enemy's).
             if (effect.ResistanceRecoveryPercent > 0 &&
@@ -1222,12 +1260,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             if (effect.HasBuff)
             {
-                grantedBuff = new SkillBuff(effect.BuffPowerPercent, effect.BuffProtectionPercent, effect.BuffSlots);
-                buffs.Add(grantedBuff);
+                statuses.Grant(effect);
+                grantedStatus = true;
                 effectActivated = true;
             }
             return new LegacySkillFeedback(skill, conditionMet, effectActivated, powerBuffPercent, protectionBuffPercent,
-                grantedBuff?.AttackPercent ?? 0, grantedBuff?.DefencePercent ?? 0, grantedBuff?.SlotsRemaining ?? 0,
+                grantedStatus ? effect.BuffPowerPercent : 0, grantedStatus ? effect.BuffProtectionPercent : 0,
+                grantedStatus ? effect.BuffSlots : 0,
                 actGainGranted, resistanceRestored, opponentResistanceReduced, opponentBroken);
         }
 
@@ -1255,30 +1294,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
             for (int i = first; i < committed.Length; i++) committed[i] = null;
         }
 
-        /// <param name="meshBonusPercent">맞물림's bonus, added into the same percent as the buffs (100 + buffs + mesh);
-        /// <paramref name="powerBuffPercent"/> reports the buffs alone.</param>
-        private static double AttackMultiplier(List<SkillBuff> buffs, int meshBonusPercent, out int powerBuffPercent)
+        /// <param name="meshBonusPercent">Added beside the existing power status percentages.</param>
+        private static double AttackMultiplier(LegacyStatusCollection statuses, int meshBonusPercent, out int powerBuffPercent)
         {
-            int percent = 100;
-            foreach (SkillBuff buff in buffs) percent += buff.AttackPercent;
-            powerBuffPercent = percent - 100;
-            percent += meshBonusPercent;
-            return percent / 100d;
+            powerBuffPercent = statuses.PowerPercent;
+            return (100 + powerBuffPercent + meshBonusPercent) / 100d;
         }
 
-        private static double ReceivedMultiplier(List<SkillBuff> buffs, out int protectionBuffPercent)
+        private static double ReceivedMultiplier(LegacyStatusCollection statuses, out int protectionBuffPercent)
         {
-            int percent = 100;
-            foreach (SkillBuff buff in buffs) percent -= buff.DefencePercent;
-            percent = Math.Max(0, percent);
-            protectionBuffPercent = Math.Max(0, 100 - percent);
-            return percent / 100d;
-        }
-
-        private static void TickBuffs(List<SkillBuff> buffs)
-        {
-            for (int i = buffs.Count - 1; i >= 0; i--)
-                if (--buffs[i].SlotsRemaining == 0) buffs.RemoveAt(i);
+            protectionBuffPercent = Math.Max(0, statuses.ProtectionPercent);
+            return statuses.ReceivedMultiplier;
         }
 
         // The first six starting attacks by ID. Their names and effects come from the skill sheet.
@@ -1298,18 +1324,5 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return copy;
         }
 
-        private sealed class SkillBuff
-        {
-            public SkillBuff(int attackPercent, int defencePercent, int slotsRemaining)
-            {
-                AttackPercent = attackPercent;
-                DefencePercent = defencePercent;
-                SlotsRemaining = slotsRemaining;
-            }
-            public int AttackPercent { get; }
-            public int DefencePercent { get; }
-            public int SlotsRemaining;
-            public SkillBuff Copy() => new SkillBuff(AttackPercent, DefencePercent, SlotsRemaining);
-        }
     }
 }

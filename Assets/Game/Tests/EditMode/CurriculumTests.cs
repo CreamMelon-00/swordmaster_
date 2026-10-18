@@ -109,7 +109,7 @@ namespace TurnLimbo.Core.Tests
             }
             // The keyword curriculum with its phase 2 nodes (quick-steps, whetstone), still tree version 2: they only add
             // nodes and widen cadence's requirement.
-            Assert.That(tree.Nodes.Count, Is.EqualTo(17));
+            Assert.That(tree.Nodes.Count, Is.EqualTo(19));
             Assert.That(CampaignCurriculum.TreeVersion, Is.EqualTo(2));
             Assert.That(tree.Find("one-stroke"), Is.Null, "알티바호 is stage 7's first-clear reward now.");
             var campaign = new CampaignRun();
@@ -134,7 +134,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Ids(node => node.Branch == CurriculumBranch.Collapse), Is.EqualTo("quick-draw fighting-spirit esquive estocada"));
             Assert.That(Ids(node => node.Branch == CurriculumBranch.Circulation), Is.EqualTo("diagonal-cut vital-thrust quick-steps cadence"));
             Assert.That(Ids(node => node.Branch == CurriculumBranch.Retraction), Is.EqualTo("suppleness breathing contretemps doublet"));
-            Assert.That(Ids(node => node.Branch == CurriculumBranch.Bridge), Is.EqualTo("battement whetstone"));
+            Assert.That(Ids(node => node.Branch == CurriculumBranch.Bridge), Is.EqualTo("battement whetstone pursuit breakthrough"));
             Assert.That(Ids(node => node.RequiresAll.Count == 0 && node.RequiresAny.Count == 0), Is.EqualTo("horizontal-cut"),
                 "The trunk is the only way in.");
             foreach (string intro in new[] { "quick-draw", "diagonal-cut", "suppleness" })
@@ -147,6 +147,12 @@ namespace TurnLimbo.Core.Tests
             CollectionAssert.AreEqual(new[] { "breathing", "contretemps" }, tree.Find("doublet").RequiresAny);
             CollectionAssert.AreEqual(new[] { "esquive", "vital-thrust" }, tree.Find("battement").RequiresAll);
             CollectionAssert.AreEqual(new[] { "quick-steps", "breathing" }, tree.Find("whetstone").RequiresAll);
+            CollectionAssert.AreEqual(new[] { "quick-draw", "diagonal-cut" }, tree.Find("pursuit").RequiresAny);
+            CollectionAssert.AreEqual(new[] { "diagonal-cut", "breathing" }, tree.Find("breakthrough").RequiresAny);
+            Assert.That(tree.Find("pursuit").RequiresAll, Is.Empty);
+            Assert.That(tree.Find("breakthrough").RequiresAll, Is.Empty);
+            Assert.That((tree.Find("pursuit").Row, tree.Find("pursuit").Column), Is.EqualTo((6, 1.5f)));
+            Assert.That((tree.Find("breakthrough").Row, tree.Find("breakthrough").Column), Is.EqualTo((6, 3.5f)));
             CollectionAssert.AreEqual(new[] { "diagonal-cut" }, tree.Find("quick-steps").RequiresAll);
             Assert.That((tree.Find("quick-steps").Column, tree.Find("whetstone").Column), Is.EqualTo((3f, 3.5f)));
             Assert.That(tree.Find("estocada").StatReward.Health, Is.EqualTo(5));
@@ -155,9 +161,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(tree.Find("doublet").StatReward.Health, Is.Zero);
             foreach (CurriculumNode node in tree.Nodes.Where(node => node.Row < 5 || node.Branch == CurriculumBranch.Bridge))
                 Assert.That(node.StatReward.IsEmpty, Is.True, node.Id + ": only capstones carry a stat.");
-            CollectionAssert.AreEqual(new[] { 14, 10, 12, 42, 15, 32, 19, 54, 21, 57, 17, 55, 51, 52, 53, 58, 56 },
+            CollectionAssert.AreEqual(new[] { 14, 10, 12, 42, 15, 32, 19, 54, 21, 57, 17, 55, 51, 52, 53, 58, 56, 61, 60 },
                 tree.Nodes.Select(node => node.SkillIds[0]));
-            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5 }, tree.Nodes.Select(node => node.Row));
+            CollectionAssert.AreEqual(new[] { 0, 1, 2, 3, 3, 3, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 5, 6, 6 }, tree.Nodes.Select(node => node.Row));
         }
 
         [Test]
@@ -166,12 +172,37 @@ namespace TurnLimbo.Core.Tests
             CurriculumTree tree = CampaignCurriculum.Default;
             foreach (CurriculumNode node in tree.Nodes)
             {
-                int expected = node.Branch == CurriculumBranch.Bridge || tree.IsCapstone(node.Id) ? 3
+                int expected = node.Row == 6 ? 2 : node.Branch == CurriculumBranch.Bridge || tree.IsCapstone(node.Id) ? 3
                     : node.Branch == CurriculumBranch.Foundation || node.Row == 3 ? 1 : 2;
                 Assert.That(node.Cost, Is.EqualTo(expected), node.Id);
             }
-            CollectionAssert.AreEqual(new[] { 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3 }, tree.Nodes.Select(node => node.Cost));
-            Assert.That(tree.Nodes.Sum(node => node.Cost), Is.EqualTo(33), "The whole tree costs 33.");
+            CollectionAssert.AreEqual(new[] { 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 2, 2 }, tree.Nodes.Select(node => node.Cost));
+            Assert.That(tree.Nodes.Sum(node => node.Cost), Is.EqualTo(37), "The whole tree costs 37.");
+        }
+
+        [TestCase("quick-draw", "pursuit", 61)]
+        [TestCase("diagonal-cut", "pursuit", 61)]
+        [TestCase("diagonal-cut", "breakthrough", 60)]
+        [TestCase("breathing", "breakthrough", 60)]
+        public void NewBridges_AcceptEitherPrerequisite_AndKeepLearnedSkillsThroughSaveRestore(string prerequisite, string bridge, int skillId)
+        {
+            var run = new CampaignRun();
+            Complete(run, "horizontal-cut", "preparation", "advance");
+            if (prerequisite == "breathing") Complete(run, "suppleness");
+            Complete(run, prerequisite);
+            Assert.That(run.Curriculum.GetState(bridge), Is.EqualTo(CurriculumNodeState.Available));
+            Assert.That(run.Curriculum.Tree.Find(bridge).Cost, Is.EqualTo(2));
+            Complete(run, bridge);
+            Assert.That(run.OwnedSkills.Any(owned => owned.SkillId == skillId), Is.True);
+            Assert.That(run.Curriculum.IsCompleted(bridge), Is.True);
+            string text = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), run));
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave save, out string parseError), Is.True, parseError);
+            var restored = new CampaignRun();
+            Assert.That(save.TryApply(new PrologueRun(), restored, out string restoreError), Is.True, restoreError);
+            Assert.That(restored.Curriculum.IsCompleted(bridge), Is.True);
+            Assert.That(restored.OwnedSkills.Any(owned => owned.SkillId == skillId), Is.True);
+            Assert.That(restored.CurriculumRefund, Is.EqualTo(run.CurriculumRefund));
+            Assert.That(restored.CurriculumPoints, Is.EqualTo(run.CurriculumPoints));
         }
 
         [Test]
@@ -572,7 +603,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Curriculum.IsFinished, Is.True);
             Assert.That(run.AffordableCurriculumNodeCount, Is.Zero);
             Assert.That(run.CurriculumPointsToNextNode, Is.Zero, "No next node.");
-            Assert.That(run.CurriculumRefund, Is.EqualTo(33));
+            Assert.That(run.CurriculumRefund, Is.EqualTo(37));
             Assert.That(tree.Nodes.All(node => run.Curriculum.GetState(node.Id) == CurriculumNodeState.Completed), Is.True);
             Assert.That(run.CurriculumStats.Health, Is.EqualTo(10), "붕괴 and 순환 capstones.");
             Assert.That(run.CurriculumStats.PlanningSeconds, Is.EqualTo(2), "판짜기 capstone.");
@@ -582,7 +613,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Curriculum.IsFinished, Is.False);
             Assert.That(run.Curriculum.HasAvailableNode, Is.True);
             Assert.That(run.CurriculumStats.IsEmpty, Is.True);
-            Assert.That(run.CurriculumPoints, Is.EqualTo(unspent + 33), "Everything spent comes back.");
+            Assert.That(run.CurriculumPoints, Is.EqualTo(unspent + 37), "Everything spent comes back.");
         }
 
         [Test]

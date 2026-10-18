@@ -192,6 +192,42 @@ namespace TurnLimbo.Presentation.Tests
                 Is.Not.EqualTo(OnlineVersusProtocol.ComputeStateHash(defaultMatch)));
         }
 
+        [TestCase(LegacyStatusKind.PowerUp, 20, 2)]
+        [TestCase(LegacyStatusKind.Protection, 25, 1)]
+        [TestCase(LegacyStatusKind.Vulnerability, 50, 1)]
+        public void StateHash_IncludesPersistentStatuses(LegacyStatusKind kind, int percent, int count)
+        {
+            var first = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All, randomSeed: 17);
+            var second = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All, randomSeed: 17);
+            string initial = OnlineVersusProtocol.ComputeStateHash(first);
+            Statuses(first.Left).Grant(kind, percent, count);
+            Assert.That(first.Left.State.Health, Is.EqualTo(second.Left.State.Health));
+            Assert.That(first.Left.Queue, Is.EqualTo(second.Left.Queue));
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(first), Is.Not.EqualTo(initial),
+                "Equal health and reservations must not conceal different future damage modifiers.");
+            Statuses(second.Left).Grant(kind, percent, count);
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(first),
+                Is.EqualTo(OnlineVersusProtocol.ComputeStateHash(second)));
+        }
+
+        [Test]
+        public void StateHash_DistinguishesStatusStrengthCountAndOwner()
+        {
+            var hashes = new System.Collections.Generic.HashSet<string>();
+            foreach (int owner in new[] { 0, 1 })
+                foreach (int percent in new[] { 25, 50 })
+                    foreach (int count in new[] { 1, 2 })
+                    {
+                        var match = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All, randomSeed: 17);
+                        Statuses(owner == 0 ? match.Left : match.Right).Grant(LegacyStatusKind.Vulnerability, percent, count);
+                        Assert.That(hashes.Add(OnlineVersusProtocol.ComputeStateHash(match)), Is.True);
+                    }
+        }
+
+        private static LegacyStatusCollection Statuses(LocalVersusFighter fighter)
+            => (LegacyStatusCollection)typeof(LocalVersusFighter).GetField("StatusEffects",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(fighter);
+
         private static string ReferenceRulesHash(byte[] sheet, string gameVersion, string combatVersion)
         {
             const ulong prime = 1099511628211UL;

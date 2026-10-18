@@ -18,6 +18,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         int BreathsRemainingThisTurn { get; }
         LegacyFighterState Player { get; }
         LegacyFighterState Enemy { get; }
+        IReadOnlyList<LegacyStatusSnapshot> PlayerStatuses { get; }
+        IReadOnlyList<LegacyStatusSnapshot> EnemyStatuses { get; }
         /// <summary>The player's reservations: live while planning, the committed queue while it resolves.</summary>
         IReadOnlyList<LegacySkill> PlayerQueue { get; }
         IReadOnlyList<LegacySkill> EnemyQueue { get; }

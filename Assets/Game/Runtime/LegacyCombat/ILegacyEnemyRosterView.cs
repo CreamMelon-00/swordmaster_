@@ -8,6 +8,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     {
         IReadOnlyList<LegacyFighterState> Enemies { get; }
         int ActiveEnemyIndex { get; }
+        IReadOnlyList<LegacyStatusSnapshot> GetEnemyStatuses(int enemyIndex);
         int EnemyOwnerAtSlot(int slotIndex);
         int EnemyIndexForSlot(int slotIndex);
         bool IsEnemySlotCanceled(int slotIndex);

@@ -12,6 +12,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const string CycleFeedPhrase = "순환 +1", AutoBreathPhrase = "숨고르기 +1";
         /// <summary>사용 효과 phrase for <see cref="LegacySkillEffect.AutoDodge"/>.</summary>
         public const string AutoDodgePhrase = "자동 회피";
+        /// <summary>Bounds for 보호 소모 위력 +N and 앞 공격 총타수 M 이상 위력 +N.</summary>
+        public const int MinimumUsePowerBonus = 1, MaximumUsePowerBonus = 50;
+        public const int MinimumAttackHitsRequired = 1, MaximumAttackHitsRequired = 20;
         /// <summary>The range of n in 사용 효과 <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c>.</summary>
         public const int MinimumAheadPowerPerUnit = 1, MaximumAheadPowerPerUnit = 10;
         /// <summary>The range of m in the same phrase.</summary>
@@ -32,6 +35,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private static readonly Regex AheadPowerPattern = new Regex(
             @"^앞\s*(숨고르기|순환\s*기술|저항\s*감소\s*기술)\s*마다\s*위력\s*\+\s*([0-9]{1,3})\s*\(\s*최대\s*([0-9]{1,3})\s*\)$",
             RegexOptions.CultureInvariant);
+        private static readonly Regex ProtectionSpendPattern = new Regex(
+            @"^보호\s*소모\s*위력\s*\+\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
+        private static readonly Regex AheadAttackHitsPattern = new Regex(
+            @"^앞\s*공격\s*총\s*타수\s*([0-9]{1,3})\s*이상\s*위력\s*\+\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
         // 앞 <대상>마다 다음 턴 제한시간 +n초 (최대 m), spaces optional between the parts.
         private static readonly Regex AheadTimePattern = new Regex(
             @"^앞\s*(숨고르기|순환\s*기술|저항\s*감소\s*기술)\s*마다\s*다음\s*턴\s*제한\s*시간\s*\+\s*([0-9]{1,3})\s*초\s*\(\s*최대\s*([0-9]{1,3})\s*\)$",
@@ -192,6 +199,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     effect.AheadTimePerUnit.ToString(CultureInfo.InvariantCulture) + "초 (최대 " +
                     effect.AheadTimeMax.ToString(CultureInfo.InvariantCulture) + ")";
             if (effect.AutoDodge) return AutoDodgePhrase;
+            if (effect.HasProtectionSpend)
+                return "보호 소모 위력 +" + effect.ConsumeProtectionPowerBonus.ToString(CultureInfo.InvariantCulture);
+            if (effect.HasAheadHitPower)
+                return "앞 공격 총타수 " + effect.AheadAttackHitsRequired.ToString(CultureInfo.InvariantCulture) +
+                    " 이상 위력 +" + effect.AheadAttackHitsPowerBonus.ToString(CultureInfo.InvariantCulture);
             return string.Empty;
         }
 
@@ -250,6 +262,25 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Compact(trimmed) == Compact(AutoDodgePhrase))
             {
                 effect.AutoDodge = true;
+                return true;
+            }
+            Match protectionSpend = ProtectionSpendPattern.Match(trimmed);
+            if (protectionSpend.Success)
+            {
+                int bonus = int.Parse(protectionSpend.Groups[1].Value, CultureInfo.InvariantCulture);
+                if (bonus < MinimumUsePowerBonus || bonus > MaximumUsePowerBonus) return false;
+                effect.ConsumeProtectionPowerBonus = bonus;
+                return true;
+            }
+            Match attackHits = AheadAttackHitsPattern.Match(trimmed);
+            if (attackHits.Success)
+            {
+                int hits = int.Parse(attackHits.Groups[1].Value, CultureInfo.InvariantCulture);
+                int bonus = int.Parse(attackHits.Groups[2].Value, CultureInfo.InvariantCulture);
+                if (hits < MinimumAttackHitsRequired || hits > MaximumAttackHitsRequired ||
+                    bonus < MinimumUsePowerBonus || bonus > MaximumUsePowerBonus) return false;
+                effect.AheadAttackHitsRequired = hits;
+                effect.AheadAttackHitsPowerBonus = bonus;
                 return true;
             }
             if (TryReadAhead(AheadPowerPattern, trimmed, MinimumAheadPowerPerUnit, MaximumAheadPowerPerUnit,

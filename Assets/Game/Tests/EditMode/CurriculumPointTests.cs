@@ -171,7 +171,7 @@ namespace TurnLimbo.Core.Tests
             Lose(run);
             Assert.That(run.CurriculumPointsToNextNode, Is.EqualTo(1));
             Assert.That(run.AffordableCurriculumNodeCount, Is.Zero);
-            Assert.That(run.Curriculum.AffordableCount(2), Is.EqualTo(6), "Each of the six twists, one at a time.");
+            Assert.That(run.Curriculum.AffordableCount(2), Is.EqualTo(8), "The six twists and two new bridges, one at a time.");
             Assert.That(run.Curriculum.SpentPoints, Is.EqualTo(6));
             Assert.That(run.CurriculumRefund, Is.EqualTo(6));
             Assert.That(run.Curriculum.BecameAffordable(1, 2), Is.True);

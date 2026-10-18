@@ -17,7 +17,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private LegacySkill[] committedQueue;
         internal readonly List<int> QueueCosts = new List<int>();
         internal readonly Dictionary<int, int> Cycles = new Dictionary<int, int>();
-        internal readonly List<LocalVersusBuff> Buffs = new List<LocalVersusBuff>();
+        internal LegacyStatusCollection StatusEffects = new LegacyStatusCollection();
+        public IReadOnlyList<LegacyStatusSnapshot> Statuses => StatusEffects.Statuses;
         internal int BoostSource = -1, BoostRemoved, BoostCap;
 
         internal LocalVersusFighter(IReadOnlyList<LegacySkill> skills, int health, int resistance)
@@ -47,7 +48,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             QueueSkills.AddRange(source.QueueSkills);
             QueueCosts.AddRange(source.QueueCosts);
             foreach (KeyValuePair<int, int> uses in source.Cycles) Cycles.Add(uses.Key, uses.Value);
-            foreach (LocalVersusBuff buff in source.Buffs) Buffs.Add(new LocalVersusBuff(buff.Power, buff.Protection, buff.SlotsRemaining));
+            StatusEffects = source.StatusEffects.Copy();
             BoostSource = source.BoostSource;
             BoostRemoved = source.BoostRemoved;
             BoostCap = source.BoostCap;
@@ -148,6 +149,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             NextActGain = BaseActGain;
             NextPlanningSeconds = 0;
             Cycles.Clear();
+            StatusEffects.Clear();
             for (int i = 0; i < 3; i++) lanes[i].Clear();
             foreach (LegacySkill skill in initialSkills) lanes[skill.LaneIndex].Add(skill);
             BeginTurn();
@@ -166,7 +168,6 @@ namespace TurnLimbo.Runtime.LegacyCombat
             QueueCosts.Clear();
             committedQueue = null;
             BreakCanceledFromSlotIndex = -1;
-            Buffs.Clear();
             BoostSource = -1;
             BoostRemoved = BoostCap = 0;
             BreathsQueuedThisTurn = LaneCyclesThisTurn = 0;
@@ -318,18 +319,6 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
     }
 
-    internal sealed class LocalVersusBuff
-    {
-        internal LocalVersusBuff(int power, int protection, int slots)
-        {
-            Power = power;
-            Protection = protection;
-            SlotsRemaining = slots;
-        }
-        internal readonly int Power, Protection;
-        internal int SlotsRemaining;
-    }
-
     public sealed class LocalVersusSlot
     {
         internal LocalVersusSlot(int index, LegacySkill left, LegacySkill right, int leftPower, int rightPower,
@@ -373,6 +362,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool RightStateConditionHeld { get; internal set; }
         internal int LeftPower { get; }
         internal int RightPower { get; }
+        internal int LeftStatusBoundary, RightStatusBoundary;
+        internal bool LeftIncomingStatusConsumed, RightIncomingStatusConsumed;
         internal double LeftReceivedMultiplier { get; }
         internal double RightReceivedMultiplier { get; }
         internal int LeftStartingHealth { get; }
@@ -702,22 +693,27 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 throw new InvalidOperationException("An unresolved committed slot is required.");
             LegacySkill leftSkill = nextSlot < Left.ExecutionQueue.Count ? Left.ExecutionQueue[nextSlot] : null;
             LegacySkill rightSkill = nextSlot < Right.ExecutionQueue.Count ? Right.ExecutionQueue[nextSlot] : null;
-            int leftPower = RollPower(Left, leftSkill, nextSlot, out int leftBuff, out int leftProtection);
-            int rightPower = RollPower(Right, rightSkill, nextSlot, out int rightBuff, out int rightProtection);
-            double leftReceived = ReceivedMultiplier(Left.Buffs);
-            double rightReceived = ReceivedMultiplier(Right.Buffs);
+            // As in the campaign, both fighters spend protection before this slot snapshots received damage.
+            int leftProtectionSpend = Left.StatusEffects.SpendProtectionForPower(leftSkill);
+            int rightProtectionSpend = Right.StatusEffects.SpendProtectionForPower(rightSkill);
+            int leftPower = RollPower(Left, leftSkill, nextSlot, out int leftBuff, out int leftProtection, leftProtectionSpend);
+            int rightPower = RollPower(Right, rightSkill, nextSlot, out int rightBuff, out int rightProtection, rightProtectionSpend);
+            double leftReceived = Left.StatusEffects.ReceivedMultiplier;
+            double rightReceived = Right.StatusEffects.ReceivedMultiplier;
             var slot = new LocalVersusSlot(nextSlot, leftSkill, rightSkill, leftPower, rightPower,
                 leftReceived, rightReceived, Left, Right);
             CurrentSlot = slot;
+            slot.LeftStatusBoundary = Left.StatusEffects.GrantSerial;
+            slot.RightStatusBoundary = Right.StatusEffects.GrantSerial;
             slot.LeftCycleUses = Left.CycleUsesRead(leftSkill);
             slot.RightCycleUses = Right.CycleUsesRead(rightSkill);
             slot.LeftPlanningSecondsGained = Left.GainPlanningSeconds(leftSkill, nextSlot);
             slot.RightPlanningSecondsGained = Right.GainPlanningSeconds(rightSkill, nextSlot);
             Left.RecordUse(leftSkill);
             Right.RecordUse(rightSkill);
-            TickBuffs(Left.Buffs);
-            TickBuffs(Right.Buffs);
-            ApplySlotEffects(slot, leftBuff, leftProtection, rightBuff, rightProtection);
+            if (leftSkill != null && !leftSkill.IsWait) Left.StatusEffects.ConsumeTechnique();
+            if (rightSkill != null && !rightSkill.IsWait) Right.StatusEffects.ConsumeTechnique();
+            ApplySlotEffects(slot, leftBuff, leftProtection, rightBuff, rightProtection, leftProtectionSpend, rightProtectionSpend);
             return slot;
         }
 
@@ -753,11 +749,25 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyHitImpact leftImpact = default, rightImpact = default;
             // Both attacks at this hit index land before defeat is checked; later hits stop after a KO.
             if (leftAttack)
+            {
+                if (!slot.RightIncomingStatusConsumed)
+                {
+                    Right.StatusEffects.ConsumeIncomingAttack(slot.RightStatusBoundary);
+                    slot.RightIncomingStatusConsumed = true;
+                }
                 rightImpact = ResolveHit(slot.LeftSkill, slot.RightSkill, slot.LeftPower, slot.RightPower,
                     Right.State, slot.RightReceivedMultiplier, out leftCondition);
+            }
             if (rightAttack)
+            {
+                if (!slot.LeftIncomingStatusConsumed)
+                {
+                    Left.StatusEffects.ConsumeIncomingAttack(slot.LeftStatusBoundary);
+                    slot.LeftIncomingStatusConsumed = true;
+                }
                 leftImpact = ResolveHit(slot.RightSkill, slot.LeftSkill, slot.RightPower, slot.LeftPower,
                     Left.State, slot.LeftReceivedMultiplier, out rightCondition);
+            }
             if (leftResistance > 0 && Left.State.IsResistanceBroken) Left.CancelAfterBreak(slot.SlotIndex);
             if (rightResistance > 0 && Right.State.IsResistanceBroken) Right.CancelAfterBreak(slot.SlotIndex);
             slot.HitsResolved++;
@@ -856,15 +866,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         private int RollPower(LocalVersusFighter fighter, LegacySkill skill, int slotIndex,
-            out int powerBuffPercent, out int protectionBuffPercent)
+            out int powerBuffPercent, out int protectionBuffPercent, int protectionSpendBonus = 0)
         {
-            powerBuffPercent = 0;
-            foreach (LocalVersusBuff buff in fighter.Buffs) powerBuffPercent += buff.Power;
-            protectionBuffPercent = 0;
-            foreach (LocalVersusBuff buff in fighter.Buffs) protectionBuffPercent += buff.Protection;
+            powerBuffPercent = fighter.StatusEffects.PowerPercent;
+            protectionBuffPercent = fighter.StatusEffects.ProtectionPercent;
             if (skill == null || skill.IsWait) return 0;
             // 사용 효과 앞 X마다 위력 beside 순환, as LegacyQueuedDuel.BeginNextSlot.
-            int bonus = checked(fighter.PowerBonus(skill) + LegacyKeywordLinks.AheadPowerBonus(fighter.Queue, slotIndex, skill));
+            int bonus = checked(fighter.PowerBonus(skill) + LegacyKeywordLinks.AheadPowerBonus(fighter.ExecutionQueue, slotIndex, skill) +
+                protectionSpendBonus);
             int roll = averageRolls
                 ? LegacySlotForecast.AveragePower(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus))
                 : random.Next(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus + 1));
@@ -872,21 +881,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return Math.Max(1, (int)Math.Floor(roll * multiplier / skill.AttackCount));
         }
 
-        private static double ReceivedMultiplier(List<LocalVersusBuff> buffs)
-        {
-            int percent = 100;
-            foreach (LocalVersusBuff buff in buffs) percent -= buff.Protection;
-            return Math.Max(0, percent) / 100d;
-        }
-
-        private static void TickBuffs(List<LocalVersusBuff> buffs)
-        {
-            for (int i = buffs.Count - 1; i >= 0; i--)
-                if (--buffs[i].SlotsRemaining == 0) buffs.RemoveAt(i);
-        }
-
         private void ApplySlotEffects(LocalVersusSlot slot, int leftPowerBuff, int leftProtectionBuff,
-            int rightPowerBuff, int rightProtectionBuff)
+            int rightPowerBuff, int rightProtectionBuff, int leftProtectionSpend, int rightProtectionSpend)
         {
             LegacySkillEffect leftEffect = LegacySkillDefinitions.Find(slot.LeftSkill)?.Effect ?? LegacySkillEffect.None;
             LegacySkillEffect rightEffect = LegacySkillDefinitions.Find(slot.RightSkill)?.Effect ?? LegacySkillEffect.None;
@@ -908,14 +904,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (rightWhole && Right.State.IsResistanceBroken) Right.CancelAfterBreak(slot.SlotIndex);
             if (leftOpponent) Left.NextActGain = checked(Left.NextActGain + leftEffect.ActGain);
             if (rightOpponent) Right.NextActGain = checked(Right.NextActGain + rightEffect.ActGain);
-            if (leftEffect.HasBuff) Left.Buffs.Add(new LocalVersusBuff(leftEffect.BuffPowerPercent,
-                leftEffect.BuffProtectionPercent, leftEffect.BuffSlots));
-            if (rightEffect.HasBuff) Right.Buffs.Add(new LocalVersusBuff(rightEffect.BuffPowerPercent,
-                rightEffect.BuffProtectionPercent, rightEffect.BuffSlots));
+            Left.StatusEffects.Grant(leftEffect);
+            Right.StatusEffects.Grant(rightEffect);
             slot.LeftFeedback = Feedback(slot.LeftSkill, leftEffect, leftPowerBuff, leftProtectionBuff,
                 leftRestored, rightReduced + rightBrokenAmount, rightBrokenAmount > 0, leftOpponent, leftState);
             slot.RightFeedback = Feedback(slot.RightSkill, rightEffect, rightPowerBuff, rightProtectionBuff,
                 rightRestored, leftReduced + leftBrokenAmount, leftBrokenAmount > 0, rightOpponent, rightState);
+            slot.LeftFeedback = slot.LeftFeedback.WithUsePowerBonuses(leftProtectionSpend,
+                LegacyKeywordLinks.AheadAttackHitsPowerBonus(Left.ExecutionQueue, slot.SlotIndex, slot.LeftSkill),
+                leftEffect.HasAheadHitPower ? LegacyKeywordLinks.CountAheadAttackHits(Left.ExecutionQueue, slot.SlotIndex, slot.LeftSkill) : 0);
+            slot.RightFeedback = slot.RightFeedback.WithUsePowerBonuses(rightProtectionSpend,
+                LegacyKeywordLinks.AheadAttackHitsPowerBonus(Right.ExecutionQueue, slot.SlotIndex, slot.RightSkill),
+                rightEffect.HasAheadHitPower ? LegacyKeywordLinks.CountAheadAttackHits(Right.ExecutionQueue, slot.SlotIndex, slot.RightSkill) : 0);
             slot.LeftFeedback = slot.LeftFeedback.WithConditionalDamage(
                 ArmedConditionalDamage(slot.LeftSkill, slot.RightSkill, slot.LeftPower, slot.RightPower, Right.State));
             slot.RightFeedback = slot.RightFeedback.WithConditionalDamage(

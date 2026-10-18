@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -10,7 +11,7 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간" };
+        private static readonly string[] Terms = { "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약" };
         // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
         // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
@@ -22,7 +23,7 @@ namespace TurnLimbo.Presentation
         private SkillKeywordTextTint bodyTint;
         private Text heading, description;
         private float scale;
-        private string firstTerm, secondTerm, pendingTerm;
+        private string firstTerm, secondTerm, pendingTerm, firstCopy, secondCopy, bodyCopy;
         private SkillKeywordHoverTarget pendingSource;
         private Vector2 pointerPosition;
         private Camera pointerCamera;
@@ -68,6 +69,9 @@ namespace TurnLimbo.Presentation
         public void SetTerms(string firstBadgeText, string secondBadgeText, string bodyText)
         {
             Dismiss();
+            firstCopy = firstBadgeText;
+            secondCopy = secondBadgeText;
+            bodyCopy = bodyText;
             firstTerm = BadgeTerm(firstBadgeText);
             secondTerm = BadgeTerm(secondBadgeText);
             firstBadge.raycastTarget = firstTerm != null;
@@ -80,6 +84,7 @@ namespace TurnLimbo.Presentation
         {
             Dismiss();
             firstTerm = secondTerm = null;
+            firstCopy = secondCopy = bodyCopy = null;
             if (firstBadge != null) firstBadge.raycastTarget = false;
             if (secondBadge != null) secondBadge.raycastTarget = false;
             if (bodyHit != null) bodyHit.SetTerms(null);
@@ -91,6 +96,21 @@ namespace TurnLimbo.Presentation
         {
             switch (term)
             {
+                case "보호 소모":
+                    explanation = "사용할 때 자신에게 남은 보호를 모두 없앱니다. 보호가 없으면 부가 위력을 얻지 못하며, 강화·취약은 소모하지 않습니다.";
+                    return true;
+                case "총타수":
+                    explanation = "이번 턴 앞에 예약된 공격 기술들의 타수 합입니다. 같은 기술은 여러 번 예약해도 한 번만 세며, 방어·숨고르기는 제외합니다.";
+                    return true;
+                case "강화":
+                    explanation = LegacyStatusNames.Description(LegacyStatusKind.PowerUp, 0);
+                    return true;
+                case "보호":
+                    explanation = LegacyStatusNames.Description(LegacyStatusKind.Protection, 0);
+                    return true;
+                case "취약":
+                    explanation = LegacyStatusNames.Description(LegacyStatusKind.Vulnerability, 50);
+                    return true;
                 case "순환":
                     explanation = "이 기술을 사용하거나 다른 기술이 올려 줄 때마다 횟수가 1 오릅니다. " +
                         "횟수는 전투 내내 남고 상한에서 멈춥니다.";
@@ -127,6 +147,29 @@ namespace TurnLimbo.Presentation
                     explanation = null;
                     return false;
             }
+        }
+
+        /// <summary>A status term can carry a tuned percentage in the badge or sentence being explained.</summary>
+        public static bool TryExplain(string term, string context, out string explanation)
+        {
+            if (!TryExplain(term, out explanation)) return false;
+            LegacyStatusKind kind;
+            switch (term)
+            {
+                case "강화": kind = LegacyStatusKind.PowerUp; break;
+                case "보호": kind = LegacyStatusKind.Protection; break;
+                case "취약": kind = LegacyStatusKind.Vulnerability; break;
+                default: return true;
+            }
+            int index = context?.IndexOf(term, StringComparison.Ordinal) ?? -1;
+            if (index < 0) return true;
+            string suffix = context.Substring(index + term.Length).TrimStart();
+            int digits = 0;
+            while (digits < suffix.Length && suffix[digits] >= '0' && suffix[digits] <= '9') digits++;
+            if (digits > 0 && digits < suffix.Length && suffix[digits] == '%' &&
+                int.TryParse(suffix.Substring(0, digits), out int percent) && percent > 0)
+                explanation = LegacyStatusNames.Description(kind, percent);
+            return true;
         }
 
         internal static string[] KnownTerms => Terms;
@@ -296,7 +339,9 @@ namespace TurnLimbo.Presentation
 
         private void Show(string term)
         {
-            if (popup == null || !TryExplain(term, out string meaning)) return;
+            string context = pendingSource != null && pendingSource.Kind == 0 ? firstCopy
+                : pendingSource != null && pendingSource.Kind == 1 ? secondCopy : bodyCopy;
+            if (popup == null || !TryExplain(term, context, out string meaning)) return;
             heading.text = term;
             description.text = meaning;
             popup.SetAsLastSibling();

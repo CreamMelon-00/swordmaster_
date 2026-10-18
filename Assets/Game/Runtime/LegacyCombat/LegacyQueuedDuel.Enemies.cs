@@ -10,7 +10,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly List<LegacyFighterState> enemyStates = new List<LegacyFighterState>();
         private readonly List<int> enemyQueueOwners = new List<int>();
         private IReadOnlyList<LegacyFighterState> enemyStatesView;
-        private List<SkillBuff>[] enemyBuffsByOwner;
+        private LegacyStatusCollection[] enemyStatusesByOwner;
         private int[] enemyCountersByOwner, enemyBrokenFrom, enemyDefeatedFrom;
         private int activeEnemyIndex;
 
@@ -33,6 +33,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public IReadOnlyList<LegacyFighterState> Enemies => enemyStatesView;
         public int ActiveEnemyIndex => activeEnemyIndex;
+        public IReadOnlyList<LegacyStatusSnapshot> GetEnemyStatuses(int enemyIndex)
+        {
+            if (enemyIndex < 0 || enemyIndex >= enemyStatusesByOwner.Length) throw new ArgumentOutOfRangeException(nameof(enemyIndex));
+            return enemyStatusesByOwner[enemyIndex].Statuses;
+        }
         public int TotalEnemyHealth
         {
             get
@@ -109,7 +114,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             enemyStates.Clear();
             int count = enemyDefinitions?.Length ?? 1;
-            enemyBuffsByOwner = new List<SkillBuff>[count];
+            enemyStatusesByOwner = new LegacyStatusCollection[count];
             enemyCountersByOwner = new int[count];
             enemyBrokenFrom = new int[count];
             enemyDefeatedFrom = new int[count];
@@ -118,7 +123,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 LegacyEnemyDefinition definition = enemyDefinitions == null ? null : enemyDefinitions[i];
                 enemyStates.Add(new LegacyFighterState(definition?.Health ?? enemyMaxHealth,
                     definition?.Resistance ?? enemyMaxResistance, definition == null ? enemyHealthFloor : 0));
-                enemyBuffsByOwner[i] = new List<SkillBuff>();
+                enemyStatusesByOwner[i] = new LegacyStatusCollection();
                 enemyBrokenFrom[i] = enemyDefeatedFrom[i] = -1;
             }
             if (enemyStatesView == null) enemyStatesView = enemyStates.AsReadOnly();
@@ -128,16 +133,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private void CopyEnemiesFrom(LegacyQueuedDuel source)
         {
             int count = source.enemyStates.Count;
-            enemyBuffsByOwner = new List<SkillBuff>[count];
+            enemyStatusesByOwner = new LegacyStatusCollection[count];
             enemyCountersByOwner = (int[])source.enemyCountersByOwner.Clone();
             enemyBrokenFrom = (int[])source.enemyBrokenFrom.Clone();
             enemyDefeatedFrom = (int[])source.enemyDefeatedFrom.Clone();
             for (int i = 0; i < count; i++)
             {
                 enemyStates.Add(source.enemyStates[i].Copy());
-                var buffs = new List<SkillBuff>();
-                foreach (SkillBuff buff in source.enemyBuffsByOwner[i]) buffs.Add(buff.Copy());
-                enemyBuffsByOwner[i] = buffs;
+                enemyStatusesByOwner[i] = source.enemyStatusesByOwner[i].Copy();
             }
             enemyStatesView = enemyStates.AsReadOnly();
             enemyQueueOwners.AddRange(source.enemyQueueOwners);
@@ -149,7 +152,6 @@ namespace TurnLimbo.Runtime.LegacyCombat
             for (int i = 0; i < enemyStates.Count; i++)
             {
                 if (!enemyStates[i].IsDefeated) enemyStates[i].BeginTurn();
-                enemyBuffsByOwner[i].Clear();
                 enemyBrokenFrom[i] = enemyDefeatedFrom[i] = -1;
                 enemyCountersByOwner[i] = (enemyDefinitions == null ? singleEnemyCounter : enemyDefinitions[i].Counter)?.UsesPerTurn ?? 0;
             }

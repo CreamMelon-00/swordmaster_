@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using NUnit.Framework;
+using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
@@ -96,7 +97,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [Test]
-        public void CommonTerms_ExplainMeaningWithoutSkillSpecificNumbers()
+        public void CommonTerms_ExplainMeaningAndTunedStatusPercentages()
         {
             Assert.That(SkillKeywordHover.TryExplain("순환", out string cycle), Is.True);
             Assert.That(cycle, Does.Contain("사용하거나"));
@@ -105,6 +106,18 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(SkillKeywordHover.TryExplain("반환", out string returned), Is.True);
             Assert.That(returned, Does.Contain("돌려받습니다"));
             Assert.That(SkillKeywordHover.TryExplain("효과 +5", out _), Is.False);
+            Assert.That(SkillKeywordHover.TryExplain("취약", out string vulnerability), Is.True);
+            Assert.That(vulnerability, Does.Contain("50%").And.Contain("연타는 1회").And.Contain("회피하면 소모하지"));
+            Assert.That(SkillKeywordHover.TryExplain("강화", "자신에게 강화 30% 1 부여", out string power), Is.True);
+            Assert.That(power, Does.Contain("30%").And.Contain("공격·방어").And.Contain("턴이 지나도"));
+            Assert.That(SkillKeywordHover.TryExplain("보호", "보호 25% 1", out string protection), Is.True);
+            Assert.That(protection, Does.Contain("25%").And.Contain("감소"));
+            Assert.That(SkillKeywordHover.TryExplain("취약", "취약 25% 2", out string tunedVulnerability), Is.True);
+            Assert.That(tunedVulnerability, Does.Contain("25%").And.Not.Contain("50%"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.Vulnerability, 50, 1), Is.EqualTo("취약 1"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.Vulnerability, 25, 2), Is.EqualTo("취약 25% 2"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.PowerUp, 20, 2), Is.EqualTo("강화 20% 2"));
+            Assert.That(LegacyStatusNames.Label(LegacyStatusKind.PowerUp, 30, 1), Is.EqualTo("강화 30% 1"));
         }
 
         [UnityTest]
