@@ -224,7 +224,7 @@ namespace TurnLimbo.Presentation.Tests
                 // E's conditional response needs more lines than Q's brief effect, but not a larger window.
                 Click(lobby.Root, "Loadout Slot E 1");
                 Assert.That(border.rect.height, Is.EqualTo(shortHeight).Within(.1f));
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "Nine lane skills and one unequipped counter remain unchanged.");
             }
             finally { lobby?.Dispose(); Object.Destroy(parent); }
             yield return null;
@@ -277,7 +277,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(border.rect.height, Is.EqualTo(plainHeight).Within(.1f));
                 Assert.That(Named(detail, "Curriculum Exclusive").gameObject.activeInHierarchy, Is.False);
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "Reading details never grants a skill.");
                 Assert.That(run.HasLoadoutChanges, Is.False);
             }
             finally { lobby?.Dispose(); Object.Destroy(parent); }

@@ -29,6 +29,9 @@ namespace TurnLimbo.Presentation
             public int SelectedSkillId { get; internal set; }
             public int SelectedSlot { get; internal set; } = -1;
             public float OwnedScrollOffset { get; internal set; }
+            public float CounterScrollOffset { get; internal set; }
+            public bool CounterMode { get; internal set; }
+            public int SelectedCounterSkillId { get; internal set; }
             /// <summary>Which lane's owned skills the rack shows (<see cref="AllLanes"/>: every open lane's). Selecting a
             /// lane's gear or socket (a click, or dragging the socket's skill) sets it; the filter row can set it too.</summary>
             public int OwnedFilter { get; internal set; } = AllLanes;
@@ -37,7 +40,10 @@ namespace TurnLimbo.Presentation
                 ActiveLane = SelectedSkillId = 0;
                 SelectedSlot = -1;
                 OwnedScrollOffset = 0f;
+                CounterScrollOffset = 0f;
                 OwnedFilter = AllLanes;
+                CounterMode = false;
+                SelectedCounterSkillId = 0;
             }
         }
 
@@ -63,7 +69,7 @@ namespace TurnLimbo.Presentation
         private readonly LegacyDuelArt art;
         private readonly CampaignRun run;
         private readonly Action<int, int, int> placeSkill;
-        private readonly Action<int> removeSkill;
+        private readonly Action<int> removeSkill, equipCounter;
         private readonly Action save, reset;
         // Closed lanes have no heading or gear: their entries stay null.
         private readonly LoadoutGear[] gears = new LoadoutGear[3];
@@ -74,11 +80,11 @@ namespace TurnLimbo.Presentation
         /// <summary>The open lanes in Q, W, E order.</summary>
         private readonly int[] openLanes;
         private readonly List<Card> ownedCards = new List<Card>();
-        private readonly Text detailName, status, ownedEmpty;
+        private readonly Text detailName, status, ownedEmpty, ownedHeading, counterCaption;
         private readonly SkillLaneBadge detailStyle;
         private readonly SkillInfoView detailInfo;
         private readonly Image detailIcon;
-        private readonly Button removeButton, saveButton, cancelButton;
+        private readonly Button removeButton, saveButton, cancelButton, counterSlot, counterAction, normalSkills;
         private Texture2D socketTexture;
         private Sprite socketSprite;
         private RectTransform dragGhost, dragLayer;
@@ -98,15 +104,22 @@ namespace TurnLimbo.Presentation
         public GameObject Root => root.gameObject;
         public ViewState State { get; }
         public bool IsDragging => draggedSkillId != 0;
+        private float CurrentScrollOffset
+        {
+            get => State.CounterMode ? State.CounterScrollOffset : State.OwnedScrollOffset;
+            set { if (State.CounterMode) State.CounterScrollOffset = value; else State.OwnedScrollOffset = value; }
+        }
 
         public CampaignLoadoutHud(RectTransform parent, LegacyDuelArt art, CampaignRun run,
-            Action<int, int, int> placeSkill, Action<int> removeSkill, Action save, Action reset, ViewState state = null)
+            Action<int, int, int> placeSkill, Action<int> removeSkill, Action save, Action reset, ViewState state = null,
+            Action<int> equipCounter = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
             this.run = run ?? throw new ArgumentNullException(nameof(run));
             this.placeSkill = placeSkill;
             this.removeSkill = removeSkill;
+            this.equipCounter = equipCounter;
             this.save = save;
             this.reset = reset;
             State = state ?? new ViewState();
@@ -143,6 +156,11 @@ namespace TurnLimbo.Presentation
                 }
                 gears[lane] = gear;
             }
+            // A counter is a separate automatic response, never a fourth rotating lane.
+            counterSlot = ActionButton("Loadout Counter Slot", root, "반격", new Vector2(LaneBlockCentre, -82f),
+                new Vector2(770f, 36f), SelectCounterSlot);
+            counterCaption = counterSlot.GetComponentInChildren<Text>();
+            counterCaption.fontSize = 17;
             var detailBorder = Panel("Loadout Selected Detail", root, new Vector2(423f, 86f), new Vector2(384f, 396f), Border);
             var detail = Panel("Detail Surface", detailBorder.transform, Vector2.zero, new Vector2(380f, 392f), DuelVisualTheme.Paper);
             detailFrame = detailBorder.rectTransform;
@@ -161,8 +179,12 @@ namespace TurnLimbo.Presentation
             // Keep the removal action outside the paper detail, on the collection heading row.
             removeButton = ActionButton("Loadout Remove Selected", root, "편성에서 빼기",
                 new Vector2(423f, OwnedRowY), new Vector2(310f, 36f), RemoveSelected);
+            counterAction = ActionButton("Loadout Counter Action", root, "반격 장착",
+                new Vector2(423f, OwnedRowY), new Vector2(310f, 36f), EquipSelectedCounter);
 
-            Label("Loadout Owned Heading", root, new Vector2(-544f, OwnedRowY), new Vector2(110f, 30f), 21).text = "보유 기술";
+            ownedHeading = Label("Loadout Owned Heading", root, new Vector2(-544f, OwnedRowY), new Vector2(110f, 30f), 21);
+            normalSkills = ActionButton("Loadout Normal Skills", root, "일반 기술", new Vector2(-400f, OwnedRowY),
+                new Vector2(130f, 28f), SelectNormalSkills);
             // The lane filter: 전체 · Q · W · E, the open lanes only, from the heading's right. One open lane has nothing to
             // filter.
             laneFilter = new LoadoutFilter(root, art.UIFont, "Loadout", openLanes, new Vector2(-470f, OwnedRowY), SelectFilter);
@@ -203,7 +225,7 @@ namespace TurnLimbo.Presentation
             int placementLane = PlacementLane();
             foreach (int lane in openLanes)
             {
-                laneStyles[lane].SetSelected(State.SelectedSkillId != 0 && State.ActiveLane == lane);
+                laneStyles[lane].SetSelected(!State.CounterMode && State.SelectedSkillId != 0 && State.ActiveLane == lane);
                 LoadoutGear gear = gears[lane];
                 for (int slot = 0; slot < SlotsPerLane; slot++)
                 {
@@ -215,11 +237,17 @@ namespace TurnLimbo.Presentation
                     else gear.Show(slot, art.GetSkillIcon(owned.Skill.IconId), owned.Skill.Cost);
                     gear.SetTarget(slot, lane == placementLane && id != draggedSkillId);
                 }
-                gear.SetSelected(State.ActiveLane == lane ? State.SelectedSlot : -1);
+                gear.SetSelected(!State.CounterMode && State.ActiveLane == lane ? State.SelectedSlot : -1);
             }
             if (!OwnedCardsMatchDraft()) BuildOwnedCards();
             LayoutOwnedCards();
             laneFilter.SetChoice(State.OwnedFilter);
+            laneFilter.Root.gameObject.SetActive(!State.CounterMode && openLanes.Length > 1);
+            normalSkills.gameObject.SetActive(State.CounterMode);
+            ownedHeading.text = State.CounterMode ? "보유 반격" : "보유 기술";
+            LegacySkill counter = run.DraftCounterSkill;
+            counterCaption.text = counter == null ? "반격 · 미장착" : $"반격 · {counter.Name} · 턴당 {CounterUses(counter.Id)}회";
+            counterSlot.GetComponent<Image>().color = State.CounterMode ? Selected : CardColor;
             RefreshDetail();
             bool hasEmptySlot = false;
             foreach (int lane in openLanes)
@@ -241,7 +269,7 @@ namespace TurnLimbo.Presentation
             int index = 0;
             foreach (CampaignOwnedSkill owned in run.OwnedSkills)
             {
-                if (!run.IsLaneOpen(owned.Skill.LaneIndex) || run.IsSkillInLoadout(owned.SkillId)) continue;
+                if (!BelongsInRack(owned)) continue;
                 if (index >= ownedCards.Count || ownedCards[index].SkillId != owned.SkillId) return false;
                 index++;
             }
@@ -252,13 +280,13 @@ namespace TurnLimbo.Presentation
         // filter change never destroys a card under the pointer.
         private void BuildOwnedCards()
         {
-            float scrollOffset = ownedCards.Count == 0 ? State.OwnedScrollOffset
+            float scrollOffset = ownedCards.Count == 0 ? CurrentScrollOffset
                 : Mathf.Max(0f, -ownedItems.anchoredPosition.x);
             foreach (Card card in ownedCards) { card.Button.gameObject.SetActive(false); Destroy(card.Button.gameObject); }
             ownedCards.Clear();
             foreach (CampaignOwnedSkill owned in run.OwnedSkills)
             {
-                if (!run.IsLaneOpen(owned.Skill.LaneIndex) || run.IsSkillInLoadout(owned.SkillId)) continue;
+                if (!BelongsInRack(owned)) continue;
                 int id = owned.SkillId;
                 var card = new Card { SkillId = id };
                 card.Button = ActionButton("Loadout Owned Skill " + id, ownedItems, null,
@@ -274,15 +302,18 @@ namespace TurnLimbo.Presentation
                 card.Name = Label("Owned Name", card.Button.transform, new Vector2(24f, 11f), new Vector2(128f, 24f), 17);
                 Fit(card.Name, 13, 17);
                 card.Cost = Label("Owned ACT", card.Button.transform, new Vector2(4f, -14f), new Vector2(88f, 20f), 14, Muted);
-                card.Cost.text = "ACT " + owned.Skill.Cost;
+                card.Cost.text = State.CounterMode ? "턴당 " + CounterUses(id) + "회" : "ACT " + owned.Skill.Cost;
                 card.Marker = Label("Owned Lane", card.Button.transform, new Vector2(68f, -14f),
                     new Vector2(36f, 20f), 14, SkillLaneStyle.Edge(owned.Skill.LaneIndex), TextAnchor.MiddleRight);
-                card.Marker.text = LaneNames[owned.Skill.LaneIndex];
-                card.Drag = card.Button.gameObject.AddComponent<CampaignLoadoutCardDrag>();
-                card.Drag.Configure(this, id, owned.Skill.LaneIndex, -1);
+                card.Marker.text = State.CounterMode ? "반격" : LaneNames[owned.Skill.LaneIndex];
+                if (!State.CounterMode)
+                {
+                    card.Drag = card.Button.gameObject.AddComponent<CampaignLoadoutCardDrag>();
+                    card.Drag.Configure(this, id, owned.Skill.LaneIndex, -1);
+                }
                 ownedCards.Add(card);
             }
-            State.OwnedScrollOffset = scrollOffset;
+            CurrentScrollOffset = scrollOffset;
             ownedItems.anchoredPosition = new Vector2(-scrollOffset, 0f);
         }
 
@@ -296,23 +327,32 @@ namespace TurnLimbo.Presentation
             foreach (Card card in ownedCards)
             {
                 CampaignOwnedSkill owned = FindOwned(card.SkillId);
-                bool visible = State.OwnedFilter == AllLanes || owned.Skill.LaneIndex == State.OwnedFilter;
+                bool visible = State.CounterMode || State.OwnedFilter == AllLanes || owned.Skill.LaneIndex == State.OwnedFilter;
                 if (card.Button.gameObject.activeSelf != visible) card.Button.gameObject.SetActive(visible);
                 if (!visible) continue;
                 card.Rect.anchoredPosition = OwnedCardPosition(shown++);
                 card.Name.text = owned.Skill.Name;
-                card.Background.color = State.SelectedSkillId == card.SkillId
+                card.Background.color = (State.CounterMode ? State.SelectedCounterSkillId : State.SelectedSkillId) == card.SkillId
                     ? Color.Lerp(Selected, Accent, .18f) : CardColor;
             }
             ownedItems.sizeDelta = new Vector2(LoadoutRack.ContentWidth(shown, RackWidth), RackHeight);
             float offset = Mathf.Clamp(-ownedItems.anchoredPosition.x, 0f, ownedItems.sizeDelta.x - RackWidth);
             ownedItems.anchoredPosition = new Vector2(-offset, 0f);
-            State.OwnedScrollOffset = offset;
+            CurrentScrollOffset = offset;
             ownedEmpty.gameObject.SetActive(shown == 0);
+            ownedEmpty.text = State.CounterMode ? "보유한 반격 기술이 없습니다" : "남은 기술 없음";
         }
+
+        private bool BelongsInRack(CampaignOwnedSkill owned) => State.CounterMode
+            ? run.IsCounterSkill(owned.SkillId)
+            : !run.IsCounterSkill(owned.SkillId) && run.IsLaneOpen(owned.Skill.LaneIndex) && !run.IsSkillInLoadout(owned.SkillId);
+
+        private static int CounterUses(int id) => LegacySkillDefinitions.Find(id)?.CounterUsesPerTurn ?? 0;
 
         private void ReconcileSelection()
         {
+            if (!run.IsCounterSkill(State.SelectedCounterSkillId) || FindOwned(State.SelectedCounterSkillId) == null)
+                State.SelectedCounterSkillId = run.DraftCounterSkill?.Id ?? 0;
             if (State.OwnedFilter != AllLanes && !run.IsLaneOpen(State.OwnedFilter)) State.OwnedFilter = AllLanes;
             CampaignOwnedSkill selected = FindOwned(State.SelectedSkillId);
             if (selected == null)
@@ -339,25 +379,31 @@ namespace TurnLimbo.Presentation
 
         private void RefreshDetail()
         {
-            CampaignOwnedSkill owned = FindOwned(State.SelectedSkillId);
-            bool emptySlot = owned == null && State.SelectedSlot >= 0;
+            CampaignOwnedSkill owned = FindOwned(State.CounterMode ? State.SelectedCounterSkillId : State.SelectedSkillId);
+            bool emptySlot = !State.CounterMode && owned == null && State.SelectedSlot >= 0;
             detailIcon.enabled = owned != null;
             detailIcon.sprite = owned == null ? null : art.GetSkillIcon(owned.Skill.IconId);
             // An empty slot keeps its lane's school badge, where a skill's own would be, so the panel still names the lane.
-            detailStyle.Root.gameObject.SetActive(owned != null || emptySlot);
-            removeButton.gameObject.SetActive(owned != null && run.IsSkillInLoadout(owned.SkillId) && run.IsLaneOpen(owned.Skill.LaneIndex));
+            detailStyle.Root.gameObject.SetActive(State.CounterMode || owned != null || emptySlot);
+            removeButton.gameObject.SetActive(!State.CounterMode && owned != null && run.IsSkillInLoadout(owned.SkillId) && run.IsLaneOpen(owned.Skill.LaneIndex));
+            counterAction.gameObject.SetActive(State.CounterMode && (owned != null || run.DraftCounterSkill != null));
+            counterAction.GetComponentInChildren<Text>().text = owned != null && run.DraftCounterSkill?.Id != owned.SkillId
+                ? "반격 장착" : "반격 해제";
             if (owned == null)
             {
-                if (emptySlot) detailStyle.SetLane(State.ActiveLane, true);
-                detailName.text = emptySlot ? "빈 슬롯" : "기술을 선택하세요";
+                if (State.CounterMode) detailStyle.Clear("반격");
+                else if (emptySlot) detailStyle.SetLane(State.ActiveLane, true);
+                detailName.text = State.CounterMode ? "미장착" : emptySlot ? "빈 슬롯" : "기술을 선택하세요";
                 detailInfo.Clear();
                 LayoutDetail();
                 return;
             }
             LegacySkill skill = owned.Skill;
-            detailStyle.SetLane(skill.LaneIndex, true);
+            if (State.CounterMode) detailStyle.Clear("반격 · 턴당 " + CounterUses(skill.Id) + "회");
+            else detailStyle.SetLane(skill.LaneIndex, true);
             detailName.text = skill.Name;
-            detailInfo.SetSkill(skill, owned: owned);
+            detailInfo.SetSkill(skill, owned: owned, effectiveCost: State.CounterMode ? 0 : (int?)null,
+                additionalDescription: State.CounterMode ? "내 칸이 비었을 때 상대 공격에 자동으로 대응합니다. ACT는 쓰지 않습니다." : null);
             LayoutDetail();
         }
 
@@ -382,7 +428,14 @@ namespace TurnLimbo.Presentation
         private void SelectOwned(int skillId)
         {
             CampaignOwnedSkill owned = FindOwned(skillId);
-            if (disposed || owned == null || !run.IsLaneOpen(owned.Skill.LaneIndex)) return;
+            if (State.CounterMode)
+            {
+                if (disposed || owned == null || !run.IsCounterSkill(skillId)) return;
+                State.SelectedCounterSkillId = skillId;
+                Refresh();
+                return;
+            }
+            if (disposed || owned == null || run.IsCounterSkill(skillId) || !run.IsLaneOpen(owned.Skill.LaneIndex)) return;
             State.ActiveLane = owned.Skill.LaneIndex;
             State.SelectedSkillId = skillId;
             State.SelectedSlot = -1;
@@ -394,6 +447,7 @@ namespace TurnLimbo.Presentation
         private void ClickSlot(int lane, int slot)
         {
             if (disposed) return;
+            LeaveCounterMode();
             State.ActiveLane = lane;
             State.SelectedSlot = slot;
             State.SelectedSkillId = run.GetLoadoutSlot(lane, slot)?.SkillId ?? 0;
@@ -405,6 +459,7 @@ namespace TurnLimbo.Presentation
         private void ClickGear(int lane)
         {
             if (disposed) return;
+            LeaveCounterMode();
             SetFilter(lane);
             Refresh();
         }
@@ -412,8 +467,48 @@ namespace TurnLimbo.Presentation
         private void SelectFilter(int filter)
         {
             if (disposed) return;
+            LeaveCounterMode();
             SetFilter(filter);
             Refresh();
+        }
+
+        private void SelectCounterSlot()
+        {
+            if (disposed) return;
+            CancelDrag();
+            if (!State.CounterMode)
+            {
+                State.OwnedScrollOffset = Mathf.Max(0f, -ownedItems.anchoredPosition.x);
+                State.CounterMode = true;
+                State.SelectedCounterSkillId = run.DraftCounterSkill?.Id ?? State.SelectedCounterSkillId;
+                ownedItems.anchoredPosition = new Vector2(-State.CounterScrollOffset, 0f);
+            }
+            Refresh();
+        }
+
+        private void LeaveCounterMode()
+        {
+            if (!State.CounterMode) return;
+            State.CounterScrollOffset = Mathf.Max(0f, -ownedItems.anchoredPosition.x);
+            State.CounterMode = false;
+            ownedItems.anchoredPosition = new Vector2(-State.OwnedScrollOffset, 0f);
+        }
+
+        private void SelectNormalSkills()
+        {
+            LeaveCounterMode();
+            Refresh();
+        }
+
+        private void EquipSelectedCounter()
+        {
+            if (disposed || !State.CounterMode) return;
+            int selected = State.SelectedCounterSkillId;
+            int id = selected != 0 && run.DraftCounterSkill?.Id != selected ? selected : 0;
+            if (id != 0 && (!run.IsCounterSkill(id) || FindOwned(id) == null)) return;
+            if (equipCounter != null) equipCounter.Invoke(id);
+            else run.TryEquipCounter(id);
+            if (!disposed) Refresh();
         }
 
         private void SetFilter(int filter)
@@ -461,8 +556,9 @@ namespace TurnLimbo.Presentation
         {
             if (pointer == null || pointer.button != PointerEventData.InputButton.Left ||
                 disposed || !root.gameObject.activeInHierarchy || FindOwned(skillId) == null || lane < 0 || lane > 2 ||
-                !run.IsLaneOpen(lane)) return false;
+                !run.IsLaneOpen(lane) || run.IsCounterSkill(skillId)) return false;
             CancelDrag();
+            LeaveCounterMode();
             State.ActiveLane = lane;
             State.SelectedSkillId = skillId;
             State.SelectedSlot = slot;
@@ -517,7 +613,7 @@ namespace TurnLimbo.Presentation
         public void Dispose()
         {
             if (disposed) return;
-            State.OwnedScrollOffset = Mathf.Max(0f, -ownedItems.anchoredPosition.x);
+            CurrentScrollOffset = Mathf.Max(0f, -ownedItems.anchoredPosition.x);
             disposed = true;
             CancelDrag();
             root.gameObject.SetActive(false);

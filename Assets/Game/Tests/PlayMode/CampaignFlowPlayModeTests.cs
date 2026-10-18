@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Presentation;
@@ -66,7 +67,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Currency, Is.Zero);
                 Assert.That(controller.Campaign.ClearedStageCount, Is.Zero);
                 Assert.That(controller.Campaign.CurriculumPoints, Is.Zero, "Abandoning a battle never earns 수련 점수.");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(9));
                 Release(keyboard.escapeKey);
             }
         }
@@ -114,7 +115,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.StartWith("cadet-b-"),
                     "The entrance may still be showing Cadet B walking when this frame is checked.");
                 Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(3), "A battle earns when it ends.");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11));
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(11));
                 Release(keyboard.enterKey);
                 yield return null;
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(2));
@@ -122,7 +123,7 @@ namespace TurnLimbo.Presentation.Tests
                 controller.enabled = false;
                 scope.WinStage();
                 Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(7));
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(12), "Stage 2's first clear adds its own skill.");
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(12), "Stage 2's first clear adds its own skill.");
             }
         }
 
@@ -147,7 +148,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60));
                 Assert.That(controller.LearnCurriculumNode("horizontal-cut"), Is.True);
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11));
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(11));
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Hud.Root.activeSelf, Is.False);
                 Assert.That(controller.CanChoose, Is.False);
@@ -157,7 +158,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Outcome frames cannot pay again.");
                 Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(4),
                     "…nor earn again (the mission point and the first clear's 4, less 가로베기's 1).");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(11));
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(11));
                 Assert.That(controller.LearnCurriculumNode("horizontal-cut"), Is.False, "A learned node cannot be learned again.");
                 Assert.That(controller.Campaign.IsSkillEquipped(14), Is.False,
                     "A completed node grants its skill without equipping it.");
@@ -264,7 +265,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.DismissBattleResult(), Is.True);
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.LearnCurriculumNode("horizontal-cut"), Is.True);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(10));
                 Assert.That(controller.Campaign.IsSkillInLoadout(14), Is.False);
                 Assert.That(controller.Campaign.CurriculumPoints, Is.Zero);
 
@@ -282,7 +283,7 @@ namespace TurnLimbo.Presentation.Tests
                 reset.onClick.Invoke();
                 Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(1), "The reset gives back the point it cost.");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(9));
                 Assert.That(controller.Campaign.IsSkillEquipped(14), Is.False);
                 Assert.That(controller.Campaign.GetEquippedLane(0)[2].SkillId, Is.EqualTo(7),
                     "The lane that lost the skill is refilled with its starting skill.");
@@ -317,13 +318,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(8));
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(760));
                 Assert.That(controller.Campaign.Curriculum.IsCompleted("horizontal-cut"), Is.True);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(15), "Nine starting, five stage rewards (7 gives 알티바호), 가로베기.");
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(15), "Nine starting, five stage rewards (7 gives 알티바호), 가로베기.");
                 Assert.That(controller.LobbyHud.IsVisible, Is.True);
                 Assert.That(controller.Campaign.HighestUnlockedStage, Is.EqualTo(8));
                 controller.RestartJourney();
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));
                 Assert.That(controller.Campaign.Currency, Is.Zero);
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(controller.Campaign.OwnedSkills.Count(skill => !controller.Campaign.IsCounterSkill(skill.SkillId)), Is.EqualTo(9));
                 Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(controller.Campaign.CurriculumPoints, Is.Zero, "A new journey starts without 수련 점수.");
                 Assert.That(controller.IsInLobby, Is.True);

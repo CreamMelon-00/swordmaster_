@@ -1,5 +1,15 @@
 # 첫 전투·연출·컴팩트 HUD 검증
 
+## 반격 편성 (2026-10-18, 회사 PC 독립 검증)
+
+- 일반 Q/W/E와 독립인 반격 슬롯, 장착·해제 초안, 편성 저장·변경 취소, 구버전 저장 복원, 일반전·다인전·수련의 반격 전달을 추가했다. 임시 기술은 ID **600 연습 반격**이며 기본 미장착이다. 설정 방법은 [CounterSystem.md](CounterSystem.md)를 따른다.
+- 다른 세션의 상태 효과·밸런스·설명 변경을 제외하고 기준 `7ba2fb6`에 반격 변경만 더한 소스를 따로 검증했다. Core 6·Runtime 88·EditMode 79개 파일 컴파일 성공, 독립 NUnit **1,554/1,555 통과**. 신규 반격 43건(`CampaignCounterLoadoutTests` 27건, `CounterSkillSheetTests` 16건)은 모두 통과했다. Unity Resources 전용 오프닝 3건은 기존처럼 독립 실행 범위에서 제외한다.
+- 실패 1건은 기존 `MeshingTests.StoryDuels_MeshFromMissionFive_WhereTheSecondLaneOpens`가 코치 안내에서 `맞물려`를 찾지만 실제 문구는 `맞물림으로`인 기대값 불일치다. 반격 변경이 없는 기준 HEAD에서도 같은 실패를 재현했다. 해당 문구와 검사는 이번 커밋에서 수정하지 않았다.
+- Presentation·PlayMode 230개 파일을 두 전처리 조건에서 파싱해 구문 오류 0을 확인했다. 반격 화면 PlayMode 6건은 추가했으나 실행하지 않았다.
+- 실제 UnityEngine·uGUI DLL을 참조해 UI 코드 115개를 타입 컴파일했다. 설치되지 않은 Input System·URP·Relay 경계에는 검증용 임시 대체 타입을 사용하므로 프로젝트 패키지 전체의 Unity 컴파일을 대신하지 않는다. `AcademyFieldView.Size`의 기존 Vector3/Vector2 조건식 모호성은 명시적 Vector2 캐스트로 정리했다.
+- 관련 PlayMode 11개 파일도 타입 컴파일에 성공했다. 새 반격 화면 6건을 포함하지만 테스트 실행 결과는 아니다. 실제 Relay 연결 구현은 이 타입 검사에서 제외하며 입력 테스트 경계의 최소 선언만 검증 도구에 둔다.
+- 증거는 `Temp/CounterCommitValidation`의 `Current`·`Head` XML 및 로그, `TypeCurrent` 타입 컴파일 로그, 소스 스냅샷과 해시에 있다. Unity Editor는 실행하지 않았으며, 실제 화면 배치·조작·반격 연출과 프로젝트 버전의 PlayMode 실행은 집에서 확인해야 한다.
+
 최근 Unity 실행 검증일: 2026-10-18. 환경: Windows / Unity 6000.5.9f1 / Universal 2D / Input System 1.20.0.
 
 ## 전투 가시성: 최신 본 기준 독립 C# 검증 (2026-10-18)

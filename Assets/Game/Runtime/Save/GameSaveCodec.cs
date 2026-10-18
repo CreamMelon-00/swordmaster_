@@ -25,7 +25,8 @@ namespace TurnLimbo.Runtime.Save
     /// in progress before points replaced it) is still read once and ignored: that node and its counted battles are
     /// dropped. Optional <c>training-wins N</c> records successful dummy fights; optional repeated
     /// <c>skill-xp ID XP</c> lines record nonzero cumulative clashes; an optional <c>field-pickups</c> line lists the
-    /// field pickups taken in order. Their absence means zero or none, keeping earlier version 2 saves readable (a build
+    /// field pickups taken in order. Optional <c>counter-skill ID</c> records the separate counter slot; absent means none.
+    /// Their absence means zero or none, keeping earlier version 2 saves readable (a build
     /// from before a key still rejects a file that has it). <c>curriculum-tree N</c> records the version of the default
     /// curriculum tree the progress was made with (<see cref="CampaignCurriculum.TreeVersion"/>); it is always written now,
     /// a file without it reads 1, and a version other than the current one empties the curriculum when the save is
@@ -75,6 +76,8 @@ namespace TurnLimbo.Runtime.Save
                 foreach (int id in campaign.Loadout[lane]) text.Append(' ').Append(id);
                 text.Append('\n');
             }
+            if (campaign.CounterSkillId != 0)
+                text.Append("counter-skill ").Append(campaign.CounterSkillId).Append('\n');
             foreach (KeyValuePair<int, int> entry in campaign.SkillExperience)
                 if (entry.Value != 0)
                     text.Append("skill-xp ").Append(entry.Key).Append(' ').Append(entry.Value).Append('\n');
@@ -93,7 +96,7 @@ namespace TurnLimbo.Runtime.Save
             if (lines.Length > 0 && lines[0].Length > 0 && lines[0][0] == '﻿') lines[0] = lines[0].Substring(1);
 
             int? prologue = null, currency = null, trainingWins = null, openingChoice = null, openingPending = null,
-                curriculumTree = null, curriculumPoints = null;
+                curriculumTree = null, curriculumPoints = null, counterSkillId = null;
             List<int> cleared = null;
             List<string> curriculumDone = null;
             List<string> fieldPickups = null;
@@ -193,6 +196,12 @@ namespace TurnLimbo.Runtime.Save
                         if (values.Length != 2) return Fail(out error, lineNumber, "skill-xp에는 기술 ID와 경험치가 필요합니다.");
                         skillExperience.Add(new KeyValuePair<int, int>(values[0], values[1]));
                         break;
+                    case "counter-skill":
+                        if (counterSkillId.HasValue) return Fail(out error, lineNumber, "counter-skill이 두 번 있습니다.");
+                        if (values.Length != 1 || values[0] < 0)
+                            return Fail(out error, lineNumber, "counter-skill에는 0 이상의 기술 ID 하나가 필요합니다.");
+                        counterSkillId = values[0];
+                        break;
                     default:
                         return Fail(out error, lineNumber, $"알 수 없는 항목 '{parts[0]}'입니다.");
                 }
@@ -207,7 +216,7 @@ namespace TurnLimbo.Runtime.Save
 
             save = new GameSave(prologue.Value,
                 new CampaignSave(currency.Value, cleared, curriculumDone, curriculumPoints, lanes,
-                    trainingWins ?? 0, skillExperience, fieldPickups, curriculumTree ?? 1),
+                    trainingWins ?? 0, skillExperience, fieldPickups, curriculumTree ?? 1, counterSkillId ?? 0),
                 (OpeningVoiceChoice)(openingChoice ?? 0), !openingPending.HasValue);
             error = null;
             return true;

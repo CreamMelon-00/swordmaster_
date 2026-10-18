@@ -45,7 +45,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(target.LastCurriculumPointGain.IsEmpty, Is.True, "A loaded game has no last battle.");
             Assert.That(target.RestoreDroppedCurriculum, Is.False, "A save of the current tree keeps its curriculum.");
             CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 10, 12, 43, 44 },
-                target.OwnedSkills.Select(owned => owned.SkillId),
+                target.OwnedSkills.Where(owned => !target.IsCounterSkill(owned.SkillId)).Select(owned => owned.SkillId),
                 "Owned skills follow completed nodes and first-clear stage rewards, regardless of grant order.");
             Assert.That(target.CanStartStage(3), Is.True);
             Assert.That(target.CreateDuel(1).GetLane(0)[0].Id, Is.EqualTo(14), "The saved loadout fights.");
@@ -132,7 +132,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(campaign.GetEquippedLane(0).Select(entry => entry.SkillId), Is.EqualTo(new[] { 1, 2, 7 }));
             Assert.That(campaign.GetEquippedLane(1).Select(entry => entry.SkillId), Is.EqualTo(new[] { 3, 4, 8 }));
             Assert.That(campaign.GetEquippedLane(2).Select(entry => entry.SkillId), Is.EqualTo(new[] { 5, 6, 9 }));
-            Assert.That(campaign.OwnedSkills.Select(entry => entry.SkillId), Is.EqualTo(Enumerable.Range(1, 9)));
+            Assert.That(campaign.OwnedSkills.Where(owned => !campaign.IsCounterSkill(owned.SkillId)).Select(entry => entry.SkillId),
+                Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(campaign.GetEquippedLane(0)[1].Skill.Name, Is.EqualTo("연속 베기"),
                 "A pre-redesign ID now reads its current definition without changing the saved lane.");
             Assert.That(campaign.RestoreDroppedCurriculum, Is.False, "It had no curriculum progress to drop, so no notice.");
@@ -523,7 +524,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(campaign.ClearedStageCount, Is.EqualTo(7), "…and the stages…");
             CollectionAssert.AreEqual(new[] { "forest-pierce" }, campaign.CollectedFieldPickups, "…and the pickups.");
             CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 43, 44, 45, 46, 16, 47 },
-                campaign.OwnedSkills.Select(owned => owned.SkillId), "Stage 7 now grants 16; the old curriculum's skills are gone.");
+                campaign.OwnedSkills.Where(owned => !campaign.IsCounterSkill(owned.SkillId)).Select(owned => owned.SkillId),
+                "Stage 7 now grants 16; the old curriculum's skills are gone.");
             CollectionAssert.AreEqual(new[] { 1, 7, 2 }, campaign.GetEquippedLane(0).Select(owned => owned.SkillId),
                 "호흡 leaves its lane and the lane's next starting skill fills the gap.");
             CollectionAssert.AreEqual(new[] { 16, 47, 8 }, campaign.GetEquippedLane(1).Select(owned => owned.SkillId),

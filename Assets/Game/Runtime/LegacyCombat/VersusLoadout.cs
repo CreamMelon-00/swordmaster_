@@ -101,7 +101,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private static bool TryFindAvailable(int id, out LegacySkill skill)
         {
             skill = null;
-            if (IsExcluded(id)) return false;
+            if (IsExcluded(id) || LegacySkillDefinitions.Find(id)?.IsCounter == true) return false;
             foreach (LegacySkill candidate in LegacySkillDefinitions.InitialSkills)
                 if (candidate.Id == id) { skill = candidate; return true; }
             foreach (LegacySkill candidate in LegacySkillDefinitions.AcquisitionSkills)

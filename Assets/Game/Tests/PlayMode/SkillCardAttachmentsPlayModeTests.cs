@@ -261,7 +261,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "ACT Value").text, Is.EqualTo("2"));
                 Assert.That(Label(detail, "Curriculum Detail Values").text, Is.EqualTo("7–11"));
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "Nine lane skills and one unequipped counter remain unchanged.");
                 Assert.That(run.HasLoadoutChanges, Is.False, "Reading details never moves a loadout slot.");
                 CollectionAssert.AreEqual(originalLoadout, EquippedIds(run));
             }

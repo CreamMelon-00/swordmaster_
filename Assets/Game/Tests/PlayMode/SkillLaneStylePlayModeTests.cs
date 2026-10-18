@@ -209,7 +209,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Find(lobby.Root, "Loadout Counts"), Is.Null,
                     "The slot grid already shows how many skills are placed.");
                 CollectionAssert.AreEqual(saved, EquippedIds(run));
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "Nine lane skills and one unequipped counter remain unchanged.");
                 Assert.That(Named(lobby.Root, "Loadout Save").GetComponent<Button>().interactable, Is.False);
             }
             finally { lobby?.Dispose(); Object.Destroy(parent); }
@@ -258,7 +258,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "Attack Type").text, Is.EqualTo("관통"));
                 Assert.That(detail.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodes));
                 Assert.That(Label(detail, "Style Key").raycastTarget, Is.False);
-                Assert.That(run.Curriculum.CompletedCount, Is.Zero); Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.Curriculum.CompletedCount, Is.Zero); Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
                 Assert.That(run.HasLoadoutChanges, Is.False);
                 CollectionAssert.AreEqual(saved, EquippedIds(run));
             }

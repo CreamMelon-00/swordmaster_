@@ -49,6 +49,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             SheetId = sheetId;
             var initial = new List<LegacySkill>();
+            var initialCounters = new List<LegacySkill>();
             var acquisition = new List<LegacySkill>();
             var enemy = new List<LegacySkill>();
             var temporary = new List<LegacySkill>();
@@ -60,7 +61,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 // Every group by name: a group nobody listed must never fall through to the enemy rows.
                 switch (groups[index])
                 {
-                    case LegacySkillGroup.Starting: initial.Add(skill); break;
+                    case LegacySkillGroup.Starting:
+                        if (definitions[index].IsCounter) initialCounters.Add(skill);
+                        else initial.Add(skill);
+                        break;
                     case LegacySkillGroup.Acquisition: acquisition.Add(skill); break;
                     case LegacySkillGroup.Enemy: enemy.Add(skill); break;
                     case LegacySkillGroup.Temporary: temporary.Add(skill); break;
@@ -69,6 +73,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             All = Array.AsReadOnly(definitions.ToArray());
             InitialSkills = initial.AsReadOnly();
+            InitialCounterSkills = initialCounters.AsReadOnly();
             AcquisitionSkills = acquisition.AsReadOnly();
             EnemySkills = enemy.AsReadOnly();
             TemporarySkills = temporary.AsReadOnly();
@@ -79,6 +84,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacySkillDefinition> All { get; }
         /// <summary>The 시작 rows in sheet order; within a lane this is the default loadout order.</summary>
         public IReadOnlyList<LegacySkill> InitialSkills { get; }
+        /// <summary>The starting counter techniques; these never occupy a default Q/W/E slot.</summary>
+        public IReadOnlyList<LegacySkill> InitialCounterSkills { get; }
         /// <summary>The 획득 rows in sheet order.</summary>
         public IReadOnlyList<LegacySkill> AcquisitionSkills { get; }
         /// <summary>The 적 rows in sheet order: enemy-only techniques, never the player's.</summary>
@@ -191,6 +198,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public const string ReserveEffect = "예약 효과";
             /// <summary>One phrase for what happens as the skill's slot starts (<see cref="LegacySkillLabels.UseEffect"/>).</summary>
             public const string UseEffect = "사용 효과";
+            /// <summary>Optional for older sheets: zero/blank is a normal skill, positive is a separate counter technique.</summary>
+            public const string CounterUsesPerTurn = "반격 횟수";
         }
 
         public const string StartingGroup = "시작";
@@ -229,6 +238,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Column.QueueRemovalMode, Column.QueuePowerMultiplierCap,
             Column.CyclePowerPerUse, Column.CycleCostPerUse, Column.CycleMaxCount,
             Column.ReserveEffect, Column.UseEffect,
+            Column.CounterUsesPerTurn,
         });
         // What the phrase columns read, for their problems (Choice adds '중 하나를 적으세요').
         private static readonly string ReserveEffectChoices =
@@ -278,8 +288,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 var reader = new RowReader(records[index], columns, problems);
                 if (reader.IsBlank || reader.Cell(Column.Id).StartsWith("#", StringComparison.Ordinal)) continue;
                 ParsedRow row = ReadRow(reader);
-                if (!reader.Ok(Column.Group, Column.Lane)) membershipKnown = false;
-                else if (row.Group == LegacySkillGroup.Starting) perLane[row.Lane]++;
+                if (!reader.Ok(Column.Group, Column.Lane, Column.CounterUsesPerTurn)) membershipKnown = false;
+                else if (row.Group == LegacySkillGroup.Starting && row.CounterUsesPerTurn == 0) perLane[row.Lane]++;
                 else if (row.Group == LegacySkillGroup.Acquisition) anyAcquisition = true;
                 if (reader.Ok(Column.Id))
                 {
@@ -391,7 +401,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private sealed class ParsedRow
         {
-            public int Id, Lane, Row;
+            public int Id, Lane, Row, CounterUsesPerTurn;
             public LegacySkillGroup Group;
             public LegacySkillDefinition Definition;
         }
@@ -423,7 +433,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             foreach (string name in Headers)
                 if (counts.TryGetValue(name, out int count) && count > 1)
                     problems.Add($"1행: '{name}' 열이 {count}번 있습니다. 같은 이름의 열은 하나만 둘 수 있습니다.");
-            string[] missing = Headers.Where(name => !columns.ContainsKey(name)).ToArray();
+            string[] missing = Headers.Where(name => name != Column.CounterUsesPerTurn && !columns.ContainsKey(name)).ToArray();
             if (missing.Length > 0)
                 problems.Add($"1행: 필요한 열이 없습니다: {Quoted(missing)}. 첫 행의 열 이름은 띄어쓰기까지 똑같이 적어야 합니다 " +
                     $"(순서는 자유, 다른 이름의 열은 메모로 무시합니다). 필요한 열: {Quoted(Headers)}.");
@@ -442,6 +452,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacySkillKind kind = r.Kind(Column.Kind, required: true) ?? LegacySkillKind.Attack;
             LegacySkillProperty property = r.Property(Column.Property, required: true) ?? LegacySkillProperty.Slash;
             int cost = r.Integer(Column.Cost, 0, required: true);
+            int counterUses = r.Integer(Column.CounterUsesPerTurn, 0, required: false);
             int minPower = r.Integer(Column.MinPower, 0, required: true);
             int maxPower = r.Integer(Column.MaxPower, 0, required: true);
             int hits = r.Integer(Column.Hits, 1, required: true);
@@ -494,6 +505,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 };
 
             if (r.Ok(Column.Id)) r.Id = id;
+            if (counterUses > 0)
+            {
+                if (group == LegacySkillGroup.Enemy || group == LegacySkillGroup.Temporary)
+                    r.Problem(Column.CounterUsesPerTurn, "반격 기술은 구분이 시작 또는 획득이어야 합니다.");
+                if (cost != 0) r.Problem(Column.Cost, "반격 기술은 ACT를 쓰지 않으므로 0이어야 합니다.");
+                if (effect.HasReserveEffect || effect.HasUseEffect || effect.HasCycle ||
+                    effect.QueueRemovalMode != LegacyQueueRemovalMode.None || effect.QueuePowerMultiplierCap > 0)
+                    r.Problem(Column.CounterUsesPerTurn, "반격 기술에는 예약 효과, 사용 효과, 순환이나 앞 기술 처리를 붙일 수 없습니다. 반격은 대기열에 예약하지 않습니다.");
+            }
             // LegacySkill's own rules; cost, hits and lane are already checked cell by cell.
             if (r.Ok(Column.MinPower, Column.MaxPower) && maxPower < minPower)
                 r.RowProblem($"'{Column.MaxPower}'({maxPower})이(가) '{Column.MinPower}'({minPower})보다 작습니다.");
@@ -578,7 +598,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (text.Info != null && (text.Info.Main == null || text.Info.Description == null))
                 r.RowProblem($"배지 칸을 하나라도 쓰면 '{Column.InfoMain}'과(와) '{Column.InfoDescription}'을(를) 모두 적어야 합니다.");
 
-            var row = new ParsedRow { Id = id, Lane = lane, Group = group, Row = r.Row };
+            var row = new ParsedRow { Id = id, Lane = lane, Group = group, Row = r.Row, CounterUsesPerTurn = counterUses };
             if (!r.Valid) return row;
             bool hasEffect = effect.ActGain != 0 || effect.HasBuff || effect.ResistanceRecoveryPercent != 0 ||
                 effect.OpponentResistanceReduction != 0 || effect.BrokenTargetDamagePercent != 0 ||
@@ -587,7 +607,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 effect.QueuePowerMultiplierCap > 0 || effect.HasCycle || effect.HasReserveEffect || effect.HasUseEffect;
             row.Definition = new LegacySkillDefinition(
                 new LegacySkill(id, name, cost, minPower, maxPower, kind, property, hits, lane, description, animation, icon),
-                hasEffect ? effect : null, text, highPower, variablePower);
+                hasEffect ? effect : null, text, highPower, variablePower, counterUses);
             return row;
         }
 
@@ -630,6 +650,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 [Column.CycleMaxCount] = Optional(effect.CycleMaxCount),
                 [Column.ReserveEffect] = LegacySkillLabels.ReserveEffect(effect),
                 [Column.UseEffect] = LegacySkillLabels.UseEffect(effect),
+                [Column.CounterUsesPerTurn] = Optional(definition.CounterUsesPerTurn),
                 [Column.OpponentProperty] = effect.OpponentProperty.HasValue ? LegacySkillLabels.Property(effect.OpponentProperty.Value) : string.Empty,
                 [Column.OpponentKind] = effect.OpponentKind.HasValue ? LegacySkillLabels.Kind(effect.OpponentKind.Value) : string.Empty,
                 [Column.HighPower] = definition.HighPower ? TrueCell : string.Empty,
@@ -691,7 +712,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public bool Valid { get; private set; } = true;
             public bool IsBlank => record.Fields.All(field => field.Trim().Length == 0);
 
-            public string Cell(string header) => record[columns[header]].Trim();
+            public string Cell(string header) => columns.TryGetValue(header, out int column) ? record[column].Trim() : string.Empty;
 
             public bool Ok(params string[] headers) => headers.All(header => !failed.Contains(header));
 

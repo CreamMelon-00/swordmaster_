@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
@@ -390,7 +391,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(root, "Curriculum Damage Hint").text, Is.Empty);
                 Assert.That(fixture.SelectCalls, Is.Zero, "Browsing details must not learn any node.");
                 Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
-                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(fixture.Run.OwnedSkills.Count(owned => !fixture.Run.IsCounterSkill(owned.SkillId)), Is.EqualTo(9));
             }
         }
 
@@ -539,7 +540,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Hud.IsResetArmed, Is.False);
                 Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(fixture.Run.CurriculumPoints, Is.EqualTo(6), "3 left after 플레슈, and 3 given back.");
-                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10),
+                Assert.That(fixture.Run.OwnedSkills.Count(owned => !fixture.Run.IsCounterSkill(owned.SkillId)), Is.EqualTo(10),
                     "Reset removes curriculum skills but keeps the first stage reward.");
             }
         }
@@ -595,7 +596,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(reset.interactable, Is.False);
                 Assert.That(fixture.Run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(fixture.Run.CurriculumPoints, Is.EqualTo(4), "Both nodes' costs come back.");
-                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(10),
+                Assert.That(fixture.Run.OwnedSkills.Count(owned => !fixture.Run.IsCounterSkill(owned.SkillId)), Is.EqualTo(10),
                     "Reset keeps the first stage reward even after curriculum skills are removed.");
                 Assert.That(fixture.Run.IsSkillEquipped(14), Is.False);
                 Assert.That(fixture.Run.EquippedSkillCount, Is.EqualTo(9), "The emptied lane is refilled with a starting skill.");

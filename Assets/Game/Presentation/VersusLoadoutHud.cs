@@ -290,7 +290,7 @@ namespace TurnLimbo.Presentation
         {
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills) AddAvailableCard(skill);
             foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills)
-                if (!VersusLoadout.IsExcluded(skill.Id)) AddAvailableCard(skill);
+                if (!VersusLoadout.IsExcluded(skill.Id) && LegacySkillDefinitions.Find(skill)?.IsCounter != true) AddAvailableCard(skill);
         }
 
         // A compact card, as the campaign loadout's owned ones: the icon at the left with its core mark, the name, and under
@@ -445,7 +445,7 @@ namespace TurnLimbo.Presentation
 
         private static LegacySkill FindAvailable(int id)
         {
-            if (id == 0 || VersusLoadout.IsExcluded(id)) return null;
+            if (id == 0 || VersusLoadout.IsExcluded(id) || LegacySkillDefinitions.Find(id)?.IsCounter == true) return null;
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills)
                 if (skill.Id == id) return skill;
             foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills)

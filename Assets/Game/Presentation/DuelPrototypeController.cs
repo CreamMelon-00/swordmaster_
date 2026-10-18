@@ -425,7 +425,7 @@ namespace TurnLimbo.Presentation
                 stage => StartCampaignStage(stage), RestartJourney,
                 (id, lane, slot) => PlaceLoadoutSkill(id, lane, slot),
                 () => SaveLoadout(), () => ResetLoadout(), () => OpenNextMission(), lobbyRoomSprite,
-                () => StartTraining());
+                () => StartTraining(), equipCounter: id => EquipCounter(id));
             academyField = new AcademyFieldView(transform, art, arena,
                 stage => StartCampaignStage(stage), () => OpenNextMission(),
                 () => StartTraining(), () => OpenFieldMenu(), id => CollectFieldPickup(id));
@@ -2475,6 +2475,13 @@ namespace TurnLimbo.Presentation
             if (!IsInLobby || !campaign.TrySaveLoadout()) return false;
             lobbyHud.Show(campaign);
             AutoSave();
+            return true;
+        }
+
+        public bool EquipCounter(int skillId)
+        {
+            if (!IsInLobby || !campaign.TryEquipCounter(skillId)) return false;
+            lobbyHud.Show(campaign);
             return true;
         }
 

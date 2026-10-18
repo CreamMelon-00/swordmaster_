@@ -16,7 +16,8 @@ namespace TurnLimbo.Runtime.Campaign
         public CampaignSave(int currency, IEnumerable<int> clearedStages, IEnumerable<string> curriculumCompleted,
             int? curriculumPoints, IEnumerable<IEnumerable<int>> loadout,
             int trainingVictoryCount = 0, IEnumerable<KeyValuePair<int, int>> skillExperience = null,
-            IEnumerable<string> fieldPickups = null, int curriculumTreeVersion = CampaignCurriculum.TreeVersion)
+            IEnumerable<string> fieldPickups = null, int curriculumTreeVersion = CampaignCurriculum.TreeVersion,
+            int counterSkillId = 0)
         {
             if (clearedStages == null) throw new ArgumentNullException(nameof(clearedStages));
             if (curriculumCompleted == null) throw new ArgumentNullException(nameof(curriculumCompleted));
@@ -30,6 +31,7 @@ namespace TurnLimbo.Runtime.Campaign
                 Array.Empty<KeyValuePair<int, int>>()).AsReadOnly();
             FieldPickups = new List<string>(fieldPickups ?? Array.Empty<string>()).AsReadOnly();
             CurriculumTreeVersion = curriculumTreeVersion;
+            CounterSkillId = counterSkillId;
             var lanes = new List<IReadOnlyList<int>>();
             foreach (IEnumerable<int> lane in loadout)
                 lanes.Add(new List<int>(lane ?? throw new ArgumentException("A loadout lane is missing.", nameof(loadout))).AsReadOnly());
@@ -53,6 +55,8 @@ namespace TurnLimbo.Runtime.Campaign
         public IReadOnlyList<string> FieldPickups { get; }
         /// <summary>The saved Q/W/E lanes as skill ids.</summary>
         public IReadOnlyList<IReadOnlyList<int>> Loadout { get; }
+        /// <summary>The separately equipped counter, or zero when none is equipped. Older saves omit it.</summary>
+        public int CounterSkillId { get; }
         /// <summary>The version of the default curriculum tree the curriculum progress was made with
         /// (<see cref="CampaignCurriculum.TreeVersion"/>). A save file without the line reads 1, the tree before the
         /// version existed; a save made in code defaults to the current version.</summary>
@@ -73,7 +77,7 @@ namespace TurnLimbo.Runtime.Campaign
             }
             droppedProgress = CurriculumCompleted.Count > 0;
             return new CampaignSave(Currency, ClearedStages, Array.Empty<string>(), CurriculumPoints, Loadout,
-                TrainingVictoryCount, SkillExperience, FieldPickups, treeVersion);
+                TrainingVictoryCount, SkillExperience, FieldPickups, treeVersion, CounterSkillId);
         }
     }
 }

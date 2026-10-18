@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using NUnit.Framework;
@@ -53,7 +54,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.ClearedStageCount, Is.EqualTo(1));
                 Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(4),
                     "The 수련 점수 are earned before the result is shown.");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(controller.Campaign.OwnedSkills.Count(owned => !controller.Campaign.IsCounterSkill(owned.SkillId)), Is.EqualTo(10));
 
                 Assert.That(controller.QueueLane(0), Is.False);
                 Assert.That(controller.StartCampaignStage(2), Is.False);
@@ -63,7 +64,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Campaign.Currency, Is.EqualTo(60), "Result frames cannot pay a second reward.");
                 Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(4), "…nor earn twice…");
-                Assert.That(controller.Campaign.OwnedSkills.Count, Is.EqualTo(10), "…nor grant a skill twice.");
+                Assert.That(controller.Campaign.OwnedSkills.Count(owned => !controller.Campaign.IsCounterSkill(owned.SkillId)), Is.EqualTo(10), "…nor grant a skill twice.");
 
                 Assert.That(controller.AdvanceFromBattleResult(), Is.True);
                 Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));

@@ -499,6 +499,8 @@ namespace TurnLimbo.Presentation
         {
             if (skill == null) throw new ArgumentNullException(nameof(skill));
             if (!newlyOwned) return $"{skill.Name} · 이미 익힌 기술입니다.";
+            if (LegacySkillDefinitions.Find(skill)?.IsCounter == true)
+                return $"새 기술 · {skill.Name}(반격)\nEsc 메뉴의 편성에서 반격 슬롯에 장착할 수 있습니다.";
             return laneOpen
                 ? $"새 기술 · {skill.Name}({SkillLaneStyle.Key(skill.LaneIndex)} {SkillLaneStyle.Name(skill.LaneIndex)})\n" +
                   "Esc 메뉴의 편성에서 장착할 수 있습니다."
@@ -1021,7 +1023,7 @@ namespace TurnLimbo.Presentation
 
         private static void Size(SpriteRenderer renderer, float width, float height)
         {
-            Vector2 source = renderer.sprite != null ? renderer.sprite.bounds.size : Vector2.one;
+            Vector2 source = renderer.sprite != null ? (Vector2)renderer.sprite.bounds.size : Vector2.one;
             renderer.transform.localScale = new Vector3(width / Mathf.Max(.01f, source.x),
                 height / Mathf.Max(.01f, source.y), 1f);
         }

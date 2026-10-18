@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
@@ -376,7 +377,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(run.ReturnToLobby(), Is.True);
                 hud.Show(run);
                 Assert.That(FindText(hud, "Outcome Banner").text, Is.EqualTo("전투 종료"));
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(10));
                 Assert.That(run.IsSkillEquipped(14), Is.False);
                 Assert.That(run.IsSkillInLoadout(14), Is.False);
 
@@ -421,7 +422,7 @@ namespace TurnLimbo.Presentation.Tests
                     "The run fallback refreshes the lobby.");
                 Assert.That(hud.CurrentTab, Is.EqualTo(LobbyTab.Curriculum));
                 Assert.That(run.Curriculum.IsCompleted("horizontal-cut"), Is.True);
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
+                Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(11));
                 Assert.That(FindText(hud, "Curriculum Completed Count").text, Is.EqualTo($"완료 1 / {CampaignCurriculum.Default.Nodes.Count}"));
 
                 Button reset = FindButton(hud, "Curriculum Reset");
@@ -432,7 +433,7 @@ namespace TurnLimbo.Presentation.Tests
                     Is.EqualTo("한 번 더 누르면 초기화\n쓴 점수 1점을 돌려받습니다"));
                 FindButton(hud, "Curriculum Reset").onClick.Invoke();
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10));
+                Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(10));
                 Assert.That(run.CurriculumPoints, Is.EqualTo(4), "The reset gives the point back.");
                 Assert.That(FindText(hud, "Curriculum Completed Count").text, Is.EqualTo($"완료 0 / {CampaignCurriculum.Default.Nodes.Count}"));
                 Assert.That(FindButton(hud, "Curriculum Reset").GetComponentInChildren<Text>().text,

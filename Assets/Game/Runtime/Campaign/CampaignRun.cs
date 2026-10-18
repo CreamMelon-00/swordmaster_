@@ -40,6 +40,7 @@ namespace TurnLimbo.Runtime.Campaign
         {
             new CampaignOwnedSkill[3], new CampaignOwnedSkill[3], new CampaignOwnedSkill[3],
         };
+        private CampaignOwnedSkill equippedCounter, draftCounter;
         // Ids of the field pickups taken, in the order they were taken.
         private readonly List<string> collectedFieldPickups = new List<string>();
         private bool trainingBattle;
@@ -89,6 +90,33 @@ namespace TurnLimbo.Runtime.Campaign
         /// <summary>Starting skills first, then stage, curriculum and field-pickup skills in the order they were granted.</summary>
         public IReadOnlyList<CampaignOwnedSkill> OwnedSkills { get; }
         public CampaignOwnedSkill GetOwnedSkill(int skillId) => FindOwnedSkill(skillId);
+        /// <summary>The optional counter saved with the loadout, separate from all three lanes.</summary>
+        public LegacySkill EquippedCounterSkill => equippedCounter?.Skill;
+        public LegacySkill DraftCounterSkill => draftCounter?.Skill;
+        public bool IsCounterSkill(int skillId) => IsCounterDefinition(skillId);
+
+        public IReadOnlyList<LegacySkill> GetOwnedCounterSkills()
+        {
+            var counters = new List<LegacySkill>();
+            foreach (CampaignOwnedSkill owned in ownedSkills)
+                if (IsCounterSkill(owned.SkillId)) counters.Add(owned.Skill);
+            return counters.AsReadOnly();
+        }
+
+        /// <summary>Edits the optional counter slot. Zero clears it; saving commits the draft with the lane edits.</summary>
+        public bool TryEquipCounter(int skillId)
+        {
+            if (!CanEditLoadout) return false;
+            if (skillId == 0)
+            {
+                draftCounter = null;
+                return true;
+            }
+            CampaignOwnedSkill owned = FindOwnedSkill(skillId);
+            if (owned == null || !IsCounterSkill(skillId)) return false;
+            draftCounter = owned;
+            return true;
+        }
         /// <summary>Ids of the field pickups taken (<see cref="CampaignFieldPickups"/>), in the order they were taken.
         /// The field hides these.</summary>
         public IReadOnlyList<string> CollectedFieldPickups { get; }
@@ -201,6 +229,7 @@ namespace TurnLimbo.Runtime.Campaign
         {
             get
             {
+                if (!ReferenceEquals(draftCounter, equippedCounter)) return true;
                 for (int lane = 0; lane < loadoutSlots.Length; lane++)
                     for (int slot = 0; slot < loadoutSlots[lane].Length; slot++)
                         if (slot >= equippedLanes[lane].Count ||
@@ -308,7 +337,7 @@ namespace TurnLimbo.Runtime.Campaign
             if (!CanEditLoadout || lane < 0 || lane >= loadoutSlots.Length ||
                 slot < 0 || slot >= loadoutSlots[lane].Length || !IsLaneOpen(lane)) return false;
             CampaignOwnedSkill owned = FindOwnedSkill(skillId);
-            if (owned == null || owned.Skill.LaneIndex != lane) return false;
+            if (owned == null || IsCounterSkill(skillId) || owned.Skill.LaneIndex != lane) return false;
             CampaignOwnedSkill[] slots = loadoutSlots[lane];
             for (int source = 0; source < slots.Length; source++)
                 if (ReferenceEquals(slots[source], owned))
@@ -332,6 +361,7 @@ namespace TurnLimbo.Runtime.Campaign
                 equippedLanes[lane].Clear();
                 equippedLanes[lane].AddRange(loadoutSlots[lane]);
             }
+            equippedCounter = draftCounter;
             return true;
         }
 
@@ -346,7 +376,7 @@ namespace TurnLimbo.Runtime.Campaign
         {
             if (!CanEditLoadout || IsSkillInLoadout(skillId)) return false;
             CampaignOwnedSkill owned = FindOwnedSkill(skillId);
-            if (owned == null || !IsLaneOpen(owned.Skill.LaneIndex)) return false;
+            if (owned == null || IsCounterSkill(skillId) || !IsLaneOpen(owned.Skill.LaneIndex)) return false;
             CampaignOwnedSkill[] lane = loadoutSlots[owned.Skill.LaneIndex];
             for (int slot = 0; slot < lane.Length; slot++)
                 if (lane[slot] == null)
@@ -526,6 +556,8 @@ namespace TurnLimbo.Runtime.Campaign
         public LegacyQueuedDuel CreateDuel(int randomSeed = 1, int meshPercent = LegacyMeshing.DefaultPercent)
         {
             CurriculumStatReward stats = CurriculumStats;
+            LegacyCounter playerCounter = equippedCounter == null ? null : new LegacyCounter(equippedCounter.Skill,
+                LegacySkillDefinitions.Find(equippedCounter.SkillId).CounterUsesPerTurn);
             var playerSkills = new LegacySkill[EquippedSkillCount];
             int index = 0;
             foreach (List<CampaignOwnedSkill> lane in equippedLanes)
@@ -534,12 +566,12 @@ namespace TurnLimbo.Runtime.Campaign
             if (trainingBattle)
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                     TrainingDummyHealth, 0, playerSkills, Array.Empty<LegacySkill>(), new[] { 0 }, randomSeed,
-                    features: Features, playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity,
+                    playerCounter: playerCounter, features: Features, playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity,
                     roundLimit: TrainingRoundLimit, meshPercent: meshPercent);
 
             if (CurrentStage.Number == 5)
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
-                    playerSkills, StageFiveEnemies(), randomSeed, features: Features,
+                    playerSkills, StageFiveEnemies(), randomSeed, playerCounter: playerCounter, features: Features,
                     playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
 
             LegacyCounter enemyCounter = CurrentStage.EnemyCounterBasis == null ? null
@@ -550,14 +582,14 @@ namespace TurnLimbo.Runtime.Campaign
             if (script != null)
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                     CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills,
-                    script.Select(WithStagePower), randomSeed, enemyCounter: enemyCounter, features: Features,
+                    script.Select(WithStagePower), randomSeed, playerCounter: playerCounter, enemyCounter: enemyCounter, features: Features,
                     playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
             // The basic rhythm: the six basic skills in order, 2→3→2→1 actions a turn.
             var enemySkills = new LegacySkill[BasicRhythmSkillIds.Length];
             for (int i = 0; i < enemySkills.Length; i++) enemySkills[i] = WithStagePower(LegacySkillDefinitions.Skill(BasicRhythmSkillIds[i]));
             return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                 CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills, enemySkills,
-                new[] { 2, 3, 2, 1 }, randomSeed, enemyCounter: enemyCounter, features: Features,
+                new[] { 2, 3, 2, 1 }, randomSeed, playerCounter: playerCounter, enemyCounter: enemyCounter, features: Features,
                 playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
         }
 
@@ -611,6 +643,9 @@ namespace TurnLimbo.Runtime.Campaign
                 ownedSkills.Add(owned);
                 equippedLanes[skill.LaneIndex].Add(owned);
             }
+            foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills)
+                ownedSkills.Add(new CampaignOwnedSkill(skill));
+            equippedCounter = null;
             ResetLoadoutDraft();
             curriculum.Reset();
             collectedFieldPickups.Clear();
@@ -647,7 +682,7 @@ namespace TurnLimbo.Runtime.Campaign
                     skillExperience.Add(new KeyValuePair<int, int>(owned.SkillId, owned.Experience));
             skillExperience.Sort((left, right) => left.Key.CompareTo(right.Key));
             return new CampaignSave(Currency, cleared, curriculum.Completed, CurriculumPoints, loadout, TrainingVictoryCount,
-                skillExperience, collectedFieldPickups);
+                skillExperience, collectedFieldPickups, counterSkillId: equippedCounter?.SkillId ?? 0);
         }
 
         /// <summary>Whether the last successful <see cref="TryRestore"/> dropped curriculum progress that was made with
@@ -680,6 +715,7 @@ namespace TurnLimbo.Runtime.Campaign
             save = normalized;
             ownedSkills.Clear();
             foreach (LegacySkill skill in LegacyInitialSkills.All) ownedSkills.Add(new CampaignOwnedSkill(skill));
+            foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills) ownedSkills.Add(new CampaignOwnedSkill(skill));
             foreach (string id in save.CurriculumCompleted) GrantSkills(curriculum.Tree.Find(id));
             foreach (int number in save.ClearedStages)
                 if (stages[number - 1].FirstClearSkillId != 0) GrantSkill(stages[number - 1].FirstClearSkillId);
@@ -696,6 +732,7 @@ namespace TurnLimbo.Runtime.Campaign
                 equippedLanes[lane].Clear();
                 foreach (int id in save.Loadout[lane]) equippedLanes[lane].Add(FindOwnedSkill(id));
             }
+            equippedCounter = save.CounterSkillId == 0 ? null : FindOwnedSkill(save.CounterSkillId);
             ResetLoadoutDraft();
             Array.Clear(clearedStages, 0, clearedStages.Length);
             foreach (int number in save.ClearedStages)
@@ -755,6 +792,7 @@ namespace TurnLimbo.Runtime.Campaign
             CampaignSave reset = save.ForCurriculumTree(CampaignCurriculum.TreeVersion, out droppedCurriculum);
             var owned = new HashSet<int>();
             foreach (LegacySkill skill in LegacyInitialSkills.All) owned.Add(skill.Id);
+            foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills) owned.Add(skill.Id);
             foreach (int number in reset.ClearedStages)
                 if (number >= 1 && number <= stages.Length && stages[number - 1].FirstClearSkillId != 0)
                     owned.Add(stages[number - 1].FirstClearSkillId);
@@ -782,8 +820,10 @@ namespace TurnLimbo.Runtime.Campaign
             var experience = new List<KeyValuePair<int, int>>();
             foreach (KeyValuePair<int, int> entry in reset.SkillExperience)
                 if (owned.Contains(entry.Key)) experience.Add(entry);
+            int counterSkillId = reset.CounterSkillId;
+            if (IsCounterDefinition(counterSkillId) && !owned.Contains(counterSkillId)) counterSkillId = 0;
             return new CampaignSave(reset.Currency, reset.ClearedStages, reset.CurriculumCompleted, reset.CurriculumPoints,
-                lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups, reset.CurriculumTreeVersion);
+                lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups, reset.CurriculumTreeVersion, counterSkillId);
         }
 
         private string ValidateSave(CampaignSave save)
@@ -808,6 +848,7 @@ namespace TurnLimbo.Runtime.Campaign
             // experience records may only use those.
             var owned = new Dictionary<int, LegacySkill>();
             foreach (LegacySkill skill in LegacyInitialSkills.All) owned[skill.Id] = skill;
+            foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills) owned[skill.Id] = skill;
             foreach (string id in save.CurriculumCompleted)
                 foreach (int skillId in curriculum.Tree.Find(id).SkillIds)
                 {
@@ -854,10 +895,13 @@ namespace TurnLimbo.Runtime.Campaign
                 foreach (int id in ids)
                 {
                     if (!owned.ContainsKey(id)) return $"보유하지 않은 기술 {id}이(가) 편성되어 있습니다.";
+                    if (IsCounterSkill(id)) return $"반격 기술 {id}은(는) 반격 칸에 편성해야 합니다.";
                     if (owned[id].LaneIndex != lane) return $"기술 {id}은(는) {lane + 1}번째 열에 편성할 수 없습니다.";
                     if (!equipped.Add(id)) return $"기술 {id}이(가) 중복으로 편성되어 있습니다.";
                 }
             }
+            if (save.CounterSkillId != 0 && (!owned.ContainsKey(save.CounterSkillId) || !IsCounterSkill(save.CounterSkillId)))
+                return $"보유하지 않은 반격 기술 {save.CounterSkillId}이(가) 편성되어 있습니다.";
             return null;
         }
 
@@ -882,8 +926,13 @@ namespace TurnLimbo.Runtime.Campaign
         {
             foreach (LegacySkill skill in LegacyInitialSkills.All)
                 if (skill.Id == skillId) return true;
+            foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills)
+                if (skill.Id == skillId) return true;
             return false;
         }
+
+        private static bool IsCounterDefinition(int skillId)
+            => LegacySkillDefinitions.Find(skillId)?.CounterUsesPerTurn > 0;
 
         private bool IsUnlockedStageSkill(int skillId)
         {
@@ -903,6 +952,7 @@ namespace TurnLimbo.Runtime.Campaign
         /// skills in their original order, so every lane keeps exactly three.</summary>
         private void RefillLanesWithStartingSkills()
         {
+            if (equippedCounter != null && !ownedSkills.Contains(equippedCounter)) equippedCounter = null;
             for (int lane = 0; lane < equippedLanes.Length; lane++)
             {
                 List<CampaignOwnedSkill> skills = equippedLanes[lane];
@@ -910,7 +960,8 @@ namespace TurnLimbo.Runtime.Campaign
                 foreach (CampaignOwnedSkill owned in ownedSkills)
                 {
                     if (skills.Count >= loadoutSlots[lane].Length) break;
-                    if (owned.Skill.LaneIndex == lane && IsStartingSkill(owned.SkillId) && !skills.Contains(owned)) skills.Add(owned);
+                    if (!IsCounterSkill(owned.SkillId) && owned.Skill.LaneIndex == lane && IsStartingSkill(owned.SkillId) &&
+                        !skills.Contains(owned)) skills.Add(owned);
                 }
             }
         }
@@ -940,6 +991,7 @@ namespace TurnLimbo.Runtime.Campaign
 
         private void ResetLoadoutDraft()
         {
+            draftCounter = equippedCounter;
             for (int lane = 0; lane < loadoutSlots.Length; lane++)
                 for (int slot = 0; slot < loadoutSlots[lane].Length; slot++)
                     loadoutSlots[lane][slot] = slot < equippedLanes[lane].Count ? equippedLanes[lane][slot] : null;
@@ -947,11 +999,13 @@ namespace TurnLimbo.Runtime.Campaign
 
         private bool IsValidLoadout()
         {
+            if (draftCounter != null && (!IsCounterSkill(draftCounter.SkillId) ||
+                !ReferenceEquals(FindOwnedSkill(draftCounter.SkillId), draftCounter))) return false;
             for (int lane = 0; lane < loadoutSlots.Length; lane++)
                 for (int slot = 0; slot < loadoutSlots[lane].Length; slot++)
                 {
                     CampaignOwnedSkill owned = loadoutSlots[lane][slot];
-                    if (owned == null || owned.Skill.LaneIndex != lane ||
+                    if (owned == null || IsCounterSkill(owned.SkillId) || owned.Skill.LaneIndex != lane ||
                         !ReferenceEquals(FindOwnedSkill(owned.SkillId), owned)) return false;
                     for (int previousLane = 0; previousLane <= lane; previousLane++)
                     {

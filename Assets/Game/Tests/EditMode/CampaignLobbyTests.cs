@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Combat;
@@ -167,7 +168,7 @@ namespace TurnLimbo.Core.Tests
             WinStage(run, 1);
             run.ReturnToLobby();
             Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(11));
             Assert.That(run.IsSkillEquipped(14), Is.False);
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
             Assert.That(run.TryEquipSkill(14), Is.False);
@@ -258,7 +259,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryResetCurriculum(), Is.False);
             Assert.That(run.ReturnToLobby(), Is.False);
             Assert.That(run.Curriculum.IsCompleted("preparation"), Is.False);
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(11));
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(11));
             CollectionAssert.AreEqual(new[] { 1, 2, 14 }, EquippedIds(run, 0));
             Assert.That(run.TryAbandonBattle(), Is.True);
             Assert.That(run.CurriculumPoints, Is.EqualTo(points), "An abandoned battle earns nothing.");
@@ -309,7 +310,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.ClearedStageCount, Is.Zero);
             Assert.That(run.HighestUnlockedStage, Is.EqualTo(2));
             Assert.That(run.EquippedSkillCount, Is.EqualTo(9));
-            Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(9));
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
             Assert.That(run.CurriculumPoints, Is.Zero);
             Assert.That(run.HasLoadoutChanges, Is.False);

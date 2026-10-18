@@ -368,6 +368,7 @@ namespace TurnLimbo.Presentation
         /// <summary>A technique as the learning moment names it, with its school: <c>사선베기(Q 정공)</c>.</summary>
         public static string SkillLabel(LegacySkill skill)
             => skill == null ? string.Empty
+                : LegacySkillDefinitions.Find(skill)?.IsCounter == true ? $"{skill.Name}(반격)"
                 : $"{skill.Name}({SkillLaneStyle.Key(skill.LaneIndex)} {SkillLaneStyle.Name(skill.LaneIndex)})";
 
         /// <summary>The learning moment's headline: <c>새 기술 · 사선베기(Q 정공)</c>; a node that grants no technique names
@@ -398,6 +399,7 @@ namespace TurnLimbo.Presentation
             }
             if (parts.Count > 0) return string.Join("  ·  ", parts);
             return skill == null ? "능력치가 올랐습니다."
+                : LegacySkillDefinitions.Find(skill)?.IsCounter == true ? "편성의 반격 슬롯에 장착할 수 있습니다."
                 : laneOpen ? "편성에서 장착할 수 있습니다." : "이 기술을 쓰는 열을 해금하면 편성할 수 있습니다.";
         }
 
@@ -644,7 +646,8 @@ namespace TurnLimbo.Presentation
             {
                 // The granted skill's school in its dye, and its core mechanic at the icon's upper right.
                 Label("Node Lane", card.Button.transform, new Vector2(22f, 30f), new Vector2(40f, 22f), 15,
-                    SkillLaneStyle.Edge(skill.LaneIndex), TextAnchor.MiddleCenter).text = SkillLaneStyle.Key(skill.LaneIndex);
+                    SkillLaneStyle.Edge(skill.LaneIndex), TextAnchor.MiddleCenter).text =
+                        LegacySkillDefinitions.Find(skill)?.IsCounter == true ? "반격" : SkillLaneStyle.Key(skill.LaneIndex);
                 card.Role = new SkillRolePip(card.Button.transform, new Vector2(-13f, 36f), 14f);
                 card.Role.SetSkill(skill);
             }
@@ -743,7 +746,7 @@ namespace TurnLimbo.Presentation
             purpose.text = PurposeText(curriculum.Tree, node);
             requirement.text = RequirementText(node, curriculum.Tree);
             // Lanes open through story missions; a skill of a closed lane is owned but waits to fight.
-            if (skill != null && !run.IsLaneOpen(skill.LaneIndex))
+            if (skill != null && LegacySkillDefinitions.Find(skill)?.IsCounter != true && !run.IsLaneOpen(skill.LaneIndex))
                 requirement.text += $"  ·  {SkillLaneStyle.Key(skill.LaneIndex)}열은 임무로 열림";
             exclusive.text = ExclusiveText(node, curriculum.Tree);
             bool affordable = curriculum.IsAffordable(node.Id, run.CurriculumPoints);

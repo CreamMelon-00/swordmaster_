@@ -97,9 +97,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(csv[0], Is.EqualTo('\ufeff'), "Excel needs the mark to read Korean.");
             Assert.That(csv, Does.Not.Contain("\r"));
             Assert.That(csv.Substring(1, csv.IndexOf('\n') - 1), Is.EqualTo(string.Join(",", LegacySkillSheet.Headers)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(46));
-            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(46));
-            Assert.That(LegacySkillSheet.Headers.Skip(44), Is.EqualTo(new[] { "예약 효과", "사용 효과" }), "The phrase columns come last.");
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(47));
+            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(47));
+            Assert.That(LegacySkillSheet.Headers.Skip(44), Is.EqualTo(new[] { "예약 효과", "사용 효과", "반격 횟수" }));
             Assert.That(LegacySkillSheet.Headers, Has.No.Member("로비 목적"), "The lobby purpose column left the sheet on 2026-10-16.");
         }
 

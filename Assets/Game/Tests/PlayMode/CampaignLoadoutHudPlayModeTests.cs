@@ -474,7 +474,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
                 Assert.That(fixture.Run.ReturnToLobby(), Is.True);
                 Assert.That(fixture.Run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
-                Assert.That(fixture.Run.OwnedSkills.Count, Is.EqualTo(11),
+                Assert.That(NormalOwnedCount(fixture.Run), Is.EqualTo(11),
                     "The first stage grants 탐색 and the learned node grants 가로베기.");
                 fixture.Build();
                 ClickSelectionOnly(fixture, "Loadout Owned Skill 14");
@@ -657,7 +657,8 @@ namespace TurnLimbo.Presentation.Tests
                 Canvas.ForceUpdateCanvases();
                 var cards = new List<RectTransform>();
                 foreach (CampaignOwnedSkill owned in fixture.Run.OwnedSkills)
-                    cards.Add(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill " + owned.SkillId).GetComponent<RectTransform>());
+                    if (!fixture.Run.IsCounterSkill(owned.SkillId))
+                        cards.Add(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill " + owned.SkillId).GetComponent<RectTransform>());
                 Assert.That(cards.Count, Is.EqualTo(9));
                 for (int index = 0; index < cards.Count; index++)
                     Assert.That(cards[index].anchoredPosition, Is.EqualTo(CampaignLoadoutHud.OwnedCardPosition(index)), "Card " + index);
@@ -922,9 +923,16 @@ namespace TurnLimbo.Presentation.Tests
         private static int OwnedOfLane(CampaignRun run, int lane)
         {
             foreach (CampaignOwnedSkill owned in run.OwnedSkills)
-                if (owned.Skill.LaneIndex == lane && !run.IsSkillInLoadout(owned.SkillId)) return owned.SkillId;
+                if (!run.IsCounterSkill(owned.SkillId) && owned.Skill.LaneIndex == lane && !run.IsSkillInLoadout(owned.SkillId)) return owned.SkillId;
             Assert.Fail("No unplaced skill in lane " + lane);
             return 0;
+        }
+
+        private static int NormalOwnedCount(CampaignRun run)
+        {
+            int count = 0;
+            foreach (CampaignOwnedSkill owned in run.OwnedSkills) if (!run.IsCounterSkill(owned.SkillId)) count++;
+            return count;
         }
 
         /// <summary>The rack shows <paramref name="filter"/>'s unplaced skills only (<paramref name="count"/> of them), and
@@ -935,7 +943,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(count), "Shown under filter " + filter);
             foreach (CampaignOwnedSkill owned in fixture.Run.OwnedSkills)
             {
-                if (fixture.Run.IsSkillInLoadout(owned.SkillId)) continue;
+                if (fixture.Run.IsCounterSkill(owned.SkillId) || fixture.Run.IsSkillInLoadout(owned.SkillId)) continue;
                 bool expected = filter == CampaignLoadoutHud.AllLanes || owned.Skill.LaneIndex == filter;
                 Assert.That(ActiveNamed(fixture.Hud.Root, "Loadout Owned Skill " + owned.SkillId) != null, Is.EqualTo(expected),
                     owned.Skill.Name + " under filter " + filter);

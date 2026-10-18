@@ -28,7 +28,7 @@ namespace TurnLimbo.Presentation
             new Vector2(-758f, -210f), new Vector2(-444f, -269f)
         };
         private readonly LegacyDuelArt art;
-        private readonly Action<int> unequip, startStage;
+        private readonly Action<int> unequip, startStage, equipCounter;
         private readonly Action<string> learnCurriculumNode;
         private readonly Action<int, int, int> placeLoadoutSkill;
         private readonly Action restartJourney, saveLoadout, resetLoadout, resetCurriculum, openMission, startTraining;
@@ -84,7 +84,7 @@ namespace TurnLimbo.Presentation
             Action<int> startStage, Action restartJourney,
             Action<int, int, int> placeLoadoutSkill = null, Action saveLoadout = null,
             Action resetLoadout = null, Action openMission = null, Sprite selectedRoomSprite = null,
-            Action startTraining = null)
+            Action startTraining = null, Action<int> equipCounter = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
@@ -98,6 +98,7 @@ namespace TurnLimbo.Presentation
             this.resetLoadout = resetLoadout;
             this.openMission = openMission;
             this.startTraining = startTraining;
+            this.equipCounter = equipCounter;
 
             roomSprite = selectedRoomSprite != null ? selectedRoomSprite : LobbyRoomBackdrop.PickRandom();
             bool complete = roomSprite != null && art.UIFont != null;
@@ -652,7 +653,11 @@ namespace TurnLimbo.Presentation
                 {
                     if (resetLoadout != null) resetLoadout.Invoke();
                     else if (run.TryResetLoadout()) Show(run);
-                }, loadoutState);
+                }, loadoutState, id =>
+                {
+                    if (equipCounter != null) equipCounter.Invoke(id);
+                    else if (run.TryEquipCounter(id)) Show(run);
+                });
         }
 
         private void BuildCurriculum(CampaignRun run)

@@ -16,12 +16,13 @@ namespace TurnLimbo.Core.Tests
         public void Table_SplitsIntoStartingCurriculumAndEnemySkills()
         {
             IReadOnlyList<LegacySkillDefinition> all = LegacySkillDefinitions.All;
-            // Sheet order puts the 일회성 rows (59) before the enemy's; every row is in exactly one set.
+            // Lane starters and counter starters are separate; every sheet row is in exactly one set.
             Assert.That(all.Select(d => d.Skill).ToArray(), Is.EquivalentTo(LegacyInitialSkills.All
                 .Concat(CampaignSkillCatalog.AcquisitionSkills).Concat(LegacySkillDefinitions.EnemySkills)
-                .Concat(LegacySkillDefinitions.TemporarySkills).ToArray()));
+                .Concat(LegacySkillDefinitions.TemporarySkills).Concat(LegacySkillDefinitions.InitialCounterSkills).ToArray()));
             // The curriculum may grow; the starting set stays at nine.
             Assert.That(LegacyInitialSkills.All.Count, Is.EqualTo(9));
+            Assert.That(LegacySkillDefinitions.InitialCounterSkills.Select(skill => skill.Id), Is.EqualTo(new[] { 600 }));
             Assert.That(CampaignSkillCatalog.AcquisitionSkills.Count, Is.GreaterThan(0));
             Assert.That(all.Select(d => d.Skill.Id).Distinct().Count(), Is.EqualTo(all.Count));
         }
@@ -296,8 +297,9 @@ namespace TurnLimbo.Core.Tests
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
             Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[]
                 { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50,
-                    51, 52, 53, 54, 55, 56, 57, 58, 59, 500, 501, 502 }));
+                    51, 52, 53, 54, 55, 56, 57, 58, 59, 500, 501, 502, 600 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
+            Assert.That(table.InitialCounterSkills.Select(s => s.Id), Is.EqualTo(new[] { 600 }));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id),
                 Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58 }));
             Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));

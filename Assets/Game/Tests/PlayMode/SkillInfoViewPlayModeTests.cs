@@ -525,7 +525,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "Power Label").text, Is.Empty);
                 Assert.That(Keywords(detail), Does.Contain("반환"), "Its queue removal owns the first badge.");
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(9));
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "Nine lane skills and one unequipped counter remain unchanged.");
                 Assert.That(run.HasLoadoutChanges, Is.False);
             }
             finally

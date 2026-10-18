@@ -227,13 +227,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
     public sealed class LegacySkillDefinition
     {
         internal LegacySkillDefinition(LegacySkill skill, LegacySkillEffect effect = null, LegacySkillText text = null,
-            bool highPower = false, bool variablePower = false)
+            bool highPower = false, bool variablePower = false, int counterUsesPerTurn = 0)
         {
+            if (counterUsesPerTurn < 0) throw new ArgumentOutOfRangeException(nameof(counterUsesPerTurn));
             Skill = skill ?? throw new ArgumentNullException(nameof(skill));
             Effect = effect ?? LegacySkillEffect.None;
             Text = text ?? new LegacySkillText();
             HighPower = highPower;
             VariablePower = variablePower;
+            CounterUsesPerTurn = counterUsesPerTurn;
         }
 
         /// <summary>The level-zero skill. Stage and upgrade copies keep its id, which selects this definition.</summary>
@@ -244,6 +246,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool HighPower { get; }
         /// <summary>Design tag for an attack with a wide power range; it does not change combat. Attacks only.</summary>
         public bool VariablePower { get; }
+        /// <summary>Positive for a player technique equipped in the separate counter slot; zero for an ordinary skill.
+        /// Counter techniques cost no ACT and answer at most this many empty-slot attacks each turn.</summary>
+        public int CounterUsesPerTurn { get; }
+        public bool IsCounter => CounterUsesPerTurn > 0;
     }
 
     /// <summary>The single table of implemented techniques, read from the skill sheet
@@ -269,6 +275,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The nine starting techniques (시작 rows), three per lane. Their sheet order within a lane is the default
         /// loadout order; everything else names a technique by id.</summary>
         public static IReadOnlyList<LegacySkill> InitialSkills => Table.InitialSkills;
+        /// <summary>Starting counter techniques, owned separately from the default Q/W/E loadout.</summary>
+        public static IReadOnlyList<LegacySkill> InitialCounterSkills => Table.InitialCounterSkills;
         /// <summary>The techniques beyond the starting nine (획득 rows); stage first clears, the curriculum and the academy
         /// field's pickups grant them.</summary>
         public static IReadOnlyList<LegacySkill> AcquisitionSkills => Table.AcquisitionSkills;
