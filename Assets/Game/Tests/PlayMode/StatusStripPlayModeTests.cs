@@ -100,6 +100,41 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator HoveredStatus_RefreshesItsValues_AndClosesWhenAnotherKindReusesTheIcon()
+        {
+            yield return null;
+            var host = new GameObject("Status hover refresh test", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                host.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                LegacyStatusStrip strip = LegacyStatusStrip.Create((RectTransform)host.transform,
+                    new LegacyDuelArt().UIFont, "Hovered statuses");
+                strip.Refresh(new[] {
+                    new LegacyStatusSnapshot(LegacyStatusKind.Protection, 25, 2),
+                    new LegacyStatusSnapshot(LegacyStatusKind.Vulnerability, 50, 3)
+                });
+                strip.ShowTooltip(0);
+                strip.Refresh(new[] {
+                    new LegacyStatusSnapshot(LegacyStatusKind.Protection, 50, 1),
+                    new LegacyStatusSnapshot(LegacyStatusKind.Vulnerability, 50, 3)
+                });
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.True,
+                    "The same status keeps its explanation open while its magnitude and remaining count update.");
+                Assert.That(strip.TooltipRoot.Find("Status Name").GetComponent<Text>().text,
+                    Does.Contain("보호").And.Contain("1회"));
+                Assert.That(strip.TooltipRoot.Find("Status Definition").GetComponent<Text>().text,
+                    Is.EqualTo(LegacyStatusNames.Description(LegacyStatusKind.Protection, 50)));
+                strip.Refresh(new[] { new LegacyStatusSnapshot(LegacyStatusKind.Vulnerability, 50, 3) });
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.False,
+                    "Reusing the hovered icon for a different status cannot silently change its explanation.");
+                strip.ShowTooltip(0);
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.True);
+                Assert.That(strip.TooltipRoot.Find("Status Name").GetComponent<Text>().text, Does.Contain("취약"));
+            }
+            finally { Object.Destroy(host); }
+        }
+
+        [UnityTest]
         public IEnumerator LiveIcons_RefreshOnTheGrantAndConsumptionFrame_AndDoNotTreatBreathingAsAUse()
         {
             yield return null;

@@ -16,6 +16,7 @@ namespace TurnLimbo.Presentation
         private readonly VersusLoadout localLoadout;
         private VersusLoadout remoteLoadout;
         private readonly OnlineRelayLink link;
+        private readonly Action<string> messageSender;
         private readonly Action returnToTitle;
         private readonly Queue<OnlineVersusMessage> accepted = new Queue<OnlineVersusMessage>();
         private readonly Queue<OnlineVersusMessage> digests = new Queue<OnlineVersusMessage>();
@@ -28,9 +29,11 @@ namespace TurnLimbo.Presentation
         private string matchId;
         private bool active, battle, busy, host, peerConnected, rulesMatched, localReady, remoteReady;
         private bool repliedToHello;
+        private bool readyChangePending;
         private bool localRematch, remoteRematch, sentFinalDigest, disposed, previousRunInBackground;
         private int generation, nextRequestSequence, lastRequestSequence, nextAppliedSequence, lastAppliedSequence;
         private int lastDigestRound, lastDigestSequence, rematchCount;
+        private int nextReadySequence, lastReadySequence;
         private float clockBroadcast, handshakeElapsed, handshakeRetryElapsed;
 
         public bool IsActive => active;
@@ -39,9 +42,16 @@ namespace TurnLimbo.Presentation
 
         public OnlineVersusController(Transform parent, LegacyDuelArt art, LocalVersusController duel,
             Action returnToTitle)
+            : this(parent, art, duel, returnToTitle, null)
+        {
+        }
+
+        internal OnlineVersusController(Transform parent, LegacyDuelArt art, LocalVersusController duel,
+            Action returnToTitle, Action<string> messageSender)
         {
             this.duel = duel ?? throw new ArgumentNullException(nameof(duel));
             this.returnToTitle = returnToTitle ?? throw new ArgumentNullException(nameof(returnToTitle));
+            this.messageSender = messageSender;
             link = new OnlineRelayLink();
             link.PeerJoined += OnPeerJoined;
             link.PeerLeft += OnPeerLeft;
@@ -65,6 +75,7 @@ namespace TurnLimbo.Presentation
             Application.runInBackground = true;
             active = true;
             battle = busy = host = peerConnected = rulesMatched = localReady = remoteReady = false;
+            ResetReadyRequests();
             localRematch = remoteRematch = false;
             remoteLoadout = null;
             rematchCount = 0;
@@ -81,6 +92,7 @@ namespace TurnLimbo.Presentation
             generation++;
             bool wasConnecting = busy;
             active = battle = busy = peerConnected = rulesMatched = false;
+            ResetReadyRequests();
             Application.runInBackground = previousRunInBackground;
             hud.Hide();
             loadoutHud.Hide();
@@ -209,6 +221,7 @@ namespace TurnLimbo.Presentation
             handshakeElapsed = handshakeRetryElapsed = 0f;
             repliedToHello = false;
             rulesMatched = localReady = remoteReady = false;
+            ResetReadyRequests();
             remoteLoadout = null;
             Send(new OnlineVersusMessage { Kind = OnlineVersusMessageKind.Hello, RulesHash = rulesHash });
             Refresh();
@@ -218,6 +231,7 @@ namespace TurnLimbo.Presentation
         {
             if (!active) return;
             peerConnected = rulesMatched = localReady = remoteReady = false;
+            ResetReadyRequests();
             remoteLoadout = null;
             if (battle)
             {
@@ -284,7 +298,7 @@ namespace TurnLimbo.Presentation
 
         private void ConfigureSkills()
         {
-            if (!active || battle || busy || localReady || phase != OnlineInvitePhase.Lobby) return;
+            if (!active || battle || busy || readyChangePending || localReady || phase != OnlineInvitePhase.Lobby) return;
             loadoutHud.Show();
         }
 
@@ -296,12 +310,24 @@ namespace TurnLimbo.Presentation
 
         private void Ready()
         {
-            if (!active || battle || busy || !peerConnected || !rulesMatched || localReady) return;
+            if (!active || battle || busy || readyChangePending || !peerConnected || !rulesMatched ||
+                phase != OnlineInvitePhase.Lobby) return;
             loadoutHud.Hide();
-            localReady = true;
-            if (host) BroadcastReady();
-            else Send(new OnlineVersusMessage { Kind = OnlineVersusMessageKind.Ready,
-                Player = 1, RightReady = true, RightSkillIds = localLoadout.ExportIds() });
+            if (host)
+            {
+                localReady = !localReady;
+                BroadcastReady();
+            }
+            else
+            {
+                // Keep the acknowledged readiness and its draft locked until the host accepts this change.
+                // If the host has already started, its Start arrives first and both peers enter the same battle.
+                readyChangePending = true;
+                bool requestedReady = !localReady;
+                Send(new OnlineVersusMessage { Kind = OnlineVersusMessageKind.Ready,
+                    Player = 1, Sequence = ++nextReadySequence, RightReady = requestedReady,
+                    RightSkillIds = requestedReady ? localLoadout.ExportIds() : Array.Empty<int>() });
+            }
             Refresh();
         }
 
@@ -310,25 +336,35 @@ namespace TurnLimbo.Presentation
             if (battle || !peerConnected || !rulesMatched) return;
             if (host)
             {
-                if (packet.Player != 1 || !packet.RightReady) return;
-                var candidate = new VersusLoadout();
-                if (!candidate.TryImportIds(packet.RightSkillIds) ||
-                    (remoteReady && remoteLoadout != null &&
-                     !SameIds(remoteLoadout.ExportIds(), packet.RightSkillIds)))
+                if (packet.Player != 1 || packet.Sequence <= lastReadySequence) return;
+                VersusLoadout candidate = null;
+                if (packet.RightReady)
                 {
-                    Send(new OnlineVersusMessage { Kind = OnlineVersusMessageKind.Error,
-                        Text = "친구의 기술 편성을 확인할 수 없습니다." });
-                    Fail("친구의 기술 편성이 올바르지 않습니다.");
-                    return;
+                    candidate = new VersusLoadout();
+                    if (!candidate.TryImportIds(packet.RightSkillIds) ||
+                        (remoteReady && remoteLoadout != null &&
+                         !SameIds(remoteLoadout.ExportIds(), packet.RightSkillIds)))
+                    {
+                        Send(new OnlineVersusMessage { Kind = OnlineVersusMessageKind.Error,
+                            Text = "친구의 기술 편성을 확인할 수 없습니다." });
+                        Fail("친구의 기술 편성이 올바르지 않습니다.");
+                        return;
+                    }
                 }
+                lastReadySequence = packet.Sequence;
                 remoteLoadout = candidate;
-                remoteReady = true;
+                remoteReady = packet.RightReady;
                 BroadcastReady();
             }
             else
             {
-                // Readiness is owned locally. A delayed host echo must not unlock the draft.
                 remoteReady = packet.LeftReady;
+                // Older broadcasts may describe the host, but cannot acknowledge a newer local toggle.
+                if (packet.Sequence == nextReadySequence)
+                {
+                    localReady = packet.RightReady;
+                    readyChangePending = false;
+                }
             }
             Refresh();
         }
@@ -344,7 +380,13 @@ namespace TurnLimbo.Presentation
         private void BroadcastReady()
         {
             Send(new OnlineVersusMessage { Kind = OnlineVersusMessageKind.Ready,
-                LeftReady = localReady, RightReady = remoteReady });
+                Sequence = lastReadySequence, LeftReady = localReady, RightReady = remoteReady });
+        }
+
+        private void ResetReadyRequests()
+        {
+            readyChangePending = false;
+            nextReadySequence = lastReadySequence = 0;
         }
 
         private void StartBattle()
@@ -393,6 +435,7 @@ namespace TurnLimbo.Presentation
         {
             matchId = id;
             battle = true;
+            readyChangePending = false;
             localRematch = remoteRematch = sentFinalDigest = false;
             nextRequestSequence = lastRequestSequence = nextAppliedSequence = lastAppliedSequence = 0;
             lastDigestSequence = 0;
@@ -593,7 +636,9 @@ namespace TurnLimbo.Presentation
             if (!active || !peerConnected) return false;
             try
             {
-                link.Send(packet.Encode());
+                string json = packet.Encode();
+                if (messageSender != null) messageSender(json);
+                else link.Send(json);
                 return true;
             }
             catch (Exception exception)
@@ -612,6 +657,7 @@ namespace TurnLimbo.Presentation
             pendingFailure = null;
             duel.Stop();
             battle = busy = peerConnected = rulesMatched = localReady = remoteReady = false;
+            ResetReadyRequests();
             accepted.Clear();
             digests.Clear();
             remoteLoadout = null;
@@ -634,8 +680,8 @@ namespace TurnLimbo.Presentation
             if (!active) return;
             hud.Refresh(new OnlineInviteView {
                 Phase = phase, Host = host, PeerConnected = peerConnected && rulesMatched,
-                LocalReady = localReady, RemoteReady = remoteReady, Busy = busy,
-                Code = link.Code, Message = message
+                LocalReady = localReady, RemoteReady = remoteReady, Busy = busy || readyChangePending,
+                Code = link.Code, Message = readyChangePending ? "준비 상태를 맞추는 중입니다..." : message
             });
         }
 

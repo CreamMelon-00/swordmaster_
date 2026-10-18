@@ -38,7 +38,7 @@ namespace TurnLimbo.Presentation
         private readonly GameObject ownedEventSystem;
         private readonly GameObject choiceGroup, lobbyGroup;
         private readonly InputField codeInput;
-        private readonly Text codeDisplay, copyCaption, connectionLabel, localReadyLabel, remoteReadyLabel;
+        private readonly Text codeDisplay, copyCaption, readyCaption, connectionLabel, localReadyLabel, remoteReadyLabel;
         private readonly Text messageLabel;
         private readonly Button createButton, joinButton, copyButton, configureButton, readyButton, startButton, leaveButton;
         private readonly Action create, ready, start, leave;
@@ -161,6 +161,7 @@ namespace TurnLimbo.Presentation
             readyButton = ActionButton("Invite Ready", lobbyCard.transform,
                 new Vector2(0f, -144f), new Vector2(220f, 56f),
                 "준비", () => this.ready?.Invoke(), true);
+            readyCaption = readyButton.GetComponentInChildren<Text>();
             startButton = ActionButton("Invite Start", lobbyCard.transform,
                 new Vector2(302f, -144f), new Vector2(220f, 56f),
                 "대전 시작", () => this.start?.Invoke(), true);
@@ -219,7 +220,8 @@ namespace TurnLimbo.Presentation
             configureButton.gameObject.SetActive(lobby);
             configureButton.interactable = lobby && !view.LocalReady && !view.Busy;
             readyButton.gameObject.SetActive(lobby);
-            readyButton.interactable = lobby && view.PeerConnected && !view.LocalReady && !view.Busy;
+            readyButton.interactable = lobby && view.PeerConnected && !view.Busy;
+            readyCaption.text = view.LocalReady ? "준비 취소" : "준비";
             startButton.gameObject.SetActive(lobby && view.Host);
             startButton.interactable = lobby && view.Host && view.PeerConnected &&
                 view.LocalReady && view.RemoteReady && !view.Busy;

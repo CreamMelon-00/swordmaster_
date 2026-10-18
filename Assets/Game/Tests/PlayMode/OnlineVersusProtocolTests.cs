@@ -49,7 +49,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(right.ExportIds(), Is.Not.EqualTo(left.ExportIds()));
 
             var ready = new OnlineVersusMessage {
-                Kind = OnlineVersusMessageKind.Ready, Player = 1,
+                Kind = OnlineVersusMessageKind.Ready, Player = 1, Sequence = 1,
                 RightReady = true, RightSkillIds = right.ExportIds()
             };
             Assert.That(OnlineVersusMessage.TryDecode(ready.Encode(), out OnlineVersusMessage readyCopy), Is.True);
@@ -64,6 +64,41 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(startCopy.LeftSkillIds, Is.EqualTo(left.ExportIds()));
             Assert.That(startCopy.RightSkillIds, Is.EqualTo(right.ExportIds()));
             Assert.That(startCopy.LeftSkillIds, Is.Not.EqualTo(startCopy.RightSkillIds));
+        }
+
+        [Test]
+        public void ReadinessCancellation_RoundTripsWithoutLoadout_AndAcknowledgesItsRevision()
+        {
+            var cancel = new OnlineVersusMessage {
+                Kind = OnlineVersusMessageKind.Ready, Player = 1, Sequence = 2, RightReady = false
+            };
+            Assert.That(OnlineVersusMessage.TryDecode(cancel.Encode(), out OnlineVersusMessage request), Is.True);
+            Assert.That(request.ProtocolVersion, Is.EqualTo(3));
+            Assert.That(request.Sequence, Is.EqualTo(2));
+            Assert.That(request.RightReady, Is.False);
+            Assert.That(request.RightSkillIds, Is.Empty);
+
+            var acknowledgement = new OnlineVersusMessage {
+                Kind = OnlineVersusMessageKind.Ready, Sequence = request.Sequence,
+                LeftReady = true, RightReady = false
+            };
+            Assert.That(OnlineVersusMessage.TryDecode(acknowledgement.Encode(), out OnlineVersusMessage response), Is.True);
+            Assert.That(response.Sequence, Is.EqualTo(request.Sequence));
+            Assert.That(response.LeftReady, Is.True);
+            Assert.That(response.RightReady, Is.False);
+        }
+
+        [Test]
+        public void ReadinessRevision_IsRequiredForGuestRequests_AndOldPeersAreRejected()
+        {
+            var unsequenced = new OnlineVersusMessage {
+                Kind = OnlineVersusMessageKind.Ready, Player = 1, RightReady = false
+            };
+            AssertRejected(JsonUtility.ToJson(unsequenced));
+            var oldPeer = new OnlineVersusMessage {
+                ProtocolVersion = 2, Kind = OnlineVersusMessageKind.Hello
+            };
+            AssertRejected(JsonUtility.ToJson(oldPeer));
         }
 
         [Test]
@@ -102,7 +137,7 @@ namespace TurnLimbo.Presentation.Tests
             AssertRejected(JsonUtility.ToJson(invalid));
 
             var missingGuestLoadout = new OnlineVersusMessage {
-                Kind = OnlineVersusMessageKind.Ready, Player = 1, RightReady = true
+                Kind = OnlineVersusMessageKind.Ready, Player = 1, Sequence = 1, RightReady = true
             };
             AssertRejected(JsonUtility.ToJson(missingGuestLoadout));
             var missingStartLoadouts = new OnlineVersusMessage {

@@ -12,7 +12,7 @@ namespace TurnLimbo.Presentation
     [Serializable]
     public sealed class OnlineVersusMessage
     {
-        public const int CurrentProtocolVersion = 2;
+        public const int CurrentProtocolVersion = 3;
         public const int MaximumPayloadBytes = 4096;
 
         public int ProtocolVersion = CurrentProtocolVersion;
@@ -122,6 +122,8 @@ namespace TurnLimbo.Presentation
             if (Kind == OnlineVersusMessageKind.Ready && Player == 1 && RightReady &&
                 (RightSkillIds == null || RightSkillIds.Length != VersusLoadout.SkillCount))
                 return Invalid("Guest readiness requires a skill loadout.", out error);
+            if (Kind == OnlineVersusMessageKind.Ready && Player == 1 && Sequence == 0)
+                return Invalid("Guest readiness requires a request sequence.", out error);
             if (RequiresMatchId(Kind) && string.IsNullOrEmpty(MatchId))
                 return Invalid("Match identifier is required.", out error);
             if ((Kind == OnlineVersusMessageKind.Request || Kind == OnlineVersusMessageKind.Applied) &&

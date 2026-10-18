@@ -65,6 +65,7 @@ namespace TurnLimbo.Presentation
                 icon.Root.gameObject.SetActive(index < count);
                 if (index >= count) continue;
                 LegacyStatusSnapshot value = displayedStatuses[index];
+                if (index == hovered && icon.Snapshot.Kind != value.Kind) HideTooltip();
                 icon.Snapshot = value;
                 icon.Root.anchoredPosition = new Vector2(-width * .5f + IconWidth * .5f + index * (IconWidth + Gap), 0f);
                 icon.Symbol.SetKind(value.Kind);

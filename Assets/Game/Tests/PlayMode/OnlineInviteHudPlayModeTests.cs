@@ -103,7 +103,9 @@ namespace TurnLimbo.Presentation.Tests
                     RemoteReady = true
                 });
                 Assert.That(hud.ConfigureButton.interactable, Is.False);
-                Assert.That(hud.ReadyButton.interactable, Is.False);
+                Assert.That(hud.ReadyButton.interactable, Is.True);
+                Assert.That(Label(hud.Root, "Button Label", hud.ReadyButton.transform).text,
+                    Is.EqualTo("준비 취소"));
                 Assert.That(hud.StartButton.interactable, Is.True);
                 hud.StartButton.onClick.Invoke();
                 Assert.That(starts, Is.EqualTo(1));
@@ -123,6 +125,72 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.IsVisible, Is.False);
             }
             Object.Destroy(host);
+        }
+
+        [UnityTest]
+        public IEnumerator ReadyRoom_CancelReadinessReopensConfiguration_ForHostAndGuest()
+        {
+            yield return null;
+            foreach (bool isHost in new[] { true, false })
+            {
+                var host = new GameObject("Online Ready Toggle Test Host");
+                int toggles = 0, configures = 0;
+                using (var art = new LegacyDuelArt())
+                using (var hud = new OnlineInviteHud(host.transform, art,
+                    null, null, () => toggles++, null, null))
+                {
+                    hud.ConfigureSkills = () => configures++;
+                    hud.Show();
+                    var view = new OnlineInviteView
+                    {
+                        Phase = OnlineInvitePhase.Lobby,
+                        Host = isHost,
+                        PeerConnected = true,
+                        LocalReady = true,
+                        RemoteReady = true
+                    };
+                    hud.Refresh(view);
+                    Assert.That(hud.ReadyButton.interactable, Is.True);
+                    Assert.That(Label(hud.Root, "Button Label", hud.ReadyButton.transform).text,
+                        Is.EqualTo("준비 취소"));
+                    Assert.That(hud.ConfigureButton.interactable, Is.False);
+                    Assert.That(hud.StartButton.interactable, Is.EqualTo(isHost));
+
+                    hud.ReadyButton.onClick.Invoke();
+                    Assert.That(toggles, Is.EqualTo(1), "Cancelling uses the same ready callback.");
+                    view.LocalReady = false;
+                    hud.Refresh(view);
+                    Assert.That(Label(hud.Root, "Button Label", hud.ReadyButton.transform).text,
+                        Is.EqualTo("준비"));
+                    Assert.That(Label(hud.Root, "Invite Local Ready").text, Is.EqualTo("나  ·  준비 전"));
+                    Assert.That(Label(hud.Root, "Invite Remote Ready").text, Is.EqualTo("친구  ·  준비 완료"));
+                    Assert.That(hud.ReadyButton.interactable, Is.True);
+                    Assert.That(hud.ConfigureButton.interactable, Is.True);
+                    Assert.That(hud.StartButton.interactable, Is.False);
+                    hud.ConfigureButton.onClick.Invoke();
+                    Assert.That(configures, Is.EqualTo(1));
+
+                    hud.ReadyButton.onClick.Invoke();
+                    Assert.That(toggles, Is.EqualTo(2), "The same control can ready up again after cancelling.");
+                    view.LocalReady = true;
+                    view.RemoteReady = false;
+                    hud.Refresh(view);
+                    Assert.That(hud.StartButton.interactable, Is.False,
+                        "A remote cancellation also prevents the host from starting.");
+
+                    view.Busy = true;
+                    hud.Refresh(view);
+                    Assert.That(hud.ReadyButton.interactable, Is.False,
+                        "Readiness cannot change while a match is starting.");
+                    Assert.That(hud.ConfigureButton.interactable, Is.False);
+                    view.Busy = false;
+                    view.PeerConnected = false;
+                    hud.Refresh(view);
+                    Assert.That(hud.ReadyButton.interactable, Is.False,
+                        "A disconnected room cannot send readiness changes.");
+                }
+                Object.Destroy(host);
+            }
         }
 
         private static GameObject Named(GameObject root, string name)
