@@ -195,6 +195,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyAttacked = left ? hit.RightAttacked : hit.LeftAttacked;
             PlayerHealthDamage = left ? hit.LeftHealthDamage : hit.RightHealthDamage;
             EnemyHealthDamage = left ? hit.RightHealthDamage : hit.LeftHealthDamage;
+            PlayerBleedingHealthDamage = left ? hit.LeftBleedingHealthDamage : hit.RightBleedingHealthDamage;
+            EnemyBleedingHealthDamage = left ? hit.RightBleedingHealthDamage : hit.LeftBleedingHealthDamage;
             PlayerResistanceDamage = left ? hit.LeftResistanceDamage : hit.RightResistanceDamage;
             EnemyResistanceDamage = left ? hit.RightResistanceDamage : hit.LeftResistanceDamage;
             PlayerPushPower = left ? hit.LeftPushPower : hit.RightPushPower;
@@ -216,6 +218,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacySkill EnemySkill { get; }
         public bool PlayerAttacked { get; }
         public bool EnemyAttacked { get; }
+        public int PlayerBleedingHealthDamage { get; }
+        public int EnemyBleedingHealthDamage { get; }
         public int PlayerHealthDamage { get; }
         public int EnemyHealthDamage { get; }
         public int PlayerResistanceDamage { get; }

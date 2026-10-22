@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약" };
+        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈" };
         // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
         // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
@@ -96,6 +96,12 @@ namespace TurnLimbo.Presentation
         {
             switch (term)
             {
+                case "출혈":
+                    explanation = LegacyStatusNames.Description(LegacyStatusKind.Bleeding, 2);
+                    return true;
+                case "지혈":
+                    explanation = "자신의 출혈 횟수를 표시된 만큼 줄입니다. 남은 출혈보다 많이 줄이지 않으며, 체력을 회복하지는 않습니다.";
+                    return true;
                 case "ACT 회복 강탈":
                     explanation = "사용 시 같은 칸 상대가 공격 기술이면 다음 턴 ACT 회복량을 빼앗습니다. " +
                         "상대는 최소 1을 회복하며, 실제 줄인 양만큼 자신이 더 회복합니다. 성공은 기술 종류마다 턴당 1회입니다.";
@@ -364,11 +370,12 @@ namespace TurnLimbo.Presentation
             Vector3 upper = canvasRect.InverseTransformPoint(cardCorners[2]);
             Rect screen = canvasRect.rect;
             float width = Mathf.Min(PopupWidth * scale, Mathf.Max(80f, screen.width - 16f));
-            float height = Mathf.Min(PopupHeight * scale, Mathf.Max(80f, screen.height - 16f));
+            float requestedHeight = heading.text == "출혈" ? 350f : PopupHeight;
+            float height = Mathf.Min(requestedHeight * scale, Mathf.Max(80f, screen.height - 16f));
             popup.sizeDelta = new Vector2(width, height);
             float textWidth = Mathf.Max(60f, width - 30f * scale);
             heading.rectTransform.sizeDelta = new Vector2(textWidth, heading.rectTransform.sizeDelta.y);
-            description.rectTransform.sizeDelta = new Vector2(textWidth, description.rectTransform.sizeDelta.y);
+            description.rectTransform.sizeDelta = new Vector2(textWidth, Mathf.Max(24f, height - 72f * scale));
             divider.sizeDelta = new Vector2(textWidth, divider.sizeDelta.y);
 
             float x = upper.x + 14f * scale;

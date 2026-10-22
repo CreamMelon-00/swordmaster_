@@ -140,6 +140,31 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int AheadAttackHitsRequired { get; internal set; }
         public int AheadAttackHitsPowerBonus { get; internal set; }
         public bool HasAheadHitPower => AheadAttackHitsRequired > 0;
+        /// <summary>Bleeding applied after this slot's existing bleeding and base-power conditions were captured.</summary>
+        public int SelfBleedingCount { get; internal set; }
+        public int OpponentBleedingCount { get; internal set; }
+        /// <summary>Replaces OpponentBleedingCount when the opponent already has bleeding at slot start.</summary>
+        public int OpponentBleedingReplacementCount { get; internal set; }
+        public int BleedingReduction { get; internal set; }
+        public int OpponentBleedingRequired { get; internal set; }
+        public int OpponentBleedingPowerBonus { get; internal set; }
+        public int SelfBleedingRequired { get; internal set; }
+        public int SelfBleedingPowerBonus { get; internal set; }
+        public bool HasBleedingGrant => SelfBleedingCount > 0 || OpponentBleedingCount > 0 || OpponentBleedingReplacementCount > 0;
+        public bool HasBleedingReduction => BleedingReduction > 0;
+        public bool HasBleedingPower => OpponentBleedingRequired > 0 || SelfBleedingRequired > 0;
+        public bool HasBleedingEffect => HasBleedingGrant || HasBleedingReduction || HasBleedingPower;
+
+        /// <summary>Reads the opponent's count before either fighter's stanching or new grants in this slot.</summary>
+        public int BleedingToInflict(int opposingBleedingCount)
+            => OpponentBleedingReplacementCount > 0 && opposingBleedingCount > 0
+                ? OpponentBleedingReplacementCount : OpponentBleedingCount;
+
+        /// <summary>Read from both fighters' bleeding at skill start, before stanching or granting. Added to base power before
+        /// strengthening, meshing, queue multipliers and per-hit division.</summary>
+        public int BleedingPowerBonus(int selfCount, int opponentCount)
+            => checked((SelfBleedingRequired > 0 && selfCount >= SelfBleedingRequired ? SelfBleedingPowerBonus : 0) +
+                (OpponentBleedingRequired > 0 && opponentCount >= OpponentBleedingRequired ? OpponentBleedingPowerBonus : 0));
         /// <summary>예약 효과 <c>일회성 &lt;ID&gt; ×n</c>: the 일회성 row whose copies reserving this skill sets at the front of that
         /// row's lane, once per turn (<see cref="LegacyReserveEffect.Temporary"/>); 0 for none. The copies stay when this skill
         /// is later cancelled or returned, and every one left goes as the next planning turn begins.</summary>
@@ -166,7 +191,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// time cost; a remover may not carry one, since taking its own work back and reserving again would repeat it.</summary>
         public bool HasReserveGain => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn;
         /// <summary>Whether the row writes its 사용 효과 cell.</summary>
-        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal || HasActRecoverySteal;
+        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal || HasActRecoverySteal || HasBleedingEffect;
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
         public bool HasOpponentStateCondition => OpponentState != LegacyOpponentState.None;
@@ -214,6 +239,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (HasProtectionSpend) roles |= LegacySkillRole.ProtectionSpend;
                 if (HasAheadHitPower) roles |= LegacySkillRole.AheadHitPower;
                 if (HasActRecoverySteal) roles |= LegacySkillRole.ActRecoverySteal;
+                if (HasBleedingGrant) roles |= LegacySkillRole.Bleeding;
+                if (HasBleedingReduction) roles |= LegacySkillRole.BleedingReduction;
+                if (HasBleedingPower) roles |= LegacySkillRole.BleedingPower;
                 return roles;
             }
         }

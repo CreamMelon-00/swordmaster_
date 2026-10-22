@@ -10,7 +10,7 @@ namespace TurnLimbo.Presentation
     public sealed class LegacyStatusStrip : MonoBehaviour
     {
         public const float IconWidth = 40f, Height = 44f, Gap = 5f;
-        private const float TooltipWidth = 336f, TooltipHeight = 174f;
+        private const float TooltipWidth = 336f, TooltipHeight = 174f, BleedingTooltipHeight = 324f;
         private readonly List<StatusIcon> icons = new List<StatusIcon>();
         private readonly List<LegacyStatusSnapshot> displayedStatuses = new List<LegacyStatusSnapshot>();
         private RectTransform root, canvasRect, tooltip;
@@ -21,7 +21,7 @@ namespace TurnLimbo.Presentation
         public RectTransform Root => root;
         public int Count => count;
         public RectTransform TooltipRoot => tooltip;
-        /// <summary>The displayed snapshot: statuses of the same kind with the same remaining count share one icon.</summary>
+        /// <summary>The displayed snapshot: matching kind/count strengths share one icon; bleeding instead combines attack counts.</summary>
         public LegacyStatusSnapshot GetStatus(int index) => icons[index].Snapshot;
         public RectTransform GetIconRoot(int index) => index >= 0 && index < count ? icons[index].Root : null;
 
@@ -45,14 +45,16 @@ namespace TurnLimbo.Presentation
                 {
                     int matching = -1;
                     for (int i = 0; i < displayedStatuses.Count; i++)
-                        if (displayedStatuses[i].Kind == value.Kind && displayedStatuses[i].RemainingCount == value.RemainingCount)
+                        if (displayedStatuses[i].Kind == value.Kind && (value.Kind == LegacyStatusKind.Bleeding ||
+                            displayedStatuses[i].RemainingCount == value.RemainingCount))
                         { matching = i; break; }
                     if (matching < 0) displayedStatuses.Add(value);
                     else
                     {
                         LegacyStatusSnapshot previous = displayedStatuses[matching];
-                        displayedStatuses[matching] = new LegacyStatusSnapshot(value.Kind,
-                            checked(previous.Percent + value.Percent), value.RemainingCount);
+                        displayedStatuses[matching] = value.Kind == LegacyStatusKind.Bleeding
+                            ? new LegacyStatusSnapshot(value.Kind, 2, checked(previous.RemainingCount + value.RemainingCount))
+                            : new LegacyStatusSnapshot(value.Kind, checked(previous.Percent + value.Percent), value.RemainingCount);
                     }
                 }
             count = displayedStatuses.Count;
@@ -71,9 +73,10 @@ namespace TurnLimbo.Presentation
                 icon.Symbol.SetKind(value.Kind);
                 Color ink = value.Kind == LegacyStatusKind.PowerUp ? new Color32(235, 210, 250, 255)
                     : value.Kind == LegacyStatusKind.Protection ? new Color32(143, 236, 226, 255)
+                    : value.Kind == LegacyStatusKind.Bleeding ? new Color32(244, 96, 112, 255)
                     : new Color32(255, 159, 135, 255);
                 icon.Symbol.color = ink;
-                icon.Magnitude.text = value.Percent + "%";
+                icon.Magnitude.text = value.Kind == LegacyStatusKind.Bleeding ? "출혈" : value.Percent + "%";
                 icon.Remaining.text = value.RemainingCount.ToString();
             }
             if (hovered >= count) HideTooltip();
@@ -117,7 +120,13 @@ namespace TurnLimbo.Presentation
         private void UpdateTooltip()
         {
             LegacyStatusSnapshot value = icons[hovered].Snapshot;
-            tooltipTitle.text = LegacyStatusNames.Name(value.Kind) + "  ·  " + value.RemainingCount + "회 남음";
+            bool bleeding = value.Kind == LegacyStatusKind.Bleeding;
+            float height = bleeding ? BleedingTooltipHeight : TooltipHeight;
+            tooltip.sizeDelta = new Vector2(TooltipWidth, height);
+            tooltipTitle.rectTransform.anchoredPosition = new Vector2(0f, height * .5f - 29f);
+            tooltipDescription.rectTransform.sizeDelta = new Vector2(308f, height - 62f);
+            tooltipTitle.text = LegacyStatusNames.Name(value.Kind) + "  ·  " +
+                (bleeding ? "공격 기술 " + value.RemainingCount + "개 남음" : value.RemainingCount + "회 남음");
             tooltipDescription.text = LegacyStatusNames.Description(value.Kind, value.Percent);
             PositionTooltip();
         }
@@ -127,10 +136,11 @@ namespace TurnLimbo.Presentation
             if (tooltip == null || hovered < 0) return;
             Vector3 world = icons[hovered].Root.TransformPoint(new Vector3(0f, Height * .5f, 0f));
             Vector2 position = canvasRect.InverseTransformPoint(world);
-            position.y += TooltipHeight * .5f + 10f;
+            float height = tooltip.sizeDelta.y;
+            position.y += height * .5f + 10f;
             Vector2 half = canvasRect.rect.size * .5f;
             position.x = Mathf.Clamp(position.x, -half.x + TooltipWidth * .5f + 12f, half.x - TooltipWidth * .5f - 12f);
-            position.y = Mathf.Clamp(position.y, -half.y + TooltipHeight * .5f + 12f, half.y - TooltipHeight * .5f - 12f);
+            position.y = Mathf.Clamp(position.y, -half.y + height * .5f + 12f, half.y - height * .5f - 12f);
             tooltip.anchoredPosition = position;
         }
 

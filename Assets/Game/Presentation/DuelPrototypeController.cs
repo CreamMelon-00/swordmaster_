@@ -988,22 +988,24 @@ namespace TurnLimbo.Presentation
                 bool playerBrokeNow = playerResistanceBefore > 0 && session.Player.Resistance <= 0;
                 bool decisiveNow = false;
                 if (hit.PlayerAttacked)
-                    decisiveNow |= PresentHit(true, hit.EnemyHealthDamage, hit.EnemyResistanceDamage,
+                    decisiveNow |= PresentHit(true, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage,
                         hit.EnemyDisplayedDamage, hit.EnemyPushPower,
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
-                        enemyHealthBefore > 0 && session.Enemy.Health <= 0,
+                        enemyHealthBefore > 0 && enemyHealthBefore - (hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage) <= 0,
                         Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill);
                 if (hit.EnemyAttacked && !hit.PlayerDodged)
                 {
-                    decisiveNow |= PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
+                    decisiveNow |= PresentHit(false, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
-                        playerHealthBefore > 0 && session.Player.Health <= 0,
+                        playerHealthBefore > 0 && playerHealthBefore - (hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage) <= 0,
                         Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill);
                     if (missionEmpowered) empowermentCues.NotifyEnemyHit(mission.Empowerment, hit.EnemySkill);
                 }
+                hud.ShowBleedingDamage(true, hit.PlayerBleedingHealthDamage, arena.PlayerRenderer.transform.position);
+                hud.ShowBleedingDamage(false, hit.EnemyBleedingHealthDamage, arena.EnemyRenderer.transform.position);
                 // A Major slot's first presented hit: a longer stop and a second impact under it (never the finishing
                 // blow's, which keeps its finale).
                 if (hit.Outcome == DuelMatchOutcome.InProgress && (hit.PlayerAttacked || hit.EnemyAttacked && !hit.PlayerDodged))
@@ -1019,8 +1021,8 @@ namespace TurnLimbo.Presentation
                 // The barks hear a hit the battle goes on after. The finishing blow is the finale's, and the event's
                 // scene answers the hit that opens it.
                 if (hit.Outcome == DuelMatchOutcome.InProgress && !missionEventPending)
-                    barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage),
-                        Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage));
+                    barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage),
+                        Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage));
                 // A Minor slot (no attack) plays its rest after its last hit faster, as the director saves time.
                 if (hit.Outcome == DuelMatchOutcome.InProgress && slot.IsResolved && showDirector.ShortensSlot)
                 {

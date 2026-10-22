@@ -609,6 +609,25 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator BleedingSchool_HasItsOwnNamedBandAndContainsAllSixSkillNodes()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var content = (RectTransform)Named(fixture.Root, "Curriculum Tree Content");
+                var band = (RectTransform)Named(content.gameObject, "Band Bleeding");
+                Assert.That(Named(content.gameObject, "Branch Bleeding").GetComponent<Text>().text, Is.EqualTo("출혈"));
+                Assert.That(CampaignCurriculumHud.BranchTone(CurriculumBranch.Bleeding), Is.EqualTo(LegacySkillTone.Reduction));
+                Assert.That(band.GetComponent<Image>().raycastTarget, Is.False);
+                var nodes = fixture.Run.Curriculum.Tree.Nodes.Where(node => node.Branch == CurriculumBranch.Bleeding).ToList();
+                Assert.That(nodes.Count, Is.EqualTo(6));
+                foreach (CurriculumNode node in nodes)
+                    Assert.That(Inside(Bounds(band), Bounds((RectTransform)Named(content.gameObject, "Curriculum Node " + node.Id))),
+                        Is.True, node.Id + " must be inside the bleeding school band.");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator TreeLayout_KeepsEveryNodeCardInsideTheContentWithoutOverlaps_AndOnlySchoolsHaveBands()
         {
             yield return null;

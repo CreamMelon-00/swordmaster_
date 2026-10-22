@@ -199,7 +199,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.View.EffectText.text,
                     Does.Contain("방어 기술").And.Contain("저항 즉시 15 감소"));
                 Assert.That(CampaignSkillText.Effect(Skill(42)),
-                    Does.Contain("방어 기술").And.Contain("기술 시작 시 상대 저항을 15 직접 낮춥니다"));
+                    Does.Contain("방어 기술").And.Contain("사용 시 상대 저항을 15 직접 낮춥니다"));
 
                 // ACT recovery seen on the enemy's card stays the player's own. 쿠페 lost its ACT recovery on 2026-10-12, so
                 // 탐색 (43) stands in for it and 쿠페 joins the skills that must not claim the limit.
@@ -368,7 +368,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var run = new CampaignRun();
                 float fixedHeight = fixture.View.Height;
-                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(43), "Every row of the shipped sheet, temporary and counter rows included.");
+                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(49), "Every row of the shipped sheet, temporary and counter rows included.");
                 foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 {
                     foreach (bool enemy in new[] { false, true })
@@ -606,6 +606,31 @@ namespace TurnLimbo.Presentation.Tests
                 Object.Destroy(parent);
             }
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator BleedingCards_PreserveWhoseStacksTheConditionReads_AndTheExistingBleedingReplacement()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                string[] fragments = { "자신에게 출혈 2", "상대에게 출혈 1", "상대가 출혈 상태면", "자신의 출혈 2 감소",
+                    "상대의 출혈이 3 이상", "자신의 출혈이 3 이상" };
+                for (int i = 0; i < fragments.Length; i++)
+                {
+                    LegacySkill skill = LegacySkillDefinitions.Skill(63 + i);
+                    foreach (bool enemy in new[] { false, true })
+                    {
+                        fixture.View.SetSkill(skill, enemy);
+                        Assert.That(fixture.View.EffectText.text, Does.Contain(fragments[i]), skill.Name);
+                        Assert.That(VisibleText(fixture.View.Root), Does.Contain("출혈"), skill.Name);
+                        if (skill.Id == 65)
+                            Assert.That(fixture.View.EffectText.text, Does.Contain("대신 출혈 4"));
+                        if (skill.Id == 67 || skill.Id == 68)
+                            Assert.That(fixture.View.EffectText.text, Does.Contain(skill.Id == 67 ? "16" : "12"));
+                    }
+                }
+            }
         }
 
         private static LegacySkill Skill(int id)

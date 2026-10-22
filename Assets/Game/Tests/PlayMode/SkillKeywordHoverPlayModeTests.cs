@@ -99,6 +99,12 @@ namespace TurnLimbo.Presentation.Tests
         [Test]
         public void CommonTerms_ExplainMeaningAndTunedStatusPercentages()
         {
+            Assert.That(SkillKeywordHover.TryExplain("출혈", out string bleeding), Is.True);
+            Assert.That(bleeding, Is.EqualTo(LegacyStatusNames.Description(LegacyStatusKind.Bleeding, 2)));
+            Assert.That(bleeding, Does.Contain("명중하지 않아도").And.Contain("공격 기술 하나")
+                .And.Contain("이번 양측 공격").And.Contain("횟수만 더하며"));
+            Assert.That(SkillKeywordHover.TryExplain("지혈", out string hemostasis), Is.True);
+            Assert.That(hemostasis, Does.Contain("출혈 횟수").And.Contain("체력을 회복하지"));
             Assert.That(SkillKeywordHover.TryExplain("ACT 회복 강탈", out string recoverySteal), Is.True);
             Assert.That(recoverySteal, Does.Contain("같은 칸").And.Contain("공격 기술").And.Contain("다음 턴")
                 .And.Contain("최소 1").And.Contain("실제 줄인 양").And.Contain("턴당 1회"));
@@ -216,12 +222,13 @@ namespace TurnLimbo.Presentation.Tests
         [UnityTest]
         public IEnumerator LongMeaning_FitsAndPopupStaysInsideCanvasAtTheScreenEdge()
         {
+            foreach (string term in new[] { "취소", "출혈" })
             using (var fixture = new Fixture())
             {
                 var canvas = fixture.CanvasRoot.GetComponent<RectTransform>();
                 fixture.Card.anchoredPosition = new Vector2(canvas.rect.xMax - fixture.Card.rect.width / 2f - 4f,
                     canvas.rect.yMin + fixture.Card.rect.height / 2f + 4f);
-                fixture.FirstLabel.text = "취소";
+                fixture.FirstLabel.text = term;
                 fixture.Hover.SetTerms(fixture.FirstLabel.text, string.Empty, string.Empty);
                 yield return null;
                 Canvas.ForceUpdateCanvases();

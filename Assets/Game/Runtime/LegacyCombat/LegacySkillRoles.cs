@@ -46,6 +46,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         AheadHitPower = 1 << 24,
         /// <summary>Steals next-turn ACT recovery from an opposing attack, once per successful use each turn.</summary>
         ActRecoverySteal = 1 << 25,
+        Bleeding = 1 << 26,
+        BleedingReduction = 1 << 27,
+        BleedingPower = 1 << 28,
     }
 
     /// <summary>Presentation metadata for implemented rules, never a new combat authority.</summary>

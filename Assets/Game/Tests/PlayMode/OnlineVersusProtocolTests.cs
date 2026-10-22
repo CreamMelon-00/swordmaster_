@@ -230,6 +230,7 @@ namespace TurnLimbo.Presentation.Tests
         [TestCase(LegacyStatusKind.PowerUp, 20, 2)]
         [TestCase(LegacyStatusKind.Protection, 25, 1)]
         [TestCase(LegacyStatusKind.Vulnerability, 50, 1)]
+        [TestCase(LegacyStatusKind.Bleeding, 2, 3)]
         public void StateHash_IncludesPersistentStatuses(LegacyStatusKind kind, int percent, int count)
         {
             var first = new LocalVersusMatch(LegacyInitialSkills.All, LegacyInitialSkills.All, randomSeed: 17);
@@ -335,6 +336,54 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.Not.EqualTo(before));
             property.SetValue(slot, original);
             Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.EqualTo(before));
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        public void StateHash_IncludesEachOwnersBleedingEligibilityConsumptionDamageAndFeedback(int owner)
+        {
+            LegacySkill Free(int id)
+            {
+                LegacySkill skill = LegacySkillDefinitions.Skill(id);
+                return new LegacySkill(id, skill.Name, 0, 1, 1, skill.Kind, skill.Property, skill.AttackCount, 0, "");
+            }
+            var match = new LocalVersusMatch(new[] { Free(63) }, new[] { Free(64) }, randomSeed: 17);
+            Statuses(match.Left).Grant(LegacyStatusKind.Bleeding, 2, 3);
+            Statuses(match.Right).Grant(LegacyStatusKind.Bleeding, 2, 2);
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int planner = match.CurrentPlanner;
+                Assert.That(match.TryQueueLane(planner, 0), Is.True);
+                Assert.That(match.TryCommit(planner), Is.True);
+            }
+            LocalVersusSlot slot = match.BeginNextSlot();
+            string before = OnlineVersusProtocol.ComputeStateHash(match);
+            string prefix = owner == 0 ? "Left" : "Right";
+            foreach (string suffix in new[] { "StartingBleeding", "BleedingDamagePerHit", "BleedingConsumed", "BleedingHealthDamage" })
+            {
+                var property = typeof(LocalVersusSlot).GetProperty(prefix + suffix);
+                Assert.That(property, Is.Not.Null, suffix);
+                object original = property.GetValue(slot);
+                property.SetValue(slot, original is bool flag ? (object)!flag : (int)original + 1);
+                Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.Not.EqualTo(before), prefix + suffix);
+                property.SetValue(slot, original);
+                Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.EqualTo(before), prefix + suffix + " restored");
+            }
+            var feedbackProperty = typeof(LocalVersusSlot).GetProperty(prefix + "Feedback");
+            var feedback = (LegacySkillFeedback)feedbackProperty.GetValue(slot);
+            int[] values = { feedback.SelfBleedingGranted, feedback.OpponentBleedingGranted, feedback.BleedingRemoved,
+                feedback.SelfBleedingPowerBonus, feedback.OpponentBleedingPowerBonus };
+            var copy = typeof(LegacySkillFeedback).GetMethod("WithBleedingEffects",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            for (int field = 0; field < values.Length; field++)
+            {
+                object[] changed = { values[0], values[1], values[2], values[3], values[4] };
+                changed[field] = values[field] + 1;
+                feedbackProperty.SetValue(slot, copy.Invoke(feedback, changed));
+                Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.Not.EqualTo(before), "Bleeding feedback field " + field);
+                feedbackProperty.SetValue(slot, feedback);
+                Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.EqualTo(before));
+            }
         }
 
         private static LegacyStatusCollection Statuses(LocalVersusFighter fighter)

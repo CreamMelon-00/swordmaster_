@@ -1347,10 +1347,11 @@ namespace TurnLimbo.Presentation
         /// resistance colours even when emphasised, so the two kinds never look alike.</param>
         public void ShowHitDamage(bool targetPlayer, int damage, Vector3 worldPosition, bool critical = false, bool resistance = false,
             LegacyDamageReason reasons = LegacyDamageReason.None, bool resistanceBroke = false, LegacySkill attacker = null,
-            bool mixedResources = false)
+            bool mixedResources = false, bool bleeding = false)
         {
             if (disposed || worldCamera == null) return;
             damage = Mathf.Max(0, damage);
+            if (bleeding && damage == 0) return;
             if (resistanceBroke && damage == 0) return; // The break callout is the result, rather than a large zero HP hit.
             DamageView view = AcquireDamageView();
             critical &= damage > 0;
@@ -1365,24 +1366,29 @@ namespace TurnLimbo.Presentation
             view.Text.rectTransform.anchorMin = view.Text.rectTransform.anchorMax = Vector2.zero;
             view.Text.text = damage.ToString();
             view.Text.fontSize = presentationSettings != null ? presentationSettings.DamageTextFontSize : 168;
+            if (bleeding) view.Text.fontSize = Mathf.Max(24, Mathf.RoundToInt(view.Text.fontSize * .65f));
             string recipient = targetPlayer ? "내" : "상대";
             if (!targetPlayer && displayedSession is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1)
                 recipient += " " + (roster.ActiveEnemyIndex + 1);
-            string reason = damage == 0 && (reasons & LegacyDamageReason.GuardReduction) != 0
+            string reason = bleeding ? "출혈" : damage == 0 && (reasons & LegacyDamageReason.GuardReduction) != 0
                 ? "완전 방어" : LegacyDamageReasonText.Primary(reasons, attacker);
             view.Detail.text = recipient + " " + (mixedResources ? "체력·저항" : resistance ? "저항" : "체력") +
                 (string.IsNullOrEmpty(reason) ? string.Empty : " · " + reason);
             view.Detail.rectTransform.anchoredPosition = new Vector2(0f, -(view.Text.fontSize * .5f + 24f));
-            view.Duration = view.Remaining = critical ? 1.25f : 1.05f;
+            view.Duration = view.Remaining = bleeding ? .9f : critical ? 1.25f : 1.05f;
             view.Scale = (.8f + Mathf.Clamp01(damage / 24f) * .25f) *
                 (critical ? (presentationSettings != null ? presentationSettings.CriticalDamageScale : 1.3f) : 1f);
-            view.Color = resistance ? ResistanceDamageInk : critical ? new Color(1f, .87f, .42f) : new Color(1f, .98f, .89f);
-            view.Outline.effectColor = resistance ? ResistanceDamageOutline
+            view.Color = bleeding ? new Color(1f, .36f, .42f) : resistance ? ResistanceDamageInk : critical ? new Color(1f, .87f, .42f) : new Color(1f, .98f, .89f);
+            view.Outline.effectColor = bleeding ? new Color(.3f, .015f, .035f) : resistance ? ResistanceDamageOutline
                 : critical ? new Color(.78f, .1f, .04f) : new Color(.64f, .055f, .055f);
             view.Text.gameObject.SetActive(true);
             view.Text.transform.SetAsLastSibling();
             ApplyDamageFrame(view);
         }
+
+        /// <summary>Fixed self-inflicted HP loss. It uses the damage pool but never looks like a guarded weapon hit.</summary>
+        public void ShowBleedingDamage(bool targetPlayer, int damage, Vector3 worldPosition)
+            => ShowHitDamage(targetPlayer, damage, worldPosition, bleeding: true);
 
         /// <summary>Calls out a new resistance break, distinct from a later doubled HP hit.</summary>
         public void ShowBreakCallout(bool playerSide, Vector3 worldPosition, Transform follow = null) =>

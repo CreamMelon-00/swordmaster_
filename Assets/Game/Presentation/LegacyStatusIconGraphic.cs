@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace TurnLimbo.Presentation
 {
-    /// <summary>Shape-coded status symbols: an upward sword, a shield, and a cracked shield.</summary>
+    /// <summary>Shape-coded status symbols: an upward sword, shields, and a blood drop.</summary>
     [RequireComponent(typeof(CanvasRenderer))]
     public sealed class LegacyStatusIconGraphic : MaskableGraphic
     {
@@ -31,6 +31,14 @@ namespace TurnLimbo.Presentation
                     new Vector2(.19f, .35f), new Vector2(.48f, .35f) });
                 Segment(mesh, centre, scale, new Vector2(-.46f, -.42f), new Vector2(.46f, -.42f), .12f);
                 Segment(mesh, centre, scale, new Vector2(0f, -.42f), new Vector2(0f, -.88f), .16f);
+                return;
+            }
+            if (kind == LegacyStatusKind.Bleeding)
+            {
+                Polygon(mesh, centre, scale, new[] { new Vector2(0f, .95f), new Vector2(-.28f, .48f),
+                    new Vector2(-.58f, .04f), new Vector2(-.56f, -.45f), new Vector2(-.32f, -.78f),
+                    new Vector2(0f, -.9f), new Vector2(.32f, -.78f), new Vector2(.56f, -.45f),
+                    new Vector2(.58f, .04f), new Vector2(.28f, .48f) });
                 return;
             }
             // Outline instead of a filled shield leaves the crack legible at the small HUD size.
@@ -65,7 +73,7 @@ namespace TurnLimbo.Presentation
 
         private void Polygon(VertexHelper mesh, Vector2 centre, float scale, Vector2[] points)
         {
-            // This sword silhouette is star-shaped about its centre.
+            // These silhouettes are star-shaped about their centre.
             int start = mesh.currentVertCount;
             mesh.AddVert(centre, color, Vector2.zero);
             foreach (Vector2 point in points) mesh.AddVert(centre + point * scale, color, Vector2.zero);

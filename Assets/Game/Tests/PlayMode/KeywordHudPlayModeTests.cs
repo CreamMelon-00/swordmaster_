@@ -16,6 +16,81 @@ namespace TurnLimbo.Presentation.Tests
     {
         private const int Q = 0, E = 2;
 
+        [TestCase(0, LegacySkillKind.Attack, 1, 1)]
+        [TestCase(0, LegacySkillKind.Attack, 3, 1)]
+        [TestCase(0, LegacySkillKind.Defence, 1, 1)]
+        [TestCase(1, LegacySkillKind.Attack, 1, 4)]
+        [TestCase(1, LegacySkillKind.Attack, 3, 4)]
+        [TestCase(1, LegacySkillKind.Defence, 1, 4)]
+        public void DeepWoundMarks_ReadExistingOpponentBleeding_RegardlessOfTheOpponentsHitCount(
+            int startingBleeding, LegacySkillKind opposingKind, int hits, int expectedGrant)
+        {
+            LegacySkill source = LegacySkillDefinitions.Skill(65);
+            var skill = new LegacySkill(65, source.Name, 0, 1, 1, source.Kind, source.Property, 1, Q, "");
+            var opposing = new LegacySkill(89078, "조건 검증", 0, 1, 1, opposingKind,
+                opposingKind == LegacySkillKind.Attack ? LegacySkillProperty.Slash : LegacySkillProperty.Defence, hits, Q, "");
+            var match = new LocalVersusMatch(new[] { skill }, new[] { opposing });
+            if (startingBleeding > 0)
+                ((LegacyStatusCollection)typeof(LocalVersusFighter).GetField("StatusEffects",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(match.Right))
+                    .Grant(LegacyStatusKind.Bleeding, 2, startingBleeding);
+            var host = new LocalVersusPerspective(match, 0);
+            Assert.That(LegacyKeywordPreview.LaneLine(host, skill),
+                Does.Contain("상대 출혈이 있으면").And.Contain("출혈 4로 대체").And.Not.Contain("타 이상"));
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int planner = match.CurrentPlanner;
+                Assert.That(match.TryQueueLane(planner, Q), Is.True);
+                Assert.That(match.TryCommit(planner), Is.True);
+            }
+            Assert.That(LegacyKeywordPreview.QueueMark(host, true, 0, true).Text,
+                Is.EqualTo("상대 출혈 시 1→4"));
+            LocalVersusSlot slot = match.BeginNextSlot();
+            Assert.That(slot.LeftFeedback.OpponentBleedingGranted, Is.EqualTo(expectedGrant));
+            Assert.That(LegacyKeywordPreview.QueueMark(host, true, 0, false).Text, Is.EqualTo("상대 출혈 +" + expectedGrant));
+            Assert.That(LegacyKeywordPreview.QueueMark(new LocalVersusPerspective(match, 1), false, 0, false).Text,
+                Is.EqualTo("상대 출혈 +" + expectedGrant));
+        }
+
+        [TestCase(63, "자기 출혈 +2")]
+        [TestCase(64, "상대 출혈 +1")]
+        [TestCase(65, "상대 출혈 +4")]
+        [TestCase(66, "지혈 -2")]
+        [TestCase(67, "출혈 위력 +16")]
+        [TestCase(68, "출혈 위력 +12")]
+        public void BleedingMarks_ShowConditionsBeforeUseAndActualEffectsFromEitherPerspective(int id, string expected)
+        {
+            LegacySkill source = LegacySkillDefinitions.Skill(id);
+            var skill = new LegacySkill(id, source.Name, 0, 1, 1, source.Kind, source.Property, source.AttackCount, Q, "");
+            var opposing = new LegacySkill(89077, "두 타 공격", 0, 1, 1, LegacySkillKind.Attack,
+                LegacySkillProperty.Slash, 2, Q, "");
+            var match = new LocalVersusMatch(new[] { skill }, new[] { opposing });
+            foreach (LocalVersusFighter fighter in new[] { match.Left, match.Right })
+                ((LegacyStatusCollection)typeof(LocalVersusFighter).GetField("StatusEffects",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(fighter))
+                    .Grant(LegacyStatusKind.Bleeding, 2, 3);
+            var host = new LocalVersusPerspective(match, 0);
+            string line = LegacyKeywordPreview.LaneLine(host, skill);
+            Assert.That(line, Does.Contain("출혈"));
+            if (id == 65) Assert.That(line, Does.Contain("사용 시 상대 출혈이 있으면").And.Contain("4로 대체")
+                .And.Not.Contain("2타"));
+            if (id == 67 || id == 68)
+                Assert.That(line, Does.Contain(id == 67 ? "상대 출혈 3 이상" : "자기 출혈 3 이상"));
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int planner = match.CurrentPlanner;
+                Assert.That(match.TryQueueLane(planner, Q), Is.True);
+                Assert.That(match.TryCommit(planner), Is.True);
+            }
+            if (id == 67 || id == 68)
+                Assert.That(LegacyKeywordPreview.QueueMark(host, true, 0, true).Text,
+                    Does.Contain("시 +"), "Reservation must retain the condition rather than promise future status counts.");
+            match.BeginNextSlot();
+            Assert.That(LegacyKeywordPreview.QueueMark(host, true, 0, false).Text, Is.EqualTo(expected));
+            Assert.That(LegacyKeywordPreview.QueueMark(new LocalVersusPerspective(match, 1), false, 0, false).Text,
+                Is.EqualTo(expected), "The marker describes its actor even when that actor is the opponent.");
+        }
+
         [UnityTest]
         public IEnumerator CycleFeed_TheLaneSaysWhatItWouldRaise_ItsCardCarriesTheMark_AndTheCountShowsTheRise()
         {

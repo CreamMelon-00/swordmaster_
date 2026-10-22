@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace TurnLimbo.Runtime.LegacyCombat
 {
-    public enum LegacyStatusKind { PowerUp, Protection, Vulnerability }
+    public enum LegacyStatusKind { PowerUp, Protection, Vulnerability, Bleeding }
 
     /// <summary>A read-only description of one applied status. Counts survive turn boundaries.</summary>
     public readonly struct LegacyStatusSnapshot
@@ -24,6 +24,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// technique consumes one count. The resolver snapshots modifiers before granting this slot's new statuses.</summary>
     public sealed class LegacyStatusCollection
     {
+        public const int BleedingDamagePerHit = 2;
         private sealed class Entry
         {
             internal LegacyStatusKind Kind;
@@ -40,6 +41,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// A freshly granted status cannot expire on the same attack that accompanied its grant.</summary>
         internal int GrantSerial => serial;
         public int PowerPercent => Sum(LegacyStatusKind.PowerUp);
+        /// <summary>Remaining actual attack techniques. Each executed hit deals fixed bleeding damage, but a whole
+        /// attack technique spends only one count after its last executed hit.</summary>
+        public int BleedingCount
+        {
+            get
+            {
+                foreach (Entry entry in entries) if (entry.Kind == LegacyStatusKind.Bleeding) return entry.Count;
+                return 0;
+            }
+        }
         /// <summary>Actual protection entries, even when vulnerability cancels their net damage reduction.</summary>
         public bool HasProtection
         {
@@ -55,10 +66,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public void Grant(LegacyStatusKind kind, int percent, int count)
         {
+            if (kind == LegacyStatusKind.Bleeding) percent = BleedingDamagePerHit;
             if (count <= 0 || percent == 0) return;
             // Vulnerability stacks duration, never its intensity. Other strengths remain independent, preserving
             // additive power/protection buffs. Different vulnerability strengths likewise remain separate.
-            if (kind == LegacyStatusKind.Vulnerability)
+            if (kind == LegacyStatusKind.Vulnerability || kind == LegacyStatusKind.Bleeding)
                 foreach (Entry existing in entries)
                     if (existing.Kind == kind && existing.Percent == percent)
                     {
@@ -81,6 +93,49 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         internal void ConsumeTechnique() => Consume(true, serial);
         internal void ConsumeIncomingAttack(int grantedThrough) => Consume(false, grantedThrough);
+
+        public void GrantBleeding(int count) => Grant(LegacyStatusKind.Bleeding, BleedingDamagePerHit, count);
+
+        /// <summary>Stanch bleeding at slot start, before either fighter grants this slot's new bleeding.</summary>
+        public int ReduceBleeding(int count)
+        {
+            if (count <= 0) return 0;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Entry entry = entries[i];
+                if (entry.Kind != LegacyStatusKind.Bleeding) continue;
+                int removed = Math.Min(count, entry.Count);
+                entry.Count -= removed;
+                if (entry.Count == 0) entries.RemoveAt(i);
+                Refresh();
+                return removed;
+            }
+            return 0;
+        }
+
+        /// <summary>Only bleeding present before the slot's initial effects can hurt this attack. Stanching all old
+        /// bleeding and granting a new stack creates a later serial, which cannot activate in the same slot.</summary>
+        public int BleedingDamageThrough(int grantedThrough)
+        {
+            foreach (Entry entry in entries)
+                if (entry.Kind == LegacyStatusKind.Bleeding && entry.Serial <= grantedThrough)
+                    return BleedingDamagePerHit;
+            return 0;
+        }
+
+        /// <summary>Called once after an actual attack's executed hits, never per hit or for a guard/breath/canceled
+        /// attack. Newly granted counts survive; when merged into an old stack, only that old attack count is spent.</summary>
+        public void ConsumeBleedingAttack(int grantedThrough)
+        {
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Entry entry = entries[i];
+                if (entry.Kind != LegacyStatusKind.Bleeding || entry.Serial > grantedThrough) continue;
+                if (--entry.Count == 0) entries.RemoveAt(i);
+                Refresh();
+                return;
+            }
+        }
 
         /// <summary>Spend every protection entry, leaving power and vulnerability untouched. True only when something
         /// was removed; callers must do this before taking the current attack's power and received-damage snapshots.</summary>
@@ -109,6 +164,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             for (int i = entries.Count - 1; i >= 0; i--)
             {
                 Entry entry = entries[i];
+                if (entry.Kind == LegacyStatusKind.Bleeding) continue;
                 if ((entry.Kind == LegacyStatusKind.PowerUp) != power || entry.Serial > grantedThrough) continue;
                 if (--entry.Count <= 0) entries.RemoveAt(i);
             }

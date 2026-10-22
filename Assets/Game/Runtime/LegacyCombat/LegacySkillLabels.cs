@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -19,6 +20,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Bounds for 보호 소모 위력 +N and 앞 공격 총타수 M 이상 위력 +N.</summary>
         public const int MinimumUsePowerBonus = 1, MaximumUsePowerBonus = 50;
         public const int MinimumAttackHitsRequired = 1, MaximumAttackHitsRequired = 20;
+        public const int MinimumBleedingCount = 1, MaximumBleedingCount = 20;
+        private static readonly Regex BleedingGrantPattern = new Regex(
+            @"^(자신에게|상대에게)출혈([0-9]{1,3})부여$", RegexOptions.CultureInvariant);
+        private static readonly Regex BleedingReplacementPattern = new Regex(
+            @"^상대가출혈상태면출혈([0-9]{1,3})로대체$", RegexOptions.CultureInvariant);
+        private static readonly Regex BleedingReductionPattern = new Regex(
+            @"^자신의출혈([0-9]{1,3})감소$", RegexOptions.CultureInvariant);
+        private static readonly Regex BleedingPowerPattern = new Regex(
+            @"^(상대|자기)출혈([0-9]{1,3})이상기본위력\+([0-9]{1,3})$", RegexOptions.CultureInvariant);
         /// <summary>The range of n in 사용 효과 <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c>.</summary>
         public const int MinimumAheadPowerPerUnit = 1, MaximumAheadPowerPerUnit = 10;
         /// <summary>The range of m in the same phrase.</summary>
@@ -195,30 +205,45 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         /// <summary>A row's 사용 효과 as the sheet writes it: <c>앞 숨고르기마다 위력 +4 (최대 4)</c>,
         /// <c>앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)</c>, <see cref="AutoDodgePhrase"/>,
-        /// <c>상대 ACT 8 이상이면 ACT 3 강탈</c>, or empty for none.</summary>
+        /// <c>상대 ACT 8 이상이면 ACT 3 강탈</c>, or empty for none. Multiple effects are separated by semicolons.</summary>
         public static string UseEffect(LegacySkillEffect effect)
         {
             if (effect == null) return string.Empty;
+            var phrases = new List<string>();
             if (effect.HasAheadPower)
-                return "앞 " + AheadTarget(effect.AheadPowerTarget) + "마다 위력 +" +
+                phrases.Add("앞 " + AheadTarget(effect.AheadPowerTarget) + "마다 위력 +" +
                     effect.AheadPowerPerUnit.ToString(CultureInfo.InvariantCulture) + " (최대 " +
-                    effect.AheadPowerMax.ToString(CultureInfo.InvariantCulture) + ")";
+                    effect.AheadPowerMax.ToString(CultureInfo.InvariantCulture) + ")");
             if (effect.HasAheadTime)
-                return "앞 " + AheadTarget(effect.AheadTimeTarget) + "마다 다음 턴 " + PlanningTimePhrase + " +" +
+                phrases.Add("앞 " + AheadTarget(effect.AheadTimeTarget) + "마다 다음 턴 " + PlanningTimePhrase + " +" +
                     effect.AheadTimePerUnit.ToString(CultureInfo.InvariantCulture) + "초 (최대 " +
-                    effect.AheadTimeMax.ToString(CultureInfo.InvariantCulture) + ")";
-            if (effect.AutoDodge) return AutoDodgePhrase;
+                    effect.AheadTimeMax.ToString(CultureInfo.InvariantCulture) + ")");
+            if (effect.AutoDodge) phrases.Add(AutoDodgePhrase);
             if (effect.HasProtectionSpend)
-                return "보호 소모 위력 +" + effect.ConsumeProtectionPowerBonus.ToString(CultureInfo.InvariantCulture);
+                phrases.Add("보호 소모 위력 +" + effect.ConsumeProtectionPowerBonus.ToString(CultureInfo.InvariantCulture));
             if (effect.HasAheadHitPower)
-                return "앞 공격 총타수 " + effect.AheadAttackHitsRequired.ToString(CultureInfo.InvariantCulture) +
-                    " 이상 위력 +" + effect.AheadAttackHitsPowerBonus.ToString(CultureInfo.InvariantCulture);
+                phrases.Add("앞 공격 총타수 " + effect.AheadAttackHitsRequired.ToString(CultureInfo.InvariantCulture) +
+                    " 이상 위력 +" + effect.AheadAttackHitsPowerBonus.ToString(CultureInfo.InvariantCulture));
             if (effect.HasActSteal)
-                return "상대 ACT " + effect.ActStealThreshold.ToString(CultureInfo.InvariantCulture) +
-                    " 이상이면 ACT " + effect.ActStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈";
+                phrases.Add("상대 ACT " + effect.ActStealThreshold.ToString(CultureInfo.InvariantCulture) +
+                    " 이상이면 ACT " + effect.ActStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈");
             if (effect.HasActRecoverySteal)
-                return "상대 공격 시 다음 턴 ACT 회복 " + effect.ActRecoveryStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈";
-            return string.Empty;
+                phrases.Add("상대 공격 시 다음 턴 ACT 회복 " + effect.ActRecoveryStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈");
+            if (effect.SelfBleedingCount > 0)
+                phrases.Add("자신에게 출혈 " + effect.SelfBleedingCount.ToString(CultureInfo.InvariantCulture) + " 부여");
+            if (effect.OpponentBleedingCount > 0)
+                phrases.Add("상대에게 출혈 " + effect.OpponentBleedingCount.ToString(CultureInfo.InvariantCulture) + " 부여");
+            if (effect.OpponentBleedingReplacementCount > 0)
+                phrases.Add("상대가 출혈 상태면 출혈 " + effect.OpponentBleedingReplacementCount.ToString(CultureInfo.InvariantCulture) + "로 대체");
+            if (effect.HasBleedingReduction)
+                phrases.Add("자신의 출혈 " + effect.BleedingReduction.ToString(CultureInfo.InvariantCulture) + " 감소");
+            if (effect.OpponentBleedingRequired > 0)
+                phrases.Add("상대 출혈 " + effect.OpponentBleedingRequired.ToString(CultureInfo.InvariantCulture) +
+                    " 이상 기본 위력 +" + effect.OpponentBleedingPowerBonus.ToString(CultureInfo.InvariantCulture));
+            if (effect.SelfBleedingRequired > 0)
+                phrases.Add("자기 출혈 " + effect.SelfBleedingRequired.ToString(CultureInfo.InvariantCulture) +
+                    " 이상 기본 위력 +" + effect.SelfBleedingPowerBonus.ToString(CultureInfo.InvariantCulture));
+            return string.Join("; ", phrases);
         }
 
         /// <summary>Reads one 예약 효과 phrase into <paramref name="effect"/>: <see cref="CycleFeedPhrase"/>,
@@ -267,15 +292,46 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return time.Success && time.Groups[1].Value == "+";
         }
 
-        /// <summary>Reads one 사용 효과 phrase into <paramref name="effect"/>: <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c> (n 1-10,
+        /// <summary>Reads semicolon-separated 사용 효과 phrases into <paramref name="effect"/>: <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c> (n 1-10,
         /// m 1-4), <c>앞 &lt;대상&gt;마다 다음 턴 제한시간 +n초 (최대 m)</c> (n 1-3, m 1-3), <see cref="AutoDodgePhrase"/>,
         /// or <c>상대 ACT n 이상이면 ACT m 강탈</c> (n and m 1-10); spaces
-        /// between the parts are optional. False, with nothing set, for blank or anything else.</summary>
+        /// between the parts are optional. Rejects duplicate categories atomically; false, with nothing set, for blank or invalid phrases.</summary>
         internal static bool TryReadUseEffect(string text, LegacySkillEffect effect)
         {
+            var parsed = new LegacySkillEffect();
+            foreach (string phrase in (text ?? string.Empty).Split(';'))
+                if (!TryReadSingleUseEffect(phrase, parsed)) return false;
+            effect.AheadPowerTarget = parsed.AheadPowerTarget;
+            effect.AheadPowerPerUnit = parsed.AheadPowerPerUnit;
+            effect.AheadPowerMax = parsed.AheadPowerMax;
+            effect.AheadTimeTarget = parsed.AheadTimeTarget;
+            effect.AheadTimePerUnit = parsed.AheadTimePerUnit;
+            effect.AheadTimeMax = parsed.AheadTimeMax;
+            effect.AutoDodge = parsed.AutoDodge;
+            effect.ConsumeProtectionPowerBonus = parsed.ConsumeProtectionPowerBonus;
+            effect.AheadAttackHitsRequired = parsed.AheadAttackHitsRequired;
+            effect.AheadAttackHitsPowerBonus = parsed.AheadAttackHitsPowerBonus;
+            effect.ActStealThreshold = parsed.ActStealThreshold;
+            effect.ActStealAmount = parsed.ActStealAmount;
+            effect.ActRecoveryStealAmount = parsed.ActRecoveryStealAmount;
+            effect.SelfBleedingCount = parsed.SelfBleedingCount;
+            effect.OpponentBleedingCount = parsed.OpponentBleedingCount;
+            effect.OpponentBleedingReplacementCount = parsed.OpponentBleedingReplacementCount;
+            effect.BleedingReduction = parsed.BleedingReduction;
+            effect.OpponentBleedingRequired = parsed.OpponentBleedingRequired;
+            effect.OpponentBleedingPowerBonus = parsed.OpponentBleedingPowerBonus;
+            effect.SelfBleedingRequired = parsed.SelfBleedingRequired;
+            effect.SelfBleedingPowerBonus = parsed.SelfBleedingPowerBonus;
+            return true;
+        }
+
+        private static bool TryReadSingleUseEffect(string text, LegacySkillEffect effect)
+        {
             string trimmed = text?.Trim() ?? string.Empty;
+            if (TryReadBleedingEffect(trimmed, effect)) return true;
             if (Compact(trimmed) == Compact(AutoDodgePhrase))
             {
+                if (effect.AutoDodge) return false;
                 effect.AutoDodge = true;
                 return true;
             }
@@ -283,7 +339,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (recoverySteal.Success)
             {
                 int amount = int.Parse(recoverySteal.Groups[1].Value, CultureInfo.InvariantCulture);
-                if (amount < MinimumActStealValue || amount > MaximumActStealValue) return false;
+                if (effect.HasActRecoverySteal || amount < MinimumActStealValue || amount > MaximumActStealValue) return false;
                 effect.ActRecoveryStealAmount = amount;
                 return true;
             }
@@ -292,7 +348,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 int threshold = int.Parse(actSteal.Groups[1].Value, CultureInfo.InvariantCulture);
                 int amount = int.Parse(actSteal.Groups[2].Value, CultureInfo.InvariantCulture);
-                if (threshold < MinimumActStealValue || threshold > MaximumActStealValue ||
+                if (effect.HasActSteal || threshold < MinimumActStealValue || threshold > MaximumActStealValue ||
                     amount < MinimumActStealValue || amount > MaximumActStealValue) return false;
                 effect.ActStealThreshold = threshold;
                 effect.ActStealAmount = amount;
@@ -302,7 +358,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (protectionSpend.Success)
             {
                 int bonus = int.Parse(protectionSpend.Groups[1].Value, CultureInfo.InvariantCulture);
-                if (bonus < MinimumUsePowerBonus || bonus > MaximumUsePowerBonus) return false;
+                if (effect.HasProtectionSpend || bonus < MinimumUsePowerBonus || bonus > MaximumUsePowerBonus) return false;
                 effect.ConsumeProtectionPowerBonus = bonus;
                 return true;
             }
@@ -311,7 +367,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 int hits = int.Parse(attackHits.Groups[1].Value, CultureInfo.InvariantCulture);
                 int bonus = int.Parse(attackHits.Groups[2].Value, CultureInfo.InvariantCulture);
-                if (hits < MinimumAttackHitsRequired || hits > MaximumAttackHitsRequired ||
+                if (effect.HasAheadHitPower || hits < MinimumAttackHitsRequired || hits > MaximumAttackHitsRequired ||
                     bonus < MinimumUsePowerBonus || bonus > MaximumUsePowerBonus) return false;
                 effect.AheadAttackHitsRequired = hits;
                 effect.AheadAttackHitsPowerBonus = bonus;
@@ -320,6 +376,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (TryReadAhead(AheadPowerPattern, trimmed, MinimumAheadPowerPerUnit, MaximumAheadPowerPerUnit,
                 MinimumAheadCount, MaximumAheadCount, out LegacyAheadTarget target, out int perUnit, out int max))
             {
+                if (effect.HasAheadPower) return false;
                 effect.AheadPowerTarget = target;
                 effect.AheadPowerPerUnit = perUnit;
                 effect.AheadPowerMax = max;
@@ -328,6 +385,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (TryReadAhead(AheadTimePattern, trimmed, MinimumAheadSeconds, MaximumAheadSeconds,
                 MinimumAheadTimeCount, MaximumAheadTimeCount, out target, out perUnit, out max))
             {
+                if (effect.HasAheadTime) return false;
                 effect.AheadTimeTarget = target;
                 effect.AheadTimePerUnit = perUnit;
                 effect.AheadTimeMax = max;
@@ -335,6 +393,64 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             return false;
         }
+
+        private static bool TryReadBleedingEffect(string text, LegacySkillEffect effect)
+        {
+            string compact = Compact(text);
+            Match grant = BleedingGrantPattern.Match(compact);
+            if (grant.Success)
+            {
+                int count = int.Parse(grant.Groups[2].Value, CultureInfo.InvariantCulture);
+                if (!ValidBleedingCount(count)) return false;
+                if (grant.Groups[1].Value == "자신에게")
+                {
+                    if (effect.SelfBleedingCount > 0) return false;
+                    effect.SelfBleedingCount = count;
+                }
+                else
+                {
+                    if (effect.OpponentBleedingCount > 0) return false;
+                    effect.OpponentBleedingCount = count;
+                }
+                return true;
+            }
+            Match replacement = BleedingReplacementPattern.Match(compact);
+            if (replacement.Success)
+            {
+                int count = int.Parse(replacement.Groups[1].Value, CultureInfo.InvariantCulture);
+                if (effect.OpponentBleedingReplacementCount > 0 || !ValidBleedingCount(count)) return false;
+                effect.OpponentBleedingReplacementCount = count;
+                return true;
+            }
+            Match reduction = BleedingReductionPattern.Match(compact);
+            if (reduction.Success)
+            {
+                int count = int.Parse(reduction.Groups[1].Value, CultureInfo.InvariantCulture);
+                if (effect.HasBleedingReduction || !ValidBleedingCount(count)) return false;
+                effect.BleedingReduction = count;
+                return true;
+            }
+            Match power = BleedingPowerPattern.Match(compact);
+            if (!power.Success) return false;
+            int required = int.Parse(power.Groups[2].Value, CultureInfo.InvariantCulture);
+            int bonus = int.Parse(power.Groups[3].Value, CultureInfo.InvariantCulture);
+            if (!ValidBleedingCount(required) || bonus < MinimumUsePowerBonus || bonus > MaximumUsePowerBonus) return false;
+            if (power.Groups[1].Value == "상대")
+            {
+                if (effect.OpponentBleedingRequired > 0) return false;
+                effect.OpponentBleedingRequired = required;
+                effect.OpponentBleedingPowerBonus = bonus;
+            }
+            else
+            {
+                if (effect.SelfBleedingRequired > 0) return false;
+                effect.SelfBleedingRequired = required;
+                effect.SelfBleedingPowerBonus = bonus;
+            }
+            return true;
+        }
+
+        private static bool ValidBleedingCount(int count) => count >= MinimumBleedingCount && count <= MaximumBleedingCount;
 
         private static bool TryReadAhead(Regex pattern, string text, int minimumPerUnit, int maximumPerUnit, int minimumCount,
             int maximumCount, out LegacyAheadTarget target, out int perUnit, out int max)

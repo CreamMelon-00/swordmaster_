@@ -32,6 +32,24 @@ namespace TurnLimbo.Presentation
                 : Generic(skill);
             if (definition?.Effect.HasBuff == true)
                 content = WithStatusNames(content, definition.Effect);
+            if (info == null && definition?.Effect.HasBleedingEffect == true)
+            {
+                var effect = definition.Effect;
+                var lines = new System.Collections.Generic.List<string>();
+                if (effect.ActGain > 0) lines.Add("다음 턴 ACT 회복 +" + effect.ActGain);
+                if (effect.SelfBleedingCount > 0) lines.Add("자신에게 출혈 " + effect.SelfBleedingCount + " 부여");
+                if (effect.OpponentBleedingCount > 0) lines.Add("상대에게 출혈 " + effect.OpponentBleedingCount + " 부여");
+                if (effect.OpponentBleedingReplacementCount > 0)
+                    lines.Add("사용 시 상대가 출혈 상태면 출혈 " + effect.OpponentBleedingReplacementCount + " 부여로 대체");
+                if (effect.BleedingReduction > 0) lines.Add("자신의 출혈 최대 " + effect.BleedingReduction + " 감소");
+                if (effect.OpponentBleedingRequired > 0)
+                    lines.Add("사용 시 상대 출혈 " + effect.OpponentBleedingRequired + " 이상이면 기본 위력 +" + effect.OpponentBleedingPowerBonus);
+                if (effect.SelfBleedingRequired > 0)
+                    lines.Add("사용 시 자기 출혈 " + effect.SelfBleedingRequired + " 이상이면 기본 위력 +" + effect.SelfBleedingPowerBonus);
+                content = new SkillInfoContent(effect.HasBleedingReduction ? "지혈" : "출혈", LegacySkillSymbol.Reduction,
+                    LegacySkillTone.Reduction, string.Empty, LegacySkillSymbol.Reduction, LegacySkillTone.Neutral,
+                    string.Join("\n", lines));
+            }
             if (definition?.Effect.HasActSteal == true)
             {
                 LegacySkillEffect effect = definition.Effect;

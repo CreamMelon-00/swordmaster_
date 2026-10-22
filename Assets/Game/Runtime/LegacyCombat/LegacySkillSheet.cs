@@ -269,7 +269,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             $"{LegacySkillLabels.MaximumUsePowerBonus}, M은 {LegacySkillLabels.MinimumAttackHitsRequired}~" +
             $"{LegacySkillLabels.MaximumAttackHitsRequired}의 정수), 상대 ACT N 이상이면 ACT M 강탈(N과 M은 " +
             $"{LegacySkillLabels.MinimumActStealValue}~{LegacySkillLabels.MaximumActStealValue}의 정수), " +
-            "상대 공격 시 다음 턴 ACT 회복 N 강탈(N은 1~10의 정수, 효과 턴당 1회)";
+            "상대 공격 시 다음 턴 ACT 회복 N 강탈(N은 1~10의 정수, 효과 턴당 1회), " +
+            "자신에게 출혈 N 부여, 상대에게 출혈 N 부여, 상대가 출혈 상태면 출혈 N로 대체, 자신의 출혈 N 감소, " +
+            "상대 출혈 N 이상 기본 위력 +M, 자기 출혈 N 이상 기본 위력 +M(N은 1~20, M은 1~50의 정수). 여러 구절은 ';'로 구분";
         /// <summary>The problem a 예약 효과 <c>제한시간 +n초</c> gets (time gained at reservation).</summary>
         public const string ReserveTimeGainProblem = "예약 때 시간을 늘리는 효과는 반환으로 되풀이할 수 있어 쓰지 않습니다";
 
@@ -608,8 +610,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     $"'{LegacySkillLabels.ReserveEffect(effect)}'을(를) 쓸 수 없습니다. 앞 기술을 거두고 다시 예약해 같은 효과를 되풀이할 수 있습니다.");
             if (effect.AutoDodge && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.UseEffect}' '{LegacySkillLabels.AutoDodgePhrase}'은(는) 공격 기술에만 쓸 수 있습니다.");
-            if ((effect.HasProtectionSpend || effect.HasAheadHitPower || effect.HasActRecoverySteal) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
+            if ((effect.HasProtectionSpend || effect.HasAheadHitPower || effect.HasActRecoverySteal || effect.HasBleedingPower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.UseEffect}' '{LegacySkillLabels.UseEffect(effect)}'은(는) 공격 기술에만 쓸 수 있습니다.");
+            if (effect.OpponentBleedingReplacementCount > 0 && effect.OpponentBleedingCount == 0 && r.Ok(Column.UseEffect))
+                r.RowProblem($"'{Column.UseEffect}'의 출혈 대체 구절을 쓰려면 '상대에게 출혈 N 부여'도 지정해야 합니다.");
             if ((highPower || variablePower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.HighPower}'과(와) '{Column.VariablePower}'은(는) 공격에만 붙일 수 있습니다.");
             if (text.Info != null && (text.Info.Main == null || text.Info.Description == null))
@@ -866,7 +870,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 else Problem(Column.ReserveEffect, Choice(cell, ReserveEffectChoices));
             }
 
-            /// <summary>사용 효과: blank for none, or one phrase (<see cref="LegacySkillLabels.TryReadUseEffect"/>).</summary>
+            /// <summary>사용 효과: blank for none, or semicolon-separated phrases (<see cref="LegacySkillLabels.TryReadUseEffect"/>).</summary>
             public void UseEffect(LegacySkillEffect effect)
             {
                 string cell = Cell(Column.UseEffect);

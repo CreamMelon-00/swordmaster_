@@ -15,6 +15,43 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class StatusStripPlayModeTests
     {
         [UnityTest]
+        public IEnumerator Bleeding_StacksAttackCountsInsteadOfPercentages_AndExplainsItsOwnTiming()
+        {
+            yield return null;
+            var host = new GameObject("Bleeding status strip test", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                host.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                LegacyStatusStrip strip = LegacyStatusStrip.Create((RectTransform)host.transform,
+                    new LegacyDuelArt().UIFont, "Bleeding statuses");
+                var source = new[] {
+                    new LegacyStatusSnapshot(LegacyStatusKind.Bleeding, 2, 2),
+                    new LegacyStatusSnapshot(LegacyStatusKind.Bleeding, 2, 3)
+                };
+                strip.Refresh(source);
+                Assert.That(strip.Count, Is.EqualTo(1));
+                Assert.That(strip.GetStatus(0).Percent, Is.EqualTo(2));
+                Assert.That(strip.GetStatus(0).RemainingCount, Is.EqualTo(5));
+                Assert.That(source[0].RemainingCount, Is.EqualTo(2), "Display grouping cannot mutate combat duration.");
+                Assert.That(source[1].RemainingCount, Is.EqualTo(3));
+                Assert.That(strip.GetIconRoot(0).Find("Status Magnitude").GetComponent<Text>().text, Is.EqualTo("출혈"));
+                Assert.That(strip.GetIconRoot(0).Find("Status Remaining").GetComponent<Text>().text, Is.EqualTo("5"));
+                Assert.That(strip.GetIconRoot(0).Find("Status Symbol").GetComponent<LegacyStatusIconGraphic>(), Is.Not.Null);
+                strip.ShowTooltip(0);
+                Assert.That(strip.TooltipRoot.Find("Status Name").GetComponent<Text>().text,
+                    Does.Contain("출혈").And.Contain("공격 기술 5개 남음"));
+                Text definition = strip.TooltipRoot.Find("Status Definition").GetComponent<Text>();
+                Assert.That(definition.text, Is.EqualTo(LegacyStatusNames.Description(LegacyStatusKind.Bleeding, 2)));
+                Assert.That(definition.text, Does.Contain("타격").And.Contain("고정 체력 피해 2")
+                    .And.Contain("이번 양측 공격").And.Contain("턴이 지나도"));
+                strip.Refresh(Array.Empty<LegacyStatusSnapshot>());
+                Assert.That(strip.Root.gameObject.activeSelf, Is.False);
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.False);
+            }
+            finally { Object.Destroy(host); }
+        }
+
+        [UnityTest]
         public IEnumerator RepeatedStacks_CombineOnlyMatchingKindAndCount_WithoutChangingTheRuntimeSnapshots()
         {
             yield return null;

@@ -954,19 +954,21 @@ namespace TurnLimbo.Presentation
                 bool playerBrokeNow = playerResistanceBefore > 0 && view.Player.Resistance <= 0;
                 bool decisiveNow = false;
                 if (hit.PlayerAttacked)
-                    decisiveNow |= PresentHit(true, hit.EnemyHealthDamage, hit.EnemyResistanceDamage,
+                    decisiveNow |= PresentHit(true, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage,
                         hit.EnemyDisplayedDamage, hit.EnemyPushPower,
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
-                        enemyHealthBefore > 0 && view.Enemy.Health <= 0,
+                        enemyHealthBefore > 0 && enemyHealthBefore - (hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage) <= 0,
                         DuelPrototypeController.Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill);
                 if (hit.EnemyAttacked)
-                    decisiveNow |= PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
+                    decisiveNow |= PresentHit(false, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
-                        playerHealthBefore > 0 && view.Player.Health <= 0,
+                        playerHealthBefore > 0 && playerHealthBefore - (hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage) <= 0,
                         DuelPrototypeController.Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill);
+                battleHud.ShowBleedingDamage(true, hit.PlayerBleedingHealthDamage, arena.PlayerRenderer.transform.position);
+                battleHud.ShowBleedingDamage(false, hit.EnemyBleedingHealthDamage, arena.EnemyRenderer.transform.position);
                 AnnounceBreaks(playerWasBroken, enemyWasBroken, hit.EnemyAttacked, hit.PlayerAttacked);
                 // 간파: the viewer's own read paid off (each screen cues its own), once per slot.
                 CueRead(slot.SlotIndex);

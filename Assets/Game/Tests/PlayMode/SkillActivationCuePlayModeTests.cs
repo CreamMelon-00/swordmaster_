@@ -13,6 +13,46 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class SkillActivationCuePlayModeTests
     {
         [UnityTest]
+        public IEnumerator BleedingCues_NameTheActualAffectedSide_AndHemostasisOnlyShowsRemovedStacks()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                foreach (int id in new[] { 63, 64, 66, 67, 68 })
+                {
+                    LegacySkill source = LegacySkillDefinitions.Skill(id);
+                    var skill = new LegacySkill(id, source.Name, 0, 1, 1, source.Kind, source.Property, 1, 0, "");
+                    var match = new LocalVersusMatch(new[] { skill }, new[] { Fixed(89090, LegacySkillKind.Attack, 1) });
+                    foreach (LocalVersusFighter fighter in new[] { match.Left, match.Right })
+                        ((LegacyStatusCollection)typeof(LocalVersusFighter).GetField("StatusEffects",
+                            BindingFlags.Instance | BindingFlags.NonPublic).GetValue(fighter)).Grant(LegacyStatusKind.Bleeding, 2, 3);
+                    while (match.Phase == LegacyDuelPhase.Planning)
+                    {
+                        int planner = match.CurrentPlanner;
+                        Assert.That(match.TryQueueLane(planner, 0), Is.True);
+                        Assert.That(match.TryCommit(planner), Is.True);
+                    }
+                    LocalVersusSlot slot = match.BeginNextSlot();
+                    Assert.That(fixture.Cue.Show(true, skill, slot.LeftFeedback), Is.True);
+                    string own = id == 63 ? "내 출혈 +2" : id == 64 ? "상대 출혈 +1" : id == 66
+                        ? "내 지혈 · 출혈 -2" : "출혈 조건 · 기본 위력 +" + (id == 67 ? 16 : 12);
+                    Assert.That(fixture.PlayerDetail.text, Does.Contain(own), source.Name);
+                    fixture.Cue.Reset();
+                    Assert.That(fixture.Cue.Show(false, skill, slot.LeftFeedback), Is.True);
+                    string other = id == 63 ? "상대 출혈 +2" : id == 64 ? "내 출혈 +1" : id == 66
+                        ? "상대 지혈 · 출혈 -2" : own;
+                    Assert.That(fixture.EnemyDetail.text, Does.Contain(other), source.Name);
+                    fixture.Cue.Reset();
+                }
+                LegacySkill hemostasis = new LegacySkill(66, "지혈", 0, 1, 1, LegacySkillKind.Defence,
+                    LegacySkillProperty.Defence, 1, 0, "");
+                LegacyCurrentSlot noneRemoved = BeginSlot(hemostasis, Fixed(89091, LegacySkillKind.Attack, 1));
+                Assert.That(noneRemoved.PlayerFeedback.BleedingRemoved, Is.Zero);
+                Assert.That(fixture.Cue.Show(true, hemostasis, noneRemoved.PlayerFeedback), Is.False);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator PlayerGuard_AnnouncesOnlyTheMatchedNextTurnActGain()
         {
             yield return null;

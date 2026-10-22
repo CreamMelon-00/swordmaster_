@@ -127,6 +127,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return new LegacyHitImpact(damage, damage);
         }
 
+        /// <summary>Fixed self damage after an actual attack hit; never an incoming attack or a resistance hit.</summary>
+        internal int ReceiveBleedingDamage(int damage)
+        {
+            int before = Health;
+            ReceiveFlatHealthDamage(damage);
+            return before - Health;
+        }
+
         internal int RestoreResistance(int amount)
         {
             int previous = Resistance;
@@ -170,7 +178,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
     {
         internal LegacySlotResult(int slotIndex, LegacySkill playerSkill, LegacySkill enemySkill,
             int playerHealthDamage, int enemyHealthDamage, int playerResistanceDamage,
-            int enemyResistanceDamage, DuelMatchOutcome outcome)
+            int enemyResistanceDamage, DuelMatchOutcome outcome, int playerBleedingHealthDamage = 0,
+            int enemyBleedingHealthDamage = 0)
         {
             SlotIndex = slotIndex;
             PlayerSkill = playerSkill;
@@ -180,6 +189,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             PlayerResistanceDamage = playerResistanceDamage;
             EnemyResistanceDamage = enemyResistanceDamage;
             Outcome = outcome;
+            PlayerBleedingHealthDamage = playerBleedingHealthDamage;
+            EnemyBleedingHealthDamage = enemyBleedingHealthDamage;
         }
 
         public int SlotIndex { get; }
@@ -192,6 +203,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Net loss over the slot, including initial effects; restoration is negative.</summary>
         public int EnemyResistanceDamage { get; }
         public DuelMatchOutcome Outcome { get; }
+        public int PlayerBleedingHealthDamage { get; }
+        public int EnemyBleedingHealthDamage { get; }
     }
 
     public sealed class LegacyCurrentSlot : ILegacySlotView
@@ -256,6 +269,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <see cref="LegacySlotFacts.PlayerLargestHitTaken"/>).</summary>
         public int PlayerLargestHitTaken { get; internal set; }
         public int EnemyLargestHitTaken { get; internal set; }
+        public int PlayerBleedingHealthDamage { get; internal set; }
+        public int EnemyBleedingHealthDamage { get; internal set; }
         /// <summary>The player's skill's 상대 상태 조건 has held against the enemy where the rules checked it this slot: the
         /// recovery's gate, the slot's start (after both sides' initial effects) for a damage multiplier, or one of its hits
         /// (presentation only: <see cref="LegacySlotFacts.PlayerStateConditionHeld"/>).</summary>
@@ -270,6 +285,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         internal int EnemyStartingHealth { get; }
         internal int PlayerStartingResistance { get; }
         internal int EnemyStartingResistance { get; }
+        internal int PlayerStartingBleeding, EnemyStartingBleeding;
+        internal int PlayerBleedingDamagePerHit, EnemyBleedingDamagePerHit;
+        internal bool PlayerBleedingConsumed, EnemyBleedingConsumed;
     }
 
     public sealed class LegacyHitResult
@@ -279,7 +297,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int enemyResistanceDamage, LegacyHitImpact playerImpact, LegacyHitImpact enemyImpact,
             DuelMatchOutcome outcome, bool playerDodged = false, bool playerPressured = false,
             bool enemyReachedHealthThreshold = false, bool playerAttackConditionMet = false,
-            bool enemyAttackConditionMet = false)
+            bool enemyAttackConditionMet = false, int playerBleedingHealthDamage = 0, int enemyBleedingHealthDamage = 0)
         {
             SlotIndex = slot.SlotIndex;
             PlayerSkill = slot.PlayerSkill;
@@ -291,6 +309,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             PlayerPressured = playerPressured;
             PlayerHealthDamage = playerHealthDamage;
             EnemyHealthDamage = enemyHealthDamage;
+            PlayerBleedingHealthDamage = playerBleedingHealthDamage;
+            EnemyBleedingHealthDamage = enemyBleedingHealthDamage;
             PlayerResistanceDamage = playerResistanceDamage;
             EnemyResistanceDamage = enemyResistanceDamage;
             PlayerPushPower = playerImpact.PushPower;
@@ -315,6 +335,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool EnemyAttacked { get; }
         public bool PlayerDodged { get; }
         public bool PlayerPressured { get; }
+        /// <summary>Actual health lost to this fighter's own attack-triggered bleeding, included in total health damage.</summary>
+        public int PlayerBleedingHealthDamage { get; }
+        public int EnemyBleedingHealthDamage { get; }
         public int PlayerHealthDamage { get; }
         public int EnemyHealthDamage { get; }
         public int PlayerResistanceDamage { get; }

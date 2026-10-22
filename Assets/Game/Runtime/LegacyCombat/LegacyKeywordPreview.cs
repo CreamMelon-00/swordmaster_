@@ -27,6 +27,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         ActSteal,
         /// <summary>Once-per-turn next-turn recovery stolen from an opposing attack.</summary>
         ActRecoverySteal,
+        Bleeding,
+        BleedingPower,
     }
 
     /// <summary>One queued card's keyword mark: its words, what it stands for and whether it gains nothing (a second copy,
@@ -106,6 +108,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                       effect.AheadPowerMax + " · +" + LegacyKeywordLinks.AheadPowerBonus(queue, slot, skill));
             if (effect.HasProtectionSpend)
                 parts.Add("보호 소모 시 +" + effect.ConsumeProtectionPowerBonus);
+            AddBleedingPreview(parts, effect, false);
             if (effect.HasActSteal)
                 parts.Add("상대 ACT " + effect.ActStealThreshold + "+ · 강탈 " + effect.ActStealAmount);
             if (effect.HasActRecoverySteal)
@@ -154,6 +157,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             if (effect.HasProtectionSpend)
                 parts.Add("사용 시 보호가 남아 있으면 모두 소모 · 기본 위력 +" + effect.ConsumeProtectionPowerBonus);
+            AddBleedingPreview(parts, effect, true);
             if (effect.HasActSteal)
                 parts.Add(LegacySkillLabels.ActStealKeyword + " · 사용 시 상대 ACT가 " + effect.ActStealThreshold +
                     " 이상이면 ACT " + effect.ActStealAmount + " 강탈");
@@ -203,6 +207,32 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     ? new LegacyKeywordMark(AutoBreathTag, LegacyKeywordMarkKind.AutoBreath, false) : LegacyKeywordMark.None;
             LegacySkillEffect effect = EffectOf(skill);
             if (effect == null) return LegacyKeywordMark.None;
+            if (effect.HasBleedingEffect)
+            {
+                ILegacySlotView current = view.CurrentSlot;
+                LegacySkillFeedback actual = !planning && current != null && current.SlotIndex == slotIndex
+                    ? playerRow ? current.PlayerFeedback : current.EnemyFeedback : null;
+                if (effect.HasBleedingPower)
+                {
+                    int bonus = actual == null ? 0 : actual.SelfBleedingPowerBonus + actual.OpponentBleedingPowerBonus;
+                    string condition = effect.OpponentBleedingRequired > 0 ? "상대 출혈 " + effect.OpponentBleedingRequired
+                        : "자기 출혈 " + effect.SelfBleedingRequired;
+                    int reward = effect.OpponentBleedingPowerBonus + effect.SelfBleedingPowerBonus;
+                    return new LegacyKeywordMark(actual != null ? "출혈 위력 +" + bonus : condition + "+ 시 +" + reward,
+                        LegacyKeywordMarkKind.BleedingPower, actual != null && bonus == 0);
+                }
+                if (effect.HasBleedingReduction)
+                    return new LegacyKeywordMark("지혈 -" + (actual?.BleedingRemoved ?? effect.BleedingReduction),
+                        LegacyKeywordMarkKind.Bleeding, actual != null && actual.BleedingRemoved == 0);
+                bool self = effect.SelfBleedingCount > 0;
+                int count = actual != null ? self ? actual.SelfBleedingGranted : actual.OpponentBleedingGranted
+                    : self ? effect.SelfBleedingCount : effect.OpponentBleedingCount;
+                if (actual == null && effect.OpponentBleedingReplacementCount > 0)
+                    return new LegacyKeywordMark("상대 출혈 시 " + count + "→" + effect.OpponentBleedingReplacementCount,
+                        LegacyKeywordMarkKind.Bleeding, false);
+                return new LegacyKeywordMark((self ? "자기" : "상대") + " 출혈 +" + count,
+                    LegacyKeywordMarkKind.Bleeding, actual != null && count == 0);
+            }
             if (effect.HasActRecoverySteal)
             {
                 ILegacySlotView current = view.CurrentSlot;
@@ -403,6 +433,19 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private static bool RecoveryStealUsed(ILegacyDuelView view, bool playerRow, int skillId)
             => view is LocalVersusPerspective versus &&
                 (playerRow ? versus.Me : versus.Opponent).HasUsedActRecoverySteal(skillId);
+
+        private static void AddBleedingPreview(List<string> parts, LegacySkillEffect effect, bool full)
+        {
+            if (effect.SelfBleedingCount > 0) parts.Add((full ? "사용 시 자신에게 " : "자기 ") + "출혈 +" + effect.SelfBleedingCount);
+            if (effect.OpponentBleedingCount > 0) parts.Add((full ? "사용 시 상대에게 " : "상대 ") + "출혈 +" + effect.OpponentBleedingCount);
+            if (effect.OpponentBleedingReplacementCount > 0)
+                parts.Add("사용 시 상대 출혈이 있으면 출혈 " + effect.OpponentBleedingReplacementCount + "로 대체");
+            if (effect.BleedingReduction > 0) parts.Add("자기 출혈 최대 " + effect.BleedingReduction + " 감소");
+            if (effect.OpponentBleedingRequired > 0)
+                parts.Add("사용 시 상대 출혈 " + effect.OpponentBleedingRequired + " 이상이면 기본 위력 +" + effect.OpponentBleedingPowerBonus);
+            if (effect.SelfBleedingRequired > 0)
+                parts.Add("사용 시 자기 출혈 " + effect.SelfBleedingRequired + " 이상이면 기본 위력 +" + effect.SelfBleedingPowerBonus);
+        }
 
         private static Func<int, int> CycleUsesOf(ILegacyDuelView view, bool playerRow)
             => playerRow ? (Func<int, int>)view.CycleUses : view.EnemyCycleUses;
