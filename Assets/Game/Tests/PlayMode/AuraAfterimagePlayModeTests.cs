@@ -9,8 +9,8 @@ namespace TurnLimbo.Presentation.Tests
 {
     /// <summary>이아's yellow 수훈 afterimages, driven by her power aura: none while it is down, ghosts of her current frame
     /// left behind her (behind her body, break outline and shadow, over her aura's glow) while it is up, drawn in the set
-    /// yellow (the silhouette's tint in the arena), held by a stopped clock, fading in and out with the aura, drifting back
-    /// and swelling about her feet so a still figure keeps a faint echo, a pool that holds the settings' longest trail
+    /// yellow (the silhouette's tint in the arena), held by a stopped clock, fading in and out with the aura, retaining each
+    /// captured position, rotation and scale, a pool that holds the settings' longest trail
     /// whole, and gone at once on an instant switch-off, a reset, a hidden figure or the arena's own reset.</summary>
     public sealed class AuraAfterimagePlayModeTests
     {
@@ -26,6 +26,7 @@ namespace TurnLimbo.Presentation.Tests
             var body = figure.AddComponent<SpriteRenderer>();
             body.sprite = new LegacyDuelArt().GetEnemySprite(0f);
             var settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
+            JsonUtility.FromJsonOverwrite("{\"empowermentAfterimageDrift\":1.1,\"empowermentAfterimageSwell\":0.24}", settings);
             var aura = new DuelPowerAura(figure.transform, null, 0, 3);
             var ghosts = new DuelAuraAfterimages(body, host.transform, null, 0, settings);
             aura.Afterimages = ghosts;
@@ -33,6 +34,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 Assume.That(body.sprite, Is.Not.Null);
                 Assume.That(settings.EmpowermentAfterimageAlpha, Is.GreaterThan(0f));
+                Assert.That(settings.EmpowermentAfterimageDrift, Is.EqualTo(1.1f), "Old asset values remain readable.");
+                Assert.That(settings.EmpowermentAfterimageSwell, Is.EqualTo(.24f));
                 float interval = settings.EmpowermentAfterimageInterval;
                 Assert.That(ghosts.Root.parent, Is.SameAs(host.transform), "They are left where she was, not carried on her.");
                 Assert.That(ghosts.Root.name, Is.EqualTo("Duel Aura Afterimages"));
@@ -44,12 +47,14 @@ namespace TurnLimbo.Presentation.Tests
                 aura.Tick(interval);
                 Assert.That(ghosts.ActiveCount, Is.EqualTo(1), "With her aura up she leaves one every interval.");
                 SpriteRenderer ghost = Shown(ghosts).Single();
+                Vector3 firstPosition = ghost.transform.position, firstScale = ghost.transform.lossyScale;
+                Quaternion firstRotation = ghost.transform.rotation;
                 Assert.That(ghost.name, Does.StartWith("Aura Afterimage"));
                 Assert.That(ghost.sprite, Is.SameAs(body.sprite), "A silhouette of her current frame…");
                 Assert.That(ghost.sortingOrder, Is.EqualTo(DuelAuraAfterimages.SortingOrder).And.LessThan(body.sortingOrder),
                     "…behind her…");
                 Assert.That(Vector3.Distance(ghost.transform.position, body.transform.position), Is.LessThan(1e-4f), "…where she stands…");
-                Assert.That(ghost.transform.localScale, Is.EqualTo(body.transform.localScale), "…as big as she is, to begin with…");
+                Assert.That(ghost.transform.localScale, Is.EqualTo(body.transform.localScale), "…as big as she was when captured…");
                 Color yellow = settings.EmpowermentAfterimageColor;
                 Assert.That(Drawn(ghost).r, Is.EqualTo(yellow.r).Within(1e-4f), "…in the set yellow…");
                 Assert.That(Drawn(ghost).g, Is.EqualTo(yellow.g).Within(1e-4f));
@@ -67,33 +72,44 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     figure.transform.localPosition += Vector3.left * .3f;
                     aura.Tick(interval);
+                    if (frame < 2)
+                    {
+                        Assert.That(ghost.transform.position, Is.EqualTo(firstPosition), "Nonzero legacy drift cannot move an emitted snapshot.");
+                        Assert.That(ghost.transform.lossyScale, Is.EqualTo(firstScale), "Nonzero legacy swell cannot resize it.");
+                        Assert.That(ghost.transform.rotation, Is.EqualTo(firstRotation));
+                        Assert.That(Drawn(ghost).a, Is.LessThan(settings.EmpowermentAfterimageAlpha), "Its opacity still fades.");
+                    }
                 }
                 float x = body.transform.position.x;
                 Assert.That(Shown(ghosts).Max(view => view.transform.position.x), Is.GreaterThan(x + 1f), "She leaves a trail as she moves.");
                 Assert.That(ghosts.ActiveCount, Is.LessThanOrEqualTo(DuelAuraAfterimages.Capacity));
 
-                // Standing still (facing left, unflipped): each ghost drifts back behind her and swells about her feet.
+                // Standing still: each snapshot stays at its captured position and size while only opacity changes.
                 for (int frame = 0; frame < 30; frame++) aura.Tick(Frame);
                 Assert.That(ghosts.ActiveCount, Is.GreaterThan(0), "Even standing still she is never without them.");
-                bool moved = false;
+                bool faded = false;
                 foreach (SpriteRenderer view in Shown(ghosts))
                 {
-                    Vector3 offset = view.transform.position - body.transform.position;
-                    Assert.That(offset.x, Is.GreaterThanOrEqualTo(-1e-4f), "They drift back, away from where she faces.");
-                    float growth = view.transform.localScale.y - 1f;
-                    Assert.That(growth, Is.GreaterThanOrEqualTo(-1e-4f));
-                    Assert.That(offset.y, Is.EqualTo(-DuelPowerAura.FeetY * growth).Within(1e-3f), "Their feet stay on the ground.");
+                    Assert.That(view.transform.position, Is.EqualTo(body.transform.position), "A stationary source leaves fixed overlapping snapshots.");
+                    Assert.That(view.transform.lossyScale, Is.EqualTo(body.transform.lossyScale));
+                    Assert.That(view.transform.rotation, Is.EqualTo(body.transform.rotation));
                     Assert.That(Drawn(view).a, Is.LessThanOrEqualTo(settings.EmpowermentAfterimageAlpha + 1e-4f));
-                    moved |= offset.x > .01f && growth > .001f;
+                    faded |= Drawn(view).a < settings.EmpowermentAfterimageAlpha * .9f;
                 }
-                Assert.That(moved, Is.True, "Older ghosts have drifted and swelled.");
+                Assert.That(faded, Is.True, "Older snapshots fade without drifting or swelling.");
+                SpriteRenderer beforeTurn = Shown(ghosts).OrderByDescending(view => Drawn(view).a).First();
+                Vector3 beforeTurnPosition = beforeTurn.transform.position;
                 body.flipX = true;
+                figure.transform.localPosition += Vector3.right * .4f;
+                aura.Tick(interval);
+                Assert.That(beforeTurn.transform.position, Is.EqualTo(beforeTurnPosition), "Moving back the other way cannot drag an earlier snapshot.");
+                Assert.That(beforeTurn.flipX, Is.False, "An earlier snapshot keeps the facing it captured.");
                 for (int frame = 0; frame < Mathf.CeilToInt(settings.EmpowermentAfterimageSeconds / Frame) + 2; frame++) aura.Tick(Frame);
                 Assert.That(ghosts.ActiveCount, Is.GreaterThan(0));
                 foreach (SpriteRenderer view in Shown(ghosts))
                 {
-                    Assert.That(view.transform.position.x, Is.LessThanOrEqualTo(body.transform.position.x + 1e-4f),
-                        "Turned the other way, they drift the other way.");
+                    Assert.That(view.transform.position, Is.EqualTo(body.transform.position), "Facing does not add drift to fixed snapshots.");
+                    Assert.That(view.transform.lossyScale, Is.EqualTo(body.transform.lossyScale));
                     Assert.That(view.flipX, Is.True, "A ghost faces as she did.");
                 }
 

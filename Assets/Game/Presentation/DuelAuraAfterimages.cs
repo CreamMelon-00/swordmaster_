@@ -6,9 +6,8 @@ namespace TurnLimbo.Presentation
 {
     /// <summary>The 서막's 수훈 afterimages: while 이아's power aura is up (from her 수훈 in mission 4's event scene, through the
     /// rest of the battle and her final blow, until the outro's <c>@aura knight off</c>) she leaves semi-transparent
-    /// yellow silhouettes of her current frame behind her, one every interval, each fading out as it drifts back and
-    /// swells a little about her feet. While she moves, attacks or is knocked back they trail her plainly; while she stands
-    /// still they make a faint, slowly breathing echo around her back, so the trail is always there.
+    /// yellow silhouettes of her current frame behind her, one every interval. Each snapshot retains its captured world
+    /// position, rotation and scale while its opacity fades, so the trail records where she was in either direction.
     /// Its aura drives it (<see cref="DuelPowerAura.Afterimages"/>): it is ticked on the aura's clock with the aura's fade
     /// as its strength (the battle's clock in battle, so hit stop, slow motion and a freeze frame hold it; real time in a
     /// cutscene), so the ghosts fade in and out with the aura, an instant switch-off or a reset takes them at once, and a
@@ -33,8 +32,6 @@ namespace TurnLimbo.Presentation
 
         private readonly SpriteRenderer source;
         private readonly DuelPresentationSettings settings;
-        private readonly bool facesRightByDefault;
-        private readonly float footY;
         private readonly DuelStepAfterimages pool;
         private readonly LegacyAfterimageTrail trail = new LegacyAfterimageTrail();
         private bool disposed;
@@ -44,16 +41,13 @@ namespace TurnLimbo.Presentation
         /// <param name="material">A flat silhouette material (the break outline's) paints her shape in the colour; a sprite
         /// material (the fallback) tints a copy of her frame instead.</param>
         /// <param name="settings">Read every tick, so live tuning applies to the next ghost.</param>
-        /// <param name="facesRightByDefault">Which way the figure faces unflipped (the enemy faces left); "back" is the
-        /// other way from where she faces now.</param>
-        /// <param name="footY">Her feet below her pivot in her own space; the ghosts swell about them.</param>
+        /// <param name="facesRightByDefault">Retained for existing callers. Fixed snapshots do not use a facing direction.</param>
+        /// <param name="footY">Retained for existing callers. Fixed snapshots keep their captured scale and position.</param>
         public DuelAuraAfterimages(SpriteRenderer source, Transform parent, Material material, int layer,
             DuelPresentationSettings settings, bool facesRightByDefault = false, float footY = DuelPowerAura.FeetY)
         {
             this.source = source != null ? source : throw new ArgumentNullException(nameof(source));
             this.settings = settings != null ? settings : throw new ArgumentNullException(nameof(settings));
-            this.facesRightByDefault = facesRightByDefault;
-            this.footY = footY;
             pool = new DuelStepAfterimages(parent, material, layer, false, Capacity, Label);
         }
 
@@ -81,10 +75,8 @@ namespace TurnLimbo.Presentation
             if (opacity <= 0f) return;
             Color tint = settings.EmpowermentAfterimageColor;
             tint.a = opacity;
-            bool facesRight = facesRightByDefault != source.flipX;
-            var drift = new Vector3((facesRight ? -1f : 1f) * trail.Breathe(settings.EmpowermentAfterimageDrift), 0f, 0f);
             pool.Emit(source, tint, LegacyAfterimageTrail.FadeSeconds(settings.EmpowermentAfterimageSeconds, interval, Capacity),
-                drift, trail.Breathe(settings.EmpowermentAfterimageSwell), footY, SortingOrder);
+                SortingOrder);
         }
 
         /// <summary>Every ghost goes at once, and the next comes a whole interval after the trail picks up again.</summary>

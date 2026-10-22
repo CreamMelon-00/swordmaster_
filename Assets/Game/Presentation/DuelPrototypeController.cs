@@ -26,7 +26,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Legacy fallback; active turns snapshot DuelPresentationSettings.TurnCleanupSeconds.</summary>
         public const float TurnCleanupDelay = 0.12f;
         [SerializeField] private DuelPresentationSettings presentationSettings;
-        private enum ViewPhase { Planning, Approaching, ClosingDistance, SkillWindup, PlayingSlot, BetweenSlots, AfterTurn, Settling, Outcome }
+        private enum ViewPhase { Planning, Approaching, ClosingDistance, ResistanceImpact, SkillWindup, PlayingSlot, BetweenSlots, AfterTurn, Settling, Outcome }
         // Each lane's hold (its key, or the pointer on its gear's window) and the explanation a hold opened (LegacyLaneHold);
         // versus reads its lanes the same way.
         private readonly DuelLaneHolds laneHolds = new DuelLaneHolds();
@@ -330,7 +330,7 @@ namespace TurnLimbo.Presentation
         }
         // A cut-in holds the battle: no step is judged against its held cue.
         public bool CanStep => session != null && !IsInSkillTavern && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
-            !bladeBindHitPending && !bladeExchange.IsHolding &&
+            !bladeBindHitPending && !resistanceImpactLocksStep &&
             StepFeatures.AllowsAnyStep() &&
             session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
@@ -612,6 +612,13 @@ namespace TurnLimbo.Presentation
                 if (finale.IsComplete) CompleteFinale();
                 return;
             }
+            if (viewPhase == ViewPhase.ResistanceImpact)
+            {
+                float checkDelta = realDelta - empowermentCues.HoldBattle(realDelta);
+                empowermentCues.Tick(realDelta);
+                AdvanceResistanceImpactPresentation(checkDelta, realDelta);
+                return;
+            }
             guideInspectionRemaining = Mathf.Max(0f, guideInspectionRemaining - realDelta);
             if (guide != null && guide.CanAdvance && keyboard != null && keyboard.enterKey.wasPressedThisFrame)
             {
@@ -650,10 +657,9 @@ namespace TurnLimbo.Presentation
                 return;
             }
             // A blade bind holds the battle's clock after the hit stop: the two fighters struggle on its real time.
-            float exchangeTime = bladeExchange.Hold(realDelta - stoppedTime, arena);
-            float boundTime = AdvanceBladeBind(realDelta - stoppedTime - exchangeTime);
+            float boundTime = AdvanceBladeBind(realDelta - stoppedTime);
             // A 수훈 technique's cut-in holds the battle after the hit stop (its camera ease and flare run meanwhile).
-            float liveTime = realDelta - stoppedTime - exchangeTime - boundTime;
+            float liveTime = realDelta - stoppedTime - boundTime;
             liveTime -= empowermentCues.HoldBattle(liveTime);
             empowermentCues.Tick(realDelta);
             // The finishing blow's slow motion runs on the time the hit stop left; its freeze begins once it is over.
@@ -681,7 +687,7 @@ namespace TurnLimbo.Presentation
             if (!IsTrainingBattle)
                 arena.SetTensionLighting(BattleHealthReading(), presentationSettings.TensionLighting);
             RefreshUpcomingEnemy();
-            if (!finale.IsRunning && !bladeExchange.IsHolding && session.CurrentSlot != null &&
+            if (!finale.IsRunning && session.CurrentSlot != null &&
                 (viewPhase == ViewPhase.SkillWindup || viewPhase == ViewPhase.PlayingSlot))
             {
                 float progress = viewPhase == ViewPhase.SkillWindup
@@ -691,7 +697,8 @@ namespace TurnLimbo.Presentation
                     session.CurrentSlot.EnemySkill);
             }
             arena.Tick(delta, realDelta, deferSlowAfterimages: true);
-            bladeExchange.Present(arena, art, effectsSource);
+            if (viewPhase == ViewPhase.PlayingSlot && !bladeBindHitPending)
+                PresentBladeExchange(phaseTime + delta);
             phaseTime += delta;
             switch (viewPhase)
             {
@@ -760,10 +767,10 @@ namespace TurnLimbo.Presentation
                 case ViewPhase.Outcome:
                     break;
             }
-            arena.TickPressureAttackTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
-            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
+            arena.TickPressureAttackTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsPlaying);
+            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsPlaying);
             // A signature move's strike trail, sampled like the pressure trail after this frame's holds.
-            arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
+            arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsPlaying);
             if (viewPhase != ViewPhase.Outcome) arena.SampleSlowAfterimages(realDelta);
             if (viewPhase != ViewPhase.Outcome)
             {
@@ -857,6 +864,7 @@ namespace TurnLimbo.Presentation
 
         private void BeginSlotAnimation()
         {
+            resistanceImpactLocksStep = false;
             LegacyFighterState facing = EnemyFacingNextSlot();
             int playerResistanceBefore = session.Player.Resistance;
             int enemyResistanceBefore = facing.Resistance;
@@ -899,17 +907,10 @@ namespace TurnLimbo.Presentation
             if (missionEmpowered) empowermentCues.TryBeginCutIn(mission.Empowerment, slot.EnemySkill);
             hud.SetCurrentSkills(playerAction, slot.EnemySkill, slotDuration + slotAnticipationDuration);
             skillActivationCue.Reset();
-            hud.SetSkillFeedback(slot);
-            if (!slotStartDeferred) ShowSkillActivationCues(slot);
-            if (slot.EnemyCountered) hud.ShowCounterCallout(false, arena.EnemyRenderer.transform.position);
-            // Report the actual capped change without treating recovery or
-            // direct resistance loss as an animation hit or knockback.
-            resistanceFeedback.Show(true, session.Player.Resistance - playerResistanceBefore);
-            resistanceFeedback.Show(false, session.Enemy.Resistance - enemyResistanceBefore);
-            AnnounceBreaks(playerWasBroken, enemyWasBroken);
-            // A slot's opening effects can break resistance (라우다레's 상대 붕괴), which the barks hear too.
-            barks.Hit(Blow(session.Enemy, enemyWasBroken, 0), Blow(session.Player, playerWasBroken, 0));
+            PrepareBladeExchange(slot);
             SetViewPhase(slotAnticipationDuration > 0f ? ViewPhase.SkillWindup : ViewPhase.PlayingSlot);
+            if (!TryBeginResistanceImpact(slot, playerResistanceBefore, enemyResistanceBefore, playerWasBroken, enemyWasBroken))
+                PresentSlotStartFeedback(slot, playerResistanceBefore, enemyResistanceBefore, playerWasBroken, enemyWasBroken);
         }
 
         private void ShowSkillActivationCues(LegacyCurrentSlot slot)
@@ -933,7 +934,7 @@ namespace TurnLimbo.Presentation
 
         private void UpdateSlot(float delta)
         {
-            if (bladeBindHitPending || bladeExchange.IsHolding) return;
+            if (bladeBindHitPending) return;
             LegacyCurrentSlot slot = session.CurrentSlot;
             float attackTime = slotImpactTime + slotCycleDuration * slot.HitsResolved;
             float animationClipEnd = slotCycleDuration * slot.HitsResolved + OriginalClipDuration / slotPlaybackSpeed;
@@ -953,9 +954,9 @@ namespace TurnLimbo.Presentation
                         return;
                     }
                 }
-                if (TryBeginBladeExchange(slot, attackTime)) return;
                 // The blades touch now, but this first hit lands only when their struggle releases.
-                if (!releasingBladeBindHit && TryBeginBladeBind(slot.SlotIndex, attackTime)) return;
+                if (!releasingBladeBindHit && !resistanceImpactLocksStep && TryBeginBladeBind(slot.SlotIndex, attackTime)) return;
+                if (TryPrepareDeferredResistanceImpact(slot)) return;
                 int playerResistanceBefore = session.Player.Resistance;
                 int enemyResistanceBefore = session.Enemy.Resistance;
                 int playerHealthBefore = session.Player.Health;
@@ -963,6 +964,7 @@ namespace TurnLimbo.Presentation
                 bool playerWasBroken = session.Player.IsResistanceBroken;
                 bool enemyWasBroken = session.Enemy.IsResistanceBroken;
                 LegacyHitResult hit = session.ResolveNextHit();
+                resistanceImpactLocksStep = false;
                 arena.ObserveCombatContact();
                 arena.PresentWeaponTrailContact(hit.HitIndex, hit.PlayerAttacked, hit.EnemyAttacked);
                 // The queue panels' clash motion reads the hit now: a finishing blow completes its slot before the HUD's frame.
@@ -986,6 +988,13 @@ namespace TurnLimbo.Presentation
                 if (hit.EnemyAttacked) enemySlotDamage = hit.PlayerDisplayedDamage;
                 bool enemyBrokeNow = enemyResistanceBefore > 0 && session.Enemy.Resistance <= 0;
                 bool playerBrokeNow = playerResistanceBefore > 0 && session.Player.Resistance <= 0;
+                // Both reactions read this one resolved hit. Self-inflicted bleeding is not an incoming sword strike.
+                bool enemyHurt = LegacyHitReaction.ShouldHurt(hit.EnemyAttacked, session.Enemy.IsResistanceBroken,
+                    hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage,
+                    hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage);
+                bool playerHurt = LegacyHitReaction.ShouldHurt(hit.PlayerAttacked, session.Player.IsResistanceBroken,
+                    hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage,
+                    hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage);
                 bool decisiveNow = false;
                 if (hit.PlayerAttacked)
                     decisiveNow |= PresentHit(true, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage,
@@ -993,7 +1002,7 @@ namespace TurnLimbo.Presentation
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
                         enemyHealthBefore > 0 && enemyHealthBefore - (hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage) <= 0,
-                        Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill);
+                        Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill, enemyHurt);
                 if (hit.EnemyAttacked && !hit.PlayerDodged)
                 {
                     decisiveNow |= PresentHit(false, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage,
@@ -1001,7 +1010,7 @@ namespace TurnLimbo.Presentation
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
                         playerHealthBefore > 0 && playerHealthBefore - (hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage) <= 0,
-                        Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill);
+                        Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill, playerHurt);
                     if (missionEmpowered) empowermentCues.NotifyEnemyHit(mission.Empowerment, hit.EnemySkill);
                 }
                 hud.ShowBleedingDamage(true, hit.PlayerBleedingHealthDamage, arena.PlayerRenderer.transform.position);
@@ -1092,6 +1101,8 @@ namespace TurnLimbo.Presentation
             bladeBindHitPending = releasingBladeBindHit = false;
             bladeExchange.Clear();
             arena.ClearBladeBind();
+            resistanceImpactLocksStep = false;
+            arena.ClearResistanceImpact();
         }
 
         // Playback may speed a slot up from its start only when nothing before its first hit can change it: no step can be
@@ -1289,7 +1300,7 @@ namespace TurnLimbo.Presentation
         // Returns whether the hit was decisive (a break, the finishing blow, a heavy hit).
         private bool PresentHit(bool playerAttacks, int healthDamage, int resistanceDamage,
             int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, bool finishingBlow,
-            LegacyArenaView.HitExchange exchange, LegacyDamageReason damageReasons, LegacySkill attackingSkill)
+            LegacyArenaView.HitExchange exchange, LegacyDamageReason damageReasons, LegacySkill attackingSkill, bool hurtReaction)
         {
             // Only decisive moments get the slow close-up, tilt and critical sound: a break, the finishing blow, or one hit
             // taking a set share of the target's maximum health (LegacyDecisiveHit). A merely big number is still gold and larger.
@@ -1309,7 +1320,7 @@ namespace TurnLimbo.Presentation
                 hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
             // A locked pair releases in its strike pose, including a large resistance-only number.
             arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded,
-                emphasised && !releasingBladeBindHit, pushPower, exchange, decisive);
+                emphasised && !releasingBladeBindHit, pushPower, exchange, decisive, hurtReaction);
             if (decisive) hud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
             hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber,
@@ -1379,6 +1390,7 @@ namespace TurnLimbo.Presentation
                 hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
                 if (pressureBacked) stepHud.ClearFeedback(LegacyStepAction.Pressure);
             }
+            if (success) bladeExchange.Clear();
             arena.PerformStep(action, success, session.StepSuccessStreak);
             stepHud.ShowFeedback(action, success, session.StepSuccessStreak, previousStepStreak);
             stepAudio.Play(action, success, presentationSettings.StepSoundVolume);
@@ -3184,6 +3196,8 @@ namespace TurnLimbo.Presentation
 
         private void RefreshHudClock(float delta, float realDelta)
         {
+            // Keep bars, queue cancellation and the broken aura on the preceding picture until the body makes contact.
+            if (viewPhase == ViewPhase.ResistanceImpact && !arena.HasResistanceImpactContact) return;
             // Every frame, after this frame's poses: the outline follows the actor's current sprite.
             RefreshEnemyRosterState();
             hud.SetLaneCycleCost(LaneCycleCost, CanAffordLaneCycle);

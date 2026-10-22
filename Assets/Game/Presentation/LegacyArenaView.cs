@@ -428,6 +428,7 @@ namespace TurnLimbo.Presentation
 
         public void Reset()
         {
+            ClearResistanceImpact();
             ClearSlowMovement();
             ClearCombatShot();
             if (enemyFigures.Count > 0) SelectActiveEnemy(0);
@@ -530,6 +531,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            ClearResistanceImpact();
             ClearSlotMovement();
             contactRead.Clear();
             ClearSlowMovement();
@@ -638,6 +640,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
         {
+            ClearResistanceImpact();
             PrepareSlotMovement(playerSkill, enemySkill);
             contactRead.AwaitImpact();
             ClearUpcomingEnemy();
@@ -700,6 +703,7 @@ namespace TurnLimbo.Presentation
 
         public void EndTurn()
         {
+            ClearResistanceImpact();
             ClearSlotMovement();
             contactRead.ReleasePending();
             ClearSlowMovement();
@@ -874,6 +878,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Chooses how the enemy is drawn. Missing optional appearances fall back to Iia.</summary>
         public void SetEnemyAppearance(EnemyAppearance appearance)
         {
+            ClearResistanceImpact();
             ClearAttackMotion(suspension == null);
             if (appearance == EnemyAppearance.TrainingDummy && !dummyAnimations.HasRequiredAssets)
             {
@@ -922,8 +927,11 @@ namespace TurnLimbo.Presentation
         /// <param name="closeUp">With <paramref name="fatal"/>, also starts the slow close-up and colour flash.
         /// The controller reserves it for decisive moments: a resistance break, a finishing blow, or one hit taking a set
         /// share of the target's maximum health (<see cref="LegacyDecisiveHit"/>).</param>
+        /// <param name="hurtReaction">An explicit combat decision about flinching. Successful guards retain their guard
+        /// pose; null preserves the legacy direct-presentation behaviour.</param>
         public void PresentHit(bool playerAttacks, int hpDamage, int resistanceDamage, bool guarded,
-            bool fatal, int pushPower = -1, HitExchange exchange = HitExchange.None, bool closeUp = true)
+            bool fatal, int pushPower = -1, HitExchange exchange = HitExchange.None, bool closeUp = true,
+            bool? hurtReaction = null)
         {
             ObserveCombatContact();
             var attacker = playerAttacks ? player : enemy;
@@ -932,10 +940,19 @@ namespace TurnLimbo.Presentation
             // Attack against attack only trades resistance: blades meet, not bodies.
             // HP overflow or a resistance break still lands on the body.
             bool bladeBlock = exchange != HitExchange.None && hpDamage <= 0 && !fatal;
-            // When both strike on this hit, neither flinches out of its contact frame.
-            bool keepsStrike = bladeBlock && exchange == HitExchange.MutualClash;
-            bool blocks = (guarded && hpDamage <= 0 && !fatal) || bladeBlock;
-            if (target == player && mobAnimations.HasRequiredAssets && !keepsStrike && (guarded || damage > 0f || fatal))
+            // Combat may make a weaker striking fighter recoil even when only resistance was spent.
+            bool keepsStrike = bladeBlock && exchange == HitExchange.MutualClash && hurtReaction != true;
+            bool blocks = (guarded && hpDamage <= 0 && !fatal) || (bladeBlock && hurtReaction != true);
+            if (hurtReaction == false)
+            {
+                // A later, balanced contact resumes the current attack instead of retaining an earlier flinch.
+                if (!target.ReactionIsBlock) target.ReactionTime = 0f;
+                target.HurtPlaying = false;
+                target.HurtElapsed = 0f;
+                SampleActor(target);
+            }
+            bool reacts = !keepsStrike && (guarded || damage > 0f || fatal) && (blocks || hurtReaction != false);
+            if (target == player && mobAnimations.HasRequiredAssets && reacts)
             {
                 // A successful guard can spend resistance. HP penetration or a heavy/broken guard recoils.
                 player.ReactionIsBlock = blocks;
@@ -947,7 +964,7 @@ namespace TurnLimbo.Presentation
                 SampleActor(player);
             }
             else if (target == enemy && EnemyIsElisa && mobAnimations.HasRequiredAssets &&
-                !keepsStrike && (guarded || damage > 0f || fatal))
+                reacts)
             {
                 enemy.ReactionIsBlock = blocks;
                 enemy.ReactionVariant = enemyReactionPoseRandom.Next(MobStudentAnimationSet.ReactionVariationCount);
@@ -955,14 +972,14 @@ namespace TurnLimbo.Presentation
                 enemy.ReactionTime = ReactionPoseDuration;
                 SampleActor(enemy);
             }
-            else if (target == enemy && EnemyIsDummy && !keepsStrike && (guarded || damage > 0f || fatal))
+            else if (target == enemy && EnemyIsDummy && reacts && hurtReaction != false)
             {
                 // One authored reaction; a hit during it starts it again from the first cel.
                 enemy.HurtElapsed = 0f;
                 enemy.HurtPlaying = true;
                 SampleActor(enemy);
             }
-            else if (target == enemy && ActiveEnemyAnimations.HasRequiredAssets && !keepsStrike && (guarded || damage > 0f || fatal))
+            else if (target == enemy && !EnemyIsDummy && ActiveEnemyAnimations.HasRequiredAssets && reacts)
             {
                 // HP damage/broken guard recoils; successful guards and blade blocks use the guard.
                 enemy.ReactionIsBlock = blocks;
@@ -1422,6 +1439,7 @@ namespace TurnLimbo.Presentation
         internal void SuspendForCutscene()
         {
             if (disposed || suspension != null) return;
+            ClearResistanceImpact();
             ClearCombatShot();
             ClearUpcomingEnemy();
             Vector3 playerAttackOffset = player.AttackVisualOffset, enemyAttackOffset = enemy.AttackVisualOffset;
@@ -1480,6 +1498,7 @@ namespace TurnLimbo.Presentation
         internal void ResumeAfterCutscene()
         {
             if (disposed || suspension == null) return;
+            ClearResistanceImpact();
             Suspension saved = suspension;
             if (enemyAppearance != saved.Appearance) SetEnemyAppearance(saved.Appearance);
             suspension = null;
@@ -1598,6 +1617,7 @@ namespace TurnLimbo.Presentation
 
         private void SampleActor(Actor actor)
         {
+            if (TrySampleResistanceImpact(actor)) return;
             SampleActorPose(actor);
             ApplyAttackMotion(actor);
         }

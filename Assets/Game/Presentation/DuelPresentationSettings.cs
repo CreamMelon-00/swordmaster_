@@ -140,9 +140,10 @@ namespace TurnLimbo.Presentation
         private float empowermentAfterimageInterval = 0.05f;
         [SerializeField, Range(0.1f, 1.5f), Tooltip("잔상 하나가 다 사라지기까지의 시간(초, 위 간격과 같은 시계). 길수록 꼬리가 길어집니다.")]
         private float empowermentAfterimageSeconds = 0.4f;
-        [SerializeField, Range(0f, 1.5f), Tooltip("잔상이 사라지는 동안 이아의 등 뒤쪽으로 밀려나는 거리(월드 단위). 가만히 서 있어도 잔상이 등 뒤로 번져 보이게 하며, 천천히 숨 쉬듯 조금씩 달라집니다. 0이면 남은 자리에서 사라집니다.")]
+        // Retain old asset values for serialization compatibility; body snapshots now remain fixed where captured.
+        [SerializeField, HideInInspector, Range(0f, 1.5f), Tooltip("기존 설정 호환용 값입니다. 고정된 잔상에는 이동을 적용하지 않습니다.")]
         private float empowermentAfterimageDrift = 0.3f;
-        [SerializeField, Range(0f, 0.3f), Tooltip("잔상이 사라지는 동안 커지는 비율(0.06 = 6%). 발은 땅에 붙인 채 커져서, 가만히 서 있어도 몸 둘레에 노란 테가 번집니다. 숨 쉬듯 조금씩 달라집니다. 0이면 크기가 그대로입니다.")]
+        [SerializeField, HideInInspector, Range(0f, 0.3f), Tooltip("기존 설정 호환용 값입니다. 고정된 잔상에는 크기 변화를 적용하지 않습니다.")]
         private float empowermentAfterimageSwell = 0.06f;
 
         [Header("전투 대사 — 다음 대사부터 적용 (Resources/Barks, Docs/Barks.md)")]
@@ -596,9 +597,9 @@ namespace TurnLimbo.Presentation
         public float EmpowermentAfterimageInterval => Safe(empowermentAfterimageInterval, 0.02f, 0.5f, 0.05f);
         /// <summary>Seconds one 수훈 afterimage takes to fade out, on the same clock.</summary>
         public float EmpowermentAfterimageSeconds => Safe(empowermentAfterimageSeconds, 0.1f, 1.5f, 0.4f);
-        /// <summary>How far a 수훈 afterimage drifts back behind her over its life (world units), as the breath has it.</summary>
+        /// <summary>Legacy serialized drift value, retained for existing settings. Fixed snapshots ignore it.</summary>
         public float EmpowermentAfterimageDrift => Safe(empowermentAfterimageDrift, 0f, 1.5f, 0.3f);
-        /// <summary>How much a 수훈 afterimage grows about her feet over its life (0.06 = 6%), as the breath has it.</summary>
+        /// <summary>Legacy serialized swell value, retained for existing settings. Fixed snapshots ignore it.</summary>
         public float EmpowermentAfterimageSwell => Safe(empowermentAfterimageSwell, 0f, 0.3f, 0.06f);
         /// <summary>The speech bubbles' text size when nothing is tuned.</summary>
         public const int DefaultBarkFontSize = 24;

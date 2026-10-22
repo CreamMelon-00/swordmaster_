@@ -239,8 +239,8 @@ namespace TurnLimbo.Presentation.Tests
                     Color originalGhostColor = DuelStepAfterimages.DrawnColor(scope.Ghosts[0]);
                     scope.Arena.Tick(0f, .04f);
                     Assert.That(DuelStepAfterimages.DrawnColor(scope.Ghosts[0]).a, Is.LessThan(originalGhostColor.a));
-                    Assert.That(scope.Ghosts[0].transform.position.x, Is.LessThan(originalGhostPosition.x),
-                        "A held pose's slow echoes ease back so their edges remain visible.");
+                    Assert.That(scope.Ghosts[0].transform.position, Is.EqualTo(originalGhostPosition),
+                        "A slow-motion afterimage stays at the captured world position while only its opacity fades.");
                     for (int hitch = 0; hitch < 16; hitch++)
                     {
                         scope.Arena.HoldFinishingFocus(false, true, 10f);
@@ -315,7 +315,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator NativeSlowMotionCaptures_ShowTheTrailOutsideTheOpaqueBody_AtBothAspects()
+        public IEnumerator NativeSlowMotionCaptures_LeaveTheTrailInPlaceWhenTheBodyMoves_AtBothAspects()
         {
             yield return null;
             using (var scope = new TrailScope())
@@ -327,6 +327,10 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(.3f);
                 scope.Cue(cue);
                 scope.Advance(.28f);
+                Assert.That(scope.Arena.ActiveSlowAfterimageCount, Is.GreaterThan(0));
+                // A held body now covers its coincident snapshot. Moving the body after capture must reveal the
+                // original world-space copy, in either travel direction, without launching the ghost anywhere.
+                scope.Arena.PlayerRenderer.transform.position += Vector3.right * (cue == "dodge" ? -.8f : .8f);
                 string label = size.x + "x" + size.y + "-" + cue;
                 Color32[] withTrail = scope.Capture(label + "-trail");
                 scope.TrailRoot.gameObject.SetActive(false);
@@ -336,7 +340,7 @@ namespace TurnLimbo.Presentation.Tests
                 for (int index = 0; index < withTrail.Length; index++)
                     if (Math.Abs(withTrail[index].r - withoutTrail[index].r) + Math.Abs(withTrail[index].g - withoutTrail[index].g) +
                         Math.Abs(withTrail[index].b - withoutTrail[index].b) > 12) changed++;
-                Assert.That(changed, Is.GreaterThan(150), "Native render must reveal a visible pose trail outside the protagonist's opaque body. " + label);
+                Assert.That(changed, Is.GreaterThan(150), "Native render must reveal the fixed snapshot left where the moving protagonist was. " + label);
             }
         }
 

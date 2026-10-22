@@ -237,6 +237,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             private const BindingFlags NonPublic = BindingFlags.Instance | BindingFlags.NonPublic;
             private readonly GameObject host;
+            private readonly DuelPresentationSettings settings;
             private readonly Action<float, float> configure;
             private readonly Action<float> hold;
             private readonly Action<float, bool> tickTrail;
@@ -259,7 +260,10 @@ namespace TurnLimbo.Presentation.Tests
             public ArenaScope()
             {
                 host = new GameObject("Pressure Attack Trail Test Host");
-                Arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt());
+                settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
+                // Isolate the ordinary pressure pool; successful cinematic steps use the separate slow-motion pool.
+                JsonUtility.FromJsonOverwrite("{\"stepSlowMotionDuration\":0,\"stepSlowMotionScale\":1}", settings);
+                Arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt(), settings);
                 // These tests isolate the pressure trail's existing animation clock and exact authored cels.
                 Arena.SetAttackRhythmOverride(false);
                 Arena.CloseDistance(1f);
@@ -283,7 +287,7 @@ namespace TurnLimbo.Presentation.Tests
             }
 
             public void Hold(float elapsed) => hold(elapsed);
-            public void FinishDash() => Advance(0f, LegacyArenaView.StepDuration, false);
+            public void FinishDash() => Advance(0f, Arena.StepGestureDuration, false);
 
             private T Bind<T>(string name) where T : Delegate
             {
@@ -295,6 +299,7 @@ namespace TurnLimbo.Presentation.Tests
             public void Dispose()
             {
                 Arena.Dispose();
+                Object.Destroy(settings);
                 Object.Destroy(host);
             }
         }

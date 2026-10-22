@@ -16,7 +16,7 @@ namespace TurnLimbo.Presentation
 
         private void TickSlowMovement(float realDelta)
         {
-            if (suspension != null || realDelta <= 0f || IsBladeBinding) return;
+            if (suspension != null || realDelta <= 0f || IsBladeBinding || IsResistanceImpactPlaying) return;
             bool active = IsCinematicSlowMotion;
             float target = active ? 1f : 0f;
             float rate = active ? 20f : 14f;

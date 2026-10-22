@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
@@ -23,7 +24,7 @@ namespace TurnLimbo.Presentation.Tests
             "\"hitStopDuration\":0,\"autoDepthEnabled\":false,\"attackRhythmEnabled\":false";
 
         [UnityTest]
-        public IEnumerator HarmlessContacts_HoldDamageAndSteps_ThenTheRealMultihitRunsExactlyOnce()
+        public IEnumerator OneHarmlessContact_LeavesCombatUntouched_ThenTheRealMultihitRunsExactlyOnce()
         {
             yield return null;
             LegacyQueuedDuel expected = Duel();
@@ -38,29 +39,33 @@ namespace TurnLimbo.Presentation.Tests
             {
                 DuelPrototypeController controller = scope.Controller;
                 scope.BeginExchange();
+                OptionalBladeFlowCapture capture = OptionalBladeFlowCapture.Create(controller);
+                if (capture != null)
+                {
+                    scope.AfterAdvance = capture.Sample;
+                    capture.Sample();
+                }
                 LegacyCurrentSlot slot = controller.Session.CurrentSlot;
                 var before = State(controller.Session);
-                Vector3 player = controller.ArenaView.PlayerRenderer.transform.localPosition;
-                Vector3 enemy = controller.ArenaView.EnemyRenderer.transform.localPosition;
                 int act = controller.Session.Act;
-                Assert.That(controller.BladeExchangeContactCount, Is.InRange(1, 2));
-                Assert.That(controller.BladeExchangeDuration, Is.InRange(.08f, .28f));
+                Assert.That(controller.BladeExchangeContactCount, Is.EqualTo(1));
+                Assert.That(controller.BladeExchangeDuration, Is.GreaterThan(0f).And.LessThanOrEqualTo(.14f));
+                bool timingWindowWasAvailable = false;
                 for (int frame = 0; frame < 1000 && controller.IsPlayingBladeExchange; frame++)
                 {
-                    Assert.That(controller.CanStep, Is.False);
-                    Assert.That(controller.IsStepTimingWindow, Is.False);
-                    Assert.That(controller.TryStep(LegacyStepAction.Dodge, out _), Is.False);
+                    Assert.That(controller.CanStep, Is.True, "A cosmetic contact must not lock step input.");
+                    timingWindowWasAvailable |= controller.IsStepTimingWindow;
                     Assert.That(slot.HitsResolved, Is.Zero);
                     Assert.That(State(controller.Session), Is.EqualTo(before));
                     Assert.That(controller.Session.Act, Is.EqualTo(act));
                     Assert.That(DamageNumbers(controller.Hud), Is.Zero);
-                    Assert.That(Vector3.Distance(controller.ArenaView.PlayerRenderer.transform.localPosition, player), Is.LessThan(.0001f));
-                    Assert.That(Vector3.Distance(controller.ArenaView.EnemyRenderer.transform.localPosition, enemy), Is.LessThan(.0001f));
                     Assert.That(controller.ArenaView.IsBladeBinding, Is.False);
                     scope.Advance(Frame);
                 }
                 Assert.That(controller.IsPlayingBladeExchange, Is.False);
-                Assert.That(controller.BladeExchangeContactsPresented, Is.EqualTo(controller.BladeExchangeContactCount));
+                Assert.That(timingWindowWasAvailable, Is.True);
+                Assert.That(controller.BladeExchangeContactsPresented, Is.EqualTo(1));
+                scope.Until(() => slot.HitsResolved > 0);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(State(controller.Session), Is.EqualTo(first));
                 Assert.That(DamageNumbers(controller.Hud), Is.EqualTo(2));
@@ -68,33 +73,82 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 scope.Until(() => slot.HitsResolved == 3);
                 Assert.That(State(controller.Session), Is.EqualTo(all), "Visual contacts must not consume rolls or change actual hits.");
-                Assert.That(controller.BladeExchangeContactsPresented, Is.EqualTo(controller.BladeExchangeContactCount));
+                Assert.That(controller.BladeExchangeContactsPresented, Is.EqualTo(1));
             }
         }
 
         [UnityTest]
-        public IEnumerator LongFrames_StillShowEveryContact_AndCannotBatchTheRealHits()
+        public IEnumerator CosmeticContact_PreservesTheOriginalStepWindowAndFirstHitTime()
         {
             yield return null;
-            using (var scope = new CampaignScope(Duel()))
+            var disabled = MeasureFirstImpact(false);
+            var enabled = MeasureFirstImpact(true);
+            Assert.That(disabled.TimingWindow, Is.GreaterThanOrEqualTo(0f));
+            Assert.That(enabled.TimingWindow, Is.EqualTo(disabled.TimingWindow).Within(Frame + .0001f),
+                "The visible deflection must not move the player's timing window.");
+            Assert.That(enabled.FirstHit, Is.EqualTo(disabled.FirstHit).Within(Frame + .0001f),
+                "The contact belongs inside the existing windup, with no extra wait before damage.");
+            Assert.That(enabled.State, Is.EqualTo(disabled.State));
+            Assert.That(enabled.Act, Is.EqualTo(disabled.Act));
+            Assert.That(enabled.Contacts, Is.EqualTo(1));
+            Assert.That(disabled.Contacts, Is.Zero);
+        }
+
+        [UnityTest]
+        public IEnumerator LongFrames_SkipCosmeticPlayback_WithoutAddingWaitsOrBatchingRealHits()
+        {
+            yield return null;
+            var disabled = MeasureLongFrameImpact(false);
+            var enabled = MeasureLongFrameImpact(true);
+            Assert.That(enabled.Frames, Is.EqualTo(disabled.Frames),
+                "Missing a cosmetic windup must not insert contact or release frames.");
+            Assert.That(enabled.State, Is.EqualTo(disabled.State));
+            Assert.That(enabled.Contacts, Is.Zero, "A frame that skips the entire window should go straight to the real strike.");
+        }
+
+        private static (float TimingWindow, float FirstHit, (int, int, int, int) State, int Act, int Contacts)
+            MeasureFirstImpact(bool enabled)
+        {
+            using (var scope = new CampaignScope(Duel(), "\"bladeExchangeEnabled\":" + (enabled ? "true" : "false")))
             {
                 DuelPrototypeController controller = scope.Controller;
-                scope.BeginExchange();
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                float elapsed = 0f, timingWindow = -1f;
+                for (int frame = 0; frame < 20000 && !(controller.Session.CurrentSlot?.HitsResolved > 0); frame++)
+                {
+                    if (timingWindow < 0f && controller.IsStepTimingWindow) timingWindow = elapsed;
+                    scope.Advance(Frame);
+                    elapsed += Frame;
+                }
+                Assert.That(controller.Session.CurrentSlot?.HitsResolved, Is.EqualTo(1));
+                return (timingWindow, elapsed, State(controller.Session), controller.Session.Act,
+                    controller.BladeExchangeContactsPresented);
+            }
+        }
+
+        private static (int Frames, (int, int, int, int) State, int Contacts) MeasureLongFrameImpact(bool enabled)
+        {
+            using (var scope = new CampaignScope(Duel(), "\"bladeExchangeEnabled\":" + (enabled ? "true" : "false")))
+            {
+                DuelPrototypeController controller = scope.Controller;
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                scope.Until(() => controller.Session.CurrentSlot != null);
                 LegacyCurrentSlot slot = controller.Session.CurrentSlot;
-                int count = controller.BladeExchangeContactCount;
-                for (int contact = 1; contact <= count; contact++)
+                int frames = 0;
+                while (slot.HitsResolved == 0 && frames < 4)
                 {
                     scope.Advance(2f);
-                    Assert.That(controller.BladeExchangeContactsPresented, Is.EqualTo(contact));
-                    Assert.That(slot.HitsResolved, Is.Zero);
-                    Assert.That(DamageNumbers(controller.Hud), Is.Zero);
+                    frames++;
                 }
-                scope.Advance(2f);
-                Assert.That(slot.HitsResolved, Is.Zero, "The exchange's release frame belongs to the harmless pose.");
-                scope.Advance(2f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
+                Assert.That(controller.IsPlayingBladeExchange, Is.False);
+                var state = State(controller.Session);
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
+                Assert.That(State(controller.Session), Is.EqualTo(state));
+                return (frames, state, controller.BladeExchangeContactsPresented);
             }
         }
 
@@ -125,7 +179,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator SwitchOffAndSuccessfulDodge_SkipTheExtraContact()
+        public IEnumerator SwitchOffAndSuccessfulDodgeDuringTheVisual_SkipTheContact()
         {
             yield return null;
             using (var scope = new CampaignScope(Duel(), "\"bladeExchangeEnabled\":false"))
@@ -141,9 +195,10 @@ namespace TurnLimbo.Presentation.Tests
                 DuelPrototypeController controller = scope.Controller;
                 Assert.That(controller.QueueLane(0), Is.True);
                 controller.CommitTurn();
-                scope.Until(() => controller.IsStepTimingWindow);
+                scope.Until(() => controller.IsPlayingBladeExchange && controller.IsStepTimingWindow);
                 Assert.That(controller.TryStep(LegacyStepAction.Dodge, out bool success), Is.True);
                 Assert.That(success, Is.True);
+                Assert.That(controller.IsPlayingBladeExchange, Is.False, "The gameplay dodge takes precedence over the harmless contact.");
                 scope.Until(() => controller.Session.CurrentSlot?.HitsResolved > 0);
                 Assert.That(controller.BladeExchangeContactCount, Is.Zero);
             }
@@ -168,24 +223,23 @@ namespace TurnLimbo.Presentation.Tests
                 var initial = State(host.Controller.Match);
                 Assert.That(host.Controller.BladeExchangeContactCount, Is.EqualTo(guest.Controller.BladeExchangeContactCount));
                 Assert.That(host.Controller.BladeExchangeDuration, Is.EqualTo(guest.Controller.BladeExchangeDuration));
-                int contacts = host.Controller.BladeExchangeContactCount;
-                for (int contact = 1; contact <= contacts; contact++)
+                Assert.That(host.Controller.BladeExchangeContactCount, Is.EqualTo(1));
+                int frames = 0;
+                while (host.Controller.Match.CurrentSlot.HitsResolved == 0 && frames++ < 1000)
                 {
-                    host.Controller.Tick(2f, null);
-                    guest.Controller.Tick(2f, null);
-                    Assert.That(host.Controller.BladeExchangeContactsPresented, Is.EqualTo(contact));
-                    Assert.That(guest.Controller.BladeExchangeContactsPresented, Is.EqualTo(contact));
-                    Assert.That(State(host.Controller.Match), Is.EqualTo(initial));
+                    Assert.That(host.Controller.BladeExchangeContactsPresented,
+                        Is.EqualTo(guest.Controller.BladeExchangeContactsPresented));
+                    Assert.That(host.Controller.Match.CurrentSlot.HitsResolved,
+                        Is.EqualTo(guest.Controller.Match.CurrentSlot.HitsResolved));
+                    Assert.That(State(host.Controller.Match), Is.EqualTo(initial), "Harmless contact must not damage either peer.");
                     Assert.That(State(guest.Controller.Match), Is.EqualTo(initial));
-                    Assert.That(host.Controller.Match.CurrentSlot.HitsResolved + guest.Controller.Match.CurrentSlot.HitsResolved, Is.Zero);
+                    host.Controller.Tick(Frame, null);
+                    guest.Controller.Tick(Frame, null);
                 }
-                host.Controller.Tick(2f, null);
-                guest.Controller.Tick(2f, null);
-                Assert.That(host.Controller.Match.CurrentSlot.HitsResolved + guest.Controller.Match.CurrentSlot.HitsResolved, Is.Zero);
-                host.Controller.Tick(.005f, null);
-                guest.Controller.Tick(.005f, null);
                 Assert.That(host.Controller.Match.CurrentSlot.HitsResolved, Is.EqualTo(1));
                 Assert.That(guest.Controller.Match.CurrentSlot.HitsResolved, Is.EqualTo(1));
+                Assert.That(host.Controller.BladeExchangeContactsPresented, Is.EqualTo(1));
+                Assert.That(guest.Controller.BladeExchangeContactsPresented, Is.EqualTo(1));
                 Assert.That(State(host.Controller.Match), Is.EqualTo(State(guest.Controller.Match)));
                 Assert.That(DamageNumbers(host.Controller.BattleHud), Is.EqualTo(2));
                 Assert.That(DamageNumbers(guest.Controller.BattleHud), Is.EqualTo(2));
@@ -231,6 +285,80 @@ namespace TurnLimbo.Presentation.Tests
             return count;
         }
 
+        // Optional native-render evidence follows the existing small ticks, without advancing or holding the duel.
+        private sealed class OptionalBladeFlowCapture
+        {
+            private readonly DuelPrototypeController controller;
+            private readonly string directory;
+            private readonly bool[] captured = new bool[5];
+
+            private OptionalBladeFlowCapture(DuelPrototypeController controller, string directory)
+            {
+                this.controller = controller;
+                this.directory = directory;
+                Directory.CreateDirectory(directory);
+            }
+
+            public static OptionalBladeFlowCapture Create(DuelPrototypeController controller)
+            {
+                string directory = Environment.GetEnvironmentVariable("SWORDMASTER_BLADE_FLOW_CAPTURE_DIR");
+                return string.IsNullOrWhiteSpace(directory) ? null : new OptionalBladeFlowCapture(controller, directory);
+            }
+
+            public void Sample()
+            {
+                LegacyCurrentSlot slot = controller.Session.CurrentSlot;
+                if (slot == null) return;
+                float time = Clock("phaseTime"), impact = Clock("slotImpactTime");
+                if (slot.HitsResolved == 0 && controller.IsPlayingBladeExchange)
+                {
+                    Save(0, "01-approach");
+                    if (controller.BladeExchangeContactsPresented > 0)
+                    {
+                        Save(1, "02-harmless-contact");
+                        float duration = controller.BladeExchangeDuration;
+                        float progress = duration > 0f ? (time - impact + duration) / duration : 0f;
+                        if (progress >= .68f) Save(2, "03-deflection");
+                    }
+                }
+                else if (slot.HitsResolved == 1)
+                {
+                    Save(3, "04-real-first-hit");
+                    if (time >= impact + .04f) Save(4, "05-follow-through");
+                }
+            }
+
+            private float Clock(string name) => (float)typeof(DuelPrototypeController).GetField(name, Private).GetValue(controller);
+
+            private void Save(int index, string name)
+            {
+                if (captured[index]) return;
+                Camera camera = controller.ArenaView.ArenaCamera;
+                RenderTexture previousTarget = camera.targetTexture, previousActive = RenderTexture.active;
+                var target = new RenderTexture(1280, 720, 24, RenderTextureFormat.ARGB32);
+                var pixels = new Texture2D(1280, 720, TextureFormat.RGB24, false);
+                try
+                {
+                    target.Create();
+                    camera.targetTexture = target;
+                    camera.Render();
+                    RenderTexture.active = target;
+                    pixels.ReadPixels(new Rect(0f, 0f, 1280f, 720f), 0, 0);
+                    pixels.Apply();
+                    File.WriteAllBytes(Path.Combine(directory, "blade-flow-" + name + ".png"), pixels.EncodeToPNG());
+                    captured[index] = true;
+                }
+                finally
+                {
+                    camera.targetTexture = previousTarget;
+                    RenderTexture.active = previousActive;
+                    target.Release();
+                    Object.Destroy(target);
+                    Object.Destroy(pixels);
+                }
+            }
+        }
+
         private sealed class CampaignScope : IDisposable
         {
             private readonly DuelPresentationSettings originalSettings, originalArenaSettings, settings;
@@ -239,6 +367,7 @@ namespace TurnLimbo.Presentation.Tests
             private readonly FieldInfo arenaSettings;
             private readonly Action<float, Keyboard> advance;
             public DuelPrototypeController Controller { get; }
+            public Action AfterAdvance { get; set; }
 
             public CampaignScope(LegacyQueuedDuel duel, string extra = null)
             {
@@ -263,7 +392,11 @@ namespace TurnLimbo.Presentation.Tests
                 typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", Private).Invoke(Controller, new object[] { null, null });
             }
 
-            public void Advance(float delta) => advance(delta, null);
+            public void Advance(float delta)
+            {
+                advance(delta, null);
+                AfterAdvance?.Invoke();
+            }
             public void BeginExchange()
             {
                 Assert.That(Controller.QueueLane(0), Is.True);

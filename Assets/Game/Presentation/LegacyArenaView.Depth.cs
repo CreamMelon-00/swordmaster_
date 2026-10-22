@@ -78,12 +78,14 @@ namespace TurnLimbo.Presentation
             if (enemyFigures.Count > 1)
             {
                 RefreshRosterDepth(visible);
+                RefreshResistanceImpactCircles();
                 return;
             }
             playerDepthGroup.enabled = enemyDepthGroup.enabled = visible;
             // Global floor order stays under both actors. A front actor's ring can never paint across a rear actor's body.
             playerGroundCircle.Root.position = PlayerGroundPosition;
             enemyGroundCircle.Root.position = EnemyGroundPosition;
+            RefreshResistanceImpactCircles();
             // A fixed tie makes an equal-depth exchange stable. Body/lower/shadow/aura orders stay local and unchanged.
             float playerY = PlayerGroundPosition.y, enemyY = EnemyGroundPosition.y;
             bool playerInFront = Mathf.Approximately(playerY, enemyY) ? depthLocalPlayer == 0 : playerY < enemyY;

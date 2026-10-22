@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
 
@@ -16,7 +15,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(exchange.Advance(1f), Is.False);
             exchange.Begin(1, 0, 1, 2);
             Assert.That(exchange.IsPlaying, Is.True);
-            Assert.That(exchange.PoseShare, Is.EqualTo(.1f));
+            Assert.That(exchange.PoseShare, Is.Zero);
             exchange.Advance(10f);
             exchange.Clear();
             exchange.Clear();
@@ -37,6 +36,8 @@ namespace TurnLimbo.Core.Tests
             {
                 Assert.That(first.Advance(.007f), Is.EqualTo(second.Advance(.007f)));
                 Assert.That(first.PoseShare, Is.EqualTo(second.PoseShare));
+                Assert.That(first.Progress, Is.EqualTo(second.Progress));
+                Assert.That(first.RecoilShare, Is.EqualTo(second.RecoilShare));
                 Assert.That(first.ContactsPresented, Is.EqualTo(second.ContactsPresented));
                 Assert.That(first.IsPlaying, Is.EqualTo(second.IsPlaying));
             }
@@ -59,57 +60,55 @@ namespace TurnLimbo.Core.Tests
             {
                 Assert.That(first.Advance(.01f), Is.EqualTo(mirrored.Advance(.01f)));
                 Assert.That(first.PoseShare, Is.EqualTo(mirrored.PoseShare));
+                Assert.That(first.Progress, Is.EqualTo(mirrored.Progress));
+                Assert.That(first.RecoilShare, Is.EqualTo(mirrored.RecoilShare));
             }
         }
 
         [Test]
-        public void DifferentTurnsAndSlots_ProduceBothContactCountsAndVariedIndependentBeats()
+        public void DifferentTurnsAndSlots_KeepOneContactWithVariedHashedDuration()
         {
-            var counts = new HashSet<int>();
             var totals = new HashSet<float>();
-            int unequalTwoBeatSamples = 0;
             for (int turn = 1; turn <= 8; turn++)
                 for (int slot = 0; slot < 8; slot++)
                 {
                     var exchange = new LegacyBladeExchange();
                     exchange.Begin(turn, slot, 1, 2);
-                    counts.Add(exchange.ContactCount);
+                    Assert.That(exchange.ContactCount, Is.EqualTo(1));
                     totals.Add(exchange.TotalDuration);
-                    Assert.That(exchange.TotalDuration, Is.InRange(exchange.ContactCount * LegacyBladeExchange.DefaultMinSeconds,
-                        exchange.ContactCount * LegacyBladeExchange.DefaultMaxSeconds));
-                    if (exchange.ContactCount != 2) continue;
-                    float duration = exchange.TotalDuration;
-                    float untilFirstContact = 0f;
-                    while (!exchange.Advance(.0001f)) untilFirstContact += .0001f;
-                    untilFirstContact += .0001f;
-                    float firstBeat = untilFirstContact * 2f;
-                    float secondBeat = duration - firstBeat;
-                    Assert.That(firstBeat, Is.InRange(.0799f, .1403f));
-                    Assert.That(secondBeat, Is.InRange(.0797f, .1401f));
-                    if (Math.Abs(firstBeat - secondBeat) > .001f) unequalTwoBeatSamples++;
+                    Assert.That(exchange.TotalDuration, Is.InRange(LegacyBladeExchange.DefaultMinSeconds,
+                        LegacyBladeExchange.DefaultMaxSeconds));
                 }
-            Assert.That(counts, Is.EquivalentTo(new[] { 1, 2 }));
             Assert.That(totals.Count, Is.GreaterThan(48));
-            Assert.That(unequalTwoBeatSamples, Is.GreaterThan(8), "Each beat gets its own hash sample.");
         }
 
         [Test]
-        public void ContactPose_IsPresentedBetweenApproachAndRelease()
+        public void ContactApproachStaysForward_AndDeflectionReturnsToZeroAtTheAttackHandoff()
         {
             var exchange = new LegacyBladeExchange();
-            exchange.Begin(1, 0, 1, 2, .1f, .1f);
-            Assert.That(exchange.PoseShare, Is.EqualTo(.1f));
-            Assert.That(exchange.Advance(.025f), Is.False);
-            Assert.That(exchange.PoseShare, Is.EqualTo(.55f).Within(.00001f));
-            Assert.That(exchange.Advance(.025f), Is.True);
+            exchange.Begin(1, 0, 1, 2, 1f, 1f);
+            Assert.That(exchange.PoseShare, Is.Zero);
+            Assert.That(exchange.RecoilShare, Is.Zero);
+            Assert.That(exchange.Advance(.2f), Is.False);
+            Assert.That(exchange.PoseShare, Is.EqualTo(.5f).Within(.00001f));
+            Assert.That(exchange.RecoilShare, Is.Zero);
+            Assert.That(exchange.Advance(.2f), Is.True);
             Assert.That(exchange.ContactsPresented, Is.EqualTo(1));
             Assert.That(exchange.PoseShare, Is.EqualTo(1f).Within(.00001f));
+            Assert.That(exchange.RecoilShare, Is.EqualTo(0f).Within(.00001f));
             Assert.That(exchange.Advance(0f), Is.False);
             Assert.That(exchange.PoseShare, Is.EqualTo(1f).Within(.00001f));
-            Assert.That(exchange.Advance(.025f), Is.False);
-            Assert.That(exchange.PoseShare, Is.EqualTo(.55f).Within(.00001f));
-            Assert.That(exchange.Advance(.025f), Is.False);
-            Assert.That(exchange.PoseShare, Is.EqualTo(.1f).Within(.00001f));
+            Assert.That(exchange.Advance(.28f), Is.False);
+            Assert.That(exchange.PoseShare, Is.EqualTo(1f));
+            Assert.That(exchange.RecoilShare, Is.EqualTo(1f).Within(.00001f));
+            Assert.That(exchange.Advance(.16f), Is.False);
+            Assert.That(exchange.PoseShare, Is.EqualTo(1f));
+            Assert.That(exchange.RecoilShare, Is.EqualTo(.5f).Within(.00001f));
+            Assert.That(exchange.Advance(.17f), Is.False);
+            Assert.That(exchange.IsPlaying, Is.False);
+            Assert.That(exchange.Progress, Is.EqualTo(1f));
+            Assert.That(exchange.PoseShare, Is.EqualTo(1f));
+            Assert.That(exchange.RecoilShare, Is.Zero);
         }
 
         [TestCase(1f / 240f)]
@@ -117,47 +116,66 @@ namespace TurnLimbo.Core.Tests
         [TestCase(1f / 15f)]
         [TestCase(10f)]
         [TestCase(float.MaxValue)]
-        public void EveryFrameRate_PresentsEveryContactAtMostOnceBeforeFinishing(float delta)
+        public void EveryFrameRate_ReportsOneContactWithoutRewindingOrAddingAReleaseFrame(float delta)
         {
             for (int slot = 0; slot < 32; slot++)
             {
                 var exchange = new LegacyBladeExchange();
                 exchange.Begin(4, slot, 1, 2);
                 int observed = 0;
+                float previousPose = 0f, previousProgress = 0f;
                 for (int frame = 0; frame < 200 && exchange.IsPlaying; frame++)
                 {
                     int before = exchange.ContactsPresented;
                     bool contact = exchange.Advance(delta);
                     Assert.That(exchange.ContactsPresented - before, Is.EqualTo(contact ? 1 : 0));
-                    Assert.That(exchange.PoseShare, Is.InRange(.1f, 1f));
+                    Assert.That(exchange.Progress, Is.InRange(previousProgress, 1f));
+                    Assert.That(exchange.PoseShare, Is.InRange(previousPose, 1f));
+                    Assert.That(exchange.RecoilShare, Is.InRange(0f, 1f));
+                    previousPose = exchange.PoseShare;
+                    previousProgress = exchange.Progress;
                     if (!contact) continue;
                     observed++;
                     Assert.That(exchange.PoseShare, Is.EqualTo(1f).Within(.00001f));
-                    Assert.That(exchange.IsPlaying, Is.True, "The contact frame must precede the completion frame.");
                 }
                 Assert.That(exchange.IsPlaying, Is.False);
                 Assert.That(observed, Is.EqualTo(exchange.ContactCount));
                 Assert.That(exchange.Advance(delta), Is.False);
                 Assert.That(exchange.ContactsPresented, Is.EqualTo(observed));
-                Assert.That(exchange.PoseShare, Is.EqualTo(.1f));
+                Assert.That(exchange.PoseShare, Is.EqualTo(1f));
+                Assert.That(exchange.Progress, Is.EqualTo(1f));
+                Assert.That(exchange.RecoilShare, Is.Zero);
             }
         }
 
         [Test]
-        public void HugeFrames_StopAtEachContactAndRequireAFurtherTickToFinish()
+        public void HugeFrame_CompletesTheWholeTimelineWithoutDiscardingOvershoot()
         {
             var exchange = new LegacyBladeExchange();
             exchange.Begin(3, 4, 1, 2);
-            int expected = exchange.ContactCount;
-            for (int contact = 1; contact <= expected; contact++)
-            {
-                Assert.That(exchange.Advance(100f), Is.True);
-                Assert.That(exchange.ContactsPresented, Is.EqualTo(contact));
-                Assert.That(exchange.IsPlaying, Is.True);
-                Assert.That(exchange.PoseShare, Is.EqualTo(1f).Within(.00001f));
-            }
-            Assert.That(exchange.Advance(100f), Is.False);
+            Assert.That(exchange.Advance(100f), Is.True);
+            Assert.That(exchange.ContactsPresented, Is.EqualTo(1));
             Assert.That(exchange.IsPlaying, Is.False);
+            Assert.That(exchange.Progress, Is.EqualTo(1f));
+            Assert.That(exchange.PoseShare, Is.EqualTo(1f));
+            Assert.That(exchange.RecoilShare, Is.Zero);
+            Assert.That(exchange.Advance(0f), Is.False);
+            Assert.That(exchange.Advance(100f), Is.False);
+        }
+
+        [Test]
+        public void CrossingContact_KeepsAllElapsedTime_AndNeverReportsItTwice()
+        {
+            var exchange = new LegacyBladeExchange();
+            exchange.Begin(3, 4, 1, 2, .1f, .1f);
+            Assert.That(exchange.Advance(.075f), Is.True);
+            Assert.That(exchange.Progress, Is.EqualTo(.75f).Within(.00001f));
+            Assert.That(exchange.PoseShare, Is.EqualTo(1f));
+            Assert.That(exchange.RecoilShare, Is.GreaterThan(0f));
+            Assert.That(exchange.IsPlaying, Is.True);
+            Assert.That(exchange.Advance(.03f), Is.False);
+            Assert.That(exchange.IsPlaying, Is.False);
+            Assert.That(exchange.ContactsPresented, Is.EqualTo(1));
         }
 
         [Test]
@@ -172,7 +190,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(exchange.ContactsPresented, Is.Zero);
             Assert.That(exchange.TotalDuration, Is.EqualTo(fresh.TotalDuration));
             Assert.That(exchange.ContactCount, Is.EqualTo(fresh.ContactCount));
-            Assert.That(exchange.PoseShare, Is.EqualTo(.1f));
+            Assert.That(exchange.PoseShare, Is.Zero);
+            Assert.That(exchange.Progress, Is.Zero);
+            Assert.That(exchange.RecoilShare, Is.Zero);
         }
 
         [TestCase(float.NaN, .14f)]
@@ -222,7 +242,9 @@ namespace TurnLimbo.Core.Tests
             {
                 exchange.Advance(float.Epsilon);
                 Assert.That(float.IsNaN(exchange.PoseShare), Is.False);
-                Assert.That(exchange.PoseShare, Is.InRange(.1f, 1f));
+                Assert.That(exchange.PoseShare, Is.InRange(0f, 1f));
+                Assert.That(exchange.Progress, Is.InRange(0f, 1f));
+                Assert.That(exchange.RecoilShare, Is.InRange(0f, 1f));
             }
             Assert.That(exchange.ContactsPresented, Is.EqualTo(exchange.ContactCount));
         }
@@ -259,7 +281,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(exchange.ContactCount, Is.Zero);
             Assert.That(exchange.ContactsPresented, Is.Zero);
             Assert.That(exchange.TotalDuration, Is.Zero);
-            Assert.That(exchange.PoseShare, Is.EqualTo(.1f));
+            Assert.That(exchange.PoseShare, Is.Zero);
+            Assert.That(exchange.Progress, Is.Zero);
+            Assert.That(exchange.RecoilShare, Is.Zero);
         }
     }
 }

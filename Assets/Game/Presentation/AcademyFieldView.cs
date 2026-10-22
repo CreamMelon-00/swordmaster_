@@ -423,8 +423,7 @@ namespace TurnLimbo.Presentation
                 {
                     // Keep every trail behind Elisa even when she moves upward and her depth order decreases.
                     float highestGroundY = root.transform.TransformPoint(new Vector3(0f, TopBound, 0f)).y;
-                    runAfterimages.Emit(player, RunAfterimageTint, RunAfterimageLifetime, Vector3.zero, 0f,
-                        0f, SortAt(highestGroundY) - 1);
+                    runAfterimages.Emit(player, RunAfterimageTint, RunAfterimageLifetime, SortAt(highestGroundY) - 1);
                     runAfterimageRemaining = RunAfterimageInterval;
                 }
             }

@@ -119,6 +119,10 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Begin();
                 Assert.That(duel.CurrentSlot.HitsResolved, Is.Zero);
                 Assert.That(duel.Enemy.IsResistanceBroken, Is.True);
+                Assert.That(scope.Hud.BreakFragmentEmissionCount, Is.Zero,
+                    "Canceled cards stay visible until the direct-effect body check connects.");
+                scope.Until(() => scope.Controller.ArenaView.HasResistanceImpactContact);
+                Assert.That(duel.CurrentSlot.HitsResolved, Is.Zero);
                 Assert.That(scope.Hud.BreakFragmentEmissionCount, Is.EqualTo(3));
                 Assert.That(scope.Hud.ActiveBreakFragmentCardCount, Is.EqualTo(3));
                 AssertFragmentsOnSide(scope.Hud, false);

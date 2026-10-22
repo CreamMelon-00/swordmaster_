@@ -3,38 +3,35 @@ using System;
 namespace TurnLimbo.Runtime.LegacyCombat
 {
     /// <summary>A short visual exchange before a real hit. Its local hash never consumes combat randomness.
-    /// Each beat approaches contact then releases the pose; the caller alone presents sound and the real hit.</summary>
+    /// The sword approaches once, deflects, then joins the actual attack without rewinding to its ready pose.
+    /// The caller fits this timeline into the existing windup and alone presents sound and the real hit.</summary>
     public sealed class LegacyBladeExchange
     {
         public const float DefaultMinSeconds = .08f;
         public const float DefaultMaxSeconds = .14f;
-        private const float RestPoseShare = .1f;
-        private readonly double[] beatDurations = new double[2];
+        public const float ContactShare = .4f;
+        private const float RecoilPeakShare = .68f;
         private double elapsed, totalDuration;
 
         public bool IsPlaying { get; private set; }
         public int ContactCount { get; private set; }
         public int ContactsPresented { get; private set; }
         public float TotalDuration => (float)totalDuration;
+        public float Progress => totalDuration > 0d ? (float)(elapsed / totalDuration) : 0f;
 
-        public float PoseShare
+        /// <summary>The contact approach never runs backward, including after completion.</summary>
+        public float PoseShare => Smooth(Progress / ContactShare);
+
+        /// <summary>A separate, brief deflection after contact; it returns to zero at the real attack's handoff.</summary>
+        public float RecoilShare
         {
             get
             {
-                if (!IsPlaying) return RestPoseShare;
-                double local = elapsed;
-                for (int index = 0; index < ContactCount; index++)
-                {
-                    double duration = beatDurations[index];
-                    if (local <= duration)
-                    {
-                        double phase = local / duration;
-                        double triangle = phase <= .5d ? phase * 2d : (1d - phase) * 2d;
-                        return (float)(RestPoseShare + (1d - RestPoseShare) * Math.Max(0d, triangle));
-                    }
-                    local -= duration;
-                }
-                return RestPoseShare;
+                float progress = Progress;
+                if (progress <= ContactShare || progress >= 1f) return 0f;
+                return progress <= RecoilPeakShare
+                    ? Smooth((progress - ContactShare) / (RecoilPeakShare - ContactShare))
+                    : Smooth((1f - progress) / (1f - RecoilPeakShare));
             }
         }
 
@@ -49,41 +46,27 @@ namespace TurnLimbo.Runtime.LegacyCombat
             key = Mix(key, unchecked((uint)slot));
             key = Mix(key, unchecked((uint)first));
             key = Mix(key, unchecked((uint)second));
-            ContactCount = 1 + (int)(Mix(key, 0xD1B54A35u) & 1u);
-            elapsed = totalDuration = 0d;
+            ContactCount = 1;
+            elapsed = 0d;
             ContactsPresented = 0;
-            for (int index = 0; index < ContactCount; index++)
-            {
-                uint sample = Mix(key, index == 0 ? 0x94D049BBu : 0x369DEA0Fu);
-                double fraction = (sample & 0x00FFFFFFu) / 16777215d;
-                beatDurations[index] = min + ((double)max - min) * fraction;
-                totalDuration += beatDurations[index];
-            }
+            uint sample = Mix(key, 0x94D049BBu);
+            double fraction = (sample & 0x00FFFFFFu) / 16777215d;
+            totalDuration = min + ((double)max - min) * fraction;
             IsPlaying = true;
         }
 
-        /// <summary>Presents at most one contact. A long frame stops at that contact and discards overshoot,
-        /// ensuring the contact pose is visible before any later beat or the actual hit can play.</summary>
+        /// <summary>Reports the one contact as its time passes without discarding frame overshoot or extending the
+        /// windup. A caller may omit a cosmetic contact if the whole timeline passed between rendered frames.</summary>
         public bool Advance(float realSeconds)
         {
             if (!Finite(realSeconds) || realSeconds < 0f)
                 throw new ArgumentOutOfRangeException(nameof(realSeconds));
             if (!IsPlaying || realSeconds == 0f) return false;
-            double target = Math.Min(totalDuration, elapsed + realSeconds);
-            if (ContactsPresented < ContactCount)
-            {
-                double contactTime = beatDurations[ContactsPresented] / 2d;
-                for (int index = 0; index < ContactsPresented; index++) contactTime += beatDurations[index];
-                if (target >= contactTime)
-                {
-                    elapsed = contactTime;
-                    ContactsPresented++;
-                    return true;
-                }
-            }
-            elapsed = target;
+            elapsed = Math.Min(totalDuration, elapsed + realSeconds);
+            bool contact = ContactsPresented == 0 && Progress >= ContactShare;
+            if (contact) ContactsPresented = 1;
             if (elapsed >= totalDuration) IsPlaying = false;
-            return false;
+            return contact;
         }
 
         public void Clear()
@@ -91,7 +74,6 @@ namespace TurnLimbo.Runtime.LegacyCombat
             IsPlaying = false;
             ContactCount = ContactsPresented = 0;
             elapsed = totalDuration = 0d;
-            beatDurations[0] = beatDurations[1] = 0d;
         }
 
         public static bool CanExchange(LegacySkill a, LegacySkill b)
@@ -103,6 +85,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+
+        private static float Smooth(float value)
+        {
+            value = Math.Max(0f, Math.Min(1f, value));
+            return value * value * (3f - 2f * value);
+        }
 
         private static uint Mix(uint state, uint value)
         {

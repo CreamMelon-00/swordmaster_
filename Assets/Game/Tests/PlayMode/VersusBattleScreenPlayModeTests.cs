@@ -287,7 +287,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TextUnder(explanation, "Keyword 1 Text").text, Is.EqualTo("순환 1/9"));
                 Assert.That(TextUnder(explanation, "ACT Value").text,
                     Is.EqualTo(match.Right.EffectiveCost(hone).ToString()));
-                Assert.That(TextUnder(explanation, "ACT Value").text, Is.EqualTo((hone.Cost + 1).ToString()));
+                Assert.That(TextUnder(explanation, "ACT Value").text, Is.EqualTo((hone.Cost + 2).ToString()),
+                    "One completed use and the copy already reserved this turn both raise the next reservation's cost.");
                 match.Right.EffectivePowerRange(hone, out int min, out int max);
                 Assert.That(TextUnder(explanation, "Enemy Detail Values").text, Is.EqualTo(min + "–" + max));
                 Release(keyboard.tabKey);

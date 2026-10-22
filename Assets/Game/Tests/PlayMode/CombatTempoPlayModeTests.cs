@@ -80,8 +80,9 @@ namespace TurnLimbo.Presentation.Tests
                         scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
                         Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^(?:idle|move)-frame-[0-9]+$"),
                             "The attack gap permits idle or closing footwork, never a stretched attack pose.");
-                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "poses-block(?:-2)?")),
-                            "The enemy's finished one-hit attack guards while the player keeps striking.");
+                        string enemyPose = hit == 0 ? "poses-block(?:-2)?" : "poses-hurt(?:-2)?";
+                        Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, enemyPose)),
+                            "The first mutual clash keeps its guard; later unopposed hits recoil the enemy's finished attack.");
                     }
                 }
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(997));
@@ -124,16 +125,17 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.IsFinished, Is.True);
                 Assert.That(controller.Session.LastResolvedSlot, Is.Zero);
-                // The usual turn cleanup delay would extend past the next attack's start.
-                // Sample within that gap so a stray second attack pose cannot hide behind the result screen.
-                var phaseTime = typeof(DuelPrototypeController).GetField("phaseTime",
-                    BindingFlags.Instance | BindingFlags.NonPublic);
-                Assert.That(phaseTime, Is.Not.Null);
-                scope.Until(() => (float)phaseTime.GetValue(controller) >= DuelPrototypeController.TurnCleanupDelay - .003f);
-                string pose = controller.ArenaView.PlayerRenderer.sprite.name;
-                Assert.That(pose.StartsWith("idle-frame-") || pose.EndsWith("frame-12"), Is.True,
-                    "The next attack must not restart after the finishing blow.");
-                scope.Until(() => controller.IsShowingResult);
+                // The finale owns its slow/frozen cleanup. Inspect every remaining frame rather than waiting for a
+                // normal-cleanup combat time that its current slow-motion settings may never reach.
+                for (int frame = 0; frame < 5000 && !controller.IsShowingResult; frame++)
+                {
+                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name,
+                        Does.Not.Match("^slash(?:-[23])?-frame-0[1-4]$"),
+                        "The next attack must not restart after the finishing blow.");
+                    Assert.That(slot.HitsResolved, Is.EqualTo(1));
+                    scope.Advance(.001f);
+                }
+                Assert.That(controller.IsShowingResult, Is.True);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
             }
         }
@@ -191,7 +193,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.HitStopTimeRemaining, Is.Zero);
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(elapsed + .005f).Within(.0001f),
                     "Only the unused remainder of the real frame advances the combat clock.");
-                Assert.That(controller.ArenaView.EnemyRenderer.transform.localPosition.x, Is.GreaterThan(enemyPosition.x));
+                Assert.That(controller.ArenaView.EnemyRenderer.transform.localPosition, Is.EqualTo(enemyPosition),
+                    "These are slash attacks: the combat clock resumes, but the current slash rules add no knockback.");
                 Assert.That(Time.timeScale, Is.EqualTo(globalScale));
             }
         }

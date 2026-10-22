@@ -13,8 +13,6 @@ namespace TurnLimbo.Presentation
         private DuelStepAfterimages slowAfterimages;
         private float slowAfterimageClock;
         private bool slowAfterimageActive;
-        private Vector3 slowAfterimagePreviousPosition;
-        private bool slowAfterimageHasPosition;
 
         /// <summary>Player pose snapshots left during a successful step or decisive slow motion.</summary>
         public int ActiveSlowAfterimageCount => slowAfterimages?.ActiveCount ?? 0;
@@ -33,7 +31,6 @@ namespace TurnLimbo.Presentation
             slowAfterimages?.Reset();
             slowAfterimageClock = 0f;
             slowAfterimageActive = false;
-            slowAfterimageHasPosition = false;
         }
 
         private void TickSlowAfterimages(float realDelta, bool deferEmission)
@@ -60,10 +57,6 @@ namespace TurnLimbo.Presentation
         {
             if (disposed || suspension != null || !(realDelta > 0f) || float.IsInfinity(realDelta)) return;
             SpriteRenderer source = player.Renderer;
-            Vector3 position = source.transform.position + player.AttackVisualOffset;
-            Vector3 movement = slowAfterimageHasPosition ? position - slowAfterimagePreviousPosition : Vector3.zero;
-            slowAfterimagePreviousPosition = position;
-            slowAfterimageHasPosition = true;
             // Automatic planning/manual slow clocks and a failed gesture do not invent a success trail.
             bool slow = IsCinematicSlowMotion;
             if (!slow || !source.enabled || !source.gameObject.activeInHierarchy || source.sprite == null)
@@ -77,19 +70,9 @@ namespace TurnLimbo.Presentation
             if (slowAfterimageClock < SlowAfterimageInterval) return;
             // At most one snapshot per rendered tick, even after a hitch. Real time fades the bounded pool as well.
             slowAfterimageClock %= SlowAfterimageInterval;
-            Vector3 drift = Vector3.zero;
-            if (movement.sqrMagnitude < realDelta * realDelta * 4f)
-            {
-                // Deep slow motion barely moves the body. Ease its echoes back a little to reveal their edges,
-                // instead of hiding all the copies exactly underneath the protagonist's opaque pose.
-                Vector3 back = movement.sqrMagnitude > .000001f ? -movement.normalized
-                    : Vector3.right * (source.flipX ? 1f : -1f);
-                drift = back * .56f;
-            }
             Color ink = StepPresentationSpeed < .999f && stepFocusAction == TurnLimbo.Runtime.LegacyCombat.LegacyStepAction.Pressure
                 ? SlowAfterimageWarm : SlowAfterimageCool;
-            slowAfterimages.Emit(source, ink, SlowAfterimageLifetime, drift, 0f, 0f,
-                source.sortingOrder - 1, player.LowerRenderer);
+            slowAfterimages.Emit(source, ink, SlowAfterimageLifetime, source.sortingOrder - 1, player.LowerRenderer);
         }
     }
 }

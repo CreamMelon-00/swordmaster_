@@ -195,6 +195,9 @@ namespace TurnLimbo.Presentation.Tests
                 begin.Invoke(controller, null);
                 advance.Invoke(controller, new object[] { 0f, null });
                 Assert.That(draw.Enemy.IsResistanceBroken, Is.True);
+                Assert.That(ActiveTexts(controller.Hud.Root, "State Callout"), Is.Empty,
+                    "The rules already applied the effect, but its break waits for the body check's contact.");
+                FinishOpeningResistanceImpact(controller, advance);
                 Assert.That(ActiveTexts(controller.Hud.Root, "State Callout"), Is.EqualTo(new[] { LegacyCombatHud.BreakCalloutText }));
                 Assert.That(controller.ArenaView.EnemyBreakAura.IsBroken, Is.True);
                 Assert.That(controller.ArenaView.PlayerBreakAura.IsBroken, Is.False);
@@ -272,6 +275,9 @@ namespace TurnLimbo.Presentation.Tests
                 begin.Invoke(controller, null);
                 advance.Invoke(controller, new object[] { 0f, null });
                 Assert.That(direct.Enemy.IsResistanceBroken, Is.True);
+                Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False,
+                    "The break flash waits for the direct-effect body check to connect.");
+                FinishOpeningResistanceImpact(controller, advance);
                 Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.True);
                 Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.False);
                 DuelSkillActivationBurst enemyBurst = BreakImpact(controller, "Enemy Break Impact")
@@ -469,6 +475,17 @@ namespace TurnLimbo.Presentation.Tests
                 advance.Invoke(controller, new object[] { .02f, null });
             Assert.That(landed(duel), Is.True);
             return duel;
+        }
+
+        private static void FinishOpeningResistanceImpact(DuelPrototypeController controller, MethodInfo advance)
+        {
+            Assert.That(controller.ArenaView.IsResistanceImpactPlaying, Is.True);
+            for (int i = 0; i < 1000 && controller.ArenaView.IsResistanceImpactPlaying; i++)
+                advance.Invoke(controller, new object[] { .002f, null });
+            Assert.That(controller.ArenaView.IsResistanceImpactPlaying, Is.False);
+            Assert.That(controller.ArenaView.HasResistanceImpactContact, Is.True);
+            Assert.That(controller.Session.CurrentSlot.HitsResolved, Is.Zero,
+                "The body check reports the opening effect without adding an attack hit.");
         }
 
         private static void AssertDecisiveClock(DuelPrototypeController controller, MethodInfo advance)

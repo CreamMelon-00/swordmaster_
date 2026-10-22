@@ -205,7 +205,7 @@ namespace TurnLimbo.Presentation
             float interval = IsCinematicSlowMotion ? EnemySlowSignatureTrailInterval : SignatureTrailInterval;
             if (trail.Clock < interval) return;
             trail.Clock %= interval;
-            signatureAfterimages?.Emit(actor.Renderer, trail.Ink, trail.Lifetime, Vector3.zero, 0f, 0f,
+            signatureAfterimages?.Emit(actor.Renderer, trail.Ink, trail.Lifetime,
                 actor.Renderer.sortingOrder - 1, actor == player ? player.LowerRenderer : null);
         }
 

@@ -124,6 +124,7 @@ namespace TurnLimbo.Presentation
         // Called after the controller's impact/hold, so a long frame never leaves ghosts of an overshot pose.
         internal void TickAttackMotionTrail(float realDelta, bool animationPlaying)
         {
+            if (IsResistanceImpactPlaying) return;
             TickWeaponTrail(realDelta, animationPlaying);
             if (disposed || !animationPlaying || !(realDelta > 0f) || float.IsInfinity(realDelta) ||
                 slotAttackLungeDistance <= 0f || attackSpriteMaterial == null || suspension != null) return;
@@ -146,11 +147,9 @@ namespace TurnLimbo.Presentation
             // Consume the stroke moments without layering extra player silhouettes over the cinematic trail.
             if (actor == player && IsCinematicSlowMotion) return;
             // Two discrete stroke moments; holds and rewinds cannot keep spawning the same ghost.
-            Vector3 drift = arenaRoot.transform.TransformVector(Vector3.right * (actor == player ? -.20f : .20f));
             Color ink = AttackEchoInk;
             ink.a *= slotAttackRhythmStrength;
-            attackEchoes.Emit(actor.Renderer, ink, AttackEchoLifetime, drift, 0f, 0f,
-                actor.Renderer.sortingOrder - 1);
+            attackEchoes.Emit(actor.Renderer, ink, AttackEchoLifetime, actor.Renderer.sortingOrder - 1);
         }
 
         private void ClearAttackMotion(bool forgetHits = true)

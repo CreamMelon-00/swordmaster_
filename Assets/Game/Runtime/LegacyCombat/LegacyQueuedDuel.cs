@@ -920,6 +920,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return effect.ConditionalDamagePercent;
         }
 
+        /// <summary>Settles a deferred counter and its slot's opening effects once, without resolving a hit.
+        /// The caller must have closed the dodge decision for the first impact. Presentation can then show a direct
+        /// resistance reduction before calling <see cref="ResolveNextHit"/>; ordinary slots need no preparation.</summary>
+        public bool PrepareCurrentSlotImpact()
+        {
+            LegacyCurrentSlot slot = CurrentSlot;
+            if (Phase != LegacyDuelPhase.Resolving || slot == null || slot.IsResolved || !slotStartDeferred)
+                return false;
+            CompleteDeferredSlotStart(slot);
+            return true;
+        }
+
         // The last moment a dodge can be attempted has passed: settle the pending counter.
         private void CompleteDeferredSlotStart(LegacyCurrentSlot slot)
         {
@@ -976,7 +988,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Phase != LegacyDuelPhase.Resolving || CurrentSlot == null || CurrentSlot.IsResolved)
                 throw new InvalidOperationException("There is no unresolved hit in the current slot.");
             LegacyCurrentSlot slot = CurrentSlot;
-            if (slotStartDeferred) CompleteDeferredSlotStart(slot);
+            PrepareCurrentSlotImpact();
             int hitIndex = slot.HitsResolved;
             int playerHealth = Player.Health, enemyHealth = Enemy.Health;
             int playerResistance = Player.Resistance, enemyResistance = Enemy.Resistance;

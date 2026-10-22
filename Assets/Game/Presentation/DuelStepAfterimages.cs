@@ -8,7 +8,7 @@ namespace TurnLimbo.Presentation
 {
     /// <summary>A fixed, prewarmed pool of afterimages: copies of a figure's current frame left behind, fading out. The
     /// steps' dodge/pressure ghosts use it on the arena's real-time clock; the 수훈 afterimages
-    /// (<see cref="DuelAuraAfterimages"/>) use a pool of their own, tinted, drifting and swelling, on the aura's clock.
+    /// (<see cref="DuelAuraAfterimages"/>) use a pool of their own, tinted, on the aura's clock.
     /// Whoever ticks a pool chooses its clock. When every ghost is in use, the oldest is reused.</summary>
     public sealed class DuelStepAfterimages : IDisposable
     {
@@ -99,20 +99,17 @@ namespace TurnLimbo.Presentation
         public void Emit(SpriteRenderer source, LegacyStepAction action, SpriteRenderer lowerSource = null)
         {
             if (source == null) return;
-            Emit(source, action == LegacyStepAction.Pressure ? PressureTint : DodgeTint, Lifetime, Vector3.zero, 0f, 0f,
+            Emit(source, action == LegacyStepAction.Pressure ? PressureTint : DodgeTint, Lifetime,
                 source.sortingOrder - 1, lowerSource);
         }
 
         /// <summary>Leaves a ghost of <paramref name="source"/>'s current frame where it stands, fading from
         /// <paramref name="tint"/>'s opacity to nothing over <paramref name="lifetime"/> seconds of the pool's clock. Nothing
         /// for a source without a sprite or a lifetime of 0 or less.</summary>
-        /// <param name="drift">How far (world units) the ghost travels over its life; zero leaves it in place.</param>
-        /// <param name="swell">How much bigger it grows over its life (0.06 = 6%), about the point <paramref name="footY"/>
-        /// below its pivot in the source's own space (the feet, so it stays on the ground); 0 keeps its size.</param>
         /// <param name="sortingOrder">The ghost's order in the source's sorting layer (a step's: one below the source); a
         /// lower body's ghost keeps its distance from it.</param>
-        public void Emit(SpriteRenderer source, Color tint, float lifetime, Vector3 drift, float swell, float footY,
-            int sortingOrder, SpriteRenderer lowerSource = null)
+        public void Emit(SpriteRenderer source, Color tint, float lifetime, int sortingOrder,
+            SpriteRenderer lowerSource = null)
         {
             if (disposed || source == null || source.sprite == null || !(lifetime > 0f) || float.IsInfinity(lifetime)) return;
             View view = views[nextView];
@@ -123,12 +120,6 @@ namespace TurnLimbo.Presentation
             view.Transform.position = source.transform.position + source.transform.TransformVector(attackOffset);
             view.Transform.rotation = source.transform.rotation;
             view.Transform.localScale = source.transform.localScale;
-            view.Origin = view.Transform.position;
-            view.OriginScale = view.Transform.localScale;
-            view.Drift = IsFinite(drift) ? drift : Vector3.zero;
-            view.Swell = swell > 0f && !float.IsInfinity(swell) ? swell : 0f;
-            view.FootY = float.IsNaN(footY) || float.IsInfinity(footY) ? 0f : footY;
-            view.Moves = view.Drift != Vector3.zero || view.Swell > 0f;
             view.Lifetime = lifetime;
             view.Source = source;
             view.Renderer.sprite = source.sprite;
@@ -186,12 +177,6 @@ namespace TurnLimbo.Presentation
                 color.a *= 1f - progress;
                 Paint(view.Renderer, color);
                 if (view.LowerRenderer != null) view.LowerRenderer.color = color;
-                if (!view.Moves) continue;
-                // It swells about its feet: the pivot rises by what the growth would sink them.
-                float growth = view.Swell * progress;
-                view.Transform.localScale = view.OriginScale * (1f + growth);
-                view.Transform.position = view.Origin + view.Drift * progress +
-                    Vector3.up * (-view.FootY * view.OriginScale.y * growth);
             }
         }
 
@@ -276,10 +261,6 @@ namespace TurnLimbo.Presentation
             public Color Tint;
             public bool Active;
             public SpriteRenderer Source;
-            // Where it was left and how it moves over its life (drift and swell; neither for a step's ghost).
-            public Vector3 Origin, OriginScale, Drift;
-            public float Swell, FootY;
-            public bool Moves;
 
             public View(GameObject gameObject, SpriteRenderer renderer, SpriteRenderer lowerRenderer)
             {
