@@ -23,7 +23,7 @@ namespace TurnLimbo.Presentation
     /// blow), and nothing on one screen can stretch or skip it: holding a skill's explanation or Tab never slows time (the
     /// clocks are the host's), and the start card cannot be skipped. So no peer's planning clock starts later than the other's
     /// because of what its screen showed.</para></summary>
-    public sealed class LocalVersusController : IDisposable
+    public sealed partial class LocalVersusController : IDisposable
     {
         /// <summary>A turn's clock for each player: 20 seconds, plus what that player's skills earned last turn (제한시간), at
         /// most <see cref="LegacyPlanningClock.VersusCeilingSeconds"/>.</summary>
@@ -440,7 +440,8 @@ namespace TurnLimbo.Presentation
             float stoppedTime = Mathf.Min(realDelta, hitStopRemaining);
             hitStopRemaining = Mathf.Max(0f, hitStopRemaining - stoppedTime);
             // A blade bind holds the battle's clock after the hit stop, the same seconds on both screens.
-            float liveTime = realDelta - stoppedTime - AdvanceBladeBind(realDelta - stoppedTime);
+            float exchangeTime = bladeExchange.Hold(realDelta - stoppedTime, arena);
+            float liveTime = realDelta - stoppedTime - exchangeTime - AdvanceBladeBind(realDelta - stoppedTime - exchangeTime);
             // The finishing blow's slow motion runs on the time the hit stop left; its freeze begins once it is over.
             if (finale.IsRunning)
             {
@@ -466,11 +467,12 @@ namespace TurnLimbo.Presentation
             // 긴장 조명 from this screen's side: either fighter's low health darkens both screens alike, and each screen
             // swells for its own player's turn of the flow. Lighting only: nothing here reaches the match or its timing.
             arena.SetTensionLighting(LegacyHealthReading.Of(view.Player, view.Enemy), settings.TensionLighting);
-            if (!finale.IsRunning && viewPhase == ViewPhase.PlayingSlot && view.CurrentSlot != null)
+            if (!finale.IsRunning && !bladeExchange.IsHolding && viewPhase == ViewPhase.PlayingSlot && view.CurrentSlot != null)
                 DuelPrototypeController.RequestCombatCameraShot(arena,
                     .2f + .8f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotDuration)),
                     view.CurrentSlot.PlayerSkill, view.CurrentSlot.EnemySkill);
             arena.Tick(delta, realDelta, deferSlowAfterimages: true);
+            bladeExchange.Present(arena, art, effects);
             phaseTime += delta;
             switch (viewPhase)
             {
@@ -511,9 +513,9 @@ namespace TurnLimbo.Presentation
                     break;
             }
             // A signature move's strike trail.
-            arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot);
+            arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
             if (viewPhase != ViewPhase.Finished) arena.SampleSlowAfterimages(realDelta);
-            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
+            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
             if (viewPhase != ViewPhase.Finished) RefreshHud(delta, realDelta);
         }
 
@@ -911,7 +913,7 @@ namespace TurnLimbo.Presentation
 
         private void PlaySlot(float delta)
         {
-            if (bladeBindHitPending) return;
+            if (bladeBindHitPending || bladeExchange.IsHolding) return;
             LocalVersusPerspectiveSlot slot = view.CurrentSlot;
             if (slot == null) return;
             float attackTime = slotImpactTime + slotCycleDuration * slot.HitsResolved;
@@ -931,6 +933,7 @@ namespace TurnLimbo.Presentation
                         return;
                     }
                 }
+                if (TryBeginBladeExchange(slot, attackTime)) return;
                 if (!releasingBladeBindHit && TryBeginBladeBind(slot.SlotIndex, attackTime)) return;
                 int playerResistanceBefore = view.Player.Resistance;
                 int enemyResistanceBefore = view.Enemy.Resistance;
@@ -951,19 +954,21 @@ namespace TurnLimbo.Presentation
                 bool playerBrokeNow = playerResistanceBefore > 0 && view.Player.Resistance <= 0;
                 bool decisiveNow = false;
                 if (hit.PlayerAttacked)
-                    decisiveNow |= PresentHit(true, hit.EnemyHealthDamage, hit.EnemyResistanceDamage,
+                    decisiveNow |= PresentHit(true, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage,
                         hit.EnemyDisplayedDamage, hit.EnemyPushPower,
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
-                        enemyHealthBefore > 0 && view.Enemy.Health <= 0,
+                        enemyHealthBefore > 0 && enemyHealthBefore - (hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage) <= 0,
                         DuelPrototypeController.Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill);
                 if (hit.EnemyAttacked)
-                    decisiveNow |= PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
+                    decisiveNow |= PresentHit(false, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
-                        playerHealthBefore > 0 && view.Player.Health <= 0,
+                        playerHealthBefore > 0 && playerHealthBefore - (hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage) <= 0,
                         DuelPrototypeController.Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill);
+                battleHud.ShowBleedingDamage(true, hit.PlayerBleedingHealthDamage, arena.PlayerRenderer.transform.position);
+                battleHud.ShowBleedingDamage(false, hit.EnemyBleedingHealthDamage, arena.EnemyRenderer.transform.position);
                 AnnounceBreaks(playerWasBroken, enemyWasBroken, hit.EnemyAttacked, hit.PlayerAttacked);
                 // 간파: the viewer's own read paid off (each screen cues its own), once per slot.
                 CueRead(slot.SlotIndex);
@@ -1030,6 +1035,7 @@ namespace TurnLimbo.Presentation
             directorRound = -1;
             bladeBindRemaining = 0f;
             bladeBindHitPending = releasingBladeBindHit = false;
+            bladeExchange.Clear();
             arena.ClearBladeBind();
         }
 

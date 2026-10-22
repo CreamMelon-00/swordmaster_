@@ -139,7 +139,7 @@ namespace TurnLimbo.Runtime.Campaign
             granted = null;
             if (!CanCollectFieldPickup(pickupId)) return false;
             CampaignFieldPickup pickup = CampaignFieldPickups.Find(pickupId);
-            _ = LegacySkillDefinitions.Skill(pickup.SkillId);
+            _ = RequireCampaignSkill(pickup.SkillId);
             bool alreadyOwned = FindOwnedSkill(pickup.SkillId) != null;
             collectedFieldPickups.Add(pickup.Id);
             GrantSkill(pickup.SkillId);
@@ -447,7 +447,7 @@ namespace TurnLimbo.Runtime.Campaign
             // The stage's first-clear technique must be in the sheet. It is looked up before anything changes, so a sheet
             // without it stops here with the sheet's own error and a retry cannot count the battle twice.
             int stageSkillRewardId = firstClear ? CurrentStage.FirstClearSkillId : 0;
-            if (stageSkillRewardId != 0) _ = LegacySkillDefinitions.Skill(stageSkillRewardId);
+            if (stageSkillRewardId != 0) _ = RequireCampaignSkill(stageSkillRewardId);
 
             LastOutcome = outcome;
             EarnCurriculumPoints(CurriculumPointRules.ForStageBattle(victory, firstClear));
@@ -528,7 +528,7 @@ namespace TurnLimbo.Runtime.Campaign
         {
             if (!CanLearnCurriculumNode(nodeId)) return false;
             CurriculumNode node = curriculum.Tree.Find(nodeId);
-            foreach (int skillId in node.SkillIds) _ = LegacySkillDefinitions.Skill(skillId);
+            foreach (int skillId in node.SkillIds) _ = RequireCampaignSkill(skillId);
             CurriculumPoints -= node.Cost;
             curriculum.Complete(node.Id);
             GrantSkills(node);
@@ -790,6 +790,7 @@ namespace TurnLimbo.Runtime.Campaign
             droppedCurriculum = false;
             if (save == null) return null;
             save = NormalizePostureExperience(save);
+            save = NormalizeFormerStageFourReward(save);
             if (save.CurriculumTreeVersion == CampaignCurriculum.TreeVersion) return save;
             CampaignSave reset = save.ForCurriculumTree(CampaignCurriculum.TreeVersion, out droppedCurriculum);
             var owned = new HashSet<int>();
@@ -828,20 +829,69 @@ namespace TurnLimbo.Runtime.Campaign
                 lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups, reset.CurriculumTreeVersion, counterSkillId);
         }
 
-        // 자세 잡기 used to cost 1 ACT, so legitimate older saves can hold up to 30 clashes. Its new cost lowers
-        // that cap: keep a previously capped skill usable without accepting negative or impossible old experience.
+        // Stage 4 used to grant 62 기세 훔치기. It is now multiplayer-only: remove only that formerly valid reward,
+        // keeping the saved order and every other kind of progress. Malformed copies/experience stay for validation.
+        private static CampaignSave NormalizeFormerStageFourReward(CampaignSave save)
+        {
+            const int retiredRewardId = 62;
+            LegacySkillDefinition definition = LegacySkillDefinitions.Find(retiredRewardId);
+            bool clearedStageFour = false;
+            foreach (int number in save.ClearedStages) if (number == 4) clearedStageFour = true;
+            if (!LegacySkillDefinitions.Table.IsVersus(definition) || !clearedStageFour ||
+                save.Loadout.Count != 3 || save.CounterSkillId == retiredRewardId) return save;
+
+            int rewardSlot = -1;
+            for (int lane = 0; lane < save.Loadout.Count; lane++)
+            {
+                if (save.Loadout[lane].Count != 3) return save;
+                for (int slot = 0; slot < save.Loadout[lane].Count; slot++)
+                    if (save.Loadout[lane][slot] == retiredRewardId)
+                    {
+                        if (lane != 2 || rewardSlot >= 0) return save;
+                        rewardSlot = slot;
+                    }
+            }
+            bool hasExperience = false;
+            var experience = new List<KeyValuePair<int, int>>();
+            foreach (KeyValuePair<int, int> entry in save.SkillExperience)
+            {
+                if (entry.Key == retiredRewardId)
+                {
+                    // Its old ACT 2 price allowed at most 5 clashes per level, three levels.
+                    if (hasExperience || entry.Value < 0 || entry.Value > 5 * CampaignOwnedSkill.MaxLevel) return save;
+                    hasExperience = true;
+                }
+                else experience.Add(entry);
+            }
+            if (rewardSlot < 0 && !hasExperience) return save;
+
+            var lanes = new List<List<int>>();
+            foreach (IReadOnlyList<int> lane in save.Loadout) lanes.Add(new List<int>(lane));
+            if (rewardSlot >= 0)
+            {
+                LegacySkill replacement = null;
+                foreach (LegacySkill skill in LegacyInitialSkills.All)
+                    if (skill.LaneIndex == 2 && !lanes[2].Contains(skill.Id)) { replacement = skill; break; }
+                if (replacement == null) return save;
+                lanes[2][rewardSlot] = replacement.Id;
+            }
+            return new CampaignSave(save.Currency, save.ClearedStages, save.CurriculumCompleted, save.CurriculumPoints,
+                lanes, save.TrainingVictoryCount, experience, save.FieldPickups, save.CurriculumTreeVersion, save.CounterSkillId);
+        }
+
+        // 자세 잡기 and 쳐내기 used to cost 1 ACT, so legitimate older saves can hold up to 30 clashes. Their new
+        // costs lower that cap: keep capped skills usable without accepting negative or impossible old experience.
         private static CampaignSave NormalizePostureExperience(CampaignSave save)
         {
-            LegacySkill posture = LegacySkillDefinitions.Find(45)?.Skill;
-            if (posture == null) return save;
-            int maximum = CampaignOwnedSkill.ExperienceRequiredForCost(posture.Cost) * CampaignOwnedSkill.MaxLevel;
             const int previousMaximum = 10 * CampaignOwnedSkill.MaxLevel;
-            if (maximum >= previousMaximum) return save;
             var experience = new List<KeyValuePair<int, int>>();
             bool changed = false;
             foreach (KeyValuePair<int, int> entry in save.SkillExperience)
             {
-                if (entry.Key == 45 && entry.Value > maximum && entry.Value <= previousMaximum)
+                LegacySkill adjusted = entry.Key == 45 || entry.Key == 9 ? LegacySkillDefinitions.Find(entry.Key)?.Skill : null;
+                int maximum = adjusted == null ? previousMaximum
+                    : CampaignOwnedSkill.ExperienceRequiredForCost(adjusted.Cost) * CampaignOwnedSkill.MaxLevel;
+                if (entry.Value > maximum && entry.Value <= previousMaximum)
                 {
                     experience.Add(new KeyValuePair<int, int>(entry.Key, maximum));
                     changed = true;
@@ -942,12 +992,24 @@ namespace TurnLimbo.Runtime.Campaign
         private void GrantSkill(int skillId)
         {
             if (FindOwnedSkill(skillId) == null)
-                ownedSkills.Add(new CampaignOwnedSkill(LegacySkillDefinitions.Skill(skillId)));
+                ownedSkills.Add(new CampaignOwnedSkill(RequireCampaignSkill(skillId)));
+        }
+
+        private static LegacySkill RequireCampaignSkill(int skillId)
+        {
+            LegacySkill skill = LegacySkillDefinitions.Skill(skillId);
+            if (LegacySkillDefinitions.Table.IsVersus(LegacySkillDefinitions.Find(skillId)))
+                throw new InvalidOperationException($"대전 전용 기술 {skillId} {skill.Name}은(는) 캠페인에서 얻을 수 없습니다.");
+            return skill;
         }
 
         // Any sheet row, not only 획득 ones: a node whose technique became a starting one then grants nothing new
         // instead of making its saves unreadable (CampaignSheetCheck reports that sheet).
-        private static LegacySkill FindSheetSkill(int skillId) => LegacySkillDefinitions.Find(skillId)?.Skill;
+        private static LegacySkill FindSheetSkill(int skillId)
+        {
+            LegacySkillDefinition definition = LegacySkillDefinitions.Find(skillId);
+            return LegacySkillDefinitions.Table.IsVersus(definition) ? null : definition?.Skill;
+        }
 
         private static bool IsStartingSkill(int skillId)
         {
@@ -1074,7 +1136,7 @@ namespace TurnLimbo.Runtime.Campaign
             EnemyResistance = number == 5 ? 10 : 15 + 3 * (number - 1);
             EnemyPowerBonus = number == 5 ? 0 : number - 1;
             Reward = 60 + 10 * (number - 1);
-            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 4 ? 62 : number == 5 ? 46 : number == 7 ? 16 : 0;
+            FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 5 ? 46 : number == 7 ? 16 : 0;
             // Placeholder counters until enemy archetypes exist: a guard (막기, 7) that taxes a
             // one-sided attack from stage five, then a strong thrust (정교한 찌르기, 4) from stage seven.
             enemyCounterSkillId = number >= 7 ? 4 : number == 6 ? 7 : 0;

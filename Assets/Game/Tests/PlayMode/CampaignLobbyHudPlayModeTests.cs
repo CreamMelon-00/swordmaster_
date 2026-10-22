@@ -430,7 +430,7 @@ namespace TurnLimbo.Presentation.Tests
                 reset.onClick.Invoke();
                 Assert.That(run.Curriculum.CompletedCount, Is.EqualTo(1), "The first click only arms the reset.");
                 Assert.That(FindButton(hud, "Curriculum Reset").GetComponentInChildren<Text>().text,
-                    Is.EqualTo("한 번 더 누르면 초기화\n쓴 점수 1점을 돌려받습니다"));
+                    Is.EqualTo("한 번 더 누르면 초기화\n사용한 1점을 돌려받습니다"));
                 FindButton(hud, "Curriculum Reset").onClick.Invoke();
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(10));

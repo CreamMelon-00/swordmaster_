@@ -250,13 +250,13 @@ namespace TurnLimbo.Presentation
         public bool IsTrainingBattle => campaign != null && campaign.IsTrainingBattle;
         /// <summary>결투 or 전투 for the fight on screen (internal; changes presentation only). Missions say which;
         /// stages are 전투.</summary>
-        public EncounterKind Encounter => IsTrainingBattle ? EncounterKind.Battle
+        public EncounterKind Encounter => IsInSkillTavern || IsTrainingBattle ? EncounterKind.Battle
             : IsMission ? mission.Encounter : campaign.CurrentStage.Encounter;
         public bool IsShowingResult => viewPhase == ViewPhase.Outcome && battleResult != null;
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
         public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && !IsPlayingCutscene &&
             viewPhase == ViewPhase.Outcome && !IsShowingResult;
-        public bool IsInLobby => !IsInOnlineVersus && !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
+        public bool IsInLobby => !IsInSkillTavern && !IsInOnlineVersus && !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
             !IsMission && !showingBriefing && !showingTitle && campaign.Phase == CampaignPhase.Lobby;
         public bool IsInAcademyField => IsInLobby && academyField != null && academyField.IsVisible;
         public DuelPresentationSettings PresentationSettings => presentationSettings;
@@ -264,7 +264,7 @@ namespace TurnLimbo.Presentation
         public LegacyCombatHud Hud => hud;
         public DuelStepHud StepHud => stepHud;
         public bool IsResolving => viewPhase != ViewPhase.Planning && viewPhase != ViewPhase.Outcome;
-        public bool CanChoose => !IsPaused && viewPhase == ViewPhase.Planning && session.Phase == LegacyDuelPhase.Planning;
+        public bool CanChoose => !IsInSkillTavern && !IsPaused && viewPhase == ViewPhase.Planning && session.Phase == LegacyDuelPhase.Planning;
         public int PlayerHealth => session.Player.Health;
         public int EnemyHealth => RemainingEnemyHealth;
         public DuelMatchOutcome Outcome => session.Outcome;
@@ -329,8 +329,8 @@ namespace TurnLimbo.Presentation
             }
         }
         // A cut-in holds the battle: no step is judged against its held cue.
-        public bool CanStep => session != null && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
-            !bladeBindHitPending &&
+        public bool CanStep => session != null && !IsInSkillTavern && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
+            !bladeBindHitPending && !bladeExchange.IsHolding &&
             StepFeatures.AllowsAnyStep() &&
             session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
@@ -439,7 +439,8 @@ namespace TurnLimbo.Presentation
             recallAlbum = new TutorialRecallAlbum(this);
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
             titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite,
-                () => StartOnlineVersus());
+                () => StartOnlineVersus(), () => StartSkillTavern());
+            InitializeSkillTavern();
             // The online friend duel's battle plays on the same arena with its own duel HUD, timed by the same presentation
             // settings. Its 타이틀로 goes back to the title, which also closes the online room (ShowTitle stops both).
             localVersus = new LocalVersusController(transform, art, arena, () => ShowTitle(), presentationSettings);
@@ -462,6 +463,7 @@ namespace TurnLimbo.Presentation
         {
             realDelta = Mathf.Max(0f, realDelta);
             if (AdvanceCombatDebug(realDelta, keyboard)) return;
+            if (AdvanceSkillTavern(keyboard)) return;
             // The online room ticks its battle itself (the versus duel only runs under it).
             if (onlineVersus != null && onlineVersus.IsActive)
             {
@@ -648,9 +650,10 @@ namespace TurnLimbo.Presentation
                 return;
             }
             // A blade bind holds the battle's clock after the hit stop: the two fighters struggle on its real time.
-            float boundTime = AdvanceBladeBind(realDelta - stoppedTime);
+            float exchangeTime = bladeExchange.Hold(realDelta - stoppedTime, arena);
+            float boundTime = AdvanceBladeBind(realDelta - stoppedTime - exchangeTime);
             // A 수훈 technique's cut-in holds the battle after the hit stop (its camera ease and flare run meanwhile).
-            float liveTime = realDelta - stoppedTime - boundTime;
+            float liveTime = realDelta - stoppedTime - exchangeTime - boundTime;
             liveTime -= empowermentCues.HoldBattle(liveTime);
             empowermentCues.Tick(realDelta);
             // The finishing blow's slow motion runs on the time the hit stop left; its freeze begins once it is over.
@@ -678,7 +681,7 @@ namespace TurnLimbo.Presentation
             if (!IsTrainingBattle)
                 arena.SetTensionLighting(BattleHealthReading(), presentationSettings.TensionLighting);
             RefreshUpcomingEnemy();
-            if (!finale.IsRunning && session.CurrentSlot != null &&
+            if (!finale.IsRunning && !bladeExchange.IsHolding && session.CurrentSlot != null &&
                 (viewPhase == ViewPhase.SkillWindup || viewPhase == ViewPhase.PlayingSlot))
             {
                 float progress = viewPhase == ViewPhase.SkillWindup
@@ -688,6 +691,7 @@ namespace TurnLimbo.Presentation
                     session.CurrentSlot.EnemySkill);
             }
             arena.Tick(delta, realDelta, deferSlowAfterimages: true);
+            bladeExchange.Present(arena, art, effectsSource);
             phaseTime += delta;
             switch (viewPhase)
             {
@@ -756,10 +760,10 @@ namespace TurnLimbo.Presentation
                 case ViewPhase.Outcome:
                     break;
             }
-            arena.TickPressureAttackTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
-            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
+            arena.TickPressureAttackTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
+            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
             // A signature move's strike trail, sampled like the pressure trail after this frame's holds.
-            arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot);
+            arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
             if (viewPhase != ViewPhase.Outcome) arena.SampleSlowAfterimages(realDelta);
             if (viewPhase != ViewPhase.Outcome)
             {
@@ -929,7 +933,7 @@ namespace TurnLimbo.Presentation
 
         private void UpdateSlot(float delta)
         {
-            if (bladeBindHitPending) return;
+            if (bladeBindHitPending || bladeExchange.IsHolding) return;
             LegacyCurrentSlot slot = session.CurrentSlot;
             float attackTime = slotImpactTime + slotCycleDuration * slot.HitsResolved;
             float animationClipEnd = slotCycleDuration * slot.HitsResolved + OriginalClipDuration / slotPlaybackSpeed;
@@ -949,6 +953,7 @@ namespace TurnLimbo.Presentation
                         return;
                     }
                 }
+                if (TryBeginBladeExchange(slot, attackTime)) return;
                 // The blades touch now, but this first hit lands only when their struggle releases.
                 if (!releasingBladeBindHit && TryBeginBladeBind(slot.SlotIndex, attackTime)) return;
                 int playerResistanceBefore = session.Player.Resistance;
@@ -983,22 +988,24 @@ namespace TurnLimbo.Presentation
                 bool playerBrokeNow = playerResistanceBefore > 0 && session.Player.Resistance <= 0;
                 bool decisiveNow = false;
                 if (hit.PlayerAttacked)
-                    decisiveNow |= PresentHit(true, hit.EnemyHealthDamage, hit.EnemyResistanceDamage,
+                    decisiveNow |= PresentHit(true, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage,
                         hit.EnemyDisplayedDamage, hit.EnemyPushPower,
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
-                        enemyHealthBefore > 0 && session.Enemy.Health <= 0,
+                        enemyHealthBefore > 0 && enemyHealthBefore - (hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage) <= 0,
                         Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill);
                 if (hit.EnemyAttacked && !hit.PlayerDodged)
                 {
-                    decisiveNow |= PresentHit(false, hit.PlayerHealthDamage, hit.PlayerResistanceDamage,
+                    decisiveNow |= PresentHit(false, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
-                        playerHealthBefore > 0 && session.Player.Health <= 0,
+                        playerHealthBefore > 0 && playerHealthBefore - (hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage) <= 0,
                         Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill);
                     if (missionEmpowered) empowermentCues.NotifyEnemyHit(mission.Empowerment, hit.EnemySkill);
                 }
+                hud.ShowBleedingDamage(true, hit.PlayerBleedingHealthDamage, arena.PlayerRenderer.transform.position);
+                hud.ShowBleedingDamage(false, hit.EnemyBleedingHealthDamage, arena.EnemyRenderer.transform.position);
                 // A Major slot's first presented hit: a longer stop and a second impact under it (never the finishing
                 // blow's, which keeps its finale).
                 if (hit.Outcome == DuelMatchOutcome.InProgress && (hit.PlayerAttacked || hit.EnemyAttacked && !hit.PlayerDodged))
@@ -1014,8 +1021,8 @@ namespace TurnLimbo.Presentation
                 // The barks hear a hit the battle goes on after. The finishing blow is the finale's, and the event's
                 // scene answers the hit that opens it.
                 if (hit.Outcome == DuelMatchOutcome.InProgress && !missionEventPending)
-                    barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage),
-                        Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage));
+                    barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage),
+                        Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage));
                 // A Minor slot (no attack) plays its rest after its last hit faster, as the director saves time.
                 if (hit.Outcome == DuelMatchOutcome.InProgress && slot.IsResolved && showDirector.ShortensSlot)
                 {
@@ -1083,6 +1090,7 @@ namespace TurnLimbo.Presentation
             directorRound = -1;
             bladeBindRemaining = 0f;
             bladeBindHitPending = releasingBladeBindHit = false;
+            bladeExchange.Clear();
             arena.ClearBladeBind();
         }
 
@@ -1224,7 +1232,7 @@ namespace TurnLimbo.Presentation
         private void RecordResolvedSkillSlot(LegacyCurrentSlot slot)
         {
             hud.RecordResolvedSlot(slot.PlayerSkill, slot.EnemySkill, playerSlotDamage, enemySlotDamage);
-            if (combatDebugInstance) return;
+            if (combatDebugInstance || IsInSkillTavern) return;
             CampaignOwnedSkill owned = slot.PlayerSkill == null ? null : campaign.GetOwnedSkill(slot.PlayerSkill.Id);
             int previousLevel = owned?.Level ?? 0;
             if (campaign.TryGainClashExperience(slot.PlayerSkill, slot.EnemySkill))
@@ -1315,6 +1323,7 @@ namespace TurnLimbo.Presentation
 
         private void StartPlanning()
         {
+            if (IsInSkillTavernBattle) { FinishSkillTavernTurn(); return; }
             int playerResistanceBefore = session.Player.Resistance;
             int enemyResistanceBefore = session.Enemy.Resistance;
             int[] temporaryBefore = LegacyKeywordPreview.TemporaryCounts(session);
@@ -2498,6 +2507,7 @@ namespace TurnLimbo.Presentation
         /// coach's 임무 포기 come through <see cref="AbandonBattle"/>, which never leaves a decided battle.</summary>
         public void ReturnToLobby()
         {
+            if (IsInSkillTavern) { ReturnToSkillTavernFormation(); return; }
             if (IsMission)
             {
                 ShowBriefing();
@@ -2521,7 +2531,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Holds the current undecided battle, including its real-time presentation and planning clock.</summary>
         public bool PauseBattle()
         {
-            if (IsPaused || session == null || session.IsFinished || viewPhase == ViewPhase.Outcome ||
+            if (IsInSkillTavern || IsPaused || session == null || session.IsFinished || viewPhase == ViewPhase.Outcome ||
                 IsPlayingScene || IsShowingResult || startCard.IsShowing || finale.IsRunning) return false;
             ClearHeldKeys();
             ConsumeHeldLaneKeys();
@@ -2637,6 +2647,7 @@ namespace TurnLimbo.Presentation
         {
             if (combatDebugInstance) { BeginCombatDebugLoop(); return; }
             if (IsShowingResult || !session.IsFinished) return;
+            if (IsInSkillTavern) { FinishSkillTavernBattle(); return; }
             if (IsTrainingBattle)
             {
                 FinishTraining();
@@ -2909,6 +2920,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Leaves every duel, result, coach and dialogue screen, ready for the lobby or a briefing.</summary>
         private void ClearBattleScreens()
         {
+            StopSkillTavernMode();
             academyField?.Hide();
             pauseHud.Hide();
             StopCutscene();
@@ -2976,7 +2988,8 @@ namespace TurnLimbo.Presentation
             effectsSource.Stop();
             effectsSource.pitch = 1f;
             stepAudio.Stop();
-            session.Reset();
+            // Tavern resumes the same duel after each shop; only its arena and HUD are reset here.
+            if (!IsInSkillTavernBattle) session.Reset();
             stepHud.Reset();
             resistanceFeedback.Reset();
             breakImpactCue.Reset();
@@ -3118,7 +3131,7 @@ namespace TurnLimbo.Presentation
 
         /// <summary>This battle's bark file: <c>Barks/mission-NN</c> for a story mission, <c>Barks/stage-NN</c> for a stage, none
         /// in training.</summary>
-        private string BarkResource => combatDebugInstance || IsTrainingBattle ? null
+        private string BarkResource => combatDebugInstance || IsInSkillTavern || IsTrainingBattle ? null
             : IsMission ? BarkScript.MissionResource(mission.Number) : BarkScript.StageResource(campaign.StageNumber);
 
         private void RefreshGuide()
@@ -3244,6 +3257,8 @@ namespace TurnLimbo.Presentation
             briefingHud?.Dispose();
             onlineVersus?.Dispose();
             localVersus?.Dispose();
+            skillTavernHud?.Dispose();
+            skillTavernBattleHud?.Dispose();
             titleHud?.Dispose();
             loadingHud?.Dispose();
             lobbyHud?.Dispose();

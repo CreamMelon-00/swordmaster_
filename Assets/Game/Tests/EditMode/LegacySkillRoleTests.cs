@@ -104,10 +104,10 @@ namespace TurnLimbo.Core.Tests
             string heavierStrike = LegacySkillRoles.GetDetail(FindSkill(4));
             StringAssert.Contains("ACT 3", heavierStrike);
             string attackCounter = LegacySkillRoles.GetDetail(FindSkill(5));
-            Assert.That(attackCounter, Does.Contain("같은 칸").And.Contain("공격 기술").And.Contain("기술 시작 시"));
+            Assert.That(attackCounter, Does.Contain("같은 칸").And.Contain("공격 기술").And.Contain("사용 시"));
             StringAssert.Contains("상대 저항을 10 직접", attackCounter);
             string guardCounter = LegacySkillRoles.GetDetail(FindSkill(6));
-            Assert.That(guardCounter, Does.Contain("같은 칸").And.Contain("방어 기술").And.Contain("기술 시작 시"));
+            Assert.That(guardCounter, Does.Contain("같은 칸").And.Contain("방어 기술").And.Contain("사용 시"));
             StringAssert.Contains("상대 저항을 15 직접", guardCounter);
             string guardedRecovery = LegacySkillRoles.GetDetail(FindSkill(7));
             StringAssert.Contains("상대가 타격 기술이면", guardedRecovery);
@@ -136,12 +136,12 @@ namespace TurnLimbo.Core.Tests
             StringAssert.DoesNotContain("다음 1슬롯", advance);
 
             string fightingSpirit = LegacySkillRoles.GetDetail(FindSkill(19));
-            StringAssert.Contains("기술 시작 시 상대가 붕괴 상태이면 자신의 최대 저항의 20%", fightingSpirit);
+            StringAssert.Contains("사용 시 상대가 붕괴 상태이면 자신의 최대 저항의 20%", fightingSpirit);
             StringAssert.DoesNotContain("반올림", fightingSpirit);
             StringAssert.DoesNotContain("피해 -30%", fightingSpirit);
 
             string draw = LegacySkillRoles.GetDetail(FindSkill(42));
-            Assert.That(draw, Does.Contain("같은 칸").And.Contain("방어 기술").And.Contain("기술 시작 시"));
+            Assert.That(draw, Does.Contain("같은 칸").And.Contain("방어 기술").And.Contain("사용 시"));
             StringAssert.Contains("상대 저항을 15 직접", draw);
             StringAssert.DoesNotContain("ACT", draw);
             StringAssert.Contains("초과 감소는 체력 피해가 되지", draw);

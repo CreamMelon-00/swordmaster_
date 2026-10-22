@@ -55,6 +55,10 @@ namespace TurnLimbo.Runtime.Campaign
                         problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.TemporaryGroup}'입니다. " +
                             $"커리큘럼 과정 '{node.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
                             "(일회성 기술은 다른 기술이 한 턴 동안만 세우며, 플레이어가 얻거나 편성하지 않습니다).");
+                    else if (table.IsVersus(definition))
+                        problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.VersusGroup}'입니다. " +
+                            $"커리큘럼 과정 '{node.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
+                            "(대전 전용 기술은 캠페인에서 얻거나 편성하지 않습니다).");
                     reported.Add(id);
                 }
             foreach (CampaignStage stage in CampaignRun.StageDefinitions)
@@ -72,6 +76,9 @@ namespace TurnLimbo.Runtime.Campaign
                         $"스테이지 {stage.Number} 첫 클리어 보상이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다.");
                 else if (table.IsTemporary(definition))
                     problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.TemporaryGroup}'입니다. " +
+                        $"스테이지 {stage.Number} 첫 클리어 보상이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다.");
+                else if (table.IsVersus(definition))
+                    problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.VersusGroup}'입니다. " +
                         $"스테이지 {stage.Number} 첫 클리어 보상이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다.");
                 reported.Add(id);
             }
@@ -94,6 +101,10 @@ namespace TurnLimbo.Runtime.Campaign
                     problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.TemporaryGroup}'입니다. " +
                         $"필드 습득물 '{pickup.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
                         "(일회성 기술은 플레이어가 얻거나 편성하지 않습니다).");
+                else if (table.IsVersus(definition))
+                    problems.Add($"ID {id} {definition.Skill.Name}의 '{Column.Group}'이(가) '{LegacySkillSheet.VersusGroup}'입니다. " +
+                        $"필드 습득물 '{pickup.Id}'이(가) 주는 기술이라 '{LegacySkillSheet.AcquisitionGroup}'이어야 합니다 " +
+                        "(대전 전용 기술은 캠페인에서 얻거나 편성하지 않습니다).");
                 reported.Add(id);
             }
             foreach (int id in CodeSkillIds)

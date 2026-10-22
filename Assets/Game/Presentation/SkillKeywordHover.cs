@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약" };
+        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈" };
         // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
         // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
@@ -96,15 +96,25 @@ namespace TurnLimbo.Presentation
         {
             switch (term)
             {
+                case "출혈":
+                    explanation = LegacyStatusNames.Description(LegacyStatusKind.Bleeding, 2);
+                    return true;
+                case "지혈":
+                    explanation = "자신의 출혈 횟수를 표시된 만큼 줄입니다. 남은 출혈보다 많이 줄이지 않으며, 체력을 회복하지는 않습니다.";
+                    return true;
+                case "ACT 회복 강탈":
+                    explanation = "사용 시 같은 칸 상대가 공격 기술이면 다음 턴 ACT 회복량을 빼앗습니다. " +
+                        "상대는 최소 1을 회복하며, 실제 줄인 양만큼 자신이 더 회복합니다. 성공은 기술 종류마다 턴당 1회입니다.";
+                    return true;
                 case "ACT 강탈":
                     explanation = "사용 시 상대의 남은 ACT가 조건 이상이면 ACT를 빼앗아 즉시 얻습니다. " +
-                        "기술당 한 번 적용되며 자신의 최대 ACT를 넘지 않습니다. ACT를 쓰지 않는 적에게는 적용되지 않습니다.";
+                        "기술당 1회 적용되며 최대 ACT를 넘지 않습니다. ACT가 없는 적에게는 적용되지 않습니다.";
                     return true;
                 case "보호 소모":
-                    explanation = "사용할 때 자신에게 남은 보호를 모두 없앱니다. 보호가 없으면 부가 위력을 얻지 못하며, 강화·취약은 소모하지 않습니다.";
+                    explanation = "사용 시 남은 보호를 모두 소모해 부가 위력을 얻습니다. 보호가 없으면 부가 위력을 얻지 못합니다.";
                     return true;
                 case "총타수":
-                    explanation = "이번 턴 앞에 예약된 공격 기술들의 타수 합입니다. 같은 기술은 여러 번 예약해도 한 번만 세며, 방어·숨고르기는 제외합니다.";
+                    explanation = "이번 턴 앞에 예약한 공격 기술의 타수 합입니다. 같은 기술은 한 번만 세며, 방어·숨고르기는 제외합니다.";
                     return true;
                 case "강화":
                     explanation = LegacyStatusNames.Description(LegacyStatusKind.PowerUp, 0);
@@ -120,11 +130,11 @@ namespace TurnLimbo.Presentation
                         "횟수는 전투 내내 남고 상한에서 멈춥니다.";
                     return true;
                 case "취소":
-                    explanation = "예약된 기술이 대기열에서 빠지고, 그 기술에 쓴 ACT는 돌려받지 못합니다. " +
+                    explanation = "예약한 기술을 대기열에서 뺍니다. 쓴 ACT는 돌려받지 못합니다. " +
                         "빠진 기술은 열 맨 앞으로 돌아오지 않습니다.";
                     return true;
                 case "반환":
-                    explanation = "예약된 기술이 대기열에서 빠지고, 그 기술에 쓴 ACT를 돌려받습니다. " +
+                    explanation = "예약한 기술을 대기열에서 빼고 쓴 ACT를 돌려받습니다. " +
                         "빠진 기술은 열 맨 앞으로 돌아오지 않습니다.";
                     return true;
                 case "붕괴":
@@ -144,8 +154,8 @@ namespace TurnLimbo.Presentation
                     explanation = "열 맨 앞에 잠깐 생기는 기술로, 예약하거나 턴이 끝나면 사라집니다.";
                     return true;
                 case "제한시간":
-                    explanation = "턴마다 계획할 수 있는 시간, 곧 상대가 내게 닿기까지의 시간입니다. " +
-                        "시간이 멈춘 전투에서는 늘거나 줄지 않습니다.";
+                    explanation = "이번 턴에 기술을 예약할 수 있는 시간입니다. " +
+                        "제한시간이 없는 전투에서는 시간 증감 효과가 적용되지 않습니다.";
                     return true;
                 default:
                     explanation = null;
@@ -360,11 +370,12 @@ namespace TurnLimbo.Presentation
             Vector3 upper = canvasRect.InverseTransformPoint(cardCorners[2]);
             Rect screen = canvasRect.rect;
             float width = Mathf.Min(PopupWidth * scale, Mathf.Max(80f, screen.width - 16f));
-            float height = Mathf.Min(PopupHeight * scale, Mathf.Max(80f, screen.height - 16f));
+            float requestedHeight = heading.text == "출혈" ? 350f : PopupHeight;
+            float height = Mathf.Min(requestedHeight * scale, Mathf.Max(80f, screen.height - 16f));
             popup.sizeDelta = new Vector2(width, height);
             float textWidth = Mathf.Max(60f, width - 30f * scale);
             heading.rectTransform.sizeDelta = new Vector2(textWidth, heading.rectTransform.sizeDelta.y);
-            description.rectTransform.sizeDelta = new Vector2(textWidth, description.rectTransform.sizeDelta.y);
+            description.rectTransform.sizeDelta = new Vector2(textWidth, Mathf.Max(24f, height - 72f * scale));
             divider.sizeDelta = new Vector2(textWidth, divider.sizeDelta.y);
 
             float x = upper.x + 14f * scale;

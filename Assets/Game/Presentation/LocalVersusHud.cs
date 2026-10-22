@@ -62,8 +62,7 @@ namespace TurnLimbo.Presentation
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
-            actStealThreshold = LegacySkillDefinitions.Find(62)?.Effect?.ActStealThreshold ?? 8;
-            if (actStealThreshold <= 0) actStealThreshold = 8;
+            actStealThreshold = LegacySkillDefinitions.Find(62)?.Effect?.ActStealThreshold ?? 0;
             root = Rect("Local Versus HUD", parent, Vector2.zero, Vector2.zero);
             var canvas = root.gameObject.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -189,7 +188,7 @@ namespace TurnLimbo.Presentation
                 {
                     badge.Act = fighter.Act;
                     badge.Maximum = fighter.MaximumAct;
-                    badge.AtRisk = fighter.Act >= actStealThreshold;
+                    badge.AtRisk = actStealThreshold > 0 && fighter.Act >= actStealThreshold;
                     badge.Label.text = (side == 0 ? "나" : "상대") + "  ACT " + fighter.Act + " / " + fighter.MaximumAct;
                     badge.Plate.color = badge.AtRisk ? DuelVisualTheme.Danger
                         : side == 0 ? DuelVisualTheme.Paper : DuelVisualTheme.Surface;

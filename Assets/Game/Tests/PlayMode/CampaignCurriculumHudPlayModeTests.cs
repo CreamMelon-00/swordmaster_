@@ -160,7 +160,7 @@ namespace TurnLimbo.Presentation.Tests
                     Does.Contain("능력치 보상: 최대 저항 +2"));
                 fixture.Hud.SelectNode("stats");
                 fixture.Complete("stats");
-                Assert.That(Label(root, "Curriculum Availability").text, Does.Contain("능력치 보상이 적용됐습니다"));
+                Assert.That(Label(root, "Curriculum Availability").text, Does.Contain("능력치가 올랐습니다"));
                 Assert.That(panel.rect.height, Is.EqualTo(fixedHeight).Within(.1f));
             }
             yield return null;
@@ -241,7 +241,7 @@ namespace TurnLimbo.Presentation.Tests
                 Button(root, "Curriculum Node left").onClick.Invoke();
                 AssertPrimary(primary, "닫힌 과정", false);
                 Assert.That(Label(root, "Curriculum Availability").text,
-                    Is.EqualTo("함께 고를 수 없는 과정을 이미 마쳤습니다. 초기화하면 다시 고를 수 있습니다."));
+                    Is.EqualTo("다른 택1 과정을 익혔습니다. 초기화하면 다시 고를 수 있습니다."));
                 primary.onClick.Invoke();
                 Assert.That(fixture.Run.Curriculum.IsCompleted("left"), Is.False, "An excluded node cannot be learned.");
             }
@@ -572,7 +572,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 reset.onClick.Invoke();
                 Assert.That(fixture.Hud.IsResetArmed, Is.True);
-                Assert.That(caption.text, Is.EqualTo("한 번 더 누르면 초기화\n쓴 점수 2점을 돌려받습니다"),
+                Assert.That(caption.text, Is.EqualTo("한 번 더 누르면 초기화\n수련 점수 2점을 돌려받습니다"),
                     "Armed, it says what the reset gives back.");
                 Assert.That(caption.text, Is.EqualTo(CampaignCurriculumHud.ArmedResetText(fixture.Run.CurriculumRefund)));
                 Assert.That(fixture.ResetCalls, Is.Zero, "The first click only arms the reset.");
@@ -605,6 +605,25 @@ namespace TurnLimbo.Presentation.Tests
                     Is.EqualTo("완료 0 / " + fixture.Run.Curriculum.Tree.Nodes.Count));
                 AssertCard(root, "horizontal-cut", DuelVisualTheme.Card, "1점", DuelVisualTheme.Accent, false);
                 AssertCard(root, "advance", DuelVisualTheme.Track, "잠김", DuelVisualTheme.Muted, true);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator BleedingSchool_HasItsOwnNamedBandAndContainsAllSixSkillNodes()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var content = (RectTransform)Named(fixture.Root, "Curriculum Tree Content");
+                var band = (RectTransform)Named(content.gameObject, "Band Bleeding");
+                Assert.That(Named(content.gameObject, "Branch Bleeding").GetComponent<Text>().text, Is.EqualTo("출혈"));
+                Assert.That(CampaignCurriculumHud.BranchTone(CurriculumBranch.Bleeding), Is.EqualTo(LegacySkillTone.Reduction));
+                Assert.That(band.GetComponent<Image>().raycastTarget, Is.False);
+                var nodes = fixture.Run.Curriculum.Tree.Nodes.Where(node => node.Branch == CurriculumBranch.Bleeding).ToList();
+                Assert.That(nodes.Count, Is.EqualTo(6));
+                foreach (CurriculumNode node in nodes)
+                    Assert.That(Inside(Bounds(band), Bounds((RectTransform)Named(content.gameObject, "Curriculum Node " + node.Id))),
+                        Is.True, node.Id + " must be inside the bleeding school band.");
             }
         }
 

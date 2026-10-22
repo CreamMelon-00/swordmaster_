@@ -64,7 +64,9 @@ namespace TurnLimbo.Presentation
                 material = new Material(shader) { name = "Duel Impact Glow (Runtime)" };
         }
 
-        public void Emit(Vector3 worldPosition, bool guarded, bool fatal)
+        /// <param name="strength">This flash's intensity multiplier, clamped to 0–1. Its diameter follows the square
+        /// root of the multiplier. Existing impacts keep their full size and intensity at the default of 1.</param>
+        public void Emit(Vector3 worldPosition, bool guarded, bool fatal, float strength = 1f)
         {
             if (disposed) return;
             if (!CanRender())
@@ -73,9 +75,11 @@ namespace TurnLimbo.Presentation
                 return;
             }
             if (!HasRequiredAssets) return;
+            if (!(strength > 0f) || float.IsInfinity(strength)) return;
 
             View view = AcquireView();
             view.Age = 0f;
+            view.Strength = Mathf.Clamp01(strength);
             view.Tint = fatal ? FatalImpact : guarded ? GuardImpact : WarmImpact;
             view.Transform.position = worldPosition;
             view.Transform.rotation = Quaternion.Euler(0f, 0f, (emissionSequence++ % 8u) * 22.5f);
@@ -165,10 +169,10 @@ namespace TurnLimbo.Presentation
 
         private void ApplyLiveSettings(View view, float progress)
         {
-            float diameter = settings.GlowRadius * 2f;
+            float diameter = settings.GlowRadius * 2f * Mathf.Sqrt(view.Strength);
             view.Transform.localScale = new Vector3(diameter, diameter, 1f);
             view.Properties.SetColor(TintId, view.Tint);
-            view.Properties.SetFloat(IntensityId, settings.GlowIntensity);
+            view.Properties.SetFloat(IntensityId, settings.GlowIntensity * view.Strength);
             view.Properties.SetFloat(ProgressId, Mathf.Clamp01(progress));
             view.Renderer.SetPropertyBlock(view.Properties);
         }
@@ -203,7 +207,7 @@ namespace TurnLimbo.Presentation
             public readonly MeshRenderer Renderer;
             public readonly MaterialPropertyBlock Properties = new MaterialPropertyBlock();
             public Color Tint;
-            public float Age;
+            public float Age, Strength;
             public bool Active;
 
             public View(GameObject gameObject, MeshRenderer renderer)

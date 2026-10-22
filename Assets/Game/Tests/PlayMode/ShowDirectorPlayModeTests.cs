@@ -305,7 +305,7 @@ namespace TurnLimbo.Presentation.Tests
                 "\"decisiveHealthDamagePercent\":25,\"showDirectorEnabled\":true,\"combatTempoEnabled\":false,\"minorSlotSpeed\":2,\"majorHitStopScale\":3," +
                 "\"majorCameraPush\":0.1,\"majorClashScale\":1.35,\"turnExtraSecondsCap\":0.8,\"largeClashGap\":0.6," +
                 "\"deepPierce\":0.7,\"bladeBindGap\":0.15,\"bladeBindSeconds\":0.45,\"bladeBindSway\":0.16," +
-                "\"bladeBindPress\":0.1,\"bladeBindSpring\":0,\"bladeBindSparks\":2,\"clashMotionEnabled\":true";
+                "\"bladeBindPress\":0.1,\"bladeBindSpring\":0,\"bladeBindSparks\":2,\"clashMotionEnabled\":true,\"bladeExchangeEnabled\":false";
             private readonly DuelPresentationSettings originalSettings, originalArenaSettings;
             private readonly LegacyQueuedDuel originalSession;
             private readonly bool originalEnabled;

@@ -363,7 +363,7 @@ namespace TurnLimbo.Presentation
                 : $"다음 과정까지 {pointsToNext}점";
 
         /// <summary>The reset's caption after its first click: a second click resets, and the points it gives back.</summary>
-        public static string ArmedResetText(int refund) => $"한 번 더 누르면 초기화\n쓴 점수 {refund}점을 돌려받습니다";
+        public static string ArmedResetText(int refund) => $"한 번 더 누르면 초기화\n수련 점수 {refund}점을 돌려받습니다";
 
         /// <summary>A technique as the learning moment names it, with its school: <c>사선베기(Q 정공)</c>.</summary>
         public static string SkillLabel(LegacySkill skill)
@@ -452,6 +452,7 @@ namespace TurnLimbo.Presentation
                 case CurriculumBranch.Circulation: return LegacySkillTone.Cycle;
                 case CurriculumBranch.Collapse: return LegacySkillTone.HighPower;
                 case CurriculumBranch.Retraction: return LegacySkillTone.Followup;
+                case CurriculumBranch.Bleeding: return LegacySkillTone.Reduction;
                 default: return LegacySkillTone.Neutral;
             }
         }
@@ -751,10 +752,10 @@ namespace TurnLimbo.Presentation
             exclusive.text = ExclusiveText(node, curriculum.Tree);
             bool affordable = curriculum.IsAffordable(node.Id, run.CurriculumPoints);
             availability.text = !Editing ? "로비에서 이용할 수 있습니다."
-                : state == CurriculumNodeState.Completed ? skill == null ? "익혔습니다. 능력치 보상이 적용됐습니다."
+                : state == CurriculumNodeState.Completed ? skill == null ? "능력치가 올랐습니다."
                     : rewardText.Length > 0 ? "능력치가 올랐습니다. 익힌 기술은 편성에서 장착하세요."
                     : "익힌 기술은 편성에서 장착하세요."
-                : state == CurriculumNodeState.Excluded ? "함께 고를 수 없는 과정을 이미 마쳤습니다. 초기화하면 다시 고를 수 있습니다."
+                : state == CurriculumNodeState.Excluded ? "다른 택1 과정을 익혔습니다. 초기화하면 다시 고를 수 있습니다."
                 : state == CurriculumNodeState.Locked ? "선행 과정을 먼저 익히세요."
                 : affordable ? $"수련 점수 {node.Cost}점으로 바로 익힙니다."
                 : "전투를 마칠 때마다 수련 점수가 쌓입니다.";
@@ -848,6 +849,7 @@ namespace TurnLimbo.Presentation
                 case CurriculumBranch.Circulation: return "순환";
                 case CurriculumBranch.Collapse: return "붕괴";
                 case CurriculumBranch.Retraction: return "판짜기";
+                case CurriculumBranch.Bleeding: return "출혈";
                 default: return "다리";
             }
         }

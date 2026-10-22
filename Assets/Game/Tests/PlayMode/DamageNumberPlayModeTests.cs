@@ -13,6 +13,30 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class DamageNumberPlayModeTests
     {
         [UnityTest]
+        public IEnumerator BleedingNumbers_IdentifyTheOwnerAndFixedHealthLoss_WithoutDuplicatingWeaponDamage()
+        {
+            yield return null;
+            using (var fixture = new HudFixture())
+            {
+                fixture.Hud.ShowHitDamage(false, 10, Vector3.zero);
+                fixture.Hud.ShowBleedingDamage(true, 2, Vector3.zero);
+                fixture.Hud.ShowBleedingDamage(false, 1, Vector3.zero);
+                fixture.Hud.ShowBleedingDamage(true, 0, Vector3.zero);
+                fixture.Refresh(.2f);
+                List<Text> numbers = DamageTexts(fixture.Hud, true);
+                Assert.That(numbers.Count, Is.EqualTo(3), "Zero actual bleeding loss must not allocate a damage number.");
+                Text weapon = FindNumber(numbers, "10"), own = FindNumber(numbers, "2"), other = FindNumber(numbers, "1");
+                Assert.That(DamageDetail(own).text, Is.EqualTo("내 체력 · 출혈"));
+                Assert.That(DamageDetail(other).text, Is.EqualTo("상대 체력 · 출혈"));
+                Assert.That(own.fontSize, Is.LessThan(weapon.fontSize));
+                Assert.That(own.color.r, Is.GreaterThan(own.color.g));
+                Assert.That(own.color, Is.EqualTo(other.color));
+                fixture.Refresh(1f);
+                Assert.That(DamageTexts(fixture.Hud, true), Is.Empty);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator DamageNumbers_HaveReadableDefaults_AndZeroOrNegativeDamageNeverLooksCritical()
         {
             yield return null;

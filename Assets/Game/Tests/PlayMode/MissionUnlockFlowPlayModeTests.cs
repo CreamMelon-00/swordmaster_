@@ -83,7 +83,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryFindActive(lobby, "Loadout Heading W"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Heading E"), Is.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Lane Q"), Is.Null);
-                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 같은 열의 톱니에 끼우세요."));
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 끌어 같은 열의 톱니에 끼우세요."));
                 AssertNoActiveText(lobby, "커리큘럼", "Loadout");
                 Assert.That(controller.CloseFieldMenu(), Is.True);
                 Assert.That(controller.LobbyHud.IsVisible, Is.False);
@@ -314,7 +314,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(TryFindActive(lobby, "Loadout Filter Q"), Is.Not.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Filter E"), Is.Not.Null);
                 Assert.That(TryFindActive(lobby, "Loadout Filter W"), Is.Null);
-                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 같은 열의 톱니에 끼우세요."));
+                Assert.That(ActiveLabel(lobby, "Tab Subtitle").text, Is.EqualTo("기술을 끌어 같은 열의 톱니에 끼우세요."));
                 Assert.That(controller.UnequipSkill(LegacySkillDefinitions.Skill(3).Id), Is.False, "A closed lane's skills stay put.");
                 Assert.That(controller.Campaign.HasLoadoutChanges, Is.False);
                 Assert.That(TryFindActive(lobby, "Tab Curriculum"), Is.Null, "The curriculum still waits for the W lane.");

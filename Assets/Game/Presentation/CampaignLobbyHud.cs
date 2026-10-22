@@ -628,11 +628,11 @@ namespace TurnLimbo.Presentation
         }
 
         /// <summary>The loadout page's one hint line (its subtitle): no second hint inside the page.</summary>
-        public const string LoadoutHint = "기술을 같은 열의 톱니에 끼우세요.";
+        public const string LoadoutHint = "기술을 끌어 같은 열의 톱니에 끼우세요.";
 
         private void BuildLoadout(CampaignRun run)
         {
-            RectTransform panel = TabPanel("Loadout Panel", "스킬 편성", LoadoutHint);
+            RectTransform panel = TabPanel("Loadout Panel", "기술 편성", LoadoutHint);
             loadoutHud = new CampaignLoadoutHud(panel, art, run,
                 (id, lane, slot) =>
                 {
@@ -663,7 +663,7 @@ namespace TurnLimbo.Presentation
         private void BuildCurriculum(CampaignRun run)
         {
             RectTransform panel = TabPanel("Curriculum Panel", "커리큘럼",
-                "전투로 모은 수련 점수로 과정을 익히면 기술과 능력치를 얻습니다.");
+                "수련 점수로 과정을 익혀 기술과 능력치를 얻으세요.");
             curriculumHud = new CampaignCurriculumHud(panel, art, run,
                 id =>
                 {
@@ -790,7 +790,7 @@ namespace TurnLimbo.Presentation
         }
 
         private string MissionWaitText()
-            => nextMission != null && nextMissionAvailable ? $"먼저 임무 '{nextMission.Title}'을(를) 완료하세요" : "먼저 다음 임무를 완료하세요";
+            => nextMission != null && nextMissionAvailable ? $"먼저 '{nextMission.Title}' 임무를 완료하세요" : "먼저 다음 임무를 완료하세요";
 
         /// <summary>The next mission's title once it can be played, <see cref="HiddenMissionTitle"/> before.</summary>
         private string NextMissionTitle => nextMissionAvailable ? nextMission.Title : HiddenMissionTitle;

@@ -283,7 +283,7 @@ namespace TurnLimbo.Presentation
                     ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 학원으로 돌아갈 수 있습니다."
                         : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
                     : result.StageNumber == PrologueMissions.Count ? PrologueCompleteNotice(result.CurriculumOpen)
-                    : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n학원에서 다음 행선지를 골라보세요."
+                    : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n학원에서 다음 목적지를 고르세요."
                         : "임무를 완료했습니다.\n다음 임무로 넘어갈 수 있습니다."
                     : toLobby ? "「깨어남」은 이미 마쳤습니다.\n여정을 계속하면 학원으로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
             if (!result.Victory)

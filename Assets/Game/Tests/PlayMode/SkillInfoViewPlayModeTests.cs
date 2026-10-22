@@ -39,8 +39,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 // Authored expectations, not values copied from the view model.
                 int[] ids = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19, 21, 32, 42, 51, 52, 53, 54, 55, 56 };
-                int[] costs = { 1, 1, 2, 3, 1, 2, 1, 2, 1, 1, 1, 1, 1, 4, 1, 2, 3, 1, 1, 3, 1, 1, 2, 2, 3 };
-                string[] powers = { "3–4", "6–7", "15–18", "23–27", "4–6", "9–12", "5–8", "13–16", "4–6", "2–3", "4–8", "5–9", "4–5", "18–42", "4–6", "7–11", "16–20", "6–9", "4–8",
+                int[] costs = { 1, 1, 2, 3, 1, 2, 1, 2, 2, 1, 1, 1, 1, 4, 1, 2, 3, 1, 1, 3, 1, 1, 2, 2, 3 };
+                string[] powers = { "3–4", "6–7", "15–18", "23–27", "4–6", "9–12", "5–8", "13–16", "4–6", "2–3", "4–8", "5–9", "4–5", "18–42", "4–6", "7–11", "18–22", "6–9", "4–8",
                     "14–18", "2–4", "5–7", "6–8", "5–7", "15–19" };
                 int[] hits = { 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
                 for (int index = 0; index < ids.Length; index++)
@@ -199,7 +199,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.View.EffectText.text,
                     Does.Contain("방어 기술").And.Contain("저항 즉시 15 감소"));
                 Assert.That(CampaignSkillText.Effect(Skill(42)),
-                    Does.Contain("방어 기술").And.Contain("기술 시작 시 상대 저항을 15 직접 낮춥니다"));
+                    Does.Contain("방어 기술").And.Contain("사용 시 상대 저항을 15 직접 낮춥니다"));
 
                 // ACT recovery seen on the enemy's card stays the player's own. 쿠페 lost its ACT recovery on 2026-10-12, so
                 // 탐색 (43) stands in for it and 쿠페 joins the skills that must not claim the limit.
@@ -219,6 +219,25 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(CampaignSkillText.Effect(Skill(17)), Does.Not.Contain("회복"));
             }
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RecoverySteal_ShowsItsAttackConditionNextTurnTimingAndOncePerTurnBadge()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var skill = Skill(62);
+                foreach (bool opponent in new[] { false, true })
+                {
+                    fixture.View.SetSkill(skill, opponent, enemyActRecoveryIsPlayerOnly: false);
+                    Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
+                    Assert.That(fixture.View.PowerText.text, Is.EqualTo("5–7"));
+                    Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT 회복 강탈").And.Contain("효과 턴당 1회"));
+                    Assert.That(fixture.View.EffectText.text, Does.Contain("공격").And.Contain("다음 턴").And.Contain("1"));
+                    Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("8 이상").And.Not.Contain("즉시"));
+                }
+            }
         }
 
         [UnityTest]
@@ -349,7 +368,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var run = new CampaignRun();
                 float fixedHeight = fixture.View.Height;
-                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(43), "Every row of the shipped sheet, temporary and counter rows included.");
+                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(49), "Every row of the shipped sheet, temporary and counter rows included.");
                 foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 {
                     foreach (bool enemy in new[] { false, true })
@@ -587,6 +606,31 @@ namespace TurnLimbo.Presentation.Tests
                 Object.Destroy(parent);
             }
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator BleedingCards_PreserveWhoseStacksTheConditionReads_AndTheExistingBleedingReplacement()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                string[] fragments = { "자신에게 출혈 2", "상대에게 출혈 1", "상대가 출혈 상태면", "자신의 출혈 2 감소",
+                    "상대의 출혈이 3 이상", "자신의 출혈이 3 이상" };
+                for (int i = 0; i < fragments.Length; i++)
+                {
+                    LegacySkill skill = LegacySkillDefinitions.Skill(63 + i);
+                    foreach (bool enemy in new[] { false, true })
+                    {
+                        fixture.View.SetSkill(skill, enemy);
+                        Assert.That(fixture.View.EffectText.text, Does.Contain(fragments[i]), skill.Name);
+                        Assert.That(VisibleText(fixture.View.Root), Does.Contain("출혈"), skill.Name);
+                        if (skill.Id == 65)
+                            Assert.That(fixture.View.EffectText.text, Does.Contain("대신 출혈 4"));
+                        if (skill.Id == 67 || skill.Id == 68)
+                            Assert.That(fixture.View.EffectText.text, Does.Contain(skill.Id == 67 ? "16" : "12"));
+                    }
+                }
+            }
         }
 
         private static LegacySkill Skill(int id)

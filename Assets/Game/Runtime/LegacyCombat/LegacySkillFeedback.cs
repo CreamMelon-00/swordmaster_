@@ -102,6 +102,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             ActGainGranted = source.ActGainGranted;
             ActStolen = source.ActStolen;
             ActReceived = source.ActReceived;
+            ActRecoveryStolen = source.ActRecoveryStolen;
             ResistanceRestored = source.ResistanceRestored;
             OpponentResistanceReduced = source.OpponentResistanceReduced;
             OpponentBroken = source.OpponentBroken;
@@ -117,6 +118,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             ProtectionSpendPowerBonus = source.ProtectionSpendPowerBonus;
             AheadHitPowerBonus = source.AheadHitPowerBonus;
             AheadAttackHits = source.AheadAttackHits;
+            SelfBleedingGranted = source.SelfBleedingGranted;
+            OpponentBleedingGranted = source.OpponentBleedingGranted;
+            BleedingRemoved = source.BleedingRemoved;
+            SelfBleedingPowerBonus = source.SelfBleedingPowerBonus;
+            OpponentBleedingPowerBonus = source.OpponentBleedingPowerBonus;
         }
 
         private LegacySkillFeedback(LegacySkillFeedback source, int protectionSpendPowerBonus,
@@ -134,6 +140,34 @@ namespace TurnLimbo.Runtime.LegacyCombat
         internal LegacySkillFeedback WithUsePowerBonuses(int protectionSpendPowerBonus, int aheadHitPowerBonus, int aheadAttackHits)
             => new LegacySkillFeedback(this, protectionSpendPowerBonus, aheadHitPowerBonus, aheadAttackHits);
 
+        private LegacySkillFeedback(LegacySkillFeedback source, int actRecoveryStolen, bool recoverySteal)
+            : this(source, source.ConditionalDamagePercent)
+        {
+            ActRecoveryStolen = Math.Max(0, actRecoveryStolen);
+            ConditionMet = source.ConditionMet || ActRecoveryStolen > 0;
+            EffectActivated = source.EffectActivated || ActRecoveryStolen > 0;
+        }
+
+        internal LegacySkillFeedback WithActRecoverySteal(int amount)
+            => amount > 0 ? new LegacySkillFeedback(this, amount, true) : this;
+
+        private LegacySkillFeedback(LegacySkillFeedback source, int selfGranted, int opponentGranted,
+            int removed, int selfPowerBonus, int opponentPowerBonus) : this(source, source.ConditionalDamagePercent)
+        {
+            SelfBleedingGranted = selfGranted;
+            OpponentBleedingGranted = opponentGranted;
+            BleedingRemoved = removed;
+            SelfBleedingPowerBonus = selfPowerBonus;
+            OpponentBleedingPowerBonus = opponentPowerBonus;
+            bool activated = selfGranted > 0 || opponentGranted > 0 || removed > 0 || selfPowerBonus > 0 || opponentPowerBonus > 0;
+            ConditionMet = source.ConditionMet || activated;
+            EffectActivated = source.EffectActivated || activated;
+        }
+
+        internal LegacySkillFeedback WithBleedingEffects(int selfGranted, int opponentGranted,
+            int removed, int selfPowerBonus, int opponentPowerBonus)
+            => new LegacySkillFeedback(this, selfGranted, opponentGranted, removed, selfPowerBonus, opponentPowerBonus);
+
         /// <summary>This snapshot with the 조건 피해 배율 the slot's hits carry from its start; zero keeps it as it is.</summary>
         internal LegacySkillFeedback WithConditionalDamage(int percent)
             => percent > 0 ? new LegacySkillFeedback(this, percent) : this;
@@ -147,6 +181,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int ActStolen { get; }
         /// <summary>The stolen ACT actually received after this fighter's maximum, including room opened by a simultaneous steal.</summary>
         public int ActReceived { get; }
+        /// <summary>Actual next-turn recovery removed from the opponent and gained by this fighter. Current ACT is unchanged.</summary>
+        public int ActRecoveryStolen { get; }
+        /// <summary>Actual attack-technique uses of bleeding added or removed by this cast.</summary>
+        public int SelfBleedingGranted { get; }
+        public int OpponentBleedingGranted { get; }
+        public int BleedingRemoved { get; }
+        /// <summary>Base-power bonuses from the two fighters' bleeding counts before either cast's effects.</summary>
+        public int SelfBleedingPowerBonus { get; }
+        public int OpponentBleedingPowerBonus { get; }
         /// <summary>Actual resistance restored at slot start, after the maximum cap.</summary>
         public int ResistanceRestored { get; }
         /// <summary>Actual resistance removed directly from the opposing fighter, after the zero cap; a break counts

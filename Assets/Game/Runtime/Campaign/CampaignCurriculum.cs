@@ -5,7 +5,8 @@ namespace TurnLimbo.Runtime.Campaign
     /// row (바트망 between 붕괴 and 순환, 숫돌 between 순환 and 판짜기), each needing one inner twist from both neighbours. A school's later nodes count or raise the keyword its
     /// introduction carries (Docs/Curriculum.md). Learning a node costs 수련 점수 (<see cref="CurriculumNode.Cost"/>, written on
     /// each node so the author tunes them one by one): the trunk and the introductions 1, the twists 2, the capstones and the
-    /// bridges 3, with two additional two-point bridge choices on the seventh row: 37 for all 19. None excludes another,
+    /// bridges 3, with two additional two-point bridge choices on the seventh row and a six-node bleeding school:
+    /// 49 points for all 25. None excludes another,
     /// so every node can be completed. Each node is titled with the current
     /// sheet name of the technique it grants (a null title), and descriptions name other techniques with {기술:ID} tokens, so
     /// a renamed row reaches the tree. 16 알티바호 is stage 7's first-clear reward instead
@@ -91,6 +92,27 @@ namespace TurnLimbo.Runtime.Campaign
             new CurriculumNode("breakthrough", null, CurriculumBranch.Bridge, 3.5f, 6, new[] { 60 },
                 requiresAny: new[] { "diagonal-cut", "breathing" },
                 cost: 2, description: "자신에게 남은 보호를 모두 소모해 이번 공격의 기본 위력을 높입니다."),
+
+            // Bleeding has two routes: carry your own wounds for tempo, or make the opponent's attacks costly.
+            // New nodes only extend the tree; old completed ids and unspent points remain valid at version 2.
+            new CurriculumNode("blood-rush", null, CurriculumBranch.Bleeding, 1.5f, 7, new[] { 63 },
+                requiresAny: new[] { "pursuit", "breakthrough" },
+                cost: 1, description: "강하게 공격하고 다음 턴 ACT를 1 더 회복하지만 자신에게 출혈 2를 부여합니다."),
+            new CurriculumNode("wound-cut", null, CurriculumBranch.Bleeding, 4.5f, 7, new[] { 64 },
+                requiresAny: new[] { "pursuit", "breakthrough" },
+                cost: 1, description: "낮은 위력으로 상대에게 출혈 1을 부여합니다."),
+            new CurriculumNode("staunch", null, CurriculumBranch.Bleeding, 1.5f, 8, new[] { 66 },
+                requiresAll: new[] { "blood-rush" },
+                cost: 2, description: "방어하며 자신의 출혈을 2 줄입니다. 출혈을 남겨 보상을 받을지 정리할지 고릅니다."),
+            new CurriculumNode("deep-wound", null, CurriculumBranch.Bleeding, 4.5f, 8, new[] { 65 },
+                requiresAll: new[] { "wound-cut" },
+                cost: 2, description: "상대에게 출혈 1을 부여하고, 사용 시 상대가 출혈 상태면 대신 출혈 4를 부여합니다."),
+            new CurriculumNode("blood-fury", null, CurriculumBranch.Bleeding, 1.5f, 9, new[] { 68 },
+                requiresAll: new[] { "staunch" },
+                cost: 3, description: "사용 시 자신의 출혈이 3 이상이면 기본 위력이 12 오릅니다."),
+            new CurriculumNode("wound-rend", null, CurriculumBranch.Bleeding, 4.5f, 9, new[] { 67 },
+                requiresAll: new[] { "deep-wound" },
+                cost: 3, description: "사용 시 상대의 출혈이 3 이상이면 기본 위력이 16 오릅니다."),
         });
     }
 }

@@ -179,7 +179,7 @@ namespace TurnLimbo.Presentation
     public static class OnlineVersusProtocol
     {
         // Increment when the combat simulation changes without a corresponding skill-sheet edit.
-        public const string CombatRulesVersion = "local-versus-rules-10";
+        public const string CombatRulesVersion = "local-versus-rules-13";
         private const ulong Offset = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
@@ -282,6 +282,7 @@ namespace TurnLimbo.Presentation
                 int id = definitions[i].Skill.Id;
                 AddInt(ref hash, id);
                 AddInt(ref hash, fighter.CycleUses(id));
+                AddInt(ref hash, fighter.HasUsedActRecoverySteal(id) ? 1 : 0);
             }
         }
 
@@ -293,6 +294,14 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, slot.HitsResolved);
             AddInt(ref hash, slot.LeftSkill == null ? 0 : slot.LeftSkill.Id);
             AddInt(ref hash, slot.RightSkill == null ? 0 : slot.RightSkill.Id);
+            AddInt(ref hash, slot.LeftStartingBleeding);
+            AddInt(ref hash, slot.RightStartingBleeding);
+            AddInt(ref hash, slot.LeftBleedingDamagePerHit);
+            AddInt(ref hash, slot.RightBleedingDamagePerHit);
+            AddInt(ref hash, slot.LeftBleedingConsumed ? 1 : 0);
+            AddInt(ref hash, slot.RightBleedingConsumed ? 1 : 0);
+            AddInt(ref hash, slot.LeftBleedingHealthDamage);
+            AddInt(ref hash, slot.RightBleedingHealthDamage);
             AddUsePowerFeedback(ref hash, slot.LeftFeedback);
             AddUsePowerFeedback(ref hash, slot.RightFeedback);
         }
@@ -304,6 +313,12 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, feedback?.AheadAttackHits ?? 0);
             AddInt(ref hash, feedback?.ActStolen ?? 0);
             AddInt(ref hash, feedback?.ActReceived ?? 0);
+            AddInt(ref hash, feedback?.ActRecoveryStolen ?? 0);
+            AddInt(ref hash, feedback?.SelfBleedingGranted ?? 0);
+            AddInt(ref hash, feedback?.OpponentBleedingGranted ?? 0);
+            AddInt(ref hash, feedback?.BleedingRemoved ?? 0);
+            AddInt(ref hash, feedback?.SelfBleedingPowerBonus ?? 0);
+            AddInt(ref hash, feedback?.OpponentBleedingPowerBonus ?? 0);
         }
 
         private static void AddString(ref ulong hash, string value)

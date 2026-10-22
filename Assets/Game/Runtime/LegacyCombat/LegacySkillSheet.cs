@@ -35,6 +35,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// turn; reserved, it is gone. Like an enemy row it never reaches the loadout, the versus pool, the curriculum or the
         /// starting set, but it is the player's (its 순환 count is the player's, shared by every copy).</summary>
         Temporary,
+        /// <summary>대전: available in multiplayer loadouts only; never granted or owned in the campaign.</summary>
+        Versus,
     }
 
     /// <summary>The techniques one sheet defines: every row in sheet order, split into the starting rows (시작), the
@@ -53,6 +55,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             var acquisition = new List<LegacySkill>();
             var enemy = new List<LegacySkill>();
             var temporary = new List<LegacySkill>();
+            var versus = new List<LegacySkill>();
             for (int index = 0; index < definitions.Count; index++)
             {
                 LegacySkill skill = definitions[index].Skill;
@@ -68,6 +71,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     case LegacySkillGroup.Acquisition: acquisition.Add(skill); break;
                     case LegacySkillGroup.Enemy: enemy.Add(skill); break;
                     case LegacySkillGroup.Temporary: temporary.Add(skill); break;
+                    case LegacySkillGroup.Versus: versus.Add(skill); break;
                     default: throw new ArgumentOutOfRangeException(nameof(groups), groups[index], "Unknown skill group.");
                 }
             }
@@ -77,6 +81,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             AcquisitionSkills = acquisition.AsReadOnly();
             EnemySkills = enemy.AsReadOnly();
             TemporarySkills = temporary.AsReadOnly();
+            VersusSkills = versus.AsReadOnly();
         }
 
         public string SheetId { get; }
@@ -92,6 +97,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacySkill> EnemySkills { get; }
         /// <summary>The 일회성 rows in sheet order: set in a lane for one turn by another row's 예약 효과, never owned.</summary>
         public IReadOnlyList<LegacySkill> TemporarySkills { get; }
+        /// <summary>The 대전 rows in sheet order: only available in multiplayer loadouts.</summary>
+        public IReadOnlyList<LegacySkill> VersusSkills { get; }
 
         public LegacySkillDefinition Find(int id) => byId.TryGetValue(id, out LegacySkillDefinition definition) ? definition : null;
 
@@ -100,6 +107,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool IsEnemy(LegacySkillDefinition definition) => Is(definition, LegacySkillGroup.Enemy);
 
         public bool IsTemporary(LegacySkillDefinition definition) => Is(definition, LegacySkillGroup.Temporary);
+
+        public bool IsVersus(LegacySkillDefinition definition) => Is(definition, LegacySkillGroup.Versus);
 
         /// <summary>The 구분 of this table's row with the definition's id; throws for an id the table lacks.</summary>
         public LegacySkillGroup GroupOf(LegacySkillDefinition definition)
@@ -206,6 +215,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const string AcquisitionGroup = "획득";
         public const string EnemyGroup = "적";
         public const string TemporaryGroup = "일회성";
+        public const string VersusGroup = "대전";
         /// <summary>Ids from here up belong to techniques written in code, the 서막's practice skills (1001-1003). They are
         /// looked up by id like sheet rows, so a sheet row with one of these ids would take them over; the sheet may not use them.</summary>
         public const int ReservedIdStart = 1000;
@@ -258,7 +268,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             $"보호 소모 위력 +N, 앞 공격 총타수 M 이상 위력 +N(N은 {LegacySkillLabels.MinimumUsePowerBonus}~" +
             $"{LegacySkillLabels.MaximumUsePowerBonus}, M은 {LegacySkillLabels.MinimumAttackHitsRequired}~" +
             $"{LegacySkillLabels.MaximumAttackHitsRequired}의 정수), 상대 ACT N 이상이면 ACT M 강탈(N과 M은 " +
-            $"{LegacySkillLabels.MinimumActStealValue}~{LegacySkillLabels.MaximumActStealValue}의 정수)";
+            $"{LegacySkillLabels.MinimumActStealValue}~{LegacySkillLabels.MaximumActStealValue}의 정수), " +
+            "상대 공격 시 다음 턴 ACT 회복 N 강탈(N은 1~10의 정수, 효과 턴당 1회), " +
+            "자신에게 출혈 N 부여, 상대에게 출혈 N 부여, 상대가 출혈 상태면 출혈 N로 대체, 자신의 출혈 N 감소, " +
+            "상대 출혈 N 이상 기본 위력 +M, 자기 출혈 N 이상 기본 위력 +M(N은 1~20, M은 1~50의 정수). 여러 구절은 ';'로 구분";
         /// <summary>The problem a 예약 효과 <c>제한시간 +n초</c> gets (time gained at reservation).</summary>
         public const string ReserveTimeGainProblem = "예약 때 시간을 늘리는 효과는 반환으로 되풀이할 수 있어 쓰지 않습니다";
 
@@ -511,7 +524,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (r.Ok(Column.Id)) r.Id = id;
             if (counterUses > 0)
             {
-                if (group == LegacySkillGroup.Enemy || group == LegacySkillGroup.Temporary)
+                if (group == LegacySkillGroup.Enemy || group == LegacySkillGroup.Temporary || group == LegacySkillGroup.Versus)
                     r.Problem(Column.CounterUsesPerTurn, "반격 기술은 구분이 시작 또는 획득이어야 합니다.");
                 if (cost != 0) r.Problem(Column.Cost, "반격 기술은 ACT를 쓰지 않으므로 0이어야 합니다.");
                 if (effect.HasReserveEffect || effect.HasUseEffect || effect.HasCycle ||
@@ -597,8 +610,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     $"'{LegacySkillLabels.ReserveEffect(effect)}'을(를) 쓸 수 없습니다. 앞 기술을 거두고 다시 예약해 같은 효과를 되풀이할 수 있습니다.");
             if (effect.AutoDodge && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.UseEffect}' '{LegacySkillLabels.AutoDodgePhrase}'은(는) 공격 기술에만 쓸 수 있습니다.");
-            if ((effect.HasProtectionSpend || effect.HasAheadHitPower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
+            if ((effect.HasProtectionSpend || effect.HasAheadHitPower || effect.HasActRecoverySteal || effect.HasBleedingPower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.UseEffect}' '{LegacySkillLabels.UseEffect(effect)}'은(는) 공격 기술에만 쓸 수 있습니다.");
+            if (effect.OpponentBleedingReplacementCount > 0 && effect.OpponentBleedingCount == 0 && r.Ok(Column.UseEffect))
+                r.RowProblem($"'{Column.UseEffect}'의 출혈 대체 구절을 쓰려면 '상대에게 출혈 N 부여'도 지정해야 합니다.");
             if ((highPower || variablePower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.HighPower}'과(와) '{Column.VariablePower}'은(는) 공격에만 붙일 수 있습니다.");
             if (text.Info != null && (text.Info.Main == null || text.Info.Description == null))
@@ -687,6 +702,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 case LegacySkillGroup.Acquisition: return AcquisitionGroup;
                 case LegacySkillGroup.Enemy: return EnemyGroup;
                 case LegacySkillGroup.Temporary: return TemporaryGroup;
+                case LegacySkillGroup.Versus: return VersusGroup;
                 default: throw new ArgumentOutOfRangeException(nameof(group), group, "Unknown skill group.");
             }
         }
@@ -766,7 +782,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (cell == AcquisitionGroup) return LegacySkillGroup.Acquisition;
                 if (cell == EnemyGroup) return LegacySkillGroup.Enemy;
                 if (cell == TemporaryGroup) return LegacySkillGroup.Temporary;
-                Problem(Column.Group, Choice(cell, $"{StartingGroup}, {AcquisitionGroup}, {EnemyGroup}, {TemporaryGroup}"));
+                if (cell == VersusGroup) return LegacySkillGroup.Versus;
+                Problem(Column.Group, Choice(cell, $"{StartingGroup}, {AcquisitionGroup}, {EnemyGroup}, {TemporaryGroup}, {VersusGroup}"));
                 return LegacySkillGroup.Acquisition;
             }
 
@@ -853,7 +870,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 else Problem(Column.ReserveEffect, Choice(cell, ReserveEffectChoices));
             }
 
-            /// <summary>사용 효과: blank for none, or one phrase (<see cref="LegacySkillLabels.TryReadUseEffect"/>).</summary>
+            /// <summary>사용 효과: blank for none, or semicolon-separated phrases (<see cref="LegacySkillLabels.TryReadUseEffect"/>).</summary>
             public void UseEffect(LegacySkillEffect effect)
             {
                 string cell = Cell(Column.UseEffect);

@@ -21,6 +21,29 @@ namespace TurnLimbo.Presentation.Tests
         private static readonly string[] Keys = { "Q", "W", "E" };
 
         [UnityTest]
+        public IEnumerator MultiplayerOnlyTechnique_CanBeInspectedAndEquipped()
+        {
+            yield return null;
+            var host = new GameObject("Versus Exclusive Technique Test Host");
+            var loadout = new VersusLoadout();
+            int original = loadout.GetSkillId(2, 0);
+            using (var art = new LegacyDuelArt())
+            using (var hud = new VersusLoadoutHud(host.transform, art, loadout))
+            {
+                hud.Show();
+                GameObject source = Named(hud.Root, "Versus Available Skill 62");
+                source.GetComponent<Button>().onClick.Invoke();
+                Assert.That(Label(hud.Root, "Versus Detail Name").text, Is.EqualTo(LegacySkillDefinitions.Skill(62).Name));
+                Assert.That(loadout.GetSkillId(2, 0), Is.EqualTo(original), "Inspecting a technique does not equip it.");
+                DragAndDrop(source, Named(hud.Root, "Versus Slot E 1"));
+                Assert.That(loadout.GetSkillId(2, 0), Is.EqualTo(62));
+                var match = new LocalVersusMatch(loadout.ToSkills(), new VersusLoadout().ToSkills());
+                Assert.That(match.Left.GetLane(2)[0].Id, Is.EqualTo(62));
+            }
+            Object.Destroy(host);
+        }
+
+        [UnityTest]
         public IEnumerator ClickingAvailableAndEquippedSkillsOnlyShowsTheirInformation()
         {
             yield return null;
@@ -517,10 +540,11 @@ namespace TurnLimbo.Presentation.Tests
         private static LegacySkill AvailableQSkill() => LegacySkillDefinitions.AcquisitionSkills
             .First(skill => skill.LaneIndex == 0 && !VersusLoadout.IsExcluded(skill.Id));
 
-        /// <summary>The versus pool in the rack's order: the starting skills, then every 획득 skill but the excluded.</summary>
+        /// <summary>The versus pool in rack order, including multiplayer-only techniques.</summary>
         private static IEnumerable<LegacySkill> Pool()
             => LegacySkillDefinitions.InitialSkills.Concat(
-                LegacySkillDefinitions.AcquisitionSkills.Where(skill => !VersusLoadout.IsExcluded(skill.Id)));
+                LegacySkillDefinitions.AcquisitionSkills).Concat(LegacySkillDefinitions.VersusSkills)
+                .Where(skill => !VersusLoadout.IsExcluded(skill.Id) && LegacySkillDefinitions.Find(skill)?.IsCounter != true);
 
         private static PointerEventData BeginDrag(GameObject source)
         {
