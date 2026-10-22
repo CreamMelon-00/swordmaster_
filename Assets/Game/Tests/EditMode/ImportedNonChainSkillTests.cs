@@ -262,7 +262,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Forward_KeepsExistingOverflowMultiplierOnAlreadyBrokenResistance()
+        public void Forward_AppliesVulnerabilityOnceOnAlreadyBrokenResistance()
         {
             var duel = Duel(new[] { Imported(12, 4), Attack(100, 1) },
                 new[] { Attack(900, 8) }, new[] { 2 }, playerResistance: 0);
@@ -270,10 +270,9 @@ namespace TurnLimbo.Core.Tests
             duel.Commit();
 
             Assert.That(duel.ResolveNextSlot().PlayerHealthDamage, Is.EqualTo(16));
-            // The inherited clash overflow route scales 8 -> 12 -> 18, then
-            // doubles health damage for broken resistance. Do not silently
-            // rewrite that shared rule when importing this vulnerability.
-            Assert.That(duel.ResolveNextSlot().PlayerHealthDamage, Is.EqualTo(36));
+            // The initial attack precedes the new vulnerability. The next attack scales 8 -> 12 once, then
+            // doubles for already broken resistance; the zero-resistance overflow must not scale it again.
+            Assert.That(duel.ResolveNextSlot().PlayerHealthDamage, Is.EqualTo(24));
         }
 
         [Test]

@@ -21,7 +21,7 @@ namespace TurnLimbo.Presentation.Tests
             "\"hitStopDuration\":0.04,\"stepAnticipationDuration\":0.08,\"stepTimingWindow\":0.05," +
             "\"showDirectorEnabled\":true,\"combatTempoEnabled\":false,\"unopposedStreakEnabled\":false," +
             "\"majorHitStopScale\":1,\"turnExtraSecondsCap\":5,\"bladeBindGap\":0.15,\"bladeBindSeconds\":0.2," +
-            "\"bladeBindSpring\":0,\"clashMotionEnabled\":true";
+            "\"bladeBindSpring\":0,\"clashMotionEnabled\":true,\"bladeExchangeEnabled\":false";
 
         [UnityTest]
         public IEnumerator CampaignBind_HoldsAllDamageAndNumbersUntilRelease_ResolvesOnce_AndContinuesMultihits()

@@ -8,9 +8,9 @@ namespace TurnLimbo.Runtime.Tavern
     /// <summary>A snapshot of one shop round's formation, fought by the existing duel engine.</summary>
     public sealed class SkillTavernBattle
     {
-        public const int FighterHealth = 60;
+        public const int FighterHealth = 500;
         public const int FighterResistance = 30;
-        public const int MaximumTurns = 12;
+        public const int MaximumTurns = 24;
         private readonly SkillTavernRun run;
         private bool recorded;
 

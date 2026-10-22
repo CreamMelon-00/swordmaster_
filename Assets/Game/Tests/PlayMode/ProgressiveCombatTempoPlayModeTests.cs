@@ -185,7 +185,7 @@ namespace TurnLimbo.Presentation.Tests
             "\"showDirectorEnabled\":true,\"minorSlotSpeed\":1,\"majorHitStopScale\":1,\"bladeBindSeconds\":0," +
             "\"combatTempoEnabled\":true,\"combatTempoStep\":0.1,\"combatTempoMaxSpeed\":1.8,\"exhaustedSideSpeed\":2,\"exhaustedGapScale\":1," +
             "\"unopposedStreakEnabled\":true,\"unopposedStreakStartLength\":2,\"unopposedStreakStep\":0.15," +
-            "\"unopposedStreakMaxSpeed\":1.6";
+            "\"unopposedStreakMaxSpeed\":1.6,\"bladeExchangeEnabled\":false";
 
         private sealed class CampaignScope : IDisposable
         {

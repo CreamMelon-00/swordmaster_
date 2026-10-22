@@ -330,7 +330,7 @@ namespace TurnLimbo.Presentation
         }
         // A cut-in holds the battle: no step is judged against its held cue.
         public bool CanStep => session != null && !IsInSkillTavern && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
-            !bladeBindHitPending &&
+            !bladeBindHitPending && !bladeExchange.IsHolding &&
             StepFeatures.AllowsAnyStep() &&
             session.Phase == LegacyDuelPhase.Resolving &&
             (viewPhase == ViewPhase.ClosingDistance || viewPhase == ViewPhase.SkillWindup ||
@@ -650,9 +650,10 @@ namespace TurnLimbo.Presentation
                 return;
             }
             // A blade bind holds the battle's clock after the hit stop: the two fighters struggle on its real time.
-            float boundTime = AdvanceBladeBind(realDelta - stoppedTime);
+            float exchangeTime = bladeExchange.Hold(realDelta - stoppedTime, arena);
+            float boundTime = AdvanceBladeBind(realDelta - stoppedTime - exchangeTime);
             // A 수훈 technique's cut-in holds the battle after the hit stop (its camera ease and flare run meanwhile).
-            float liveTime = realDelta - stoppedTime - boundTime;
+            float liveTime = realDelta - stoppedTime - exchangeTime - boundTime;
             liveTime -= empowermentCues.HoldBattle(liveTime);
             empowermentCues.Tick(realDelta);
             // The finishing blow's slow motion runs on the time the hit stop left; its freeze begins once it is over.
@@ -680,7 +681,7 @@ namespace TurnLimbo.Presentation
             if (!IsTrainingBattle)
                 arena.SetTensionLighting(BattleHealthReading(), presentationSettings.TensionLighting);
             RefreshUpcomingEnemy();
-            if (!finale.IsRunning && session.CurrentSlot != null &&
+            if (!finale.IsRunning && !bladeExchange.IsHolding && session.CurrentSlot != null &&
                 (viewPhase == ViewPhase.SkillWindup || viewPhase == ViewPhase.PlayingSlot))
             {
                 float progress = viewPhase == ViewPhase.SkillWindup
@@ -690,6 +691,7 @@ namespace TurnLimbo.Presentation
                     session.CurrentSlot.EnemySkill);
             }
             arena.Tick(delta, realDelta, deferSlowAfterimages: true);
+            bladeExchange.Present(arena, art, effectsSource);
             phaseTime += delta;
             switch (viewPhase)
             {
@@ -758,10 +760,10 @@ namespace TurnLimbo.Presentation
                 case ViewPhase.Outcome:
                     break;
             }
-            arena.TickPressureAttackTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
-            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot);
+            arena.TickPressureAttackTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
+            arena.TickAttackMotionTrail(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
             // A signature move's strike trail, sampled like the pressure trail after this frame's holds.
-            arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot);
+            arena.TickSignatureTrails(realDelta, viewPhase == ViewPhase.PlayingSlot && !bladeExchange.IsHolding);
             if (viewPhase != ViewPhase.Outcome) arena.SampleSlowAfterimages(realDelta);
             if (viewPhase != ViewPhase.Outcome)
             {
@@ -931,7 +933,7 @@ namespace TurnLimbo.Presentation
 
         private void UpdateSlot(float delta)
         {
-            if (bladeBindHitPending) return;
+            if (bladeBindHitPending || bladeExchange.IsHolding) return;
             LegacyCurrentSlot slot = session.CurrentSlot;
             float attackTime = slotImpactTime + slotCycleDuration * slot.HitsResolved;
             float animationClipEnd = slotCycleDuration * slot.HitsResolved + OriginalClipDuration / slotPlaybackSpeed;
@@ -951,6 +953,7 @@ namespace TurnLimbo.Presentation
                         return;
                     }
                 }
+                if (TryBeginBladeExchange(slot, attackTime)) return;
                 // The blades touch now, but this first hit lands only when their struggle releases.
                 if (!releasingBladeBindHit && TryBeginBladeBind(slot.SlotIndex, attackTime)) return;
                 int playerResistanceBefore = session.Player.Resistance;
@@ -1085,6 +1088,7 @@ namespace TurnLimbo.Presentation
             directorRound = -1;
             bladeBindRemaining = 0f;
             bladeBindHitPending = releasingBladeBindHit = false;
+            bladeExchange.Clear();
             arena.ClearBladeBind();
         }
 

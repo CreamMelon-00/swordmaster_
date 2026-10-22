@@ -61,10 +61,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     ? LegacyDamageReason.ProtectionReduction : LegacyDamageReason.None;
                 if (Resistance <= scaled)
                 {
-                    // Original ShieldDamage calls Damage before setting shield to
-                    // zero. The breaking hit's overflow is not doubled unless the
-                    // resistance was already broken; its multiplier applies twice.
-                    LegacyHitImpact impact = ReceiveHealthDamage(scaled - Resistance, receivedMultiplier,
+                    // The overflow already includes the received-damage modifier. Apply only the remaining health
+                    // rules here, before setting resistance to zero, so this breaking hit is not doubled unless the
+                    // resistance was already broken. The incoming modifier and its rounding must not run twice.
+                    LegacyHitImpact impact = ReceiveHealthDamage(scaled - Resistance, 1d,
                         halveDamage, brokenTargetDamagePercent, conditionalDamagePercent);
                     Resistance = halveDamage ? Resistance - Round(Resistance / 2d) : 0;
                     if (halveDamage && Resistance > 0) reasons |= LegacyDamageReason.PressureGuard;

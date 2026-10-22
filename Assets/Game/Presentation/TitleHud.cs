@@ -111,7 +111,7 @@ namespace TurnLimbo.Presentation
             var card = Panel("Confirm Card", border.transform, Vector2.zero, new Vector2(760f, 280f), DuelVisualTheme.Surface);
             DuelVisualTheme.DressPanel(card);
             Label("Confirm Message", card.transform, new Vector2(0f, 52f), new Vector2(680f, 110f), 24, DuelVisualTheme.Foreground)
-                .text = "저장된 진행을 지우고\n서막 1 임무부터 새로 시작합니다.";
+                .text = "저장된 진행을 지우고\n서막의 첫 임무부터 새로 시작합니다.";
             confirmButton = ActionButton("Confirm New Game", card.transform, "새로 시작", new Vector2(-132f, -76f),
                 new Vector2(224f, 58f), ConfirmNewGame, true);
             cancelButton = ActionButton("Confirm Cancel", card.transform, "취소  [Esc]", new Vector2(132f, -76f),
@@ -140,7 +140,7 @@ namespace TurnLimbo.Presentation
             // Enter continues when it can and otherwise presses 새 게임, so the hint follows it.
             continueCaption.text = canContinue ? "이어하기  [Enter]" : "이어하기";
             newGameCaption.text = canContinue ? "새 게임" : "새 게임  [Enter]";
-            summary.text = continueSummary ?? (noticeText != null ? "불러올 수 있는 저장 데이터가 없습니다." : "저장된 진행이 없습니다.");
+            summary.text = continueSummary ?? (noticeText != null ? "저장 파일을 불러올 수 없습니다." : "저장된 진행이 없습니다.");
             notice.text = noticeText ?? string.Empty;
             confirmNewGame = confirmBeforeNewGame;
             ClearSelection();

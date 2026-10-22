@@ -255,13 +255,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
         int ILegacyDuelView.EnemyCycleUsesAtSlot(int slotIndex) => 0;
         int ILegacyDuelView.EnemyAutoBreathSlotIndex => -1;
-        /// <summary>ACT paid if this skill is reserved now. Existing reservations do not count as uses.</summary>
+        /// <summary>ACT paid by a new reservation: pending copies count toward its cycle cost, up to the cycle cap.
+        /// Already paid reservations keep their stored price; only actual casts increase the battle's cycle count.</summary>
         public int EffectiveCost(LegacySkill skill)
         {
             if (skill == null) return 0;
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
-            return effect != null && effect.HasCycle
-                ? checked(skill.Cost + CycleUses(skill.Id) * effect.CycleCostPerUse) : skill.Cost;
+            if (effect == null || !effect.HasCycle || effect.CycleCostPerUse == 0) return skill.Cost;
+            int uses = CycleUses(skill.Id);
+            if (Phase == LegacyDuelPhase.Planning)
+                foreach (LegacySkill queued in playerQueue)
+                    if (uses < effect.CycleMaxCount && queued != null && !queued.IsWait && queued.Id == skill.Id) uses++;
+            return checked(skill.Cost + uses * effect.CycleCostPerUse);
         }
         /// <summary>Current power range for the next use, before buffs, meshing, and hit division.</summary>
         public void EffectivePowerRange(LegacySkill skill, out int min, out int max)

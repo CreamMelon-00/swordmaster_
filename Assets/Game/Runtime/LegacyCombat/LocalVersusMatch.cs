@@ -17,8 +17,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private LegacySkill[] committedQueue;
         internal readonly List<int> QueueCosts = new List<int>();
         internal readonly Dictionary<int, int> Cycles = new Dictionary<int, int>();
+        internal readonly HashSet<int> ActRecoveryStealUses = new HashSet<int>();
         internal LegacyStatusCollection StatusEffects = new LegacyStatusCollection();
         public IReadOnlyList<LegacyStatusSnapshot> Statuses => StatusEffects.Statuses;
+        /// <summary>Whether this technique has successfully stolen next-turn recovery in the current turn.</summary>
+        public bool HasUsedActRecoverySteal(int skillId) => ActRecoveryStealUses.Contains(skillId);
         internal int BoostSource = -1, BoostRemoved, BoostCap;
 
         internal LocalVersusFighter(IReadOnlyList<LegacySkill> skills, int health, int resistance)
@@ -48,6 +51,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             QueueSkills.AddRange(source.QueueSkills);
             QueueCosts.AddRange(source.QueueCosts);
             foreach (KeyValuePair<int, int> uses in source.Cycles) Cycles.Add(uses.Key, uses.Value);
+            foreach (int id in source.ActRecoveryStealUses) ActRecoveryStealUses.Add(id);
             StatusEffects = source.StatusEffects.Copy();
             BoostSource = source.BoostSource;
             BoostRemoved = source.BoostRemoved;
@@ -106,8 +110,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (skill == null) return 0;
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
-            return effect != null && effect.HasCycle
-                ? checked(skill.Cost + CycleUses(skill.Id) * effect.CycleCostPerUse) : skill.Cost;
+            if (effect == null || !effect.HasCycle || effect.CycleCostPerUse == 0) return skill.Cost;
+            int uses = CycleUses(skill.Id);
+            // Once committed, actual casts advance Cycles; do not count those reservations a second time.
+            if (committedQueue == null)
+                foreach (LegacySkill queued in QueueSkills)
+                    if (uses < effect.CycleMaxCount && queued != null && !queued.IsWait && queued.Id == skill.Id) uses++;
+            return checked(skill.Cost + uses * effect.CycleCostPerUse);
         }
 
         public void EffectivePowerRange(LegacySkill skill, out int min, out int max)
@@ -164,6 +173,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Act = Math.Min(MaximumAct, checked(Act + NextActGain));
             NextActGain = BaseActGain;
             State.BeginTurn();
+            ActRecoveryStealUses.Clear();
             QueueSkills.Clear();
             QueueCosts.Clear();
             committedQueue = null;
@@ -914,14 +924,23 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (rightWhole && Right.State.IsResistanceBroken) Right.CancelAfterBreak(slot.SlotIndex);
             if (leftOpponent) Left.NextActGain = checked(Left.NextActGain + leftEffect.ActGain);
             if (rightOpponent) Right.NextActGain = checked(Right.NextActGain + rightEffect.ActGain);
+            // Ordinary gains apply first. Both transfers then read one snapshot, so neither can steal the other's
+            // newly stolen recovery or be denied a valid use by declaration order. Each target retains at least one.
+            int leftRecovery = Left.NextActGain, rightRecovery = Right.NextActGain;
+            int leftRecoveryStolen = RecoveryToSteal(slot.LeftSkill, slot.RightSkill, Left, leftEffect, rightRecovery);
+            int rightRecoveryStolen = RecoveryToSteal(slot.RightSkill, slot.LeftSkill, Right, rightEffect, leftRecovery);
+            Left.NextActGain = checked(leftRecovery - rightRecoveryStolen + leftRecoveryStolen);
+            Right.NextActGain = checked(rightRecovery - leftRecoveryStolen + rightRecoveryStolen);
+            if (leftRecoveryStolen > 0) Left.ActRecoveryStealUses.Add(slot.LeftSkill.Id);
+            if (rightRecoveryStolen > 0) Right.ActRecoveryStealUses.Add(slot.RightSkill.Id);
             Left.StatusEffects.Grant(leftEffect);
             Right.StatusEffects.Grant(rightEffect);
             slot.LeftFeedback = Feedback(slot.LeftSkill, leftEffect, leftPowerBuff, leftProtectionBuff,
                 leftRestored, rightReduced + rightBrokenAmount, rightBrokenAmount > 0, leftOpponent, leftState,
-                leftStolen, leftReceived);
+                leftStolen, leftReceived, leftRecoveryStolen);
             slot.RightFeedback = Feedback(slot.RightSkill, rightEffect, rightPowerBuff, rightProtectionBuff,
                 rightRestored, leftReduced + leftBrokenAmount, leftBrokenAmount > 0, rightOpponent, rightState,
-                rightStolen, rightReceived);
+                rightStolen, rightReceived, rightRecoveryStolen);
             slot.LeftFeedback = slot.LeftFeedback.WithUsePowerBonuses(leftProtectionSpend,
                 LegacyKeywordLinks.AheadAttackHitsPowerBonus(Left.ExecutionQueue, slot.SlotIndex, slot.LeftSkill),
                 leftEffect.HasAheadHitPower ? LegacyKeywordLinks.CountAheadAttackHits(Left.ExecutionQueue, slot.SlotIndex, slot.LeftSkill) : 0);
@@ -944,18 +963,25 @@ namespace TurnLimbo.Runtime.LegacyCombat
             => skill != null && !skill.IsWait && !owner.IsDefeated && effect.HasActSteal && targetAct >= effect.ActStealThreshold
                 ? Math.Min(targetAct, effect.ActStealAmount) : 0;
 
+        private static int RecoveryToSteal(LegacySkill skill, LegacySkill opponent, LocalVersusFighter owner,
+            LegacySkillEffect effect, int targetRecovery)
+            => skill != null && !skill.IsWait && !owner.State.IsDefeated && effect.HasActRecoverySteal &&
+                opponent?.Kind == LegacySkillKind.Attack && !owner.HasUsedActRecoverySteal(skill.Id)
+                ? Math.Min(effect.ActRecoveryStealAmount, Math.Max(0, targetRecovery - 1)) : 0;
+
         private static LegacySkillFeedback Feedback(LegacySkill skill, LegacySkillEffect effect, int powerBuff,
             int protectionBuff, int restored, int reduced, bool broken, bool opponentMatched, bool stateMatched,
-            int actStolen, int actReceived)
+            int actStolen, int actReceived, int actRecoveryStolen)
         {
             if (skill == null || skill.IsWait)
                 return new LegacySkillFeedback(skill, false, false, powerBuff, protectionBuff);
-            bool condition = actStolen > 0 || restored > 0 || effect.HasOpponentCondition && opponentMatched ||
+            bool condition = actStolen > 0 || actRecoveryStolen > 0 || restored > 0 || effect.HasOpponentCondition && opponentMatched ||
                 effect.ConditionalDamagePercent > 0 && stateMatched;
-            bool activated = actStolen > 0 || restored > 0 || reduced > 0 || opponentMatched && effect.ActGain > 0 || effect.HasBuff;
+            bool activated = actStolen > 0 || actRecoveryStolen > 0 || restored > 0 || reduced > 0 || opponentMatched && effect.ActGain > 0 || effect.HasBuff;
             return new LegacySkillFeedback(skill, condition, activated, powerBuff, protectionBuff,
                 effect.BuffPowerPercent, effect.BuffProtectionPercent, effect.BuffSlots,
-                opponentMatched ? effect.ActGain : 0, restored, reduced, broken, actStolen, actReceived);
+                opponentMatched ? effect.ActGain : 0, restored, reduced, broken, actStolen, actReceived)
+                .WithActRecoverySteal(actRecoveryStolen);
         }
 
         private static int ArmedConditionalDamage(LegacySkill skill, LegacySkill opposingSkill,

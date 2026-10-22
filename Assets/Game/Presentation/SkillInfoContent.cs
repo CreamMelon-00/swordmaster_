@@ -43,6 +43,14 @@ namespace TurnLimbo.Presentation
                     info != null ? content.Description : "사용 시 상대 ACT가 " + effect.ActStealThreshold + " 이상이면\n" +
                         LegacySkillLabels.ActStealKeyword + " " + effect.ActStealAmount);
             }
+            if (definition?.Effect.HasActRecoverySteal == true)
+            {
+                LegacySkillEffect effect = definition.Effect;
+                content = new SkillInfoContent(LegacySkillLabels.ActRecoveryStealKeyword, LegacySkillSymbol.Act,
+                    LegacySkillTone.Reduction, "효과 턴당 1회", LegacySkillSymbol.Act, LegacySkillTone.Recovery,
+                    info != null ? content.Description : "같은 칸 상대가 공격 기술이면\n- 다음 턴 ACT 회복 " +
+                        effect.ActRecoveryStealAmount + " 강탈\n- 효과 턴당 1회");
+            }
             // Shared effect keywords take precedence over authored copy: queue removal first, then cycle. An authored
             // first badge naming an effect that reads the queue (예약 효과, 사용 효과: 숨고르기 +1, 앞 순환 +1, 일회성, 자동 회피,
             // 다음 턴 제한시간, …) comes next, so a forced keyword pushes it to the second badge instead of hiding it; the
@@ -50,7 +58,7 @@ namespace TurnLimbo.Presentation
             // first badge is its 반환.
             LegacyQueueRemovalMode removal = definition?.Effect.QueueRemovalMode ?? LegacyQueueRemovalMode.None;
             bool hasCycle = definition?.Effect.HasCycle == true;
-            bool keyword = definition?.Effect.HasActSteal == true ||
+            bool keyword = definition?.Effect.HasActSteal == true || definition?.Effect.HasActRecoverySteal == true ||
                 info != null && (definition.Effect.HasReserveGain || definition.Effect.HasUseEffect);
             string keptText = keyword ? content.Main : content.Secondary;
             LegacySkillSymbol keptSymbol = keyword ? content.MainSymbol : content.SecondarySymbol;

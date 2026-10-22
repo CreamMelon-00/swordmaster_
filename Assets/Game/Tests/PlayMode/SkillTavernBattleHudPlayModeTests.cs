@@ -216,7 +216,8 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(battle.Duel.TrySetFixedQueues(player, enemy), Is.True);
             battle.Duel.Commit();
             int safety = 0;
-            while (!battle.Duel.IsFinished && safety++ < 200)
+            int maximumSteps = SkillTavernBattle.MaximumTurns * (SkillTavernRun.SlotCount + 1);
+            while (!battle.Duel.IsFinished && safety++ < maximumSteps)
             {
                 if (!battle.Duel.IsTurnResolved) battle.Duel.ResolveNextSlot();
                 else

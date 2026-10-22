@@ -186,7 +186,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Cycle_ReservationsInOneTurnKeepTheirPrice_ButEachActualUseGainsPower()
+        public void Cycle_NewReservationsCountPendingCopies_WithoutChangingActualUsesOrPaidPrices()
         {
             // One stable instance is deliberately reserved twice. Its sheet ID supplies the cycle effect;
             // fixed base power makes the per-use roll exact without touching the owned skill's identity.
@@ -195,14 +195,102 @@ namespace TurnLimbo.Core.Tests
             var duel = new LegacyQueuedDuel(100, 50, 10000, 50,
                 new[] { sharpening }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
 
-            Assert.That(duel.TryQueueLane(1) && duel.TryQueueLane(1), Is.True);
-            Assert.That(duel.Act, Is.EqualTo(1), "Both reservations cost one ACT before either skill is used.");
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(2));
+            Assert.That(duel.ForecastIfQueued(1).EnemyHealthDamage, Is.EqualTo(10));
+            Assert.That((duel.Act, duel.PlayerQueue.Count, duel.CycleUses(46)), Is.EqualTo((2, 1, 0)),
+                "Forecasting the second reservation does not charge ACT or record a use.");
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.Act, Is.Zero, "The first reservation costs one ACT and the next costs two.");
+            Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(3));
+            Assert.That(duel.ForecastIfQueued(1), Is.Null, "A third reservation cannot use the old one-ACT price.");
             CollectionAssert.AreEqual(new[] { 46, 46 }, Ids(duel.PlayerQueue));
             Assert.That(duel.CycleUses(46), Is.Zero, "Reservation alone is not a use.");
             duel.Commit();
             Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(5));
+            Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(2), "Resolved casts are not counted again as pending copies.");
             Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(10));
             Assert.That(duel.CycleUses(46), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Cycle_TenSavedActFundsFourReservationsInARealThreeSlotLane_AndRejectsTheFifth()
+        {
+            LegacySkill[] skills = new[] { 1, 2, 7, 46, 3, 8, 53, 45, 55 }
+                .Select(LegacySkillDefinitions.Skill).ToArray();
+            var duel = new LegacyQueuedDuel(1000, 1000, 10000, 1000, skills,
+                Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+            while (duel.Act < 10) { duel.Commit(); duel.BeginNextTurn(); }
+            LegacySkill honing = LegacySkillDefinitions.Skill(46);
+            int paid = 0;
+            for (int cost = 1; cost <= 4; cost++)
+            {
+                Assert.That(duel.GetLane(1)[0].Id, Is.EqualTo(46));
+                Assert.That(duel.EffectiveCost(honing), Is.EqualTo(cost));
+                Assert.That(duel.TryQueueLane(1), Is.True);
+                paid += cost;
+                Assert.That(duel.Act, Is.EqualTo(10 - paid));
+                Assert.That(duel.CycleUses(46), Is.Zero);
+                Assert.That(duel.TryCycleLanes() && duel.TryCycleLanes(), Is.True);
+            }
+            Assert.That(duel.EffectiveCost(honing), Is.EqualTo(5));
+            Assert.That(duel.TryQueueLane(1), Is.False);
+            CollectionAssert.AreEqual(new[] { 46, 46, 46, 46 }, Ids(duel.PlayerQueue));
+            Assert.That(duel.GetLane(1)[0].Id, Is.EqualTo(46), "A refused reservation does not rotate its lane.");
+            Assert.That(duel.Act, Is.Zero);
+            duel.Commit();
+            while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+            Assert.That(duel.CycleUses(46), Is.EqualTo(4));
+            duel.BeginNextTurn();
+            Assert.That((duel.Act, duel.EffectiveCost(honing)), Is.EqualTo((3, 5)));
+        }
+
+        [TestCase(32, 1, 9)]
+        [TestCase(45, 2, 4)]
+        public void Cycle_RemovedCopiesStopRaisingTheNextPrice_AndOnlyReturnRefundsTheirPaidOneAndTwoAct(
+            int removerId, int removerLane, int remainingAct)
+        {
+            LegacySkill[] skills = new[] { 1, 2, 7, 46, 3, 32, 45, 55, 53 }
+                .Select(LegacySkillDefinitions.Skill).ToArray();
+            var duel = new LegacyQueuedDuel(1000, 1000, 10000, 1000, skills,
+                Array.Empty<LegacySkill>(), new[] { 0 }, playerActGainBonus: 7, meshPercent: 0);
+            LegacySkill honing = LegacySkillDefinitions.Skill(46);
+            Assert.That(duel.TryQueueBreath(), Is.True);
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.TryCycleLanes() && duel.TryCycleLanes(), Is.True);
+            Assert.That(duel.TryQueueLane(1), Is.True);
+            Assert.That((duel.Act, duel.EffectiveCost(honing)), Is.EqualTo((7, 3)));
+            Assert.That(duel.TryCycleLanes(), Is.True);
+            Assert.That(duel.GetLane(removerLane)[0].Id, Is.EqualTo(removerId));
+            Assert.That(duel.TryQueueLane(removerLane), Is.True);
+            CollectionAssert.AreEqual(new[] { -1, removerId }, Ids(duel.PlayerQueue));
+            Assert.That(duel.Act, Is.EqualTo(remainingAct));
+            Assert.That((duel.CycleUses(46), duel.EffectiveCost(honing)), Is.EqualTo((0, 1)));
+        }
+
+        [Test]
+        public void Cycle_CadenceDoesNotRepricePaidReservations_AndZeroCostCyclesKeepTheirBaseCost()
+        {
+            LegacySkill honing = LegacySkillDefinitions.Skill(46);
+            var duel = new LegacyQueuedDuel(1000, 1000, 10000, 1000,
+                new[] { honing, LegacySkillDefinitions.Skill(53), LegacySkillDefinitions.Skill(15) },
+                Array.Empty<LegacySkill>(), new[] { 0 }, playerActGainBonus: 7, meshPercent: 0);
+            Assert.That(duel.TryQueueLane(1) && duel.TryQueueLane(1), Is.True);
+            Assert.That(duel.Act, Is.EqualTo(7));
+            Assert.That(duel.TryQueueLane(2), Is.True);
+            Assert.That((duel.Act, duel.CycleUses(46), duel.EffectiveCost(honing)), Is.EqualTo((6, 0, 3)));
+            duel.Commit();
+            Assert.That((duel.Act, duel.CycleUses(46)), Is.EqualTo((6, 1)), "The feeder changes power, not paid ACT.");
+            while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+            Assert.That(duel.CycleUses(46), Is.EqualTo(3));
+            duel.BeginNextTurn();
+            LegacySkill diagonal = LegacySkillDefinitions.Skill(15);
+            for (int copy = 0; copy < 3; copy++)
+            {
+                Assert.That(duel.EffectiveCost(diagonal), Is.EqualTo(diagonal.Cost));
+                Assert.That(duel.TryQueueLane(0), Is.True);
+            }
+            Assert.That(duel.EffectiveCost(diagonal), Is.EqualTo(diagonal.Cost));
         }
 
         [Test]
@@ -261,6 +349,8 @@ namespace TurnLimbo.Core.Tests
                 duel.EffectivePowerRange(sharpening, out int min, out int max);
                 Assert.That((min, max), Is.EqualTo((5 + 5 * cycle, 10 + 5 * cycle)));
                 Assert.That(duel.TryQueueLane(1), Is.True);
+                Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(Math.Min(10, 2 + cycle)),
+                    "Pending copies cannot raise the cost beyond the cycle cap.");
                 duel.Commit();
                 duel.ResolveNextSlot();
                 Assert.That(duel.CycleUses(46), Is.EqualTo(Math.Min(use + 1, 9)));

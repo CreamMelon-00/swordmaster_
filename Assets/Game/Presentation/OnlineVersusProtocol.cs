@@ -179,7 +179,7 @@ namespace TurnLimbo.Presentation
     public static class OnlineVersusProtocol
     {
         // Increment when the combat simulation changes without a corresponding skill-sheet edit.
-        public const string CombatRulesVersion = "local-versus-rules-10";
+        public const string CombatRulesVersion = "local-versus-rules-11";
         private const ulong Offset = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
@@ -282,6 +282,7 @@ namespace TurnLimbo.Presentation
                 int id = definitions[i].Skill.Id;
                 AddInt(ref hash, id);
                 AddInt(ref hash, fighter.CycleUses(id));
+                AddInt(ref hash, fighter.HasUsedActRecoverySteal(id) ? 1 : 0);
             }
         }
 
@@ -304,6 +305,7 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, feedback?.AheadAttackHits ?? 0);
             AddInt(ref hash, feedback?.ActStolen ?? 0);
             AddInt(ref hash, feedback?.ActReceived ?? 0);
+            AddInt(ref hash, feedback?.ActRecoveryStolen ?? 0);
         }
 
         private static void AddString(ref ulong hash, string value)

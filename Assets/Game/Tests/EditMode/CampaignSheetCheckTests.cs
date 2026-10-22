@@ -42,6 +42,33 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void MultiplayerRows_NeedNoCampaignGrant_AndCannotBecomeCampaignRewards()
+        {
+            LegacySkillTable shipped = LegacySkillDefinitions.Table;
+            Assert.That(shipped.IsVersus(shipped.Find(62)), Is.True);
+            Assert.That(CampaignSkillCatalog.AcquisitionSkills.Any(skill => skill.Id == 62), Is.False);
+            var run = new CampaignRun();
+            Assert.That(Enumerable.Range(1, run.StageCount).Any(number => run.GetStage(number).FirstClearSkillId == 62), Is.False);
+            Assert.That(CampaignCurriculum.Default.FindGranting(62), Is.Null);
+            Assert.That(CampaignFieldPickups.FindGranting(62), Is.Null);
+            Assert.That(CampaignSheetCheck.Problems(shipped), Is.Empty);
+            Assert.That(CampaignSheetCheck.Warnings(shipped), Is.Empty);
+
+            List<string[]> rows = Rows();
+            Set(rows, 14, Column.Group, LegacySkillSheet.VersusGroup);
+            Set(rows, 44, Column.Group, LegacySkillSheet.VersusGroup);
+            Set(rows, 47, Column.Group, LegacySkillSheet.VersusGroup);
+            LegacySkillTable table = Parse(rows);
+            Assert.That(CampaignSheetCheck.Problems(table), Has.Count.EqualTo(3));
+            Assert.That(CampaignSheetCheck.Problems(table).All(problem => problem.Contains("'대전'") && problem.Contains("'획득'이어야")), Is.True);
+            Assert.That(CampaignSheetCheck.Warnings(table), Is.Empty, "An intentional multiplayer row needs no campaign grant.");
+
+            LegacySkillTable reread = LegacySkillSheet.Parse("multiplayer round trip", LegacySkillSheet.Write(table));
+            Assert.That(reread.VersusSkills.Select(skill => skill.Id), Is.EqualTo(table.VersusSkills.Select(skill => skill.Id)));
+            Assert.That(reread.GroupOf(reread.Find(62)), Is.EqualTo(LegacySkillGroup.Versus));
+        }
+
+        [Test]
         public void CurriculumSkillMadeStarting_IsAProblem_AndTheRowNoNodeGrantsAWarning()
         {
             LegacySkillTable table = Parse(HorizontalCutStarting());

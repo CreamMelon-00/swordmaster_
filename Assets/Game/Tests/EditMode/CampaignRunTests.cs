@@ -238,7 +238,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.GetStage(1).FirstClearSkillId, Is.EqualTo(43));
             Assert.That(run.GetStage(2).FirstClearSkillId, Is.EqualTo(44));
             Assert.That(run.GetStage(3).FirstClearSkillId, Is.EqualTo(45));
-            Assert.That(run.GetStage(4).FirstClearSkillId, Is.EqualTo(62));
+            Assert.That(run.GetStage(4).FirstClearSkillId, Is.Zero);
 
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.EnemyVictory), Is.True);
             Assert.That(Owned(run, 43), Is.Null);
@@ -316,7 +316,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void FourthStageFirstClear_GrantsActStealOnce_AndRestoresItsLoadout()
+        public void FourthStageFirstClear_DoesNotGrantMultiplayerOnlyActSteal()
         {
             var run = NewBattleRun();
             ReachMaintenance(run, 3);
@@ -326,45 +326,42 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Owned(run, 62), Is.Null, "A loss must not award the skill.");
             Assert.That(run.RetryCurrentStage(), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            CampaignOwnedSkill awarded = Owned(run, 62);
-            Assert.That(awarded?.Skill.Name, Is.EqualTo("기세 훔치기"));
-            Assert.That((awarded.Skill.Cost, awarded.Skill.MinPower, awarded.Skill.MaxPower, awarded.Skill.LaneIndex),
-                Is.EqualTo((2, 3, 5, 2)));
+            Assert.That(Owned(run, 62), Is.Null);
+            Assert.That(run.GetStage(4).FirstClearSkillId, Is.Zero);
             Assert.That(run.IsSkillEquipped(62), Is.False);
 
             int ownedCount = run.OwnedSkills.Count;
             Assert.That(run.TryStartStage(4), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(run.OwnedSkills.Count, Is.EqualTo(ownedCount));
-            Assert.That(run.TryUnequipSkill(9), Is.True);
-            Assert.That(run.TryEquipSkill(62), Is.True);
-            Assert.That(run.TrySaveLoadout(), Is.True);
+            Assert.That(run.TryPlaceLoadoutSkill(62, 2, 0), Is.False);
+            Assert.That(run.TryEquipSkill(62), Is.False);
             var restored = new CampaignRun();
             Assert.That(restored.TryRestore(run.CaptureSave(), out string error), Is.True, error);
-            Assert.That(Owned(restored, 62)?.Skill.Name, Is.EqualTo("기세 훔치기"));
-            Assert.That(restored.IsSkillEquipped(62), Is.True);
-            Assert.That(restored.CreateDuel().GetLane(2).Any(skill => skill.Id == 62), Is.True);
+            Assert.That(Owned(restored, 62), Is.Null);
+            Assert.That(restored.IsSkillEquipped(62), Is.False);
+            Assert.That(restored.CreateDuel().GetLane(2).Any(skill => skill.Id == 62), Is.False);
         }
 
         [Test]
-        public void RestoreOlderSaveWithStageFourCleared_GrantsActStealWithoutEquippingIt()
+        public void RestoreOlderSaveWithStageFourCleared_DoesNotGrantActSteal()
         {
             var olderSave = new CampaignSave(300, new[] { 1, 2, 3, 4 }, new string[0], null,
                 new IEnumerable<int>[] { new[] { 1, 2, 7 }, new[] { 3, 4, 8 }, new[] { 5, 6, 9 } });
             var run = new CampaignRun();
             Assert.That(run.TryRestore(olderSave, out string error), Is.True, error);
-            Assert.That(Owned(run, 62)?.Skill.Name, Is.EqualTo("기세 훔치기"));
+            Assert.That(Owned(run, 62), Is.Null);
             Assert.That(run.IsSkillEquipped(62), Is.False);
-            Assert.That(run.OwnedSkills.Count(owned => owned.SkillId == 62), Is.EqualTo(1));
+            Assert.That(run.OwnedSkills.Count(owned => owned.SkillId == 62), Is.Zero);
             Assert.That(run.TryRestore(run.CaptureSave(), out error), Is.True, error);
-            Assert.That(run.OwnedSkills.Count(owned => owned.SkillId == 62), Is.EqualTo(1));
+            Assert.That(run.OwnedSkills.Count(owned => owned.SkillId == 62), Is.Zero);
         }
 
         [Test]
         public void FifthStageFirstClear_GrantsHoningOnce_AndOlderSavesReceiveIt()
         {
             var run = NewBattleRun();
-            Assert.That(run.GetStage(4).FirstClearSkillId, Is.EqualTo(62));
+            Assert.That(run.GetStage(4).FirstClearSkillId, Is.Zero);
             Assert.That(run.GetStage(5).FirstClearSkillId, Is.EqualTo(46));
             Assert.That(run.GetStage(6).FirstClearSkillId, Is.Zero);
             for (int stage = 1; stage <= 4; stage++)

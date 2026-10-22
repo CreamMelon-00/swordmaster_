@@ -239,6 +239,70 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void ParryCostRebalance_LoadsEveryHistoricExperienceValue_AndResavesIdempotently([Range(0, 30)] int previousExperience)
+        {
+            CampaignSave basis = PlayedCampaign().CaptureSave();
+            int counter = LegacySkillDefinitions.InitialCounterSkills[0].Id;
+            var historic = new CampaignSave(basis.Currency, new[] { 1, 2, 3 }, basis.CurriculumCompleted,
+                basis.CurriculumPoints, basis.Loadout, 2, new[]
+                {
+                    new KeyValuePair<int, int>(1, 4), new KeyValuePair<int, int>(9, previousExperience),
+                    new KeyValuePair<int, int>(45, 6)
+                }, new[] { "forest-pierce" }, CampaignCurriculum.TreeVersion, counter);
+            string text = GameSaveCodec.Serialize(new GameSave(2, historic));
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            Assert.That(parsed.Validate(out error), Is.True, error);
+            var restored = new CampaignRun();
+            var prologue = new PrologueRun();
+            Assert.That(parsed.TryApply(prologue, restored, out error), Is.True, error);
+            int expectedExperience = Math.Min(previousExperience, 15);
+            CampaignOwnedSkill parry = restored.GetOwnedSkill(9);
+            Assert.That(parry.Skill.Cost, Is.EqualTo(2));
+            Assert.That(parry.Experience, Is.EqualTo(expectedExperience));
+            Assert.That(parry.Level, Is.EqualTo(expectedExperience / 5));
+            Assert.That(parry.Skill.MinPower, Is.EqualTo(LegacySkillDefinitions.Skill(9).MinPower + parry.Level * 2));
+            Assert.That(restored.GetOwnedSkill(1).Experience, Is.EqualTo(4));
+            Assert.That(restored.GetOwnedSkill(45).Experience, Is.EqualTo(6), "Other in-range experience stays intact.");
+            Assert.That(prologue.ClearedCount, Is.EqualTo(2));
+            CampaignSave normalized = restored.CaptureSave();
+            Assert.That(normalized.Currency, Is.EqualTo(historic.Currency));
+            Assert.That(normalized.CurriculumPoints, Is.EqualTo(historic.CurriculumPoints));
+            Assert.That(normalized.TrainingVictoryCount, Is.EqualTo(historic.TrainingVictoryCount));
+            Assert.That(normalized.CounterSkillId, Is.EqualTo(counter));
+            CollectionAssert.AreEqual(historic.ClearedStages, normalized.ClearedStages);
+            CollectionAssert.AreEqual(historic.CurriculumCompleted, normalized.CurriculumCompleted);
+            CollectionAssert.AreEqual(historic.FieldPickups, normalized.FieldPickups);
+            for (int lane = 0; lane < 3; lane++)
+                CollectionAssert.AreEqual(historic.Loadout[lane], normalized.Loadout[lane]);
+
+            string current = GameSaveCodec.Serialize(GameSave.Capture(prologue, restored));
+            StringAssert.StartsWith("turn-limbo-save 2\n", current);
+            if (expectedExperience == 0) StringAssert.DoesNotContain("skill-xp 9 ", current);
+            else StringAssert.Contains("\nskill-xp 9 " + expectedExperience + "\n", current);
+            Assert.That(GameSaveCodec.TryParse(current, out GameSave again, out error), Is.True, error);
+            var reloaded = new CampaignRun();
+            Assert.That(again.TryApply(new PrologueRun(), reloaded, out error), Is.True, error);
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(prologue, reloaded)), Is.EqualTo(current));
+        }
+
+        [TestCase(-1)]
+        [TestCase(31)]
+        [TestCase(int.MaxValue)]
+        public void ParryCostRebalance_RejectsExperienceOutsideItsHistoricBounds_WithoutChangingProgress(int experience)
+        {
+            CampaignSave basis = PlayedCampaign().CaptureSave();
+            var corrupt = new GameSave(2, With(basis,
+                skillXp: new[] { new KeyValuePair<int, int>(9, experience) }));
+            CampaignRun target = PlayedCampaign();
+            string before = Fingerprint(target);
+            var prologue = new PrologueRun();
+            Assert.That(corrupt.TryApply(prologue, target, out string error), Is.False);
+            StringAssert.Contains("기술 9의 경험치", error);
+            Assert.That(Fingerprint(target), Is.EqualTo(before));
+            Assert.That(prologue.ClearedCount, Is.Zero);
+        }
+
+        [Test]
         public void FieldPickups_RoundTripInVersionTwo_AndOlderSavesHaveNone()
         {
             var source = new CampaignRun();
@@ -551,6 +615,76 @@ namespace TurnLimbo.Core.Tests
                 "A save with a points line keeps it.");
         }
 
+        [TestCase(0, true)]
+        [TestCase(15, true)]
+        [TestCase(7, false)]
+        public void FormerStageFourActStealSave_RemovesOnlyTheRetiredReward_AndRefillsItsExactSlot(int experience, bool equipped)
+        {
+            string text = FormerStageFourActStealSave(experience, equipped);
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            var prologue = new PrologueRun();
+            var campaign = new CampaignRun();
+            Assert.That(parsed.TryApply(prologue, campaign, out error), Is.True, error);
+            Assert.That(prologue.ClearedCount, Is.EqualTo(4));
+            Assert.That(campaign.Currency, Is.EqualTo(333));
+            Assert.That(campaign.ClearedStageCount, Is.EqualTo(4));
+            Assert.That(campaign.CurriculumPoints, Is.EqualTo(7));
+            Assert.That(campaign.TrainingVictoryCount, Is.EqualTo(2));
+            Assert.That(campaign.Curriculum.Completed, Is.EqualTo(new[] { "horizontal-cut" }));
+            Assert.That(campaign.CollectedFieldPickups, Is.EqualTo(new[] { "forest-pierce" }));
+            Assert.That(campaign.GetOwnedSkill(14).Experience, Is.EqualTo(4));
+            Assert.That(campaign.GetOwnedSkill(47).Experience, Is.EqualTo(1));
+            Assert.That(campaign.GetOwnedSkill(62), Is.Null);
+            Assert.That(campaign.IsSkillEquipped(62), Is.False);
+            Assert.That(campaign.GetEquippedLane(0).Select(skill => skill.SkillId), Is.EqualTo(new[] { 14, 2, 7 }));
+            Assert.That(campaign.GetEquippedLane(1).Select(skill => skill.SkillId), Is.EqualTo(new[] { 47, 4, 8 }));
+            Assert.That(campaign.GetEquippedLane(2).Select(skill => skill.SkillId), Is.EqualTo(new[] { 9, 6, 5 }),
+                "Only 62's slot is replaced, with the lane's first unused starting technique.");
+            Assert.That(campaign.RestoreDroppedCurriculum, Is.False);
+            Assert.That(parsed.OpeningChoice, Is.EqualTo(OpeningVoiceChoice.Leave));
+
+            string normalized = GameSaveCodec.Serialize(GameSave.Capture(prologue, campaign, parsed.OpeningChoice));
+            Assert.That(normalized, Does.Not.Contain("skill-xp 62 "));
+            Assert.That(normalized, Does.Not.Contain("lane 2 9 62 5"));
+            Assert.That(GameSaveCodec.TryParse(normalized, out GameSave reread, out error), Is.True, error);
+            var again = new CampaignRun();
+            Assert.That(reread.TryApply(new PrologueRun(), again, out error), Is.True, error);
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(prologue, again, reread.OpeningChoice)), Is.EqualTo(normalized));
+        }
+
+        [TestCase("uncleared")]
+        [TestCase("wrong lane")]
+        [TestCase("duplicate equipped")]
+        [TestCase("negative experience")]
+        [TestCase("too much experience")]
+        [TestCase("duplicate experience")]
+        [TestCase("unrelated damage")]
+        public void FormerStageFourActStealMigration_DoesNotMakeInvalidSavesValid(string problem)
+        {
+            string text = FormerStageFourActStealSave(15, true);
+            switch (problem)
+            {
+                case "uncleared": text = text.Replace("cleared 1 2 3 4", "cleared 1 2 3"); break;
+                case "wrong lane": text = text.Replace("lane 0 14 2 7", "lane 0 14 62 7")
+                    .Replace("lane 2 9 62 5", "lane 2 9 6 5"); break;
+                case "duplicate equipped": text = text.Replace("lane 2 9 62 5", "lane 2 62 62 5"); break;
+                case "negative experience": text = text.Replace("skill-xp 62 15", "skill-xp 62 -1"); break;
+                case "too much experience": text = text.Replace("skill-xp 62 15", "skill-xp 62 16"); break;
+                case "duplicate experience": text += "skill-xp 62 1\n"; break;
+                case "unrelated damage": text = text.Replace("lane 0 14 2 7", "lane 0 999 2 7"); break;
+            }
+            bool parsed = GameSaveCodec.TryParse(text, out GameSave save, out string error);
+            Assert.That(!parsed || !save.TryApply(new PrologueRun(), new CampaignRun(), out error), Is.True);
+            Assert.That(error, Is.Not.Null.And.Not.Empty);
+        }
+
+        private static string FormerStageFourActStealSave(int experience, bool equipped)
+            => "turn-limbo-save 2\nprologue 4\nopening-choice 1\ncurrency 333\ncleared 1 2 3 4\n" +
+                $"curriculum-tree {CampaignCurriculum.TreeVersion}\ncurriculum-done horizontal-cut\ncurriculum-points 7\n" +
+                "training-wins 2\nfield-pickups forest-pierce\nlane 0 14 2 7\nlane 1 47 4 8\n" +
+                (equipped ? "lane 2 9 62 5\n" : "lane 2 9 6 5\n") +
+                $"skill-xp 14 4\nskill-xp 47 1\nskill-xp 62 {experience}\n";
+
         [Test]
         public void Codec_AcceptsWindowsLineEndingsByteOrderMarkAndBlankLines()
         {
@@ -587,7 +721,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(campaign.Currency, Is.EqualTo(480));
             Assert.That(campaign.ClearedStageCount, Is.EqualTo(7), "…and the stages…");
             CollectionAssert.AreEqual(new[] { "forest-pierce" }, campaign.CollectedFieldPickups, "…and the pickups.");
-            CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 43, 44, 45, 62, 46, 16, 47 },
+            CollectionAssert.AreEquivalent(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 43, 44, 45, 46, 16, 47 },
                 campaign.OwnedSkills.Where(owned => !campaign.IsCounterSkill(owned.SkillId)).Select(owned => owned.SkillId),
                 "Stage 7 now grants 16; the old curriculum's skills are gone.");
             CollectionAssert.AreEqual(new[] { 1, 7, 2 }, campaign.GetEquippedLane(0).Select(owned => owned.SkillId),

@@ -9,6 +9,21 @@ namespace TurnLimbo.Core.Tests
 {
     public sealed class ActStealTests
     {
+        // Keep exercising the supported immediate-ACT grammar independently of the current recovery-steal card.
+        [SetUp]
+        public void InstallImmediateActStealFixture()
+        {
+            List<string[]> rows = CsvTable.Read(LegacySkillSheet.Write(LegacySkillDefinitions.Table))
+                .Select(record => record.Fields.ToArray()).ToList();
+            rows.Single(row => row[0] == "62")[Array.IndexOf(rows[0], LegacySkillSheet.Column.UseEffect)] =
+                "상대 ACT 8 이상이면 ACT 3 강탈";
+            string sheet = CsvTable.Write(rows);
+            LegacySkillDefinitions.Install(() => sheet);
+        }
+
+        [TearDown]
+        public void RestoreLiveSheet() => LegacySkillDefinitions.Install(null);
+
         [TestCase(7, false)]
         [TestCase(8, true)]
         [TestCase(10, true)]

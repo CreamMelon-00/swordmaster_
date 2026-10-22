@@ -19,7 +19,8 @@ namespace TurnLimbo.Core.Tests
             // Lane starters and counter starters are separate; every sheet row is in exactly one set.
             Assert.That(all.Select(d => d.Skill).ToArray(), Is.EquivalentTo(LegacyInitialSkills.All
                 .Concat(CampaignSkillCatalog.AcquisitionSkills).Concat(LegacySkillDefinitions.EnemySkills)
-                .Concat(LegacySkillDefinitions.TemporarySkills).Concat(LegacySkillDefinitions.InitialCounterSkills).ToArray()));
+                .Concat(LegacySkillDefinitions.TemporarySkills).Concat(LegacySkillDefinitions.VersusSkills)
+                .Concat(LegacySkillDefinitions.InitialCounterSkills).ToArray()));
             // The curriculum may grow; the starting set stays at nine.
             Assert.That(LegacyInitialSkills.All.Count, Is.EqualTo(9));
             Assert.That(LegacySkillDefinitions.InitialCounterSkills.Select(skill => skill.Id), Is.EqualTo(new[] { 600 }));
@@ -74,7 +75,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkill pressure = LegacySkillDefinitions.Skill(5);
             LegacySkill opening = LegacySkillDefinitions.Skill(6);
             LegacySkill deflect = LegacySkillDefinitions.Skill(9);
-            Assert.That(new[] { pressure.Cost, opening.Cost, deflect.Cost }, Is.EqualTo(new[] { 1, 2, 1 }));
+            Assert.That(new[] { pressure.Cost, opening.Cost, deflect.Cost }, Is.EqualTo(new[] { 1, 2, 2 }));
             Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Attack));
             Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentResistanceReduction, Is.EqualTo(10));
             Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Defence));
@@ -126,16 +127,18 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void FourthStageReward_StealsCurrentAct_WithoutGrantingNextTurnRecovery()
+        public void MultiplayerOnlySkill_StealsNextTurnRecoveryAgainstAnAttack()
         {
             LegacySkill skill = LegacySkillDefinitions.Skill(62);
             Assert.That((skill.Name, skill.Cost, skill.MinPower, skill.MaxPower, skill.AttackCount, skill.LaneIndex),
-                Is.EqualTo(("기세 훔치기", 2, 3, 5, 1, 2)));
+                Is.EqualTo(("기세 훔치기", 2, 5, 7, 1, 2)));
             Assert.That((skill.Kind, skill.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Penetrate)));
             Assert.That(skill.IconId, Is.EqualTo(14));
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill).Effect;
-            Assert.That(effect.HasActSteal, Is.True);
-            Assert.That((effect.ActStealThreshold, effect.ActStealAmount, effect.ActGain), Is.EqualTo((8, 3, 0)));
+            Assert.That(effect.HasActSteal, Is.False);
+            Assert.That(effect.HasActRecoverySteal, Is.True);
+            Assert.That((effect.ActRecoveryStealAmount, effect.ActGain), Is.EqualTo((1, 0)));
+            Assert.That(effect.OpponentKind, Is.Null, "The use-effect phrase itself carries its attack condition.");
         }
 
         [Test]
@@ -188,7 +191,7 @@ namespace TurnLimbo.Core.Tests
 
             LegacySkill finisher = LegacySkillDefinitions.Skill(50);
             Assert.That((finisher.Name, finisher.Cost, finisher.MinPower, finisher.MaxPower, finisher.AttackCount, finisher.LaneIndex),
-                Is.EqualTo(("끝내기", 2, 7, 9, 1, 2)));
+                Is.EqualTo(("끝내기", 2, 8, 10, 1, 2)));
             Assert.That((finisher.Kind, finisher.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Penetrate)));
             LegacySkillDefinition finisherDefinition = LegacySkillDefinitions.Find(finisher);
             Assert.That((finisherDefinition.Effect.OpponentState, finisherDefinition.Effect.OpponentHealthPercent,
@@ -319,7 +322,8 @@ namespace TurnLimbo.Core.Tests
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(table.InitialCounterSkills.Select(s => s.Id), Is.EqualTo(new[] { 600 }));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id),
-                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 60, 61, 62 }));
+                Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 60, 61 }));
+            Assert.That(table.VersusSkills.Select(s => s.Id), Is.EqualTo(new[] { 62 }));
             Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
             Assert.That(table.TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
@@ -345,7 +349,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(15, "사선베기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 4, 5, 2, 11)]
         [TestCase(17, "호흡", 0, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 13)]
         [TestCase(19, "르프리즈", 2, LegacySkillKind.Defence, LegacySkillProperty.Defence, 2, 7, 11, 1, 13)]
-        [TestCase(21, "급소 찌르기", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 16, 20, 1, 14)]
+        [TestCase(21, "급소 찌르기", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 18, 22, 1, 14)]
         [TestCase(32, "유연함", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 6, 9, 1, 15)]
         public void KeywordCurriculumRows_HoldTheirSheetValues(int id, string name, int lane, LegacySkillKind kind,
             LegacySkillProperty property, int cost, int minPower, int maxPower, int hits, int icon)
@@ -386,7 +390,11 @@ namespace TurnLimbo.Core.Tests
                 case 56:
                     Assert.That((effect.QueueRemovalMode, effect.QueuePowerMultiplierCap), Is.EqualTo((LegacyQueueRemovalMode.Return, 2)));
                     Assert.That(effect.ReservePlanningSecondsCost, Is.EqualTo(4));
-                    Assert.That(skill.Description, Does.EndWith("예약 시 제한시간 4초 소모"));
+                    string description = skill.Description.Replace(" ", string.Empty);
+                    Assert.That(description, Does.Contain("2개이상반환"));
+                    Assert.That(description, Does.Contain("이번턴다음기술"));
+                    Assert.That(description, Does.Contain("2배"));
+                    Assert.That(description, Does.Contain("제한시간4초를씁니다"));
                     break;
                 case 57:
                     Assert.That((effect.AheadTimeTarget, effect.AheadTimePerUnit, effect.AheadTimeMax),

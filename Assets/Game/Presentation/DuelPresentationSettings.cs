@@ -7,7 +7,7 @@ namespace TurnLimbo.Presentation
     /// <summary>Persistent authoring values; runtime state and combat rules never live in this asset, but for one rule value
     /// the game passes into every new duel: 맞물림's percent (<see cref="MeshPercent"/>; the rule itself stays in Runtime).</summary>
     [CreateAssetMenu(menuName = "Turn Limbo/Presentation Settings", fileName = "DuelPresentationSettings")]
-    public sealed class DuelPresentationSettings : ScriptableObject
+    public sealed partial class DuelPresentationSettings : ScriptableObject
     {
         [Header("배경 크기·높이 — 실행 중 즉시 적용")]
         [SerializeField, Min(1f), Tooltip("가장 먼 하늘·안개 층의 높이(월드 단위). 작게 줄이면 카메라 밖에 빈틈이 생길 수 있습니다.")]
@@ -21,12 +21,12 @@ namespace TurnLimbo.Presentation
         [SerializeField, Min(1f)] private float nearHeight = 12.6f;
         [SerializeField] private float nearY = -0.75f;
 
-        [Header("전투 템포 — 속도·간격은 다음 스킬부터 적용")]
+        [Header("전투 템포 — 속도·간격은 다음 기술부터 적용")]
         [SerializeField, Range(0.1f, 2f), Tooltip("원본 프레임 재생 속도의 배율. 1=원본, 0.8=조금 느리게. 타격 판정도 같은 프레임에 맞춥니다.")]
         private float animationPlaybackSpeed = 1f;
-        [SerializeField, Range(0f, 1f), Tooltip("한 스킬의 연타 동작 사이 대기 시간(게임 시계 초). 동작 자체를 늘이지 않고 연타 사이에 여유를 줍니다.")]
+        [SerializeField, Range(0f, 1f), Tooltip("한 기술의 연타 동작 사이 대기 시간(게임 시계 초). 동작 자체를 늘이지 않고 연타 사이에 여유를 줍니다.")]
         private float attackInterval = 0.025f;
-        [SerializeField, Range(0f, 2f), Tooltip("완료된 스킬과 다음 큐 스킬 사이 대기 시간(게임 시계 초).")]
+        [SerializeField, Range(0f, 2f), Tooltip("완료된 기술과 대기열의 다음 기술 사이 대기 시간(게임 시계 초).")]
         private float skillInterval = 0.06f;
         [SerializeField, Range(0f, 0.15f), Tooltip("타격 직후 잠깐 멈추는 시간(실제 초). 0이면 히트 스톱을 끕니다.")]
         private float hitStopDuration = 0.04f;
@@ -52,7 +52,7 @@ namespace TurnLimbo.Presentation
         [SerializeField, HideInInspector]
         private float combatDepthExchangeOffset = .28f;
 
-        [Header("공격 강조 — 다음 스킬부터 적용")]
+        [Header("공격 강조 — 다음 기술부터 적용")]
         [SerializeField, Tooltip("준비 자세에서 뒤로 모았다가 타격 순간 몸체가 앞으로 뻗고 짧은 잔상을 남깁니다. 동작 그림의 완급도 함께 적용합니다.")]
         private bool attackRhythmEnabled = true;
         [SerializeField, Range(0f, 1f), Tooltip("0=기존 동작, 1=준비·베기·회수의 완급과 돌진·잔상을 모두 적용. F1의 공격 강조 버튼으로 켜고 끈 결과를 비교할 수 있습니다.")]
@@ -60,7 +60,7 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0f, 1f), Tooltip("공격 시 몸체가 앞으로 치고 나가는 표시 거리(월드 단위). 준비 때는 조금 뒤로 모으고 타격 순간에 가장 멀리 뻗습니다.")]
         private float attackLungeDistance = LegacyAttackRhythm.DefaultLungeDistance;
 
-        [Header("베기 잔광 — 다음 스킬부터 적용")]
+        [Header("베기 잔광 — 다음 기술부터 적용")]
         [SerializeField, Tooltip("공격의 베기·찌르기 방향을 따라 짧은 검광을 남깁니다. F1에서 공격 강조와 별도로 비교할 수 있습니다.")]
         private bool weaponTrailEnabled = true;
         [SerializeField, Range(0f, 1f)]
@@ -362,15 +362,15 @@ namespace TurnLimbo.Presentation
         private int bladeBindSparks = LegacyBladeBind.DefaultSparks;
 
         [Header("전투 후반 가속 — 다음 턴부터 적용")]
-        [SerializeField, Tooltip("한 턴의 큐를 뒤로 진행할수록 교전·이동·스킬 사이 간격을 점점 빠르게 재생합니다. 다음 턴에는 원래 속도로 돌아옵니다. 한쪽 큐가 소진되면 아래 설정으로 추가 배속과 스킬 사이 대기를 조정합니다. 회피·압박의 입력 구간과 실제 시간의 히트 스톱·슬로모션·마무리 연출은 유지합니다. 끄면 기존 일방 공격 가속을 사용합니다.")]
+        [SerializeField, Tooltip("한 턴의 큐를 뒤로 진행할수록 교전·이동·기술 사이 간격을 점점 빠르게 재생합니다. 다음 턴에는 원래 속도로 돌아옵니다. 한쪽 큐가 소진되면 아래 설정으로 추가 배속과 기술 사이 대기를 조정합니다. 회피·압박의 입력 구간과 실제 시간의 히트 스톱·슬로모션·마무리 연출은 유지합니다. 끄면 기존 일방 공격 가속을 사용합니다.")]
         private bool combatTempoEnabled = true;
         [SerializeField, Range(0f, .5f), Tooltip("첫 칸 이후 한 칸마다 더하는 재생 배속. 기본 0.1: 1배, 1.1배, 1.2배… 한쪽 큐가 소진되어도 이 증가를 유지합니다.")]
         private float combatTempoStep = LegacyCombatTempoTuning.DefaultStepPerSlot;
         [SerializeField, Range(1f, 3f), Tooltip("턴 후반 가속의 최대 배속. 기본 1.8배. 한쪽 큐가 소진되었을 때의 추가 배속은 이 상한을 적용한 뒤 곱합니다.")]
         private float combatTempoMaxSpeed = LegacyCombatTempoTuning.DefaultMaximumSpeed;
-        [SerializeField, Range(1f, 3f), Tooltip("한쪽에 남은 스킬이 없을 때 턴 후반 배속에 추가로 곱하는 값. 기본 1배로 추가 통배속을 주지 않습니다. 2로 바꾸면 이전의 소진 시 2배 배속을 비교할 수 있습니다. 누가 큐를 먼저 소진했든 같습니다.")]
+        [SerializeField, Range(1f, 3f), Tooltip("한쪽에 남은 기술이 없을 때 턴 후반 배속에 추가로 곱하는 값. 기본 1배로 추가 통배속을 주지 않습니다. 2로 바꾸면 이전의 소진 시 2배 배속을 비교할 수 있습니다. 누가 큐를 먼저 소진했든 같습니다.")]
         private float exhaustedSideSpeed = LegacyCombatTempoTuning.DefaultExhaustedSpeed;
-        [SerializeField, Range(0f, 1f), Tooltip("한쪽 큐가 비고 남은 쪽이 공격한 뒤, 다음 스킬까지 기다리는 시간의 비율. 기본 0.25: 0.28초 대기가 0.07초가 됩니다. 1이면 기존 대기 시간으로 비교할 수 있습니다. 숨고르기·방어는 빈칸으로 세지 않으며 연타 간격·공격 동작·입력 구간은 그대로입니다.")]
+        [SerializeField, Range(0f, 1f), Tooltip("한쪽 큐가 비고 남은 쪽이 공격한 뒤, 다음 기술까지 기다리는 시간의 비율. 기본 0.25: 0.28초 대기가 0.07초가 됩니다. 1이면 기존 대기 시간으로 비교할 수 있습니다. 숨고르기·방어는 빈칸으로 세지 않으며 연타 간격·공격 동작·입력 구간은 그대로입니다.")]
         private float exhaustedGapScale = LegacyCombatTempoTuning.DefaultExhaustedGapScale;
 
         [Header("기존 일방 공격 가속 — 후반 가속을 끈 경우에 적용")]
@@ -467,7 +467,7 @@ namespace TurnLimbo.Presentation
         [SerializeField, Range(0f, .15f), Tooltip("시간이 다 됐을 때 카메라가 더 다가가는 양(화면 크기에 대한 비율, 0.04 = 4%). 확정하거나 새 턴이 시작되면 돌아옵니다.")]
         private float timePressureCameraPush = .04f;
 
-        [Header("스텝 — 다음 스킬부터 적용")]
+        [Header("스텝 — 다음 기술부터 적용")]
         [SerializeField, Range(0f, 1f), Tooltip("첫 타격 전 예고 시간(게임 시계 초). 연타의 동작·타격 간격은 유지합니다.")]
         private float stepAnticipationDuration = 0.20f;
         [SerializeField, Range(0.03f, 0.25f), Tooltip("첫 타격 직전 회피·압박이 성공하는 구간(게임 시계 초). 턴의 첫 시도 기준이며 시도할 때마다 좁아집니다. 연타는 기술 전체에 한 번 적용합니다.")]
@@ -494,7 +494,7 @@ namespace TurnLimbo.Presentation
         private float stepFocusDuration = 0.78f;
         [SerializeField, Range(0f, 1.5f), Tooltip("성공 순간 카메라가 추가로 당겨지는 양. 0이면 추가 확대 없음.")]
         private float stepCameraZoom = 1.1f;
-        [SerializeField, Range(0f, 0.85f), Tooltip("성공 순간 배경만 어두워지는 양. 캐릭터·스킬·체력 UI는 어두워지지 않습니다.")]
+        [SerializeField, Range(0f, 0.85f), Tooltip("성공 순간 배경만 어두워지는 양. 캐릭터·기술·체력 UI는 어두워지지 않습니다.")]
         private float stepBackdropDarkening = 0.55f;
 
         [Header("스텝 피드백 — 실행 중 즉시 적용")]

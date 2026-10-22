@@ -76,6 +76,7 @@ namespace TurnLimbo.Core.Tests
             }
             Assert.That(parsed.InitialSkills.Select(s => s.Id), Is.EqualTo(shipped.InitialSkills.Select(s => s.Id)));
             Assert.That(parsed.AcquisitionSkills.Select(s => s.Id), Is.EqualTo(shipped.AcquisitionSkills.Select(s => s.Id)));
+            Assert.That(parsed.VersusSkills.Select(s => s.Id), Is.EqualTo(shipped.VersusSkills.Select(s => s.Id)));
             Assert.That(LegacySkillSheet.Write(parsed), Is.EqualTo(csv), "Writing is stable.");
             Assert.That(parsed.SheetId, Is.EqualTo("round trip"));
         }
@@ -210,7 +211,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.Id, "0", "1 이상의 정수")]
         [TestCase(Column.Id, "", "비어 있습니다")]
         [TestCase(Column.Name, " ", "비어 있습니다")]
-        [TestCase(Column.Group, "기본", "시작, 획득, 적, 일회성 중 하나")]
+        [TestCase(Column.Group, "기본", "시작, 획득, 적, 일회성, 대전 중 하나")]
         [TestCase(Column.Lane, "R", "Q, W, E 중 하나")]
         [TestCase(Column.Kind, "베기", "공격, 방어 중 하나")]
         [TestCase(Column.Kind, "대기", "공용 행동")]
@@ -752,7 +753,8 @@ namespace TurnLimbo.Core.Tests
                     "예: 앞 숨고르기마다 위력 +4 (최대 4)), 앞 <대상>마다 다음 턴 제한시간 +N초 (최대 M)(N은 1~3, M은 1~3의 정수, " +
                     "예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), 자동 회피, " +
                     "보호 소모 위력 +N, 앞 공격 총타수 M 이상 위력 +N(N은 1~50, M은 1~20의 정수), " +
-                    "상대 ACT N 이상이면 ACT M 강탈(N과 M은 1~10의 정수)";
+                    "상대 ACT N 이상이면 ACT M 강탈(N과 M은 1~10의 정수), " +
+                    "상대 공격 시 다음 턴 ACT 회복 N 강탈(N은 1~10의 정수, 효과 턴당 1회)";
             Assert.That(Problem(rows), Is.EqualTo($"{row3}행 '{column}': '{cell}'은(는) 쓸 수 없습니다. {allowed} 중 하나를 적으세요."));
         }
 

@@ -41,7 +41,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 LegacySkill conditionalRecovery = LegacySkillDefinitions.Skill(7);
                 hud.ShowExplanation(conditionalRecovery, false);
-                Assert.That(effect.text, Does.Contain("같은 칸 상대가 타격 기술이면"));
+                Assert.That(effect.text, Does.Contain("같은 칸의 상대가 타격 기술을 쓰면"));
                 Assert.That(effect.text, Does.Contain("ACT 회복 +2"));
             }
             finally
@@ -75,7 +75,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(FindTextUnder(hud.Root.transform, "Loadout Selected Detail", "Keyword 1 Text").text,
                     Does.Contain("조건부 ACT"));
                 string loadoutGuide = FindTextUnder(hud.Root.transform, "Loadout Panel", "Tab Subtitle").text;
-                Assert.That(loadoutGuide, Is.EqualTo("기술을 같은 열의 톱니에 끼우세요."));
+                Assert.That(loadoutGuide, Is.EqualTo("기술을 끌어 같은 열의 톱니에 끼우세요."));
                 Assert.That(loadoutGuide, Does.Not.Contain("공격끼리 대결할 때만 저항 피해"));
                 AssertPureRole(hud.Root.transform, 14, "단타");
                 AssertPureRole(hud.Root.transform, 17, "방어");

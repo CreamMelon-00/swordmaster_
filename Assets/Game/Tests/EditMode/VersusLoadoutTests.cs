@@ -85,6 +85,26 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void RecoverySteal_IsMultiplayerOnly_AndSurvivesImportedLoadouts()
+        {
+            LegacySkillDefinition definition = LegacySkillDefinitions.Find(62);
+            Assert.That(LegacySkillDefinitions.Table.GroupOf(definition), Is.EqualTo(LegacySkillGroup.Versus));
+            Assert.That(LegacySkillDefinitions.VersusSkills.Select(skill => skill.Id), Is.EqualTo(new[] { 62 }));
+            Assert.That(LegacySkillDefinitions.InitialSkills.Concat(LegacySkillDefinitions.AcquisitionSkills)
+                .Concat(LegacySkillDefinitions.EnemySkills).Concat(LegacySkillDefinitions.TemporarySkills)
+                .Any(skill => skill.Id == 62), Is.False);
+            Assert.That((definition.Skill.Cost, definition.Skill.MinPower, definition.Skill.MaxPower), Is.EqualTo((2, 5, 7)));
+            Assert.That(definition.Effect.ActRecoveryStealAmount, Is.EqualTo(1));
+            Assert.That(definition.Effect.HasActSteal, Is.False, "This card changes next-turn recovery, not current ACT.");
+            var loadout = new VersusLoadout();
+            Assert.That(loadout.TryPlaceSkill(62, 2, 0), Is.True);
+            var restored = new VersusLoadout();
+            Assert.That(restored.TryImportIds(loadout.ExportIds()), Is.True);
+            Assert.That(restored.GetSkillId(2, 0), Is.EqualTo(62));
+            Assert.That(restored.ToSkills()[6].Id, Is.EqualTo(62));
+        }
+
+        [Test]
         public void Esquive_StaysOutOfTheVersusPool_WhileTheCampaignKeepsIt()
         {
             // 에스키브 dodges a whole slot by itself; in versus the later reserver of a slot sees the other's technique there.

@@ -106,6 +106,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (candidate.Id == id) { skill = candidate; return true; }
             foreach (LegacySkill candidate in LegacySkillDefinitions.AcquisitionSkills)
                 if (candidate.Id == id) { skill = candidate; return true; }
+            foreach (LegacySkill candidate in LegacySkillDefinitions.VersusSkills)
+                if (candidate.Id == id) { skill = candidate; return true; }
             skill = null;
             return false;
         }

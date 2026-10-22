@@ -229,7 +229,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             // Clone the current asset first: emphasis, progressive tempo, hit stops and attack art remain the same.
             JsonUtility.FromJsonOverwrite("{\"animationPlaybackSpeed\":0.6,\"movementDistanceMultiplier\":1.4," +
-                "\"movementSpeedMultiplier\":1.2,\"hitStopDuration\":0.04,\"stepTimingWindow\":0.1}", settings);
+                "\"movementSpeedMultiplier\":1.2,\"hitStopDuration\":0.04,\"stepTimingWindow\":0.1,\"bladeExchangeEnabled\":false}", settings);
             JsonUtility.FromJsonOverwrite(compact
                 ? "{\"attackInterval\":0.025,\"skillInterval\":0.06,\"stepAnticipationDuration\":0.20," +
                     "\"approachSettleSeconds\":0.04,\"returnSettleSeconds\":0.04,\"turnCleanupSeconds\":0.04," +

@@ -264,7 +264,7 @@ namespace TurnLimbo.Presentation
             // As the campaign loadout's detail: the school's badge only while a skill is selected (every versus slot is filled).
             detailStyle.Root.gameObject.SetActive(selected != null);
             if (selected != null) detailStyle.SetLane(selected.LaneIndex);
-            if (selected == null) detailInfo.SetEmptyMessage("보유 기술이나 편성된 기술을 선택하면 효과를 볼 수 있습니다.");
+            if (selected == null) detailInfo.SetEmptyMessage("기술을 선택하면 효과를 볼 수 있습니다.");
             else detailInfo.SetSkill(selected);
         }
 
@@ -290,6 +290,8 @@ namespace TurnLimbo.Presentation
         {
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills) AddAvailableCard(skill);
             foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills)
+                if (!VersusLoadout.IsExcluded(skill.Id) && LegacySkillDefinitions.Find(skill)?.IsCounter != true) AddAvailableCard(skill);
+            foreach (LegacySkill skill in LegacySkillDefinitions.VersusSkills)
                 if (!VersusLoadout.IsExcluded(skill.Id) && LegacySkillDefinitions.Find(skill)?.IsCounter != true) AddAvailableCard(skill);
         }
 
@@ -449,6 +451,8 @@ namespace TurnLimbo.Presentation
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills)
                 if (skill.Id == id) return skill;
             foreach (LegacySkill skill in LegacySkillDefinitions.AcquisitionSkills)
+                if (skill.Id == id) return skill;
+            foreach (LegacySkill skill in LegacySkillDefinitions.VersusSkills)
                 if (skill.Id == id) return skill;
             return null;
         }

@@ -279,7 +279,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(reset.interactable, Is.True);
                 reset.onClick.Invoke();
                 Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.EqualTo(1), "The first click only arms the reset.");
-                Assert.That(reset.GetComponentInChildren<Text>().text, Is.EqualTo("한 번 더 누르면 초기화\n쓴 점수 1점을 돌려받습니다"));
+                Assert.That(reset.GetComponentInChildren<Text>().text, Is.EqualTo("한 번 더 누르면 초기화\n사용한 1점을 돌려받습니다"));
                 reset.onClick.Invoke();
                 Assert.That(controller.Campaign.Curriculum.CompletedCount, Is.Zero);
                 Assert.That(controller.Campaign.CurriculumPoints, Is.EqualTo(1), "The reset gives back the point it cost.");

@@ -25,6 +25,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         AheadHitPower,
         /// <summary>ACT 강탈; conditional until the technique is used, then the actual ACT removed from its opponent.</summary>
         ActSteal,
+        /// <summary>Once-per-turn next-turn recovery stolen from an opposing attack.</summary>
+        ActRecoverySteal,
     }
 
     /// <summary>One queued card's keyword mark: its words, what it stands for and whether it gains nothing (a second copy,
@@ -106,6 +108,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 parts.Add("보호 소모 시 +" + effect.ConsumeProtectionPowerBonus);
             if (effect.HasActSteal)
                 parts.Add("상대 ACT " + effect.ActStealThreshold + "+ · 강탈 " + effect.ActStealAmount);
+            if (effect.HasActRecoverySteal)
+                parts.Add(RecoveryStealUsed(view, true, skill.Id) ? UsedThisTurn
+                    : "공격 대응 · 회복 강탈 " + effect.ActRecoveryStealAmount + " · 턴당 1회");
             if (effect.HasAheadHitPower)
                 parts.Add(!LegacyKeywordLinks.IsFirstOfKind(queue, slot, skill) ? UsedThisTurn
                     : "총타수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
@@ -152,6 +157,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.HasActSteal)
                 parts.Add(LegacySkillLabels.ActStealKeyword + " · 사용 시 상대 ACT가 " + effect.ActStealThreshold +
                     " 이상이면 ACT " + effect.ActStealAmount + " 강탈");
+            if (effect.HasActRecoverySteal)
+                parts.Add(RecoveryStealUsed(view, true, skill.Id) ? Used("ACT 회복 강탈")
+                    : "같은 칸 상대 공격 시 다음 턴 ACT 회복 " + effect.ActRecoveryStealAmount + " 강탈 · 효과 턴당 1회");
             if (effect.HasAheadHitPower)
                 parts.Add(!first ? Used("총타수 보너스")
                     : "서로 다른 앞 공격 총타수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
@@ -195,6 +203,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     ? new LegacyKeywordMark(AutoBreathTag, LegacyKeywordMarkKind.AutoBreath, false) : LegacyKeywordMark.None;
             LegacySkillEffect effect = EffectOf(skill);
             if (effect == null) return LegacyKeywordMark.None;
+            if (effect.HasActRecoverySteal)
+            {
+                ILegacySlotView current = view.CurrentSlot;
+                LegacySkillFeedback actual = !planning && current != null && current.SlotIndex == slotIndex
+                    ? playerRow ? current.PlayerFeedback : current.EnemyFeedback : null;
+                bool used = RecoveryStealUsed(view, playerRow, skill.Id);
+                return actual != null
+                    ? new LegacyKeywordMark("회복 강탈 " + actual.ActRecoveryStolen, LegacyKeywordMarkKind.ActRecoverySteal,
+                        actual.ActRecoveryStolen == 0)
+                    : new LegacyKeywordMark(used ? "+0" : "회복 강탈 " + effect.ActRecoveryStealAmount + "?",
+                        LegacyKeywordMarkKind.ActRecoverySteal, used);
+            }
             if (effect.HasActSteal)
             {
                 ILegacySlotView current = view.CurrentSlot;
@@ -379,6 +399,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private static bool TemporaryUsed(ILegacyDuelView view)
             => (view.ReserveEffectsUsedThisTurn & LegacyReserveEffect.Temporary) != 0;
+
+        private static bool RecoveryStealUsed(ILegacyDuelView view, bool playerRow, int skillId)
+            => view is LocalVersusPerspective versus &&
+                (playerRow ? versus.Me : versus.Opponent).HasUsedActRecoverySteal(skillId);
 
         private static Func<int, int> CycleUsesOf(ILegacyDuelView view, bool playerRow)
             => playerRow ? (Func<int, int>)view.CycleUses : view.EnemyCycleUses;

@@ -35,8 +35,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     return "표시된 횟수의 기술을 사용할 때 공격·방어 위력이 " + strength +
                         " 증가합니다. 숨고르기·빈 칸은 세지 않으며 턴이 지나도 남습니다.";
                 case LegacyStatusKind.Protection:
-                    return "피해를 줄이는 보호 비율: " + (percent > 0 ? strength : "표시된 비율") +
-                        ". 표시된 횟수의 공격 기술에 적용합니다. 보호와 취약은 서로 상쇄하며, " +
+                    return "보호 비율: " + (percent > 0 ? strength : "표시된 비율") +
+                        ". 표시된 횟수의 공격 기술에 적용합니다. 취약과 서로 상쇄되며, " +
                         "최종 피해 감소율은 최대 100%입니다. 연타는 1회로 세며, 회피하면 소모하지 않고 턴이 지나도 남습니다.";
                 case LegacyStatusKind.Vulnerability:
                     return "표시된 횟수의 공격 기술을 받을 때 피해가 " + strength +

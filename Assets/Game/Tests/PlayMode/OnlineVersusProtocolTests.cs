@@ -281,8 +281,9 @@ namespace TurnLimbo.Presentation.Tests
             }
             LocalVersusSlot slot = match.BeginNextSlot();
             LegacySkillFeedback original = owner == 0 ? slot.LeftFeedback : slot.RightFeedback;
-            Assert.That(original.ActStolen, Is.EqualTo(3));
-            Assert.That(original.ActReceived, Is.EqualTo(3));
+            Assert.That(original.ActStolen, Is.Zero);
+            Assert.That(original.ActReceived, Is.Zero);
+            Assert.That(original.ActRecoveryStolen, Is.EqualTo(1));
             string before = OnlineVersusProtocol.ComputeStateHash(match);
             int leftAct = match.Left.Act, rightAct = match.Right.Act;
 
@@ -291,10 +292,46 @@ namespace TurnLimbo.Presentation.Tests
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic, null,
                 new object[] { steal, original.ConditionMet, original.EffectActivated, 0, 0, 0, 0, 0, 0, 0, 0, false,
                     original.ActStolen + (changeStolen ? 1 : 0), original.ActReceived + (changeStolen ? 0 : 1) }, null);
+            replacement = (LegacySkillFeedback)typeof(LegacySkillFeedback).GetMethod("WithActRecoverySteal",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(replacement, new object[] { original.ActRecoveryStolen });
             System.Reflection.PropertyInfo property = typeof(LocalVersusSlot).GetProperty(owner == 0 ? "LeftFeedback" : "RightFeedback");
             property.SetValue(slot, replacement);
             Assert.That(match.Left.Act, Is.EqualTo(leftAct));
             Assert.That(match.Right.Act, Is.EqualTo(rightAct));
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.Not.EqualTo(before));
+            property.SetValue(slot, original);
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.EqualTo(before));
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        public void StateHash_IncludesEachOwnersRecoveryStealFeedbackAndSuccessfulUseState(int owner)
+        {
+            LegacySkill steal = LegacySkillDefinitions.Skill(62);
+            var match = new LocalVersusMatch(new[] { steal }, new[] { steal });
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int player = match.CurrentPlanner;
+                Assert.That(match.TryQueueLane(player, 2), Is.True);
+                Assert.That(match.TryCommit(player), Is.True);
+            }
+            var slot = match.BeginNextSlot();
+            var fighter = match.GetFighter(owner);
+            var original = owner == 0 ? slot.LeftFeedback : slot.RightFeedback;
+            Assert.That(original.ActRecoveryStolen, Is.EqualTo(1));
+            string before = OnlineVersusProtocol.ComputeStateHash(match);
+            var uses = (System.Collections.Generic.HashSet<int>)typeof(LocalVersusFighter).GetField("ActRecoveryStealUses",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(fighter);
+            Assert.That(uses.Remove(62), Is.True);
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.Not.EqualTo(before));
+            uses.Add(62);
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.EqualTo(before));
+            var replacement = (LegacySkillFeedback)typeof(LegacySkillFeedback).GetMethod("WithActRecoverySteal",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Invoke(original, new object[] { 2 });
+            var property = typeof(LocalVersusSlot).GetProperty(owner == 0 ? "LeftFeedback" : "RightFeedback");
+            property.SetValue(slot, replacement);
             Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.Not.EqualTo(before));
             property.SetValue(slot, original);
             Assert.That(OnlineVersusProtocol.ComputeStateHash(match), Is.EqualTo(before));

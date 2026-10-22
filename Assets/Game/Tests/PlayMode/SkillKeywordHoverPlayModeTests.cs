@@ -99,6 +99,11 @@ namespace TurnLimbo.Presentation.Tests
         [Test]
         public void CommonTerms_ExplainMeaningAndTunedStatusPercentages()
         {
+            Assert.That(SkillKeywordHover.TryExplain("ACT 회복 강탈", out string recoverySteal), Is.True);
+            Assert.That(recoverySteal, Does.Contain("같은 칸").And.Contain("공격 기술").And.Contain("다음 턴")
+                .And.Contain("최소 1").And.Contain("실제 줄인 양").And.Contain("턴당 1회"));
+            Assert.That(SkillKeywordHover.TryExplain("ACT 강탈", out string immediateSteal), Is.True);
+            Assert.That(immediateSteal, Does.Contain("즉시"), "The legacy immediate-transfer keyword remains distinct.");
             Assert.That(SkillKeywordHover.TryExplain("순환", out string cycle), Is.True);
             Assert.That(cycle, Does.Contain("사용하거나"));
             Assert.That(SkillKeywordHover.TryExplain("취소", out string cancel), Is.True);

@@ -92,7 +92,7 @@ namespace TurnLimbo.Presentation.Tests
                         "All open lanes' gears are visible together, never behind tabs.");
                 Assert.That(TryNamed(fixture.Hud.Root, "Loadout Owned Hint"), Is.Null,
                     "One hint line only: the page's subtitle (CampaignLobbyHud.LoadoutHint), no 클릭·드래그 line.");
-                Assert.That(CampaignLobbyHud.LoadoutHint, Is.EqualTo("기술을 같은 열의 톱니에 끼우세요."));
+                Assert.That(CampaignLobbyHud.LoadoutHint, Is.EqualTo("기술을 끌어 같은 열의 톱니에 끼우세요."));
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.False);
                 Assert.That(Button(fixture.Hud.Root, "Loadout Cancel").interactable, Is.False);
                 Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero,
@@ -390,7 +390,7 @@ namespace TurnLimbo.Presentation.Tests
                 AssertSocketShows(slot, null);
                 Assert.That(TryNamed(fixture.Hud.Root, "Loadout Counts"), Is.Null);
                 Assert.That(Label(fixture.Hud.Root, "Loadout Status").text,
-                    Is.EqualTo("빈 칸을 채워야 저장할 수 있습니다"));
+                    Is.EqualTo("빈칸을 모두 채워야 저장할 수 있습니다"));
                 Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.EqualTo(1), "Q's rack shows the removed skill.");
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.False);
                 Assert.That(Button(fixture.Hud.Root, "Loadout Cancel").interactable, Is.True);

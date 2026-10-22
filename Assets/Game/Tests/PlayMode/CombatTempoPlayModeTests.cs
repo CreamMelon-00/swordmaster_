@@ -316,7 +316,7 @@ namespace TurnLimbo.Presentation.Tests
                     // StepInputPlayModeTests covers the new, separate anticipation phase, and ShowDirectorPlayModeTests
                     // the presentation director's pacing (its even 1-against-1 합 would bind here).
                     JsonUtility.FromJsonOverwrite("{\"stepAnticipationDuration\":0,\"showDirectorEnabled\":false," +
-                        "\"combatTempoEnabled\":false}", settingsClone);
+                        "\"combatTempoEnabled\":false,\"bladeExchangeEnabled\":false}", settingsClone);
                     SetField("presentationSettings", settingsClone);
                     var playerSkills = new[]
                     {

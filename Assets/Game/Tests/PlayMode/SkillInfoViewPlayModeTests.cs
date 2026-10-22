@@ -39,8 +39,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 // Authored expectations, not values copied from the view model.
                 int[] ids = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19, 21, 32, 42, 51, 52, 53, 54, 55, 56 };
-                int[] costs = { 1, 1, 2, 3, 1, 2, 1, 2, 1, 1, 1, 1, 1, 4, 1, 2, 3, 1, 1, 3, 1, 1, 2, 2, 3 };
-                string[] powers = { "3–4", "6–7", "15–18", "23–27", "4–6", "9–12", "5–8", "13–16", "4–6", "2–3", "4–8", "5–9", "4–5", "18–42", "4–6", "7–11", "16–20", "6–9", "4–8",
+                int[] costs = { 1, 1, 2, 3, 1, 2, 1, 2, 2, 1, 1, 1, 1, 4, 1, 2, 3, 1, 1, 3, 1, 1, 2, 2, 3 };
+                string[] powers = { "3–4", "6–7", "15–18", "23–27", "4–6", "9–12", "5–8", "13–16", "4–6", "2–3", "4–8", "5–9", "4–5", "18–42", "4–6", "7–11", "18–22", "6–9", "4–8",
                     "14–18", "2–4", "5–7", "6–8", "5–7", "15–19" };
                 int[] hits = { 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
                 for (int index = 0; index < ids.Length; index++)
@@ -219,6 +219,25 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(CampaignSkillText.Effect(Skill(17)), Does.Not.Contain("회복"));
             }
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RecoverySteal_ShowsItsAttackConditionNextTurnTimingAndOncePerTurnBadge()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var skill = Skill(62);
+                foreach (bool opponent in new[] { false, true })
+                {
+                    fixture.View.SetSkill(skill, opponent, enemyActRecoveryIsPlayerOnly: false);
+                    Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
+                    Assert.That(fixture.View.PowerText.text, Is.EqualTo("5–7"));
+                    Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT 회복 강탈").And.Contain("효과 턴당 1회"));
+                    Assert.That(fixture.View.EffectText.text, Does.Contain("공격").And.Contain("다음 턴").And.Contain("1"));
+                    Assert.That(VisibleText(fixture.View.Root), Does.Not.Contain("8 이상").And.Not.Contain("즉시"));
+                }
+            }
         }
 
         [UnityTest]

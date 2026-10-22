@@ -32,8 +32,11 @@ namespace TurnLimbo.Core.Tests
             Assert.That(battle.PlayerQueue[1].IsWait, Is.False);
             Assert.That(battle.Duel.Features.AllowsAnyStep(), Is.False);
             Assert.That(battle.Duel.MeshPercent, Is.Zero);
-            Assert.That(battle.Duel.RoundLimit, Is.EqualTo(12));
-            Assert.That(battle.Duel.Player.Health, Is.EqualTo(60));
+            Assert.That(battle.Duel.RoundLimit, Is.EqualTo(24));
+            Assert.That(battle.Duel.Player.Health, Is.EqualTo(500));
+            Assert.That(battle.Duel.Player.MaxHealth, Is.EqualTo(500));
+            Assert.That(battle.Duel.Enemy.Health, Is.EqualTo(500));
+            Assert.That(battle.Duel.Enemy.MaxHealth, Is.EqualTo(500));
             Assert.That(battle.Duel.Enemy.Resistance, Is.EqualTo(30));
             Assert.That(battle.EnemyName, Is.Not.Empty);
             Assert.That(RunSnapshot(run), Is.EqualTo(before));
@@ -176,7 +179,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void EightBreathsOnBothSides_ResolveExactlyTwelveTurnsThenDraw()
+        public void EightBreathsOnBothSides_ResolveExactlyTwentyFourTurnsThenDraw()
         {
             LegacyQueuedDuel duel = Duel(roundLimit: SkillTavernBattle.MaximumTurns);
             int slots = 0;
@@ -192,7 +195,7 @@ namespace TurnLimbo.Core.Tests
                 if (duel.Phase != LegacyDuelPhase.Finished) duel.BeginNextTurn();
             }
             Assert.That(slots, Is.EqualTo(8 * SkillTavernBattle.MaximumTurns));
-            Assert.That(duel.RoundNumber, Is.EqualTo(12));
+            Assert.That(duel.RoundNumber, Is.EqualTo(24));
             Assert.That(duel.Outcome, Is.EqualTo(DuelMatchOutcome.Draw));
         }
 
@@ -214,7 +217,7 @@ namespace TurnLimbo.Core.Tests
                 ResolveTurn(battle.Duel);
                 turns++;
             } while (battle.TryBeginNextTurn());
-            Assert.That(turns, Is.EqualTo(12));
+            Assert.That(turns, Is.EqualTo(24));
             Assert.That(battle.Duel.Outcome, Is.EqualTo(DuelMatchOutcome.Draw));
             Assert.That(battle.TryBeginNextTurn(), Is.False);
         }
@@ -385,7 +388,7 @@ namespace TurnLimbo.Core.Tests
             => new LegacySkill(id, "시험 베기", cost, power, power, LegacySkillKind.Attack,
                 LegacySkillProperty.Slash, 1, 0, string.Empty, iconId: 1);
         private static LegacySkill[] Breaths() => Enumerable.Repeat(LegacyCommonActions.Breathe, 8).ToArray();
-        private static LegacyQueuedDuel Duel(int roundLimit = 12)
+        private static LegacyQueuedDuel Duel(int roundLimit = SkillTavernBattle.MaximumTurns)
             => new LegacyQueuedDuel(1000, 30, 1000, 30, new[] { Attack(-9100) },
                 new[] { Attack(-9200) }, new[] { 1 }, features: CombatFeature.LaneQ, roundLimit: roundLimit, meshPercent: 0);
         private static void BuyAndDeploy(SkillTavernRun run)

@@ -13,7 +13,7 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class LocalVersusHudPlayModeTests
     {
         [UnityTest]
-        public IEnumerator ActBadges_ShowCurrentRemainingAct_FromBothPerspectives_AndWarnOnlyAtEightOrMore()
+        public IEnumerator ActBadges_ShowCurrentRemainingAct_FromBothPerspectives_WithoutAnObsoleteEightActWarning()
         {
             yield return null;
             var host = new GameObject("Versus ACT Test");
@@ -49,17 +49,17 @@ namespace TurnLimbo.Presentation.Tests
                 hud.Refresh(match, 0);
                 Assert.That(hud.OwnActText, Is.EqualTo("나  ACT 8 / 10"));
                 Assert.That(hud.OpponentActText, Is.EqualTo("상대  ACT 9 / 10"));
-                Assert.That(hud.OwnActAtRisk && hud.OpponentActAtRisk, Is.True);
+                Assert.That(hud.OwnActAtRisk || hud.OpponentActAtRisk, Is.False);
                 Assert.That(Named(hud.Root, LocalVersusHud.OwnActBadgeName).GetComponent<Image>().color,
-                    Is.EqualTo(DuelVisualTheme.Danger));
+                    Is.Not.EqualTo(DuelVisualTheme.Danger));
 
                 Assert.That(match.TryQueueLane(0, 0), Is.True);
                 hud.Refresh(match, 0);
                 Assert.That(hud.OwnActText, Is.EqualTo("나  ACT 7 / 10"));
-                Assert.That(hud.OwnActAtRisk, Is.False, "Spending below the threshold immediately clears the warning.");
-                Assert.That(hud.OpponentActAtRisk, Is.True);
+                Assert.That(hud.OwnActAtRisk, Is.False);
+                Assert.That(hud.OpponentActAtRisk, Is.False);
                 hud.Refresh(match, 1);
-                Assert.That(hud.OwnActAtRisk, Is.True);
+                Assert.That(hud.OwnActAtRisk, Is.False);
                 Assert.That(hud.OpponentActAtRisk, Is.False);
                 Assert.That(hud.OwnActText, Is.EqualTo("나  ACT 9 / 10"));
                 Assert.That(hud.OpponentActText, Is.EqualTo("상대  ACT 7 / 10"));

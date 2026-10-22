@@ -275,7 +275,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ActSteal_ThroughTheRealCommandStream_KeepsBothPeersAndTheirMirroredBadgesInSync()
+        public IEnumerator ActRecoverySteal_ThroughTheRealCommandStream_KeepsBothPeersAndTheirMirroredBadgesInSync()
         {
             yield return null;
             using (var pair = new Pair())
@@ -302,27 +302,30 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(pair.Host.Duel.Match.Left.Act, Is.EqualTo(10));
                 Assert.That(pair.Host.Duel.Match.Right.Act, Is.EqualTo(10));
                 Assert.That(pair.Host.Duel.Match.CurrentPlanner, Is.EqualTo(1));
+                pair.GuestAction(OnlineVersusAction.QueueLane, () => pair.Guest.Duel.TryQueueLane(0));
                 pair.GuestAction(OnlineVersusAction.Pass, pair.Guest.Duel.TryCommit);
                 pair.HostAction(() => pair.Host.Duel.TryQueueLane(2));
                 Assert.That(pair.Host.Duel.Match.Left.Queue[0].Id, Is.EqualTo(62));
                 Assert.That(pair.Host.Duel.Match.Left.Act, Is.EqualTo(8));
                 Assert.That(pair.Guest.Duel.Match.Left.Act, Is.EqualTo(8));
-                Assert.That(pair.Host.Duel.Match.Right.Act, Is.EqualTo(10), "Reserving the skill cannot steal yet.");
+                Assert.That(pair.Host.Duel.Match.Right.Act, Is.EqualTo(9), "Only the opposing attack's reservation cost is paid.");
                 pair.HostAction(pair.Host.Duel.TryCommit);
 
                 pair.AdvanceUntil(() => pair.Host.Duel.Match.CurrentSlot != null &&
                     pair.Guest.Duel.Match.CurrentSlot != null);
                 pair.AssertSameBattle();
-                Assert.That(pair.Host.Duel.Match.CurrentSlot.LeftFeedback.ActStolen, Is.EqualTo(3));
-                Assert.That(pair.Guest.Duel.Match.CurrentSlot.LeftFeedback.ActStolen, Is.EqualTo(3));
-                Assert.That(pair.Host.Duel.Match.CurrentSlot.LeftFeedback.ActReceived, Is.EqualTo(2));
-                Assert.That(pair.Guest.Duel.Match.CurrentSlot.LeftFeedback.ActReceived, Is.EqualTo(2));
-                Assert.That(pair.Host.Duel.Perspective.Act, Is.EqualTo(10));
-                Assert.That(pair.Guest.Duel.Perspective.Act, Is.EqualTo(7));
-                Assert.That(pair.Host.Duel.Hud.OwnActText, Is.EqualTo("나  ACT 10 / 10"));
-                Assert.That(pair.Host.Duel.Hud.OpponentActText, Is.EqualTo("상대  ACT 7 / 10"));
-                Assert.That(pair.Guest.Duel.Hud.OwnActText, Is.EqualTo("나  ACT 7 / 10"));
-                Assert.That(pair.Guest.Duel.Hud.OpponentActText, Is.EqualTo("상대  ACT 10 / 10"));
+                Assert.That(pair.Host.Duel.Match.CurrentSlot.LeftFeedback.ActRecoveryStolen, Is.EqualTo(1));
+                Assert.That(pair.Guest.Duel.Match.CurrentSlot.LeftFeedback.ActRecoveryStolen, Is.EqualTo(1));
+                Assert.That(pair.Host.Duel.Match.CurrentSlot.LeftFeedback.ActStolen, Is.Zero);
+                Assert.That(pair.Guest.Duel.Match.CurrentSlot.LeftFeedback.ActStolen, Is.Zero);
+                Assert.That((pair.Host.Duel.Match.Left.NextActGain, pair.Host.Duel.Match.Right.NextActGain),
+                    Is.EqualTo((4, 3)), "The opposing 베기 first grants recovery +1; the transfer then moves one recovery.");
+                Assert.That(pair.Host.Duel.Perspective.Act, Is.EqualTo(8));
+                Assert.That(pair.Guest.Duel.Perspective.Act, Is.EqualTo(9));
+                Assert.That(pair.Host.Duel.Hud.OwnActText, Is.EqualTo("나  ACT 8 / 10"));
+                Assert.That(pair.Host.Duel.Hud.OpponentActText, Is.EqualTo("상대  ACT 9 / 10"));
+                Assert.That(pair.Guest.Duel.Hud.OwnActText, Is.EqualTo("나  ACT 9 / 10"));
+                Assert.That(pair.Guest.Duel.Hud.OpponentActText, Is.EqualTo("상대  ACT 8 / 10"));
 
                 pair.AdvanceUntil(() => pair.Host.Duel.Match.RoundNumber == 5 &&
                     pair.Guest.Duel.Match.RoundNumber == 5);

@@ -102,14 +102,18 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void CyclingSkill_CountsActualUsesOnly_AndBothReservationsKeepOriginalCost()
+        public void CyclingSkill_ChargesPendingCopiesWithoutRecordingUses_AndForecastsTheSamePrice()
         {
             LegacySkill cycle = LegacySkillDefinitions.Skill(46);
             var match = NewMatch(new[] { cycle }, new[] { Attack(200, 1, 1) });
             Assert.That(match.TryQueueLane(0, 1), Is.True);
-            Assert.That(match.Left.EffectiveCost(cycle), Is.EqualTo(1));
+            Assert.That(match.Left.EffectiveCost(cycle), Is.EqualTo(2));
+            Assert.That(match.ForecastIfQueued(0, 1), Is.Not.Null);
+            Assert.That((match.Left.Act, match.Left.Queue.Count, match.Left.CycleUses(46)), Is.EqualTo((2, 1, 0)));
             Assert.That(match.TryQueueLane(0, 1), Is.True);
-            Assert.That(match.Left.Act, Is.EqualTo(1));
+            Assert.That(match.Left.Act, Is.Zero);
+            Assert.That(match.Left.EffectiveCost(cycle), Is.EqualTo(3));
+            Assert.That(match.ForecastIfQueued(0, 1), Is.Null);
             Assert.That(match.Left.CycleUses(46), Is.Zero);
             Commit(match);
             ResolveTurn(match);
@@ -119,6 +123,45 @@ namespace TurnLimbo.Core.Tests
             Assert.That(max, Is.EqualTo(20));
             match.BeginNextTurn();
             Assert.That(match.Left.EffectiveCost(cycle), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void CyclingSkill_BothThreeSlotLoadoutsChargeOneTwoThreeFour_AndBothViewsReadTheNextPrice()
+        {
+            int[] ids = { 1, 2, 7, 46, 3, 8, 53, 45, 55 };
+            var skills = new LegacySkill[ids.Length];
+            for (int index = 0; index < ids.Length; index++) skills[index] = LegacySkillDefinitions.Skill(ids[index]);
+            var match = new LocalVersusMatch(skills, skills, leftHealth: 1000, leftResistance: 1000,
+                rightHealth: 1000, rightResistance: 1000);
+            while (match.Left.Act < 10) { Commit(match); match.BeginNextTurn(); }
+            LegacySkill honing = LegacySkillDefinitions.Skill(46);
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int player = match.CurrentPlanner;
+                LocalVersusFighter fighter = match.GetFighter(player);
+                var self = new LocalVersusPerspective(match, player);
+                var other = new LocalVersusPerspective(match, 1 - player);
+                for (int cost = 1; cost <= 4; cost++)
+                {
+                    Assert.That(fighter.GetLane(1)[0].Id, Is.EqualTo(46));
+                    Assert.That((fighter.EffectiveCost(honing), self.EffectiveCost(honing), other.EnemyEffectiveCost(honing)),
+                        Is.EqualTo((cost, cost, cost)));
+                    Assert.That(match.TryQueueLane(player, 1), Is.True);
+                    Assert.That(match.TryCycleLanes(player) && match.TryCycleLanes(player), Is.True);
+                }
+                Assert.That((fighter.Act, fighter.Queue.Count, fighter.CycleUses(46)), Is.EqualTo((0, 4, 0)));
+                Assert.That(fighter.EffectiveCost(honing), Is.EqualTo(5));
+                Assert.That(match.ForecastIfQueued(player, 1), Is.Null);
+                Assert.That(match.CanQueueLane(player, 1), Is.False);
+                Assert.That(match.TryQueueLane(player, 1), Is.False);
+                Assert.That(fighter.GetLane(1)[0].Id, Is.EqualTo(46));
+                Assert.That(match.TryCommit(player), Is.True);
+            }
+            ResolveTurn(match);
+            Assert.That((match.Left.CycleUses(46), match.Right.CycleUses(46)), Is.EqualTo((4, 4)));
+            match.BeginNextTurn();
+            Assert.That((match.Left.Act, match.Right.Act), Is.EqualTo((3, 3)));
+            Assert.That((match.Left.EffectiveCost(honing), match.Right.EffectiveCost(honing)), Is.EqualTo((5, 5)));
         }
 
         [Test]

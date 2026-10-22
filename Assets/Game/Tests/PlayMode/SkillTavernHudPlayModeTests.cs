@@ -97,7 +97,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Text(hud, "Tavern Heading"), Is.EqualTo("선술집 실험"));
                 Assert.That(Text(hud, "Tavern Rules"), Does.Contain("연습 상대 1명과 자동 전투").And.Contain("예약 비용으로 쓰지 않습니다"));
                 Assert.That(Button(hud, "Tavern Next Round").GetComponentInChildren<Text>().text, Is.EqualTo("전투 시작"));
-                Assert.That(Text(hud, "Tavern Round Hint"), Does.Contain("기술 1/8").And.Contain("HP 60").And.Contain("저항 30"));
+                Assert.That(Text(hud, "Tavern Round Hint"), Does.Contain("기술 1/8").And.Contain("HP 500").And.Contain("저항 30"));
                 Assert.That(Text(hud, "Tavern Wallet"), Does.Contain("라운드 1").And.Contain("자원 3"));
                 var scaler = hud.Root.GetComponent<CanvasScaler>();
                 Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920f, 1080f)));

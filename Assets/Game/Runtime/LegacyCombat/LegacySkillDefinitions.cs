@@ -62,6 +62,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// up to its ACT cap. Applies once per technique, never once per hit; independent of next-turn ACT recovery.</summary>
         public int ActStealAmount { get; internal set; }
         public bool HasActSteal => ActStealThreshold > 0 && ActStealAmount > 0;
+        /// <summary>Once per successful use of this skill each turn, steal next-turn ACT recovery from an opposing
+        /// attack. Versus only; the opponent keeps at least one recovery and only the actual loss is gained.</summary>
+        public int ActRecoveryStealAmount { get; internal set; }
+        public bool HasActRecoverySteal => ActRecoveryStealAmount > 0;
         /// <summary>Power bonus granted to this fighter's following slots this turn.</summary>
         public int BuffPowerPercent { get; internal set; }
         /// <summary>Received-damage reduction for the following slots; negative values make them vulnerable.</summary>
@@ -162,7 +166,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// time cost; a remover may not carry one, since taking its own work back and reserving again would repeat it.</summary>
         public bool HasReserveGain => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn;
         /// <summary>Whether the row writes its 사용 효과 cell.</summary>
-        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal;
+        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal || HasActRecoverySteal;
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
         public bool HasOpponentStateCondition => OpponentState != LegacyOpponentState.None;
@@ -209,6 +213,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (HasAheadTime) roles |= LegacySkillRole.NextTurnTime;
                 if (HasProtectionSpend) roles |= LegacySkillRole.ProtectionSpend;
                 if (HasAheadHitPower) roles |= LegacySkillRole.AheadHitPower;
+                if (HasActRecoverySteal) roles |= LegacySkillRole.ActRecoverySteal;
                 return roles;
             }
         }
@@ -299,6 +304,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The techniques beyond the starting nine (획득 rows); stage first clears, the curriculum and the academy
         /// field's pickups grant them.</summary>
         public static IReadOnlyList<LegacySkill> AcquisitionSkills => Table.AcquisitionSkills;
+        /// <summary>The 대전 rows, available in multiplayer but never owned or granted in the campaign.</summary>
+        public static IReadOnlyList<LegacySkill> VersusSkills => Table.VersusSkills;
         /// <summary>The enemy-only techniques (적 rows), such as 이아's 라우다레 in the 서막's last mission. The player never
         /// owns, equips or learns them; enemies name them by id.</summary>
         public static IReadOnlyList<LegacySkill> EnemySkills => Table.EnemySkills;

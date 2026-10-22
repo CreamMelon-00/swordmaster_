@@ -228,7 +228,7 @@ namespace TurnLimbo.Presentation
 
             string fallback = choice ? view.Phase == OnlineInvitePhase.Error
                     ? "초대 코드를 확인한 뒤 다시 시도해 주세요."
-                    : "대전은 캠페인 진행과 별개로 진행됩니다."
+                    : "대전은 캠페인 진행에 영향을 주지 않습니다."
                 : connecting ? "연결을 확인하고 있습니다..."
                 : view.Host && !view.PeerConnected ? "초대 코드를 친구에게 보내세요."
                 : view.Host ? "두 사람이 준비하면 대전을 시작할 수 있습니다."

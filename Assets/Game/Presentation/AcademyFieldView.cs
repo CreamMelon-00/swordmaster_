@@ -445,7 +445,7 @@ namespace TurnLimbo.Presentation
                 : nearest.Kind == TargetKind.Pickup ? nearest.CanInteract ? "Space · " + nearest.Name + " 습득" : string.Empty
                 : nearest.CanInteract ? "Space · " + nearest.Name
                 : nearest.Kind == TargetKind.Story ? storyStatus
-                : run.HasLoadoutChanges ? "편성 변경을 먼저 저장하세요"
+                : run.HasLoadoutChanges ? "변경한 편성을 먼저 저장하세요"
                 : "선행 임무를 완료하면 도전할 수 있습니다";
             UpdateLabels(nearest);
 

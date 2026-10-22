@@ -14,6 +14,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const string AutoDodgePhrase = "자동 회피";
         /// <summary>ACT 강탈 tests the opponent's remaining ACT when used and transfers current ACT, not next-turn recovery.</summary>
         public const string ActStealKeyword = "ACT 강탈";
+        public const string ActRecoveryStealKeyword = "ACT 회복 강탈";
         public const int MinimumActStealValue = 1, MaximumActStealValue = 10;
         /// <summary>Bounds for 보호 소모 위력 +N and 앞 공격 총타수 M 이상 위력 +N.</summary>
         public const int MinimumUsePowerBonus = 1, MaximumUsePowerBonus = 50;
@@ -44,6 +45,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             @"^앞\s*공격\s*총\s*타수\s*([0-9]{1,3})\s*이상\s*위력\s*\+\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
         private static readonly Regex ActStealPattern = new Regex(
             @"^상대\s*ACT\s*([0-9]{1,3})\s*이상이면\s*ACT\s*([0-9]{1,3})\s*강탈$", RegexOptions.CultureInvariant);
+        private static readonly Regex ActRecoveryStealPattern = new Regex(
+            @"^상대\s*공격\s*시\s*다음\s*턴\s*ACT\s*회복\s*([0-9]{1,3})\s*강탈$", RegexOptions.CultureInvariant);
         // 앞 <대상>마다 다음 턴 제한시간 +n초 (최대 m), spaces optional between the parts.
         private static readonly Regex AheadTimePattern = new Regex(
             @"^앞\s*(숨고르기|순환\s*기술|저항\s*감소\s*기술)\s*마다\s*다음\s*턴\s*제한\s*시간\s*\+\s*([0-9]{1,3})\s*초\s*\(\s*최대\s*([0-9]{1,3})\s*\)$",
@@ -213,6 +216,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.HasActSteal)
                 return "상대 ACT " + effect.ActStealThreshold.ToString(CultureInfo.InvariantCulture) +
                     " 이상이면 ACT " + effect.ActStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈";
+            if (effect.HasActRecoverySteal)
+                return "상대 공격 시 다음 턴 ACT 회복 " + effect.ActRecoveryStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈";
             return string.Empty;
         }
 
@@ -272,6 +277,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (Compact(trimmed) == Compact(AutoDodgePhrase))
             {
                 effect.AutoDodge = true;
+                return true;
+            }
+            Match recoverySteal = ActRecoveryStealPattern.Match(trimmed);
+            if (recoverySteal.Success)
+            {
+                int amount = int.Parse(recoverySteal.Groups[1].Value, CultureInfo.InvariantCulture);
+                if (amount < MinimumActStealValue || amount > MaximumActStealValue) return false;
+                effect.ActRecoveryStealAmount = amount;
                 return true;
             }
             Match actSteal = ActStealPattern.Match(trimmed);
