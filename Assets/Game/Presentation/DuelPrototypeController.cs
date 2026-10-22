@@ -250,13 +250,13 @@ namespace TurnLimbo.Presentation
         public bool IsTrainingBattle => campaign != null && campaign.IsTrainingBattle;
         /// <summary>결투 or 전투 for the fight on screen (internal; changes presentation only). Missions say which;
         /// stages are 전투.</summary>
-        public EncounterKind Encounter => IsTrainingBattle ? EncounterKind.Battle
+        public EncounterKind Encounter => IsInSkillTavern || IsTrainingBattle ? EncounterKind.Battle
             : IsMission ? mission.Encounter : campaign.CurrentStage.Encounter;
         public bool IsShowingResult => viewPhase == ViewPhase.Outcome && battleResult != null;
         public bool IsShowingDialogue => dialogueSession != null && dialogueHud != null && dialogueHud.IsVisible;
         public bool IsInBriefing => showingBriefing && !showingTitle && !IsShowingDialogue && !IsPlayingCutscene &&
             viewPhase == ViewPhase.Outcome && !IsShowingResult;
-        public bool IsInLobby => !IsInOnlineVersus && !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
+        public bool IsInLobby => !IsInSkillTavern && !IsInOnlineVersus && !IsShowingDialogue && !IsPlayingCutscene && viewPhase == ViewPhase.Outcome && !IsShowingResult &&
             !IsMission && !showingBriefing && !showingTitle && campaign.Phase == CampaignPhase.Lobby;
         public bool IsInAcademyField => IsInLobby && academyField != null && academyField.IsVisible;
         public DuelPresentationSettings PresentationSettings => presentationSettings;
@@ -264,7 +264,7 @@ namespace TurnLimbo.Presentation
         public LegacyCombatHud Hud => hud;
         public DuelStepHud StepHud => stepHud;
         public bool IsResolving => viewPhase != ViewPhase.Planning && viewPhase != ViewPhase.Outcome;
-        public bool CanChoose => !IsPaused && viewPhase == ViewPhase.Planning && session.Phase == LegacyDuelPhase.Planning;
+        public bool CanChoose => !IsInSkillTavern && !IsPaused && viewPhase == ViewPhase.Planning && session.Phase == LegacyDuelPhase.Planning;
         public int PlayerHealth => session.Player.Health;
         public int EnemyHealth => RemainingEnemyHealth;
         public DuelMatchOutcome Outcome => session.Outcome;
@@ -329,7 +329,7 @@ namespace TurnLimbo.Presentation
             }
         }
         // A cut-in holds the battle: no step is judged against its held cue.
-        public bool CanStep => session != null && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
+        public bool CanStep => session != null && !IsInSkillTavern && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
             !bladeBindHitPending &&
             StepFeatures.AllowsAnyStep() &&
             session.Phase == LegacyDuelPhase.Resolving &&
@@ -439,7 +439,8 @@ namespace TurnLimbo.Presentation
             recallAlbum = new TutorialRecallAlbum(this);
             briefingHud = new MissionBriefingHud(transform, art, () => StartMission(), () => LeaveBriefing());
             titleHud = new TitleHud(transform, art, () => ContinueGame(), () => NewGameFromTitle(), lobbyRoomSprite,
-                () => StartOnlineVersus());
+                () => StartOnlineVersus(), () => StartSkillTavern());
+            InitializeSkillTavern();
             // The online friend duel's battle plays on the same arena with its own duel HUD, timed by the same presentation
             // settings. Its 타이틀로 goes back to the title, which also closes the online room (ShowTitle stops both).
             localVersus = new LocalVersusController(transform, art, arena, () => ShowTitle(), presentationSettings);
@@ -462,6 +463,7 @@ namespace TurnLimbo.Presentation
         {
             realDelta = Mathf.Max(0f, realDelta);
             if (AdvanceCombatDebug(realDelta, keyboard)) return;
+            if (AdvanceSkillTavern(keyboard)) return;
             // The online room ticks its battle itself (the versus duel only runs under it).
             if (onlineVersus != null && onlineVersus.IsActive)
             {
@@ -1224,7 +1226,7 @@ namespace TurnLimbo.Presentation
         private void RecordResolvedSkillSlot(LegacyCurrentSlot slot)
         {
             hud.RecordResolvedSlot(slot.PlayerSkill, slot.EnemySkill, playerSlotDamage, enemySlotDamage);
-            if (combatDebugInstance) return;
+            if (combatDebugInstance || IsInSkillTavern) return;
             CampaignOwnedSkill owned = slot.PlayerSkill == null ? null : campaign.GetOwnedSkill(slot.PlayerSkill.Id);
             int previousLevel = owned?.Level ?? 0;
             if (campaign.TryGainClashExperience(slot.PlayerSkill, slot.EnemySkill))
@@ -1315,6 +1317,7 @@ namespace TurnLimbo.Presentation
 
         private void StartPlanning()
         {
+            if (IsInSkillTavernBattle) { BeginNextSkillTavernTurn(); return; }
             int playerResistanceBefore = session.Player.Resistance;
             int enemyResistanceBefore = session.Enemy.Resistance;
             int[] temporaryBefore = LegacyKeywordPreview.TemporaryCounts(session);
@@ -2498,6 +2501,7 @@ namespace TurnLimbo.Presentation
         /// coach's 임무 포기 come through <see cref="AbandonBattle"/>, which never leaves a decided battle.</summary>
         public void ReturnToLobby()
         {
+            if (IsInSkillTavern) { ReturnToSkillTavernFormation(); return; }
             if (IsMission)
             {
                 ShowBriefing();
@@ -2521,7 +2525,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Holds the current undecided battle, including its real-time presentation and planning clock.</summary>
         public bool PauseBattle()
         {
-            if (IsPaused || session == null || session.IsFinished || viewPhase == ViewPhase.Outcome ||
+            if (IsInSkillTavern || IsPaused || session == null || session.IsFinished || viewPhase == ViewPhase.Outcome ||
                 IsPlayingScene || IsShowingResult || startCard.IsShowing || finale.IsRunning) return false;
             ClearHeldKeys();
             ConsumeHeldLaneKeys();
@@ -2637,6 +2641,7 @@ namespace TurnLimbo.Presentation
         {
             if (combatDebugInstance) { BeginCombatDebugLoop(); return; }
             if (IsShowingResult || !session.IsFinished) return;
+            if (IsInSkillTavern) { FinishSkillTavernBattle(); return; }
             if (IsTrainingBattle)
             {
                 FinishTraining();
@@ -2909,6 +2914,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Leaves every duel, result, coach and dialogue screen, ready for the lobby or a briefing.</summary>
         private void ClearBattleScreens()
         {
+            StopSkillTavernMode();
             academyField?.Hide();
             pauseHud.Hide();
             StopCutscene();
@@ -3118,7 +3124,7 @@ namespace TurnLimbo.Presentation
 
         /// <summary>This battle's bark file: <c>Barks/mission-NN</c> for a story mission, <c>Barks/stage-NN</c> for a stage, none
         /// in training.</summary>
-        private string BarkResource => combatDebugInstance || IsTrainingBattle ? null
+        private string BarkResource => combatDebugInstance || IsInSkillTavern || IsTrainingBattle ? null
             : IsMission ? BarkScript.MissionResource(mission.Number) : BarkScript.StageResource(campaign.StageNumber);
 
         private void RefreshGuide()
@@ -3244,6 +3250,8 @@ namespace TurnLimbo.Presentation
             briefingHud?.Dispose();
             onlineVersus?.Dispose();
             localVersus?.Dispose();
+            skillTavernHud?.Dispose();
+            skillTavernBattleHud?.Dispose();
             titleHud?.Dispose();
             loadingHud?.Dispose();
             lobbyHud?.Dispose();
