@@ -132,7 +132,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That((skill.Name, skill.Cost, skill.MinPower, skill.MaxPower, skill.AttackCount, skill.LaneIndex),
                 Is.EqualTo(("기세 훔치기", 2, 3, 5, 1, 2)));
             Assert.That((skill.Kind, skill.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Penetrate)));
-            Assert.That(skill.IconId, Is.EqualTo(14));
+            Assert.That(skill.IconId, Is.EqualTo(38));
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill).Effect;
             Assert.That(effect.HasActSteal, Is.True);
             Assert.That((effect.ActStealThreshold, effect.ActStealAmount, effect.ActGain), Is.EqualTo((8, 3, 0)));
@@ -340,8 +340,8 @@ namespace TurnLimbo.Core.Tests
         [TestCase(57, "잔걸음", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 5, 7, 1, 33)]
         [TestCase(58, "숫돌", 1, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 34)]
         [TestCase(59, "갈아내기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 2, 4, 1, 35)]
-        [TestCase(60, "돌파", 1, LegacySkillKind.Attack, LegacySkillProperty.Slash, 2, 8, 12, 1, 10)]
-        [TestCase(61, "추격", 2, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 2, 5, 7, 1, 14)]
+        [TestCase(60, "돌파", 1, LegacySkillKind.Attack, LegacySkillProperty.Slash, 2, 8, 12, 1, 36)]
+        [TestCase(61, "추격", 2, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 2, 5, 7, 1, 37)]
         [TestCase(15, "사선베기", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 4, 5, 2, 11)]
         [TestCase(17, "호흡", 0, LegacySkillKind.Defence, LegacySkillProperty.Defence, 1, 4, 6, 1, 13)]
         [TestCase(19, "르프리즈", 2, LegacySkillKind.Defence, LegacySkillProperty.Defence, 2, 7, 11, 1, 13)]
@@ -431,7 +431,7 @@ namespace TurnLimbo.Core.Tests
         public void ShippedSheet_UsesOnlyImportedIcons()
         {
             // Presentation's LegacyDuelArt.SkillIconCount; the runtime does not know the art source.
-            const int skillIconCount = 35;
+            const int skillIconCount = 39;
             foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 Assert.That(definition.Skill.IconId, Is.InRange(1, skillIconCount), "icon of " + definition.Skill.Id);
         }
@@ -445,6 +445,15 @@ namespace TurnLimbo.Core.Tests
                 "The new skills must not fall back to unrelated attack or guard art.");
             Assert.That(LegacySkillDefinitions.TemporarySkills.Single(s => s.Id == 59).IconId,
                 Is.EqualTo(35));
+        }
+
+        [TestCase(60, 36)]
+        [TestCase(61, 37)]
+        [TestCase(62, 38)]
+        [TestCase(600, 39)]
+        public void ProtectionFollowupActStealAndCounter_UseDedicatedIcons(int skillId, int iconId)
+        {
+            Assert.That(LegacySkillDefinitions.Skill(skillId).IconId, Is.EqualTo(iconId));
         }
 
         [TestCase(16, "알티바호")]

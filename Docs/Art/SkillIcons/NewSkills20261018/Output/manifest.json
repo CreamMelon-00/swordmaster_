@@ -1,0 +1,100 @@
+{
+  "logical_size": 48,
+  "runtime_size": 192,
+  "preserved_existing_files": 92,
+  "applied": true,
+  "icons": [
+    {
+      "skill_id": 60,
+      "role": 36,
+      "name": "돌파",
+      "family": "Slash",
+      "opaque_colors": 40,
+      "protected_frame_mismatches": 0,
+      "generated_bbox": [
+        374,
+        103,
+        885,
+        1106
+      ],
+      "symbol_size": [
+        17,
+        33
+      ],
+      "placement": [
+        15,
+        7
+      ],
+      "clipped_symbol_pixels": 0
+    },
+    {
+      "skill_id": 61,
+      "role": 37,
+      "name": "추격",
+      "family": "Thrust",
+      "opaque_colors": 41,
+      "protected_frame_mismatches": 0,
+      "generated_bbox": [
+        220,
+        216,
+        1222,
+        1099
+      ],
+      "symbol_size": [
+        24,
+        21
+      ],
+      "placement": [
+        12,
+        14
+      ],
+      "clipped_symbol_pixels": 0
+    },
+    {
+      "skill_id": 62,
+      "role": 38,
+      "name": "기세 훔치기",
+      "family": "Thrust",
+      "opaque_colors": 41,
+      "protected_frame_mismatches": 0,
+      "generated_bbox": [
+        446,
+        117,
+        915,
+        1197
+      ],
+      "symbol_size": [
+        14,
+        32
+      ],
+      "placement": [
+        18,
+        8
+      ],
+      "clipped_symbol_pixels": 0
+    },
+    {
+      "skill_id": 600,
+      "role": 39,
+      "name": "연습 반격",
+      "family": "Slash",
+      "opaque_colors": 37,
+      "protected_frame_mismatches": 0,
+      "generated_bbox": [
+        474,
+        187,
+        917,
+        1077
+      ],
+      "symbol_size": [
+        15,
+        30
+      ],
+      "placement": [
+        17,
+        9
+      ],
+      "clipped_symbol_pixels": 0
+    }
+  ]
+}

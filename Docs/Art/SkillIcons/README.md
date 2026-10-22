@@ -1,8 +1,8 @@
 # 스킬 아이콘
 
-현재 게임의 스킬 그림은 35종이며, 48×48 논리 도트와 최대 44×44의 동일한 외곽 기준을 적용한다. 게임 리소스는 최근접 4배 확대한 192×192 PNG다. 1~15번은 기존 아틀라스의 Sprite 이름·ID를 유지하고 16~35번은 개별 Sprite로 로드한다. 기존 20종의 원본과 재생성 절차는 [Unified/README.md](Unified/README.md), 신규 스킬 15종의 그림21~35는 [NewSkills20261015/README.md](NewSkills20261015/README.md)에 있다. 18·20번은 작은 화면에서 문양이 읽히도록 [GoldRefinement](GoldRefinement/)에서 단순화했다. 적 전용 18~20번의 황금색 포인트는 유지했다.
+현재 게임의 스킬 그림은 39종이며, 48×48 논리 도트와 최대 44×44의 동일한 외곽 기준을 적용한다. 게임 리소스는 최근접 4배 확대한 192×192 PNG다. 1~15번은 기존 아틀라스의 Sprite 이름·ID를 유지하고 16~39번은 개별 Sprite로 로드한다. 기존 20종의 원본과 재생성 절차는 [Unified/README.md](Unified/README.md), 그림21~35는 [NewSkills20261015/README.md](NewSkills20261015/README.md), 돌파·추격·기세 훔치기·연습 반격의 그림36~39는 [NewSkills20261018/README.md](NewSkills20261018/README.md)에 있다. 18·20번은 작은 화면에서 문양이 읽히도록 [GoldRefinement](GoldRefinement/)에서 단순화했다. 적 전용 18~20번의 황금색 포인트는 유지했다.
 
-아래 표의 Aseprite 파일과 이후 설명은 최초 제작 원본 기록이다. 기존 20종의 48×48 통합 원본은 Unified/UnifiedSkillIcons-48.aseprite이며, 신규 15종은 NewSkills20261015/NewSkillIcons-48.aseprite다.
+아래 표의 Aseprite 파일과 이후 설명은 최초 제작 원본 기록이다. 기존 20종의 48×48 통합 원본은 Unified/UnifiedSkillIcons-48.aseprite이며, 그림21~35는 NewSkills20261015/NewSkillIcons-48.aseprite, 그림36~39는 NewSkills20261018/NewSkillIcons-48.aseprite다.
 
 | 스킬 | 그림 ID | 게임 리소스 | Aseprite 원본 |
 | --- | ---: | --- | --- |

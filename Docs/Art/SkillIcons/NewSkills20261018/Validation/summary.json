@@ -1,0 +1,29 @@
+{
+  "status": "PASS",
+  "os_exit_code": 0,
+  "native_imported_sprites": 4,
+  "native_d3d11_render_captures": 16,
+  "displayed_sizes": [
+    40,
+    44,
+    48,
+    52
+  ],
+  "original_and_copied_inputs_unchanged": true,
+  "binary_render_alpha": true,
+  "source_palette_preserved_with_gpu_roundtrip_tolerance": 2,
+  "zero_foreign_palette_pixels": true,
+  "unity": "6000.5.9f1",
+  "graphics": "Direct3D11",
+  "device": "NVIDIA GeForce RTX 5060 Ti",
+  "pipeline": "Built-in / Sprites/Default",
+  "color_space": "Linear",
+  "scope": "Isolated import and SpriteRenderer rendering of four new skill resources. No production game, UI canvas, URP, Play Mode or player build validation.",
+  "preliminary_failures": [
+    "Sandbox launch: license channel refused; owned PID verified then terminated, OS exit -1.",
+    "First approved launch: exited before import while original sandbox PID held project, OS exit 1.",
+    "Next approved launch: isolated harness used unavailable direct TextureImporter.spriteMeshType API; compilation failed, OS exit 1.",
+    "Harness API corrected to ReadTextureSettings; equivalent compiler invocation passed before final native run."
+  ],
+  "final_log_licensing_diagnostics": "Three handshake/access-token error lines preceded successful fallback licensing and actual render execution. No C# compile, shader or exception errors in the passing run."
+}

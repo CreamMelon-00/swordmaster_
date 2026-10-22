@@ -1,0 +1,8 @@
+<Project>
+  <!-- The Unity-generated project has not registered the concurrent coin files yet. -->
+  <ItemGroup Condition="'$(AssemblyName)' == 'TurnLimbo.Presentation'">
+    <Compile Remove="Assets\Game\Presentation\DuelStartCard.CoinToss.cs;Assets\Game\Presentation\DuelTossCoin.cs" />
+    <Compile Include="Assets\Game\Presentation\DuelStartCard.CoinToss.cs" />
+    <Compile Include="Assets\Game\Presentation\DuelTossCoin.cs" />
+  </ItemGroup>
+</Project>

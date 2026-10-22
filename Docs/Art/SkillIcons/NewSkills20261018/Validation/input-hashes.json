@@ -1,0 +1,34 @@
+{
+  "role36.png": {
+    "source": "Assets/Game/Resources/SkillRoles/role36.png",
+    "sha256": "693d191abcde9f6007f5899290ac41b583861eca0d2ff6cdb11dae1dac153e17"
+  },
+  "role36.png.meta": {
+    "source": "Assets/Game/Resources/SkillRoles/role36.png.meta",
+    "sha256": "ea445ecdc0c67517f3ecb5b4bba763a075f5d9dad99978715c89f147696b88bd"
+  },
+  "role37.png": {
+    "source": "Assets/Game/Resources/SkillRoles/role37.png",
+    "sha256": "5391a5df1843c754a8a1a78cce952ad669ba422ecbaf736350d297bf0c15ad46"
+  },
+  "role37.png.meta": {
+    "source": "Assets/Game/Resources/SkillRoles/role37.png.meta",
+    "sha256": "fabbcc5e85b31df0149824484b75abcc4f8d451b604efdfbec2b4100fa1e738c"
+  },
+  "role38.png": {
+    "source": "Assets/Game/Resources/SkillRoles/role38.png",
+    "sha256": "0fe07a78431dd55eb9fb85032f181e4c3891f8e42dd282eec690eb99f93e92b0"
+  },
+  "role38.png.meta": {
+    "source": "Assets/Game/Resources/SkillRoles/role38.png.meta",
+    "sha256": "3b783a367233128a8a3ce744b44fa89bd7671ec4f3bdd9f82c87e4a19dc90c1c"
+  },
+  "role39.png": {
+    "source": "Assets/Game/Resources/SkillRoles/role39.png",
+    "sha256": "14bd4388b0167ff835dd58a3df6a062cb736c6c3b0dbd934b60f21ce716c0119"
+  },
+  "role39.png.meta": {
+    "source": "Assets/Game/Resources/SkillRoles/role39.png.meta",
+    "sha256": "5052a5ff6e4113a9c23450120662b09bf8ec015f276e30a4bc04925496f960c7"
+  }
+}

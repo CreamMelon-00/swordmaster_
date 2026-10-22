@@ -125,12 +125,13 @@ namespace TurnLimbo.Presentation.Tests
         {
             using (var art = new LegacyDuelArt())
             {
-                for (int id = 45; id <= 59; id++)
+                for (int iconId = 21; iconId <= 39; iconId++)
                 {
+                    int id = iconId == 39 ? 600 : iconId + 24;
                     LegacySkill skill = LegacySkillDefinitions.Skill(id);
                     Sprite icon = art.GetSkillIcon(skill.IconId);
                     Assert.That(icon, Is.Not.Null, skill.Name);
-                    Assert.That(icon, Is.SameAs(Resources.Load<Sprite>("SkillRoles/role" + (id - 24))),
+                    Assert.That(icon, Is.SameAs(Resources.Load<Sprite>("SkillRoles/role" + iconId)),
                         skill.Name + " must use its own exported icon.");
                     Assert.That(icon.rect.size, Is.EqualTo(new Vector2(192f, 192f)), skill.Name);
                     Assert.That(icon.texture.filterMode, Is.EqualTo(FilterMode.Point), skill.Name);

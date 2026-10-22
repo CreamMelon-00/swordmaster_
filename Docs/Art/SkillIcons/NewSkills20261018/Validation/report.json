@@ -1,0 +1,344 @@
+{
+    "unity": "6000.5.9f1",
+    "graphics": "Direct3D11",
+    "device": "NVIDIA GeForce RTX 5060 Ti",
+    "pipeline": "Built-in / Sprites/Default",
+    "colorSpace": "Linear",
+    "scope": "Isolated import and SpriteRenderer rendering of four new skill resources. No production game, UI canvas, URP, Play Mode or player build validation.",
+    "icons": [
+        {
+            "role": 36,
+            "pngSha256": "693d191abcde9f6007f5899290ac41b583861eca0d2ff6cdb11dae1dac153e17",
+            "importedMetaSha256": "ea445ecdc0c67517f3ecb5b4bba763a075f5d9dad99978715c89f147696b88bd",
+            "textureWidth": 192,
+            "textureHeight": 192,
+            "rectWidth": 192,
+            "rectHeight": 192,
+            "pivotX": 96.0,
+            "pivotY": 96.0,
+            "pixelsPerUnit": 100.0,
+            "meshVertexCount": 4,
+            "filter": "Point",
+            "wrap": "Clamp",
+            "meshType": "FullRect",
+            "compression": "Uncompressed",
+            "mipmaps": false,
+            "binaryAlpha": true,
+            "exactFourTimesClusters": true,
+            "opaqueColorCount": 40,
+            "sourceAlphaBounds": [
+                8,
+                8,
+                180,
+                184
+            ]
+        },
+        {
+            "role": 37,
+            "pngSha256": "5391a5df1843c754a8a1a78cce952ad669ba422ecbaf736350d297bf0c15ad46",
+            "importedMetaSha256": "fabbcc5e85b31df0149824484b75abcc4f8d451b604efdfbec2b4100fa1e738c",
+            "textureWidth": 192,
+            "textureHeight": 192,
+            "rectWidth": 192,
+            "rectHeight": 192,
+            "pivotX": 96.0,
+            "pivotY": 96.0,
+            "pixelsPerUnit": 100.0,
+            "meshVertexCount": 4,
+            "filter": "Point",
+            "wrap": "Clamp",
+            "meshType": "FullRect",
+            "compression": "Uncompressed",
+            "mipmaps": false,
+            "binaryAlpha": true,
+            "exactFourTimesClusters": true,
+            "opaqueColorCount": 41,
+            "sourceAlphaBounds": [
+                16,
+                8,
+                164,
+                184
+            ]
+        },
+        {
+            "role": 38,
+            "pngSha256": "0fe07a78431dd55eb9fb85032f181e4c3891f8e42dd282eec690eb99f93e92b0",
+            "importedMetaSha256": "3b783a367233128a8a3ce744b44fa89bd7671ec4f3bdd9f82c87e4a19dc90c1c",
+            "textureWidth": 192,
+            "textureHeight": 192,
+            "rectWidth": 192,
+            "rectHeight": 192,
+            "pivotX": 96.0,
+            "pivotY": 96.0,
+            "pixelsPerUnit": 100.0,
+            "meshVertexCount": 4,
+            "filter": "Point",
+            "wrap": "Clamp",
+            "meshType": "FullRect",
+            "compression": "Uncompressed",
+            "mipmaps": false,
+            "binaryAlpha": true,
+            "exactFourTimesClusters": true,
+            "opaqueColorCount": 41,
+            "sourceAlphaBounds": [
+                16,
+                8,
+                164,
+                184
+            ]
+        },
+        {
+            "role": 39,
+            "pngSha256": "14bd4388b0167ff835dd58a3df6a062cb736c6c3b0dbd934b60f21ce716c0119",
+            "importedMetaSha256": "5052a5ff6e4113a9c23450120662b09bf8ec015f276e30a4bc04925496f960c7",
+            "textureWidth": 192,
+            "textureHeight": 192,
+            "rectWidth": 192,
+            "rectHeight": 192,
+            "pivotX": 96.0,
+            "pivotY": 96.0,
+            "pixelsPerUnit": 100.0,
+            "meshVertexCount": 4,
+            "filter": "Point",
+            "wrap": "Clamp",
+            "meshType": "FullRect",
+            "compression": "Uncompressed",
+            "mipmaps": false,
+            "binaryAlpha": true,
+            "exactFourTimesClusters": true,
+            "opaqueColorCount": 37,
+            "sourceAlphaBounds": [
+                8,
+                8,
+                180,
+                184
+            ]
+        }
+    ],
+    "shots": [
+        {
+            "role": 36,
+            "displayedPixels": 40,
+            "file": "role36-40px.png",
+            "renderedAlphaBounds": [
+                30,
+                30,
+                66,
+                66
+            ],
+            "opaquePixels": 730,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 36,
+            "displayedPixels": 44,
+            "file": "role36-44px.png",
+            "renderedAlphaBounds": [
+                28,
+                28,
+                67,
+                68
+            ],
+            "opaquePixels": 882,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 36,
+            "displayedPixels": 48,
+            "file": "role36-48px.png",
+            "renderedAlphaBounds": [
+                26,
+                26,
+                69,
+                70
+            ],
+            "opaquePixels": 1052,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 36,
+            "displayedPixels": 52,
+            "file": "role36-52px.png",
+            "renderedAlphaBounds": [
+                24,
+                24,
+                71,
+                72
+            ],
+            "opaquePixels": 1232,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 37,
+            "displayedPixels": 40,
+            "file": "role37-40px.png",
+            "renderedAlphaBounds": [
+                31,
+                30,
+                62,
+                66
+            ],
+            "opaquePixels": 855,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 37,
+            "displayedPixels": 44,
+            "file": "role37-44px.png",
+            "renderedAlphaBounds": [
+                30,
+                28,
+                64,
+                68
+            ],
+            "opaquePixels": 1036,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 37,
+            "displayedPixels": 48,
+            "file": "role37-48px.png",
+            "renderedAlphaBounds": [
+                28,
+                26,
+                65,
+                70
+            ],
+            "opaquePixels": 1228,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 37,
+            "displayedPixels": 52,
+            "file": "role37-52px.png",
+            "renderedAlphaBounds": [
+                26,
+                24,
+                66,
+                72
+            ],
+            "opaquePixels": 1435,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 38,
+            "displayedPixels": 40,
+            "file": "role38-40px.png",
+            "renderedAlphaBounds": [
+                31,
+                30,
+                62,
+                66
+            ],
+            "opaquePixels": 855,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 38,
+            "displayedPixels": 44,
+            "file": "role38-44px.png",
+            "renderedAlphaBounds": [
+                30,
+                28,
+                64,
+                68
+            ],
+            "opaquePixels": 1036,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 38,
+            "displayedPixels": 48,
+            "file": "role38-48px.png",
+            "renderedAlphaBounds": [
+                28,
+                26,
+                65,
+                70
+            ],
+            "opaquePixels": 1228,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 38,
+            "displayedPixels": 52,
+            "file": "role38-52px.png",
+            "renderedAlphaBounds": [
+                26,
+                24,
+                66,
+                72
+            ],
+            "opaquePixels": 1435,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 39,
+            "displayedPixels": 40,
+            "file": "role39-40px.png",
+            "renderedAlphaBounds": [
+                30,
+                30,
+                66,
+                66
+            ],
+            "opaquePixels": 730,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 39,
+            "displayedPixels": 44,
+            "file": "role39-44px.png",
+            "renderedAlphaBounds": [
+                28,
+                28,
+                67,
+                68
+            ],
+            "opaquePixels": 882,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 39,
+            "displayedPixels": 48,
+            "file": "role39-48px.png",
+            "renderedAlphaBounds": [
+                26,
+                26,
+                69,
+                70
+            ],
+            "opaquePixels": 1052,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        },
+        {
+            "role": 39,
+            "displayedPixels": 52,
+            "file": "role39-52px.png",
+            "renderedAlphaBounds": [
+                24,
+                24,
+                71,
+                72
+            ],
+            "opaquePixels": 1232,
+            "fractionalAlphaPixels": 0,
+            "foreignPalettePixels": 0
+        }
+    ]
+}
