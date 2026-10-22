@@ -42,6 +42,93 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void BuyAndDeploy_UsesTheSamePriceAndPlacesACopyDirectlyInTheFirstHole()
+        {
+            var run = Run();
+            LegacySkill offer = run.ShopOffers[0];
+            Assert.That(run.CanBuyAndDeploy(0), Is.True);
+            Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            Assert.That(run.Gold, Is.Zero);
+            Assert.That(run.Inventory, Is.Empty);
+            Assert.That(run.Board[0].InstanceId, Is.EqualTo(1));
+            AssertSkillCopy(run.Board[0].Skill, offer);
+            Assert.That(run.ShopOffers[0], Is.Null);
+            Assert.That(run.CanBuy(0), Is.False);
+            Assert.That(run.CanBuyAndDeploy(0), Is.False);
+        }
+
+        [Test]
+        public void DirectAndStoredPurchases_HaveEqualCostsAndDoNotChargeForLaterDeployment()
+        {
+            var direct = Run();
+            var stored = Run();
+            Assert.That(direct.TryBuyAndDeploy(0), Is.True);
+            Assert.That(stored.TryBuy(0), Is.True);
+            Assert.That(direct.Gold, Is.EqualTo(stored.Gold));
+            Assert.That(stored.Board.All(card => card == null), Is.True);
+            Assert.That(stored.TryDeploy(stored.Inventory[0].InstanceId), Is.True);
+            Assert.That(Snapshot(stored), Is.EqualTo(Snapshot(direct)));
+        }
+
+        [Test]
+        public void BuyAndDeploy_FillsASoldPositionWithoutMovingOtherCardsOrStoredCopies()
+        {
+            var run = Run();
+            FillBoard(run, 3);
+            SkillTavernCard left = run.Board[0], right = run.Board[2];
+            Assert.That(run.TrySellBoard(1), Is.True);
+            run.NextRound();
+            SkillTavernCard stored = Buy(run, 1);
+            run.NextRound();
+            int beforeGold = run.Gold;
+            Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            Assert.That(run.Gold, Is.EqualTo(beforeGold - SkillTavernRun.PurchasePrice));
+            Assert.That(run.Board[0], Is.SameAs(left));
+            Assert.That(run.Board[1], Is.Not.Null);
+            Assert.That(run.Board[1].InstanceId, Is.Not.EqualTo(stored.InstanceId));
+            Assert.That(run.Board[2], Is.SameAs(right));
+            Assert.That(run.Board[3], Is.Null);
+            Assert.That(run.Inventory.Single(), Is.SameAs(stored));
+        }
+
+        [Test]
+        public void FullFormation_RejectsDirectPurchaseWithoutChargeButStillAllowsStorage()
+        {
+            var run = Run();
+            FillBoard(run, 8);
+            run.NextRound();
+            Assert.That(run.CanBuy(0), Is.True);
+            Assert.That(run.CanBuyAndDeploy(0), Is.False);
+            AssertUnchanged(run, () => run.TryBuyAndDeploy(0));
+            int gold = run.Gold;
+            Assert.That(run.TryBuy(0), Is.True);
+            Assert.That(run.Gold, Is.EqualTo(gold - SkillTavernRun.PurchasePrice));
+            Assert.That(run.Inventory.Count, Is.EqualTo(1));
+            Assert.That(run.Board.All(card => card != null), Is.True);
+        }
+
+        [TestCase(-1)]
+        [TestCase(3)]
+        [TestCase(int.MaxValue)]
+        public void InvalidDirectPurchase_IsRejectedAtomicallyWithoutConsumingAnInstanceId(int index)
+        {
+            var run = Run();
+            Assert.That(run.CanBuyAndDeploy(index), Is.False);
+            AssertUnchanged(run, () => run.TryBuyAndDeploy(index));
+            Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            Assert.That(run.Board[0].InstanceId, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void DirectPurchaseWithoutEnoughGold_LeavesTheOfferAndFormationUntouched()
+        {
+            var run = Run();
+            Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            Assert.That(run.CanBuyAndDeploy(1), Is.False);
+            AssertUnchanged(run, () => run.TryBuyAndDeploy(1));
+        }
+
+        [Test]
         public void PurchasedOffer_CannotBeBoughtAgainEvenAfterSelling()
         {
             var run = Run();

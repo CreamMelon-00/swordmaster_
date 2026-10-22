@@ -107,7 +107,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator FormationFightResultAndNextShop_RepeatWithoutChangingTheCampaign()
+        public IEnumerator OneTurnReturnsToTheShop_WithPersistentFightersAndNewPurchasesForTheNextTurn()
         {
             yield return null;
             using (var scope = new SaveScope())
@@ -118,80 +118,89 @@ namespace TurnLimbo.Presentation.Tests
                 string campaignBefore = GameSaveCodec.Serialize(GameSave.Capture(controller.Prologue, controller.Campaign));
                 LegacyQueuedDuel campaignSession = controller.Session;
                 Assert.That(controller.StartSkillTavern(), Is.True);
-                // An owned starting technique makes accidental clash-XP writes detectable.
-                var run = new SkillTavernRun(new[] { LegacySkillDefinitions.Skill(1) }, 28);
+                Assert.That(controller.RestartSkillTavern(), Is.True);
+                var strike = new LegacySkill(1, "연속 라운드 검증", 0, 40, 40,
+                    LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, string.Empty);
+                var run = new SkillTavernRun(new[] { strike }, 28);
                 typeof(DuelPrototypeController).GetField("skillTavernRun", BindingFlags.Instance | BindingFlags.NonPublic)
                     .SetValue(controller, run);
-                controller.SkillTavernHud.Show(run);
-                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.Buy, 0), Is.True);
-                int deployed = run.Inventory[0].InstanceId;
-                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.Deploy, deployed), Is.True);
+                controller.SkillTavernHud.Show(run, null);
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.BuyAndDeploy, 0), Is.True);
+                Assert.That(run.Inventory, Is.Empty);
+                int firstCard = run.Board[0].InstanceId;
+                LegacyQueuedDuel continuousDuel = null;
 
-                for (int fight = 1; fight <= 2; fight++)
+                for (int turn = 1; turn <= 2; turn++)
                 {
-                    int gold = run.Gold;
+                    int playerHealth = controller.SkillTavernBattle?.Duel.Player.Health ?? SkillTavernBattle.FighterHealth;
+                    int enemyHealth = controller.SkillTavernBattle?.Duel.Enemy.Health ?? SkillTavernBattle.FighterHealth;
+                    int goldBefore = run.Gold;
                     Assert.That(controller.TrySkillTavernAction(SkillTavernAction.StartBattle), Is.True);
-                    Assert.That(controller.IsInSkillTavernBattle, Is.True);
+                    LegacyQueuedDuel duel = controller.SkillTavernBattle.Duel;
+                    if (continuousDuel == null) continuousDuel = duel;
+                    Assert.That(duel, Is.SameAs(continuousDuel), "Shopping must resume the original duel.");
+                    Assert.That(duel.RoundNumber, Is.EqualTo(turn));
+                    Assert.That(duel.Player.Health, Is.EqualTo(playerHealth));
+                    Assert.That(duel.Enemy.Health, Is.EqualTo(enemyHealth));
+                    Assert.That(controller.Session, Is.SameAs(duel));
+                    Assert.That(controller.ArenaView.ArenaCamera.enabled, Is.True);
                     Assert.That(controller.SkillTavernHud.IsVisible, Is.False);
-                    Assert.That(controller.SkillTavernBattleHud.IsVisible, Is.True);
-                    Assert.That(controller.Session, Is.SameAs(controller.SkillTavernBattle.Duel));
-                    Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(8));
-                    Assert.That(controller.Session.EnemyQueue.Count, Is.EqualTo(8));
-                    Assert.That(controller.CanChoose, Is.False);
-                    Assert.That(controller.CanStep, Is.False);
-                    Assert.That(controller.PauseBattle(), Is.False);
-                    Assert.That(controller.QueueLane(0), Is.False);
-                    Assert.That(controller.RestartSkillTavern(), Is.False);
+                    Assert.That(controller.CanChoose || controller.CanStep, Is.False);
+                    Assert.That(controller.TrySkillTavernAction(SkillTavernAction.BuyAndDeploy, 0), Is.False);
                     Assert.That(controller.TrySkillTavernAction(SkillTavernAction.Buy, 0), Is.False);
                     Assert.That(controller.TrySkillTavernAction(SkillTavernAction.SellBoard, 0), Is.False);
                     Assert.That(controller.TrySkillTavernAction(SkillTavernAction.NextRound), Is.False);
-                    Assert.That(controller.TrySkillTavernAction(SkillTavernAction.StartBattle), Is.False);
-                    for (int frame = 0; frame < 20000 && !controller.IsShowingSkillTavernResult; frame++)
+                    for (int frame = 0; frame < 20000 && !duel.IsTurnResolved; frame++)
                     {
-                        scope.Advance(.05f);
+                        scope.Advance(.025f);
                         if (frame % 128 == 0) yield return null;
                     }
-                    Assert.That(controller.IsShowingSkillTavernResult, Is.True, "Automatic playback must settle without manual input.");
-                    Assert.That(controller.SkillTavernBattleHud.IsShowingResult, Is.True);
-                    Assert.That(controller.IsShowingResult, Is.False, "The campaign result screen must stay closed.");
-                    Assert.That(controller.Session.IsFinished, Is.True);
-                    Assert.That(controller.Session.RoundNumber, Is.InRange(1, SkillTavernBattle.MaximumTurns));
-                    Assert.That(run.BattlesPlayed, Is.EqualTo(fight));
-                    Assert.That(run.RoundNumber, Is.EqualTo(fight));
-                    Assert.That(run.Gold, Is.EqualTo(gold), "A result cannot award the next round's income early.");
+                    Assert.That(duel.IsTurnResolved, Is.True);
+                    Assert.That(duel.IsFinished, Is.False);
+                    var endOfTurn = (duel.Player.Health, duel.Player.Resistance, duel.Enemy.Health, duel.Enemy.Resistance);
+                    Assert.That(run.RoundNumber, Is.EqualTo(turn), "The return animation must settle the turn only once.");
+                    Assert.That(run.Gold, Is.EqualTo(goldBefore));
+                    for (int frame = 0; frame < 20000 && controller.IsInSkillTavernBattle; frame++) scope.Advance(.025f);
+                    Assert.That(controller.IsInSkillTavernBattle, Is.False);
+                    Assert.That(controller.SkillTavernHud.IsVisible, Is.True, "A live completed turn opens the shop automatically.");
+                    Assert.That(controller.IsShowingSkillTavernResult || controller.SkillTavernBattleHud.IsVisible, Is.False);
+                    Assert.That(controller.SkillTavernBattle.Duel, Is.SameAs(continuousDuel));
+                    Assert.That((duel.Player.Health, duel.Player.Resistance, duel.Enemy.Health, duel.Enemy.Resistance), Is.EqualTo(endOfTurn));
+                    Assert.That(duel.RoundNumber, Is.EqualTo(turn), "Recovery waits until the next 8-slot execution starts.");
+                    Assert.That(duel.IsTurnResolved, Is.True);
+                    Assert.That(controller.Session, Is.SameAs(campaignSession));
+                    Assert.That(controller.ArenaView.ArenaCamera.enabled, Is.False, "The shop owns a separate full-screen view.");
+                    Assert.That(run.RoundNumber, Is.EqualTo(turn + 1));
+                    Assert.That(run.Gold, Is.EqualTo(turn + 3), "Only the new allowance survives; the old remainder expires.");
+                    Assert.That(run.BattlesPlayed, Is.Zero, "One turn is not an entire match result.");
+                    Assert.That(run.Board[0].InstanceId, Is.EqualTo(firstCard));
+                    int paid = run.Gold;
                     scope.Advance(30f);
-                    Assert.That(run.BattlesPlayed, Is.EqualTo(fight));
-                    Assert.That(controller.TrySkillTavernAction(SkillTavernAction.SellBoard, 0), Is.False);
+                    controller.ShowTitle();
+                    Assert.That(controller.StartSkillTavern(), Is.True);
+                    Assert.That(run.Gold, Is.EqualTo(paid), "Opening the same shop again cannot pay another allowance.");
+                    Assert.That((duel.Player.Health, duel.Player.Resistance, duel.Enemy.Health, duel.Enemy.Resistance), Is.EqualTo(endOfTurn));
+                    Assert.That(controller.TrySkillTavernAction(SkillTavernAction.NextRound), Is.False);
                     Assert.That(GameSaveCodec.Serialize(GameSave.Capture(controller.Prologue, controller.Campaign)), Is.EqualTo(campaignBefore));
                     Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo(saved));
-
-                    // Leaving a result and re-entering must not bypass or count it twice.
-                    controller.ShowTitle();
-                    Assert.That(controller.Session, Is.SameAs(campaignSession));
-                    Assert.That(controller.StartSkillTavern(), Is.True);
-                    Assert.That(controller.IsShowingSkillTavernResult, Is.True);
-                    Assert.That(run.BattlesPlayed, Is.EqualTo(fight));
-                    Assert.That(controller.TrySkillTavernAction(SkillTavernAction.NextRound), Is.True);
-                    Assert.That(controller.TrySkillTavernAction(SkillTavernAction.NextRound), Is.False);
-                    Assert.That(controller.Session, Is.SameAs(campaignSession));
-                    Assert.That(controller.SkillTavernHud.IsVisible, Is.True);
-                    Assert.That(run.RoundNumber, Is.EqualTo(fight + 1));
-                    Assert.That(run.Gold, Is.EqualTo(fight + 3));
-                    Assert.That(run.Board[0].InstanceId, Is.EqualTo(deployed));
-                    if (fight == 1)
+                    if (turn == 1)
                     {
-                        Assert.That(controller.TrySkillTavernAction(SkillTavernAction.Buy, 0), Is.True);
-                        Assert.That(run.Inventory.Count, Is.EqualTo(1));
+                        Assert.That(controller.TrySkillTavernAction(SkillTavernAction.BuyAndDeploy, 0), Is.True);
+                        Assert.That(run.Board[1], Is.Not.Null);
+                        Assert.That(run.Inventory, Is.Empty);
+                        Assert.That(run.Gold, Is.EqualTo(1));
                     }
                 }
-                Assert.That(run.Inventory.Count, Is.EqualTo(1), "Undeployed purchases survive combat and round changes.");
-                Assert.That(controller.Hud.InputsHeld, Is.False, "The shared campaign HUD must release its tavern override.");
-                Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo(saved));
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.Buy, 0), Is.True);
+                Assert.That(run.Inventory.Count, Is.EqualTo(1));
+                Assert.That(run.Board[2], Is.Null, "Buying for storage does not deploy the card.");
+                Assert.That(run.Gold, Is.EqualTo(2));
+                Assert.That(controller.Hud.InputsHeld, Is.False);
             }
         }
 
         [UnityTest]
-        public IEnumerator EmptyFormationCanFinish_AndCancelledFightsRestoreTheSessionWithoutIncome()
+        public IEnumerator CancelledTurnsRestoreTheShop_WhileCompletedTurnsPayOnceEvenBeforeTheReturnFinishes()
         {
             yield return null;
             using (var scope = new SaveScope())
@@ -203,34 +212,80 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.RestartSkillTavern(), Is.True);
                 SkillTavernRun run = controller.SkillTavern;
                 Assert.That(controller.TrySkillTavernAction(SkillTavernAction.StartBattle), Is.True);
-                scope.Advance(.05f);
+                for (int frame = 0; frame < 20000 && controller.Session.CurrentSlot?.HitsResolved != 1; frame++) scope.Advance(.025f);
+                LegacyQueuedDuel interrupted = controller.SkillTavernBattle.Duel;
                 Assert.That(controller.ReturnToSkillTavernFormation(), Is.True);
                 Assert.That(controller.Session, Is.SameAs(originalSession));
-                Assert.That(controller.SkillTavernHud.IsVisible, Is.True);
-                Assert.That(run.BattlesPlayed, Is.Zero);
+                Assert.That(controller.SkillTavernBattle.Duel, Is.Not.SameAs(interrupted));
+                Assert.That(controller.SkillTavernBattle.Duel.Player.Health, Is.EqualTo(500));
+                Assert.That(controller.SkillTavernBattle.Duel.Player.Resistance, Is.EqualTo(30));
                 Assert.That(run.RoundNumber, Is.EqualTo(1));
                 Assert.That(run.Gold, Is.EqualTo(3));
 
                 Assert.That(controller.TrySkillTavernAction(SkillTavernAction.StartBattle), Is.True);
+                scope.Advance(.025f);
                 controller.ShowTitle();
                 Assert.That(controller.Session, Is.SameAs(originalSession));
-                Assert.That(controller.SkillTavernBattleHud.IsVisible, Is.False);
                 Assert.That(controller.StartSkillTavern(), Is.True);
-                Assert.That(controller.SkillTavernHud.IsVisible, Is.True);
-                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.StartBattle), Is.True);
-                for (int frame = 0; frame < 20000 && !controller.IsShowingSkillTavernResult; frame++)
-                {
-                    scope.Advance(.05f);
-                    if (frame % 128 == 0) yield return null;
-                }
-                Assert.That(controller.IsShowingSkillTavernResult, Is.True);
-                Assert.That(run.BattlesPlayed, Is.EqualTo(1));
-                Assert.That(run.Board, Is.All.Null);
+                Assert.That(run.RoundNumber, Is.EqualTo(1));
                 Assert.That(run.Gold, Is.EqualTo(3));
-                Assert.That(scope.Store.Exists, Is.False);
-                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.NextRound), Is.True);
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.StartBattle), Is.True);
+                LegacyQueuedDuel duel = controller.Session;
+                for (int frame = 0; frame < 20000 && !duel.IsTurnResolved; frame++) scope.Advance(.025f);
+                Assert.That(duel.IsTurnResolved, Is.True);
+                var after = (duel.Player.Health, duel.Player.Resistance, duel.Enemy.Health, duel.Enemy.Resistance);
+                Assert.That(controller.ReturnToSkillTavernFormation(), Is.True);
+                Assert.That(controller.ReturnToSkillTavernFormation(), Is.False);
+                scope.Advance(30f);
+                Assert.That(controller.SkillTavernHud.IsVisible, Is.True);
+                Assert.That(controller.SkillTavernBattle.Duel, Is.SameAs(duel));
+                Assert.That((duel.Player.Health, duel.Player.Resistance, duel.Enemy.Health, duel.Enemy.Resistance), Is.EqualTo(after));
+                Assert.That(run.RoundNumber, Is.EqualTo(2));
                 Assert.That(run.Gold, Is.EqualTo(4));
+                Assert.That(run.BattlesPlayed, Is.Zero);
                 Assert.That(controller.Session, Is.SameAs(originalSession));
+                Assert.That(scope.Store.Exists, Is.False);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator KnockoutEndsTheExperiment_AndOnlyANewExperimentResetsTheFighters()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.StartSkillTavern(), Is.True);
+                Assert.That(controller.RestartSkillTavern(), Is.True);
+                var finishing = new LegacySkill(-9100, "마무리 검증", 0, 5000, 5000,
+                    LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, string.Empty);
+                var run = new SkillTavernRun(new[] { finishing }, 28);
+                typeof(DuelPrototypeController).GetField("skillTavernRun", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .SetValue(controller, run);
+                controller.SkillTavernHud.Show(run, null);
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.BuyAndDeploy, 0), Is.True);
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.StartBattle), Is.True);
+                for (int frame = 0; frame < 20000 && !controller.Session.IsFinished; frame++) scope.Advance(.025f);
+                Assert.That(controller.Session.IsFinished, Is.True);
+                Assert.That(controller.ReturnToSkillTavernFormation(), Is.True, "The finishing shot can hand over to the decided result.");
+                Assert.That(controller.IsShowingSkillTavernResult, Is.True);
+                Assert.That(controller.SkillTavernHud.IsVisible, Is.False);
+                Assert.That(run.Wins, Is.EqualTo(1));
+                Assert.That(run.RoundNumber, Is.EqualTo(1));
+                Assert.That(run.Gold, Is.Zero);
+                controller.ShowTitle();
+                Assert.That(controller.StartSkillTavern(), Is.True);
+                Assert.That(controller.IsShowingSkillTavernResult, Is.True);
+                Assert.That(run.Wins, Is.EqualTo(1));
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.NextRound), Is.False);
+                Assert.That(controller.RestartSkillTavern(), Is.True);
+                Assert.That(controller.SkillTavernHud.IsVisible, Is.True);
+                Assert.That(controller.SkillTavernBattle, Is.Null);
+                Assert.That(controller.SkillTavern.RoundNumber, Is.EqualTo(1));
+                Assert.That(controller.SkillTavern.Gold, Is.EqualTo(3));
+                Assert.That(controller.SkillTavern.Board, Is.All.Null);
+                Assert.That(scope.Store.Exists, Is.False);
             }
         }
 

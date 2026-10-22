@@ -200,26 +200,33 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Battle_RepeatsItsFixedFormationUntilTheTurnLimit()
+        public void SurvivingTurnsOpenOneShopEachUntilThePersistentFightLimit()
         {
             var guard = new LegacySkill(-9100, "튼튼한 막기", 99, 100, 100, LegacySkillKind.Defence,
                 LegacySkillProperty.Defence, 1, 0, string.Empty);
             SkillTavernRun run = Run(guard);
             BuyAndDeploy(run);
             var battle = new SkillTavernBattle(run, seed: 2);
-            Assert.That(battle.TryBeginNextTurn(), Is.False);
-            Begin(battle);
+            LegacyQueuedDuel sameDuel = battle.Duel;
+            Assert.That(battle.TryCompleteTurn(), Is.False);
             int turns = 0;
-            do
+            while (!battle.Duel.IsFinished)
             {
+                if (turns > 0 && run.Board.Any(card => card == null)) Assert.That(run.TryBuyAndDeploy(0), Is.True);
+                Assert.That(battle.TryStartTurn(), Is.True);
                 Assert.That(battle.Duel.PlayerQueue.Select(skill => skill.Id), Is.EqualTo(battle.PlayerQueue.Select(skill => skill.Id)));
                 Assert.That(battle.Duel.EnemyQueue.Select(skill => skill.Id), Is.EqualTo(battle.EnemyQueue.Select(skill => skill.Id)));
                 ResolveTurn(battle.Duel);
+                Assert.That(battle.TryCompleteTurn(), Is.True);
+                Assert.That(battle.Duel, Is.SameAs(sameDuel));
                 turns++;
-            } while (battle.TryBeginNextTurn());
+            }
             Assert.That(turns, Is.EqualTo(24));
             Assert.That(battle.Duel.Outcome, Is.EqualTo(DuelMatchOutcome.Draw));
-            Assert.That(battle.TryBeginNextTurn(), Is.False);
+            Assert.That(run.RoundNumber, Is.EqualTo(24), "The terminal turn grants no twenty-fifth shop or income.");
+            Assert.That(run.Draws, Is.EqualTo(1));
+            Assert.That(battle.TryStartTurn(), Is.False);
+            Assert.That(battle.TryCompleteTurn(), Is.False);
         }
 
         [Test]
@@ -343,26 +350,31 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void PurchaseFormationBattleResultAndNextShop_CanRepeatInOneRun()
+        public void PurchaseFormationOneTurnAndNextShop_RepeatWithoutReplacingTheDuel()
         {
-            SkillTavernRun run = Run(Attack(-9100, 200));
+            SkillTavernRun run = Run(Attack(-9100, 5));
+            var battle = new SkillTavernBattle(run, seed: 8);
+            LegacyQueuedDuel duel = battle.Duel;
             Assert.That(run.LastOutcome, Is.Null);
             for (int round = 1; round <= 4; round++)
             {
                 Assert.That(run.RoundNumber, Is.EqualTo(round));
                 BuyAndDeploy(run);
-                string before = RunSnapshot(run);
-                var battle = new SkillTavernBattle(run, seed: round);
-                Begin(battle);
-                do { ResolveTurn(battle.Duel); } while (battle.TryBeginNextTurn());
-                Assert.That(battle.Duel.Outcome, Is.EqualTo(DuelMatchOutcome.PlayerVictory));
-                Assert.That(battle.TryRecordResult(), Is.True);
-                Assert.That(run.Wins, Is.EqualTo(round));
-                Assert.That(RunSnapshot(run), Is.EqualTo(before));
-                run.NextRound();
+                int[] formation = run.Board.Select(card => card?.InstanceId ?? 0).ToArray();
+                Assert.That(battle.TryStartTurn(), Is.True);
+                ResolveTurn(battle.Duel);
+                string settled = FightSnapshot(battle.Duel);
+                Assert.That(battle.TryCompleteTurn(), Is.True);
+                Assert.That(FightSnapshot(battle.Duel), Is.EqualTo(settled), "Shopping preserves the exact post-turn state.");
+                Assert.That(battle.Duel, Is.SameAs(duel));
+                Assert.That(run.BattlesPlayed, Is.Zero);
+                Assert.That(run.RoundNumber, Is.EqualTo(round + 1));
                 Assert.That(run.Gold, Is.EqualTo(run.RoundIncome));
                 Assert.That(run.ShopOffers.All(skill => skill != null), Is.True);
+                Assert.That(run.Board.Select(card => card?.InstanceId ?? 0), Is.EqualTo(formation));
                 Assert.That(run.Board.Count(card => card != null), Is.EqualTo(round));
+                Assert.That(battle.IsTurnActive, Is.False);
+                Assert.That(battle.TryCompleteTurn(), Is.False);
             }
         }
 
@@ -371,16 +383,186 @@ namespace TurnLimbo.Core.Tests
         {
             SkillTavernRun run = Run(Attack(-9100, 5));
             BuyAndDeploy(run);
+            SkillTavernRun mirroredRun = Run(Attack(-9100, 5));
+            BuyAndDeploy(mirroredRun);
             var first = new SkillTavernBattle(run, seed: 46);
-            var second = new SkillTavernBattle(run, seed: 46);
-            Begin(first);
-            Begin(second);
-            do { ResolveTurn(first.Duel); } while (first.TryBeginNextTurn());
-            do { ResolveTurn(second.Duel); } while (second.TryBeginNextTurn());
+            var second = new SkillTavernBattle(mirroredRun, seed: 46);
+            FinishPersistentFight(first);
+            FinishPersistentFight(second);
             Assert.That(new[] { first.Duel.Player.Health, first.Duel.Player.Resistance, first.Duel.Enemy.Health,
                 first.Duel.Enemy.Resistance, first.Duel.RoundNumber, (int)first.Duel.Outcome }, Is.EqualTo(new[]
                 { second.Duel.Player.Health, second.Duel.Player.Resistance, second.Duel.Enemy.Health,
                     second.Duel.Enemy.Resistance, second.Duel.RoundNumber, (int)second.Duel.Outcome }));
+        }
+
+        [Test]
+        public void CompletingOneTurn_ReplacesUnspentGoldOnceAndKeepsTheSettledFighters()
+        {
+            SkillTavernRun run = Run(Attack(-9100));
+            var battle = new SkillTavernBattle(run, seed: 29);
+            LegacyQueuedDuel duel = battle.Duel;
+            Assert.That(battle.TryStartTurn(), Is.True);
+            Assert.That(battle.TryStartTurn(), Is.False);
+            Assert.That(battle.TryCompleteTurn(), Is.False, "An unplayed turn cannot open a shop.");
+            ResolveTurn(duel);
+            int playerHealth = duel.Player.Health, playerResistance = duel.Player.Resistance;
+            int enemyHealth = duel.Enemy.Health, enemyResistance = duel.Enemy.Resistance;
+            Assert.That(playerHealth, Is.LessThan(500), "The empty formation takes a real unopposed attack.");
+            string completedState = FightSnapshot(duel), completedShop = RunSnapshot(run);
+            Assert.That(battle.TryCancelTurn(), Is.False, "A fully played turn must settle instead of being rolled back.");
+            Assert.That(battle.IsTurnActive, Is.True);
+            Assert.That(battle.Duel, Is.SameAs(duel));
+            Assert.That(FightSnapshot(duel), Is.EqualTo(completedState));
+            Assert.That(RunSnapshot(run), Is.EqualTo(completedShop));
+            Assert.That(battle.TryCompleteTurn(), Is.True);
+            Assert.That(run.RoundNumber, Is.EqualTo(2));
+            Assert.That(run.Gold, Is.EqualTo(4), "The old three unspent gold is replaced, not carried over.");
+            Assert.That(new[] { duel.Player.Health, duel.Player.Resistance, duel.Enemy.Health, duel.Enemy.Resistance },
+                Is.EqualTo(new[] { playerHealth, playerResistance, enemyHealth, enemyResistance }));
+            Assert.That(battle.Duel, Is.SameAs(duel));
+            Assert.That(duel.RoundNumber, Is.EqualTo(1), "The normal next-turn boundary waits until combat resumes.");
+            Assert.That(battle.TryCompleteTurn(), Is.False);
+            Assert.That(run.Gold, Is.EqualTo(4));
+            Assert.That(run.BattlesPlayed, Is.Zero);
+        }
+
+        [Test]
+        public void NextCombatTurn_RefreshesBothFormationsAfterShoppingWithoutResettingTheFight()
+        {
+            SkillTavernRun run = Run(Attack(-9100));
+            var battle = new SkillTavernBattle(run, seed: 31);
+            LegacyQueuedDuel duel = battle.Duel;
+            for (int round = 1; round <= 3; round++)
+            {
+                Assert.That(run.TryBuyAndDeploy(0), Is.True);
+                int health = duel.Player.Health;
+                Assert.That(battle.TryStartTurn(), Is.True);
+                Assert.That(battle.PlayerQueue.Count(skill => !skill.IsWait), Is.EqualTo(round));
+                Assert.That(battle.EnemyQueue.Count(skill => !skill.IsWait), Is.EqualTo(1 + (round - 1) / 2));
+                Assert.That(duel.Player.Health, Is.EqualTo(health), "A new shop never heals health.");
+                Assert.That(duel.RoundNumber, Is.EqualTo(round));
+                Assert.That(battle.Duel, Is.SameAs(duel));
+                ResolveTurn(duel);
+                Assert.That(battle.TryCompleteTurn(), Is.True);
+            }
+        }
+
+        [Test]
+        public void CancelFirstTurn_RestoresTheInitialShopWithoutChangingEconomyOrFutureRolls()
+        {
+            var variable = new LegacySkill(-9100, "변동 베기", 1, 8, 25, LegacySkillKind.Attack,
+                LegacySkillProperty.Slash, 1, 0, string.Empty);
+            SkillTavernRun run = Run(variable);
+            Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            var battle = new SkillTavernBattle(run, seed: 47);
+            string shop = RunSnapshot(run), initial = FightSnapshot(battle.Duel);
+            LegacyQueuedDuel initialDuel = battle.Duel;
+            Assert.That(battle.TryCancelTurn(), Is.False);
+            Assert.That(battle.TryStartTurn(), Is.True);
+            LegacySlotResult first = battle.Duel.ResolveNextSlot();
+            Assert.That(battle.TryCancelTurn(), Is.True);
+            Assert.That(battle.Duel, Is.Not.SameAs(initialDuel), "Only cancellation replaces the continuing engine.");
+            Assert.That(FightSnapshot(battle.Duel), Is.EqualTo(initial));
+            Assert.That(RunSnapshot(run), Is.EqualTo(shop));
+            Assert.That(battle.TryCancelTurn(), Is.False);
+            Assert.That(battle.TryStartTurn(), Is.True);
+            LegacySlotResult retry = battle.Duel.ResolveNextSlot();
+            AssertSlotDamage(retry, first);
+        }
+
+        [Test]
+        public void CancelRoundThree_RestoresBrokenShopResistanceBeforeItsPendingRecovery_AndExactRetryRolls()
+        {
+            var variable = new LegacySkill(-9100, "붕괴 베기", 1, 35, 45, LegacySkillKind.Attack,
+                LegacySkillProperty.Slash, 1, 0, string.Empty);
+            SkillTavernRun run = Run(variable);
+            Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            var battle = new SkillTavernBattle(run, seed: 83);
+            for (int turn = 0; turn < 2; turn++)
+            {
+                Assert.That(battle.TryStartTurn(), Is.True);
+                ResolveTurn(battle.Duel);
+                Assert.That(battle.TryCompleteTurn(), Is.True);
+            }
+            Assert.That(run.RoundNumber, Is.EqualTo(3));
+            Assert.That(battle.Duel.Enemy.Resistance, Is.Zero);
+            string rawShopState = FightSnapshot(battle.Duel), shop = RunSnapshot(run);
+            Assert.That(battle.TryStartTurn(), Is.True);
+            Assert.That(battle.Duel.Enemy.Resistance, Is.EqualTo(30), "This boundary performs the pending recovery.");
+            LegacySlotResult first = battle.Duel.ResolveNextSlot();
+            Assert.That(battle.TryCancelTurn(), Is.True);
+            Assert.That(FightSnapshot(battle.Duel), Is.EqualTo(rawShopState),
+                "Cancel must restore the shop before recovery, including its pending-recovery state.");
+            Assert.That(battle.Duel.IsTurnResolved, Is.True);
+            Assert.That(RunSnapshot(run), Is.EqualTo(shop));
+            Assert.That(battle.TryStartTurn(), Is.True);
+            Assert.That(battle.Duel.Enemy.Resistance, Is.EqualTo(30));
+            AssertSlotDamage(battle.Duel.ResolveNextSlot(), first);
+        }
+
+        [Test]
+        public void PersistentFightAndCancellation_PreserveStatusesCyclesAndNextTurnRecovery()
+        {
+            WithSheet(() =>
+            {
+                SkillTavernRun run = Run(LegacySkillDefinitions.Skill(961));
+                Assert.That(run.TryBuyAndDeploy(0), Is.True);
+                var battle = new SkillTavernBattle(run, seed: 58);
+                Assert.That(battle.TryStartTurn(), Is.True);
+                ResolveTurn(battle.Duel);
+                Assert.That(battle.TryCompleteTurn(), Is.True);
+                Assert.That(battle.Duel.CycleUses(961), Is.EqualTo(1));
+                Assert.That(battle.Duel.PlayerStatuses.Count, Is.GreaterThan(0));
+                Assert.That(battle.Duel.NextActGain, Is.EqualTo(4));
+                string shop = FightSnapshot(battle.Duel, 961), economy = RunSnapshot(run);
+                Assert.That(battle.TryStartTurn(), Is.True);
+                Assert.That(battle.Duel.Act, Is.EqualTo(7));
+                LegacySlotResult first = battle.Duel.ResolveNextSlot();
+                Assert.That(battle.Duel.CycleUses(961), Is.EqualTo(2));
+                Assert.That(battle.TryCancelTurn(), Is.True);
+                Assert.That(FightSnapshot(battle.Duel, 961), Is.EqualTo(shop));
+                Assert.That(RunSnapshot(run), Is.EqualTo(economy));
+                Assert.That(battle.TryStartTurn(), Is.True);
+                Assert.That(battle.Duel.Act, Is.EqualTo(7));
+                AssertSlotDamage(battle.Duel.ResolveNextSlot(), first);
+            }, SheetRow(961, "공격", (Column.CyclePowerPerUse, "2"), (Column.CycleMaxCount, "9"),
+                (Column.PowerBuff, "50"), (Column.BuffSlots, "2"), (Column.ActGain, "1")));
+        }
+
+        [TestCase(DuelMatchOutcome.PlayerVictory)]
+        [TestCase(DuelMatchOutcome.EnemyVictory)]
+        [TestCase(DuelMatchOutcome.Draw)]
+        public void TerminalTurn_RecordsOneResultWithoutOpeningAnotherShopOrGrantingIncome(DuelMatchOutcome outcome)
+        {
+            var guard = new LegacySkill(-9101, "튼튼한 막기", 1, 100, 100, LegacySkillKind.Defence,
+                LegacySkillProperty.Defence, 1, 0, string.Empty);
+            SkillTavernRun run = Run(outcome == DuelMatchOutcome.Draw ? guard : Attack(-9100, 5000));
+            if (outcome == DuelMatchOutcome.PlayerVictory) Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            if (outcome == DuelMatchOutcome.Draw)
+                for (int slot = 0; slot < SkillTavernRun.SlotCount; slot++)
+                {
+                    if (slot > 0) run.NextRound();
+                    Assert.That(run.TryBuyAndDeploy(0), Is.True);
+                }
+            var battle = new SkillTavernBattle(run, seed: 69);
+            for (int turn = 0; turn < SkillTavernBattle.MaximumTurns; turn++)
+            {
+                Assert.That(battle.TryStartTurn(), Is.True);
+                ResolveTurn(battle.Duel);
+                if (battle.Duel.IsFinished) break;
+                Assert.That(battle.TryCompleteTurn(), Is.True);
+            }
+            Assert.That(battle.Duel.Outcome, Is.EqualTo(outcome));
+            string shop = RunSnapshot(run);
+            Assert.That(battle.TryCancelTurn(), Is.False);
+            Assert.That(battle.TryCompleteTurn(), Is.True);
+            Assert.That(RunSnapshot(run), Is.EqualTo(shop));
+            Assert.That(run.LastOutcome, Is.EqualTo(outcome));
+            Assert.That(run.BattlesPlayed, Is.EqualTo(1));
+            Assert.That(battle.IsTurnActive, Is.False);
+            Assert.That(battle.TryCompleteTurn(), Is.False);
+            Assert.That(battle.TryStartTurn(), Is.False);
+            Assert.That(battle.TryRecordResult(), Is.False);
         }
 
         private static SkillTavernRun Run(LegacySkill skill) => new SkillTavernRun(new[] { skill }, seed: 2);
@@ -402,11 +584,25 @@ namespace TurnLimbo.Core.Tests
             Assert.That(battle.Duel.TrySetFixedQueues(battle.PlayerQueue, battle.EnemyQueue), Is.True);
             battle.Duel.Commit();
         }
+        private static void FinishPersistentFight(SkillTavernBattle battle)
+        {
+            for (int turn = 0; turn < SkillTavernBattle.MaximumTurns && !battle.Duel.IsFinished; turn++)
+            {
+                Assert.That(battle.TryStartTurn(), Is.True);
+                ResolveTurn(battle.Duel);
+                Assert.That(battle.TryCompleteTurn(), Is.True);
+            }
+            Assert.That(battle.Duel.IsFinished, Is.True);
+        }
         private static void ResolveCurrentSlot(LegacyQueuedDuel duel)
         {
             while (!duel.IsCurrentSlotResolved) duel.ResolveNextHit();
             duel.CompleteCurrentSlot();
         }
+        private static void AssertSlotDamage(LegacySlotResult actual, LegacySlotResult expected)
+            => Assert.That(new[] { actual.PlayerHealthDamage, actual.EnemyHealthDamage, actual.PlayerResistanceDamage,
+                actual.EnemyResistanceDamage }, Is.EqualTo(new[] { expected.PlayerHealthDamage, expected.EnemyHealthDamage,
+                    expected.PlayerResistanceDamage, expected.EnemyResistanceDamage }));
         private static void ResolveTurn(LegacyQueuedDuel duel)
         {
             while (duel.Phase == LegacyDuelPhase.Resolving && !duel.IsTurnResolved) duel.ResolveNextSlot();
@@ -434,6 +630,13 @@ namespace TurnLimbo.Core.Tests
                 + ":" + string.Join(",", duel.EnemyQueue.Select(skill => skill.Id))
                 + ":" + string.Join(",", Enumerable.Range(0, duel.EnemyQueue.Count).Select(duel.EnemyOwnerAtSlot))
                 + ":" + duel.AutoBreathSlotIndex + ":" + duel.LastQueuedSlotIndex + ":" + duel.ReserveEffectsUsedThisTurn;
+
+        private static string FightSnapshot(LegacyQueuedDuel duel, int cycleId = 0)
+            => duel.RoundNumber + ":" + duel.Phase + ":" + duel.Player.Health + ":" + duel.Player.Resistance + ":"
+                + duel.Enemy.Health + ":" + duel.Enemy.Resistance + ":" + duel.Act + ":" + duel.NextActGain + ":"
+                + duel.NextPlanningSeconds + ":" + duel.PlanningSecondsBonus + ":" + duel.CycleUses(cycleId) + ":"
+                + string.Join(",", duel.PlayerStatuses.Select(status => status.Kind + "/" + status.Percent + "/" + status.RemainingCount))
+                + ":" + string.Join(",", duel.EnemyStatuses.Select(status => status.Kind + "/" + status.Percent + "/" + status.RemainingCount));
 
         private static string[] SheetRow(int id, string kind, params (string column, string value)[] cells)
         {

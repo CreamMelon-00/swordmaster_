@@ -1321,7 +1321,7 @@ namespace TurnLimbo.Presentation
 
         private void StartPlanning()
         {
-            if (IsInSkillTavernBattle) { BeginNextSkillTavernTurn(); return; }
+            if (IsInSkillTavernBattle) { FinishSkillTavernTurn(); return; }
             int playerResistanceBefore = session.Player.Resistance;
             int enemyResistanceBefore = session.Enemy.Resistance;
             int[] temporaryBefore = LegacyKeywordPreview.TemporaryCounts(session);
@@ -2986,7 +2986,8 @@ namespace TurnLimbo.Presentation
             effectsSource.Stop();
             effectsSource.pitch = 1f;
             stepAudio.Stop();
-            session.Reset();
+            // Tavern resumes the same duel after each shop; only its arena and HUD are reset here.
+            if (!IsInSkillTavernBattle) session.Reset();
             stepHud.Reset();
             resistanceFeedback.Reset();
             breakImpactCue.Reset();

@@ -43,6 +43,7 @@ namespace TurnLimbo.Presentation.Tests
                 switch (action)
                 {
                     case SkillTavernAction.Buy: Assert.That(Run.TryBuy(value), Is.True); break;
+                    case SkillTavernAction.BuyAndDeploy: Assert.That(Run.TryBuyAndDeploy(value), Is.True); break;
                     case SkillTavernAction.Deploy: Assert.That(Run.TryDeploy(value), Is.True); break;
                     case SkillTavernAction.SellBoard: Assert.That(Run.TrySellBoard(value), Is.True); break;
                     case SkillTavernAction.SellInventory: Assert.That(Run.TrySellInventory(value), Is.True); break;
@@ -95,15 +96,34 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.IsVisible, Is.True);
                 Assert.That(hud.Run, Is.SameAs(fixture.Run));
                 Assert.That(Text(hud, "Tavern Heading"), Is.EqualTo("선술집 실험"));
-                Assert.That(Text(hud, "Tavern Rules"), Does.Contain("연습 상대 1명과 자동 전투").And.Contain("예약 비용으로 쓰지 않습니다"));
-                Assert.That(Button(hud, "Tavern Next Round").GetComponentInChildren<Text>().text, Is.EqualTo("전투 시작"));
-                Assert.That(Text(hud, "Tavern Round Hint"), Does.Contain("기술 1/8").And.Contain("HP 500").And.Contain("저항 30"));
+                Assert.That(Text(hud, "Tavern Rules"), Does.Contain("8칸을 자동 실행한 뒤 상점으로 돌아옵니다").And.Contain("예약 비용으로 쓰지 않습니다"));
+                Assert.That(Button(hud, "Tavern Next Round").GetComponentInChildren<Text>().text, Is.EqualTo("8칸 실행"));
+                Assert.That(Text(hud, "Tavern Round Hint"), Does.Contain("상대 기술 1/8").And.Contain("자동으로 다음 상점")
+                    .And.Contain("이번 라운드 자원 3").And.Contain("이월 없음"));
+                Assert.That(Text(hud, "Tavern Player State"), Does.Contain("HP 500 / 500").And.Contain("저항 30 / 30"));
+                Assert.That(Text(hud, "Tavern Enemy State"), Does.Contain("HP 500 / 500").And.Contain("저항 30 / 30"));
                 Assert.That(Text(hud, "Tavern Wallet"), Does.Contain("라운드 1").And.Contain("자원 3"));
                 var scaler = hud.Root.GetComponent<CanvasScaler>();
                 Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920f, 1080f)));
                 Assert.That(scaler.screenMatchMode, Is.EqualTo(CanvasScaler.ScreenMatchMode.Expand));
                 for (int i = 0; i < SkillTavernRun.ShopSize; i++)
+                {
                     Assert.That(Button(hud, "Tavern Buy " + i).interactable, Is.True);
+                    Assert.That(Button(hud, "Tavern Buy " + i).GetComponentInChildren<Text>().text, Is.EqualTo("보관 3"));
+                    Assert.That(Button(hud, "Tavern Buy And Deploy " + i).interactable, Is.True);
+                    Assert.That(Button(hud, "Tavern Buy And Deploy " + i).GetComponentInChildren<Text>().text, Is.EqualTo("편성 3"));
+                }
+                RectTransform surface = Find(hud.Root, "Tavern Surface").GetComponent<RectTransform>();
+                Image backdrop = Find(hud.Root, "Tavern Backdrop").GetComponent<Image>();
+                Assert.That(surface.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(surface.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(surface.sizeDelta, Is.EqualTo(Vector2.zero));
+                Assert.That(surface.GetComponent<Image>(), Is.Null, "The workspace has no inset modal card or border.");
+                Assert.That(surface.Find("Brass Trim"), Is.Null);
+                Assert.That(backdrop.rectTransform.anchorMin, Is.EqualTo(Vector2.zero));
+                Assert.That(backdrop.rectTransform.anchorMax, Is.EqualTo(Vector2.one));
+                Assert.That(backdrop.color.a, Is.EqualTo(1f));
+                Assert.That(backdrop.raycastTarget, Is.True);
                 for (int i = 0; i < SkillTavernRun.SlotCount; i++)
                 {
                     Transform slot = Find(hud.Root, "Tavern Board Slot " + i);
@@ -116,6 +136,80 @@ namespace TurnLimbo.Presentation.Tests
                 Click(hud, "Tavern Board Slot 3");
                 Assert.That(Text(hud, "Tavern Detail Name"), Is.EqualTo("숨고르기"));
                 Assert.That(fixture.Commands, Is.Zero, "Inspecting a breathing position only changes the view.");
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator DirectAndStoredPurchasesCostTheSame_AndDirectPurchasesFillOnlyTheFirstHole()
+        {
+            yield return null;
+            using (var stored = new Fixture())
+            {
+                Click(stored.Hud, "Tavern Buy 0");
+                Assert.That(stored.Run.Gold, Is.Zero);
+                Assert.That(stored.Run.Inventory.Count, Is.EqualTo(1));
+                Assert.That(stored.Run.Board, Is.All.Null);
+            }
+            using (var direct = new Fixture())
+            {
+                Click(direct.Hud, "Tavern Buy And Deploy 0");
+                Assert.That(direct.Run.Gold, Is.Zero);
+                Assert.That(direct.Run.Inventory, Is.Empty);
+                Assert.That(direct.Run.Board[0], Is.Not.Null);
+                Assert.That(direct.Run.ShopOffers[0], Is.Null);
+                direct.Run.NextRound();
+                direct.Hud.Show(direct.Run);
+                Click(direct.Hud, "Tavern Buy And Deploy 0");
+                SkillTavernCard later = direct.Run.Board[1];
+                Assert.That(later, Is.Not.Null);
+                Click(direct.Hud, "Tavern Sell Board 0");
+                direct.Run.NextRound();
+                direct.Hud.Show(direct.Run);
+                int before = direct.Run.Gold;
+                Click(direct.Hud, "Tavern Buy And Deploy 0");
+                Assert.That(direct.Run.Gold, Is.EqualTo(before - SkillTavernRun.PurchasePrice));
+                Assert.That(direct.Run.Board[0], Is.Not.Null);
+                Assert.That(direct.Run.Board[1], Is.SameAs(later));
+                Assert.That(direct.Run.Inventory, Is.Empty, "Direct formation never takes a detour through storage.");
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator FullScreenShopReadsCarriedHealthAndResistance_FromThePersistentBattle()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                var battle = new SkillTavernBattle(fixture.Run, 11);
+                LegacySkill[] player = Enumerable.Repeat(LegacyCommonActions.Breathe, SkillTavernRun.SlotCount).ToArray();
+                LegacySkill[] enemy = Enumerable.Repeat(LegacyCommonActions.Breathe, SkillTavernRun.SlotCount).ToArray();
+                player[0] = new LegacySkill(-9401, "저항 시험", 0, 10, 10, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "");
+                enemy[0] = new LegacySkill(-9402, "저항 시험", 0, 6, 6, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "");
+                player[1] = new LegacySkill(-9403, "피해 시험", 0, 15, 15, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 1, 0, "");
+                enemy[2] = new LegacySkill(-9404, "피해 시험", 0, 20, 20, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 1, 0, "");
+                Assert.That(battle.Duel.TrySetFixedQueues(player, enemy), Is.True);
+                battle.Duel.Commit();
+                while (!battle.Duel.IsTurnResolved && !battle.Duel.IsFinished) battle.Duel.ResolveNextSlot();
+                Assert.That(battle.Duel.Player.Health, Is.LessThan(battle.Duel.Player.MaxHealth));
+                Assert.That(battle.Duel.Enemy.Health, Is.LessThan(battle.Duel.Enemy.MaxHealth));
+                Assert.That(battle.Duel.Player.Resistance, Is.LessThan(battle.Duel.Player.MaxResistance));
+                Assert.That(battle.Duel.Enemy.Resistance, Is.LessThan(battle.Duel.Enemy.MaxResistance));
+                fixture.Run.NextRound();
+                fixture.Hud.Show(fixture.Run, battle);
+                string playerStatus = "나 · HP " + battle.Duel.Player.Health + " / " + battle.Duel.Player.MaxHealth
+                    + " · 저항 " + battle.Duel.Player.Resistance + " / " + battle.Duel.Player.MaxResistance;
+                string enemyStatus = battle.EnemyName + " · HP " + battle.Duel.Enemy.Health + " / " + battle.Duel.Enemy.MaxHealth
+                    + " · 저항 " + battle.Duel.Enemy.Resistance + " / " + battle.Duel.Enemy.MaxResistance;
+                Assert.That(Text(fixture.Hud, "Tavern Player State"), Is.EqualTo(playerStatus));
+                Assert.That(Text(fixture.Hud, "Tavern Enemy State"), Is.EqualTo(enemyStatus));
+                Assert.That(Text(fixture.Hud, "Tavern Wallet"), Does.Contain("라운드 2").And.Contain("자원 4"));
+                Assert.That(Text(fixture.Hud, "Tavern Round Hint"), Does.Contain("이번 라운드 자원 4").And.Contain("이월 없음"));
+                fixture.Hud.Hide();
+                fixture.Hud.Show(fixture.Run);
+                Assert.That(Text(fixture.Hud, "Tavern Player State"), Is.EqualTo(playerStatus), "Reopening the same shop retains its battle binding.");
+                Assert.That(Text(fixture.Hud, "Tavern Enemy State"), Is.EqualTo(enemyStatus));
             }
             yield return null;
         }
@@ -160,6 +254,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Run.Gold, Is.Zero);
                 Assert.That(Button(fixture.Hud, "Tavern Buy 1").interactable, Is.False);
                 Assert.That(Button(fixture.Hud, "Tavern Buy 1").GetComponentInChildren<Text>().text, Does.Contain("자원 부족"));
+                Assert.That(Button(fixture.Hud, "Tavern Buy And Deploy 1").interactable, Is.False);
+                Assert.That(Button(fixture.Hud, "Tavern Buy And Deploy 1").GetComponentInChildren<Text>().text, Does.Contain("자원 부족"));
                 Click(fixture.Hud, "Tavern Inventory Card " + bought.InstanceId);
                 Click(fixture.Hud, "Tavern Sell Inventory");
                 Assert.That(fixture.Run.Gold, Is.EqualTo(SkillTavernRun.SellPrice));
@@ -178,6 +274,11 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 for (int i = 0; i < SkillTavernRun.SlotCount; i++) fixture.BuyAndDeploy();
+                fixture.Run.NextRound();
+                fixture.Hud.Show(fixture.Run);
+                Assert.That(Button(fixture.Hud, "Tavern Buy And Deploy 0").interactable, Is.False);
+                Assert.That(Button(fixture.Hud, "Tavern Buy And Deploy 0").GetComponentInChildren<Text>().text, Is.EqualTo("편성 가득 참"));
+                Assert.That(Button(fixture.Hud, "Tavern Buy 0").interactable, Is.True, "A full formation can still buy a stored copy.");
                 SkillTavernCard spare = fixture.Buy();
                 int later = fixture.Run.Board[3].InstanceId;
                 Click(fixture.Hud, "Tavern Inventory Card " + spare.InstanceId);
@@ -289,7 +390,10 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture(false))
             {
                 for (int i = 0; i < SkillTavernRun.ShopSize; i++)
+                {
                     Assert.That(Button(fixture.Hud, "Tavern Buy " + i).interactable, Is.False);
+                    Assert.That(Button(fixture.Hud, "Tavern Buy And Deploy " + i).interactable, Is.False);
+                }
                 Assert.That(Button(fixture.Hud, "Tavern Next Round").interactable, Is.False);
                 Click(fixture.Hud, "Tavern Shop Card 0");
                 Assert.That(Text(fixture.Hud, "Tavern Detail Name"), Is.EqualTo(fixture.Run.ShopOffers[0].Name));

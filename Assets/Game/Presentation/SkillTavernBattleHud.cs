@@ -9,7 +9,7 @@ using UnityEngine.UI;
 namespace TurnLimbo.Presentation
 {
     /// <summary>A small spectator strip while the existing arena plays, then the tavern's own settled result.
-    /// The owner executes exits and round changes; the view never awards income or records a result.</summary>
+    /// The owner executes exits and new experiments; the view never awards income or records a result.</summary>
     public sealed class SkillTavernBattleHud : IDisposable
     {
         public const int SortingOrder = 420;
@@ -82,10 +82,10 @@ namespace TurnLimbo.Presentation
                 new Vector2(802f, 48f), 26, DuelVisualTheme.Foreground, TextAnchor.MiddleCenter);
             Label("Tavern Result Round Hint", card.transform, new Vector2(0f, -124f),
                 new Vector2(802f, 82f), 21, DuelVisualTheme.Muted, TextAnchor.MiddleCenter).text =
-                "다음 라운드에는 자원을 지급하고 상점을 새로 채웁니다.\n편성과 보관함은 유지되며, 남은 자원은 이월되지 않습니다.";
+                "대전이 끝났습니다. 새 실험으로 다시 시작할 수 있습니다.\n새 실험은 HP와 저항, 편성, 보관함, 자원을 처음 상태로 되돌립니다.";
             titleButton = ActionButton("Tavern Result Title", card.transform, "타이틀로",
                 new Vector2(-176f, -231f), new Vector2(280f, 60f), () => Request(true, this.returnToTitle));
-            nextRoundButton = ActionButton("Tavern Result Next Round", card.transform, "다음 라운드",
+            nextRoundButton = ActionButton("Tavern Result Next Round", card.transform, "새 실험",
                 new Vector2(176f, -231f), new Vector2(320f, 60f), () => Request(true, this.nextRound), true);
             Hide();
         }
@@ -93,7 +93,7 @@ namespace TurnLimbo.Presentation
         public void ShowBattle(SkillTavernRun run, SkillTavernBattle battle)
         {
             if (!Show(run, battle, false)) return;
-            battleCaption.text = "선술집 " + run.RoundNumber + "라운드 · 자동 전투 · " + battle.EnemyName;
+            battleCaption.text = "선술집 " + run.RoundNumber + "라운드 · 8칸 자동 전투 · " + battle.EnemyName;
             formationButton.interactable = !actionPending && returnToFormation != null;
         }
 

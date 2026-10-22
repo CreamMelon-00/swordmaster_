@@ -124,13 +124,14 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(fixture.Run.BattlesPlayed, Is.EqualTo(i + 1), "Refreshing a result cannot record it again.");
                 }
                 Assert.That(Text(fixture.Hud, "Tavern Result Record"), Is.EqualTo("누적 3전 · 1승 · 1패 · 1무"));
-                Assert.That(Text(fixture.Hud, "Tavern Result Round Hint"), Does.Contain("자원을 지급").And.Contain("이월되지 않습니다"));
+                Assert.That(Text(fixture.Hud, "Tavern Result Round Hint"), Does.Contain("대전이 끝났습니다").And.Contain("처음 상태로 되돌립니다"));
+                Assert.That(Button(fixture.Hud, "Tavern Result Next Round").GetComponentInChildren<Text>().text, Is.EqualTo("새 실험"));
             }
             yield return null;
         }
 
         [UnityTest]
-        public IEnumerator RoundAndTitleActionsWaitForAResult_AndShareOneExitRequestWithoutChangingTheRun()
+        public IEnumerator NewExperimentAndTitleActionsWaitForTheFinalResult_AndShareOneExitRequestWithoutChangingTheRun()
         {
             yield return null;
             using (var fixture = new Fixture())

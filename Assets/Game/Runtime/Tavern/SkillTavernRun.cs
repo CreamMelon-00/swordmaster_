@@ -83,6 +83,9 @@ namespace TurnLimbo.Runtime.Tavern
         public bool CanBuy(int shopIndex)
             => shopIndex >= 0 && shopIndex < ShopSize && shop[shopIndex] != null && Gold >= PurchasePrice;
 
+        public bool CanBuyAndDeploy(int shopIndex)
+            => CanBuy(shopIndex) && Array.IndexOf(board, null) >= 0;
+
         public bool CanDeploy(int instanceId)
             => InventoryIndex(instanceId) >= 0 && Array.IndexOf(board, null) >= 0;
 
@@ -96,6 +99,18 @@ namespace TurnLimbo.Runtime.Tavern
             if (!CanBuy(shopIndex)) return false;
             var card = new SkillTavernCard(nextInstanceId, Copy(shop[shopIndex]));
             inventory.Add(card);
+            nextInstanceId++;
+            shop[shopIndex] = null;
+            Gold -= PurchasePrice;
+            return true;
+        }
+
+        public bool TryBuyAndDeploy(int shopIndex)
+        {
+            if (!CanBuyAndDeploy(shopIndex)) return false;
+            int slot = Array.IndexOf(board, null);
+            var card = new SkillTavernCard(nextInstanceId, Copy(shop[shopIndex]));
+            board[slot] = card;
             nextInstanceId++;
             shop[shopIndex] = null;
             Gold -= PurchasePrice;

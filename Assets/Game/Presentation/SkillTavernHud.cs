@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace TurnLimbo.Presentation
 {
     /// <summary>Local view commands. The caller owns their execution and the authoritative experiment state.</summary>
-    public enum SkillTavernAction { Buy, Deploy, SellBoard, SellInventory, NextRound, StartBattle }
+    public enum SkillTavernAction { Buy, Deploy, SellBoard, SellInventory, NextRound, StartBattle, BuyAndDeploy }
 
     /// <summary>The standalone shop and eight-slot preparation experiment. Selecting a card only inspects it;
     /// every economy or board change goes through the caller, so the view can later display a remote authority.</summary>
@@ -21,8 +21,8 @@ namespace TurnLimbo.Presentation
         private sealed class CardView
         {
             public Image Surface;
-            public Button Select, Action;
-            public Text Name, Facts, ActionLabel;
+            public Button Select, Action, DirectAction;
+            public Text Name, Facts, ActionLabel, DirectLabel;
             public Image Icon;
         }
 
@@ -38,11 +38,13 @@ namespace TurnLimbo.Presentation
         private readonly Dictionary<int, CardView> inventory = new Dictionary<int, CardView>();
         private readonly ScrollRect inventoryScroll;
         private readonly Text wallet, inventoryHeading, inventoryEmpty, inventoryHint, selectedName, detailName, opponentHint;
+        private readonly Text playerState, enemyState;
         private readonly Image detailIcon;
         private readonly SkillInfoView detailInfo;
         private readonly Button deployButton, sellInventoryButton, nextRoundButton, resetButton;
         private Selection selection;
         private int selectedValue;
+        private SkillTavernBattle displayedBattle;
         private bool disposed;
 
         public GameObject Root => root.gameObject;
@@ -76,27 +78,34 @@ namespace TurnLimbo.Presentation
                 ownedEventSystem.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
             }
 
-            Image backdrop = Panel("Tavern Backdrop", root, Vector2.zero, Vector2.zero, DuelVisualTheme.Track);
+            Image backdrop = Panel("Tavern Backdrop", root, Vector2.zero, Vector2.zero, DuelVisualTheme.Surface);
             Stretch(backdrop.rectTransform);
             backdrop.raycastTarget = true;
-            Image paper = Panel("Tavern Surface", root, Vector2.zero, new Vector2(1840f, 1000f), DuelVisualTheme.Surface);
-            DuelVisualTheme.DressPanel(paper);
-            Transform surface = paper.transform;
-            Label("Tavern Heading", surface, new Vector2(-500f, 451f), new Vector2(730f, 54f), 42,
+            // The shop is a complete screen. Only the individual skills are cards; there is no framed modal surface.
+            RectTransform surface = Rect("Tavern Surface", root, Vector2.zero, Vector2.zero);
+            Stretch(surface);
+            Label("Tavern Heading", surface, new Vector2(-500f, 480f), new Vector2(730f, 54f), 42,
                 DuelVisualTheme.Foreground).text = "선술집 실험";
-            wallet = Label("Tavern Wallet", surface, new Vector2(500f, 451f), new Vector2(730f, 54f), 26,
+            wallet = Label("Tavern Wallet", surface, new Vector2(500f, 480f), new Vector2(730f, 54f), 26,
                 DuelVisualTheme.Accent, TextAnchor.MiddleRight);
-            Label("Tavern Rules", surface, new Vector2(0f, 390f), new Vector2(1730f, 64f), 19,
-                DuelVisualTheme.Muted).text = "구매한 기술은 보관함으로 갑니다. 편성하면 왼쪽 첫 빈칸에 들어가며, 판매로만 뺄 수 있습니다.\n"
-                + "빈칸은 숨고르기입니다. 8칸으로 연습 상대 1명과 자동 전투를 합니다. 카드의 ACT는 이 모드의 예약 비용으로 쓰지 않습니다.";
+            Image status = Panel("Tavern Fighter Status", surface, new Vector2(0f, 423f),
+                new Vector2(1730f, 48f), DuelVisualTheme.RaisedSurface);
+            playerState = Label("Tavern Player State", status.transform, new Vector2(-431f, 0f),
+                new Vector2(820f, 40f), 23, DuelVisualTheme.Foreground);
+            enemyState = Label("Tavern Enemy State", status.transform, new Vector2(431f, 0f),
+                new Vector2(820f, 40f), 23, DuelVisualTheme.Steel, TextAnchor.MiddleRight);
+            Label("Tavern Rules", surface, new Vector2(0f, 372f), new Vector2(1730f, 48f), 18,
+                DuelVisualTheme.Muted).text = "편성은 왼쪽 첫 빈칸으로, 보관은 보관함으로 들어갑니다. 편성한 기술은 판매로만 뺄 수 있습니다.\n"
+                + "빈칸은 숨고르기입니다. 8칸을 자동 실행한 뒤 상점으로 돌아옵니다. HP와 저항은 이어지며, 카드 ACT는 예약 비용으로 쓰지 않습니다.";
 
             Label("Tavern Shop Heading", surface, new Vector2(-305f, 328f), new Vector2(1130f, 36f), 25,
-                DuelVisualTheme.Foreground).text = "상점  ·  구매 " + SkillTavernRun.PurchasePrice + " 자원";
+                DuelVisualTheme.Foreground).text = "상점  ·  편성 / 보관 각 " + SkillTavernRun.PurchasePrice + " 자원";
             for (int i = 0; i < shop.Length; i++)
             {
                 int index = i;
                 shop[i] = BuildShopCard(surface, i, new Vector2(-680f + 375f * i, 150f),
-                    () => Select(Selection.Shop, index), () => Dispatch(SkillTavernAction.Buy, index));
+                    () => Select(Selection.Shop, index), () => Dispatch(SkillTavernAction.Buy, index),
+                    () => Dispatch(SkillTavernAction.BuyAndDeploy, index));
             }
 
             Image detail = Panel("Tavern Detail", surface, new Vector2(650f, 150f),
@@ -149,7 +158,7 @@ namespace TurnLimbo.Presentation
             inventoryScroll.horizontalScrollbar = scrollbar;
             inventoryEmpty = Label("Tavern Inventory Empty", viewport.transform, Vector2.zero,
                 new Vector2(InventoryWidth - 40f, 90f), 22, DuelVisualTheme.Muted, TextAnchor.MiddleCenter);
-            inventoryEmpty.text = "상점에서 기술을 구매하면 여기에 보관됩니다.";
+            inventoryEmpty.text = "상점에서 보관을 선택하면 여기에 들어옵니다.";
 
             Image actions = Panel("Tavern Inventory Actions", surface, new Vector2(650f, -344f),
                 new Vector2(400f, 164f), DuelVisualTheme.Card);
@@ -169,14 +178,16 @@ namespace TurnLimbo.Presentation
                 new Vector2(240f, 48f), () => this.returnToTitle?.Invoke());
             opponentHint = Label("Tavern Round Hint", surface, new Vector2(-245f, -466f), new Vector2(720f, 48f), 17,
                 DuelVisualTheme.Muted);
-            nextRoundButton = ActionButton("Tavern Next Round", surface, "전투 시작", new Vector2(374f, -467f),
+            nextRoundButton = ActionButton("Tavern Next Round", surface, "8칸 실행", new Vector2(374f, -467f),
                 new Vector2(310f, 48f), () => Dispatch(SkillTavernAction.StartBattle, 0), true);
             resetButton = ActionButton("Tavern Reset", surface, "새 실험", new Vector2(722f, -467f),
                 new Vector2(244f, 48f), () => this.reset?.Invoke());
             Hide();
         }
 
-        public void Show(SkillTavernRun run)
+        public void Show(SkillTavernRun run) => Show(run, ReferenceEquals(Run, run) ? displayedBattle : null);
+
+        public void Show(SkillTavernRun run, SkillTavernBattle battle)
         {
             if (disposed) return;
             if (run == null) throw new ArgumentNullException(nameof(run));
@@ -187,6 +198,7 @@ namespace TurnLimbo.Presentation
                 inventoryScroll.horizontalNormalizedPosition = 0f;
             }
             Run = run;
+            displayedBattle = battle;
             root.gameObject.SetActive(true);
             Refresh();
         }
@@ -203,25 +215,30 @@ namespace TurnLimbo.Presentation
             if (disposed || Run == null) return;
             if (SelectedSkill() == null) { selection = Selection.None; selectedValue = 0; }
             wallet.text = "라운드 " + Run.RoundNumber + "  ·  자원 " + Run.Gold + "  ·  이번 지급 " + Run.RoundIncome;
+            playerState.text = FighterState("나", displayedBattle?.Duel.Player);
+            enemyState.text = FighterState(displayedBattle?.EnemyName ?? "선술집 도전자", displayedBattle?.Duel.Enemy);
             int enemyTechniques = 0;
             foreach (LegacySkill skill in SkillTavernBattle.CreateEnemyQueue(Run.RoundNumber))
                 if (!skill.IsWait) enemyTechniques++;
-            opponentHint.text = "연습 상대 · 기술 " + enemyTechniques + "/" + SkillTavernRun.SlotCount
-                + " · HP " + SkillTavernBattle.FighterHealth + " · 저항 " + SkillTavernBattle.FighterResistance
-                + "\n전투 후 다음 라운드에서 자원과 상점이 새로 채워집니다.";
+            opponentHint.text = "상대 기술 " + enemyTechniques + "/" + SkillTavernRun.SlotCount
+                + " · 8칸 후 자동으로 다음 상점"
+                + "\n이번 라운드 자원 " + Run.RoundIncome + " · 남은 자원 이월 없음";
             bool canExecute = execute != null;
             for (int i = 0; i < shop.Length; i++)
             {
                 LegacySkill skill = Run.ShopOffers[i];
                 CardView view = shop[i];
-                view.Name.text = skill?.Name ?? "판매 완료";
+                view.Name.text = skill?.Name ?? "품절";
                 view.Facts.text = skill == null ? "다음 라운드에 새 기술이 들어옵니다." : Facts(skill);
                 view.Icon.sprite = skill == null ? null : art.GetSkillIcon(skill.IconId);
                 view.Icon.enabled = view.Icon.sprite != null;
                 view.Select.interactable = skill != null;
                 view.Action.interactable = canExecute && Run.CanBuy(i);
-                view.ActionLabel.text = skill == null ? "구매 완료" : Run.Gold < SkillTavernRun.PurchasePrice
-                    ? "자원 부족 · " + SkillTavernRun.PurchasePrice + " 필요" : "구매 · " + SkillTavernRun.PurchasePrice;
+                view.DirectAction.interactable = canExecute && Run.CanBuyAndDeploy(i);
+                view.ActionLabel.text = skill == null ? "품절" : !Run.CanBuy(i)
+                    ? "자원 부족" : "보관 " + SkillTavernRun.PurchasePrice;
+                view.DirectLabel.text = skill == null ? "품절" : !Run.CanBuy(i)
+                    ? "자원 부족" : !Run.CanBuyAndDeploy(i) ? "편성 가득 참" : "편성 " + SkillTavernRun.PurchasePrice;
                 view.Surface.color = selection == Selection.Shop && selectedValue == i ? DuelVisualTheme.Selected : DuelVisualTheme.Card;
             }
             for (int i = 0; i < board.Length; i++)
@@ -244,7 +261,7 @@ namespace TurnLimbo.Presentation
             SkillTavernCard inventoryCard = selection == Selection.Inventory ? FindInventory(selectedValue) : null;
             selectedName.text = inventoryCard == null ? "보관함에서 기술을 선택하세요" : inventoryCard.Skill.Name + "  (#" + inventoryCard.InstanceId + ")";
             bool canDeploy = inventoryCard != null && Run.CanDeploy(inventoryCard.InstanceId);
-            inventoryHint.text = inventoryCard == null ? "구매한 기술은 자동으로 편성되지 않습니다."
+            inventoryHint.text = inventoryCard == null ? "보관함의 기술을 선택하면\n추가 비용 없이 편성할 수 있습니다."
                 : canDeploy ? "왼쪽 첫 빈칸으로 들어갑니다.\n편성한 뒤에는 판매로만 뺄 수 있습니다."
                 : "8칸이 모두 찼습니다.\n편성한 기술을 판매하면 자리가 생깁니다.";
             deployButton.interactable = canExecute && canDeploy;
@@ -324,7 +341,7 @@ namespace TurnLimbo.Presentation
             return null;
         }
 
-        private CardView BuildShopCard(Transform parent, int index, Vector2 center, Action select, Action buy)
+        private CardView BuildShopCard(Transform parent, int index, Vector2 center, Action select, Action buy, Action buyAndDeploy)
         {
             Image image = Panel("Tavern Shop Card " + index, parent, center, new Vector2(350f, 300f), DuelVisualTheme.Card);
             var view = new CardView { Surface = image, Select = SelectButton(image, select) };
@@ -337,8 +354,11 @@ namespace TurnLimbo.Presentation
                 DuelVisualTheme.Muted);
             Label("Shop Card Inspect", image.transform, new Vector2(0f, -58f), new Vector2(304f, 34f), 17,
                 DuelVisualTheme.Muted).text = "카드를 선택하면 효과를 볼 수 있습니다.";
-            view.Action = ActionButton("Tavern Buy " + index, image.transform, "구매", new Vector2(0f, -115f),
-                new Vector2(304f, 46f), buy, true);
+            view.DirectAction = ActionButton("Tavern Buy And Deploy " + index, image.transform, "편성",
+                new Vector2(-79f, -115f), new Vector2(146f, 46f), buyAndDeploy, true);
+            view.DirectLabel = view.DirectAction.GetComponentInChildren<Text>();
+            view.Action = ActionButton("Tavern Buy " + index, image.transform, "보관", new Vector2(79f, -115f),
+                new Vector2(146f, 46f), buy);
             view.ActionLabel = view.Action.GetComponentInChildren<Text>();
             return view;
         }
@@ -367,6 +387,12 @@ namespace TurnLimbo.Presentation
             return !power || skill.IsWait ? text : text + "\n위력 " + skill.MinPower + "–" + skill.MaxPower
                 + (skill.Kind == LegacySkillKind.Attack ? " · " + skill.AttackCount + "회" : string.Empty);
         }
+
+        private static string FighterState(string name, LegacyFighterState fighter)
+            => name + " · HP " + (fighter?.Health ?? SkillTavernBattle.FighterHealth)
+                + " / " + (fighter?.MaxHealth ?? SkillTavernBattle.FighterHealth)
+                + " · 저항 " + (fighter?.Resistance ?? SkillTavernBattle.FighterResistance)
+                + " / " + (fighter?.MaxResistance ?? SkillTavernBattle.FighterResistance);
 
         private Button SelectButton(Image image, Action select)
         {
@@ -457,6 +483,7 @@ namespace TurnLimbo.Presentation
             foreach (Button button in root.GetComponentsInChildren<Button>(true)) button.onClick.RemoveAllListeners();
             inventory.Clear();
             Run = null;
+            displayedBattle = null;
             Destroy(root.gameObject);
             if (ownedEventSystem != null) Destroy(ownedEventSystem);
         }

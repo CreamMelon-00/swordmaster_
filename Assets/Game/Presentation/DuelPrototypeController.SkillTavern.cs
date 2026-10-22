@@ -12,14 +12,15 @@ namespace TurnLimbo.Presentation
         private SkillTavernRun skillTavernRun;
         private SkillTavernBattle skillTavernBattle;
         private LegacyQueuedDuel skillTavernCampaignSession;
-        private bool skillTavernActive, skillTavernResult;
+        private bool skillTavernActive, skillTavernResult, skillTavernPlaying;
+        private bool skillTavernCameraHidden, skillTavernPreviousCameraEnabled;
 
         public SkillTavernHud SkillTavernHud => skillTavernHud;
         public SkillTavernRun SkillTavern => skillTavernRun;
         public SkillTavernBattle SkillTavernBattle => skillTavernBattle;
         public SkillTavernBattleHud SkillTavernBattleHud => skillTavernBattleHud;
         public bool IsInSkillTavern => skillTavernActive;
-        public bool IsInSkillTavernBattle => skillTavernActive && skillTavernBattle != null && !skillTavernResult;
+        public bool IsInSkillTavernBattle => skillTavernActive && skillTavernPlaying;
         public bool IsShowingSkillTavernResult => skillTavernActive && skillTavernResult;
 
         private void InitializeSkillTavern()
@@ -27,7 +28,7 @@ namespace TurnLimbo.Presentation
             skillTavernHud = new SkillTavernHud(transform, art, ShowTitle,
                 () => RestartSkillTavern(), (action, argument) => TrySkillTavernAction(action, argument));
             skillTavernBattleHud = new SkillTavernBattleHud(transform, art, () => ReturnToSkillTavernFormation(),
-                () => TrySkillTavernAction(SkillTavernAction.NextRound), ShowTitle);
+                () => RestartSkillTavern(), ShowTitle);
         }
 
         /// <summary>A separate, session-only economy experiment. The campaign save is never its state owner.</summary>
@@ -43,15 +44,17 @@ namespace TurnLimbo.Presentation
             skillTavernActive = true;
             if (skillTavernResult && skillTavernBattle != null)
                 skillTavernBattleHud.ShowResult(skillTavernRun, skillTavernBattle);
-            else skillTavernHud.Show(skillTavernRun);
+            else ShowSkillTavernFormation();
             return true;
         }
 
         public bool RestartSkillTavern()
         {
-            if (!IsInSkillTavern || !skillTavernHud.IsVisible) return false;
+            if (!IsInSkillTavern || IsInSkillTavernBattle ||
+                !skillTavernHud.IsVisible && !IsShowingSkillTavernResult) return false;
             skillTavernRun = new SkillTavernRun(System.Environment.TickCount);
-            skillTavernHud.Show(skillTavernRun);
+            skillTavernBattle = null;
+            ShowSkillTavernFormation();
             return true;
         }
 
@@ -60,20 +63,13 @@ namespace TurnLimbo.Presentation
         public bool TrySkillTavernAction(SkillTavernAction action, int argument = 0)
         {
             if (!IsInSkillTavern || skillTavernRun == null) return false;
-            if (action == SkillTavernAction.NextRound)
-            {
-                if (argument != 0 || !IsShowingSkillTavernResult || skillTavernBattle == null ||
-                    !skillTavernBattle.Duel.IsFinished) return false;
-                skillTavernRun.NextRound();
-                ShowSkillTavernFormation();
-                return true;
-            }
             // Only the shop owns economy requests. A playing or settled fight cannot edit its snapshot.
-            if (!skillTavernHud.IsVisible || skillTavernBattle != null) return false;
+            if (!skillTavernHud.IsVisible || skillTavernPlaying || skillTavernResult) return false;
             bool accepted;
             switch (action)
             {
                 case SkillTavernAction.Buy: accepted = skillTavernRun.TryBuy(argument); break;
+                case SkillTavernAction.BuyAndDeploy: accepted = skillTavernRun.TryBuyAndDeploy(argument); break;
                 case SkillTavernAction.Deploy: accepted = skillTavernRun.TryDeploy(argument); break;
                 case SkillTavernAction.SellBoard: accepted = skillTavernRun.TrySellBoard(argument); break;
                 case SkillTavernAction.SellInventory: accepted = skillTavernRun.TrySellInventory(argument); break;
@@ -82,16 +78,20 @@ namespace TurnLimbo.Presentation
                     return StartSkillTavernBattle();
                 default: return false;
             }
-            skillTavernHud.Show(skillTavernRun);
+            skillTavernHud.Show(skillTavernRun, skillTavernBattle);
             return accepted;
         }
 
         private bool StartSkillTavernBattle()
         {
+            if (skillTavernBattle == null)
+                skillTavernBattle = new SkillTavernBattle(skillTavernRun, System.Environment.TickCount);
+            if (!skillTavernBattle.TryStartTurn()) return false;
             skillTavernCampaignSession = session;
-            skillTavernBattle = new SkillTavernBattle(skillTavernRun, System.Environment.TickCount);
             skillTavernResult = false;
+            skillTavernPlaying = true;
             skillTavernHud.Hide();
+            RestoreSkillTavernCamera();
             session = skillTavernBattle.Duel;
             ResetBattlePresentation();
             arena.SetEnemyAppearance(EnemyAppearance.CadetB);
@@ -100,29 +100,23 @@ namespace TurnLimbo.Presentation
             hud.SetEnemyName(skillTavernBattle.EnemyName);
             hud.SetInputsHeld(true);
             hud.SetTurnHeaderVisible(false);
-            if (!session.TrySetFixedQueues(skillTavernBattle.PlayerQueue, skillTavernBattle.EnemyQueue))
-            {
-                ShowSkillTavernFormation();
-                return false;
-            }
-            session.Commit();
             BeginSkillTavernPlayback();
             skillTavernBattleHud.ShowBattle(skillTavernRun, skillTavernBattle);
             return true;
         }
 
-        private void BeginNextSkillTavernTurn()
+        private void FinishSkillTavernTurn()
         {
-            int playerResistanceBefore = session.Player.Resistance;
-            int enemyResistanceBefore = session.Enemy.Resistance;
-            if (!skillTavernBattle.TryBeginNextTurn()) return;
-            arena.BeginTurn();
-            hud.BeginTurn();
-            if (session.Player.Resistance > playerResistanceBefore)
-                hud.ShowRecoveryCallout(true, arena.PlayerRenderer.transform.position, arena.PlayerRenderer.transform);
-            AnnounceEnemyTurnRecovery(enemyResistanceBefore);
-            RefreshEnemyRosterState();
-            BeginSkillTavernPlayback();
+            if (!IsInSkillTavernBattle || !skillTavernBattle.TryCompleteTurn()) return;
+            if (!skillTavernBattle.Duel.IsFinished)
+            {
+                ShowSkillTavernFormation();
+                return;
+            }
+            skillTavernPlaying = false;
+            skillTavernResult = true;
+            EndDuelPresentation();
+            skillTavernBattleHud.ShowResult(skillTavernRun, skillTavernBattle);
         }
 
         // Shares the ordinary slot, hit, camera and finish presentation, without opening manual reservation inputs.
@@ -147,19 +141,19 @@ namespace TurnLimbo.Presentation
 
         private void FinishSkillTavernBattle()
         {
-            if (!IsInSkillTavernBattle || !skillTavernBattle.Duel.IsFinished) return;
-            skillTavernBattle.TryRecordResult();
-            skillTavernResult = true;
-            EndDuelPresentation();
-            skillTavernBattleHud.ShowResult(skillTavernRun, skillTavernBattle);
+            FinishSkillTavernTurn();
         }
 
         public bool ReturnToSkillTavernFormation()
         {
             if (!IsInSkillTavernBattle) return false;
-            // A decided fight still pays its result; Esc during the finishing shot skips only its presentation.
-            if (skillTavernBattle.Duel.IsFinished) FinishSkillTavernBattle();
-            else ShowSkillTavernFormation();
+            // A settled turn cannot be undone during its return animation. Earlier exits restore its shop checkpoint.
+            if (skillTavernBattle.Duel.IsFinished || skillTavernBattle.Duel.IsTurnResolved) FinishSkillTavernTurn();
+            else
+            {
+                if (!skillTavernBattle.TryCancelTurn()) return false;
+                ShowSkillTavernFormation();
+            }
             return true;
         }
 
@@ -168,9 +162,10 @@ namespace TurnLimbo.Presentation
             if (skillTavernCampaignSession != null) EndDuelPresentation();
             RestoreSkillTavernSession();
             skillTavernBattleHud.Hide();
-            skillTavernBattle = null;
+            skillTavernPlaying = false;
             skillTavernResult = false;
-            skillTavernHud.Show(skillTavernRun);
+            HideSkillTavernCamera();
+            skillTavernHud.Show(skillTavernRun, skillTavernBattle);
         }
 
         private void RestoreSkillTavernSession()
@@ -187,17 +182,34 @@ namespace TurnLimbo.Presentation
         {
             if (IsInSkillTavernBattle)
             {
-                if (skillTavernBattle.Duel.IsFinished)
+                if (skillTavernBattle.Duel.IsFinished || skillTavernBattle.Duel.IsTurnResolved)
                 {
-                    skillTavernBattle.TryRecordResult();
-                    skillTavernResult = true;
+                    skillTavernBattle.TryCompleteTurn();
+                    skillTavernResult = skillTavernBattle.Duel.IsFinished;
                 }
-                else skillTavernBattle = null;
+                else skillTavernBattle.TryCancelTurn();
             }
             RestoreSkillTavernSession();
+            RestoreSkillTavernCamera();
+            skillTavernPlaying = false;
             skillTavernActive = false;
             skillTavernHud?.Hide();
             skillTavernBattleHud?.Hide();
+        }
+
+        private void HideSkillTavernCamera()
+        {
+            if (!skillTavernCameraHidden)
+                skillTavernPreviousCameraEnabled = arena.ArenaCamera.enabled;
+            skillTavernCameraHidden = true;
+            arena.ArenaCamera.enabled = false;
+        }
+
+        private void RestoreSkillTavernCamera()
+        {
+            if (!skillTavernCameraHidden) return;
+            arena.ArenaCamera.enabled = skillTavernPreviousCameraEnabled;
+            skillTavernCameraHidden = false;
         }
 
         private bool AdvanceSkillTavern(Keyboard keyboard)
