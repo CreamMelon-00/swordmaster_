@@ -483,6 +483,7 @@ namespace TurnLimbo.Presentation
             playerQueue = new QueueView(Rect("Player Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), true, white,
                 art.UIFont, meshGearSprite);
             enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
+            root.gameObject.AddComponent<LegacyQueueInsertionVisibility>().Configure(ResetQueueInsertions);
             guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
             BuildQueueSparks();
             // The 간파 cue over the cards and their sparks (LegacyCombatHud.Reads.cs).
@@ -946,9 +947,7 @@ namespace TurnLimbo.Presentation
             // The clash motion reads the resolving slot before the rows hide a slot just completed (its cards' copies
             // play out the rest of their meeting; the turn's last slot stays shown and plays it on its own cards).
             AdvanceQueueClash(session, isResolving, currentSlot, delta);
-            playerQueue.Refresh(session.PlayerQueue, iconFor, currentSlot, isResolving,
-                queueComparisonVisible ? inspectedSlot : -1, activeScale, session);
-            enemyQueue.Refresh(session.EnemyQueue, iconFor, currentSlot, isResolving, inspectedSlot, activeScale, session);
+            RefreshReservationQueues(session, currentSlot, isResolving, planning, activeScale, actualDelta);
             // Both rows in their panels over the dock, sliding one step toward the seam after each resolved slot.
             LayoutQueuePanels(isResolving, currentSlot, delta);
             RefreshCombatReadout(session);
@@ -985,6 +984,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            ResetQueueInsertions();
             ResetCombatReadout();
             ClearHoldCancel();
             ClearBreakQueueFragments();
@@ -1005,6 +1005,7 @@ namespace TurnLimbo.Presentation
 
         public void EndTurn()
         {
+            ResetQueueInsertions();
             ClearHoldCancel();
             targetTransition = 1;
             inputs.alpha = 0;
@@ -1517,6 +1518,7 @@ namespace TurnLimbo.Presentation
         public void Reset()
         {
             if (disposed) return;
+            ResetQueueInsertions();
             ClearFighterStatuses();
             SetTrainingMode(false);
             SetMissionMode(false);
@@ -2329,6 +2331,7 @@ namespace TurnLimbo.Presentation
             private LegacyQueueRemovalMode queuePowerRemovalMode, shownQueuePowerRemovalMode;
             public bool HasQueuePowerMark => player && (queuePowerSourceSlot >= 0 || queuePowerTargetSlot >= 0);
             private IReadOnlyList<LegacySkill> displayedQueue;
+            private readonly LegacyQueueInsertionCue insertion = new LegacyQueueInsertionCue();
             private LegacySkill preview;
             private LegacySkillFeedback currentFeedback;
             private int previewSlot = -1, feedbackSlot = -1;
@@ -2338,8 +2341,10 @@ namespace TurnLimbo.Presentation
                 Root = root; this.player = player; this.white = white; this.font = font; this.meshGear = meshGear;
             }
             public void Refresh(IReadOnlyList<LegacySkill> queue, Func<int, Sprite> iconFor, int activeSlot, bool resolving,
-                int selected, float scale, ILegacyDuelView cycleSession = null)
+                int selected, float scale, ILegacyDuelView cycleSession = null,
+                bool animateReservations = false, float realDelta = 0f, bool replayLastTechnique = false)
             {
+                insertion.Refresh(queue, animateReservations, realDelta, replayLastTechnique);
                 while (icons.Count < queue.Count)
                 {
                     var frame = Panel("Queued Skill", Root, Vector2.zero, new Vector2(64, 64), Card);
@@ -2475,7 +2480,9 @@ namespace TurnLimbo.Presentation
                     }
                     else
                     {
-                        item.anchoredPosition = position;
+                        LegacyQueueInsertionPose entry = insertion.Pose(slot);
+                        item.anchoredPosition = position + Vector2.up * (entry.Height * cardSize);
+                        item.localScale = new Vector3(restScales[slot] * entry.ScaleX, restScales[slot] * entry.ScaleY, restScales[slot]);
                         if (item.localRotation != Quaternion.identity) item.localRotation = Quaternion.identity;
                     }
                 }
@@ -2912,8 +2919,21 @@ namespace TurnLimbo.Presentation
                     meshMarks[index].gameObject.SetActive(bonus > 0);
                 }
             }
+            public void ClearInsertions()
+            {
+                insertion.Clear();
+                for (int index = 0; index < icons.Count; index++)
+                {
+                    if (index == poseIndex) continue;
+                    RectTransform item = icons[index].rectTransform.parent as RectTransform;
+                    item.anchoredPosition = new Vector2(item.anchoredPosition.x, 0f);
+                    item.localScale = Vector3.one * restScales[index];
+                }
+            }
+
             public void Clear()
             {
+                ClearInsertions();
                 DisplaySize = Vector2.zero;
                 HorizontalSpan = Vector2.zero;
                 visibleItems.Clear();
