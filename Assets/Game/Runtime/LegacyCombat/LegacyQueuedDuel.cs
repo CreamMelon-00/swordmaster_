@@ -199,6 +199,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             foreach (KeyValuePair<int, int> uses in source.cycleUses) cycleUses.Add(uses.Key, uses.Value);
             playerStatuses = source.playerStatuses.Copy();
             CopyEnemiesFrom(source);
+            CopyIiaStateFrom(source);
             PlayerQueue = playerQueue.AsReadOnly();
             EnemyQueue = enemyQueue.AsReadOnly();
             queuePowerSourceSlotIndex = source.queuePowerSourceSlotIndex;
@@ -254,7 +255,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 usesNow);
         }
         int ILegacyDuelView.EnemyCycleUsesAtSlot(int slotIndex) => 0;
-        int ILegacyDuelView.EnemyAutoBreathSlotIndex => -1;
+        int ILegacyDuelView.EnemyAutoBreathSlotIndex => iiaBossPatterns ? iiaAutoBreathSlotIndex : -1;
         /// <summary>ACT paid by a new reservation: pending copies count toward its cycle cost, up to the cycle cap.
         /// Already paid reservations keep their stored price; only actual casts increase the battle's cycle count.</summary>
         public int EffectiveCost(LegacySkill skill)
@@ -282,6 +283,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             min = skill == null ? 0 : skill.MinPower;
             max = skill == null ? 0 : skill.MaxPower;
+            if (iiaBossPatterns && LegacySkillDefinitions.Find(skill)?.Effect.MirrorOpponentMaxPower == true)
+                min = max = IiaMirrorPreview(skill);
         }
         public LegacyDuelPhase Phase { get; private set; }
         public DuelMatchOutcome Outcome { get; private set; }
@@ -651,6 +654,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyReserveEffect used = ReserveEffectsUsedThisTurn;
             LegacyKeywordLinks.SpawnTemporary(skill, lanes, open => Features.HasLane(open), ref used);
             ReserveEffectsUsedThisTurn = used;
+            GenerateIiaTechnique();
             return true;
         }
 
@@ -659,7 +663,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// only their own lane). Free and unlimited; the lanes keep the new order into later turns.</summary>
         public bool TryCycleLanes()
         {
-            if (Phase != LegacyDuelPhase.Planning || !Features.Has(CombatFeature.Cycle)) return false;
+            if (Phase != LegacyDuelPhase.Planning || !Features.Has(CombatFeature.Cycle) || iiaFixedTurns > 0) return false;
             bool turned = false;
             for (int index = 0; index < lanes.Length; index++)
             {
@@ -794,7 +798,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     playerProtectionSpendPowerBonus + BleedingPowerBonus(playerSkill, playerStatuses, enemyStatuses)));
             int playerCycleUses = CycleUsesRead(playerSkill);
             RecordCycleUse(playerSkill);
-            int enemyPower = RollPower(enemySkill, enemyAttackMultiplier, out _,
+            int enemyPower = RollIiaEnemyPower(enemySkill, playerSkill ?? pendingCounter,
+                playerSkill == null ? CycleUsesRead(pendingCounter) : playerCycleUses, enemyAttackMultiplier,
                 checked(enemyProtectionSpendPowerBonus + BleedingPowerBonus(enemySkill, enemyStatuses, playerStatuses) + (enemyCounters ? 0
                     : LegacyKeywordLinks.AheadPowerBonus(committedEnemyQueue, nextSlot, enemySkill))));
 
@@ -840,6 +845,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private void ApplySlotStart(LegacyCurrentSlot slot, int playerPowerBuffPercent, int playerProtectionBuffPercent,
             int enemyPowerBuffPercent, int enemyProtectionBuffPercent)
         {
+            RecordIiaPlayerTechnique(slot.PlayerSkill);
             LegacySkillEffect playerEffect = LegacySkillDefinitions.Find(slot.PlayerSkill)?.Effect ?? LegacySkillEffect.None;
             LegacySkillEffect enemyEffect = LegacySkillDefinitions.Find(slot.EnemySkill)?.Effect ?? LegacySkillEffect.None;
             // Both reductions precede both grants. New bleeding cannot affect either current attack, even its later hits.
@@ -945,9 +951,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 PlayerCountersRemaining--;
                 slot.PlayerPower = RollPower(counter, deferredPlayerAttackMultiplier, out int totalPower,
                     checked(CyclePowerBonus(counter) + BleedingPowerBonus(counter, playerStatuses, enemyStatuses)));
+                slot.PlayerCycleUses = CycleUsesRead(counter);
                 RecordCycleUse(counter);
                 slot.PlayerTotalPower = totalPower;
             }
+            RefreshIiaMirrorAfterCounterChoice(slot);
             ApplySlotStart(slot, deferredPlayerPowerBuffPercent, deferredPlayerProtectionBuffPercent,
                 deferredEnemyPowerBuffPercent, deferredEnemyProtectionBuffPercent);
         }
@@ -1031,6 +1039,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 playerImpact = ResolveSingleHit(slot.EnemySkill, slot.PlayerSkill,
                     slot.EnemyPower, slot.PlayerPower, Player, slot.PlayerReceivedMultiplier, halveDamage, out enemyConditionMet);
             }
+            ApplyIiaHitKeywords(slot, playerAttacked, enemyAttacked, playerImpact.DisplayedDamage, enemyImpact.DisplayedDamage);
             // Attacks resolve simultaneously first; self bleeding then resolves for both before any defeat check.
             int playerBleeding = playerAttacked ? Player.ReceiveBleedingDamage(slot.PlayerBleedingDamagePerHit) : 0;
             int enemyBleeding = enemyAttacked ? Enemy.ReceiveBleedingDamage(slot.EnemyBleedingDamagePerHit) : 0;
@@ -1131,6 +1140,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public void Reset()
         {
+            ResetIiaState();
             cycleUses.Clear();
             playerStatuses.Clear();
             random = new Random(randomSeed);
@@ -1207,6 +1217,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             slotCount = nextSlot = 0;
             LastResolvedSlot = -1;
             Phase = LegacyDuelPhase.Planning;
+            BeginIiaPlanningTurn();
         }
 
         private int CyclePowerBonus(LegacySkill skill)
@@ -1337,9 +1348,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 grantedStatus = true;
                 effectActivated = true;
             }
+            int followSlots = GrantIiaFollowPower(effect, statuses, player);
+            if (followSlots > 0) effectActivated = true;
             return new LegacySkillFeedback(skill, conditionMet, effectActivated, powerBuffPercent, protectionBuffPercent,
-                grantedStatus ? effect.BuffPowerPercent : 0, grantedStatus ? effect.BuffProtectionPercent : 0,
-                grantedStatus ? effect.BuffSlots : 0,
+                followSlots > 0 ? 50 : grantedStatus ? effect.BuffPowerPercent : 0, grantedStatus ? effect.BuffProtectionPercent : 0,
+                followSlots > 0 ? followSlots : grantedStatus ? effect.BuffSlots : 0,
                 actGainGranted, resistanceRestored, opponentResistanceReduced, opponentBroken);
         }
 

@@ -304,6 +304,11 @@ namespace TurnLimbo.Core.Tests
                     foreach (Match match in Regex.Matches(text, @"\[\[(\d+)\]\]")) used.Add(int.Parse(match.Groups[1].Value));
                 foreach (CampaignEnemyRhythm rhythm in Enum.GetValues(typeof(CampaignEnemyRhythm)))
                     foreach (LegacySkill skill in CampaignEnemyRhythms.Script(rhythm)?.AllSkills ?? new LegacySkill[0]) used.Add(skill.Id);
+                for (int phase = 1; phase <= 3; phase++)
+                    for (int step = 1; step <= GreenRibbonBossBattle.PatternCount(phase); step++)
+                        foreach (bool alternative in new[] { false, true })
+                            foreach (LegacySkill skill in GreenRibbonBossBattle.CreatePattern(phase, step, alternative)) used.Add(skill.Id);
+                used.Add(GreenRibbonBossBattle.JealousySkillId);
                 var run = new CampaignRun();
                 for (int stage = 1; stage <= run.StageCount; stage++)
                     if (run.GetStage(stage).EnemyCounterBasis != null) used.Add(run.GetStage(stage).EnemyCounterBasis.Id);

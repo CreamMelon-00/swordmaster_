@@ -16,6 +16,40 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class CampaignLobbyHudPlayModeTests
     {
         [UnityTest]
+        public IEnumerator FinalStagePreview_ShowsTheForestAndGreenRibbonOpponent_WithCampaignStats()
+        {
+            yield return null;
+            var parent = new GameObject("Forest Boss Preview Test");
+            var run = new CampaignRun();
+            for (int stage = 1; stage <= 5; stage++)
+            {
+                Assert.That(run.TryStartStage(stage), Is.True);
+                Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            }
+            Assert.That(run.ReturnToLobby(), Is.True);
+            using (var hud = CreateHud(parent))
+            {
+                hud.Show(run);
+                hud.ShowTab(LobbyTab.Stages);
+                Assert.That(hud.SelectStage(GreenRibbonBossBattle.StageNumber), Is.True);
+                Assert.That(FindImage(hud, "Selected Stage Landscape").sprite,
+                    Is.SameAs(Resources.Load<Sprite>("ForestArena/forest-far")));
+                Assert.That(FindImage(hud, "Selected Stage Enemy Silhouette").sprite,
+                    Is.SameAs(Resources.Load<Sprite>(PrologueMissions.EnemySilhouette)));
+                CampaignStage boss = run.GetStage(GreenRibbonBossBattle.StageNumber);
+                Assert.That(FindText(hud, "Selected Stage Name").text, Does.Contain(boss.Name));
+                Assert.That(FindText(hud, "Selected Stage Stats").text,
+                    Does.Contain("적 체력  " + boss.EnemyHealth).And.Contain("저항  " + boss.EnemyResistance));
+                Assert.That(FindButton(hud, "Start Selected Stage").interactable, Is.True);
+                Assert.That(hud.SelectStage(7), Is.True);
+                Assert.That(FindImage(hud, "Selected Stage Landscape").sprite,
+                    Is.SameAs(Resources.Load<Sprite>("SchoolCorridor/corridor-composite")),
+                    "Earlier stages keep their corridor preview.");
+            }
+            Object.Destroy(parent);
+        }
+
+        [UnityTest]
         public IEnumerator FieldMenu_OnlyShowsPreparationOverTheField_AndCloses()
         {
             yield return null;

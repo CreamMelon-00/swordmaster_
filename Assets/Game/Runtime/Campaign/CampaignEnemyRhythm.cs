@@ -21,6 +21,8 @@ namespace TurnLimbo.Runtime.Campaign
         Onslaught,
         /// <summary>Save for its blow: two guarding turns, then two heavy attacks.</summary>
         Charge,
+        /// <summary>A long forest duel: read the guard, disruption and heavy-blow sequence before committing.</summary>
+        ForestBoss,
     }
 
     public static class CampaignEnemyRhythms
@@ -30,7 +32,7 @@ namespace TurnLimbo.Runtime.Campaign
         private static readonly CampaignEnemyRhythm[] stages =
         {
             CampaignEnemyRhythm.Basic, CampaignEnemyRhythm.Basic, CampaignEnemyRhythm.Gatekeeper, CampaignEnemyRhythm.Opener,
-            CampaignEnemyRhythm.Onslaught, CampaignEnemyRhythm.Charge, CampaignEnemyRhythm.Opener, CampaignEnemyRhythm.Charge,
+            CampaignEnemyRhythm.Onslaught, CampaignEnemyRhythm.Charge, CampaignEnemyRhythm.Opener, CampaignEnemyRhythm.ForestBoss,
         };
 
         public static CampaignEnemyRhythm ForStage(int stageNumber)
@@ -55,6 +57,8 @@ namespace TurnLimbo.Runtime.Campaign
                         T(Slash, DeepThrust, Slash, DeepThrust), T(Slash, BreakMomentum, Guard), T(DeepThrust, Slash, DeepThrust, Slash)));
                 case CampaignEnemyRhythm.Charge:
                     return new EnemyScript(Turns(T(Guard, Deflect), T(Guard), T(DeepThrust, PreciseThrust)));
+                case CampaignEnemyRhythm.ForestBoss:
+                    return GreenRibbonBossBattle.CreateScript();
                 default:
                     return null;
             }

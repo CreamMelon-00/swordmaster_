@@ -277,7 +277,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool PlayerStateConditionHeld { get; internal set; }
         public bool EnemyStateConditionHeld { get; internal set; }
         internal int PlayerPower { get; set; }
-        internal int EnemyPower { get; }
+        internal int EnemyPower { get; set; }
         internal int PlayerTotalPower { get; set; }
         internal double PlayerReceivedMultiplier { get; }
         internal double EnemyReceivedMultiplier { get; }

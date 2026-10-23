@@ -24,7 +24,7 @@ namespace TurnLimbo.Runtime.Campaign
             new CampaignStage(5, "가스등 아래"),
             new CampaignStage(6, "긴 창가"),
             new CampaignStage(7, "복도 안쪽"),
-            new CampaignStage(8, "복도 끝 결투"),
+            new CampaignStage(GreenRibbonBossBattle.StageNumber, GreenRibbonBossBattle.StageName),
         };
         internal static IReadOnlyList<CampaignStage> StageDefinitions => stages;
 
@@ -579,6 +579,12 @@ namespace TurnLimbo.Runtime.Campaign
 
             // Closed lanes keep their skills in the loadout; the duel leaves them out.
             EnemyScript script = CampaignEnemyRhythms.Script(CurrentStage.EnemyRhythm);
+            if (CurrentStage.IsBossEncounter)
+                return new LegacyQueuedDuel(checked(GreenRibbonBossBattle.PlayerBaseHealth + stats.Health),
+                    checked(50 + stats.Resistance), CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
+                    playerSkills, script, randomSeed, playerCounter: playerCounter, enemyCounter: enemyCounter, features: Features,
+                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity,
+                    roundLimit: GreenRibbonBossBattle.RoundLimit, meshPercent: meshPercent).EnableIiaBossPatterns();
             if (script != null)
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                     CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills,
@@ -1132,18 +1138,19 @@ namespace TurnLimbo.Runtime.Campaign
         {
             Number = number;
             Name = name;
-            EnemyHealth = number == 5 ? 50 : 80 + 15 * (number - 1);
-            EnemyResistance = number == 5 ? 10 : 15 + 3 * (number - 1);
-            EnemyPowerBonus = number == 5 ? 0 : number - 1;
+            EnemyHealth = IsBossEncounter ? GreenRibbonBossBattle.EnemyHealth : number == 5 ? 50 : 80 + 15 * (number - 1);
+            EnemyResistance = IsBossEncounter ? GreenRibbonBossBattle.EnemyResistance : number == 5 ? 10 : 15 + 3 * (number - 1);
+            EnemyPowerBonus = IsBossEncounter || number == 5 ? 0 : number - 1;
             Reward = 60 + 10 * (number - 1);
             FirstClearSkillId = number == 1 ? 43 : number == 2 ? 44 : number == 3 ? 45 : number == 5 ? 46 : number == 7 ? 16 : 0;
             // Placeholder counters until enemy archetypes exist: a guard (막기, 7) that taxes a
             // one-sided attack from stage five, then a strong thrust (정교한 찌르기, 4) from stage seven.
-            enemyCounterSkillId = number >= 7 ? 4 : number == 6 ? 7 : 0;
+            enemyCounterSkillId = IsBossEncounter ? GreenRibbonBossBattle.EnemyCounterSkillId : number >= 7 ? 4 : number == 6 ? 7 : 0;
             EnemyCountersPerTurn = enemyCounterSkillId == 0 ? 0 : 1;
         }
 
         public int Number { get; }
+        public bool IsBossEncounter => Number == GreenRibbonBossBattle.StageNumber;
         public string Name { get; }
         public int EnemyHealth { get; }
         public int EnemyResistance { get; }

@@ -461,7 +461,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillDefinition laudare = table.Find(500);
             Assert.That(table.GroupOf(laudare), Is.EqualTo(LegacySkillGroup.Enemy));
             Assert.That(table.IsEnemy(laudare) && !table.IsStarting(laudare), Is.True);
-            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
+            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502, 503, 504, 505, 506 }));
             Assert.That(table.InitialSkills.Concat(table.AcquisitionSkills).Any(s => s.Id >= 500), Is.False);
             Assert.That(table.IsEnemy(table.Find(1)), Is.False);
             Assert.That(table.IsEnemy(null), Is.False);
@@ -470,19 +470,19 @@ namespace TurnLimbo.Core.Tests
 
             // Any lane, as many as wanted: the three-per-lane rule counts starting rows only.
             string[] another = RowOf(rows, 500).ToArray();
-            another[Index(Column.Id)] = "503";
+            another[Index(Column.Id)] = "507";
             another[Index(Column.Lane)] = "W";
             rows.Add(another);
-            Assert.That(Parse(rows).EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502, 503 }));
+            Assert.That(Parse(rows).EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502, 503, 504, 505, 506, 507 }));
 
             // Starting and enemy rows alone still leave the curriculum nothing to grant.
             rows = Rows().Where(row => row[Index(Column.Group)] != LegacySkillSheet.AcquisitionGroup).ToList();
             Assert.That(Problem(rows), Does.Contain("'획득'인 기술이 하나도 없습니다"));
 
-            // Enemies never recover ACT.
+            // Enemy rows retain authored recovery for the detail; combat still grants it only to the player.
             rows = Rows();
             Set(rows, 500, Column.ActGain, "2");
-            Assert.That(Problem(rows), Is.EqualTo($"{Row500}행 (ID 500) '구분'이(가) '적'인 기술은 'ACT 회복'을(를) 쓸 수 없습니다. 적은 ACT를 회복하지 않습니다."));
+            Assert.That(Parse(rows).Find(500).Effect.ActGain, Is.EqualTo(2));
 
             rows = Rows();
             Set(rows, 500, Column.Group, LegacySkillSheet.AcquisitionGroup);
@@ -748,7 +748,7 @@ namespace TurnLimbo.Core.Tests
             Set(rows, 3, column, cell);
             string allowed = column == Column.ReserveEffect
                 ? "비워 두거나 순환 +1, 숨고르기 +1, 일회성 <ID> ×N(<ID>는 구분이 일회성인 행, N은 1~3의 정수, 예: 일회성 59 ×3), " +
-                    "제한시간 -N초(N은 1~5의 정수, 예: 제한시간 -4초)"
+                    "제한시간 -N초(N은 1~5의 정수, 예: 제한시간 -4초), 적 전용 질투 모두 소모"
                 : "비워 두거나 앞 <대상>마다 위력 +N (최대 M)(<대상>은 숨고르기, 순환 기술, 저항 감소 기술, N은 1~10, M은 1~4의 정수, " +
                     "예: 앞 숨고르기마다 위력 +4 (최대 4)), 앞 <대상>마다 다음 턴 제한시간 +N초 (최대 M)(N은 1~3, M은 1~3의 정수, " +
                     "예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), 자동 회피, " +
@@ -756,7 +756,9 @@ namespace TurnLimbo.Core.Tests
                     "상대 ACT N 이상이면 ACT M 강탈(N과 M은 1~10의 정수), " +
                     "상대 공격 시 다음 턴 ACT 회복 N 강탈(N은 1~10의 정수, 효과 턴당 1회), " +
                     "자신에게 출혈 N 부여, 상대에게 출혈 N 부여, 상대가 출혈 상태면 출혈 N로 대체, 자신의 출혈 N 감소, " +
-                    "상대 출혈 N 이상 기본 위력 +M, 자기 출혈 N 이상 기본 위력 +M(N은 1~20, M은 1~50의 정수). 여러 구절은 ';'로 구분";
+                    "상대 출혈 N 이상 기본 위력 +M, 자기 출혈 N 이상 기본 위력 +M(N은 1~20, M은 1~50의 정수), " +
+                    "적 전용 상대 기술 최대 위력 사용, 직전 턴 상대 사용 기술마다 강화 50% 1회, " +
+                    "적중 시 상대에게 고정 N 부여(N은 1~10의 정수). 여러 구절은 ';'로 구분";
             Assert.That(Problem(rows), Is.EqualTo($"{row3}행 '{column}': '{cell}'은(는) 쓸 수 없습니다. {allowed} 중 하나를 적으세요."));
         }
 

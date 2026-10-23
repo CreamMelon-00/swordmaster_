@@ -16,10 +16,12 @@ namespace TurnLimbo.Runtime.Campaign
     {
         /// <summary>The technique ids code names besides the curriculum's: the stage enemies' basic cycle (1-6) and
         /// rhythms (1-9), the enemy counters (4, 7), the 서막 missions (1, 2, 5, 7, and 500-502 라우다레, 베네디체레 and
-        /// 프레디카레 in 이아's 수훈 script), the 수련 missions' lanes (1-9), the default duel (1-6) and the {기술:ID} tokens
+        /// 프레디카레 in 이아's 수훈 script), the forest boss (1, 2, 5, 6, 8, 10, 14, 15, 17, 43, 47, 48, 503-506), the 수련 missions' lanes (1-9),
+        /// the default duel (1-6) and the {기술:ID} tokens
         /// in mission copy (1, 2, 3, 5, 7). Ids from <see cref="LegacySkillSheet.ReservedIdStart"/> up are the practice
         /// skills', which the sheet already refuses.</summary>
-        public static IReadOnlyList<int> CodeSkillIds { get; } = Array.AsReadOnly(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 500, 501, 502 });
+        public static IReadOnlyList<int> CodeSkillIds { get; } = Array.AsReadOnly(new[]
+            { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 14, 15, 17, 43, 47, 48, 500, 501, 502, 503, 504, 505, 506 });
 
         /// <summary>What the game cannot run with, one Korean line each; empty when the sheet fits the code.
         /// <list type="bullet">

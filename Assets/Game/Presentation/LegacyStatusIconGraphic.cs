@@ -24,6 +24,24 @@ namespace TurnLimbo.Presentation
             Vector2 centre = bounds.center;
             float scale = Mathf.Min(bounds.width, bounds.height) * .5f;
             if (scale <= 0f) return;
+            if (kind == LegacyStatusKind.Jealousy)
+            {
+                Vector2[] eye = { new Vector2(-.92f, 0f), new Vector2(-.45f, .52f), new Vector2(.45f, .52f),
+                    new Vector2(.92f, 0f), new Vector2(.45f, -.52f), new Vector2(-.45f, -.52f) };
+                for (int i = 0; i < eye.Length; i++)
+                    Segment(mesh, centre, scale, eye[i], eye[(i + 1) % eye.Length], .14f);
+                Segment(mesh, centre, scale, new Vector2(0f, -.3f), new Vector2(0f, .3f), .24f);
+                return;
+            }
+            if (kind == LegacyStatusKind.Fixed)
+            {
+                Polygon(mesh, centre, scale, new[] { new Vector2(-.65f, .12f), new Vector2(.65f, .12f),
+                    new Vector2(.65f, -.84f), new Vector2(-.65f, -.84f) });
+                Segment(mesh, centre, scale, new Vector2(-.4f, .12f), new Vector2(-.4f, .68f), .15f);
+                Segment(mesh, centre, scale, new Vector2(-.4f, .68f), new Vector2(.4f, .68f), .15f);
+                Segment(mesh, centre, scale, new Vector2(.4f, .68f), new Vector2(.4f, .12f), .15f);
+                return;
+            }
             if (kind == LegacyStatusKind.PowerUp)
             {
                 Polygon(mesh, centre, scale, new[] { new Vector2(0f, .92f), new Vector2(-.48f, .35f),

@@ -164,8 +164,9 @@ namespace TurnLimbo.Core.Tests
                 foreach (LegacySkill skill in script.Turn(turn))
                     if (skill.Kind == LegacySkillKind.Defence) firstGuardTurn = turn;
             Assert.That(firstGuardTurn, Is.InRange(1, 3), "A guard is forecast early.");
+            int stagePowerBonus = new CampaignRun().GetStage(stageNumber).EnemyPowerBonus;
             for (int index = 0; index < duel.EnemyQueue.Count; index++)
-                Assert.That(duel.EnemyQueue[index].MinPower, Is.EqualTo(script.Turn(1)[index].MinPower + stageNumber - 1),
+                Assert.That(duel.EnemyQueue[index].MinPower, Is.EqualTo(script.Turn(1)[index].MinPower + stagePowerBonus),
                     "The stage's power bonus applies to scripted skills too.");
         }
 

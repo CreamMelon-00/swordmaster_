@@ -256,7 +256,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             $"{LegacySkillLabels.TemporaryPhrase} <ID> ×N(<ID>는 구분이 {TemporaryGroup}인 행, " +
             $"N은 {LegacySkillLabels.MinimumTemporaryCount}~{LegacySkillLabels.MaximumTemporaryCount}의 정수, 예: 일회성 59 ×3), " +
             $"{LegacySkillLabels.PlanningTimePhrase} -N초(N은 {LegacySkillLabels.MinimumReserveSecondsCost}~" +
-            $"{LegacySkillLabels.MaximumReserveSecondsCost}의 정수, 예: 제한시간 -4초)";
+            $"{LegacySkillLabels.MaximumReserveSecondsCost}의 정수, 예: 제한시간 -4초), 적 전용 {LegacySkillLabels.ConsumeJealousyPhrase}";
         private static readonly string UseEffectChoices =
             $"비워 두거나 앞 <대상>마다 위력 +N (최대 M)(<대상>은 숨고르기, 순환 기술, 저항 감소 기술, " +
             $"N은 {LegacySkillLabels.MinimumAheadPowerPerUnit}~{LegacySkillLabels.MaximumAheadPowerPerUnit}, " +
@@ -271,7 +271,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             $"{LegacySkillLabels.MinimumActStealValue}~{LegacySkillLabels.MaximumActStealValue}의 정수), " +
             "상대 공격 시 다음 턴 ACT 회복 N 강탈(N은 1~10의 정수, 효과 턴당 1회), " +
             "자신에게 출혈 N 부여, 상대에게 출혈 N 부여, 상대가 출혈 상태면 출혈 N로 대체, 자신의 출혈 N 감소, " +
-            "상대 출혈 N 이상 기본 위력 +M, 자기 출혈 N 이상 기본 위력 +M(N은 1~20, M은 1~50의 정수). 여러 구절은 ';'로 구분";
+            "상대 출혈 N 이상 기본 위력 +M, 자기 출혈 N 이상 기본 위력 +M(N은 1~20, M은 1~50의 정수), " +
+            $"적 전용 {LegacySkillLabels.MirrorOpponentMaxPowerPhrase}, {LegacySkillLabels.PreviousOpponentUsesBuffPhrase}, " +
+            "적중 시 상대에게 고정 N 부여(N은 1~10의 정수). 여러 구절은 ';'로 구분";
         /// <summary>The problem a 예약 효과 <c>제한시간 +n초</c> gets (time gained at reservation).</summary>
         public const string ReserveTimeGainProblem = "예약 때 시간을 늘리는 효과는 반환으로 되풀이할 수 있어 쓰지 않습니다";
 
@@ -565,9 +567,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 r.RowProblem($"'{Column.ConditionalDamage}'은(는) '{Column.OpponentState}'이(가) 있어야 합니다. 어떤 상대에게 배율을 줄지 적으세요.");
             if (effect.ConditionalDamagePercent > 0 && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.ConditionalDamage}'은(는) 공격 기술에만 쓸 수 있습니다.");
-            // Enemies never recover ACT, so on an enemy-only row the cell could only mislead.
-            if (group == LegacySkillGroup.Enemy && r.Ok(Column.Group, Column.ActGain) && effect.ActGain > 0)
-                r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.ActGain}'을(를) 쓸 수 없습니다. 적은 ACT를 회복하지 않습니다.");
+            // Enemy rows may retain an authored ACT-recovery value, just as a scripted enemy can use a player's
+            // recovery skill. Combat still grants ACT only to the player and the detail names that limitation.
             if (group == LegacySkillGroup.Enemy && effect.QueueRemovalMode != LegacyQueueRemovalMode.None &&
                 r.Ok(Column.Group, Column.QueueRemovalMode))
                 r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.QueueRemovalMode}'을(를) 쓸 수 없습니다. 적은 기술을 대기열에 직접 장착하지 않습니다.");
@@ -588,13 +589,22 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (!effect.HasCycle && (effect.CyclePowerPerUse > 0 || effect.CycleCostPerUse > 0) &&
                 r.Ok(Column.CyclePowerPerUse, Column.CycleCostPerUse, Column.CycleMaxCount))
                 r.RowProblem($"순환 증가값을 쓰려면 '{Column.CycleMaxCount}'을(를) 지정해야 합니다.");
-            // The phrase columns: enemies never reserve skills nor count a queue of their own.
-            if (group == LegacySkillGroup.Enemy && effect.HasReserveEffect && r.Ok(Column.Group, Column.ReserveEffect))
+            // Scripted enemies support their own boss effects; the player's queue-manipulation effects stay closed.
+            bool playerReserveEffect = effect.ReserveCycleFeed || effect.ReserveBreath || effect.HasTemporarySpawn ||
+                effect.ReservePlanningSecondsCost > 0;
+            bool playerUseEffect = effect.HasAheadPower || effect.HasAheadTime || effect.AutoDodge ||
+                effect.HasProtectionSpend || effect.HasAheadHitPower || effect.HasActSteal || effect.HasActRecoverySteal || effect.HasBleedingEffect;
+            if (group == LegacySkillGroup.Enemy && playerReserveEffect && r.Ok(Column.Group, Column.ReserveEffect))
                 r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.ReserveEffect}'을(를) 쓸 수 없습니다. " +
                     "적은 기술을 대기열에 직접 예약하지 않습니다.");
-            if (group == LegacySkillGroup.Enemy && effect.HasUseEffect && r.Ok(Column.Group, Column.UseEffect))
+            if (group == LegacySkillGroup.Enemy && playerUseEffect && r.Ok(Column.Group, Column.UseEffect))
                 r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.UseEffect}'을(를) 쓸 수 없습니다. " +
                     "적의 기술은 앞 기술을 세거나 저절로 피하지 않습니다.");
+            if (group != LegacySkillGroup.Enemy && (effect.MirrorOpponentMaxPower ||
+                effect.BuffPowerFromPreviousOpponentUses || effect.ConsumeJealousyOnReserve || effect.InflictFixedTurns > 0))
+                r.RowProblem("상대 최대 위력, 직전 턴 기술 수 강화, 질투 소모와 고정 부여는 적 전용 효과입니다. '구분'을(를) '적'으로 적으세요.");
+            if ((effect.MirrorOpponentMaxPower || effect.InflictFixedTurns > 0) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
+                r.RowProblem("상대 최대 위력과 고정 부여는 공격 기술에만 쓸 수 있습니다.");
             // Nor a 일회성 row: one could set another 일회성 (a 생성 begetting 생성) or repeat a feeder or breath copy by copy.
             if (group == LegacySkillGroup.Temporary && effect.HasReserveEffect && r.Ok(Column.Group, Column.ReserveEffect))
                 r.RowProblem($"'{Column.Group}'이(가) '{TemporaryGroup}'인 기술은 '{Column.ReserveEffect}'을(를) 쓸 수 없습니다. " +

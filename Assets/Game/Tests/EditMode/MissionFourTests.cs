@@ -68,7 +68,8 @@ namespace TurnLimbo.Core.Tests
             for (int slot = 0; slot < motto.Length; slot++)
                 Assert.That(script.Turn(1)[slot], Is.SameAs(LegacySkillDefinitions.Skill(motto[slot])), "Read from the sheet by id.");
             Assert.That(script.Turn(4).Select(skill => skill.Id), Is.EqualTo(motto));
-            Assert.That(LegacySkillDefinitions.EnemySkills.Select(skill => skill.Id), Is.EquivalentTo(motto), "All three are enemy-only rows.");
+            Assert.That(motto.All(id => LegacySkillDefinitions.Table.IsEnemy(LegacySkillDefinitions.Find(id))), Is.True,
+                "All three motto techniques remain enemy-only alongside the forest boss techniques.");
             Assert.That(MissionFour.EnemyHealthFloor, Is.EqualTo(1));
 
             LegacyQueuedDuel duel = MissionFour.CreateDuel(3);

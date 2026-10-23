@@ -32,6 +32,25 @@ namespace TurnLimbo.Presentation
                 : Generic(skill);
             if (definition?.Effect.HasBuff == true)
                 content = WithStatusNames(content, definition.Effect);
+            if (info == null && definition != null)
+            {
+                LegacySkillEffect effect = definition.Effect;
+                if (effect.MirrorOpponentMaxPower)
+                    content = new SkillInfoContent("상대 최대 위력", LegacySkillSymbol.Sword, LegacySkillTone.Neutral,
+                        string.Empty, LegacySkillSymbol.Sword, LegacySkillTone.Neutral,
+                        "같은 칸의 상대 기술의 최대 위력으로 공격합니다.\n상대 기술이 없거나 숨고르기면 위력 0.");
+                if (effect.BuffPowerFromPreviousOpponentUses)
+                    content = new SkillInfoContent("강화", LegacySkillSymbol.Followup, LegacySkillTone.Followup,
+                        string.Empty, LegacySkillSymbol.Followup, LegacySkillTone.Neutral,
+                        "직전 턴 상대가 사용한 기술 수만큼\n강화 50% 횟수를 얻습니다.");
+                if (effect.ConsumeJealousyOnReserve || effect.InflictFixedTurns > 0)
+                    content = new SkillInfoContent(effect.ConsumeJealousyOnReserve ? "질투" : "고정",
+                        LegacySkillSymbol.Reduction, LegacySkillTone.Reduction,
+                        effect.ConsumeJealousyOnReserve && effect.InflictFixedTurns > 0 ? "고정" : string.Empty,
+                        LegacySkillSymbol.Guard, LegacySkillTone.Reduction,
+                        (effect.ConsumeJealousyOnReserve ? "예약 시 질투를 모두 소모합니다." : string.Empty) +
+                        (effect.InflictFixedTurns > 0 ? "\n적중 시 상대에게 고정 " + effect.InflictFixedTurns + " 부여." : string.Empty));
+            }
             if (info == null && definition?.Effect.HasBleedingEffect == true)
             {
                 var effect = definition.Effect;

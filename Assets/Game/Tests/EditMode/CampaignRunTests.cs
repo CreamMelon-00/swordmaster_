@@ -11,11 +11,11 @@ namespace TurnLimbo.Core.Tests
     public sealed class CampaignRunTests
     {
         [Test]
-        public void StageNames_FollowTheSchoolCorridorAfterTheOpeningArc()
+        public void StageNames_LeadThroughTheCorridorToTheForestBoss()
         {
             var run = new CampaignRun();
             string[] names = { "복도 입구", "첫 번째 창가", "햇살 드는 복도", "석조 기둥 사이",
-                "가스등 아래", "긴 창가", "복도 안쪽", "복도 끝 결투" };
+                "가스등 아래", "긴 창가", "복도 안쪽", GreenRibbonBossBattle.StageName };
             Assert.That(run.StageCount, Is.EqualTo(names.Length));
             for (int number = 1; number <= names.Length; number++)
                 Assert.That(run.GetStage(number).Name, Is.EqualTo(names[number - 1]));
@@ -210,7 +210,8 @@ namespace TurnLimbo.Core.Tests
                 CampaignStage stage = run.CurrentStage;
                 LegacyQueuedDuel duel = run.CreateDuel(number);
                 Assert.That(duel.PlayerCounter, Is.Null, "The player earns counters later.");
-                int expectedId = number >= 7 ? 4 : number == 6 ? 7 : 0;
+                int expectedId = number == GreenRibbonBossBattle.StageNumber ? GreenRibbonBossBattle.EnemyCounterSkillId
+                    : number >= 7 ? 4 : number == 6 ? 7 : 0;
                 if (expectedId == 0)
                 {
                     Assert.That(stage.EnemyCounterBasis, Is.Null);
@@ -458,13 +459,16 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(stage.Number, Is.EqualTo(number));
                 Assert.That(stage.Name, Is.Not.Empty);
                 Assert.That(names.Add(stage.Name), Is.True);
-                Assert.That(stage.EnemyHealth, Is.EqualTo(number == 5 ? 50 : 80 + 15 * (number - 1)));
-                Assert.That(stage.EnemyResistance, Is.EqualTo(number == 5 ? 10 : 15 + 3 * (number - 1)));
-                Assert.That(stage.EnemyPowerBonus, Is.EqualTo(number == 5 ? 0 : number - 1));
+                Assert.That(stage.IsBossEncounter, Is.EqualTo(number == GreenRibbonBossBattle.StageNumber));
+                Assert.That(stage.EnemyHealth, Is.EqualTo(stage.IsBossEncounter ? GreenRibbonBossBattle.EnemyHealth
+                    : number == 5 ? 50 : 80 + 15 * (number - 1)));
+                Assert.That(stage.EnemyResistance, Is.EqualTo(stage.IsBossEncounter ? GreenRibbonBossBattle.EnemyResistance
+                    : number == 5 ? 10 : 15 + 3 * (number - 1)));
+                Assert.That(stage.EnemyPowerBonus, Is.EqualTo(stage.IsBossEncounter || number == 5 ? 0 : number - 1));
                 Assert.That(stage.Reward, Is.EqualTo(60 + 10 * (number - 1)));
 
                 LegacyQueuedDuel duel = run.CreateDuel(number);
-                Assert.That(duel.Player.Health, Is.EqualTo(100));
+                Assert.That(duel.Player.Health, Is.EqualTo(stage.IsBossEncounter ? GreenRibbonBossBattle.PlayerBaseHealth : 100));
                 Assert.That(duel.Player.Resistance, Is.EqualTo(50));
                 Assert.That(duel.Enemy.Health, Is.EqualTo(stage.EnemyHealth));
                 Assert.That(duel.Enemy.Resistance, Is.EqualTo(stage.EnemyResistance));
@@ -494,6 +498,71 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.RetryCurrentStage(), Is.False);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.False);
             Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.False, "Not on the last result.");
+        }
+
+        [Test]
+        public void ForestBoss_UsesExistingCampaignProgressAndBoostsPlayerHealthOnlyForThatEncounter()
+        {
+            var run = NewBattleRun();
+            ReachMaintenance(run, 7);
+            Assert.That(run.ReturnToLobby(), Is.True);
+            Assert.That(run.TryEquipCounter(600), Is.True);
+            Assert.That(run.TrySaveLoadout(), Is.True);
+            CampaignSave save = run.CaptureSave();
+            var restored = new CampaignRun();
+            Assert.That(restored.TryRestore(save, out string error), Is.True, error);
+            Assert.That(restored.StageCount, Is.EqualTo(8));
+            Assert.That(restored.CanStartStage(GreenRibbonBossBattle.StageNumber), Is.True);
+            Assert.That(restored.TryStartStage(GreenRibbonBossBattle.StageNumber), Is.True);
+            LegacyQueuedDuel boss = restored.CreateDuel(31);
+            Assert.That(restored.CurrentStage.IsBossEncounter, Is.True);
+            Assert.That(boss.Player.Health, Is.EqualTo(GreenRibbonBossBattle.PlayerBaseHealth));
+            Assert.That(boss.Player.Health, Is.GreaterThan(100));
+            Assert.That(boss.Enemy.Health, Is.EqualTo(GreenRibbonBossBattle.EnemyHealth));
+            Assert.That(boss.PlayerCounter.Skill.Id, Is.EqualTo(600));
+            Assert.That(boss.EnemyCounter, Is.Null);
+            Assert.That(boss.IsIiaBossBattle, Is.True);
+            Assert.That(boss.RoundLimit, Is.EqualTo(GreenRibbonBossBattle.RoundLimit));
+            Assert.That(boss.MeshPercent, Is.EqualTo(LegacyMeshing.DefaultPercent));
+            Assert.That(restored.CurriculumStats.Health, Is.Zero, "Extra boss health belongs to this duel, not the saved build.");
+            Assert.That(restored.TryAbandonBattle(), Is.True);
+            Assert.That(restored.TryStartStage(7), Is.True);
+            Assert.That(restored.CreateDuel(31).Player.Health, Is.EqualTo(100));
+            Assert.That(restored.TryAbandonBattle(), Is.True);
+            Assert.That(restored.TryStartStage(GreenRibbonBossBattle.StageNumber), Is.True);
+            Assert.That(restored.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(restored.LastReward, Is.EqualTo(130));
+            Assert.That(restored.Phase, Is.EqualTo(CampaignPhase.Completed));
+            var completed = new CampaignRun();
+            Assert.That(completed.TryRestore(restored.CaptureSave(), out error), Is.True, error);
+            Assert.That(completed.IsStageCleared(8), Is.True);
+            Assert.That(completed.GetStageReward(8), Is.EqualTo(65));
+            Assert.That(completed.TryStartStage(8), Is.True, "Existing completed saves can replay the forest encounter.");
+            Assert.That(completed.CreateDuel(31).Player.Health, Is.EqualTo(GreenRibbonBossBattle.PlayerBaseHealth));
+        }
+
+        [Test]
+        public void ForestBoss_PreservesTheBuildsHealthResistanceActAndMeshBonuses()
+        {
+            var tree = new CurriculumTree(new[]
+            {
+                new CurriculumNode("boss-bonuses", "전투 준비", CurriculumBranch.Retraction, 0f, 0,
+                    Array.Empty<int>(), statReward: new CurriculumStatReward(health: 20, resistance: 5, actGain: 2, actCapacity: 3)),
+            });
+            var run = new CampaignRun(tree);
+            Assert.That(run.TryStartStage(1), Is.True);
+            Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+            Assert.That(run.TryLearnCurriculumNode("boss-bonuses"), Is.True);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            ReachMaintenance(run, 7);
+            Assert.That(run.TryStartNextStage(), Is.True);
+            LegacyQueuedDuel boss = run.CreateDuel(15, meshPercent: 37);
+            Assert.That(boss.Player.Health, Is.EqualTo(GreenRibbonBossBattle.PlayerBaseHealth + 20));
+            Assert.That(boss.Player.Resistance, Is.EqualTo(55));
+            Assert.That(boss.Act, Is.EqualTo(5));
+            Assert.That(boss.PlayerMaximumAct, Is.EqualTo(13));
+            Assert.That(boss.MeshPercent, Is.EqualTo(37));
+            Assert.That(boss.Features, Is.EqualTo(run.Features));
         }
 
         [Test]

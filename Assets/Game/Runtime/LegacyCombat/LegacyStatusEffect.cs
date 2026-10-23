@@ -3,7 +3,8 @@ using System.Collections.Generic;
 
 namespace TurnLimbo.Runtime.LegacyCombat
 {
-    public enum LegacyStatusKind { PowerUp, Protection, Vulnerability, Bleeding }
+    // Jealousy and Fixed snapshots display the boss resolver's own counters; they are not collection modifiers.
+    public enum LegacyStatusKind { PowerUp, Protection, Vulnerability, Bleeding, Jealousy, Fixed }
 
     /// <summary>A read-only description of one applied status. Counts survive turn boundaries.</summary>
     public readonly struct LegacyStatusSnapshot

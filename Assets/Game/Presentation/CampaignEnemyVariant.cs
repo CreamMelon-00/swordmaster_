@@ -1,4 +1,5 @@
 using System;
+using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.Prologue;
 
 namespace TurnLimbo.Presentation
@@ -9,13 +10,17 @@ namespace TurnLimbo.Presentation
         public static EnemyAppearance ForStage(int stageNumber)
         {
             if (stageNumber < 1) throw new ArgumentOutOfRangeException(nameof(stageNumber));
+            if (stageNumber == GreenRibbonBossBattle.StageNumber) return EnemyAppearance.Student;
             return (stageNumber & 1) == 1 ? EnemyAppearance.CadetA : EnemyAppearance.CadetB;
         }
 
         public static string SilhouetteResource(int stageNumber)
         {
-            return (ForStage(stageNumber) == EnemyAppearance.CadetA
-                ? EnemyStudentAnimationSet.CadetAResourceRoot : EnemyStudentAnimationSet.CadetBResourceRoot) + "idle/frame-01";
+            EnemyAppearance appearance = ForStage(stageNumber);
+            string root = appearance == EnemyAppearance.Student ? EnemyStudentAnimationSet.ResourceRoot
+                : appearance == EnemyAppearance.CadetA ? EnemyStudentAnimationSet.CadetAResourceRoot
+                : EnemyStudentAnimationSet.CadetBResourceRoot;
+            return root + "idle/frame-01";
         }
     }
 }

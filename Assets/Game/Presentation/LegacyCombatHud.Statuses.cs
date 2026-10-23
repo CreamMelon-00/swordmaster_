@@ -12,6 +12,8 @@ namespace TurnLimbo.Presentation
         private readonly List<LegacyStatusStrip> enemyStatuses = new List<LegacyStatusStrip>();
         private readonly List<Rect> statusStripBounds = new List<Rect>();
         private readonly Vector3[] statusPanelCorners = new Vector3[4];
+        private readonly List<LegacyStatusSnapshot> bossPlayerStatuses = new List<LegacyStatusSnapshot>();
+        private readonly List<LegacyStatusSnapshot> bossEnemyStatuses = new List<LegacyStatusSnapshot>();
 
         /// <summary>Reuses the arena's physical ground anchors, including each waiting enemy in a multi-actor encounter.</summary>
         public void SetStatusArena(LegacyArenaView arena) => statusArena = arena;
@@ -27,7 +29,10 @@ namespace TurnLimbo.Presentation
             int enemies = roster != null ? roster.Enemies.Count : 1;
             while (enemyStatuses.Count < enemies)
                 enemyStatuses.Add(LegacyStatusStrip.Create(root, art.UIFont, "Enemy Status Icons " + enemyStatuses.Count));
-            playerStatuses.Refresh(session.PlayerStatuses);
+            var boss = session as LegacyQueuedDuel;
+            bool iia = boss != null && boss.IsIiaBossBattle;
+            playerStatuses.Refresh(iia ? BossStatuses(session.PlayerStatuses, bossPlayerStatuses,
+                LegacyStatusKind.Fixed, boss.PlayerFixedTurnsRemaining) : session.PlayerStatuses);
             bool any = playerStatuses.Count > 0 && !session.Player.IsDefeated;
             for (int index = 0; index < enemyStatuses.Count; index++)
             {
@@ -37,7 +42,9 @@ namespace TurnLimbo.Presentation
                     strip.SetVisible(false);
                     continue;
                 }
-                strip.Refresh(roster != null ? roster.GetEnemyStatuses(index) : session.EnemyStatuses);
+                IReadOnlyList<LegacyStatusSnapshot> statuses = roster != null ? roster.GetEnemyStatuses(index) : session.EnemyStatuses;
+                strip.Refresh(iia && index == 0 ? BossStatuses(statuses, bossEnemyStatuses,
+                    LegacyStatusKind.Jealousy, boss.IiaJealousy) : statuses);
                 bool alive = roster != null ? !roster.Enemies[index].IsDefeated : !session.Enemy.IsDefeated;
                 strip.SetVisible(alive);
                 any |= alive && strip.Count > 0;
@@ -65,6 +72,15 @@ namespace TurnLimbo.Presentation
                     : GroundAnchor(actor);
                 PlaceStatusStrip(enemyStatuses[index], defeated, camera, feet);
             }
+        }
+
+        private static IReadOnlyList<LegacyStatusSnapshot> BossStatuses(IReadOnlyList<LegacyStatusSnapshot> source,
+            List<LegacyStatusSnapshot> destination, LegacyStatusKind kind, int count)
+        {
+            destination.Clear();
+            if (source != null) destination.AddRange(source);
+            if (count > 0) destination.Add(new LegacyStatusSnapshot(kind, 0, count));
+            return destination;
         }
 
         private static Vector3 GroundAnchor(Transform actor)

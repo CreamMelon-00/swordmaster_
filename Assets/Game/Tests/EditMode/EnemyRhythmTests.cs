@@ -70,7 +70,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Enumerable.Range(1, 8).Select(CampaignEnemyRhythms.ForStage), Is.EqualTo(new[]
             {
                 CampaignEnemyRhythm.Basic, CampaignEnemyRhythm.Basic, CampaignEnemyRhythm.Gatekeeper, CampaignEnemyRhythm.Opener,
-                CampaignEnemyRhythm.Onslaught, CampaignEnemyRhythm.Charge, CampaignEnemyRhythm.Opener, CampaignEnemyRhythm.Charge,
+                CampaignEnemyRhythm.Onslaught, CampaignEnemyRhythm.Charge, CampaignEnemyRhythm.Opener, CampaignEnemyRhythm.ForestBoss,
             }));
             Assert.That(CampaignEnemyRhythms.Script(CampaignEnemyRhythm.Basic), Is.Null, "The original cycle has no script.");
             var run = new CampaignRun();

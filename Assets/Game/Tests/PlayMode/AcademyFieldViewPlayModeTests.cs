@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Campaign;
+using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 using TurnLimbo.Runtime.Save;
@@ -534,6 +535,74 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(closed, Is.EqualTo($"새 기술 · {pierce.Name}\n이 기술을 쓰는 열을 해금하면 편성할 수 있습니다."));
             Assert.That(closed, Does.Not.Contain("W").And.Not.Contain("강공"), "A closed lane is never named.");
             Assert.That(AcademyFieldView.PickupNotice(pierce, false, true), Is.EqualTo($"{pierce.Name} · 이미 익힌 기술입니다."));
+        }
+
+        [UnityTest]
+        public IEnumerator FinalCampaignOpponent_WaitsOnlyInTheForest_AndReturnsThereAfterBattle()
+        {
+            yield return null;
+            var host = new GameObject("Forest Boss Field Test");
+            var art = new LegacyDuelArt();
+            LegacyArenaView arena = LegacyArenaView.Create(host.transform, art);
+            int chosenStage = 0;
+            var field = new AcademyFieldView(host.transform, art, arena,
+                stage => chosenStage = stage, () => { }, () => { }, () => { });
+            try
+            {
+                var campaign = new CampaignRun();
+                for (int stage = 1; stage <= 5; stage++)
+                {
+                    Assert.That(campaign.TryStartStage(stage), Is.True);
+                    Assert.That(campaign.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                }
+                Assert.That(campaign.ReturnToLobby(), Is.True);
+                field.Show(campaign, false, true);
+                Assert.That(field.VisibleStageCount, Is.EqualTo(7));
+                Assert.Throws<System.ArgumentOutOfRangeException>(() => field.StagePosition(8),
+                    "The final opponent cannot be challenged in the corridor.");
+
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                EnterForest(field, keyboard);
+                Assert.That(field.VisibleStageCount, Is.EqualTo(1));
+                Assert.Throws<System.ArgumentOutOfRangeException>(() => field.StagePosition(7));
+                Vector2 bossPosition = field.StagePosition(8);
+                Assert.That(bossPosition, Is.EqualTo(new Vector2(23f, -1.1f)));
+                Transform fieldRoot = field.FieldCamera.transform.parent;
+                SpriteRenderer boss = fieldRoot.GetComponentsInChildren<SpriteRenderer>()
+                    .Single(renderer => renderer.sprite != null && renderer.sprite.name.StartsWith("enemy-idle-frame-"));
+                Assert.That(boss.transform.parent.localPosition, Is.EqualTo((Vector3)bossPosition));
+
+                WalkTo(field, keyboard, bossPosition);
+                Assert.That(field.TryInteractNearest(), Is.True);
+                Assert.That(chosenStage, Is.EqualTo(8));
+                Vector2 playerPosition = field.PlayerPosition;
+                field.Hide();
+                field.Show(campaign, false, true);
+                Assert.That(field.CurrentMap, Is.EqualTo(ExplorationFieldMap.Forest));
+                Assert.That(field.PlayerPosition, Is.EqualTo(playerPosition));
+                Assert.That(field.StagePosition(8), Is.EqualTo(bossPosition));
+                Assert.That(field.TryInteractNearest(), Is.True, "The boss remains reachable on returning from its battle.");
+
+                campaign.SetProgression(CombatFeature.All, 5);
+                field.Show(campaign, false, true);
+                Assert.That(field.VisibleStageCount, Is.Zero, "Story progression still gates the forest opponent.");
+                campaign.SetProgression(CombatFeature.All, int.MaxValue);
+                field.Show(campaign, false, true);
+                Assert.That(field.VisibleStageCount, Is.EqualTo(1));
+                WalkTo(field, keyboard, field.PortalPosition);
+                Assert.That(field.TryInteractNearest(), Is.True);
+                Advance(field, keyboard, 1f);
+                Assert.That(field.CurrentMap, Is.EqualTo(ExplorationFieldMap.Corridor));
+                Assert.That(field.VisibleStageCount, Is.EqualTo(7));
+                Assert.Throws<System.ArgumentOutOfRangeException>(() => field.StagePosition(8));
+            }
+            finally
+            {
+                field.Dispose();
+                arena.Dispose();
+                art.Dispose();
+                Object.Destroy(host);
+            }
         }
 
         private void EnterForest(AcademyFieldView field, Keyboard keyboard)

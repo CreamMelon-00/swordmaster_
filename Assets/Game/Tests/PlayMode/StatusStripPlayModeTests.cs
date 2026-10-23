@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
+using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
@@ -14,6 +15,64 @@ namespace TurnLimbo.Presentation.Tests
 {
     public sealed class StatusStripPlayModeTests
     {
+        [UnityTest]
+        public IEnumerator IiaHud_ReadsLiveJealousyAndFixed_AndNamesTheBlockedCycle()
+        {
+            yield return null;
+            using (var scope = new Scope(false))
+            {
+                var attack = new LegacySkill(999, "검사 연타", 0, 6, 6, LegacySkillKind.Attack,
+                    LegacySkillProperty.Slash, 6, 0, string.Empty, iconId: 1);
+                var duel = new LegacyQueuedDuel(100000, 50, 400, 50, new[] { attack },
+                    GreenRibbonBossBattle.CreateScript(), meshPercent: 0).EnableIiaBossPatterns();
+                Assert.That(duel.TrySetFixedQueues(new[] { attack }, new[] { LegacyCommonActions.Breathe }), Is.True);
+                duel.Commit();
+                while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+                scope.Refresh(duel);
+                Assert.That(scope.Hud.GetStatusStrip(false).GetStatus(0).Kind, Is.EqualTo(LegacyStatusKind.Jealousy));
+                Assert.That(scope.Hud.GetStatusStrip(false).GetStatus(0).RemainingCount, Is.EqualTo(6));
+                duel.BeginNextTurn();
+                Assert.That(duel.TrySetFixedQueues(new[] { LegacyCommonActions.Breathe },
+                    new[] { LegacySkillDefinitions.Skill(506) }), Is.True);
+                duel.Commit();
+                while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+                duel.BeginNextTurn();
+                scope.Refresh(duel);
+                Assert.That(scope.Hud.GetStatusStrip(true).GetStatus(0).Kind, Is.EqualTo(LegacyStatusKind.Fixed));
+                Assert.That(scope.Hud.GetStatusStrip(true).GetStatus(0).RemainingCount, Is.EqualTo(1));
+                Assert.That(duel.TryCycleLanes(), Is.False);
+                Text cost = null;
+                foreach (Text label in scope.Hud.Root.GetComponentsInChildren<Text>(true))
+                    if (label.name == "Time Cost") cost = label;
+                Assert.That(cost, Is.Not.Null);
+                Assert.That(cost.text, Is.EqualTo("고정 1턴"));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IiaKeywords_ShowCountsAndPlanningTurnsWithoutPercentages()
+        {
+            yield return null;
+            var host = new GameObject("Iia status strip test", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                host.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                LegacyStatusStrip strip = LegacyStatusStrip.Create((RectTransform)host.transform,
+                    new LegacyDuelArt().UIFont, "Iia statuses");
+                strip.Refresh(new[] { new LegacyStatusSnapshot(LegacyStatusKind.Jealousy, 0, 4),
+                    new LegacyStatusSnapshot(LegacyStatusKind.Fixed, 0, 1) });
+                Assert.That(strip.Count, Is.EqualTo(2));
+                Assert.That(strip.GetIconRoot(0).Find("Status Magnitude").GetComponent<Text>().text, Is.EqualTo("질투"));
+                Assert.That(strip.GetIconRoot(0).Find("Status Remaining").GetComponent<Text>().text, Is.EqualTo("4"));
+                Assert.That(strip.GetIconRoot(1).Find("Status Magnitude").GetComponent<Text>().text, Is.EqualTo("고정"));
+                strip.ShowTooltip(1);
+                Assert.That(strip.TooltipRoot.Find("Status Name").GetComponent<Text>().text, Does.Contain("준비 1턴"));
+                Assert.That(strip.TooltipRoot.Find("Status Definition").GetComponent<Text>().text,
+                    Does.Contain("넘기기").And.Contain("기간을 더하지"));
+            }
+            finally { Object.Destroy(host); }
+        }
+
         [UnityTest]
         public IEnumerator Bleeding_StacksAttackCountsInsteadOfPercentages_AndExplainsItsOwnTiming()
         {

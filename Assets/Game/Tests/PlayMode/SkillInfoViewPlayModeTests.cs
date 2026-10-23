@@ -361,6 +361,24 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator IiaSkills_ExplainCopiedPowerAndBothNewKeywords()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                fixture.View.SetSkill(LegacySkillDefinitions.Skill(504), true);
+                Assert.That(fixture.View.PowerText.text, Is.EqualTo("상대 최대"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("최대 위력"));
+                fixture.View.SetSkill(LegacySkillDefinitions.Skill(506), true);
+                Assert.That(fixture.View.EffectText.text, Does.Contain("질투").And.Contain("고정"));
+                Assert.That(SkillKeywordHover.TryExplain("질투", out string jealous), Is.True);
+                Assert.That(jealous, Does.Contain("타격마다").And.Contain("맨 뒤"));
+                Assert.That(SkillKeywordHover.TryExplain("고정", out string fixedText), Is.True);
+                Assert.That(fixedText, Does.Contain("넘기기").And.Contain("다음 준비"));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator EveryAuthoredSkill_FitsTheSame334PixelCardAsPlayerEnemyAndOwned()
         {
             yield return null;
@@ -368,7 +386,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var run = new CampaignRun();
                 float fixedHeight = fixture.View.Height;
-                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(49), "Every row of the shipped sheet, temporary and counter rows included.");
+                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(53), "Every row of the shipped sheet, temporary and counter rows included.");
                 foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 {
                     foreach (bool enemy in new[] { false, true })

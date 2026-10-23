@@ -36,6 +36,8 @@ namespace TurnLimbo.Presentation
         private static readonly Vector2 TimeSpentHome = new Vector2(340f, -10f);
         private readonly Text cycleCost, cycleEffect, timeSpent;
         private float laneCycleCost;
+        private float shownLaneCycleCost = -1f;
+        private int shownFixedPlanningTurns = -1;
         private bool laneCycleAffordable = true;
         private float timeSpentRemaining;
         private readonly Text turnText, timeText, actText, stageText;
@@ -676,16 +678,29 @@ namespace TurnLimbo.Presentation
 
         private bool CanCycle()
             => !disposed && cycleLanes != null && lastPlanning && !inputsHeld && CycleShown && inspectedSlot < 0 &&
-                displayedSession.Phase == LegacyDuelPhase.Planning && laneCycleAffordable;
+                displayedSession.Phase == LegacyDuelPhase.Planning && laneCycleAffordable && FixedPlanningTurns == 0;
+
+        private int FixedPlanningTurns => displayedSession is LegacyQueuedDuel duel && duel.IsIiaBossBattle
+            ? duel.PlayerFixedTurnsRemaining : 0;
 
         /// <summary>What 넘기기 costs now (planning seconds; 0 while the clock is held) and whether it can be paid.</summary>
         public void SetLaneCycleCost(float seconds, bool affordable)
         {
             if (disposed) return;
             seconds = Mathf.Max(0f, seconds);
-            if (laneCycleCost != seconds) cycleCost.text = CycleCostText(seconds);
             laneCycleCost = seconds;
             laneCycleAffordable = affordable;
+            RefreshCycleCost();
+        }
+
+        private void RefreshCycleCost()
+        {
+            int turns = FixedPlanningTurns;
+            if (shownFixedPlanningTurns == turns && shownLaneCycleCost == laneCycleCost) return;
+            shownFixedPlanningTurns = turns;
+            shownLaneCycleCost = laneCycleCost;
+            cycleCost.text = turns > 0 ? "고정 " + turns + "턴" : CycleCostText(laneCycleCost);
+            cycleCost.color = turns > 0 ? DuelVisualTheme.Danger : MutedText;
         }
 
         /// <summary>넘기기 (or a reservation's 제한시간 cost) just spent planning time: a short '-N초' rises off the timer.</summary>
@@ -737,6 +752,7 @@ namespace TurnLimbo.Presentation
             cycleButton.gameObject.SetActive(cycleShown);
             // The button already names its cost and effect. The tiny repeated note crowded the compact desk.
             cycleNote.gameObject.SetActive(false);
+            RefreshCycleCost();
             cycleButton.interactable = CanCycle();
             bool breathShown = BreathShown;
             breathButton.gameObject.SetActive(breathShown);
@@ -1181,7 +1197,7 @@ namespace TurnLimbo.Presentation
         private void SetPlayerInfoSkill(SkillInfoView info, LegacySkill skill, CampaignOwnedSkill owned)
         {
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
-            if (displayedSession == null || effect?.HasCycle != true)
+            if (displayedSession == null || effect?.HasCycle != true && effect?.MirrorOpponentMaxPower != true)
             {
                 info.SetSkill(skill, owned: owned);
                 return;

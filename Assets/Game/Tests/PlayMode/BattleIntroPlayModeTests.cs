@@ -27,6 +27,63 @@ namespace TurnLimbo.Presentation.Tests
         private const float Frame = .02f;
 
         [UnityTest]
+        public IEnumerator FinalCampaignStage_NamesIiaInTheForest_AndRetriesWithItsOwnHealthOnly()
+        {
+            yield return null;
+            using (var scope = new IntroScope(startCards: true))
+            {
+                DuelPrototypeController controller = scope.Controller;
+                CampaignRun run = controller.Campaign;
+                for (int stage = 1; stage <= 5; stage++)
+                {
+                    Assert.That(run.TryStartStage(stage), Is.True);
+                    Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
+                }
+                Assert.That(run.ReturnToLobby(), Is.True);
+                Assert.That(controller.StartCampaignStage(GreenRibbonBossBattle.StageNumber), Is.True);
+                Assert.That(controller.ArenaView.BackdropKind, Is.EqualTo(ArenaBackdropKind.Forest));
+                Assert.That(controller.ArenaView.EnemyAppearance, Is.EqualTo(EnemyAppearance.Student));
+                Assert.That(controller.Hud.EnemyName, Is.EqualTo(GreenRibbonBossBattle.EnemyName));
+                Assert.That(controller.StartCard.OpponentLabel.text, Is.EqualTo(GreenRibbonBossBattle.EnemyName));
+                Assert.That(controller.StartCard.OpponentFigure.sprite,
+                    Is.SameAs(Resources.Load<Sprite>(PrologueMissions.EnemySilhouette)));
+                int bossPlayerHealth = GreenRibbonBossBattle.PlayerBaseHealth + run.CurriculumStats.Health;
+                Assert.That(controller.Session.Player.MaxHealth, Is.EqualTo(bossPlayerHealth));
+                Assert.That(controller.Session.Enemy.MaxHealth, Is.EqualTo(GreenRibbonBossBattle.EnemyHealth));
+
+                Assert.That(controller.SkipStartCard(), Is.True);
+                Assert.That(controller.PauseBattle(), Is.True);
+                Assert.That(controller.RetryPausedBattle(), Is.True);
+                Assert.That(run.StageNumber, Is.EqualTo(GreenRibbonBossBattle.StageNumber));
+                Assert.That(controller.ArenaView.BackdropKind, Is.EqualTo(ArenaBackdropKind.Forest));
+                Assert.That(controller.Session.Player.MaxHealth, Is.EqualTo(bossPlayerHealth));
+
+                // A short fixture reaches the ordinary final-stage result and retry, without playing twenty turns.
+                scope.Install(OneBlowDuel(10));
+                Assert.That(controller.SkipStartCard(), Is.True);
+                Assert.That(controller.QueueLane(0), Is.True);
+                controller.CommitTurn();
+                scope.AdvanceUntil(() => controller.IsShowingResult, "The forest boss uses the normal campaign result.");
+                Assert.That(controller.Result.StageNumber, Is.EqualTo(8));
+                Assert.That(controller.Result.StageName, Is.EqualTo(GreenRibbonBossBattle.StageName));
+                Assert.That(controller.Result.IsTraining || controller.Result.IsMission, Is.False);
+                Assert.That(controller.Result.CanAdvance, Is.True, "A campaign victory keeps its forward action back to the academy.");
+                Assert.That(controller.RetryBattleResult(), Is.True);
+                Assert.That(controller.ArenaView.BackdropKind, Is.EqualTo(ArenaBackdropKind.Forest));
+                Assert.That(controller.Session.Player.MaxHealth, Is.EqualTo(bossPlayerHealth));
+
+                controller.ReturnToLobby();
+                Assert.That(controller.StartCampaignStage(7), Is.True);
+                Assert.That(controller.ArenaView.BackdropKind, Is.EqualTo(ArenaBackdropKind.SchoolCorridor));
+                Assert.That(controller.ArenaView.EnemyAppearance, Is.EqualTo(EnemyAppearance.CadetA));
+                Assert.That(controller.Hud.EnemyName, Is.Empty);
+                Assert.That(controller.StartCard.OpponentLabel.text, Is.Empty);
+                Assert.That(controller.Session.Player.MaxHealth, Is.EqualTo(100 + run.CurriculumStats.Health),
+                    "Boss health applies only to the forest encounter.");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator TheStartCard_HoldsTheBattle_NamesOnlyTheTwoFighters_ThenHandsOverToTheFirstPlanningTurn()
         {
             yield return null;

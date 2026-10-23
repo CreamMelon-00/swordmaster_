@@ -248,6 +248,8 @@ namespace TurnLimbo.Presentation
         public MissionGuide Guide => guide;
         public bool IsMission => mission != null;
         public bool IsTrainingBattle => campaign != null && campaign.IsTrainingBattle;
+        private bool IsCampaignBossBattle => !IsMission && !IsTrainingBattle && !IsInSkillTavern &&
+            campaign.Phase == CampaignPhase.Battle && campaign.CurrentStage.IsBossEncounter;
         /// <summary>결투 or 전투 for the fight on screen (internal; changes presentation only). Missions say which;
         /// stages are 전투.</summary>
         public EncounterKind Encounter => IsInSkillTavern || IsTrainingBattle ? EncounterKind.Battle
@@ -3022,7 +3024,7 @@ namespace TurnLimbo.Presentation
             laneHolds.DropExplanation();
             arena.SetEnemyAppearance(IsTrainingBattle ? EnemyAppearance.TrainingDummy
                 : IsMission ? mission.EnemyAppearance : CampaignEnemyVariant.ForStage(campaign.StageNumber));
-            arena.SetBackdrop(IsMission && mission.Number <= PrologueMissions.Count
+            arena.SetBackdrop(IsCampaignBossBattle || IsMission && mission.Number <= PrologueMissions.Count
                 ? ArenaBackdropKind.Forest : ArenaBackdropKind.SchoolCorridor);
             arena.Reset();
             ConfigureBattleEnemies(IsTrainingBattle ? EnemyAppearance.TrainingDummy
@@ -3037,7 +3039,8 @@ namespace TurnLimbo.Presentation
             else if (IsTrainingBattle) hud.SetStage(1, 1, TrainingOpponentName);
             else hud.SetStage(campaign.StageNumber, campaign.StageCount, campaign.CurrentStage.Name);
             // A mission names its enemy as the battle knows it (이아 in the 서막's last mission, unlike its briefing).
-            hud.SetEnemyName(IsMission ? mission.BattleEnemyName : IsGroupBattle ? "훈련생 3인조" : null);
+            hud.SetEnemyName(IsMission ? mission.BattleEnemyName : IsCampaignBossBattle ? GreenRibbonBossBattle.EnemyName
+                : IsGroupBattle ? "훈련생 3인조" : null);
             // Each attempt hears its barks afresh: a retry may say its start line again.
             barks.Begin(BarkResource);
             SetViewPhase(ViewPhase.Planning);
@@ -3089,11 +3092,10 @@ namespace TurnLimbo.Presentation
             RefreshGuide();
         }
 
-        /// <summary>The name the start card gives the opponent: a mission's battle name (이아 in the 서막's last mission) and
-        /// the dummy in training. A stage's enemy has no name yet, so its card shows the silhouette alone: a place name is
-        /// not a fighter's (and stage 8's has 결투 in it). Once stage enemies are named, their name goes here.</summary>
+        /// <summary>The start card names mission opponents, the training dummy, the forest boss Iia and the group in
+        /// stage five. Other campaign opponents still appear as silhouettes without a name.</summary>
         private string StartCardOpponent => IsTrainingBattle ? TrainingOpponentName : IsMission ? mission.BattleEnemyName
-            : IsGroupBattle ? "훈련생 3인조" : string.Empty;
+            : IsCampaignBossBattle ? GreenRibbonBossBattle.EnemyName : IsGroupBattle ? "훈련생 3인조" : string.Empty;
 
         /// <summary>The opponent's silhouette on the start card: a mission's briefing silhouette, else the dummy's or the
         /// knight's, as the arena draws the enemy.</summary>

@@ -226,7 +226,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(definition.Effect.HasOpponentCondition, Is.False, "It breaks whatever it meets.");
             Assert.That(definition.HighPower, Is.True);
             Assert.That(LegacySkillDefinitions.Table.IsEnemy(definition), Is.True);
-            Assert.That(LegacySkillDefinitions.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
+            Assert.That(LegacySkillDefinitions.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502, 503, 504, 505, 506 }));
             Assert.That(LegacyInitialSkills.All.Concat(CampaignSkillCatalog.AcquisitionSkills), Has.No.Member(laudare));
             Assert.That(definition.Text.Info.EnemyMain, Is.EqualTo("내 저항 붕괴"), "The player reads it as the enemy's skill.");
             Assert.That(CampaignCurriculum.Default.FindGranting(500), Is.Null);
@@ -318,13 +318,13 @@ namespace TurnLimbo.Core.Tests
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
             Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[]
                 { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50,
-                    51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 500, 501, 502, 600 }));
+                    51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 500, 501, 502, 503, 504, 505, 506, 600 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(table.InitialCounterSkills.Select(s => s.Id), Is.EqualTo(new[] { 600 }));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id),
                 Is.EqualTo(new[] { 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 60, 61, 63, 64, 65, 66, 67, 68 }));
             Assert.That(table.VersusSkills.Select(s => s.Id), Is.EqualTo(new[] { 62 }));
-            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502 }));
+            Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502, 503, 504, 505, 506 }));
             Assert.That(table.TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
                 "The runtime reads the same file.");

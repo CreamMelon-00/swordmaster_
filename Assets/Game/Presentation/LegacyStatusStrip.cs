@@ -10,7 +10,7 @@ namespace TurnLimbo.Presentation
     public sealed class LegacyStatusStrip : MonoBehaviour
     {
         public const float IconWidth = 40f, Height = 44f, Gap = 5f;
-        private const float TooltipWidth = 336f, TooltipHeight = 174f, BleedingTooltipHeight = 324f;
+        private const float TooltipWidth = 336f, TooltipHeight = 174f, BleedingTooltipHeight = 324f, BossTooltipHeight = 250f;
         private readonly List<StatusIcon> icons = new List<StatusIcon>();
         private readonly List<LegacyStatusSnapshot> displayedStatuses = new List<LegacyStatusSnapshot>();
         private RectTransform root, canvasRect, tooltip;
@@ -74,9 +74,12 @@ namespace TurnLimbo.Presentation
                 Color ink = value.Kind == LegacyStatusKind.PowerUp ? new Color32(235, 210, 250, 255)
                     : value.Kind == LegacyStatusKind.Protection ? new Color32(143, 236, 226, 255)
                     : value.Kind == LegacyStatusKind.Bleeding ? new Color32(244, 96, 112, 255)
+                    : value.Kind == LegacyStatusKind.Jealousy ? new Color32(172, 230, 142, 255)
+                    : value.Kind == LegacyStatusKind.Fixed ? new Color32(255, 207, 123, 255)
                     : new Color32(255, 159, 135, 255);
                 icon.Symbol.color = ink;
-                icon.Magnitude.text = value.Kind == LegacyStatusKind.Bleeding ? "출혈" : value.Percent + "%";
+                icon.Magnitude.text = value.Kind == LegacyStatusKind.Bleeding || value.Kind == LegacyStatusKind.Jealousy ||
+                    value.Kind == LegacyStatusKind.Fixed ? LegacyStatusNames.Name(value.Kind) : value.Percent + "%";
                 icon.Remaining.text = value.RemainingCount.ToString();
             }
             if (hovered >= count) HideTooltip();
@@ -121,12 +124,16 @@ namespace TurnLimbo.Presentation
         {
             LegacyStatusSnapshot value = icons[hovered].Snapshot;
             bool bleeding = value.Kind == LegacyStatusKind.Bleeding;
-            float height = bleeding ? BleedingTooltipHeight : TooltipHeight;
+            bool bossKeyword = value.Kind == LegacyStatusKind.Jealousy || value.Kind == LegacyStatusKind.Fixed;
+            float height = bleeding ? BleedingTooltipHeight : bossKeyword ? BossTooltipHeight : TooltipHeight;
             tooltip.sizeDelta = new Vector2(TooltipWidth, height);
             tooltipTitle.rectTransform.anchoredPosition = new Vector2(0f, height * .5f - 29f);
             tooltipDescription.rectTransform.sizeDelta = new Vector2(308f, height - 62f);
             tooltipTitle.text = LegacyStatusNames.Name(value.Kind) + "  ·  " +
-                (bleeding ? "공격 기술 " + value.RemainingCount + "개 남음" : value.RemainingCount + "회 남음");
+                (bleeding ? "공격 기술 " + value.RemainingCount + "개 남음"
+                    : value.Kind == LegacyStatusKind.Fixed ? "준비 " + value.RemainingCount + "턴 남음"
+                    : value.Kind == LegacyStatusKind.Jealousy ? value.RemainingCount + "회"
+                    : value.RemainingCount + "회 남음");
             tooltipDescription.text = LegacyStatusNames.Description(value.Kind, value.Percent);
             PositionTooltip();
         }

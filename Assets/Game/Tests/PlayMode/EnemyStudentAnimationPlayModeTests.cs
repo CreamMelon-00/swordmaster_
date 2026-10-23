@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.Reflection;
 using NUnit.Framework;
+using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Prologue;
 using UnityEngine;
@@ -16,7 +17,7 @@ namespace TurnLimbo.Presentation.Tests
         [Test]
         public void CampaignCadetsHaveCompleteClipsAndStableStageIdentity()
         {
-            for (int stage = 1; stage <= 8; stage++)
+            for (int stage = 1; stage < GreenRibbonBossBattle.StageNumber; stage++)
             {
                 bool odd = (stage & 1) == 1;
                 Assert.That(CampaignEnemyVariant.ForStage(stage),
@@ -24,6 +25,9 @@ namespace TurnLimbo.Presentation.Tests
                 string root = odd ? EnemyStudentAnimationSet.CadetAResourceRoot : EnemyStudentAnimationSet.CadetBResourceRoot;
                 Assert.That(CampaignEnemyVariant.SilhouetteResource(stage), Is.EqualTo(root + "idle/frame-01"));
             }
+            Assert.That(CampaignEnemyVariant.ForStage(GreenRibbonBossBattle.StageNumber), Is.EqualTo(EnemyAppearance.Student));
+            Assert.That(CampaignEnemyVariant.SilhouetteResource(GreenRibbonBossBattle.StageNumber),
+                Is.EqualTo(PrologueMissions.EnemySilhouette), "The forest boss keeps Iia's green ribbon in every preview.");
             Assert.Throws<ArgumentOutOfRangeException>(() => CampaignEnemyVariant.ForStage(0));
 
             foreach (var variant in new[]

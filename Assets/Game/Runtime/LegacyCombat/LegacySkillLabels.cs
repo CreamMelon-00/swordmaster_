@@ -13,6 +13,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const string CycleFeedPhrase = "순환 +1", AutoBreathPhrase = "숨고르기 +1";
         /// <summary>사용 효과 phrase for <see cref="LegacySkillEffect.AutoDodge"/>.</summary>
         public const string AutoDodgePhrase = "자동 회피";
+        public const string MirrorOpponentMaxPowerPhrase = "상대 기술 최대 위력 사용";
+        public const string PreviousOpponentUsesBuffPhrase = "직전 턴 상대 사용 기술마다 강화 50% 1회";
+        public const string ConsumeJealousyPhrase = "질투 모두 소모";
+        public const int MinimumFixedTurns = 1, MaximumFixedTurns = 10;
+        private static readonly Regex InflictFixedPattern = new Regex(
+            @"^적중시상대에게고정([0-9]{1,3})부여$", RegexOptions.CultureInvariant);
         /// <summary>ACT 강탈 tests the opponent's remaining ACT when used and transfers current ACT, not next-turn recovery.</summary>
         public const string ActStealKeyword = "ACT 강탈";
         public const string ActRecoveryStealKeyword = "ACT 회복 강탈";
@@ -200,6 +206,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     effect.ReserveTemporaryCount.ToString(CultureInfo.InvariantCulture);
             if (effect.ReservePlanningSecondsCost > 0)
                 return PlanningTimePhrase + " -" + effect.ReservePlanningSecondsCost.ToString(CultureInfo.InvariantCulture) + "초";
+            if (effect.ConsumeJealousyOnReserve) return ConsumeJealousyPhrase;
             return string.Empty;
         }
 
@@ -229,6 +236,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     " 이상이면 ACT " + effect.ActStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈");
             if (effect.HasActRecoverySteal)
                 phrases.Add("상대 공격 시 다음 턴 ACT 회복 " + effect.ActRecoveryStealAmount.ToString(CultureInfo.InvariantCulture) + " 강탈");
+            if (effect.MirrorOpponentMaxPower) phrases.Add(MirrorOpponentMaxPowerPhrase);
+            if (effect.BuffPowerFromPreviousOpponentUses) phrases.Add(PreviousOpponentUsesBuffPhrase);
+            if (effect.InflictFixedTurns > 0)
+                phrases.Add("적중 시 상대에게 고정 " + effect.InflictFixedTurns.ToString(CultureInfo.InvariantCulture) + " 부여");
             if (effect.SelfBleedingCount > 0)
                 phrases.Add("자신에게 출혈 " + effect.SelfBleedingCount.ToString(CultureInfo.InvariantCulture) + " 부여");
             if (effect.OpponentBleedingCount > 0)
@@ -254,6 +265,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             string trimmed = text?.Trim() ?? string.Empty;
             string compact = Compact(trimmed);
+            if (compact == Compact(ConsumeJealousyPhrase))
+            {
+                effect.ConsumeJealousyOnReserve = true;
+                return true;
+            }
             if (compact == Compact(CycleFeedPhrase))
             {
                 effect.ReserveCycleFeed = true;
@@ -314,6 +330,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             effect.ActStealThreshold = parsed.ActStealThreshold;
             effect.ActStealAmount = parsed.ActStealAmount;
             effect.ActRecoveryStealAmount = parsed.ActRecoveryStealAmount;
+            effect.MirrorOpponentMaxPower = parsed.MirrorOpponentMaxPower;
+            effect.BuffPowerFromPreviousOpponentUses = parsed.BuffPowerFromPreviousOpponentUses;
+            effect.InflictFixedTurns = parsed.InflictFixedTurns;
             effect.SelfBleedingCount = parsed.SelfBleedingCount;
             effect.OpponentBleedingCount = parsed.OpponentBleedingCount;
             effect.OpponentBleedingReplacementCount = parsed.OpponentBleedingReplacementCount;
@@ -328,6 +347,27 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private static bool TryReadSingleUseEffect(string text, LegacySkillEffect effect)
         {
             string trimmed = text?.Trim() ?? string.Empty;
+            string compact = Compact(trimmed);
+            if (compact == Compact(MirrorOpponentMaxPowerPhrase))
+            {
+                if (effect.MirrorOpponentMaxPower) return false;
+                effect.MirrorOpponentMaxPower = true;
+                return true;
+            }
+            if (compact == Compact(PreviousOpponentUsesBuffPhrase))
+            {
+                if (effect.BuffPowerFromPreviousOpponentUses) return false;
+                effect.BuffPowerFromPreviousOpponentUses = true;
+                return true;
+            }
+            Match fixedTurns = InflictFixedPattern.Match(compact);
+            if (fixedTurns.Success)
+            {
+                int turns = int.Parse(fixedTurns.Groups[1].Value, CultureInfo.InvariantCulture);
+                if (effect.InflictFixedTurns > 0 || turns < MinimumFixedTurns || turns > MaximumFixedTurns) return false;
+                effect.InflictFixedTurns = turns;
+                return true;
+            }
             if (TryReadBleedingEffect(trimmed, effect)) return true;
             if (Compact(trimmed) == Compact(AutoDodgePhrase))
             {

@@ -498,7 +498,7 @@ namespace TurnLimbo.Presentation
         {
             var panel = Rect("Stages Panel", pageRoot, new Vector2(0f, -24f), new Vector2(1800f, 850f));
             panel.localScale = Vector3.one * Mathf.Min(1f, LedgerWidth / 1800f);
-            Label("Tab Heading", panel, "복도의 기록", new Vector2(-844f, 357f), new Vector2(730f, 54f), 38);
+            Label("Tab Heading", panel, "출정 기록", new Vector2(-844f, 357f), new Vector2(730f, 54f), 38);
             Label("Tab Subtitle", panel, "목적지를 고르면 오른쪽에서 상대 정보를 확인할 수 있습니다.",
                 new Vector2(-844f, 312f), new Vector2(1130f, 34f), 18, Muted);
             if (nextMission != null && nextMissionAvailable)
@@ -525,7 +525,8 @@ namespace TurnLimbo.Presentation
                 new Vector2(440f, 564f), SurfaceInner);
             DuelVisualTheme.DressPanel(preview);
             var landscape = Image("Selected Stage Landscape", preview.transform,
-                Resources.Load<Sprite>("SchoolCorridor/corridor-composite"), new Vector2(0f, 161f), new Vector2(392f, 170f));
+                Resources.Load<Sprite>(stage.IsBossEncounter ? "ForestArena/forest-far" : "SchoolCorridor/corridor-composite"),
+                new Vector2(0f, 161f), new Vector2(392f, 170f));
             landscape.preserveAspect = true;
             // The landscape is decorative; missing optional scenery does not affect stage selection.
             landscape.gameObject.SetActive(landscape.sprite != null);

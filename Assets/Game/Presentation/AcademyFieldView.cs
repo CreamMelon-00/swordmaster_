@@ -73,6 +73,7 @@ namespace TurnLimbo.Presentation
         private readonly MobStudentAnimationSet playerAnimations;
         private readonly EnemyStudentAnimationSet cadetA;
         private readonly EnemyStudentAnimationSet cadetB;
+        private readonly EnemyStudentAnimationSet studentAnimations;
         private readonly TrainingDummyAnimationSet dummyAnimations;
         private readonly RectTransform uiRoot;
         private readonly Text prompt;
@@ -169,6 +170,7 @@ namespace TurnLimbo.Presentation
             spriteMaterial = arena.SpriteMaterial;
             playerAnimations = arena.PlayerAnimations;
             dummyAnimations = arena.DummyAnimations;
+            studentAnimations = arena.EnemyAnimations;
             cadetA = new EnemyStudentAnimationSet(EnemyStudentAnimationSet.CadetAResourceRoot, "field-cadet-a");
             cadetB = new EnemyStudentAnimationSet(EnemyStudentAnimationSet.CadetBResourceRoot, "field-cadet-b");
 
@@ -434,7 +436,7 @@ namespace TurnLimbo.Presentation
             foreach (Target target in stageTargets)
             {
                 if (!target.Root.gameObject.activeSelf) continue;
-                EnemyStudentAnimationSet animations = (target.StageNumber & 1) == 1 ? cadetA : cadetB;
+                EnemyStudentAnimationSet animations = StageAnimations(target.StageNumber);
                 target.Renderer.sprite = animations.GetIdle(animationTime + target.StageNumber * .17f);
             }
 
@@ -520,30 +522,41 @@ namespace TurnLimbo.Presentation
             }
             while (stageTargets.Count < available.Count)
                 stageTargets.Add(CreateStageTarget(stageTargets.Count));
-            VisibleStageCount = CurrentMap == ExplorationFieldMap.Corridor ? available.Count : 0;
+            VisibleStageCount = 0;
+            int corridorIndex = 0;
             for (int i = 0; i < stageTargets.Count; i++)
             {
                 Target target = stageTargets[i];
                 bool availableTarget = i < available.Count;
-                bool visible = availableTarget && CurrentMap == ExplorationFieldMap.Corridor;
+                bool visible = availableTarget && StageMap(available[i]) == CurrentMap;
                 target.Root.gameObject.SetActive(visible);
                 target.Label.gameObject.SetActive(visible);
+                if (visible) VisibleStageCount++;
                 if (!availableTarget) { target.StageNumber = 0; continue; }
                 int stageNumber = available[i];
                 target.StageNumber = stageNumber;
                 target.Name = $"{stageNumber:00}  {run.GetStage(stageNumber).Name}";
                 target.Label.text = target.Name;
                 target.CanInteract = run.CanStartStage(stageNumber);
-                float x = -14f + i * 4.2f + UnityEngine.Random.Range(-.55f, .55f);
-                float y = UnityEngine.Random.Range(-1.85f, -.55f);
+                bool forestBoss = StageMap(stageNumber) == ExplorationFieldMap.Forest;
+                float x = forestBoss ? 23f : -14f + corridorIndex++ * 4.2f + UnityEngine.Random.Range(-.55f, .55f);
+                float y = forestBoss ? -1.1f : UnityEngine.Random.Range(-1.85f, -.55f);
                 // Returning from a fight should not put a newly shuffled cadet directly over Elisa.
-                if (Vector2.Distance(new Vector2(x, y), PlayerPosition) < 2f) x += 2.5f;
+                if (!forestBoss && CurrentMap == ExplorationFieldMap.Corridor &&
+                    Vector2.Distance(new Vector2(x, y), PlayerPosition) < 2f) x += 2.5f;
                 target.Root.localPosition = new Vector3(x, y, 0f);
-                target.Renderer.sprite = ((stageNumber & 1) == 1 ? cadetA : cadetB).GetIdle(0f);
+                target.Renderer.sprite = StageAnimations(stageNumber).GetIdle(0f);
                 target.Renderer.sortingOrder = SortAt(y);
-                target.Renderer.flipX = (stageNumber & 1) == 0;
+                target.Renderer.flipX = !forestBoss && (stageNumber & 1) == 0;
             }
         }
+
+        private static ExplorationFieldMap StageMap(int stageNumber)
+            => stageNumber == GreenRibbonBossBattle.StageNumber ? ExplorationFieldMap.Forest : ExplorationFieldMap.Corridor;
+
+        private EnemyStudentAnimationSet StageAnimations(int stageNumber)
+            => stageNumber == GreenRibbonBossBattle.StageNumber ? studentAnimations
+                : (stageNumber & 1) == 1 ? cadetA : cadetB;
 
         private Target CreateStageTarget(int index)
         {
@@ -793,8 +806,9 @@ namespace TurnLimbo.Presentation
             VisibleStageCount = 0;
             foreach (Target target in stageTargets)
             {
-                bool visible = corridor && target.StageNumber > 0;
+                bool visible = target.StageNumber > 0 && StageMap(target.StageNumber) == CurrentMap;
                 target.Root.gameObject.SetActive(visible);
+                target.Label.gameObject.SetActive(visible);
                 if (visible) VisibleStageCount++;
             }
             Vector2 door = ExplorationFieldBackdrop.AuthoredToWorld(new Vector2(corridor ? 3720f : 352f, 488f));

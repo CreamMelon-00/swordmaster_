@@ -155,6 +155,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool HasBleedingPower => OpponentBleedingRequired > 0 || SelfBleedingRequired > 0;
         public bool HasBleedingEffect => HasBleedingGrant || HasBleedingReduction || HasBleedingPower;
 
+        /// <summary>Enemy-only: uses the opposing slot's maximum base power (including upgrades and cycle, before
+        /// strengthening). An empty slot or a breath has zero power.</summary>
+        public bool MirrorOpponentMaxPower { get; internal set; }
+        /// <summary>Enemy-only: grants one standard 50% strengthening use for each technique the opponent actually
+        /// used in the previous turn. Breaths and reservations cancelled before use do not count.</summary>
+        public bool BuffPowerFromPreviousOpponentUses { get; internal set; }
+        /// <summary>Enemy-only: reserving this technique consumes all of the owner's jealousy.</summary>
+        public bool ConsumeJealousyOnReserve { get; internal set; }
+        /// <summary>Enemy-only: each successful hit fixes the player for this many following planning turns.
+        /// Repeated grants keep the longer duration rather than adding durations.</summary>
+        public int InflictFixedTurns { get; internal set; }
+
         /// <summary>Reads the opponent's count before either fighter's stanching or new grants in this slot.</summary>
         public int BleedingToInflict(int opposingBleedingCount)
             => OpponentBleedingReplacementCount > 0 && opposingBleedingCount > 0
@@ -186,12 +198,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool HasAheadTime => AheadTimeTarget != LegacyAheadTarget.None;
         public bool HasTemporarySpawn => ReserveTemporarySkillId > 0;
         /// <summary>Whether the row writes its 예약 효과 cell.</summary>
-        public bool HasReserveEffect => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn || ReservePlanningSecondsCost > 0;
+        public bool HasReserveEffect => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn || ReservePlanningSecondsCost > 0 || ConsumeJealousyOnReserve;
         /// <summary>A 예약 효과 that adds something as the skill is reserved (순환 +1, 숨고르기 +1, 일회성), as opposed to the
         /// time cost; a remover may not carry one, since taking its own work back and reserving again would repeat it.</summary>
         public bool HasReserveGain => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn;
         /// <summary>Whether the row writes its 사용 효과 cell.</summary>
-        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal || HasActRecoverySteal || HasBleedingEffect;
+        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal || HasActRecoverySteal || HasBleedingEffect ||
+            MirrorOpponentMaxPower || BuffPowerFromPreviousOpponentUses || InflictFixedTurns > 0;
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
         public bool HasOpponentStateCondition => OpponentState != LegacyOpponentState.None;
@@ -218,7 +231,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 LegacySkillRole roles = LegacySkillRole.None;
                 if (ActGain > 0) roles |= LegacySkillRole.ActRecovery;
-                if (HasBuff && BuffPowerPercent > 0) roles |= LegacySkillRole.FollowupPower;
+                if (HasBuff && BuffPowerPercent > 0 || BuffPowerFromPreviousOpponentUses) roles |= LegacySkillRole.FollowupPower;
                 if (HasBuff && BuffProtectionPercent > 0) roles |= LegacySkillRole.DamageReduction;
                 if (HasBuff && BuffProtectionPercent < 0) roles |= LegacySkillRole.Vulnerability;
                 if (ResistanceRecoveryPercent > 0) roles |= LegacySkillRole.ResistanceRecovery;

@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈" };
+        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈", "질투", "고정" };
         // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
         // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
@@ -96,6 +96,12 @@ namespace TurnLimbo.Presentation
         {
             switch (term)
             {
+                case "질투":
+                    explanation = LegacyStatusNames.Description(LegacyStatusKind.Jealousy, 0);
+                    return true;
+                case "고정":
+                    explanation = LegacyStatusNames.Description(LegacyStatusKind.Fixed, 0);
+                    return true;
                 case "출혈":
                     explanation = LegacyStatusNames.Description(LegacyStatusKind.Bleeding, 2);
                     return true;
