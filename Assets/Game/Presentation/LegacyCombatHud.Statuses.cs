@@ -79,7 +79,9 @@ namespace TurnLimbo.Presentation
         {
             destination.Clear();
             if (source != null) destination.AddRange(source);
-            if (count > 0) destination.Add(new LegacyStatusSnapshot(kind, 0, count));
+            // The boss's rule must remain inspectable before it stacks and after the special consumes it.
+            if (count > 0 || kind == LegacyStatusKind.Jealousy)
+                destination.Add(new LegacyStatusSnapshot(kind, 0, count));
             return destination;
         }
 

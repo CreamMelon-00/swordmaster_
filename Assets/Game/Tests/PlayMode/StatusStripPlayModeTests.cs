@@ -16,6 +16,105 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class StatusStripPlayModeTests
     {
         [UnityTest]
+        public IEnumerator ReusedStatusIcon_ReopensJealousyWhenThePointerMovesWithoutExiting()
+        {
+            yield return null;
+            var host = new GameObject("Reused Iia status test", typeof(RectTransform), typeof(Canvas));
+            try
+            {
+                host.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+                LegacyStatusStrip strip = LegacyStatusStrip.Create((RectTransform)host.transform,
+                    new LegacyDuelArt().UIFont, "Reused Iia status");
+                strip.Refresh(new[] { new LegacyStatusSnapshot(LegacyStatusKind.PowerUp, 50, 1) });
+                RectTransform icon = strip.GetIconRoot(0);
+                var pointer = new PointerEventData(EventSystem.current);
+                ExecuteEvents.Execute(icon.gameObject, pointer, ExecuteEvents.pointerEnterHandler);
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.True);
+
+                strip.Refresh(new[] { new LegacyStatusSnapshot(LegacyStatusKind.Jealousy, 0, 3) });
+                Assert.That(strip.GetIconRoot(0), Is.SameAs(icon), "Status icons are pooled while their kind can change.");
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.False);
+                Assert.That(ExecuteEvents.Execute(icon.gameObject, pointer, ExecuteEvents.pointerMoveHandler), Is.True,
+                    "The pointer can move over the same recycled icon without a new enter event.");
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.True);
+                Assert.That(strip.TooltipRoot.Find("Status Name").GetComponent<Text>().text, Does.Contain("질투"));
+                Assert.That(strip.TooltipRoot.Find("Status Definition").GetComponent<Text>().text,
+                    Does.Contain("타격마다").And.Contain("5 이상"));
+                ExecuteEvents.Execute(icon.gameObject, pointer, ExecuteEvents.pointerExitHandler);
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.False);
+            }
+            finally { Object.Destroy(host); }
+        }
+
+        [UnityTest]
+        public IEnumerator IiaJealousy_CanBeExplainedAtZeroBeforeCombatAndAfterConsumption()
+        {
+            yield return null;
+            using (var scope = new Scope(false))
+            {
+                var attack = new LegacySkill(999, "검사 연타", 0, 6, 6, LegacySkillKind.Attack,
+                    LegacySkillProperty.Slash, 6, 0, string.Empty, iconId: 1);
+                var duel = new LegacyQueuedDuel(100000, 50, 400, 50, new[] { attack },
+                    GreenRibbonBossBattle.CreateScript(), meshPercent: 0).EnableIiaBossPatterns();
+                scope.Refresh(duel);
+                LegacyStatusStrip strip = scope.Hud.GetStatusStrip(false);
+                Assert.That(strip.Count, Is.EqualTo(1));
+                Assert.That(strip.GetStatus(0).Kind, Is.EqualTo(LegacyStatusKind.Jealousy));
+                Assert.That(strip.GetStatus(0).RemainingCount, Is.Zero);
+                Assert.That(strip.Root.gameObject.activeInHierarchy, Is.True);
+                LegacyStatusHoverTarget hover = strip.GetIconRoot(0).GetComponent<LegacyStatusHoverTarget>();
+                var hits = new List<RaycastResult>();
+                foreach (string part in new[] { "Status Symbol", "Status Magnitude" })
+                {
+                    var pointer = new PointerEventData(EventSystem.current)
+                    {
+                        position = RectTransformUtility.WorldToScreenPoint(null, strip.GetIconRoot(0).Find(part).position)
+                    };
+                    hits.Clear();
+                    scope.Hud.Root.GetComponent<GraphicRaycaster>().Raycast(pointer, hits);
+                    Assert.That(hits.Count, Is.GreaterThan(0), "The live status icon must receive mouse hits: " + part);
+                    GameObject target = ExecuteEvents.GetEventHandler<IPointerEnterHandler>(hits[0].gameObject);
+                    Assert.That(target, Is.EqualTo(hover.gameObject), "The icon's picture and label must reach its tooltip.");
+                    ExecuteEvents.Execute(target, pointer, ExecuteEvents.pointerEnterHandler);
+                    Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.True);
+                    // The real HUD refreshes and moves the strip each frame while the pointer stays on it.
+                    scope.Refresh(duel);
+                    Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.True);
+                    ExecuteEvents.Execute(target, pointer, ExecuteEvents.pointerExitHandler);
+                    Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.False);
+                }
+                hover.OnPointerEnter(new PointerEventData(EventSystem.current));
+                Text definition = strip.TooltipRoot.Find("Status Definition").GetComponent<Text>();
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.True);
+                Assert.That(definition.text, Does.Contain("공격·방어하지 않는").And.Contain("타격마다")
+                    .And.Contain("5 이상").And.Contain("맨 뒤").And.Contain("고정 1"));
+                Assert.That(definition.preferredHeight, Is.LessThanOrEqualTo(definition.rectTransform.rect.height + 1f));
+                hover.OnPointerExit(new PointerEventData(EventSystem.current));
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.False);
+
+                Assert.That(duel.TrySetFixedQueues(new[] { attack }, new[] { LegacyCommonActions.Breathe }), Is.True);
+                duel.Commit();
+                while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+                scope.Refresh(duel);
+                Assert.That(strip.GetStatus(0).RemainingCount, Is.EqualTo(6));
+                duel.BeginNextTurn();
+                scope.Refresh(duel);
+                Assert.That(duel.IiaJealousy, Is.Zero);
+                Assert.That(strip.GetStatus(0).RemainingCount, Is.Zero);
+                Assert.That(strip.Root.gameObject.activeInHierarchy, Is.True);
+                hover.OnPointerEnter(new PointerEventData(EventSystem.current));
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.True);
+                Assert.That(duel.EnemyQueue[duel.EnemyQueue.Count - 1].Id, Is.EqualTo(506));
+
+                var ordinary = new LegacyQueuedDuel(100, 50, 100, 50, new[] { attack },
+                    new EnemyScript(new[] { new[] { LegacyCommonActions.Breathe } }));
+                scope.Refresh(ordinary);
+                Assert.That(strip.Count, Is.Zero, "The persistent rule belongs only to Iia's boss battle.");
+                Assert.That(strip.TooltipRoot.gameObject.activeSelf, Is.False);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator IiaHud_ReadsLiveJealousyAndFixed_AndNamesTheBlockedCycle()
         {
             yield return null;

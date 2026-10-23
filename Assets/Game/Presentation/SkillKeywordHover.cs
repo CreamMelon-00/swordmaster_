@@ -376,7 +376,7 @@ namespace TurnLimbo.Presentation
             Vector3 upper = canvasRect.InverseTransformPoint(cardCorners[2]);
             Rect screen = canvasRect.rect;
             float width = Mathf.Min(PopupWidth * scale, Mathf.Max(80f, screen.width - 16f));
-            float requestedHeight = heading.text == "출혈" ? 350f : PopupHeight;
+            float requestedHeight = heading.text == "출혈" ? 350f : heading.text == "질투" ? 250f : PopupHeight;
             float height = Mathf.Min(requestedHeight * scale, Mathf.Max(80f, screen.height - 16f));
             popup.sizeDelta = new Vector2(width, height);
             float textWidth = Mathf.Max(60f, width - 30f * scale);

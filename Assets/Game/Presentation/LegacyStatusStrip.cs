@@ -224,12 +224,14 @@ namespace TurnLimbo.Presentation
         }
     }
 
-    public sealed class LegacyStatusHoverTarget : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    public sealed class LegacyStatusHoverTarget : MonoBehaviour, IPointerEnterHandler, IPointerMoveHandler, IPointerExitHandler
     {
         private LegacyStatusStrip owner;
         private int index;
         public void Configure(LegacyStatusStrip value, int slot) { owner = value; index = slot; }
         public void OnPointerEnter(PointerEventData eventData) => owner.ShowTooltip(index);
+        // A reused icon can change kind and dismiss its tooltip without the pointer leaving the same GameObject.
+        public void OnPointerMove(PointerEventData eventData) => owner.ShowTooltip(index);
         public void OnPointerExit(PointerEventData eventData) => owner.HideTooltip();
     }
 }

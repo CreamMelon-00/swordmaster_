@@ -7,6 +7,7 @@ using TurnLimbo.Runtime.Campaign;
 using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Sheets;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
@@ -358,6 +359,61 @@ namespace TurnLimbo.Presentation.Tests
             }
             finally { LegacySkillDefinitions.Install(null); }
             yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator IiaQueueKeywords_ReceiveRaycastsAndOpenWhileTheComparisonRefreshes()
+        {
+            yield return null;
+            var host = new GameObject("Iia keyword comparison test");
+            var hud = new LegacyCombatHud(host.transform, new LegacyDuelArt(), null, null, null);
+            try
+            {
+                LegacySkill special = LegacySkillDefinitions.Skill(506);
+                var duel = new LegacyQueuedDuel(305, 50, 400, 50,
+                    new[] { LegacySkillDefinitions.Skill(1) }, new EnemyScript(new[] { new[] { special } }));
+                hud.Refresh(duel, 10f, false, -1, null, null, null, 0f, 0f);
+                hud.SetInspectedSlot(0);
+                hud.ShowQueueComparison(special, null);
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                foreach (string term in new[] { "질투", "고정" })
+                {
+                    Text keyword = hud.ExplanationRoot.GetComponentsInChildren<Text>()
+                        .Single(label => label.name.StartsWith("Keyword ", StringComparison.Ordinal) &&
+                            label.name.EndsWith(" Text", StringComparison.Ordinal) && label.text.Contains(term));
+                    var pointer = new PointerEventData(EventSystem.current)
+                    {
+                        position = RectTransformUtility.WorldToScreenPoint(null, keyword.rectTransform.position)
+                    };
+                    var hits = new List<RaycastResult>();
+                    hud.Root.GetComponent<GraphicRaycaster>().Raycast(pointer, hits);
+                    Assert.That(hits.Count, Is.GreaterThan(0), "The visible keyword must receive an actual UI raycast.");
+                    GameObject target = ExecuteEvents.GetEventHandler<IPointerEnterHandler>(hits[0].gameObject);
+                    Assert.That(target, Is.EqualTo(keyword.transform.parent.gameObject), "No decoration may cover the badge.");
+                    ExecuteEvents.Execute(target, pointer, ExecuteEvents.pointerEnterHandler);
+                    float deadline = Time.unscaledTime + SkillKeywordHover.DelaySeconds + .2f;
+                    while (Time.unscaledTime < deadline)
+                    {
+                        hud.Refresh(duel, 10f, false, -1, null, null, null, 0f, 0f);
+                        hud.SetInspectedSlot(0);
+                        hud.ShowQueueComparison(special, null);
+                        yield return null;
+                    }
+                    Text title = hud.Root.GetComponentsInChildren<Text>()
+                        .Single(label => label.name == "Keyword Title" && label.text == term);
+                    Assert.That(title.transform.parent.gameObject.activeInHierarchy, Is.True);
+                    Text meaning = title.transform.parent.Find("Keyword Meaning").GetComponent<Text>();
+                    Assert.That(meaning.text, Does.Contain(term == "질투" ? "5 이상" : "넘기기"));
+                    Canvas.ForceUpdateCanvases();
+                    Assert.That(meaning.preferredHeight, Is.LessThanOrEqualTo(meaning.rectTransform.rect.height + 1f));
+                    ExecuteEvents.Execute(target, pointer, ExecuteEvents.pointerExitHandler);
+                    Assert.That(title.transform.parent.gameObject.activeSelf, Is.False);
+                }
+                hud.HideExplanation();
+                Assert.That(hud.IsQueueComparisonVisible, Is.False);
+            }
+            finally { hud.Dispose(); Object.Destroy(host); }
         }
 
         [UnityTest]

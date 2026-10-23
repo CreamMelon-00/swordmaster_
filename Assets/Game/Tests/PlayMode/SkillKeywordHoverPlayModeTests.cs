@@ -51,15 +51,16 @@ namespace TurnLimbo.Presentation.Tests
 
             public Vector2 CharacterScreenPoint(int characterIndex)
             {
-                var vertices = Body.cachedTextGenerator.verts;
-                int renderedGlyph = 0;
-                for (int i = 0; i < characterIndex; i++)
-                    if (!char.IsWhiteSpace(Body.text[i])) renderedGlyph++;
-                int index = renderedGlyph * 4;
-                Assert.That(vertices.Count, Is.GreaterThan(index + 3), "The target word must be rendered.");
-                Vector3 center = Vector3.zero;
-                for (int i = 0; i < 4; i++) center += vertices[index + i].position;
-                center /= 4f * Body.pixelsPerUnit;
+                // Use native character/line positions, independently of the production vertex-index mapping.
+                TextGenerator generator = Body.cachedTextGenerator;
+                Assert.That(generator.characters.Count, Is.GreaterThan(characterIndex), "The target character must be rendered.");
+                int lineIndex = 0;
+                for (int i = 1; i < generator.lines.Count; i++)
+                    if (generator.lines[i].startCharIdx <= characterIndex) lineIndex = i;
+                UICharInfo character = generator.characters[characterIndex];
+                UILineInfo line = generator.lines[lineIndex];
+                Vector3 center = new Vector3(character.cursorPos.x + character.charWidth * .5f,
+                    line.topY - line.height * .5f, 0f) / Body.pixelsPerUnit;
                 return RectTransformUtility.WorldToScreenPoint(null, Body.rectTransform.TransformPoint(center));
             }
 
@@ -129,6 +130,35 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(LegacyStatusNames.Label(LegacyStatusKind.Vulnerability, 25, 2), Is.EqualTo("취약 25% 2"));
             Assert.That(LegacyStatusNames.Label(LegacyStatusKind.PowerUp, 20, 2), Is.EqualTo("강화 20% 2"));
             Assert.That(LegacyStatusNames.Label(LegacyStatusKind.PowerUp, 30, 1), Is.EqualTo("강화 30% 1"));
+        }
+
+        [UnityTest]
+        public IEnumerator IiaDescription_ExplainsTheActualJealousyWordAfterSpaces()
+        {
+            using (var fixture = new Fixture())
+            {
+                SkillInfoContent content = SkillInfoContent.For(LegacySkillDefinitions.Skill(506), true);
+                fixture.FirstLabel.text = content.Main;
+                fixture.SecondLabel.text = content.Secondary;
+                fixture.Body.text = content.Description;
+                fixture.Hover.SetTerms(content.Main, content.Secondary, content.Description);
+                yield return null;
+                Canvas.ForceUpdateCanvases();
+                int index = fixture.Body.text.IndexOf("질투", StringComparison.Ordinal);
+                Assert.That(index, Is.GreaterThan(0), "The authored word follows 예약 시 and its spaces.");
+                Vector2 position = fixture.CharacterScreenPoint(index);
+                Assert.That(fixture.BodyHits.Raycast(position, null), Is.True);
+                var target = fixture.BodyHits.GetComponent<SkillKeywordHoverTarget>();
+                target.OnPointerEnter(fixture.Pointer(position));
+                yield return new WaitForSecondsRealtime(SkillKeywordHover.DelaySeconds + .12f);
+                GameObject popup = GameObject.Find("Skill Keyword Explanation");
+                Assert.That(popup, Is.Not.Null);
+                Assert.That(popup.transform.Find("Keyword Title").GetComponent<Text>().text, Is.EqualTo("질투"));
+                Assert.That(popup.transform.Find("Keyword Meaning").GetComponent<Text>().text,
+                    Does.Contain("타격마다").And.Contain("5 이상").And.Contain("고정 1"));
+                target.OnPointerExit(fixture.Pointer(Vector2.zero));
+                Assert.That(popup.activeSelf, Is.False);
+            }
         }
 
         [UnityTest]
@@ -222,7 +252,7 @@ namespace TurnLimbo.Presentation.Tests
         [UnityTest]
         public IEnumerator LongMeaning_FitsAndPopupStaysInsideCanvasAtTheScreenEdge()
         {
-            foreach (string term in new[] { "취소", "출혈" })
+            foreach (string term in new[] { "취소", "출혈", "질투", "고정" })
             using (var fixture = new Fixture())
             {
                 var canvas = fixture.CanvasRoot.GetComponent<RectTransform>();
