@@ -259,6 +259,8 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(preview.Session.Phase, Is.EqualTo(LegacyDuelPhase.Resolving));
             Assert.That(preview.Session.PlayerQueue.Count, Is.EqualTo(player));
             Assert.That(preview.Session.EnemyQueue.Count, Is.EqualTo(enemy));
+            Assert.That(preview.Session.LaneReservationsThisTurn(0), Is.Zero,
+                "The preview prepares fixed samples without spending manual reservations.");
             Assert.That(preview.Session.RoundNumber, Is.EqualTo(1));
         }
 

@@ -23,6 +23,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private int enemyScriptFirstRound;
         private readonly List<LegacySkill>[] lanes = { new List<LegacySkill>(), new List<LegacySkill>(), new List<LegacySkill>() };
         private readonly IReadOnlyList<LegacySkill>[] laneViews;
+        private readonly int[] laneReservationsThisTurn = new int[3];
         private readonly List<LegacySkill> playerQueue = new List<LegacySkill>();
         // The ACT actually paid for each reservation; Return refunds that amount, even for a cycling skill.
         private readonly List<int> playerQueueActCosts = new List<int>();
@@ -193,6 +194,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 lanes[i].AddRange(source.lanes[i]);
                 laneViews[i] = lanes[i].AsReadOnly();
             }
+            Array.Copy(source.laneReservationsThisTurn, laneReservationsThisTurn, laneReservationsThisTurn.Length);
             playerQueue.AddRange(source.playerQueue);
             playerQueueActCosts.AddRange(source.playerQueueActCosts);
             enemyQueue.AddRange(source.enemyQueue);
@@ -431,10 +433,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacyMeshSlot PlayerMeshIfQueued(int laneIndex)
         {
             int slotIndex = playerQueue.Count;
-            if (Phase != LegacyDuelPhase.Planning || laneIndex < 0 || laneIndex >= lanes.Length || !Features.HasLane(laneIndex))
+            if (!CanQueueLane(laneIndex))
                 return LegacyMeshSlot.Unmeshed(slotIndex);
             List<LegacySkill> lane = lanes[laneIndex];
-            if (lane.Count == 0 || lane[0].IsWait || Act < EffectiveCost(lane[0])) return LegacyMeshSlot.Unmeshed(slotIndex);
             LegacySkillEffect effect = LegacySkillDefinitions.Find(lane[0])?.Effect;
             if (effect != null && effect.QueueRemovalMode != LegacyQueueRemovalMode.None)
             {
@@ -603,12 +604,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public bool TryQueueLane(int laneIndex)
         {
-            if (laneIndex < 0 || laneIndex >= lanes.Length || !Features.HasLane(laneIndex)) return false;
+            if (!CanQueueLane(laneIndex)) return false;
             List<LegacySkill> lane = lanes[laneIndex];
-            if (Phase != LegacyDuelPhase.Planning || lane.Count == 0 || lane[0].IsWait) return false;
             LegacySkill skill = lane[0];
             int paidCost = EffectiveCost(skill);
-            if (Act < paidCost) return false;
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             LegacyQueueRemovalMode removalMode = effect?.QueueRemovalMode ?? LegacyQueueRemovalMode.None;
             int removedSkills = 0, returnedAct = 0;
@@ -654,8 +653,32 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyReserveEffect used = ReserveEffectsUsedThisTurn;
             LegacyKeywordLinks.SpawnTemporary(skill, lanes, open => Features.HasLane(open), ref used);
             ReserveEffectsUsedThisTurn = used;
+            laneReservationsThisTurn[laneIndex]++;
             GenerateIiaTechnique();
             return true;
+        }
+
+        public int LaneReservationsThisTurn(int laneIndex)
+        {
+            if (laneIndex < 0 || laneIndex >= lanes.Length) throw new ArgumentOutOfRangeException(nameof(laneIndex));
+            return laneReservationsThisTurn[laneIndex];
+        }
+
+        public int LaneReservationsRemaining(int laneIndex)
+        {
+            if (laneIndex < 0 || laneIndex >= lanes.Length) throw new ArgumentOutOfRangeException(nameof(laneIndex));
+            return !Features.HasLane(laneIndex) || lanes[laneIndex].Count == 0 ? 0
+                : Math.Max(0, LegacyLaneLimit.MaxReservations - laneReservationsThisTurn[laneIndex]);
+        }
+
+        /// <summary>Whether this lane's front can be reserved now, within ACT and its turn's manual reservation limit.</summary>
+        public bool CanQueueLane(int laneIndex)
+        {
+            if (Phase != LegacyDuelPhase.Planning || laneIndex < 0 || laneIndex >= lanes.Length ||
+                !Features.HasLane(laneIndex) || laneReservationsThisTurn[laneIndex] >= LegacyLaneLimit.MaxReservations)
+                return false;
+            List<LegacySkill> lane = lanes[laneIndex];
+            return lane.Count > 0 && !lane[0].IsWait && Act >= EffectiveCost(lane[0]);
         }
 
         /// <summary>넘기기: during planning, every open lane with more than one skill sends its front skill to the back
@@ -1179,6 +1202,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             StepAttemptsThisTurn = StepSuccessStreak = 0;
             StepMissedThisTurn = false;
             BreathsQueuedThisTurn = 0;
+            Array.Clear(laneReservationsThisTurn, 0, laneReservationsThisTurn.Length);
             ReserveEffectsUsedThisTurn = LegacyReserveEffect.None;
             AutoBreathSlotIndex = LastQueuedSlotIndex = -1;
             LaneCyclesThisTurn = 0;

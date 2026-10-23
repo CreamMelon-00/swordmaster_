@@ -261,7 +261,7 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
-        // A free duel committed with three reservations against three enemy skills, for the HUD alone.
+        // Prepared queues isolate the HUD's long-row capacity from manual per-lane reservation limits.
         private static LegacyQueuedDuel ThreeSlotDuel(int count = 3)
         {
             var free = new List<LegacySkill>();
@@ -269,7 +269,13 @@ namespace TurnLimbo.Presentation.Tests
                 free.Add(new LegacySkill(source.Id, source.Name, 0, source.MinPower, source.MaxPower,
                     source.Kind, source.Property, source.AttackCount, source.LaneIndex, source.Description, source.AnimationName));
             var duel = new LegacyQueuedDuel(1000, 50, 1000, 15, free, LegacyInitialSkills.All, new[] { count }, 1);
-            for (int index = 0; index < count; index++) Assert.That(duel.TryQueueLane(index % 3), Is.True);
+            var prepared = new List<LegacySkill>(count);
+            for (int index = 0; index < count; index++)
+            {
+                IReadOnlyList<LegacySkill> lane = duel.GetLane(index % 3);
+                prepared.Add(lane[(index / 3) % lane.Count]);
+            }
+            Assert.That(duel.TrySetFixedQueues(prepared, duel.EnemyQueue), Is.True);
             return duel;
         }
 

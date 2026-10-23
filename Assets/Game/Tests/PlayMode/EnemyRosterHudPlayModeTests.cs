@@ -30,6 +30,10 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(panel.Find("Enemy Number Plate/Enemy Number").GetComponent<Text>().text, Is.EqualTo((index + 1).ToString()));
                     Assert.That(panel.Find("HP").GetComponent<Image>().fillAmount, Is.EqualTo(1f));
                     Assert.That(panel.Find("Resistance").GetComponent<Image>().fillAmount, Is.EqualTo(1f));
+                    Assert.That(panel.Find("HP Value").GetComponent<Text>().text,
+                        Is.EqualTo(scope.Duel.Enemies[index].Health + " / " + scope.Duel.Enemies[index].MaxHealth));
+                    Assert.That(panel.Find("Resistance Value").GetComponent<Text>().text,
+                        Is.EqualTo(scope.Duel.Enemies[index].Resistance + " / " + scope.Duel.Enemies[index].MaxResistance));
                     for (int previous = 0; previous < index; previous++)
                         Assert.That(LocalRect(panel).Overlaps(LocalRect(scope.Hud.GetEnemyStatusRoot(previous))), Is.False,
                             "All three individual gauges remain readable when their actors stand close together. " + scope.LayoutDetails());
@@ -54,8 +58,14 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Hud.PlayEnemyQueueCancellation();
                 scope.Refresh();
                 for (int index = 0; index < 3; index++)
+                {
                     Assert.That(scope.Hud.GetEnemyStatusRoot(index).Find("Resistance").GetComponent<Image>().fillAmount,
                         Is.EqualTo(scope.Duel.Enemies[index].Resistance / (float)scope.Duel.Enemies[index].MaxResistance));
+                    Assert.That(scope.Hud.GetEnemyStatusRoot(index).Find("HP Value").GetComponent<Text>().text,
+                        Is.EqualTo(scope.Duel.Enemies[index].Health + " / " + scope.Duel.Enemies[index].MaxHealth));
+                    Assert.That(scope.Hud.GetEnemyStatusRoot(index).Find("Resistance Value").GetComponent<Text>().text,
+                        Is.EqualTo(scope.Duel.Enemies[index].Resistance + " / " + scope.Duel.Enemies[index].MaxResistance));
+                }
             }
         }
 
@@ -260,18 +270,19 @@ namespace TurnLimbo.Presentation.Tests
                 LegacySkill player = Attack(88901, "검증 베기", 12);
                 LegacySkill enemy = Attack(88902, "검증 공격", 1);
                 var script = new EnemyScript(new[] { new[] { enemy, enemy, enemy } });
-                Duel = new LegacyQueuedDuel(1000, 1000, new[] { player }, new[]
+                Duel = new LegacyQueuedDuel(1000, 1000,
+                    new[] { player, Attack(88903, "검증 베기", 12, 1), Attack(88904, "검증 베기", 12, 2) }, new[]
                 {
                     new LegacyEnemyDefinition("견습생", 1000, 5, script),
                     new LegacyEnemyDefinition("검술생", 1000, 5, script),
                     new LegacyEnemyDefinition("수련생", 1000, 5, script)
                 }, randomSeed: 7, meshPercent: 0);
-                for (int slot = 0; slot < 9; slot++) Assert.That(Duel.TryQueueLane(0), Is.True);
+                for (int slot = 0; slot < 9; slot++) Assert.That(Duel.TryQueueLane(slot % 3), Is.True);
                 Resize(new Vector2Int(1280, 720));
             }
-            private static LegacySkill Attack(int id, string name, int power)
+            private static LegacySkill Attack(int id, string name, int power, int lane = 0)
                 => new LegacySkill(id, name, 0, power, power, LegacySkillKind.Attack,
-                    LegacySkillProperty.Slash, 1, 0, string.Empty, iconId: 1);
+                    LegacySkillProperty.Slash, 1, lane, string.Empty, iconId: 1);
             public void Resize(Vector2Int size)
             {
                 Camera camera = Arena.ArenaCamera;

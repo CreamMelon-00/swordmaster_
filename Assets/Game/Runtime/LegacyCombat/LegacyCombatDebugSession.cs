@@ -21,7 +21,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 enemyAttackCount == 0 ? Array.Empty<LegacySkill>() : new[] { Attack }, new[] { enemyAttackCount },
                 randomSeed: randomSeed, features: CombatFeature.All, enemyHealthFloor: 1, meshPercent: 0,
                 playerHealthFloor: 1);
-            for (int index = 0; index < playerAttackCount; index++) duel.TryQueueLane(0);
+            var preparedPlayerQueue = new LegacySkill[playerAttackCount];
+            for (int index = 0; index < preparedPlayerQueue.Length; index++) preparedPlayerQueue[index] = Attack;
+            if (!duel.TrySetPreparedQueues(preparedPlayerQueue, duel.EnemyQueue))
+                throw new InvalidOperationException("Could not prepare the combat presentation sample.");
             return duel;
         }
 

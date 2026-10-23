@@ -8,8 +8,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// lane rotation, insertion or removal effects run here. Commit and the usual slot/hit rules still apply.</summary>
         public bool TrySetFixedQueues(IReadOnlyList<LegacySkill> player, IReadOnlyList<LegacySkill> enemy)
         {
+            if (player == null || player.Count == 0 || enemy == null || enemy.Count == 0) return false;
+            return TrySetPreparedQueues(player, enemy);
+        }
+
+        /// <summary>Also permits an empty side for the combat presentation sample. These are already arranged
+        /// queues, so they do not spend manual lane reservations.</summary>
+        internal bool TrySetPreparedQueues(IReadOnlyList<LegacySkill> player, IReadOnlyList<LegacySkill> enemy)
+        {
             if (Phase != LegacyDuelPhase.Planning || enemyStates.Count != 1 ||
-                player == null || player.Count == 0 || enemy == null || enemy.Count == 0) return false;
+                player == null || enemy == null) return false;
             LegacySkill[] playerCopy = CopyFixedQueue(player);
             LegacySkill[] enemyCopy = CopyFixedQueue(enemy);
             if (playerCopy == null || enemyCopy == null) return false;

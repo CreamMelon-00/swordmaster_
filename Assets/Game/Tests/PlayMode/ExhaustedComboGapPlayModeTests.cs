@@ -102,7 +102,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var guest = new VersusScope(1))
             {
                 for (int index = 0; index < 4; index++)
-                    Accepted(host, guest, 0, OnlineVersusAction.QueueLane, 0);
+                    Accepted(host, guest, 0, OnlineVersusAction.QueueLane, index < 3 ? 0 : 1);
                 Accepted(host, guest, 0, OnlineVersusAction.Pass, -1);
                 for (int index = 0; index < 2; index++)
                     Accepted(host, guest, 1, OnlineVersusAction.QueueLane, 0);
@@ -130,11 +130,13 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
-        private static LegacySkill Attack(int id, int power, int hits = 1) => new LegacySkill(id, "간격 검증 공격", 0, power, power,
-            LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, 0, string.Empty);
+        private static LegacySkill Attack(int id, int power, int hits = 1, int lane = 0) => new LegacySkill(id, "간격 검증 공격", 0, power, power,
+            LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, lane, string.Empty);
 
         private static LegacyQueuedDuel Duel(LegacySkill player, LegacySkill[] enemy, int enemyCount, CombatFeature features)
-            => new LegacyQueuedDuel(1000, 1000, 1000, 1000, new[] { player }, enemy,
+            => new LegacyQueuedDuel(1000, 1000, 1000, 1000, new[] { player,
+                new LegacySkill(player.Id, player.Name, player.Cost, player.MinPower, player.MaxPower, player.Kind,
+                    player.Property, player.AttackCount, 1, player.Description, player.AnimationName, player.IconId) }, enemy,
                 new[] { enemyCount }, 7, features: features, meshPercent: 0);
 
         private static void Configure(DuelPresentationSettings settings, float gapScale)
@@ -194,7 +196,7 @@ namespace TurnLimbo.Presentation.Tests
 
             public void Queue(int count)
             {
-                for (int index = 0; index < count; index++) Assert.That(Controller.QueueLane(0), Is.True);
+                for (int index = 0; index < count; index++) Assert.That(Controller.QueueLane(index < 3 ? 0 : 1), Is.True);
             }
 
             public void Advance(float seconds)
@@ -317,7 +319,8 @@ namespace TurnLimbo.Presentation.Tests
                 Configure(settings, .25f);
                 arena = LegacyArenaView.Create(root.transform, art, settings);
                 Versus = new LocalVersusController(root.transform, art, arena, () => { }, settings);
-                Versus.StartOnline(7, localPlayer, false, 0, new[] { Attack(88111, 3) }, new[] { Attack(88112, 2) },
+                Versus.StartOnline(7, localPlayer, false, 0,
+                    new[] { Attack(88111, 3), Attack(88111, 3, lane: 1) }, new[] { Attack(88112, 2) },
                     (action, lane) => { }, () => { });
             }
 

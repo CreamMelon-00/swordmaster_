@@ -101,7 +101,8 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new CampaignScope(compact, count, hits))
             {
                 DuelPrototypeController controller = scope.Controller;
-                for (int index = 0; index < count; index++) Assert.That(controller.QueueLane(0), Is.True);
+                for (int index = 0; index < count; index++)
+                    Assert.That(controller.QueueLane(index / LegacyLaneLimit.MaxReservations), Is.True);
                 var trace = new TurnTrace();
                 controller.CommitTurn();
                 LegacyCurrentSlot tracked = null;
@@ -139,10 +140,10 @@ namespace TurnLimbo.Presentation.Tests
             using (var guest = new VersusScope(compact, hits, 1))
             {
                 for (int index = 0; index < count; index++)
-                    Accepted(host, guest, 0, OnlineVersusAction.QueueLane, 0);
+                    Accepted(host, guest, 0, OnlineVersusAction.QueueLane, index / LegacyLaneLimit.MaxReservations);
                 Accepted(host, guest, 0, OnlineVersusAction.Pass, -1);
                 for (int index = 0; index < count; index++)
-                    Accepted(host, guest, 1, OnlineVersusAction.QueueLane, 0);
+                    Accepted(host, guest, 1, OnlineVersusAction.QueueLane, index / LegacyLaneLimit.MaxReservations);
                 Accepted(host, guest, 1, OnlineVersusAction.Pass, -1);
                 Assert.That(host.Versus.IsResolving && guest.Versus.IsResolving, Is.True);
                 var trace = new TurnTrace();
@@ -222,9 +223,9 @@ namespace TurnLimbo.Presentation.Tests
         private static T Read<T>(object source, string name) => (T)source.GetType().GetField(name, Private).GetValue(source);
         private static int[] State(LegacyFighterState player, LegacyFighterState enemy)
             => new[] { player.Health, enemy.Health, player.Resistance, enemy.Resistance };
-        private static LegacySkill Attack(int id, int hits, int perHit)
+        private static LegacySkill Attack(int id, int hits, int perHit, int lane = 0)
             => new LegacySkill(id, "전투 흐름 검증", 0, hits * perHit, hits * perHit,
-                LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, 0, string.Empty);
+                LegacySkillKind.Attack, LegacySkillProperty.Slash, hits, lane, string.Empty);
         private static void Configure(DuelPresentationSettings settings, bool compact)
         {
             // Clone the current asset first: emphasis, progressive tempo, hit stops and attack art remain the same.
@@ -291,7 +292,7 @@ namespace TurnLimbo.Presentation.Tests
                     Set("mission", null);
                     Set("guide", null);
                     Set("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000,
-                        new[] { Attack(88701, hits, 3) }, new[] { Attack(88702, hits, 2) }, new[] { count }, 7,
+                        new[] { Attack(88701, hits, 3), Attack(88703, hits, 3, 1) }, new[] { Attack(88702, hits, 2) }, new[] { count }, 7,
                         features: CombatFeature.All, meshPercent: 0));
                     advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,
                         typeof(DuelPrototypeController).GetMethod("AdvancePresentation", Private));
@@ -338,7 +339,9 @@ namespace TurnLimbo.Presentation.Tests
                 Configure(settings, compact);
                 arena = LegacyArenaView.Create(root.transform, art, settings);
                 Versus = new LocalVersusController(root.transform, art, arena, () => { }, settings);
-                Versus.StartOnline(7, localPlayer, false, 0, new[] { Attack(88701, hits, 3) }, new[] { Attack(88702, hits, 2) },
+                Versus.StartOnline(7, localPlayer, false, 0,
+                    new[] { Attack(88701, hits, 3), Attack(88703, hits, 3, 1) },
+                    new[] { Attack(88702, hits, 2), Attack(88704, hits, 2, 1) },
                     (action, lane) => { }, () => { });
             }
             public void Dispose()

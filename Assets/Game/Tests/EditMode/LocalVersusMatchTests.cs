@@ -126,7 +126,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void CyclingSkill_BothThreeSlotLoadoutsChargeOneTwoThreeFour_AndBothViewsReadTheNextPrice()
+        public void CyclingSkill_ChargesOneTwoThreeThenFourNextTurn_AndBothViewsReadTheNextPrice()
         {
             int[] ids = { 1, 2, 7, 46, 3, 8, 53, 45, 55 };
             var skills = new LegacySkill[ids.Length];
@@ -141,7 +141,7 @@ namespace TurnLimbo.Core.Tests
                 LocalVersusFighter fighter = match.GetFighter(player);
                 var self = new LocalVersusPerspective(match, player);
                 var other = new LocalVersusPerspective(match, 1 - player);
-                for (int cost = 1; cost <= 4; cost++)
+                for (int cost = 1; cost <= 3; cost++)
                 {
                     Assert.That(fighter.GetLane(1)[0].Id, Is.EqualTo(46));
                     Assert.That((fighter.EffectiveCost(honing), self.EffectiveCost(honing), other.EnemyEffectiveCost(honing)),
@@ -149,8 +149,8 @@ namespace TurnLimbo.Core.Tests
                     Assert.That(match.TryQueueLane(player, 1), Is.True);
                     Assert.That(match.TryCycleLanes(player) && match.TryCycleLanes(player), Is.True);
                 }
-                Assert.That((fighter.Act, fighter.Queue.Count, fighter.CycleUses(46)), Is.EqualTo((0, 4, 0)));
-                Assert.That(fighter.EffectiveCost(honing), Is.EqualTo(5));
+                Assert.That((fighter.Act, fighter.Queue.Count, fighter.CycleUses(46)), Is.EqualTo((4, 3, 0)));
+                Assert.That(fighter.EffectiveCost(honing), Is.EqualTo(4));
                 Assert.That(match.ForecastIfQueued(player, 1), Is.Null);
                 Assert.That(match.CanQueueLane(player, 1), Is.False);
                 Assert.That(match.TryQueueLane(player, 1), Is.False);
@@ -158,9 +158,24 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(match.TryCommit(player), Is.True);
             }
             ResolveTurn(match);
+            Assert.That((match.Left.CycleUses(46), match.Right.CycleUses(46)), Is.EqualTo((3, 3)));
+            match.BeginNextTurn();
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int player = match.CurrentPlanner;
+                LocalVersusFighter fighter = match.GetFighter(player);
+                var self = new LocalVersusPerspective(match, player);
+                var other = new LocalVersusPerspective(match, 1 - player);
+                Assert.That((fighter.EffectiveCost(honing), self.EffectiveCost(honing), other.EnemyEffectiveCost(honing)),
+                    Is.EqualTo((4, 4, 4)));
+                Assert.That(match.TryQueueLane(player, 1), Is.True);
+                Assert.That((fighter.Act, fighter.LaneReservationsThisTurn(1)), Is.EqualTo((3, 1)));
+                Assert.That(match.TryCommit(player), Is.True);
+            }
+            ResolveTurn(match);
             Assert.That((match.Left.CycleUses(46), match.Right.CycleUses(46)), Is.EqualTo((4, 4)));
             match.BeginNextTurn();
-            Assert.That((match.Left.Act, match.Right.Act), Is.EqualTo((3, 3)));
+            Assert.That((match.Left.Act, match.Right.Act), Is.EqualTo((6, 6)));
             Assert.That((match.Left.EffectiveCost(honing), match.Right.EffectiveCost(honing)), Is.EqualTo((5, 5)));
         }
 
@@ -349,13 +364,104 @@ namespace TurnLimbo.Core.Tests
                 "Nothing is taken outside planning.");
         }
 
+        [Test]
+        public void LaneReservations_StopAtThreeIndependentlyPerLaneAndFighter_AndResetNextTurnAndRestart()
+        {
+            var skills = new[] { Attack(100, 0, 1), Attack(101, 0, 1, lane: 1), Attack(102, 0, 1, lane: 2) };
+            var match = NewMatch(skills, skills);
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int player = match.CurrentPlanner;
+                LocalVersusFighter fighter = match.GetFighter(player);
+                for (int lane = 0; lane < 3; lane++)
+                {
+                    Assert.That(fighter.LaneReservationsThisTurn(lane), Is.Zero);
+                    for (int attempt = 0; attempt < LegacyLaneLimit.MaxReservations; attempt++)
+                        Assert.That(match.TryQueueLane(player, lane), Is.True);
+                    int count = fighter.Queue.Count, act = fighter.Act, last = fighter.LastQueuedSlotIndex;
+                    LegacySkill front = fighter.GetLane(lane)[0];
+                    Assert.That(fighter.LaneReservationsThisTurn(lane), Is.EqualTo(3));
+                    Assert.That(fighter.LaneReservationsRemaining(lane), Is.Zero);
+                    Assert.That(match.CanQueueLane(player, lane), Is.False);
+                    Assert.That(match.TryQueueLane(player, lane), Is.False);
+                    Assert.That(match.ForecastIfQueued(player, lane), Is.Null);
+                    Assert.That((fighter.Queue.Count, fighter.Act, fighter.LastQueuedSlotIndex), Is.EqualTo((count, act, last)));
+                    Assert.That(fighter.GetLane(lane)[0], Is.SameAs(front));
+                }
+                Assert.That(fighter.Queue.Count, Is.EqualTo(9));
+                Assert.That(match.TryCommit(player), Is.True);
+            }
+            ResolveTurn(match);
+            match.BeginNextTurn();
+            foreach (LocalVersusFighter fighter in new[] { match.Left, match.Right })
+                for (int lane = 0; lane < 3; lane++)
+                    Assert.That((fighter.LaneReservationsThisTurn(lane), fighter.LaneReservationsRemaining(lane)), Is.EqualTo((0, 3)));
+            Assert.That(match.TryQueueLane(match.CurrentPlanner, 0), Is.True);
+            match.Reset();
+            Assert.That((match.Left.LaneReservationsThisTurn(0), match.Right.LaneReservationsThisTurn(0)), Is.EqualTo((0, 0)));
+        }
+
+        [TestCase(32, 1)]
+        [TestCase(45, 2)]
+        public void QueueRemoval_DoesNotRefundTheRemovedLanesReservationAllowance(int removerId, int removerLane)
+        {
+            var match = NewMatch(new[] { Attack(100, 0, 1), LegacySkillDefinitions.Skill(removerId) },
+                new[] { Attack(200, 0, 1) });
+            for (int attempt = 0; attempt < 3; attempt++) Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryQueueBreath(0), Is.True);
+            Assert.That(match.TryQueueLane(0, removerLane), Is.True);
+            Assert.That(match.Left.Queue.Count, Is.EqualTo(2), "The breath survives removal with its source technique.");
+            Assert.That(match.Left.Queue[0].IsWait, Is.True);
+            Assert.That(match.Left.LaneReservationsThisTurn(0), Is.EqualTo(3));
+            Assert.That(match.Left.LaneReservationsThisTurn(removerLane), Is.EqualTo(1));
+            Assert.That(match.TryQueueLane(0, 0), Is.False, "Removing queued techniques never allows a fourth reservation.");
+        }
+
+        [Test]
+        public void CommonActionsAndAutomaticGains_DoNotSpendLaneReservations_ButManuallyQueuedTemporarySkillsDo()
+        {
+            var match = NewMatch(new[] { LegacySkillDefinitions.Skill(17), Attack(100, 0, 1), LegacySkillDefinitions.Skill(58) },
+                new[] { Attack(200, 0, 1) });
+            Commit(match);
+            match.BeginNextTurn();
+            Assert.That(match.TryCommit(1), Is.True, "Build up ACT for the source skills and two temporary reservations.");
+            Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.Left.Queue[1].IsWait, Is.True, "The technique adds its automatic breath.");
+            Assert.That(match.TryQueueBreath(0) && match.TryCycleLanes(0), Is.True);
+            Assert.That(match.Left.LaneReservationsThisTurn(0), Is.EqualTo(1));
+            Assert.That(match.TryQueueLane(0, 1), Is.True, "숫돌 creates temporary Q techniques.");
+            Assert.That(match.Left.LaneReservationsThisTurn(0), Is.EqualTo(1), "Creating three techniques reserves none of them.");
+            Assert.That(match.TryQueueLane(0, 0) && match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.Left.LaneReservationsThisTurn(0), Is.EqualTo(3));
+            Assert.That(match.Left.GetLane(0)[0].Id, Is.EqualTo(59));
+            Assert.That(match.TryQueueLane(0, 0), Is.False);
+        }
+
+        [Test]
+        public void Forecasts_CopyTheReservationAllowance_WithoutSpendingTheLiveAllowance()
+        {
+            var match = NewMatch(new[] { Attack(100, 0, 1) }, new[] { Attack(200, 0, 1) });
+            Assert.That(match.TryQueueLane(0, 0) && match.TryQueueLane(0, 0), Is.True);
+            int act = match.Left.Act;
+            Assert.That(match.ForecastIfQueued(0, 0), Is.Not.Null);
+            var forecast = new System.Collections.Generic.List<LegacySlotForecast>();
+            match.ForecastTurn(0, forecast);
+            Assert.That((match.Left.LaneReservationsThisTurn(0), match.Left.Queue.Count, match.Left.Act), Is.EqualTo((2, 2, act)));
+            Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.ForecastIfQueued(0, 0), Is.Null, "A forecast clone inherits the exhausted allowance.");
+            Assert.That(match.Left.LaneReservationsThisTurn(0), Is.EqualTo(3));
+            Assert.That(match.Left.LaneReservationsRemaining(1), Is.Zero, "An empty lane offers no reservations.");
+            Assert.Throws<ArgumentOutOfRangeException>(() => match.Left.LaneReservationsThisTurn(-1));
+            Assert.Throws<ArgumentOutOfRangeException>(() => match.Left.LaneReservationsRemaining(3));
+        }
+
         private static LocalVersusMatch NewMatch(LegacySkill[] left, LegacySkill[] right,
             int health = 100, int resistance = 50)
             => new LocalVersusMatch(left, right, health, resistance, health, resistance, randomSeed: 17);
 
-        private static LegacySkill Attack(int id, int cost, int power, int hits = 1)
+        private static LegacySkill Attack(int id, int cost, int power, int hits = 1, int lane = 0)
             => new LegacySkill(id, "Test", cost, power, power, LegacySkillKind.Attack,
-                LegacySkillProperty.Slash, hits, 0, string.Empty);
+                LegacySkillProperty.Slash, hits, lane, string.Empty);
 
         private static void Commit(LocalVersusMatch match)
         {

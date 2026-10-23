@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
@@ -133,7 +134,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var guest = new VersusScope(1))
             {
                 for (int index = 0; index < 4; index++)
-                    Accepted(host, guest, 0, OnlineVersusAction.QueueLane, 0);
+                    Accepted(host, guest, 0, OnlineVersusAction.QueueLane, index / LegacyLaneLimit.MaxReservations);
                 Accepted(host, guest, 0, OnlineVersusAction.Pass, -1);
                 for (int index = 0; index < 2; index++)
                     Accepted(host, guest, 1, OnlineVersusAction.QueueLane, 0);
@@ -158,11 +159,12 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
-        private static LegacySkill Attack(int id, int power) => new LegacySkill(id, "템포 검증", 0, power, power,
-            LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, string.Empty);
+        private static LegacySkill Attack(int id, int power, int lane = 0) => new LegacySkill(id, "템포 검증", 0, power, power,
+            LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, lane, string.Empty);
 
         private static LegacyQueuedDuel Duel(int enemyCount, LegacySkill enemy, CombatFeature features, LegacyCounter counter = null)
-            => new LegacyQueuedDuel(1000, 1000, 1000, 1000, new[] { Attack(88001, 10) },
+            => new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                new[] { Attack(88001, 10), Attack(88004, 10, 1), Attack(88005, 10, 2) },
                 enemy == null ? new LegacySkill[0] : new[] { enemy }, new[] { enemyCount }, 7,
                 playerCounter: counter, features: features, meshPercent: 0);
 
@@ -237,7 +239,16 @@ namespace TurnLimbo.Presentation.Tests
 
             public void Queue(int count)
             {
-                for (int index = 0; index < count; index++) Assert.That(Controller.QueueLane(0), Is.True);
+                if (count > 3 * LegacyLaneLimit.MaxReservations)
+                {
+                    // Ten authored exchanges reach the tempo cap; manual planning is tested separately.
+                    LegacyQueuedDuel duel = Controller.Session;
+                    Assert.That(duel.TrySetFixedQueues(Enumerable.Repeat(duel.GetLane(0)[0], count).ToArray(), duel.EnemyQueue), Is.True);
+                    Advance(0f);
+                    return;
+                }
+                for (int index = 0; index < count; index++)
+                    Assert.That(Controller.QueueLane(index / LegacyLaneLimit.MaxReservations), Is.True);
             }
 
             public void Advance(float seconds)
@@ -346,7 +357,9 @@ namespace TurnLimbo.Presentation.Tests
                 JsonUtility.FromJsonOverwrite("{" + Tuning + "}", settings);
                 arena = LegacyArenaView.Create(root.transform, art, settings);
                 Versus = new LocalVersusController(root.transform, art, arena, () => { }, settings);
-                Versus.StartOnline(7, localPlayer, false, 0, new[] { Attack(88011, 3) }, new[] { Attack(88012, 2) },
+                Versus.StartOnline(7, localPlayer, false, 0,
+                    new[] { Attack(88011, 3), Attack(88013, 3, 1) },
+                    new[] { Attack(88012, 2), Attack(88014, 2, 1) },
                     (action, lane) => { }, () => { });
             }
 

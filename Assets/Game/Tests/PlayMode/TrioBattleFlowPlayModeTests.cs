@@ -78,6 +78,8 @@ namespace TurnLimbo.Presentation.Tests
                 var controller = scope.Controller;
                 var strike = new LegacySkill(98921, "교대 검증", 0, 100, 100, LegacySkillKind.Attack,
                     LegacySkillProperty.Slash, 3, 0, string.Empty, iconId: 1);
+                var secondLaneStrike = new LegacySkill(98921, "교대 검증", 0, 100, 100, LegacySkillKind.Attack,
+                    LegacySkillProperty.Slash, 3, 1, string.Empty, iconId: 1);
                 var harmless = new LegacySkill(98922, "받아내기 검증", 0, 0, 0, LegacySkillKind.Attack,
                     LegacySkillProperty.Slash, 1, 0, string.Empty, iconId: 1);
                 var script = new EnemyScript(new IReadOnlyList<LegacySkill>[] { new[] { harmless, harmless } });
@@ -87,10 +89,10 @@ namespace TurnLimbo.Presentation.Tests
                     new LegacyEnemyDefinition("훈련생 2", 6, 0, script),
                     new LegacyEnemyDefinition("훈련생 3", 6, 0, script),
                 };
-                scope.Install(new LegacyQueuedDuel(100, 50, new[] { strike }, definitions, 412));
+                scope.Install(new LegacyQueuedDuel(100, 50, new[] { strike, secondLaneStrike }, definitions, 412, meshPercent: 0));
                 var roster = (ILegacyEnemyRosterView)controller.Session;
                 int currency = controller.Campaign.Currency;
-                for (int i = 0; i < 6; i++) Assert.That(controller.QueueLane(0), Is.True);
+                for (int i = 0; i < 6; i++) Assert.That(controller.QueueLane(i < 3 ? 0 : 1), Is.True);
                 controller.CommitTurn();
                 int deaths = 0, frames = 0;
                 while (!controller.IsShowingResult && frames++ < 6000)

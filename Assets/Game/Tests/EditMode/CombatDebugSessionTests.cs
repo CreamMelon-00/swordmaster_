@@ -20,6 +20,7 @@ namespace TurnLimbo.Core.Tests
             LegacyQueuedDuel duel = LegacyCombatDebugSession.Create(enemyCount, playerCount);
             Assert.That(duel.Phase, Is.EqualTo(LegacyDuelPhase.Planning));
             Assert.That((duel.EnemyQueue.Count, duel.PlayerQueue.Count), Is.EqualTo((expectedEnemy, expectedPlayer)));
+            Assert.That(duel.LaneReservationsThisTurn(0), Is.Zero, "Prepared samples do not spend manual reservations.");
             duel.Commit();
             int resolved = 0;
             while (!duel.IsTurnResolved && !duel.IsFinished)

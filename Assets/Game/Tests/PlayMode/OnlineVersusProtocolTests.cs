@@ -386,6 +386,36 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [TestCase(0)]
+        [TestCase(1)]
+        public void StateHash_DistinguishesLaneReservationsEvenAfterReturnedQueuesBecomeIdentical(int player)
+        {
+            var attack = new LegacySkill(88101, "free", 0, 1, 1, LegacySkillKind.Attack,
+                LegacySkillProperty.Slash, 1, 0, string.Empty);
+            var returned = new LegacySkill(32, "return", 0, 1, 1, LegacySkillKind.Defence,
+                LegacySkillProperty.Defence, 1, 1, string.Empty);
+            var skills = new[] { attack, returned };
+            var exhausted = new LocalVersusMatch(skills, skills, randomSeed: 17, openingPlayer: player);
+            var untouched = new LocalVersusMatch(skills, skills, randomSeed: 17, openingPlayer: player);
+            for (int count = 0; count < LegacyLaneLimit.MaxReservations; count++)
+                Assert.That(exhausted.TryQueueLane(player, 0), Is.True);
+            Assert.That(exhausted.TryQueueLane(player, 1) && untouched.TryQueueLane(player, 1), Is.True);
+            LocalVersusFighter first = exhausted.GetFighter(player), second = untouched.GetFighter(player);
+            Assert.That(first.Queue, Is.EqualTo(second.Queue));
+            Assert.That(first.GetLane(0), Is.EqualTo(second.GetLane(0)));
+            Assert.That(first.Act, Is.EqualTo(second.Act));
+            Assert.That((first.LaneReservationsRemaining(0), second.LaneReservationsRemaining(0)), Is.EqualTo((0, 3)));
+            string exhaustedHash = OnlineVersusProtocol.ComputeStateHash(exhausted);
+            Assert.That(exhaustedHash, Is.Not.EqualTo(OnlineVersusProtocol.ComputeStateHash(untouched)),
+                "Equal current queues must not conceal different legal next actions for either peer.");
+            Assert.That(exhausted.ForecastIfQueued(player, 0), Is.Null);
+            Assert.That(untouched.ForecastIfQueued(player, 0), Is.Not.Null);
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(exhausted), Is.EqualTo(exhaustedHash));
+            Assert.That(exhausted.TryQueueLane(player, 0), Is.False);
+            Assert.That(OnlineVersusProtocol.ComputeStateHash(exhausted), Is.EqualTo(exhaustedHash),
+                "A rejected reservation cannot change the authoritative state.");
+        }
+
         private static LegacyStatusCollection Statuses(LocalVersusFighter fighter)
             => (LegacyStatusCollection)typeof(LocalVersusFighter).GetField("StatusEffects",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(fighter);

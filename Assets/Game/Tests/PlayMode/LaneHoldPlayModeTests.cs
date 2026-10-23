@@ -375,6 +375,46 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator ExhaustedLane_RejectsAnotherReservation_ButKeyAndPointerHoldsStillExplain()
+        {
+            yield return null;
+            using (var scope = new HoldScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                for (int use = 0; use < LegacyLaneLimit.MaxReservations; use++)
+                    Assert.That(controller.QueueLane(0), Is.True);
+                scope.Advance(0f);
+                Assert.That(controller.QueueLane(0), Is.False);
+                GameObject window = scope.Get("Input/Keys/Current Q").gameObject;
+                Assert.That(window.GetComponent<Button>().interactable, Is.False);
+                int queued = controller.Session.PlayerQueue.Count;
+
+                Keyboard keyboard = InputSystem.AddDevice<Keyboard>();
+                Press(keyboard.qKey);
+                yield return null;
+                scope.Advance(0f, keyboard);
+                yield return null;
+                scope.Advance(scope.Settings.ExplanationHoldSeconds, keyboard);
+                Assert.That(controller.IsReadingExplanation, Is.True, "The exhausted school's key still explains its next skill.");
+                Release(keyboard.qKey);
+                yield return null;
+                scope.Advance(0f, keyboard);
+                Assert.That(controller.IsReadingExplanation, Is.False);
+                Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(queued));
+
+                Down(window);
+                scope.Advance(0f);
+                scope.Advance(scope.Settings.ExplanationHoldSeconds);
+                Assert.That(controller.IsReadingExplanation, Is.True, "Pointer holds are independent of the disabled queue button.");
+                Up(window, true);
+                scope.Advance(0f);
+                Assert.That(controller.IsReadingExplanation, Is.False);
+                Assert.That(controller.Session.PlayerQueue.Count, Is.EqualTo(queued));
+                Assert.That(controller.Session.LaneReservationsThisTurn(0), Is.EqualTo(LegacyLaneLimit.MaxReservations));
+            }
+        }
+
         private static KeyControl Key(Keyboard keyboard, int lane) => lane == 0 ? keyboard.qKey : lane == 1 ? keyboard.wKey : keyboard.eKey;
 
         private static PointerEventData Pointer(GameObject over) => new PointerEventData(EventSystem.current)

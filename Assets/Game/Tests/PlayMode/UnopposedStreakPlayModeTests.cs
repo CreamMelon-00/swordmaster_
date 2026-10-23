@@ -91,7 +91,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             yield return null;
             // Player: 10, 10, 숨고르기, 10, 10 (against a guard), 10, 300 (a big blow), 10. Enemy: breaths but the guard.
-            var player = new[] { Attack(990, 10, 0), Attack(991, 300, 1) };
+            var player = new[] { Attack(990, 10, 0), Attack(991, 300, 1), Attack(992, 10, 2) };
             var breath = LegacyCommonActions.Breathe;
             var enemy = new[] { breath, breath, breath, breath, Guard(995, 5, 0), breath, breath, breath };
             using (var scope = new StreakScope(new LegacyQueuedDuel(1000, 1000, 1000, 1000, player, enemy, new[] { 8 }, 1,
@@ -99,8 +99,8 @@ namespace TurnLimbo.Presentation.Tests
             {
                 DuelPrototypeController controller = scope.Controller;
                 Assert.That(controller.QueueLane(0) && controller.QueueLane(0) && controller.QueueBreath(), Is.True);
-                Assert.That(controller.QueueLane(0) && controller.QueueLane(0) && controller.QueueLane(0), Is.True);
-                Assert.That(controller.QueueLane(1) && controller.QueueLane(0), Is.True);
+                Assert.That(controller.QueueLane(0) && controller.QueueLane(2) && controller.QueueLane(2), Is.True);
+                Assert.That(controller.QueueLane(1) && controller.QueueLane(2), Is.True);
                 SlotRun[] runs = scope.PlayTurn(8);
                 float[] expected = { 1f, 1.15f, 1f, 1.3f, 1f, 1f, 1f, 1.3f };
                 int[] streaks = { 1, 2, 2, 3, 0, 1, 2, 3 };
@@ -120,11 +120,13 @@ namespace TurnLimbo.Presentation.Tests
         public IEnumerator AReset_InTheMiddleOfARun_LeavesNothingOfIt()
         {
             yield return null;
-            using (var scope = new StreakScope(new LegacyQueuedDuel(1000, 1000, 1000, 1000, new[] { Attack(990, 10, 0) },
+            using (var scope = new StreakScope(new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                new[] { Attack(990, 10, 0), Attack(991, 10, 1) },
                 new LegacySkill[0], new[] { 0 }, 1, meshPercent: 0)))
             {
                 DuelPrototypeController controller = scope.Controller;
-                for (int index = 0; index < 4; index++) Assert.That(controller.QueueLane(0), Is.True);
+                for (int index = 0; index < 4; index++)
+                    Assert.That(controller.QueueLane(index / LegacyLaneLimit.MaxReservations), Is.True);
                 controller.CommitTurn();
                 LegacyQueuedDuel session = controller.Session;
                 scope.Until(() => session.CurrentSlot != null && session.CurrentSlot.SlotIndex == 2 &&
@@ -212,10 +214,12 @@ namespace TurnLimbo.Presentation.Tests
         // Seven attacks of 10 into an empty enemy queue (Normal: 1% of the enemy's health each), with these steps open.
         private static SlotRun[] PlayerRun(string tuning, CombatFeature features, out float turn)
         {
-            using (var scope = new StreakScope(new LegacyQueuedDuel(1000, 1000, 1000, 1000, new[] { Attack(990, 10, 0) },
+            using (var scope = new StreakScope(new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                new[] { Attack(990, 10, 0), Attack(991, 10, 1), Attack(992, 10, 2) },
                 new LegacySkill[0], new[] { 0 }, 1, features: features, meshPercent: 0), tuning))
             {
-                for (int index = 0; index < Run.Length; index++) Assert.That(scope.Controller.QueueLane(0), Is.True);
+                for (int index = 0; index < Run.Length; index++)
+                    Assert.That(scope.Controller.QueueLane(index / LegacyLaneLimit.MaxReservations), Is.True);
                 float started = scope.Elapsed;
                 SlotRun[] runs = scope.PlayTurn(Run.Length);
                 turn = scope.Elapsed - started;

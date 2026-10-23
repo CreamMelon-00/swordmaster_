@@ -44,6 +44,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         LegacySlotFacts CurrentSlotFacts { get; }
         /// <summary>One of the player's lanes, its front skill first; empty for a lane the duel does not have.</summary>
         IReadOnlyList<LegacySkill> GetLane(int laneIndex);
+        /// <summary>Successful manual reservations from this lane this turn, including canceled or returned ones.
+        /// Breathing, lane cycling and counters do not count. Resets when the next planning turn begins.</summary>
+        int LaneReservationsThisTurn(int laneIndex);
+        /// <summary>Manual reservations left in this lane this turn; zero for a closed or empty lane.
+        /// Independent of current ACT and planning state.</summary>
+        int LaneReservationsRemaining(int laneIndex);
         /// <summary>ACT the player pays if this skill is reserved now.</summary>
         int EffectiveCost(LegacySkill skill);
         /// <summary>The player's power range for the skill's next use, before buffs and hit division.</summary>

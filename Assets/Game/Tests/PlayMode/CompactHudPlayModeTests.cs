@@ -307,6 +307,87 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator FighterValues_FollowActualHitsImmediatelyAndResetForTheNextDuel()
+        {
+            yield return null;
+            using (var fixture = new VitalsHudFixture())
+            {
+                var duel = new LegacyQueuedDuel(400, 50, 500, 50,
+                    new[] { VitalsSkill(99001, 20), VitalsSkill(99002, 5, true), VitalsSkill(99003, 20), VitalsSkill(99004, 5) },
+                    new[] { VitalsSkill(99005, 5), VitalsSkill(99006, 20), VitalsSkill(99007, 5, true), VitalsSkill(99008, 20) },
+                    new[] { 4 }, meshPercent: 0);
+                fixture.Refresh(duel);
+                AssertVitals(fixture.Root, "PlayerStatus", duel.Player);
+                AssertVitals(fixture.Root, "EnemyStatus", duel.Enemy);
+                Assert.That(duel.TrySetFixedQueues(duel.GetLane(0), duel.EnemyQueue), Is.True,
+                    "The four-hit gauge sample uses prepared queues rather than four reservations from one lane.");
+                duel.Commit();
+                for (int index = 0; index < 4; index++) duel.ResolveNextSlot();
+                Assert.That(duel.IsTurnResolved, Is.True);
+                Assert.That(duel.Player.Health, Is.LessThan(400));
+                Assert.That(duel.Enemy.Health, Is.LessThan(500));
+                Assert.That(duel.Player.Resistance, Is.LessThan(50));
+                Assert.That(duel.Enemy.Resistance, Is.LessThan(50));
+
+                // At delta zero the trailing damage bars still show their old values; the numbers show the real state.
+                fixture.Refresh(duel);
+                AssertVitals(fixture.Root, "PlayerStatus", duel.Player);
+                AssertVitals(fixture.Root, "EnemyStatus", duel.Enemy);
+                Assert.That(Get<Image>(fixture.Root, "PlayerStatus/HP delayed").fillAmount, Is.EqualTo(1));
+                Assert.That(Get<Image>(fixture.Root, "EnemyStatus/HP delayed").fillAmount, Is.EqualTo(1));
+
+                duel.Reset();
+                fixture.Hud.Reset();
+                fixture.Refresh(duel);
+                AssertVitals(fixture.Root, "PlayerStatus", duel.Player);
+                AssertVitals(fixture.Root, "EnemyStatus", duel.Enemy);
+
+                var next = new LegacyQueuedDuel(1234, 0, 9876, 0, new[] { VitalsSkill(99001, 20) },
+                    new[] { LegacyCommonActions.Breathe }, new[] { 1 });
+                fixture.Refresh(next);
+                AssertVitals(fixture.Root, "PlayerStatus", next.Player);
+                AssertVitals(fixture.Root, "EnemyStatus", next.Enemy);
+                Assert.That(Get<Text>(fixture.Root, "PlayerStatus/Resistance Value").text, Is.EqualTo("0 / 0"));
+                Assert.That(Get<Text>(fixture.Root, "EnemyStatus/Resistance Value").text, Is.EqualTo("0 / 0"));
+                Assert.That(Get<Image>(fixture.Root, "PlayerStatus/Resistance").fillAmount, Is.Zero);
+                Assert.That(Get<Image>(fixture.Root, "EnemyStatus/Resistance").fillAmount, Is.Zero);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator FighterValues_FitFourDigitTotalsWithoutCoveringLabelsOrEnemyName()
+        {
+            yield return null;
+            using (var fixture = new VitalsHudFixture())
+            {
+                var duel = new LegacyQueuedDuel(9999, 9999, 9999, 9999, new[] { VitalsSkill(99001, 20) },
+                    new[] { LegacyCommonActions.Breathe }, new[] { 1 });
+                fixture.Hud.SetEnemyName("이아 · 숲속의 결투");
+                fixture.Refresh(duel);
+                foreach (string side in new[] { "PlayerStatus", "EnemyStatus" })
+                {
+                    RectTransform panel = Get<RectTransform>(fixture.Root, side);
+                    foreach (string stat in new[] { "HP", "Resistance" })
+                    {
+                        Text value = Get<Text>(fixture.Root, side + "/" + stat + " Value");
+                        RectTransform label = Get<RectTransform>(fixture.Root, side + "/" + stat + " Label");
+                        Assert.That(value.text, Is.EqualTo("9999 / 9999"));
+                        Assert.That(value.preferredWidth, Is.LessThanOrEqualTo(value.rectTransform.rect.width + 1),
+                            side + " must fit the full current and maximum values.");
+                        Assert.That(value.raycastTarget, Is.False);
+                        AssertWithin(value.rectTransform, panel);
+                        Assert.That(ScreenRect(value.rectTransform).Overlaps(ScreenRect(label)), Is.False,
+                            side + " values must have space beside their label.");
+                        if (side == "EnemyStatus")
+                            Assert.That(ScreenRect(value.rectTransform).Overlaps(ScreenRect(Get<RectTransform>(fixture.Root, side + "/Battle Name"))),
+                                Is.False, "The enemy name owns its own row above the values.");
+                    }
+                }
+                Assert.That(Get<Text>(fixture.Root, "EnemyStatus/Battle Name").text, Is.EqualTo("이아 · 숲속의 결투"));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator HeldSkillExplanation_StaysOnScreenAtEveryScreenEdgeAndDoesNotQueue()
         {
             yield return null;
@@ -376,6 +457,46 @@ namespace TurnLimbo.Presentation.Tests
             DuelPrototypeController controller = Object.FindAnyObjectByType<DuelPrototypeController>();
             Assert.That(controller, Is.Not.Null);
             return controller;
+        }
+
+        private static LegacySkill VitalsSkill(int id, int power, bool guard = false)
+            => new LegacySkill(id, guard ? "방어" : "공격", 0, power, power,
+                guard ? LegacySkillKind.Defence : LegacySkillKind.Attack,
+                guard ? LegacySkillProperty.Defence : LegacySkillProperty.Slash, 1, 0, string.Empty);
+
+        private static void AssertVitals(Transform root, string side, LegacyFighterState fighter)
+        {
+            Assert.That(Get<Text>(root, side + "/HP Value").text, Is.EqualTo(fighter.Health + " / " + fighter.MaxHealth));
+            Assert.That(Get<Text>(root, side + "/Resistance Value").text,
+                Is.EqualTo(fighter.Resistance + " / " + fighter.MaxResistance));
+            Assert.That(Get<Image>(root, side + "/HP").fillAmount,
+                Is.EqualTo(fighter.Health / (float)fighter.MaxHealth).Within(.0001f));
+            Assert.That(Get<Image>(root, side + "/Resistance").fillAmount,
+                Is.EqualTo(fighter.MaxResistance > 0 ? fighter.Resistance / (float)fighter.MaxResistance : 0).Within(.0001f));
+        }
+
+        private sealed class VitalsHudFixture : System.IDisposable
+        {
+            private readonly GameObject parent = new GameObject("Fighter Values Test");
+            private readonly LegacyDuelArt art = new LegacyDuelArt();
+            public LegacyCombatHud Hud { get; }
+            public Transform Root => Hud.Root.transform;
+
+            public VitalsHudFixture()
+                => Hud = new LegacyCombatHud(parent.transform, art, null, null, null);
+
+            public void Refresh(LegacyQueuedDuel duel)
+            {
+                Hud.Refresh(duel, 10f, duel.Phase == LegacyDuelPhase.Resolving, -1, null, null, null, 0f, 0f);
+                Canvas.ForceUpdateCanvases();
+            }
+
+            public void Dispose()
+            {
+                Hud.Dispose();
+                art.Dispose();
+                Object.Destroy(parent);
+            }
         }
 
         private static T Get<T>(Transform root, string path) where T : Component

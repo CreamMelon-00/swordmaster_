@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
@@ -28,7 +29,7 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (bool playerBroken in new[] { false, true })
                 {
                     LegacyQueuedDuel duel = scope.Prepare(4, playerBroken, cost: 1);
-                    for (int i = 0; i < 4; i++) Assert.That(scope.Controller.QueueLane(0), Is.True);
+                    for (int i = 0; i < 4; i++) Assert.That(scope.Controller.QueueLane(i / LegacyLaneLimit.MaxReservations), Is.True);
                     int act = duel.Act;
                     scope.Begin();
                     LegacyCurrentSlot current = duel.CurrentSlot;
@@ -84,7 +85,8 @@ namespace TurnLimbo.Presentation.Tests
                 const int reservations = 12;
                 LegacyQueuedDuel duel = scope.Prepare(new LegacyQueuedDuel(10000, 5, 10000, 5,
                     new[] { Attack(88211, 40) }, new[] { Attack(88212, 40) }, new[] { reservations }, meshPercent: 0));
-                for (int i = 0; i < reservations; i++) Assert.That(scope.Controller.QueueLane(0), Is.True);
+                // A long authored queue stresses cancellation; it is not a manually reservable loadout.
+                Assert.That(duel.TrySetFixedQueues(Enumerable.Repeat(duel.GetLane(0)[0], reservations).ToArray(), duel.EnemyQueue), Is.True);
                 scope.Begin();
                 LegacyCurrentSlot current = duel.CurrentSlot;
                 scope.Until(() => current.HitsResolved > 0);
@@ -114,8 +116,8 @@ namespace TurnLimbo.Presentation.Tests
                 var guard = new LegacySkill(88202, "검증 방어", 0, 100, 100, LegacySkillKind.Defence,
                     LegacySkillProperty.Defence, 1, 0, string.Empty, iconId: 1);
                 LegacyQueuedDuel duel = scope.Prepare(new LegacyQueuedDuel(1000, 1000, 1000, 15,
-                    new[] { coupe }, new[] { guard }, new[] { 4 }, meshPercent: 0));
-                for (int i = 0; i < 4; i++) Assert.That(scope.Controller.QueueLane(0), Is.True);
+                    new[] { coupe, Attack(42, 1, 1, lane: 1) }, new[] { guard }, new[] { 4 }, meshPercent: 0));
+                for (int i = 0; i < 4; i++) Assert.That(scope.Controller.QueueLane(i / LegacyLaneLimit.MaxReservations), Is.True);
                 scope.Begin();
                 Assert.That(duel.CurrentSlot.HitsResolved, Is.Zero);
                 Assert.That(duel.Enemy.IsResistanceBroken, Is.True);
@@ -142,10 +144,10 @@ namespace TurnLimbo.Presentation.Tests
                 LocalVersusMatch match = scope.Match;
                 for (int i = 0; i < 4; i++)
                 {
-                    Assert.That(match.TryQueueLane(0, 0), Is.True);
+                    Assert.That(match.TryQueueLane(0, i / LegacyLaneLimit.MaxReservations), Is.True);
                 }
                 Assert.That(match.TryCommit(0), Is.True);
-                for (int i = 0; i < 4; i++) Assert.That(match.TryQueueLane(1, 0), Is.True);
+                for (int i = 0; i < 4; i++) Assert.That(match.TryQueueLane(1, i / LegacyLaneLimit.MaxReservations), Is.True);
                 Assert.That(match.TryCommit(1), Is.True);
                 scope.Begin();
                 LocalVersusSlot current = match.CurrentSlot;
@@ -181,7 +183,8 @@ namespace TurnLimbo.Presentation.Tests
                     yield return null;
                     yield return null;
                     LegacyQueuedDuel duel = scope.Prepare(30, false);
-                    for (int i = 0; i < 30; i++) Assert.That(scope.Controller.QueueLane(0), Is.True);
+                    // Keep the thirty-card render stress case as an authored sequence, outside manual planning.
+                    Assert.That(duel.TrySetFixedQueues(Enumerable.Repeat(duel.GetLane(0)[0], 30).ToArray(), duel.EnemyQueue), Is.True);
                     scope.Advance(0f);
                     Canvas.ForceUpdateCanvases();
                     Assert.That(duel.PlayerQueue.Count, Is.EqualTo(30));
@@ -253,9 +256,9 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(shown, Is.InRange(1, hud.QueueWindowCapacity));
         }
 
-        private static LegacySkill Attack(int id, int power, int hits = 4, int cost = 0)
+        private static LegacySkill Attack(int id, int power, int hits = 4, int cost = 0, int lane = 0)
             => new LegacySkill(id, "검증 연격", cost, power, power, LegacySkillKind.Attack,
-                LegacySkillProperty.Slash, hits, 0, string.Empty, iconId: 1);
+                LegacySkillProperty.Slash, hits, lane, string.Empty, iconId: 1);
 
         private sealed class CampaignScope : IDisposable
         {
@@ -284,7 +287,8 @@ namespace TurnLimbo.Presentation.Tests
             }
             public LegacyQueuedDuel Prepare(int count, bool playerBroken, int cost = 0)
                 => Prepare(new LegacyQueuedDuel(10000, playerBroken ? 5 : 10000, 10000, playerBroken ? 10000 : 5,
-                    new[] { Attack(88201, playerBroken ? 20 : 40, cost: cost) },
+                    new[] { Attack(88201, playerBroken ? 20 : 40, cost: cost),
+                        Attack(88203, playerBroken ? 20 : 40, cost: cost, lane: 1) },
                     new[] { Attack(88202, playerBroken ? 40 : 20) }, new[] { count },
                     playerActGainBonus: 7, meshPercent: 0));
             public LegacyQueuedDuel Prepare(LegacyQueuedDuel duel)
@@ -338,7 +342,8 @@ namespace TurnLimbo.Presentation.Tests
                 JsonUtility.FromJsonOverwrite("{\"hitStopDuration\":0}", settings);
                 arena = LegacyArenaView.Create(host.transform, art, settings);
                 Versus = new LocalVersusController(host.transform, art, arena, () => { }, settings);
-                LegacySkill[] left = { Attack(88231, 20) }, right = { Attack(88232, 40) };
+                LegacySkill[] left = { Attack(88231, 20), Attack(88233, 20, lane: 1) },
+                    right = { Attack(88232, 40), Attack(88234, 40, lane: 1) };
                 Versus.StartOnline(17, 1, false, 0, left, right, (action, lane) => { }, () => { });
                 Match = new LocalVersusMatch(left, right, 10000, 5, 10000, 10000, randomSeed: 17);
                 typeof(LocalVersusController).GetField("match", Private).SetValue(Versus, Match);

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
@@ -82,11 +83,22 @@ namespace TurnLimbo.Core.Tests
                 LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "");
             LegacySkill target = new LegacySkill(901, "target", 0, 10, 10,
                 LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 1, "");
+            // At most three reservations per lane: spread the six removable skills over Q3/W1/E2,
+            // leaving W2 for the two following targets and E1 for the remover itself.
+            var skills = new List<LegacySkill> { disposable };
+            if (removedCount > 3) skills.Add(new LegacySkill(902, "disposable W", 0, 1, 1,
+                LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 1, ""));
+            skills.Add(target);
+            skills.Add(target);
+            for (int i = 4; i < removedCount; i++) skills.Add(new LegacySkill(903 + i, "disposable E", 0, 1, 1,
+                LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 2, ""));
+            skills.Add(LegacySkillDefinitions.Skill(45));
             var duel = new LegacyQueuedDuel(1000, 50, 1000, 50,
-                new[] { disposable, target, LegacySkillDefinitions.Skill(45) },
+                skills,
                 Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
-            for (int i = 0; i < removedCount; i++)
-                Assert.That(duel.TryQueueLane(0), Is.True);
+            for (int i = 0; i < Math.Min(3, removedCount); i++) Assert.That(duel.TryQueueLane(0), Is.True);
+            if (removedCount > 3) Assert.That(duel.TryQueueLane(1), Is.True);
+            for (int i = 4; i < removedCount; i++) Assert.That(duel.TryQueueLane(2), Is.True);
             Assert.That(duel.TryQueueLane(2), Is.True);
             Assert.That(duel.TryQueueLane(1) && duel.TryQueueLane(1), Is.True);
 
@@ -214,7 +226,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
-        public void Cycle_TenSavedActFundsFourReservationsInARealThreeSlotLane_AndRejectsTheFifth()
+        public void Cycle_TenSavedActStillAllowsOnlyThreeReservationsInARealThreeSlotLane()
         {
             LegacySkill[] skills = new[] { 1, 2, 7, 46, 3, 8, 53, 45, 55 }
                 .Select(LegacySkillDefinitions.Skill).ToArray();
@@ -223,7 +235,7 @@ namespace TurnLimbo.Core.Tests
             while (duel.Act < 10) { duel.Commit(); duel.BeginNextTurn(); }
             LegacySkill honing = LegacySkillDefinitions.Skill(46);
             int paid = 0;
-            for (int cost = 1; cost <= 4; cost++)
+            for (int cost = 1; cost <= 3; cost++)
             {
                 Assert.That(duel.GetLane(1)[0].Id, Is.EqualTo(46));
                 Assert.That(duel.EffectiveCost(honing), Is.EqualTo(cost));
@@ -233,16 +245,19 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(duel.CycleUses(46), Is.Zero);
                 Assert.That(duel.TryCycleLanes() && duel.TryCycleLanes(), Is.True);
             }
-            Assert.That(duel.EffectiveCost(honing), Is.EqualTo(5));
+            Assert.That(duel.EffectiveCost(honing), Is.EqualTo(4));
+            Assert.That(duel.Act, Is.EqualTo(4), "There is enough ACT for the fourth copy, but the lane's allowance is spent.");
+            Assert.That(duel.LaneReservationsRemaining(1), Is.Zero);
             Assert.That(duel.TryQueueLane(1), Is.False);
-            CollectionAssert.AreEqual(new[] { 46, 46, 46, 46 }, Ids(duel.PlayerQueue));
+            CollectionAssert.AreEqual(new[] { 46, 46, 46 }, Ids(duel.PlayerQueue));
             Assert.That(duel.GetLane(1)[0].Id, Is.EqualTo(46), "A refused reservation does not rotate its lane.");
-            Assert.That(duel.Act, Is.Zero);
+            Assert.That(duel.Act, Is.EqualTo(4));
             duel.Commit();
             while (!duel.IsTurnResolved) duel.ResolveNextSlot();
-            Assert.That(duel.CycleUses(46), Is.EqualTo(4));
+            Assert.That(duel.CycleUses(46), Is.EqualTo(3));
             duel.BeginNextTurn();
-            Assert.That((duel.Act, duel.EffectiveCost(honing)), Is.EqualTo((3, 5)));
+            Assert.That((duel.Act, duel.EffectiveCost(honing)), Is.EqualTo((7, 4)));
+            Assert.That(duel.LaneReservationsRemaining(1), Is.EqualTo(3));
         }
 
         [TestCase(32, 1, 9)]
@@ -552,8 +567,12 @@ namespace TurnLimbo.Core.Tests
         {
             LegacySkill stab = LegacySkillDefinitions.Skill(3);
             var strike = new LegacySkill(100, "test", 0, 20, 20, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 1, "");
-            var duel = TestDuel(new[] { stab, strike, strike, strike, strike }, new[] { Attack(101, 1) }, new[] { 5 }, 100, 1000);
-            for (int i = 0; i < 5; i++) Assert.That(duel.TryQueueLane(1), Is.True);
+            var otherLaneStrike = new LegacySkill(102, "test Q", 0, 20, 20,
+                LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "");
+            var duel = new LegacyQueuedDuel(100, 1000, 100, 1000,
+                new[] { stab, strike, otherLaneStrike }, new[] { Attack(101, 1) }, new[] { 5 }, meshPercent: 0);
+            Assert.That(duel.TryQueueLane(1) && duel.TryQueueLane(1), Is.True);
+            for (int i = 0; i < 3; i++) Assert.That(duel.TryQueueLane(0), Is.True);
             duel.Commit();
 
             Assert.That(duel.ResolveNextSlot().EnemyResistanceDamage, Is.InRange(15, 18));

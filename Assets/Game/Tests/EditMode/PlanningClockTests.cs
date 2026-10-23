@@ -60,7 +60,14 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void QuickSteps_AddsTwoSecondsPerKindOfCycleSkillAhead_FirstCopyOnly_ForTheNextTurn()
         {
-            LegacyQueuedDuel duel = Duel(DiagonalCut, QuickSteps, VitalThrust);
+            LegacySkill quickSteps = LegacySkillDefinitions.Skill(QuickSteps);
+            var secondLaneCopy = new LegacySkill(quickSteps.Id, quickSteps.Name, quickSteps.Cost,
+                quickSteps.MinPower, quickSteps.MaxPower, quickSteps.Kind, quickSteps.Property, quickSteps.AttackCount,
+                E, quickSteps.Description, quickSteps.AnimationName, quickSteps.IconId);
+            // The duplicate remains the same technique for its once-per-turn effect, reserved from another lane.
+            var duel = new LegacyQueuedDuel(1000, 50, 1000, 100,
+                new[] { LegacySkillDefinitions.Skill(DiagonalCut), quickSteps, LegacySkillDefinitions.Skill(VitalThrust), secondLaneCopy },
+                Array.Empty<LegacySkill>(), new[] { 0 }, randomSeed: 1, playerActGainBonus: 7, meshPercent: 0);
             Assert.That(Ids(duel.GetLane(Q)), Is.EqualTo(new[] { DiagonalCut, QuickSteps }));
             Queue(duel, Q);
             Assert.That(duel.GetLane(Q)[0].Id, Is.EqualTo(QuickSteps));
@@ -69,10 +76,10 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Ids(duel.PlayerQueue), Is.EqualTo(new[] { DiagonalCut, QuickSteps, VitalThrust }));
             // Now reserve a second 잔걸음 after both 순환 kinds.
             Queue(duel, Q);
-            Assert.That(duel.GetLane(Q)[0].Id, Is.EqualTo(QuickSteps));
-            Assert.That(LegacyKeywordPreview.LaneLine(duel, duel.GetLane(Q)[0]), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn),
+            Assert.That(duel.GetLane(E)[0].Id, Is.EqualTo(QuickSteps));
+            Assert.That(LegacyKeywordPreview.LaneLine(duel, duel.GetLane(E)[0]), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn),
                 "A second copy gains nothing.");
-            Queue(duel, Q);
+            Queue(duel, E);
             Assert.That(Ids(duel.PlayerQueue), Is.EqualTo(new[] { DiagonalCut, QuickSteps, VitalThrust, DiagonalCut, QuickSteps }));
             Assert.That(LegacyKeywordPreview.QueueMark(duel, true, 1, true).Text, Is.EqualTo("다음 턴 +2초"));
             LegacyKeywordMark second = LegacyKeywordPreview.QueueMark(duel, true, 4, true);

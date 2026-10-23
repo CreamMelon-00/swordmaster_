@@ -188,9 +188,8 @@ namespace TurnLimbo.Presentation
             mission = null;
             guide = null;
             session = LegacyCombatDebugSession.Create(combatDebugEnemyCount, combatDebugPlayerCount);
-            // Reset the same arena/HUD as a real attempt. Reset also clears reservations, so refill the preview queue.
+            // Reset the same arena/HUD as a real attempt, preserving this sample's already arranged queues.
             ResetBattlePresentation();
-            for (int index = 0; index < combatDebugPlayerCount; index++) session.TryQueueLane(0);
             hud.SetStageText("전투 연출 확인");
             hud.SetEnemyName("연출 상대");
             hud.SetTurnHeaderVisible(false);

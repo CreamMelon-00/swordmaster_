@@ -7,7 +7,7 @@ namespace TurnLimbo.Presentation
 {
     public sealed partial class LegacyCombatHud
     {
-        private static readonly Vector2 EnemyRosterPanelSize = new Vector2(176f, 66f);
+        private static readonly Vector2 EnemyRosterPanelSize = new Vector2(196f, 102f);
         private const float EnemyRosterPanelGap = 8f;
         private readonly List<EnemyRosterStatus> enemyRosterStatuses = new List<EnemyRosterStatus>();
         private readonly List<Rect> enemyRosterBlockers = new List<Rect>(8);
@@ -183,34 +183,44 @@ namespace TurnLimbo.Presentation
             Image frame = Panel("Enemy Roster Status " + index, root, Vector2.zero, EnemyRosterPanelSize);
             frame.transform.SetSiblingIndex(enemyStatus.Root.GetSiblingIndex() + index + 1);
             var status = new EnemyRosterStatus(frame);
-            Image number = Image("Enemy Number Plate", frame.transform, null, new Vector2(-72f, 18f),
+            Image number = Image("Enemy Number Plate", frame.transform, null, new Vector2(-76f, 34f),
                 new Vector2(22f, 22f), EnemyIdentityColor(index));
             Text label = Text("Enemy Number", number.transform, Vector2.zero, Vector2.one * 22f, 16, TextAnchor.MiddleCenter);
             label.text = EnemyIdentityNumber(index);
             label.color = DuelVisualTheme.Ink;
             label.supportRichText = false;
-            status.Name = Text("Battle Name", frame.transform, new Vector2(-3f, 18f),
+            status.Name = Text("Battle Name", frame.transform, new Vector2(-10f, 34f),
                 new Vector2(104f, 20f), 14, TextAnchor.MiddleLeft);
             status.Name.supportRichText = false;
             FitExplanationLabel(status.Name, 12);
-            status.State = Text("Battle State", frame.transform, new Vector2(61f, 18f),
-                new Vector2(36f, 20f), 12, TextAnchor.MiddleRight);
-            Image("HP Track", frame.transform, null, new Vector2(0f, -3f), new Vector2(152f, 10f), Track);
-            status.HealthLag = Image("HP delayed", frame.transform, Load("white"), new Vector2(0f, -3f),
-                new Vector2(152f, 10f), DuelVisualTheme.Danger);
-            status.Health = Image("HP", frame.transform, Load("white"), new Vector2(0f, -3f),
-                new Vector2(152f, 10f), DuelVisualTheme.Health);
-            Image("Resistance Track", frame.transform, null, new Vector2(0f, -20f), new Vector2(152f, 6f), Track);
-            status.ResistanceLag = Image("Resistance delayed", frame.transform, Load("white"), new Vector2(0f, -20f),
-                new Vector2(152f, 6f), DuelVisualTheme.Danger);
-            status.Resistance = Image("Resistance", frame.transform, Load("white"), new Vector2(0f, -20f),
-                new Vector2(152f, 6f), DuelVisualTheme.Steel);
+            status.State = Text("Battle State", frame.transform, new Vector2(65f, 34f),
+                new Vector2(42f, 20f), 12, TextAnchor.MiddleRight);
+            Text healthLabel = Text("HP Label", frame.transform, new Vector2(-68f, 10f),
+                new Vector2(36f, 20f), 14, TextAnchor.MiddleLeft);
+            healthLabel.text = "체력";
+            healthLabel.color = MutedText;
+            Text resistanceLabel = Text("Resistance Label", frame.transform, new Vector2(-68f, -24f),
+                new Vector2(36f, 20f), 14, TextAnchor.MiddleLeft);
+            resistanceLabel.text = "저항";
+            resistanceLabel.color = MutedText;
+            status.Values = BuildVitalNumbers(frame.transform, new Vector2(22f, 10f), new Vector2(22f, -24f),
+                new Vector2(128f, 20f), 16, 14);
+            Image("HP Track", frame.transform, null, new Vector2(0f, -6f), new Vector2(172f, 10f), Track);
+            status.HealthLag = Image("HP delayed", frame.transform, Load("white"), new Vector2(0f, -6f),
+                new Vector2(172f, 10f), DuelVisualTheme.Danger);
+            status.Health = Image("HP", frame.transform, Load("white"), new Vector2(0f, -6f),
+                new Vector2(172f, 10f), DuelVisualTheme.Health);
+            Image("Resistance Track", frame.transform, null, new Vector2(0f, -39f), new Vector2(172f, 6f), Track);
+            status.ResistanceLag = Image("Resistance delayed", frame.transform, Load("white"), new Vector2(0f, -39f),
+                new Vector2(172f, 6f), DuelVisualTheme.Danger);
+            status.Resistance = Image("Resistance", frame.transform, Load("white"), new Vector2(0f, -39f),
+                new Vector2(172f, 6f), DuelVisualTheme.Steel);
             Filled(status.Health, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
             Filled(status.HealthLag, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
             Filled(status.Resistance, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
             Filled(status.ResistanceLag, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
-            status.ActiveLine = Image("Active Enemy", frame.transform, null, new Vector2(0f, -31f),
-                new Vector2(168f, 3f), Accent).rectTransform;
+            status.ActiveLine = Image("Active Enemy", frame.transform, null, new Vector2(0f, -48f),
+                new Vector2(188f, 3f), Accent).rectTransform;
             return status;
         }
 
@@ -230,6 +240,7 @@ namespace TurnLimbo.Presentation
             public readonly Image Frame;
             public readonly RectTransform Root;
             public Image Health, HealthLag, Resistance, ResistanceLag;
+            public VitalNumbers Values;
             public Text Name, State;
             public RectTransform ActiveLine;
             public Rect Stack;
@@ -238,6 +249,7 @@ namespace TurnLimbo.Presentation
             public EnemyRosterStatus(Image frame) { Frame = frame; Root = frame.rectTransform; }
             public void Refresh(LegacyFighterState state, float delta)
             {
+                Values.Refresh(state);
                 float health = state.Health / (float)state.MaxHealth;
                 float resistance = state.MaxResistance > 0 ? state.Resistance / (float)state.MaxResistance : 0f;
                 if (health < Health.fillAmount || resistance < Resistance.fillAmount) delay = .5f;
@@ -252,6 +264,7 @@ namespace TurnLimbo.Presentation
             }
             public void Reset()
             {
+                Values.Reset();
                 delay = 0f;
                 Health.fillAmount = HealthLag.fillAmount = Resistance.fillAmount = ResistanceLag.fillAmount = 1f;
             }

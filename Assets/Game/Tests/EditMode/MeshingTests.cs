@@ -390,21 +390,25 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void PercentZero_PlaysEveryHitLikeTheSameSkillsFromOneLane()
         {
-            // Table skills (their effects, power rolls and hit counts) queued 정공 - 기교 - 강공 - 숨고르기 - 기교 against a
-            // five-action enemy, with steps pressed in every slot. Lanes matter to nothing but 맞물림, so at 0 the mixed
-            // queue must play hit for hit like the same skills queued from one lane; at 20 the 3-chain changes it.
-            int[] ids = { 1, 5, 3, 9 };
-            int[] lanes = { 0, 2, 1, 2 };
-            Assume.That(ids.Select(id => LegacySkillDefinitions.Skill(id).LaneIndex), Is.EqualTo(lanes));
-            LegacySkill[] mixed = ids.Select((id, i) => InLane(LegacySkillDefinitions.Skill(id), lanes[i])).ToArray();
-            LegacySkill[] flat = ids.Select(id => InLane(LegacySkillDefinitions.Skill(id), 0)).ToArray();
-            char[] mixedKeys = { 'Q', 'E', 'W', 'S', 'E' };
-            char[] flatKeys = { 'Q', 'Q', 'Q', 'S', 'Q' };
+            // Each comparison uses three manual skills so the single-lane queue is legal. Together the two cases retain
+            // ACT recovery, direct resistance loss, strong attacks, a guarding buff, multihits and a breath breaking a chain.
+            // At zero the lane assignment must change no hit or step; at twenty the mixed chain must change the battle.
+            foreach (var scenario in new[]
+            {
+                (ids: new[] { 1, 5, 3 }, lanes: new[] { 0, 2, 1 }, keys: new[] { 'Q', 'E', 'W', 'S' }),
+                (ids: new[] { 1, 9, 2 }, lanes: new[] { 0, 2, 0 }, keys: new[] { 'Q', 'E', 'S', 'Q' }),
+            })
+            {
+                Assume.That(scenario.ids.Select(id => LegacySkillDefinitions.Skill(id).LaneIndex), Is.EqualTo(scenario.lanes));
+                LegacySkill[] mixed = scenario.ids.Select((id, i) => InLane(LegacySkillDefinitions.Skill(id), scenario.lanes[i])).ToArray();
+                LegacySkill[] flat = scenario.ids.Select(id => InLane(LegacySkillDefinitions.Skill(id), 0)).ToArray();
+                char[] flatKeys = scenario.keys.Select(key => key == 'S' ? 'S' : 'Q').ToArray();
 
-            List<string> mixedOff = Play(mixed, mixedKeys, 0);
-            Assert.That(mixedOff, Is.EqualTo(Play(flat, flatKeys, 0)), "At 0 nothing meshes: power and steps as before.");
-            Assert.That(Play(flat, flatKeys, 20), Is.EqualTo(mixedOff), "One school never meshes, whatever the percent.");
-            Assert.That(Play(mixed, mixedKeys, 20), Is.Not.EqualTo(mixedOff), "The 3-chain meshes at 20.");
+                List<string> mixedOff = Play(mixed, scenario.keys, 0);
+                Assert.That(mixedOff, Is.EqualTo(Play(flat, flatKeys, 0)), "At 0 nothing meshes: power and steps as before.");
+                Assert.That(Play(flat, flatKeys, 20), Is.EqualTo(mixedOff), "One school never meshes, whatever the percent.");
+                Assert.That(Play(mixed, scenario.keys, 20), Is.Not.EqualTo(mixedOff), "The mixed chain meshes at 20.");
+            }
         }
 
         [Test]

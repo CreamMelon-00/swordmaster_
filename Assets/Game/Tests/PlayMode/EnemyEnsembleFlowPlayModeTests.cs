@@ -190,6 +190,8 @@ namespace TurnLimbo.Presentation.Tests
         {
             var strike = new LegacySkill(98931, "교대 선행 검증", 0, 60, 60, LegacySkillKind.Attack,
                 LegacySkillProperty.Slash, playerHits, 0, string.Empty, iconId: 1);
+            var secondLaneStrike = new LegacySkill(98931, "교대 선행 검증", 0, 60, 60, LegacySkillKind.Attack,
+                LegacySkillProperty.Slash, playerHits, 1, string.Empty, iconId: 1);
             var enemies = new LegacyEnemyDefinition[3];
             for (int owner = 0; owner < enemies.Length; owner++)
             {
@@ -199,12 +201,13 @@ namespace TurnLimbo.Presentation.Tests
                 enemies[owner] = new LegacyEnemyDefinition("검증생 " + owner, owner == weakOwner ? 1 : 5000,
                     owner == weakOwner ? 0 : 5000, script);
             }
-            return new LegacyQueuedDuel(5000, 5000, new[] { strike }, enemies, 873, features: CombatFeature.LaneQ);
+            return new LegacyQueuedDuel(5000, 5000, new[] { strike, secondLaneStrike }, enemies, 873,
+                features: CombatFeature.LaneQ | CombatFeature.LaneW, meshPercent: 0);
         }
 
         private static void QueueSixAndCommit(DuelPrototypeController controller)
         {
-            for (int slot = 0; slot < 6; slot++) Assert.That(controller.QueueLane(0), Is.True);
+            for (int slot = 0; slot < 6; slot++) Assert.That(controller.QueueLane(slot < 3 ? 0 : 1), Is.True);
             controller.CommitTurn();
             Assert.That(controller.IsResolving, Is.True);
         }

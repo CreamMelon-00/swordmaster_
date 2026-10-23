@@ -381,8 +381,10 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(duel.TryQueueLane(1), Is.True);
                 CollectionAssert.AreEqual(new[] { -1, 909 }, Ids(duel.PlayerQueue), "Breaths stay when skills are returned.");
                 Assert.That(duel.AutoBreathSlotIndex, Is.Zero, "The automatic breath moved down with the queue.");
-                Assert.That(duel.TryQueueLane(0) && duel.TryQueueLane(0), Is.True);
-                CollectionAssert.AreEqual(new[] { -1, 909, 901, 907 }, Ids(duel.PlayerQueue), "No second automatic breath this turn.");
+                Assert.That(duel.TryCycleLanes(), Is.True, "Bring the returned guard to the front without spending a reservation.");
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                CollectionAssert.AreEqual(new[] { -1, 909, 907 }, Ids(duel.PlayerQueue), "No second automatic breath this turn.");
+                Assert.That(duel.LaneReservationsThisTurn(0), Is.EqualTo(3), "Returning earlier skills did not restore their allowance.");
             });
         }
 

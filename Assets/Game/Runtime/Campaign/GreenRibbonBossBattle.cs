@@ -4,13 +4,13 @@ using TurnLimbo.Runtime.LegacyCombat;
 
 namespace TurnLimbo.Runtime.Campaign
 {
-    /// <summary>The forest duel's authored groups, revealed by the duel as player reservations arrive.</summary>
+    /// <summary>The forest duel's pressure and opening groups, revealed as player reservations arrive.</summary>
     public static class GreenRibbonBossBattle
     {
         public const int StageNumber = 8;
         public const string EnemyName = "이아";
         public const string StageName = "숲속의 결투";
-        public const int PlayerBaseHealth = 400;
+        public const int PlayerBaseHealth = 300;
         public const int EnemyHealth = 400;
         public const int EnemyResistance = 50;
         public const int RoundLimit = 30;
@@ -42,26 +42,26 @@ namespace TurnLimbo.Runtime.Campaign
                 switch (step)
                 {
                     case 1: return T(43, 503);
-                    case 2: return alternative ? T(15, 10, 14, 503) : T(8, 8, 505);
-                    default: return T(503, 10, 2, 1);
+                    case 2: return alternative ? T(15, 10) : T(505, 10);
+                    default: return T(5, 47, 503, 1);
                 }
             }
             if (phase == 2)
             {
                 switch (step)
                 {
-                    case 1: return T(43, 8, 43);
-                    case 2: return T(505, 504, 504, 504);
-                    case 3: return alternative ? T(17, -1, 503, 503) : T(503, 503);
-                    default: return T(43, 8, 1, 503);
+                    case 1: return T(-1, 8, 43);
+                    case 2: return T(505, 47, 504, 47);
+                    case 3: return alternative ? T(17, -1) : T(503);
+                    default: return T(-1, 47, 5, 503);
                 }
             }
             switch (step)
             {
-                case 1: return T(8, 504, 8, 504);
-                case 2: return alternative ? T(8, 43, 43) : T(503, 17, -1);
-                case 3: return alternative ? T(504, 48, 6) : T(47);
-                default: return T(5, 503, 43);
+                case 1: return T(-1, 47, 504, 47);
+                case 2: return alternative ? T(17, -1) : T(505, 504);
+                case 3: return alternative ? T(48, 47, 6) : T(5, 47, 47);
+                default: return T(-1, 47, 503);
             }
         }
 

@@ -35,6 +35,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(host.PlayerMaximumAct, Is.EqualTo(match.Left.MaximumAct));
             Assert.That(host.BreathsRemainingThisTurn, Is.EqualTo(3));
             Assert.That(guest.BreathsRemainingThisTurn, Is.EqualTo(2));
+            Assert.That((host.LaneReservationsThisTurn(0), host.LaneReservationsRemaining(0)), Is.EqualTo((1, 2)));
+            Assert.That((guest.LaneReservationsThisTurn(0), guest.LaneReservationsRemaining(0)), Is.EqualTo((0, 3)));
+            Assert.That(guest.LaneReservationsRemaining(1), Is.Zero);
             Assert.That(host.GetLane(1)[0].Id, Is.EqualTo(46));
             Assert.That(guest.GetLane(0)[0].Id, Is.EqualTo(200));
             Assert.That(guest.GetLane(1), Is.Empty);

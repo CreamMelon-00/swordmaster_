@@ -24,9 +24,9 @@ namespace TurnLimbo.Core.Tests
         {
             int[][][] expected =
             {
-                new[] { new[] { 43, 503 }, new[] { 8, 8, 505 }, new[] { 503, 10, 2, 1 } },
-                new[] { new[] { 43, 8, 43 }, new[] { 505, 504, 504, 504 }, new[] { 503, 503 }, new[] { 43, 8, 1, 503 } },
-                new[] { new[] { 8, 504, 8, 504 }, new[] { 503, 17, -1 }, new[] { 47 }, new[] { 5, 503, 43 } },
+                new[] { new[] { 43, 503 }, new[] { 505, 10 }, new[] { 5, 47, 503, 1 } },
+                new[] { new[] { -1, 8, 43 }, new[] { 505, 47, 504, 47 }, new[] { 503 }, new[] { -1, 47, 5, 503 } },
+                new[] { new[] { -1, 47, 504, 47 }, new[] { 505, 504 }, new[] { 5, 47, 47 }, new[] { -1, 47, 503 } },
             };
             for (int phase = 1; phase <= 3; phase++)
                 for (int step = 1; step <= GreenRibbonBossBattle.PatternCount(phase); step++)
@@ -42,10 +42,10 @@ namespace TurnLimbo.Core.Tests
                         Assert.That(skill.AnimationName, Is.EqualTo(sheet.AnimationName));
                     }
                 }
-            Assert.That(Ids(GreenRibbonBossBattle.CreatePattern(1, 2, true)), Is.EqualTo("15,10,14,503"));
-            Assert.That(Ids(GreenRibbonBossBattle.CreatePattern(2, 3, true)), Is.EqualTo("17,-1,503,503"));
-            Assert.That(Ids(GreenRibbonBossBattle.CreatePattern(3, 2, true)), Is.EqualTo("8,43,43"));
-            Assert.That(Ids(GreenRibbonBossBattle.CreatePattern(3, 3, true)), Is.EqualTo("504,48,6"));
+            Assert.That(Ids(GreenRibbonBossBattle.CreatePattern(1, 2, true)), Is.EqualTo("15,10"));
+            Assert.That(Ids(GreenRibbonBossBattle.CreatePattern(2, 3, true)), Is.EqualTo("17,-1"));
+            Assert.That(Ids(GreenRibbonBossBattle.CreatePattern(3, 2, true)), Is.EqualTo("17,-1"));
+            Assert.That(Ids(GreenRibbonBossBattle.CreatePattern(3, 3, true)), Is.EqualTo("48,47,6"));
         }
 
         [Test]
@@ -55,13 +55,13 @@ namespace TurnLimbo.Core.Tests
             Resolve(duel); duel.BeginNextTurn();
             Resolve(duel); duel.BeginNextTurn();
             Assert.That(duel.RoundNumber, Is.EqualTo(3));
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47"));
             Assert.That(duel.TryQueueBreath(), Is.True);
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10"), "A manual breath never requests a technique.");
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47"), "A manual breath never requests a technique.");
             Assert.That(duel.TryQueueLane(0), Is.True);
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10,2"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47,503"));
             Assert.That(duel.TryQueueLane(0), Is.True);
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10,2,1"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47,503,1"));
             Resolve(duel); duel.BeginNextTurn();
             Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("43,503"), "The phase loops from its first group.");
         }
@@ -79,7 +79,7 @@ namespace TurnLimbo.Core.Tests
             while (!duel.IsTurnResolved) duel.ResolveNextSlot();
             duel.BeginNextTurn();
             Assert.That(duel.IiaPhase, Is.EqualTo(2));
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("43,8"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("-1,8"));
 
             duel = Boss(player: new[] { Attack(290, 1, 0) });
             Assert.That(duel.TryQueueLane(0), Is.True);
@@ -87,7 +87,7 @@ namespace TurnLimbo.Core.Tests
             Resolve(duel); duel.BeginNextTurn();
             Assert.That(duel.Enemy.Health, Is.EqualTo(110));
             Assert.That(duel.IiaPhase, Is.EqualTo(3));
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("8,504"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("-1,47"));
         }
 
         [Test]
@@ -126,12 +126,12 @@ namespace TurnLimbo.Core.Tests
             LegacySlotForecast candidate = duel.ForecastIfQueued(0);
             Assert.That(candidate.SlotIndex, Is.EqualTo(2));
             Assert.That(candidate.EnemySkill, Is.Null, "The third technique appears only after an actual reservation.");
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47"));
             Assert.That(duel.TryQueueLane(0), Is.True);
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10,2"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47,503"));
             var forecast = new List<LegacySlotForecast>();
             duel.ForecastTurn(forecast);
-            Assert.That(forecast[2].EnemySkill.Id, Is.EqualTo(2));
+            Assert.That(forecast[2].EnemySkill.Id, Is.EqualTo(503));
         }
 
         [TestCase(32)]
@@ -142,16 +142,16 @@ namespace TurnLimbo.Core.Tests
             LegacyQueuedDuel duel = Boss(player: new[] { Attack(1, 1, 0), remover });
             Resolve(duel); duel.BeginNextTurn(); Resolve(duel); duel.BeginNextTurn();
             Assert.That(duel.TryQueueLane(0), Is.True);
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10,2"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47,503"));
             Assert.That(duel.TryQueueLane(remover.LaneIndex), Is.True);
             Assert.That(Ids(duel.PlayerQueue), Is.EqualTo(removerId.ToString()));
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10,2,1"));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47,503,1"));
             Assert.That(duel.TryQueueLane(0), Is.True);
-            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("503,10,2,1"), "The pattern has no duplicate or refunded tail.");
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("5,47,503,1"), "The pattern has no duplicate or refunded tail.");
         }
 
         [Test]
-        public void BreathingAndItsAutomaticWaitAreGeneratedAsOneReservation()
+        public void BreathingIncludesItsAutomaticWaitWithoutRequestingAnExtraTechnique()
         {
             bool reachedAlternative = false;
             for (int seed = 1; seed <= 12 && !reachedAlternative; seed++)
@@ -162,12 +162,56 @@ namespace TurnLimbo.Core.Tests
                 Resolve(duel); duel.BeginNextTurn(); Resolve(duel); duel.BeginNextTurn();
                 if (duel.EnemyQueue[0].Id != 17) continue;
                 reachedAlternative = true;
-                Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("17,-1,503"));
+                Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("17,-1"));
                 Assert.That(((ILegacyDuelView)duel).EnemyAutoBreathSlotIndex, Is.EqualTo(1));
                 Assert.That(duel.TryQueueLane(0), Is.True);
-                Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("17,-1,503,503"));
+                Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("17,-1"));
             }
             Assert.That(reachedAlternative, Is.True);
+        }
+
+        [Test]
+        public void MatchingGuardAndAttackToThePressureComboLosesLessHealthThanLeavingItsSlotsEmpty()
+        {
+            LegacySkill[] skills = { LegacySkillDefinitions.Skill(7), LegacySkillDefinitions.Skill(3) };
+            IReadOnlyList<LegacySkill> pressure = GreenRibbonBossBattle.CreatePattern(1, 3);
+            for (int seed = 1; seed <= 8; seed++)
+            {
+                LegacyQueuedDuel NewPressureDuel() => new LegacyQueuedDuel(GreenRibbonBossBattle.PlayerBaseHealth, 50,
+                    GreenRibbonBossBattle.EnemyHealth, GreenRibbonBossBattle.EnemyResistance, skills,
+                    GreenRibbonBossBattle.CreateScript(), seed, meshPercent: 0).EnableIiaBossPatterns();
+                LegacyQueuedDuel ignored = NewPressureDuel(), answered = NewPressureDuel();
+                Assert.That(ignored.TrySetFixedQueues(new[] { LegacyCommonActions.Breathe, LegacyCommonActions.Breathe }, pressure), Is.True);
+                Assert.That(answered.TryQueueLane(0), Is.True, "Guard answers the opening blunt attack without its anti-attack reduction.");
+                Assert.That(answered.TryQueueLane(1), Is.True, "The next attack clashes with the strong pierce rather than taking it in health.");
+                Assert.That(answered.TrySetFixedQueues(answered.PlayerQueue.ToArray(), pressure), Is.True);
+                Resolve(ignored); Resolve(answered);
+                Assert.That(answered.Player.Health, Is.GreaterThan(ignored.Player.Health), "The same combo rewards matching its slots, seed " + seed);
+            }
+        }
+
+        [Test]
+        public void AttackingARecoveryWindowThenTheNextTurnsTailReachesFiveJealousyThroughRealReservations()
+        {
+            // Large resistance isolates the two consecutive turn windows from an unrelated break canceling the tail.
+            var duel = new LegacyQueuedDuel(100000, 1000, GreenRibbonBossBattle.EnemyHealth,
+                GreenRibbonBossBattle.EnemyResistance, new[] { Attack(3, 3, 0), Attack(2, 2, 1), Attack(120, 3, 2) },
+                GreenRibbonBossBattle.CreateScript(), 1, meshPercent: 0).EnableIiaBossPatterns();
+            Assert.That(duel.TryQueueLane(2), Is.True);
+            Resolve(duel); duel.BeginNextTurn();
+            Assert.That(duel.IiaPhase, Is.EqualTo(2));
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("-1,8"));
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            Resolve(duel);
+            Assert.That(duel.IiaJealousy, Is.EqualTo(3), "Three landed hits exploit the visible recovery slot.");
+            duel.BeginNextTurn();
+            foreach (int lane in new[] { 1, 1, 0, 0, 1 }) Assert.That(duel.TryQueueLane(lane), Is.True);
+            Assert.That(Ids(duel.EnemyQueue), Is.EqualTo("505,47,504,47"));
+            Resolve(duel);
+            Assert.That(duel.IiaJealousy, Is.EqualTo(5), "Two more hits beyond the next generated pattern keep jealousy from expiring.");
+            duel.BeginNextTurn();
+            Assert.That(duel.IiaJealousy, Is.Zero);
+            Assert.That(duel.EnemyQueue.Last().Id, Is.EqualTo(GreenRibbonBossBattle.JealousySkillId));
         }
 
         [Test]
@@ -293,7 +337,8 @@ namespace TurnLimbo.Core.Tests
         {
             LegacyQueuedDuel duel = Boss();
             Assert.That(duel.TrySetFixedQueues(new[] { Guard(0), Attack(4, 1, 0), Attack(9, 1, 0), Attack(16, 1, 0) },
-                GreenRibbonBossBattle.CreatePattern(2, 2)), Is.True);
+                new[] { LegacySkillDefinitions.Skill(505), LegacySkillDefinitions.Skill(504),
+                    LegacySkillDefinitions.Skill(504), LegacySkillDefinitions.Skill(504) }), Is.True);
             for (int slot = 1; slot <= 3; slot++)
             {
                 ((ILegacyDuelView)duel).EnemyEffectivePowerRange(duel.EnemyQueue[slot], out int min, out int max);

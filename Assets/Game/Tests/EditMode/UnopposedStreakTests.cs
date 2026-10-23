@@ -311,9 +311,11 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void CampaignDuel_ARunOfAttacksIntoNothing_PlaysFaster_UntilACounterStrikes()
         {
-            var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000, new[] { AttackSkill(960, 10) }, new LegacySkill[0],
+            var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000,
+                new[] { AttackSkill(960, 10), AttackSkill(970, 10, lane: 1) }, new LegacySkill[0],
                 new[] { 0 }, meshPercent: 0);
-            for (int index = 0; index < 4; index++) Assert.That(duel.TryQueueLane(0), Is.True);
+            for (int index = 0; index < 4; index++)
+                Assert.That(duel.TryQueueLane(index / LegacyLaneLimit.MaxReservations), Is.True);
             duel.Commit();
             Assert.That(PlayTurn(duel, Director()), Is.EqualTo(new[] { 1f, 1.15f, 1.3f, 1.45f }));
 
@@ -431,7 +433,7 @@ namespace TurnLimbo.Core.Tests
             LegacyClashAction enemy, int enemyPower, int enemyHits, bool playerDodged = false)
             => new LegacyClashInput(0, player, playerPower, playerHits, enemy, enemyPower, enemyHits, playerDodged);
 
-        private static LegacySkill AttackSkill(int id, int power)
-            => new LegacySkill(id, "streak attack", 0, power, power, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "");
+        private static LegacySkill AttackSkill(int id, int power, int lane = 0)
+            => new LegacySkill(id, "streak attack", 0, power, power, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, lane, "");
     }
 }

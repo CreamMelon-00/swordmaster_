@@ -1463,7 +1463,7 @@ namespace TurnLimbo.Presentation
 
         public bool QueueLane(int lane)
         {
-            if (!CanChoose || IsInspecting || lane < 0 || lane > 2 ||
+            if (!CanChoose || IsInspecting || lane < 0 || lane > 2 || !session.CanQueueLane(lane) ||
                 guide != null && !guide.AllowsQueue(lane)) return false;
             // The duel removes cancelled or returned reservations immediately. Keep their old order just long enough for the
             // HUD to let the cards tumble out before its normal queue refresh reuses those card objects.
@@ -3002,8 +3002,8 @@ namespace TurnLimbo.Presentation
             effectsSource.Stop();
             effectsSource.pitch = 1f;
             stepAudio.Stop();
-            // Tavern resumes the same duel after each shop; only its arena and HUD are reset here.
-            if (!IsInSkillTavernBattle) session.Reset();
+            // Tavern resumes its duel; the debug preview already has a fresh, prepared sample. Reset only their visuals.
+            if (!IsInSkillTavernBattle && !combatDebugInstance) session.Reset();
             stepHud.Reset();
             resistanceFeedback.Reset();
             breakImpactCue.Reset();

@@ -206,9 +206,11 @@ namespace TurnLimbo.Core.Tests
         [Test]
         public void PowerSnapshot_TracksAdditiveBuffsBeforeTickAndRemainsStableAfterLaterSlots()
         {
-            var duel = Duel(new[] { Guard(9, 100), Guard(9, 100), Skill(10, 10), Skill(100, 20), Skill(101, 20), Skill(102, 20) },
+            var sequence = new[] { Guard(9, 100), Guard(9, 100), Skill(10, 10), Skill(100, 20), Skill(101, 20), Skill(102, 20) };
+            var duel = Duel(sequence,
                 new[] { Skill(900, 1) }, 6, playerResistance: 1000, enemyResistance: 1000);
-            Queue(duel, 6);
+            // These snapshots exercise resolution of an authored sequence, independently of manual reservation limits.
+            Assert.That(duel.TrySetFixedQueues(sequence, duel.EnemyQueue), Is.True);
             duel.Commit();
             LegacyCurrentSlot original = duel.BeginNextSlot();
             Assert.That(original.PlayerFeedback.PowerBuffPercent, Is.Zero);
@@ -240,7 +242,7 @@ namespace TurnLimbo.Core.Tests
         {
             var duel = Duel(new[] { Guard(100, 100) },
                 new[] { Guard(9, 100), Guard(9, 100), Skill(10, 10), Skill(900, 20) }, 4);
-            Queue(duel, 4);
+            Assert.That(duel.TrySetFixedQueues(Enumerable.Repeat(Guard(100, 100), 4).ToArray(), duel.EnemyQueue), Is.True);
             duel.Commit();
             for (int i = 0; i < 3; i++) duel.ResolveNextSlot();
             LegacyCurrentSlot slot = duel.BeginNextSlot();
@@ -297,9 +299,10 @@ namespace TurnLimbo.Core.Tests
             {
                 LegacySkillDefinitions.Install(() => sheet);
                 LegacySkill protect = Guard(8, 100);
-                var duel = Duel(new[] { protect, protect, Skill(12, 1), Skill(100, 1) },
+                var sequence = new[] { protect, protect, Skill(12, 1), Skill(100, 1) };
+                var duel = Duel(sequence,
                     new[] { Skill(900, 10) }, 4, playerResistance: 1000);
-                Queue(duel, 4);
+                Assert.That(duel.TrySetFixedQueues(sequence, duel.EnemyQueue), Is.True);
                 duel.Commit();
                 duel.ResolveNextSlot();
                 duel.ResolveNextSlot();

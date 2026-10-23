@@ -13,6 +13,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private readonly int maxHealth, maxResistance;
         private readonly List<LegacySkill>[] lanes = { new List<LegacySkill>(), new List<LegacySkill>(), new List<LegacySkill>() };
         private readonly IReadOnlyList<LegacySkill>[] laneViews = new IReadOnlyList<LegacySkill>[3];
+        private readonly int[] laneReservationsThisTurn = new int[3];
         internal readonly List<LegacySkill> QueueSkills = new List<LegacySkill>();
         private LegacySkill[] committedQueue;
         internal readonly List<int> QueueCosts = new List<int>();
@@ -47,6 +48,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 lanes[i].AddRange(source.lanes[i]);
                 laneViews[i] = lanes[i].AsReadOnly();
+                laneReservationsThisTurn[i] = source.laneReservationsThisTurn[i];
             }
             QueueSkills.AddRange(source.QueueSkills);
             QueueCosts.AddRange(source.QueueCosts);
@@ -105,6 +107,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         public int CycleUses(int skillId) => Cycles.TryGetValue(skillId, out int uses) ? uses : 0;
+
+        /// <summary>Accepted manual reservations from this lane, including techniques later canceled or returned.</summary>
+        public int LaneReservationsThisTurn(int laneIndex)
+        {
+            if (laneIndex < 0 || laneIndex > 2) throw new ArgumentOutOfRangeException(nameof(laneIndex));
+            return laneReservationsThisTurn[laneIndex];
+        }
+
+        public int LaneReservationsRemaining(int laneIndex)
+            => GetLane(laneIndex).Count == 0 ? 0 : LegacyLaneLimit.MaxReservations - LaneReservationsThisTurn(laneIndex);
 
         public int EffectiveCost(LegacySkill skill)
         {
@@ -174,6 +186,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             NextActGain = BaseActGain;
             State.BeginTurn();
             ActRecoveryStealUses.Clear();
+            Array.Clear(laneReservationsThisTurn, 0, laneReservationsThisTurn.Length);
             QueueSkills.Clear();
             QueueCosts.Clear();
             committedQueue = null;
@@ -204,10 +217,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             => skill != null && !skill.IsWait && LegacySkillDefinitions.Find(skill)?.Effect.HasCycle == true ? CycleUses(skill.Id) : 0;
 
         /// <summary>Whether <see cref="QueueLane"/> would reserve this lane's front skill now: the lane has one, it is not a
-        /// wait, and ACT covers its cost.</summary>
+        /// wait, ACT covers its cost and the lane has a manual reservation left this turn.</summary>
         internal bool CanQueueLane(int laneIndex)
         {
-            if (laneIndex < 0 || laneIndex > 2 || lanes[laneIndex].Count == 0) return false;
+            if (laneIndex < 0 || laneIndex > 2 || lanes[laneIndex].Count == 0 ||
+                laneReservationsThisTurn[laneIndex] >= LegacyLaneLimit.MaxReservations) return false;
             LegacySkill skill = lanes[laneIndex][0];
             return !skill.IsWait && Act >= EffectiveCost(skill);
         }
@@ -269,6 +283,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyReserveEffect used = ReserveEffectsUsedThisTurn;
             LegacyKeywordLinks.SpawnTemporary(skill, lanes, open => true, ref used);
             ReserveEffectsUsedThisTurn = used;
+            laneReservationsThisTurn[laneIndex]++;
             return true;
         }
 
@@ -542,7 +557,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         /// <summary>The slot the front skill of <paramref name="laneIndex"/> would take if <paramref name="perspectivePlayer"/>
         /// queued it next, whoever holds the reservation turn now, forecast with the whole turn. Null outside planning or when
-        /// that fighter cannot queue the lane's front (a wait or short of ACT).</summary>
+        /// that fighter cannot queue the lane's front (a wait, short of ACT or a lane at its reservation limit).</summary>
         public LegacySlotForecast ForecastIfQueued(int perspectivePlayer, int laneIndex)
         {
             if (perspectivePlayer < 0 || perspectivePlayer > 1) throw new ArgumentOutOfRangeException(nameof(perspectivePlayer));

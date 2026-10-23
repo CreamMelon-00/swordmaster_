@@ -208,7 +208,10 @@ namespace TurnLimbo.Core.Tests
         {
             var turn = Enumerable.Repeat(enemy, actions).ToArray();
             var script = new EnemyScript(new IReadOnlyList<LegacySkill>[] { turn });
-            return new LegacyQueuedDuel(10000, 10000, new[] { player }, new[]
+            // Identical attacks across two lanes keep long owner-resolution sequences legal at three reservations per lane.
+            var secondLane = new LegacySkill(player.Id, player.Name, player.Cost, player.MinPower, player.MaxPower,
+                player.Kind, player.Property, player.AttackCount, 1, player.Description, player.AnimationName, player.IconId);
+            return new LegacyQueuedDuel(10000, 10000, new[] { player, secondLane }, new[]
             {
                 new LegacyEnemyDefinition("수련생 1", health, resistance, script),
                 new LegacyEnemyDefinition("수련생 2", health, resistance, script),
@@ -225,7 +228,7 @@ namespace TurnLimbo.Core.Tests
             => Enumerable.Range(0, duel.EnemyQueue.Count).Select(duel.EnemyOwnerAtSlot).ToArray();
         private static void Queue(LegacyQueuedDuel duel, int count)
         {
-            for (int i = 0; i < count; i++) Assert.That(duel.TryQueueLane(0), Is.True);
+            for (int i = 0; i < count; i++) Assert.That(duel.TryQueueLane(i / LegacyLaneLimit.MaxReservations), Is.True);
         }
         private static void ResolveTurn(LegacyQueuedDuel duel)
         {

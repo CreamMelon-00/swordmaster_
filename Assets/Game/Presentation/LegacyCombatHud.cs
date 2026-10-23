@@ -360,9 +360,10 @@ namespace TurnLimbo.Presentation
             ConfigureCommandControl(logImage, logButton, "HudActions/combat-log", 64f, new Vector2(0f, 20f), logImage.transform.Find("Icon").GetComponent<Image>());
             logButton.onClick.AddListener(() => { ToggleLog(); ClearSelection(logButton.gameObject); });
             // The lanes' gears turn up out of the dock's bottom edge; the ACT track runs along its top.
-            BuildSkillGears(controls, white, queue);
+            BuildSkillGears(controls, white, lane => QueueLaneFromControl(lane, queue));
             BuildLanePreviews();
             BuildTemporaryMarks();
+            BuildLaneReservations();
             var breathe = Panel("BreathButton", controls, new Vector2(360, -4), new Vector2(152, 172), Card);
             var breathIcon = Image("Icon", breathe.transform, art.GetSkillIcon(LegacyCommonActions.Breathe.IconId),
                 new Vector2(0f, 20f), Vector2.one * 96f);
@@ -764,7 +765,8 @@ namespace TurnLimbo.Presentation
             for (int lane = 0; lane < laneButtons.Length; lane++)
             {
                 bool allowLane = guide == null || guide.AllowsQueue(lane);
-                laneButtons[lane].interactable = lastPlanning && !inputsHeld && laneAffordable[lane] && allowLane;
+                laneButtons[lane].interactable = lastPlanning && !inputsHeld && laneAffordable[lane] &&
+                    LaneHasReservations(lane) && allowLane;
                 SetLaneFade(lane, !allowLane ? .4f : inputsHeld ? HeldInputAlpha : 1f);
             }
         }
@@ -878,6 +880,7 @@ namespace TurnLimbo.Presentation
                 turnText.text = shownTurn.ToString();
             }
             LayoutGears(session.Features);
+            UpdateLaneReservations(session);
             for (int lane = 0; lane < 3; lane++)
             {
                 var sequence = session.GetLane(lane);
@@ -913,7 +916,7 @@ namespace TurnLimbo.Presentation
                 }
                 // What reserving it now would do, for a skill whose effect reads the queue.
                 UpdateLanePreview(lane, session, current, hasCycle);
-                FollowLaneOrder(lane, sequence, laneAffordable[lane]);
+                FollowLaneOrder(lane, sequence, laneAffordable[lane] && LaneHasReservations(lane));
             }
             UpdateIdlerPresence();
             AdvanceLaneTurns(actualDelta);
@@ -1690,39 +1693,42 @@ namespace TurnLimbo.Presentation
         private StatusView BuildStatus(bool enemy)
         {
             var status = Panel(enemy ? "EnemyStatus" : "PlayerStatus", root,
-                Vector2.zero, new Vector2(StatusWidth, 92)).rectTransform;
+                Vector2.zero, new Vector2(StatusWidth, StatusHeight)).rectTransform;
             var white = Load("white");
             var result = new StatusView(status);
-            var healthLabel = Text("HP Label", status, new Vector2(0, 27), new Vector2(196, 18), 14, TextAnchor.MiddleLeft);
-            healthLabel.text = "HP"; healthLabel.color = MutedText;
-            var resistanceLabel = Text("Resistance Label", status, new Vector2(0, -4), new Vector2(196, 18), 14, TextAnchor.MiddleLeft);
+            var healthLabel = Text("HP Label", status, new Vector2(-78, 20), new Vector2(40, 22), 14, TextAnchor.MiddleLeft);
+            healthLabel.text = "체력"; healthLabel.color = MutedText;
+            var resistanceLabel = Text("Resistance Label", status, new Vector2(-78, -15), new Vector2(40, 22), 14, TextAnchor.MiddleLeft);
             resistanceLabel.text = "저항"; resistanceLabel.color = MutedText;
             if (enemy)
             {
-                // Who the player fights, across from the HP label (SetEnemyName); stages leave it empty.
-                result.Name = Text("Battle Name", status, new Vector2(0, 27), new Vector2(196, 18), 14, TextAnchor.MiddleRight);
+                // A separate header keeps the opponent's name clear of the exact health values.
+                result.Name = Text("Battle Name", status, new Vector2(0, 42), new Vector2(196, 18), 16, TextAnchor.MiddleLeft);
                 result.Name.color = Foreground;
                 result.Name.supportRichText = false;
+                FitExplanationLabel(result.Name, 12);
                 result.Name.text = string.Empty;
             }
-            Image("HP Track", status, null, new Vector2(0, 10), new Vector2(196, 10), Track);
-            result.HealthLag = Image("HP delayed", status, white, new Vector2(0, 10), new Vector2(196, 10), DuelVisualTheme.Danger);
-            result.Health = Image("HP", status, white, new Vector2(0, 10), new Vector2(196, 10), DuelVisualTheme.Health);
-            Image("Resistance Track", status, null, new Vector2(0, -19), new Vector2(196, 6), Track);
-            result.ResistanceLag = Image("Resistance delayed", status, white, new Vector2(0, -19), new Vector2(196, 6), DuelVisualTheme.Danger);
-            result.Resistance = Image("Resistance", status, white, new Vector2(0, -19), new Vector2(196, 6), DuelVisualTheme.Steel);
+            Image("HP Track", status, null, new Vector2(0, 4), new Vector2(196, 10), Track);
+            result.HealthLag = Image("HP delayed", status, white, new Vector2(0, 4), new Vector2(196, 10), DuelVisualTheme.Danger);
+            result.Health = Image("HP", status, white, new Vector2(0, 4), new Vector2(196, 10), DuelVisualTheme.Health);
+            Image("Resistance Track", status, null, new Vector2(0, -31), new Vector2(196, 6), Track);
+            result.ResistanceLag = Image("Resistance delayed", status, white, new Vector2(0, -31), new Vector2(196, 6), DuelVisualTheme.Danger);
+            result.Resistance = Image("Resistance", status, white, new Vector2(0, -31), new Vector2(196, 6), DuelVisualTheme.Steel);
             foreach (var gauge in new[] { result.Health, result.HealthLag, result.Resistance, result.ResistanceLag })
                 Filled(gauge, UnityEngine.UI.Image.FillMethod.Horizontal, 0);
             // Below the gauges: this fighter's counter and its remaining uses this turn.
-            result.Counter = Text("Counter", status, new Vector2(0, -35), new Vector2(212, 18), 14, TextAnchor.MiddleCenter);
+            result.Counter = Text("Counter", status, new Vector2(0, -44), new Vector2(212, 16), 14, TextAnchor.MiddleCenter);
             result.Counter.color = Accent;
             result.Counter.supportRichText = false;
+            result.Values = BuildVitalNumbers(status, new Vector2(28, 20), new Vector2(28, -15),
+                new Vector2(140, 22), 22, 18);
             // Keep gauges at their original height above the actor as buff rows extend the panel upward.
             foreach (RectTransform child in status)
             {
                 if (child.name == "Surface") continue;
                 child.anchorMin = child.anchorMax = new Vector2(.5f, 0f);
-                child.anchoredPosition += Vector2.up * 46f;
+                child.anchoredPosition += Vector2.up * (StatusHeight * .5f);
             }
             Color powerInk = new Color32(231, 207, 246, 255);
             Color protectionInk = new Color32(140, 238, 233, 255);
@@ -1731,6 +1737,23 @@ namespace TurnLimbo.Presentation
             result.GrantedPowerBuff = BuildBuffLabel("Granted Power Buff", status, powerInk);
             result.GrantedProtectionBuff = BuildBuffLabel("Granted Protection Buff", status, protectionInk);
             return result;
+        }
+
+        private VitalNumbers BuildVitalNumbers(Transform parent, Vector2 healthPosition, Vector2 resistancePosition,
+            Vector2 size, int healthFontSize, int resistanceFontSize)
+        {
+            Text health = Text("HP Value", parent, healthPosition, size, healthFontSize, TextAnchor.MiddleRight);
+            Text resistance = Text("Resistance Value", parent, resistancePosition, size, resistanceFontSize, TextAnchor.MiddleRight);
+            resistance.color = DuelVisualTheme.Steel;
+            foreach (Text value in new[] { health, resistance })
+            {
+                value.supportRichText = false;
+                value.resizeTextForBestFit = true;
+                value.resizeTextMinSize = 14;
+                value.resizeTextMaxSize = value.fontSize;
+                value.verticalOverflow = VerticalWrapMode.Truncate;
+            }
+            return new VitalNumbers(health, resistance);
         }
 
         private Text BuildBuffLabel(string name, RectTransform parent, Color ink)
@@ -2110,6 +2133,7 @@ namespace TurnLimbo.Presentation
             public Image Health, HealthLag, Resistance, ResistanceLag;
             public Text ActivePowerBuff, ActiveProtectionBuff, GrantedPowerBuff, GrantedProtectionBuff;
             public Text Counter;
+            public VitalNumbers Values;
             /// <summary>The enemy panel's name label; null on the player's.</summary>
             public Text Name;
             private LegacySkillFeedback shownBuffFeedback;
@@ -2137,7 +2161,7 @@ namespace TurnLimbo.Presentation
                 ActiveProtectionBuff.transform.parent.gameObject.SetActive(false);
                 GrantedPowerBuff.transform.parent.gameObject.SetActive(false);
                 GrantedProtectionBuff.transform.parent.gameObject.SetActive(false);
-                Root.sizeDelta = new Vector2(236, 92);
+                Root.sizeDelta = new Vector2(StatusWidth, StatusHeight);
             }
 
             private static void SetBuffRow(Text label, int percent, string prefix, string suffix, ref int rows)
@@ -2152,6 +2176,7 @@ namespace TurnLimbo.Presentation
 
             public void Refresh(LegacyFighterState state, float delta)
             {
+                Values.Refresh(state);
                 float health = state.Health / (float)state.MaxHealth;
                 float resistance = state.MaxResistance > 0 ? state.Resistance / (float)state.MaxResistance : 0;
                 if (health < Health.fillAmount || resistance < Resistance.fillAmount) delay = .5f;
@@ -2168,12 +2193,44 @@ namespace TurnLimbo.Presentation
             {
                 SetBuffFeedback(null);
                 SetCounter(null, 0);
+                Values.Reset();
                 delay = 0;
                 Health.fillAmount = HealthLag.fillAmount = Resistance.fillAmount = ResistanceLag.fillAmount = 1;
             }
         }
 
-        private const float StatusWidth = 236f;
+        private sealed class VitalNumbers
+        {
+            private readonly Text health, resistance;
+            private int shownHealth = -1, shownMaxHealth = -1, shownResistance = -1, shownMaxResistance = -1;
+
+            public VitalNumbers(Text health, Text resistance) { this.health = health; this.resistance = resistance; }
+
+            public void Refresh(LegacyFighterState state)
+            {
+                // Exact values follow the rules immediately; only the red loss trail is delayed.
+                if (shownHealth != state.Health || shownMaxHealth != state.MaxHealth)
+                {
+                    shownHealth = state.Health;
+                    shownMaxHealth = state.MaxHealth;
+                    health.text = shownHealth + " / " + shownMaxHealth;
+                }
+                if (shownResistance != state.Resistance || shownMaxResistance != state.MaxResistance)
+                {
+                    shownResistance = state.Resistance;
+                    shownMaxResistance = state.MaxResistance;
+                    resistance.text = shownResistance + " / " + shownMaxResistance;
+                }
+            }
+
+            public void Reset()
+            {
+                shownHealth = shownMaxHealth = shownResistance = shownMaxResistance = -1;
+                health.text = resistance.text = string.Empty;
+            }
+        }
+
+        private const float StatusWidth = 236f, StatusHeight = 112f;
 
         /// <summary>The cancellation count above the queued power skill, including before its followup is chosen.</summary>
         public string GetQueuePowerSourceMarkLabel(int queueIndex)

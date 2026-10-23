@@ -365,7 +365,7 @@ namespace TurnLimbo.Presentation.Tests
                         Assert.That(fixture.Queue(false, 2).HasBuffParticles, Is.False);
                     }
                     fixture.Hud.Reset(); AssertNoBuffRows(fixture, false);
-                    Assert.That(fixture.Status(false).sizeDelta.y, Is.EqualTo(92));
+                    Assert.That(fixture.Status(false).sizeDelta.y, Is.EqualTo(112));
                 }
             }
         }
@@ -442,7 +442,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.ShowSlot(duel, duel.BeginNextSlot());
                 foreach (bool player in new[] { true, false })
                 {
-                    Assert.That(fixture.Status(player).sizeDelta.y, Is.EqualTo(92));
+                    Assert.That(fixture.Status(player).sizeDelta.y, Is.EqualTo(112));
                     Assert.That(fixture.Hud.GetStatusStrip(player).Count, Is.GreaterThanOrEqualTo(1));
                     foreach (string rowName in BuffRowNames)
                     {
@@ -460,7 +460,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.Hud.Root.GetComponentsInChildren<Transform>(true).Length, Is.EqualTo(nodes));
                 fixture.Hud.ClearSkillFeedback();
                 AssertNoBuffRows(fixture, true); AssertNoBuffRows(fixture, false);
-                Assert.That(fixture.Status(false).sizeDelta.y, Is.EqualTo(92));
+                Assert.That(fixture.Status(false).sizeDelta.y, Is.EqualTo(112));
             }
         }
 

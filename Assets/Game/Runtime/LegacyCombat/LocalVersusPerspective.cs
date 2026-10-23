@@ -92,6 +92,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int Act => Me.Act;
         public int PlayerMaximumAct => Me.MaximumAct;
         public int BreathsRemainingThisTurn => Me.BreathsRemainingThisTurn;
+        public int LaneReservationsThisTurn(int laneIndex) => Me.LaneReservationsThisTurn(laneIndex);
+        public int LaneReservationsRemaining(int laneIndex) => Me.LaneReservationsRemaining(laneIndex);
         public LegacyFighterState Player => Me.State;
         public LegacyFighterState Enemy => Opponent.State;
         public IReadOnlyList<LegacyStatusSnapshot> PlayerStatuses => Me.Statuses;

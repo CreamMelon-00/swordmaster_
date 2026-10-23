@@ -229,7 +229,8 @@ namespace TurnLimbo.Presentation
         }
 
         // The 순환 counts of every skill the forecast can meet (the lanes and both queues, each side its own) and the
-        // once-per-turn 예약 효과 used, folded into one number: 순환 +1 and the 순환 power bonus read them.
+        // once-per-turn 예약 효과 and each lane's spent reservations, folded into one number. A cancellation can leave the
+        // same queue, front and ACT as before while its lane allowance has changed.
         private static int CycleSignature(ILegacyDuelView session)
         {
             unchecked
@@ -237,6 +238,7 @@ namespace TurnLimbo.Presentation
                 int signature = 17 + (int)session.ReserveEffectsUsedThisTurn;
                 for (int lane = 0; lane < 3; lane++)
                 {
+                    signature = signature * 31 + session.LaneReservationsThisTurn(lane);
                     IReadOnlyList<LegacySkill> skills = session.GetLane(lane);
                     for (int index = 0; index < skills.Count; index++)
                         signature = signature * 31 + session.CycleUses(skills[index].Id);

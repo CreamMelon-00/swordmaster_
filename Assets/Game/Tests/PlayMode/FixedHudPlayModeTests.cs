@@ -351,7 +351,7 @@ namespace TurnLimbo.Presentation.Tests
             controller.RestartMatch();
             RectTransform root = controller.Hud.Root.GetComponent<RectTransform>();
             Canvas.ForceUpdateCanvases();
-            // Zero-cost copies isolate presentation capacity from ACT budgeting.
+            // Prepared zero-cost queues isolate presentation capacity from ACT and per-lane reservation limits.
             // The real catalog and the controller's authoritative match stay unchanged.
             var freePlayerSkills = new List<LegacySkill>();
             foreach (LegacySkill source in LegacyInitialSkills.All)
@@ -359,8 +359,13 @@ namespace TurnLimbo.Presentation.Tests
                     source.Kind, source.Property, source.AttackCount, source.LaneIndex, source.Description, source.AnimationName));
             var queueFixture = new LegacyQueuedDuel(100, 50, 80, 15, freePlayerSkills,
                 LegacyInitialSkills.All, new[] { skillCount }, 1);
+            var prepared = new List<LegacySkill>(skillCount);
             for (int index = 0; index < skillCount; index++)
-                Assert.That(queueFixture.TryQueueLane(index % 3), Is.True);
+            {
+                IReadOnlyList<LegacySkill> lane = queueFixture.GetLane(index % 3);
+                prepared.Add(lane[(index / 3) % lane.Count]);
+            }
+            Assert.That(queueFixture.TrySetFixedQueues(prepared, queueFixture.EnemyQueue), Is.True);
             try
             {
                 var arena = controller.ArenaView;
@@ -612,7 +617,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             Assert.That(status.anchorMin, Is.EqualTo(Vector2.one * .5f));
             Assert.That(status.anchorMax, Is.EqualTo(Vector2.one * .5f));
-            Assert.That(status.rect.size, Is.EqualTo(new Vector2(236, 92)));
+            Assert.That(status.rect.size, Is.EqualTo(new Vector2(236, 112)));
             Assert.That(status.localScale, Is.EqualTo(Vector3.one));
             Vector3 head = camera.WorldToScreenPoint(actor.TransformPoint(headOffset));
             Rect bounds = ScreenRect(status);
