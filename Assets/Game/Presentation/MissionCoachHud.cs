@@ -241,7 +241,7 @@ namespace TurnLimbo.Presentation
             InputHint.resizeTextMaxSize = 16;
             Continue = Face("Coach Continue", card.transform, "다음", new Vector2(-344f, -80f), new Vector2(136f, 32f), true);
             ContinueCaption = Continue.GetComponentInChildren<Text>();
-            Inspect = Face("Coach Inspect Enemy", card.transform, "적 큐 확인 [Tab]", new Vector2(-276f, -80f), new Vector2(272f, 32f), true);
+            Inspect = Face("Coach Inspect Enemy", card.transform, "상대 기술 확인 [Tab]", new Vector2(-276f, -80f), new Vector2(272f, 32f), true);
             Abandon = Face("Coach Abandon", card.transform, "임무 포기", new Vector2(344f, -80f), new Vector2(136f, 32f), false);
         }
 

@@ -627,12 +627,13 @@ namespace TurnLimbo.Presentation
                 Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg);
         }
 
-        /// <summary>The loadout page's one hint line (its subtitle): no second hint inside the page.</summary>
+        /// <summary>The shared drag hint, also used by the versus loadout.</summary>
         public const string LoadoutHint = "기술을 끌어 같은 열의 톱니에 끼우세요.";
+        private const string CampaignLoadoutHint = "일반 기술은 같은 열의 톱니로 끌어 넣고, 반격은 선택 후 장착하세요.";
 
         private void BuildLoadout(CampaignRun run)
         {
-            RectTransform panel = TabPanel("Loadout Panel", "기술 편성", LoadoutHint);
+            RectTransform panel = TabPanel("Loadout Panel", "기술 편성", CampaignLoadoutHint);
             loadoutHud = new CampaignLoadoutHud(panel, art, run,
                 (id, lane, slot) =>
                 {

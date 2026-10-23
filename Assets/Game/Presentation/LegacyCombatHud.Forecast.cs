@@ -17,7 +17,7 @@ namespace TurnLimbo.Presentation
         /// <summary>The held explanation's line when its skill cannot be queued now (ACT short).</summary>
         public const string ForecastUnavailable = LegacySlotForecast.SummaryPrefix + "지금은 예약할 수 없음";
         /// <summary>The Tab card's line outside planning, when nothing is forecast.</summary>
-        public const string ForecastPlanningOnly = LegacySlotForecast.SummaryPrefix + "편성 중에만";
+        public const string ForecastPlanningOnly = LegacySlotForecast.SummaryPrefix + "예약 중에만 표시";
         // A row over the hint (HUD units before the card's scale), as 맞물림's row.
         private const float ForecastNoteRow = 22f;
         // The queued card's mark on its left rim (the 순환 count rides the right).

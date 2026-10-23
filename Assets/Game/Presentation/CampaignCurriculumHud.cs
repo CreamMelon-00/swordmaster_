@@ -398,13 +398,13 @@ namespace TurnLimbo.Presentation
                 parts.Add("새로 열린 과정: " + string.Join(" · ", titles));
             }
             if (parts.Count > 0) return string.Join("  ·  ", parts);
-            return skill == null ? "능력치가 올랐습니다."
+            return skill == null ? string.Empty
                 : LegacySkillDefinitions.Find(skill)?.IsCounter == true ? "편성의 반격 슬롯에 장착할 수 있습니다."
                 : laneOpen ? "편성에서 장착할 수 있습니다." : "이 기술을 쓰는 열을 해금하면 편성할 수 있습니다.";
         }
 
         /// <summary>The resting banner: how 수련 점수 are earned (<see cref="CurriculumPointRules"/>).</summary>
-        public const string RestingBannerTitle = "수련 점수는 전투를 마칠 때마다 쌓입니다.";
+        public const string RestingBannerTitle = "수련 점수 획득량";
 
         public static string RestingBannerDetail
             => $"전투 +{CurriculumPointRules.Battle} · 승리 +{CurriculumPointRules.Victory} · " +
@@ -751,14 +751,13 @@ namespace TurnLimbo.Presentation
                 requirement.text += $"  ·  {SkillLaneStyle.Key(skill.LaneIndex)}열은 임무로 열림";
             exclusive.text = ExclusiveText(node, curriculum.Tree);
             bool affordable = curriculum.IsAffordable(node.Id, run.CurriculumPoints);
-            availability.text = !Editing ? "로비에서 이용할 수 있습니다."
-                : state == CurriculumNodeState.Completed ? skill == null ? "능력치가 올랐습니다."
-                    : rewardText.Length > 0 ? "능력치가 올랐습니다. 익힌 기술은 편성에서 장착하세요."
+            availability.text = !Editing ? "학원으로 돌아가 이용하세요."
+                : state == CurriculumNodeState.Completed ? skill == null ? string.Empty
                     : "익힌 기술은 편성에서 장착하세요."
-                : state == CurriculumNodeState.Excluded ? "다른 택1 과정을 익혔습니다. 초기화하면 다시 고를 수 있습니다."
+                : state == CurriculumNodeState.Excluded ? "초기화하면 선택을 바꿀 수 있습니다."
                 : state == CurriculumNodeState.Locked ? "선행 과정을 먼저 익히세요."
-                : affordable ? $"수련 점수 {node.Cost}점으로 바로 익힙니다."
-                : "전투를 마칠 때마다 수련 점수가 쌓입니다.";
+                : affordable ? string.Empty
+                : $"수련 점수 {node.Cost - run.CurriculumPoints}점이 더 필요합니다.";
             bool canLearn = Editing && run.CanLearnCurriculumNode(node.Id);
             primaryAction.interactable = canLearn;
             actionCaption.text = state == CurriculumNodeState.Completed ? "완료한 과정"

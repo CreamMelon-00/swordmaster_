@@ -66,7 +66,7 @@ namespace TurnLimbo.Presentation
                 LegacySkillEffect effect = definition.Effect;
                 content = new SkillInfoContent(LegacySkillLabels.ActRecoveryStealKeyword, LegacySkillSymbol.Act,
                     LegacySkillTone.Reduction, "효과 턴당 1회", LegacySkillSymbol.Act, LegacySkillTone.Recovery,
-                    info != null ? content.Description : "같은 칸 상대가 공격 기술이면\n- 다음 턴 ACT 회복 " +
+                    info != null ? content.Description : "같은 칸의 상대가 공격 기술을 쓰면\n- 다음 턴 ACT 회복 " +
                         effect.ActRecoveryStealAmount + " 강탈\n- 효과 턴당 1회");
             }
             // Shared effect keywords take precedence over authored copy: queue removal first, then cycle. An authored

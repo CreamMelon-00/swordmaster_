@@ -196,7 +196,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(success, Is.False);
                 }
                 Assert.That(controller.StepHud.Root.transform.Find("ACT Recovery Notice").GetComponent<Text>().text,
-                    Does.Contain("스텝 사용: 다음 턴 ACT 자연 회복 +1"));
+                    Does.Contain("다음 턴 자연 회복: ACT 1"));
                 scope.Until(() => controller.IsBetweenSlots);
                 Assert.That(controller.CanStep, Is.True);
                 Assert.That(controller.Session.CurrentSlot, Is.Null);
@@ -388,7 +388,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.Session.StepSuccessStreak, Is.EqualTo(2));
                 Assert.That(root.Find("Pressure Cue/Timing Status").GetComponent<Text>().text, Is.EqualTo("연속 2"));
                 Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text,
-                    Does.Contain("이번 턴 2회").And.Contain("스텝 사용: 다음 턴 ACT 자연 회복 +1"));
+                    Does.Contain("이번 턴 2회").And.Contain("다음 턴 자연 회복: ACT 1"));
                 scope.Until(() => controller.CanChoose && controller.Session.RoundNumber == 2);
                 Assert.That(controller.CurrentStepWindow, Is.EqualTo(fresh).Within(.0001f), "A new turn restores the full window.");
                 Assert.That(controller.Session.Act, Is.EqualTo(3),
@@ -520,7 +520,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(success, Is.True);
                 Assert.That(root.Find("Pressure Cue/Timing Status").GetComponent<Text>().text, Does.Contain("성공"));
                 Assert.That(root.Find("ACT Recovery Notice").GetComponent<Text>().text,
-                    Does.Contain("스텝 사용: 다음 턴 ACT 자연 회복 +1"));
+                    Does.Contain("다음 턴 자연 회복: ACT 1"));
                 LegacyCurrentSlot first = controller.Session.CurrentSlot;
                 scope.Until(() => controller.Session.CurrentSlot != null &&
                     !ReferenceEquals(controller.Session.CurrentSlot, first));

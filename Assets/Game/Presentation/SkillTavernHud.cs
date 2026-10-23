@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace TurnLimbo.Presentation
 {
     /// <summary>Local view commands. The caller owns their execution and the authoritative experiment state.</summary>
-    public enum SkillTavernAction { Buy, Deploy, SellBoard, SellInventory, NextRound, StartBattle, BuyAndDeploy }
+    public enum SkillTavernAction { Buy, Deploy, SellBoard, SellInventory, NextRound, StartBattle, BuyAndDeploy, RefreshShop }
 
     /// <summary>The standalone shop and eight-slot preparation experiment. Selecting a card only inspects it;
     /// every economy or board change goes through the caller, so the view can later display a remote authority.</summary>
@@ -41,7 +41,7 @@ namespace TurnLimbo.Presentation
         private readonly Text playerState, enemyState;
         private readonly Image detailIcon;
         private readonly SkillInfoView detailInfo;
-        private readonly Button deployButton, sellInventoryButton, nextRoundButton, resetButton;
+        private readonly Button deployButton, sellInventoryButton, nextRoundButton, resetButton, refreshShopButton;
         private Selection selection;
         private int selectedValue;
         private SkillTavernBattle displayedBattle;
@@ -100,6 +100,8 @@ namespace TurnLimbo.Presentation
 
             Label("Tavern Shop Heading", surface, new Vector2(-305f, 328f), new Vector2(1130f, 36f), 25,
                 DuelVisualTheme.Foreground).text = "상점  ·  편성 / 보관 각 " + SkillTavernRun.PurchasePrice + " 자원";
+            refreshShopButton = ActionButton("Tavern Refresh Shop", surface, "새로고침 " + SkillTavernRun.RefreshPrice,
+                new Vector2(650f, 328f), new Vector2(240f, 36f), () => Dispatch(SkillTavernAction.RefreshShop, 0));
             for (int i = 0; i < shop.Length; i++)
             {
                 int index = i;
@@ -224,12 +226,13 @@ namespace TurnLimbo.Presentation
                 + " · 8칸 후 자동으로 다음 상점"
                 + "\n이번 라운드 자원 " + Run.RoundIncome + " · 남은 자원 이월 없음";
             bool canExecute = execute != null;
+            refreshShopButton.interactable = canExecute && Run.CanRefreshShop;
             for (int i = 0; i < shop.Length; i++)
             {
                 LegacySkill skill = Run.ShopOffers[i];
                 CardView view = shop[i];
                 view.Name.text = skill?.Name ?? "품절";
-                view.Facts.text = skill == null ? "다음 라운드에 새 기술이 들어옵니다." : Facts(skill);
+                view.Facts.text = skill == null ? "새로고침하거나 다음 라운드에 새 기술이 들어옵니다." : Facts(skill);
                 view.Icon.sprite = skill == null ? null : art.GetSkillIcon(skill.IconId);
                 view.Icon.enabled = view.Icon.sprite != null;
                 view.Select.interactable = skill != null;

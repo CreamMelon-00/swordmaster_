@@ -13,7 +13,7 @@ namespace TurnLimbo.Runtime.Prologue
         private const string Corridor = "SchoolCorridor/corridor-composite";
         private const string Continue = "계속 버튼 · Enter";
         private const string CommitKeys = "Space / Enter / 확정 버튼";
-        private const string Watch = "전투를 지켜보세요";
+        private const string Watch = "자동 진행";
 
         // Starting skills by lane, by sheet id: Q 베기·연속 베기·막기, W 깊은 찌르기·정교한 찌르기·흘리기,
         // E 기세 꺾기·허점 노리기·쳐내기.
@@ -42,12 +42,12 @@ namespace TurnLimbo.Runtime.Prologue
                 Concat(LaneQ, LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "기교 검술",
-                        "E열이 열립니다. 기교 검술은 상대 행동에 맞춰 같은 칸에 기술을 쓰면 추가 효과를 얻습니다. {기술:5:는} 상대가 공격하는 칸에 쓰면 저항을 직접 낮춥니다.", Continue),
+                        "E열의 기교 검술은 상대 행동에 맞춰 같은 칸에 쓰면 추가 효과를 얻습니다. {기술:5:는} 상대가 공격하는 칸에 쓰면 저항을 직접 낮춥니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "E로 예약하세요",
-                        "상대 첫 칸은 공격입니다. E를 짧게 누르거나 카드를 클릭해 {기술:5:를} 같은 칸에 예약하세요.", "E 짧게 누르기 / 카드 클릭", lane: 2),
-                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
-                        "Q와 E 두 열을 오가며 순서를 짭니다. 확정하세요.", CommitKeys),
-                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기교를 지켜보세요",
+                        "상대는 첫 칸에 공격을 예약했습니다. E를 짧게 누르거나 카드를 클릭해 {기술:5:를} 같은 칸에 예약하세요.", "E 짧게 누르기 / 카드 클릭", lane: 2),
+                    new MissionGuideBeat(MissionGuideStepKind.Commit, "기교 기술로 맞붙이세요",
+                        "확정하면 첫 칸에서 기교 기술이 상대 공격과 맞붙습니다.", CommitKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "조건에 맞추면 추가 효과를 얻습니다",
                         "상대 공격에 {기술:5:를} 맞추면 저항이 직접 10 줄어듭니다. 기술마다 조건이 다르니 Q나 E를 길게 눌러 설명을 확인하세요.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "두 열로 승리하세요",
                         "이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다. Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요. 두 열의 기술을 번갈아 예약하면 맞물림으로 위력이 오릅니다.",
@@ -62,16 +62,16 @@ namespace TurnLimbo.Runtime.Prologue
                 Concat(LaneQ, LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "숨 고르기",
-                        "상대가 첫 순번에 막기를 예약했습니다. 막는 칸에 공격하면 위력이 깎입니다. 숨고르기는 ACT 없이 한 칸을 비워 둡니다.", Continue),
+                        "상대는 첫 칸에 방어를 예약했습니다. 이 칸에 공격하면 피해가 줄어듭니다. 숨고르기로 ACT를 쓰지 않고 다음 기술이 들어갈 칸을 뒤로 미룰 수 있습니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Breathe, "S로 숨을 고르세요",
-                        "S를 누르거나 숨고르기 버튼으로 첫 칸을 비우세요. 턴마다 세 번까지 쓸 수 있습니다.", "S / 숨고르기 버튼"),
+                        "S를 누르거나 숨고르기 버튼을 눌러 첫 칸에 숨고르기를 예약하세요. 턴마다 세 번까지 쓸 수 있습니다.", "S / 숨고르기 버튼"),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "다음 칸에 공격하세요",
-                        "상대는 첫 칸에 방어하고 둘째 칸에 공격합니다. 숨을 고른 뒤 E로 {기술:5:를} 둘째 칸에 예약하면 저항을 낮출 수 있습니다.",
+                        "숨고르기로 첫 칸을 채웠습니다. E로 {기술:5:를} 두 번째 칸에 예약해 상대 공격에 맞추세요.",
                         "E 짧게 누르기 / 카드 클릭", lane: 2),
-                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
-                        "숨을 고른 칸에 상대가 공격하면 그 공격은 막지 못하고 받습니다. 확정하세요.", CommitKeys),
-                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "칸을 옮겼습니다",
-                        "첫 칸의 방어를 넘기고 둘째 칸 공격에 {기술:5:를} 맞춰 저항을 직접 낮췄습니다.", Watch),
+                    new MissionGuideBeat(MissionGuideStepKind.Commit, "숨고르기를 포함해 확정하세요",
+                        "숨고르기를 예약한 칸에는 공격이나 방어를 하지 않습니다. 같은 칸에 상대 공격이 있다면 막지 못하고 받습니다.", CommitKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기술이 들어갈 칸을 조절합니다",
+                        "숨고르기 뒤에 예약한 기술은 다음 칸에 들어갑니다. 이렇게 상대의 방어를 피하고 공격에 {기술:5:를} 맞출 수 있습니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "칸을 골라 싸우세요",
                         "숨고르기로 기술이 들어갈 칸을 맞추며 떠돌이 기사를 쓰러뜨리세요.",
                         "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · Q/E 길게 설명 · Esc 일시정지"),
@@ -85,13 +85,13 @@ namespace TurnLimbo.Runtime.Prologue
                 Concat(LaneQ, LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "전투 중에도 움직입니다",
-                        "상대 공격이 들어오기 직전, 내 몸의 흰 원이 줄어듭니다. 원이 가장 작을 때 A를 누르면 피합니다. 스텝은 성공해도 빗나가도 다음 턴 ACT 자연 회복이 1로 제한됩니다.", Continue),
-                    new MissionGuideBeat(MissionGuideStepKind.Commit, "빈손으로 확정하세요",
-                        "이번 턴은 예약 없이 확정해 상대 공격만 받아 보세요.", CommitKeys),
+                        "상대 공격이 들어오기 직전, 내 몸의 흰 원이 줄어듭니다. 원이 가장 작을 때 A를 누르면 피합니다. 스텝은 성공 여부와 관계없이 다음 턴 ACT 자연 회복량을 1로 제한합니다.", Continue),
+                    new MissionGuideBeat(MissionGuideStepKind.Commit, "예약 없이 전투를 시작하세요",
+                        "이번 턴은 기술을 예약하지 않습니다. 확정한 뒤 상대 공격에 맞춰 회피를 연습합니다.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.Dodge, "A로 피하세요",
-                        "흰 원이 줄어들 때 A를 누르세요.", "A 회피"),
+                        "내 몸의 흰 원이 가장 작아질 때 A를 누르세요.", "A 회피"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "피하며 싸우세요",
-                        "예약한 기술로 공격하고, 막을 수 없는 공격은 A로 피하세요.",
+                        "예약한 기술로 공격하고, 상대 공격이 들어올 때 A로 피하세요.",
                         "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · A 회피 · Q/E 길게 설명 · Esc 일시정지"),
                 },
                 AfterDodge, CombatFeature.Dodge, 3, Chapter, "회피(A)가 열렸습니다."),
@@ -104,13 +104,13 @@ namespace TurnLimbo.Runtime.Prologue
                 Concat(Concat(LaneQ, LaneW), LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "강공 검술",
-                        "W열이 열립니다. 강공 검술은 ACT를 많이 쓰는 대신 위력이 높습니다. 첫 기술은 ACT 2를 쓰는 단타입니다.", Continue),
+                        "W열의 강공 검술은 ACT를 많이 쓰는 대신 위력이 높습니다. 첫 기술은 ACT 2를 쓰는 단타입니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "W로 예약하세요",
                         "W를 짧게 누르거나 카드를 클릭해 {기술:3:를} 예약하세요.", "W 짧게 누르기 / 카드 클릭", lane: 1),
-                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
-                        "이제 Q/W/E 세 열을 모두 씁니다. 확정하세요.", CommitKeys),
-                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "강공을 지켜보세요",
-                        "ACT를 모아 강공을 예약하세요. 상대 큐를 보고 어느 칸에 쓸지 정하세요.", Watch),
+                    new MissionGuideBeat(MissionGuideStepKind.Commit, "강공 기술로 전투를 시작하세요",
+                        "Q/W/E 세 열의 기술은 하나의 대기열에 예약됩니다. 이번에는 W열의 공격으로 맞붙습니다.", CommitKeys),
+                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "강공은 ACT를 많이 씁니다",
+                        "위력이 높은 기술을 쓸 수 있도록 ACT를 모으세요. 상대 대기열을 보고 어느 칸에 쓸지 고르는 것도 중요합니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "세 열로 승리하세요",
                         "세 열을 모두 써서 떠돌이 기사를 쓰러뜨리세요.",
                         "Q/W/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · A 회피 · Q/W/E 길게 설명 · Esc 일시정지"),
@@ -124,15 +124,15 @@ namespace TurnLimbo.Runtime.Prologue
                 Concat(Concat(LaneQ, LaneW), LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "원하는 때에 몰아칩니다",
-                        "내 공격이 들어가기 직전 흰 원이 줄어들 때 D를 누르면 압박합니다. 성공하면 기술 위력만큼 추가 피해를 줍니다. 스텝은 성공해도 빗나가도 다음 턴 ACT 자연 회복이 1로 제한됩니다.", Continue),
+                        "내 공격이 들어가기 직전, 흰 원이 줄어들 때 D를 누르면 압박합니다. 성공하면 기술 위력만큼 추가 피해를 줍니다. 스텝은 성공 여부와 관계없이 다음 턴 ACT 자연 회복량을 1로 제한합니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "W로 강한 기술을 예약하세요",
-                        "위력이 높은 기술로 압박하면 추가 피해도 커집니다. W를 누르세요.", "W 짧게 누르기 / 카드 클릭", lane: 1),
-                    new MissionGuideBeat(MissionGuideStepKind.Commit, "확정하세요",
-                        "확정하고 내 공격이 들어갈 때를 기다리세요.", CommitKeys),
+                        "위력이 높은 기술로 압박하면 추가 피해도 커집니다.", "W 짧게 누르기 / 카드 클릭", lane: 1),
+                    new MissionGuideBeat(MissionGuideStepKind.Commit, "공격을 확정하세요",
+                        "전투가 시작되면 내 공격 직전에 압박을 시도할 수 있습니다.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.Pressure, "D로 압박하세요",
                         "흰 원이 줄어들 때 D를 누르세요.", "D 압박"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "배운 것을 모두 쓰세요",
-                        "예약·숨고르기·회피·압박을 모두 써서 떠돌이 기사를 쓰러뜨리세요.",
+                        "상황에 맞게 예약·숨고르기·회피·압박을 활용해 떠돌이 기사를 쓰러뜨리세요.",
                         "Q/W/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · A 회피 · D 압박 · Q/W/E 길게 설명 · Esc 일시정지"),
                 },
                 CombatFeature.All, CombatFeature.Pressure, 5, Chapter, "압박(D)이 열렸습니다. 이제 모든 기본 기능을 씁니다."),

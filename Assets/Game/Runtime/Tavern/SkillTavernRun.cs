@@ -24,6 +24,7 @@ namespace TurnLimbo.Runtime.Tavern
         public const int SlotCount = 8;
         public const int ShopSize = 3;
         public const int PurchasePrice = 3;
+        public const int RefreshPrice = 1;
         public const int SellPrice = 1;
         public const int MaximumIncome = 10;
 
@@ -86,6 +87,8 @@ namespace TurnLimbo.Runtime.Tavern
         public bool CanBuyAndDeploy(int shopIndex)
             => CanBuy(shopIndex) && Array.IndexOf(board, null) >= 0;
 
+        public bool CanRefreshShop => Gold >= RefreshPrice;
+
         public bool CanDeploy(int instanceId)
             => InventoryIndex(instanceId) >= 0 && Array.IndexOf(board, null) >= 0;
 
@@ -114,6 +117,14 @@ namespace TurnLimbo.Runtime.Tavern
             nextInstanceId++;
             shop[shopIndex] = null;
             Gold -= PurchasePrice;
+            return true;
+        }
+
+        public bool TryRefreshShop()
+        {
+            if (!CanRefreshShop) return false;
+            Gold -= RefreshPrice;
+            RefillShop();
             return true;
         }
 
@@ -148,6 +159,11 @@ namespace TurnLimbo.Runtime.Tavern
         {
             RoundNumber++;
             Gold = RoundIncome;
+            RefillShop();
+        }
+
+        private void RefillShop()
+        {
             // Shuffle candidate indices rather than the catalog, so the catalog itself stays unchanged.
             var candidates = new int[catalog.Length];
             for (int index = 0; index < candidates.Length; index++) candidates[index] = index;

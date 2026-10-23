@@ -160,7 +160,7 @@ namespace TurnLimbo.Presentation.Tests
                     Does.Contain("능력치 보상: 최대 저항 +2"));
                 fixture.Hud.SelectNode("stats");
                 fixture.Complete("stats");
-                Assert.That(Label(root, "Curriculum Availability").text, Does.Contain("능력치가 올랐습니다"));
+                Assert.That(Label(root, "Curriculum Availability").text, Is.Empty);
                 Assert.That(panel.rect.height, Is.EqualTo(fixedHeight).Within(.1f));
             }
             yield return null;
@@ -241,7 +241,7 @@ namespace TurnLimbo.Presentation.Tests
                 Button(root, "Curriculum Node left").onClick.Invoke();
                 AssertPrimary(primary, "닫힌 과정", false);
                 Assert.That(Label(root, "Curriculum Availability").text,
-                    Is.EqualTo("다른 택1 과정을 익혔습니다. 초기화하면 다시 고를 수 있습니다."));
+                    Is.EqualTo("초기화하면 선택을 바꿀 수 있습니다."));
                 primary.onClick.Invoke();
                 Assert.That(fixture.Run.Curriculum.IsCompleted("left"), Is.False, "An excluded node cannot be learned.");
             }
@@ -432,7 +432,7 @@ namespace TurnLimbo.Presentation.Tests
                 Text availability = Label(root, "Curriculum Availability");
                 Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("horizontal-cut"), "The first available node is shown by default.");
                 AssertPrimary(primary, "점수 부족 · 0/1", false);
-                Assert.That(availability.text, Is.EqualTo("전투를 마칠 때마다 수련 점수가 쌓입니다."));
+                Assert.That(availability.text, Is.EqualTo("수련 점수 1점이 더 필요합니다."));
 
                 Button(root, "Curriculum Node diagonal-cut").onClick.Invoke();
                 AssertPrimary(primary, "잠긴 과정", false);
@@ -446,7 +446,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.SelectCalls, Is.Zero, "Clicking a node only selects it for viewing.");
                 Assert.That(fixture.Run.Curriculum.IsCompleted("quick-draw"), Is.False);
                 AssertPrimary(primary, "익히기 · 1점", true);
-                Assert.That(availability.text, Is.EqualTo("수련 점수 1점으로 바로 익힙니다."));
+                Assert.That(availability.text, Is.Empty);
                 if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(primary.gameObject);
                 primary.onClick.Invoke();
                 if (EventSystem.current != null) Assert.That(EventSystem.current.currentSelectedGameObject, Is.Null);
@@ -456,7 +456,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.State.SelectedNodeId, Is.EqualTo("fighting-spirit"),
                     "The page turns to the first node it opened (none is affordable now).");
                 AssertPrimary(primary, "점수 부족 · 0/2", false);
-                Assert.That(availability.text, Is.EqualTo("전투를 마칠 때마다 수련 점수가 쌓입니다."));
+                Assert.That(availability.text, Is.EqualTo("수련 점수 2점이 더 필요합니다."));
                 Button(root, "Curriculum Node quick-draw").onClick.Invoke();
                 AssertPrimary(primary, "완료한 과정", false);
                 Assert.That(availability.text, Is.EqualTo("익힌 기술은 편성에서 장착하세요."));
@@ -1079,7 +1079,7 @@ namespace TurnLimbo.Presentation.Tests
             var stats = new CurriculumNode("stats", "기초 체력", CurriculumBranch.Retraction, 0f, 0, Array.Empty<int>(),
                 statReward: new CurriculumStatReward(health: 5));
             Assert.That(CampaignCurriculumHud.LearnedHeadline(stats, null), Is.EqualTo("능력치 · 최대 체력 +5"));
-            Assert.That(CampaignCurriculumHud.LearnedDetail(null, stats, null, null, false), Is.EqualTo("능력치가 올랐습니다."));
+            Assert.That(CampaignCurriculumHud.LearnedDetail(null, stats, null, null, false), Is.Empty);
             Assert.That(CampaignCurriculumHud.SkillLabel(vital),
                 Is.EqualTo(vital.Name + "(" + SkillLaneStyle.Key(vital.LaneIndex) + " " + SkillLaneStyle.Name(vital.LaneIndex) + ")"));
         }
@@ -1120,7 +1120,7 @@ namespace TurnLimbo.Presentation.Tests
 
         private static void AssertLocked(GameObject root, Button primary, Button reset)
         {
-            Assert.That(Label(root, "Curriculum Availability").text, Is.EqualTo("로비에서 이용할 수 있습니다."));
+            Assert.That(Label(root, "Curriculum Availability").text, Is.EqualTo("학원으로 돌아가 이용하세요."));
             Assert.That(primary.interactable, Is.False);
             Assert.That(reset.interactable, Is.False);
         }

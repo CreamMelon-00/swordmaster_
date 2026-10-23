@@ -266,6 +266,80 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void RefreshShop_SpendsOneWithoutChangingRoundOrOwnedCards()
+        {
+            var run = new SkillTavernRun(Enumerable.Range(101, 12).Select(id => Skill(id)), seed: 27);
+            Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            run.NextRound();
+            SkillTavernCard stored = Buy(run, 1);
+            run.NextRound();
+            LegacySkill[] oldOffers = run.ShopOffers.ToArray();
+            SkillTavernCard deployed = run.Board[0];
+            int gold = run.Gold, round = run.RoundNumber, income = run.RoundIncome;
+
+            Assert.That(run.CanRefreshShop, Is.True);
+            Assert.That(run.TryRefreshShop(), Is.True);
+
+            Assert.That(run.Gold, Is.EqualTo(gold - 1));
+            Assert.That(run.RoundNumber, Is.EqualTo(round));
+            Assert.That(run.RoundIncome, Is.EqualTo(income));
+            Assert.That(run.Board[0], Is.SameAs(deployed));
+            Assert.That(run.Board.Skip(1), Is.All.Null);
+            Assert.That(run.Inventory.Single(), Is.SameAs(stored));
+            Assert.That(run.BattlesPlayed, Is.Zero);
+            Assert.That(run.ShopOffers.Select(skill => skill.Id).Distinct().Count(), Is.EqualTo(3));
+            for (int index = 0; index < SkillTavernRun.ShopSize; index++)
+                Assert.That(run.ShopOffers[index], Is.Not.SameAs(oldOffers[index]));
+            Assert.That(run.TryBuy(0), Is.True);
+            Assert.That(run.Inventory[1].InstanceId, Is.EqualTo(3), "Refreshing creates no purchased card instances.");
+        }
+
+        [Test]
+        public void RefreshShop_CanRepeatUntilZero_AndRejectedRequestsDoNotConsumeRandomRolls()
+        {
+            LegacySkill[] catalog = Enumerable.Range(101, 12).Select(id => Skill(id)).ToArray();
+            var run = new SkillTavernRun(catalog, seed: 593);
+            var control = new SkillTavernRun(catalog, seed: 593);
+            for (int remaining = 2; remaining >= 0; remaining--)
+            {
+                Assert.That(run.TryRefreshShop(), Is.True);
+                Assert.That(control.TryRefreshShop(), Is.True);
+                Assert.That(run.Gold, Is.EqualTo(remaining));
+                Assert.That(Snapshot(run), Is.EqualTo(Snapshot(control)));
+            }
+            LegacySkill[] exhaustedOffers = run.ShopOffers.ToArray();
+            Assert.That(run.CanRefreshShop, Is.False);
+            AssertUnchanged(run, () => run.TryRefreshShop());
+            AssertUnchanged(run, () => run.TryRefreshShop());
+            for (int index = 0; index < SkillTavernRun.ShopSize; index++)
+                Assert.That(run.ShopOffers[index], Is.SameAs(exhaustedOffers[index]));
+            run.NextRound();
+            control.NextRound();
+            Assert.That(Snapshot(run), Is.EqualTo(Snapshot(control)), "A failed refresh must not change later offers.");
+            Assert.That(run.Gold, Is.EqualTo(4), "Refreshing never advances income or carries the old balance.");
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        public void RefreshShop_RefillsPurchasedSlotsEvenWithASmallCatalog(int catalogSize)
+        {
+            var run = new SkillTavernRun(Enumerable.Range(101, catalogSize).Select(id => Skill(id)), seed: 51);
+            Assert.That(run.TryBuyAndDeploy(0), Is.True);
+            Assert.That(run.ShopOffers[0], Is.Null);
+            Assert.That(run.TrySellBoard(0), Is.True);
+            Assert.That(run.Gold, Is.EqualTo(1));
+            Assert.That(run.TryRefreshShop(), Is.True);
+            Assert.That(run.Gold, Is.Zero);
+            Assert.That(run.RoundNumber, Is.EqualTo(1));
+            Assert.That(run.Board, Is.All.Null);
+            Assert.That(run.Inventory, Is.Empty);
+            Assert.That(run.ShopOffers.Count, Is.EqualTo(3));
+            Assert.That(run.ShopOffers, Is.All.Not.Null);
+            Assert.That(run.ShopOffers.Select(skill => skill.Id).Distinct().Count(), Is.EqualTo(catalogSize));
+            Assert.That(run.ShopOffers[0], Is.Not.SameAs(run.ShopOffers[2]));
+        }
+
+        [Test]
         public void NextRound_ReplacesGoldAndOffersButPreservesFormationAndInventory()
         {
             var run = Run();

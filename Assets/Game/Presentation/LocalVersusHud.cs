@@ -24,8 +24,8 @@ namespace TurnLimbo.Presentation
         public const int ExitSortingOrder = 410;
         public const string MyTurnText = "내 차례", OpponentTurnText = "상대 차례", ResolvingText = "판정 중",
             FinishedText = "승부 종료";
-        public const string RequestPendingHint = "전송 중", FirstPlannerHint = "기술을 모두 예약한 뒤 확정하세요.",
-            ResponsePlannerHint = "상대 예약을 확인하고 대응하세요.", WaitingForResponseHint = "예약 완료 · 상대를 기다립니다.",
+        public const string RequestPendingHint = "전송 중", FirstPlannerHint = "예약을 마치면 확정하세요.",
+            ResponsePlannerHint = "상대 기술을 보고 예약하세요.", WaitingForResponseHint = "확정 완료 · 상대를 기다립니다.",
             OpponentChoosingHint = "상대가 기술을 예약하는 중입니다.";
         public const string ExitQuestion = "대전을 끝내고 타이틀로 돌아갈까요?";
         private const float TurnPlateY = -98f, HintPlateY = -136f;

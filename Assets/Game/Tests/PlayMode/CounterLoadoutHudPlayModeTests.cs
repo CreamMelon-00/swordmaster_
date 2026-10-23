@@ -106,7 +106,6 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Text(fixture, "Loadout Detail Name"), Is.EqualTo("연습 반격"));
                 Assert.That(Text(fixture, "ACT Value"), Is.EqualTo("0"));
                 Assert.That(Text(fixture, "Loadout Detail Effect"), Does.Contain("내 칸이 비었을 때 상대 공격에 자동으로 대응합니다."));
-                Assert.That(Text(fixture, "Loadout Detail Effect"), Does.Contain("ACT는 쓰지 않습니다."));
                 Assert.That(Text(fixture, "Loadout Counter Action", true), Is.EqualTo("반격 장착"));
 
                 Click(fixture, "Loadout Counter Action");

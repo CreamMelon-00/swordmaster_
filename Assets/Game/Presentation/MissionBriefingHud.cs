@@ -77,7 +77,7 @@ namespace TurnLimbo.Presentation
 
             var enemiesPanel = Panel("Briefing Enemies", root, new Vector2(500f, 40f), new Vector2(680f, 480f), DuelVisualTheme.Surface);
             DuelVisualTheme.DressPanel(enemiesPanel);
-            Label("Enemies Heading", enemiesPanel.transform, new Vector2(-300f, 200f), new Vector2(600f, 36f), 28, Accent).text = "등장하는 적";
+            Label("Enemies Heading", enemiesPanel.transform, new Vector2(-300f, 200f), new Vector2(600f, 36f), 28, Accent).text = "상대";
             enemiesRoot = Rect("Enemy Silhouettes", enemiesPanel.transform, new Vector2(0f, -30f), new Vector2(620f, 380f));
 
             startButton = StartButtonView(root, start);
@@ -198,7 +198,7 @@ namespace TurnLimbo.Presentation
             DuelVisualTheme.StyleButton(button);
             var caption = Label("Button Label", image.transform, new Vector2(-112f, 0f), new Vector2(224f, 56f), 24, Foreground);
             caption.alignment = TextAnchor.MiddleCenter;
-            caption.text = "로비로  [Esc]";
+            caption.text = "학원으로  [Esc]";
             button.onClick.AddListener(() =>
             {
                 if (EventSystem.current != null) EventSystem.current.SetSelectedGameObject(null);

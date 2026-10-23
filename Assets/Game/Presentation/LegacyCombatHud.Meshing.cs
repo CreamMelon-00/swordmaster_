@@ -14,7 +14,7 @@ namespace TurnLimbo.Presentation
     public sealed partial class LegacyCombatHud
     {
         /// <summary>The held explanation's 맞물림 row when queueing its skill now would not mesh.</summary>
-        public const string MeshNoteHint = "맞물림 · 다른 열 기술 바로 뒤에 예약하면 위력 상승";
+        public const string MeshNoteHint = "맞물림 · 다른 열의 기술 뒤에 바로 예약하면 위력 증가";
         // The note's row over the hint (HUD units before the explanation's scale), and the mark gear's texture size.
         private const float MeshNoteRow = 22f;
         private const int MeshGearTexels = 64;

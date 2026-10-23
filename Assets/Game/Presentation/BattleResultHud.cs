@@ -65,9 +65,9 @@ namespace TurnLimbo.Presentation
             heading = Label("Result Heading", card.transform, Vector2.up * 238f, new Vector2(760f, 88f), 70);
             stage = Label("Result Stage", card.transform, Vector2.up * 179f, new Vector2(760f, 42f), 23, Muted);
             var rule = Panel("Result Rule", card.transform, Vector2.up * 144f, new Vector2(736f, 2f), Border);
-            rounds = Statistic(card.transform, "Result Rounds", "진행 턴", -248f);
-            playerHealth = Statistic(card.transform, "Result Player HP", "내 남은 HP", 0f);
-            enemyHealth = Statistic(card.transform, "Result Enemy HP", "상대 남은 HP", 248f);
+            rounds = Statistic(card.transform, "Result Rounds", "소요 턴", -248f);
+            playerHealth = Statistic(card.transform, "Result Player HP", "내 체력", 0f);
+            enemyHealth = Statistic(card.transform, "Result Enemy HP", "상대 체력", 248f);
             // Treat the result numbers as one score line. Separate boxes gave every number the same dashboard weight.
             var leftDivider = Panel("Result Stat Divider Left", card.transform, new Vector2(-124f, 64f),
                 new Vector2(2f, 68f), Border);
@@ -98,7 +98,7 @@ namespace TurnLimbo.Presentation
             curriculumDetail.resizeTextMinSize = 14;
             curriculumDetail.resizeTextMaxSize = 19;
             notice = Label("Result Notice", card.transform, new Vector2(0f, NoticeY), new Vector2(736f, 78f), 20, Muted);
-            lobbyButton = ActionButton("Result Lobby", card.transform, "로비로", new Vector2(-262f, ActionY), returnToLobby);
+            lobbyButton = ActionButton("Result Lobby", card.transform, "학원으로", new Vector2(-262f, ActionY), returnToLobby);
             retryButton = ActionButton("Result Retry", card.transform, "재도전", new Vector2(-43f, ActionY), retry);
             retryCaption = retryButton.GetComponentInChildren<Text>();
             lobbyCaption = lobbyButton.GetComponentInChildren<Text>();
@@ -280,20 +280,20 @@ namespace TurnLimbo.Presentation
         {
             if (result.IsMission)
                 return !result.Victory
-                    ? toLobby ? "임무에 실패했습니다.\n다시 도전하거나 학원으로 돌아갈 수 있습니다."
-                        : "임무에 실패했습니다.\n다시 도전하거나 브리핑으로 돌아갈 수 있습니다."
+                    ? toLobby ? "다시 도전하거나 학원으로 돌아갈 수 있습니다."
+                        : "다시 도전하거나 브리핑에서 목표를 확인하세요."
                     : result.StageNumber == PrologueMissions.Count ? PrologueCompleteNotice(result.CurriculumOpen)
-                    : result.StageNumber > PrologueMissions.Count ? toLobby ? "임무를 완료했습니다.\n학원에서 다음 목적지를 고르세요."
-                        : "임무를 완료했습니다.\n다음 임무로 넘어갈 수 있습니다."
+                    : result.StageNumber > PrologueMissions.Count ? toLobby ? "학원에서 다음 목적지를 고르세요."
+                        : "다음 임무로 넘어갈 수 있습니다."
                     : toLobby ? "「깨어남」은 이미 마쳤습니다.\n여정을 계속하면 학원으로 돌아갑니다." : "다음 임무로 넘어갈 수 있습니다.";
             if (!result.Victory)
-                return result.Outcome == DuelMatchOutcome.Draw ? "승부가 나지 않았습니다. 재도전하거나 기술 편성을 바꿔보세요."
+                return result.Outcome == DuelMatchOutcome.Draw ? "재도전하거나 학원에서 편성을 바꿔보세요."
                     : "학원에서 편성을 바꾸거나 다시 도전할 수 있습니다.";
             string clear = result.FirstClear
-                ? string.IsNullOrEmpty(result.FirstClearSkillName) ? "첫 클리어!"
-                    : $"첫 클리어! 새 기술 '{result.FirstClearSkillName}' 획득"
+                ? string.IsNullOrEmpty(result.FirstClearSkillName) ? "첫 클리어"
+                    : $"첫 클리어 · 새 기술 '{result.FirstClearSkillName}' 획득"
                 : "다시 클리어했습니다.";
-            return result.UnlockedStageNumber > 0 ? clear + $"\n새 스테이지가 열렸습니다. ({result.UnlockedStageNumber:00}까지)"
+            return result.UnlockedStageNumber > 0 ? clear + $"\n스테이지 {result.UnlockedStageNumber:00}까지 열렸습니다."
                 : clear + "\n학원으로 돌아가 다음 상대를 골라보세요.";
         }
 

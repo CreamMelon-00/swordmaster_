@@ -193,7 +193,7 @@ namespace TurnLimbo.Presentation
                 shownAutoDodge = autoDodge;
                 string hint = autoDodge ? AutoDodgeHintFor(features, meshed) : meshed ? MeshedHintFor(features) : KeyHintFor(features);
                 recovery.text = attempts == 0 ? hint
-                    : hint + "  ·  이번 턴 " + attempts + "회 · 스텝 사용: 다음 턴 ACT 자연 회복 +1";
+                    : hint + "  ·  이번 턴 " + attempts + "회 · 다음 턴 자연 회복: ACT 1";
                 recovery.color = missedThisTurn ? DuelVisualTheme.Danger : DuelVisualTheme.Foreground;
             }
         }

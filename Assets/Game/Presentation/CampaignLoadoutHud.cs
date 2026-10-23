@@ -200,7 +200,7 @@ namespace TurnLimbo.Presentation
             ownedItems.pivot = new Vector2(0f, 1f);
             ownedEmpty = Label("Loadout Owned Empty", viewport.transform, Vector2.zero,
                 new Vector2(1160f, 92f), 18, Muted, TextAnchor.MiddleCenter);
-            ownedEmpty.text = "남은 기술 없음";
+            ownedEmpty.text = "지금 추가할 수 있는 기술이 없습니다";
             scroll.viewport = viewport.rectTransform;
             scroll.content = ownedItems;
             scroll.horizontal = true;
@@ -244,7 +244,7 @@ namespace TurnLimbo.Presentation
             laneFilter.SetChoice(State.OwnedFilter);
             laneFilter.Root.gameObject.SetActive(!State.CounterMode && openLanes.Length > 1);
             normalSkills.gameObject.SetActive(State.CounterMode);
-            ownedHeading.text = State.CounterMode ? "보유 반격" : "보유 기술";
+            ownedHeading.text = State.CounterMode ? "보유 반격" : "미편성 기술";
             LegacySkill counter = run.DraftCounterSkill;
             counterCaption.text = counter == null ? "반격 · 미장착" : $"반격 · {counter.Name} · 턴당 {CounterUses(counter.Id)}회";
             counterSlot.GetComponent<Image>().color = State.CounterMode ? Selected : CardColor;
@@ -340,7 +340,9 @@ namespace TurnLimbo.Presentation
             ownedItems.anchoredPosition = new Vector2(-offset, 0f);
             CurrentScrollOffset = offset;
             ownedEmpty.gameObject.SetActive(shown == 0);
-            ownedEmpty.text = State.CounterMode ? "보유한 반격 기술이 없습니다" : "남은 기술 없음";
+            ownedEmpty.text = State.CounterMode ? "보유한 반격 기술이 없습니다"
+                : State.OwnedFilter == AllLanes ? "지금 추가할 수 있는 기술이 없습니다"
+                : "이 열에 추가할 수 있는 기술이 없습니다";
         }
 
         private bool BelongsInRack(CampaignOwnedSkill owned) => State.CounterMode
@@ -403,7 +405,7 @@ namespace TurnLimbo.Presentation
             else detailStyle.SetLane(skill.LaneIndex, true);
             detailName.text = skill.Name;
             detailInfo.SetSkill(skill, owned: owned, effectiveCost: State.CounterMode ? 0 : (int?)null,
-                additionalDescription: State.CounterMode ? "내 칸이 비었을 때 상대 공격에 자동으로 대응합니다. ACT는 쓰지 않습니다." : null);
+                additionalDescription: State.CounterMode ? "내 칸이 비었을 때 상대 공격에 자동으로 대응합니다." : null);
             LayoutDetail();
         }
 

@@ -47,6 +47,7 @@ namespace TurnLimbo.Presentation.Tests
                     case SkillTavernAction.Deploy: Assert.That(Run.TryDeploy(value), Is.True); break;
                     case SkillTavernAction.SellBoard: Assert.That(Run.TrySellBoard(value), Is.True); break;
                     case SkillTavernAction.SellInventory: Assert.That(Run.TrySellInventory(value), Is.True); break;
+                    case SkillTavernAction.RefreshShop: Assert.That(value, Is.Zero); Assert.That(Run.TryRefreshShop(), Is.True); break;
                     case SkillTavernAction.NextRound: Run.NextRound(); break;
                     case SkillTavernAction.StartBattle: BattleStarts++; Hud.Hide(); return;
                     default: Assert.Fail("Unexpected view command."); break;
@@ -103,6 +104,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Text(hud, "Tavern Player State"), Does.Contain("HP 500 / 500").And.Contain("저항 30 / 30"));
                 Assert.That(Text(hud, "Tavern Enemy State"), Does.Contain("HP 500 / 500").And.Contain("저항 30 / 30"));
                 Assert.That(Text(hud, "Tavern Wallet"), Does.Contain("라운드 1").And.Contain("자원 3"));
+                Assert.That(Button(hud, "Tavern Refresh Shop").GetComponentInChildren<Text>().text, Is.EqualTo("새로고침 1"));
+                Assert.That(Button(hud, "Tavern Refresh Shop").interactable, Is.True);
                 var scaler = hud.Root.GetComponent<CanvasScaler>();
                 Assert.That(scaler.referenceResolution, Is.EqualTo(new Vector2(1920f, 1080f)));
                 Assert.That(scaler.screenMatchMode, Is.EqualTo(CanvasScaler.ScreenMatchMode.Expand));
@@ -137,6 +140,93 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Text(hud, "Tavern Detail Name"), Is.EqualTo("숨고르기"));
                 Assert.That(fixture.Commands, Is.Zero, "Inspecting a breathing position only changes the view.");
             }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RefreshingRefillsSoldOutOffers_AndKeepsTheSameRoundAndPurchasedCopies()
+        {
+            yield return null;
+            using (var fixture = new Fixture())
+            {
+                for (int i = 0; i < 7; i++) fixture.Run.NextRound();
+                fixture.Hud.Show(fixture.Run);
+                Click(fixture.Hud, "Tavern Buy And Deploy 0");
+                Click(fixture.Hud, "Tavern Buy 1");
+                SkillTavernCard deployed = fixture.Run.Board[0], stored = fixture.Run.Inventory.Single();
+                Click(fixture.Hud, "Tavern Inventory Card " + stored.InstanceId);
+                int round = fixture.Run.RoundNumber, income = fixture.Run.RoundIncome, commands = fixture.Commands;
+                LegacySkill[] oldOffers = fixture.Run.ShopOffers.ToArray();
+                Assert.That(oldOffers[0], Is.Null);
+                Assert.That(oldOffers[1], Is.Null);
+                Assert.That(fixture.Run.Gold, Is.EqualTo(4));
+
+                Click(fixture.Hud, "Tavern Refresh Shop");
+                Assert.That(fixture.Commands, Is.EqualTo(commands + 1), "The refresh is one request to the state owner.");
+                Assert.That(fixture.Run.Gold, Is.EqualTo(3));
+                Assert.That(fixture.Run.ShopOffers, Has.Count.EqualTo(SkillTavernRun.ShopSize).And.All.Not.Null);
+                Assert.That(fixture.Run.ShopOffers[2], Is.Not.SameAs(oldOffers[2]), "Unsold offers are redrawn too; skill ids may repeat.");
+                for (int i = 0; i < SkillTavernRun.ShopSize; i++)
+                {
+                    Assert.That(Button(fixture.Hud, "Tavern Buy " + i).interactable, Is.True);
+                    Assert.That(Button(fixture.Hud, "Tavern Buy And Deploy " + i).interactable, Is.True);
+                }
+                Assert.That(Text(fixture.Hud, "Tavern Selected Inventory"), Does.Contain("#" + stored.InstanceId));
+
+                for (int i = 0; i < 3; i++) Click(fixture.Hud, "Tavern Refresh Shop");
+                Assert.That(fixture.Commands, Is.EqualTo(commands + 4));
+                Assert.That(fixture.Run.Gold, Is.Zero);
+                Assert.That(Button(fixture.Hud, "Tavern Refresh Shop").interactable, Is.False);
+                Assert.That(Button(fixture.Hud, "Tavern Refresh Shop").GetComponentInChildren<Text>().text, Is.EqualTo("새로고침 1"));
+                Assert.That(fixture.Run.RoundNumber, Is.EqualTo(round));
+                Assert.That(fixture.Run.RoundIncome, Is.EqualTo(income));
+                Assert.That(fixture.Run.Board[0], Is.SameAs(deployed));
+                Assert.That(fixture.Run.Board.Skip(1), Is.All.Null);
+                Assert.That(fixture.Run.Inventory.Single(), Is.SameAs(stored));
+                Assert.That(fixture.BattleStarts, Is.Zero);
+                Assert.That(Text(fixture.Hud, "Tavern Wallet"), Does.Contain("라운드 " + round).And.Contain("자원 0"));
+            }
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator RefreshOnlyRequestsAuthority_AndHiddenOrDisposedControlsCannotRequestIt()
+        {
+            yield return null;
+            var parent = new GameObject("Skill Tavern Refresh Authority Test");
+            try
+            {
+                using (var art = new LegacyDuelArt())
+                {
+                    var skill = new LegacySkill(9001, "시험 베기", 2, 4, 6, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, "참격 시험");
+                    var run = new SkillTavernRun(new[] { skill }, 7);
+                    LegacySkill[] offers = run.ShopOffers.ToArray();
+                    int requests = 0;
+                    using (var hud = new SkillTavernHud(parent.transform, art, null, null, (action, value) =>
+                    {
+                        Assert.That(action, Is.EqualTo(SkillTavernAction.RefreshShop));
+                        Assert.That(value, Is.Zero);
+                        requests++;
+                    }))
+                    {
+                        hud.Show(run);
+                        Button refresh = Button(hud, "Tavern Refresh Shop");
+                        Click(hud, "Tavern Refresh Shop");
+                        Assert.That(requests, Is.EqualTo(1));
+                        Assert.That(run.Gold, Is.EqualTo(3), "The view waits for the owner to accept the request.");
+                        Assert.That(run.ShopOffers, Is.EqualTo(offers));
+                        hud.Hide();
+                        refresh.onClick.Invoke();
+                        Assert.That(requests, Is.EqualTo(1));
+                        hud.Show(run);
+                        hud.Dispose();
+                        refresh.onClick.Invoke();
+                        Assert.That(requests, Is.EqualTo(1));
+                        Assert.That(run.Gold, Is.EqualTo(3));
+                    }
+                }
+            }
+            finally { Object.Destroy(parent); }
             yield return null;
         }
 
@@ -206,6 +296,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Text(fixture.Hud, "Tavern Enemy State"), Is.EqualTo(enemyStatus));
                 Assert.That(Text(fixture.Hud, "Tavern Wallet"), Does.Contain("라운드 2").And.Contain("자원 4"));
                 Assert.That(Text(fixture.Hud, "Tavern Round Hint"), Does.Contain("이번 라운드 자원 4").And.Contain("이월 없음"));
+                Click(fixture.Hud, "Tavern Refresh Shop");
+                Assert.That(fixture.Run.RoundNumber, Is.EqualTo(2));
+                Assert.That(fixture.Run.Gold, Is.EqualTo(3));
+                Assert.That(Text(fixture.Hud, "Tavern Player State"), Is.EqualTo(playerStatus));
+                Assert.That(Text(fixture.Hud, "Tavern Enemy State"), Is.EqualTo(enemyStatus));
                 fixture.Hud.Hide();
                 fixture.Hud.Show(fixture.Run);
                 Assert.That(Text(fixture.Hud, "Tavern Player State"), Is.EqualTo(playerStatus), "Reopening the same shop retains its battle binding.");
@@ -395,6 +490,11 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(Button(fixture.Hud, "Tavern Buy And Deploy " + i).interactable, Is.False);
                 }
                 Assert.That(Button(fixture.Hud, "Tavern Next Round").interactable, Is.False);
+                Button refresh = Button(fixture.Hud, "Tavern Refresh Shop");
+                Assert.That(refresh.interactable, Is.False);
+                LegacySkill[] offers = fixture.Run.ShopOffers.ToArray();
+                refresh.onClick.Invoke();
+                Assert.That(fixture.Run.ShopOffers, Is.EqualTo(offers));
                 Click(fixture.Hud, "Tavern Shop Card 0");
                 Assert.That(Text(fixture.Hud, "Tavern Detail Name"), Is.EqualTo(fixture.Run.ShopOffers[0].Name));
                 Assert.That(fixture.Commands, Is.Zero);

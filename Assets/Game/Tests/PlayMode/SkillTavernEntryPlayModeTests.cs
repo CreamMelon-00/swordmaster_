@@ -68,6 +68,57 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator ShopRefresh_ChargesOneOnlyInTheVisibleShop_AndPreservesTheRoundAndFighters()
+        {
+            yield return null;
+            using (var scope = new SaveScope())
+            {
+                string saved = scope.CreateSave();
+                DuelPrototypeController controller = scope.Controller;
+                controller.ShowTitle();
+                Assert.That(controller.StartSkillTavern(), Is.True);
+                Assert.That(controller.RestartSkillTavern(), Is.True);
+                SkillTavernRun run = controller.SkillTavern;
+                LegacySkill initialOffer = run.ShopOffers[0];
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.RefreshShop, 1), Is.False);
+                Assert.That(run.Gold, Is.EqualTo(3));
+                Assert.That(run.ShopOffers[0], Is.SameAs(initialOffer));
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.RefreshShop), Is.True);
+                Assert.That(run.Gold, Is.EqualTo(2));
+                Assert.That(run.RoundNumber, Is.EqualTo(1));
+                Assert.That(run.ShopOffers[0], Is.Not.SameAs(initialOffer));
+
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.StartBattle), Is.True);
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.RefreshShop), Is.False);
+                Assert.That(run.Gold, Is.EqualTo(2));
+                Assert.That(controller.ReturnToSkillTavernFormation(), Is.True);
+                LegacyQueuedDuel duel = controller.SkillTavernBattle.Duel;
+                var fighters = (duel.Player.Health, duel.Player.Resistance, duel.Enemy.Health, duel.Enemy.Resistance);
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.RefreshShop), Is.True);
+                Assert.That(run.Gold, Is.EqualTo(1));
+                Assert.That(run.RoundNumber, Is.EqualTo(1));
+                Assert.That(run.RoundIncome, Is.EqualTo(3));
+                Assert.That(controller.SkillTavernBattle.Duel, Is.SameAs(duel));
+                Assert.That((duel.Player.Health, duel.Player.Resistance, duel.Enemy.Health, duel.Enemy.Resistance), Is.EqualTo(fighters));
+
+                controller.ShowTitle();
+                LegacySkill hiddenOffer = run.ShopOffers[0];
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.RefreshShop), Is.False);
+                Assert.That(run.Gold, Is.EqualTo(1));
+                Assert.That(run.ShopOffers[0], Is.SameAs(hiddenOffer));
+                Assert.That(controller.StartSkillTavern(), Is.True);
+                Assert.That(controller.SkillTavern, Is.SameAs(run));
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.RefreshShop), Is.True);
+                LegacySkill exhaustedOffer = run.ShopOffers[0];
+                Assert.That(run.Gold, Is.Zero);
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.RefreshShop), Is.False);
+                Assert.That(run.ShopOffers[0], Is.SameAs(exhaustedOffer));
+                Assert.That(run.RoundNumber, Is.EqualTo(1));
+                Assert.That(File.ReadAllText(scope.Store.Path), Is.EqualTo(saved));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator ExperimentPausesCampaignUpdates_AndResetOnlyReplacesItsOwnRun()
         {
             yield return null;
@@ -271,6 +322,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(controller.ReturnToSkillTavernFormation(), Is.True, "The finishing shot can hand over to the decided result.");
                 Assert.That(controller.IsShowingSkillTavernResult, Is.True);
                 Assert.That(controller.SkillTavernHud.IsVisible, Is.False);
+                Assert.That(controller.TrySkillTavernAction(SkillTavernAction.RefreshShop), Is.False);
                 Assert.That(run.Wins, Is.EqualTo(1));
                 Assert.That(run.RoundNumber, Is.EqualTo(1));
                 Assert.That(run.Gold, Is.Zero);

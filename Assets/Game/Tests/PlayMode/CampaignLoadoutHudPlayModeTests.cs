@@ -91,13 +91,12 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(TryNamed(fixture.Hud.Root, "Loadout Lane " + lane), Is.Null,
                         "All open lanes' gears are visible together, never behind tabs.");
                 Assert.That(TryNamed(fixture.Hud.Root, "Loadout Owned Hint"), Is.Null,
-                    "One hint line only: the page's subtitle (CampaignLobbyHud.LoadoutHint), no 클릭·드래그 line.");
-                Assert.That(CampaignLobbyHud.LoadoutHint, Is.EqualTo("기술을 끌어 같은 열의 톱니에 끼우세요."));
+                    "One hint line only: the campaign page's subtitle, no second 클릭·드래그 line inside this view.");
                 Assert.That(Button(fixture.Hud.Root, "Loadout Save").interactable, Is.False);
                 Assert.That(Button(fixture.Hud.Root, "Loadout Cancel").interactable, Is.False);
                 Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero,
                     "Every starting skill is already in a socket.");
-                Assert.That(Label(fixture.Hud.Root, "Loadout Owned Empty").text, Is.EqualTo("남은 기술 없음"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Owned Empty").text, Is.EqualTo("지금 추가할 수 있는 기술이 없습니다"));
                 Assert.That(Named(fixture.Hud.Root, "Loadout Owned Empty").gameObject.activeSelf, Is.True);
                 ClickSelectionOnly(fixture, "Loadout Slot Q 1");
                 Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("베기"));
@@ -455,7 +454,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.State.OwnedFilter, Is.Zero);
                 Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero);
                 Assert.That(Named(fixture.Hud.Root, "Loadout Owned Empty").gameObject.activeSelf, Is.True);
-                Assert.That(Label(fixture.Hud.Root, "Loadout Owned Empty").text, Is.EqualTo("남은 기술 없음"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Owned Empty").text, Is.EqualTo("이 열에 추가할 수 있는 기술이 없습니다"));
                 fixture.Build();
                 Assert.That(fixture.State.OwnedFilter, Is.Zero, "The filter survives a rebuild, as the selection does.");
                 Assert.That(ActiveOwnedCount(fixture.Hud.Root), Is.Zero);

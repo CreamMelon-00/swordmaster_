@@ -120,7 +120,7 @@ namespace TurnLimbo.Presentation
         /// <summary>The enemy explanation's badge until the player has opened all three schools.</summary>
         public const string EnemySkillCaption = "상대 기술";
         // The footer marks a named school's skill as the enemy's; the neutral badge already says so.
-        private const string EnemyHint = "상대 기술 · Tab / 적 확인", NeutralEnemyHint = "Tab / 적 확인";
+        private const string EnemyHint = "상대 기술 · Tab으로 확인", NeutralEnemyHint = "Tab으로 확인";
         // Resistance loss reads in the resistance gauge's steel, lightened for the battlefield.
         public static readonly Color ResistanceDamageInk = new Color(.70f, .86f, .90f);
         private static readonly Color ResistanceDamageOutline = new Color(.05f, .13f, .17f);
@@ -378,7 +378,7 @@ namespace TurnLimbo.Presentation
             breathKey.text = "S"; breathKey.color = Accent;
             var note = Text("Breath Note", controls, new Vector2(360, -81), new Vector2(200, 28), 12,
                 TextAnchor.MiddleCenter);
-            note.text = "한 박자 쉬어\n기술 순서 조절"; note.color = MutedText;
+            note.text = "한 칸 쉬고\n다음 기술을 한 칸 뒤로"; note.color = MutedText;
             breathNote = note.rectTransform;
             breathButton = AddButton(breathe);
             ConfigureCommandControl(breathe, breathButton, "AcademyUI/breath-valve", 96f, new Vector2(0f, 20f), breathIcon);
@@ -395,7 +395,7 @@ namespace TurnLimbo.Presentation
             var cycleKey = Text("KeyHint", cycle.transform, new Vector2(0, 78), new Vector2(140, 22), 17, TextAnchor.MiddleCenter);
             cycleKey.text = "Shift"; cycleKey.color = Accent;
             var cycleHint = Text("Cycle Note", controls, new Vector2(-360, -81), new Vector2(200, 28), 12, TextAnchor.MiddleCenter);
-            cycleHint.text = "맨 앞 기술을 쓰지 않고\n뒤로 보냄"; cycleHint.color = MutedText;
+            cycleHint.text = "맨 앞 기술을 쓰지 않고\n열 맨 뒤로 보내기"; cycleHint.color = MutedText;
             cycleNote = cycleHint.rectTransform;
             cycleButton = AddButton(cycle);
             ConfigureCommandControl(cycle, cycleButton, "AcademyUI/cycle-lever", 96f, new Vector2(0f, 20f));
@@ -552,7 +552,7 @@ namespace TurnLimbo.Presentation
             var retryButton = AddButton(retry, true);
             retryButton.onClick.AddListener(() => restart?.Invoke());
             var retryLabel = Text("Retry Label", retry.transform, Vector2.zero, new Vector2(224, 48), 24, TextAnchor.MiddleCenter);
-            retryLabel.text = "다시 도전";
+            retryLabel.text = "재도전";
             for (int i = 1; i <= LegacyDuelArt.SkillIconCount; i++)
                 assetsAvailable &= art.GetSkillIcon(i) != null;
             Reset();
@@ -1233,7 +1233,7 @@ namespace TurnLimbo.Presentation
                 laneFeedback[lane].SetState(false, ready && skill != null && skill.LaneIndex == lane, false);
             playerExplanationHint.text = ready ? opponentCondition ? "지금 예약하면 조건 충족 · 놓으면 닫기"
                     : stateCondition ? "현재 상대 상태: 조건 충족 · 놓으면 닫기" : "현재 저항: 회복 가능 · 놓으면 닫기"
-                : opponentCondition ? "테두리 친 상대 기술에 맞춰 예약 · 놓으면 닫기"
+                : opponentCondition ? "강조된 상대 기술에 맞춰 예약 · 놓으면 닫기"
                 : stateCondition ? StateConditionHint(skill) : "키를 놓으면 닫기";
             if (lastPlanning) playerEffectFeedback.SetState(false, ready, false);
         }
@@ -1340,7 +1340,7 @@ namespace TurnLimbo.Presentation
             outcomePanel.gameObject.SetActive(true);
             outcomeText.text = outcome == DuelMatchOutcome.PlayerVictory ? "Victory" : "Defeat";
             outcomeText.color = outcome == DuelMatchOutcome.PlayerVictory ? Accent : DuelVisualTheme.Danger;
-            outcomeTurns.text = $"사용 턴 : {turn}";
+            outcomeTurns.text = $"소요 턴: {turn}";
         }
 
         /// <param name="resistance">The number is resistance loss, not HP damage: it keeps the steel

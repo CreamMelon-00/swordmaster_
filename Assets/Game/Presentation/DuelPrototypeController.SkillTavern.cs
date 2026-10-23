@@ -70,6 +70,10 @@ namespace TurnLimbo.Presentation
             {
                 case SkillTavernAction.Buy: accepted = skillTavernRun.TryBuy(argument); break;
                 case SkillTavernAction.BuyAndDeploy: accepted = skillTavernRun.TryBuyAndDeploy(argument); break;
+                case SkillTavernAction.RefreshShop:
+                    if (argument != 0) return false;
+                    accepted = skillTavernRun.TryRefreshShop();
+                    break;
                 case SkillTavernAction.Deploy: accepted = skillTavernRun.TryDeploy(argument); break;
                 case SkillTavernAction.SellBoard: accepted = skillTavernRun.TrySellBoard(argument); break;
                 case SkillTavernAction.SellInventory: accepted = skillTavernRun.TrySellInventory(argument); break;
