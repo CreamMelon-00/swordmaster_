@@ -1,0 +1,284 @@
+{
+    "entries": [
+        {
+            "id": 1,
+            "hits": 1,
+            "name": "베기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 2,
+            "hits": 2,
+            "name": "연속 베기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 3,
+            "hits": 1,
+            "name": "깊은 찌르기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 4,
+            "hits": 1,
+            "name": "정교한 찌르기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 5,
+            "hits": 2,
+            "name": "기세 꺾기",
+            "property": "Hit",
+            "animation": "beat"
+        },
+        {
+            "id": 6,
+            "hits": 3,
+            "name": "허점 노리기",
+            "property": "Hit",
+            "animation": "loaded"
+        },
+        {
+            "id": 14,
+            "hits": 1,
+            "name": "가로베기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 15,
+            "hits": 2,
+            "name": "사선베기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 16,
+            "hits": 1,
+            "name": "알티바호",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 21,
+            "hits": 1,
+            "name": "급소 찌르기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 10,
+            "hits": 1,
+            "name": "준비",
+            "property": "Hit",
+            "animation": "measured"
+        },
+        {
+            "id": 12,
+            "hits": 2,
+            "name": "플레슈",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 42,
+            "hits": 1,
+            "name": "쿠페",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 44,
+            "hits": 4,
+            "name": "몰아치기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 46,
+            "hits": 1,
+            "name": "연마",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 47,
+            "hits": 1,
+            "name": "꿰뚫기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 48,
+            "hits": 1,
+            "name": "받아치기",
+            "property": "Hit",
+            "animation": "beat"
+        },
+        {
+            "id": 50,
+            "hits": 1,
+            "name": "끝내기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 51,
+            "hits": 1,
+            "name": "에스토카다",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 52,
+            "hits": 1,
+            "name": "바트망",
+            "property": "Hit",
+            "animation": "beat"
+        },
+        {
+            "id": 53,
+            "hits": 1,
+            "name": "카덴스",
+            "property": "Hit",
+            "animation": "measured"
+        },
+        {
+            "id": 54,
+            "hits": 1,
+            "name": "에스키브",
+            "property": "Hit",
+            "animation": "evade"
+        },
+        {
+            "id": 55,
+            "hits": 1,
+            "name": "콩트르탕",
+            "property": "Hit",
+            "animation": "loaded"
+        },
+        {
+            "id": 56,
+            "hits": 1,
+            "name": "두블레",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 57,
+            "hits": 1,
+            "name": "잔걸음",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 59,
+            "hits": 1,
+            "name": "갈아내기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 60,
+            "hits": 1,
+            "name": "돌파",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 61,
+            "hits": 1,
+            "name": "추격",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 62,
+            "hits": 1,
+            "name": "기세 훔치기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 63,
+            "hits": 1,
+            "name": "혈기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 64,
+            "hits": 1,
+            "name": "상처 내기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 65,
+            "hits": 1,
+            "name": "깊은 상처",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 67,
+            "hits": 1,
+            "name": "상처 벌리기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 68,
+            "hits": 1,
+            "name": "혈투",
+            "property": "Hit",
+            "animation": "loaded"
+        },
+        {
+            "id": 500,
+            "hits": 5,
+            "name": "라우다레",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 502,
+            "hits": 1,
+            "name": "프레디카레",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 503,
+            "hits": 2,
+            "name": "중간 베기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 504,
+            "hits": 1,
+            "name": "너의 검술이야",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 506,
+            "hits": 3,
+            "name": "나도 할 수 있어…",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 600,
+            "hits": 1,
+            "name": "연습 반격",
+            "property": "Slash",
+            "animation": "slash"
+        }
+    ]
+}

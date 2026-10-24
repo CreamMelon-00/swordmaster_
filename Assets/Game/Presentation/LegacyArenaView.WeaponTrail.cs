@@ -66,19 +66,8 @@ namespace TurnLimbo.Presentation
             if (!actor.WeaponTrailHits.Add(hit)) return;
             if (actor == player && UseFinalPlayerArt && finalPlayerAnimations.IsReady)
             {
-                string key = FinalPlayerAnimationSet.AttackKey(actor.Skill.Property, actor.Skill.Id);
-                // These two clips already contain their authored trail. Do not stack the old mesh effect over it.
-                if (key == "slash" || key == "pierce") return;
-                Vector4 blade = key == "pierce" ? new Vector4(1.61f, .05f, 3.61f, .05f)
-                    : key == "slash" ? new Vector4(.86f, -.84f, 2.78f, -1.62f)
-                    : key == "loaded" ? new Vector4(.47f, -1.06f, 1.5f, -2.23f)
-                    : key == "measured" ? new Vector4(.72f, -.42f, 2.28f, .99f)
-                    : key == "evade" ? new Vector4(.72f, -.15f, 1.72f, 1.8f)
-                    : new Vector4(.58f, -.48f, 1.94f, .99f);
-                var visualProperty = key == "pierce" ? LegacySkillProperty.Penetrate
-                    : key == "measured" ? LegacySkillProperty.Hit : LegacySkillProperty.Slash;
-                weaponTrails.Emit(actor.Renderer.transform.position + visibleOffset, true,
-                    visualProperty, 0, false, slotWeaponTrailStrength, slotWeaponTrailSeconds, blade);
+                // Blade sweeps are now authored in the actual player cels. Measured guard deliberately has no
+                // big swing. Never substitute the old slash mesh or stack it over the authored trail.
                 return;
             }
             weaponTrails.Emit(actor.Renderer.transform.position + visibleOffset, actor == player,

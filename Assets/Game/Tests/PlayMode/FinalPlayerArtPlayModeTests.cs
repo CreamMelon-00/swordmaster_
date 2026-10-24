@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.IO;
 using System.Reflection;
+using System.Collections.Generic;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
 using UnityEngine;
@@ -29,7 +30,7 @@ namespace TurnLimbo.Presentation.Tests
                     LegacySkillProperty.Hit, LegacySkillProperty.Hit, LegacySkillProperty.Hit, LegacySkillProperty.Hit };
                 int[] ids = { 1, 2, 5, 6, 10, 54 };
                 string[] keys = { "slash", "pierce", "beat", "loaded", "measured", "evade" };
-                int[] contacts = { 4, 5, 7, 4, 3, 9 };
+                int[] contacts = { 4, 5, 7, 4, 3, 8 };
                 for (int i = 0; i < ids.Length; i++)
                 {
                     var contact = set.GetAttack(properties[i], ids[i], .5f);
@@ -45,6 +46,102 @@ namespace TurnLimbo.Presentation.Tests
         [TestCase(10, "measured")][TestCase(53, "measured")][TestCase(54, "evade")]
         public void StrikeSkillsBindToAuthoredFamily(int id, string expected)
             => Assert.That(FinalPlayerAnimationSet.AttackKey(LegacySkillProperty.Hit, id), Is.EqualTo(expected));
+
+        [UnityTest]
+        public IEnumerator EveryLoadedAttackUsesItsTypeAndAssignedFamilyOnEveryHit()
+        {
+            var host = new GameObject("All Skill Animation Audit");
+            var arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt());
+            var report = new List<BindingAudit>();
+            var expectedHits = new Dictionary<int, string>
+            {
+                {5,"beat"},{48,"beat"},{52,"beat"},{6,"loaded"},{55,"loaded"},{68,"loaded"},
+                {10,"measured"},{53,"measured"},{54,"evade"}
+            };
+            var hold = typeof(LegacyArenaView).GetMethod("HoldSlotAtTime", BindingFlags.Instance | BindingFlags.NonPublic);
+            try
+            {
+                typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", BindingFlags.Instance | BindingFlags.NonPublic)
+                    .Invoke(arena, new object[] { 1f, .1f });
+                using (var set = new FinalPlayerAnimationSet())
+                {
+                    foreach (var definition in LegacySkillDefinitions.All)
+                    {
+                        var skill = definition.Skill;
+                        if (skill.Kind != LegacySkillKind.Attack) continue;
+                        string key = skill.Property == LegacySkillProperty.Slash ? "slash"
+                            : skill.Property == LegacySkillProperty.Penetrate ? "pierce" : expectedHits[skill.Id];
+                        Assert.That(set.ResolveAttackKey(skill), Is.EqualTo(key), skill.Name);
+                        arena.BeginSlot(skill, null);
+                        for (int hit = 0; hit < skill.AttackCount; hit++)
+                            foreach (float phase in new[] { .01f, .25f, .5f, .75f, .99f })
+                            {
+                                hold.Invoke(arena, new object[] { hit * (LegacyArenaView.OriginalClipDuration + .1f)
+                                    + phase * LegacyArenaView.OriginalClipDuration });
+                                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-" + key + "-frame-"),
+                                    skill.Id + ": " + skill.Name + " hit=" + hit + " phase=" + phase);
+                            }
+                        report.Add(new BindingAudit { id = skill.Id, name = skill.Name, property = skill.Property.ToString(),
+                            animation = key, hits = skill.AttackCount });
+                    }
+                    Assert.That(report.Count, Is.EqualTo(40));
+                    foreach (int id in new[] { 1, 5, 6, 54 })
+                    {
+                        var mislabeled = new LegacySkill(id, "Mismatched label", 0, 1, 1, LegacySkillKind.Attack,
+                            LegacySkillProperty.Hit, 1, 0, "", "Slash");
+                        Assert.That(set.GetAttack(mislabeled, .5f).name, Does.Not.StartWith("final-slash"),
+                            "Property must override stale Slash labels or an ID from another type.");
+                    }
+                    CaptureStrikeComparison(arena, set);
+                }
+                string path = Path.Combine(Application.dataPath, "../Docs/Art/FinalPlayer/Validation/skill-animation-bindings.json");
+                File.WriteAllText(path, JsonUtility.ToJson(new BindingAuditReport { entries = report.ToArray() }, true));
+            }
+            finally { arena.Dispose(); Object.Destroy(host); }
+            yield return null;
+        }
+
+        [Serializable] private sealed class BindingAuditReport { public BindingAudit[] entries; }
+        [Serializable] private sealed class BindingAudit
+        {
+            public int id, hits;
+            public string name, property, animation;
+        }
+
+        private static void CaptureStrikeComparison(LegacyArenaView arena, FinalPlayerAnimationSet set)
+        {
+            var root = new GameObject("Strike Art Comparison");
+            var camera = root.AddComponent<Camera>();
+            camera.transform.position = new Vector3(0, -.1f, -10);
+            camera.orthographic = true; camera.orthographicSize = 6.1f;
+            camera.cullingMask = 1 << 28;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = new Color(.145f, .137f, .145f);
+            var target = new RenderTexture(1080, 760, 24);
+            var pixels = new Texture2D(1080, 760, TextureFormat.RGB24, false);
+            var previous = RenderTexture.active;
+            try
+            {
+                int[] ids = {5,6,10,54};
+                for (int i = 0; i < ids.Length; i++)
+                {
+                    var figure = new GameObject("Strike " + i) { layer = 28 };
+                    figure.transform.SetParent(root.transform, false);
+                    figure.transform.position = new Vector3(i % 2 == 0 ? -3 : 3, i < 2 ? 2.8f : -2.8f, 0);
+                    var renderer = figure.AddComponent<SpriteRenderer>();
+                    renderer.sprite = set.GetAttack(LegacySkillDefinitions.Skill(ids[i]), .5f);
+                    renderer.sharedMaterial = arena.PlayerRenderer.sharedMaterial;
+                }
+                camera.targetTexture = target; camera.Render(); RenderTexture.active = target;
+                pixels.ReadPixels(new Rect(0, 0, 1080, 760), 0, 0); pixels.Apply();
+                File.WriteAllBytes(Path.Combine(Application.dataPath, "../Docs/Art/FinalPlayer/strike-four-families-with-trails.png"), pixels.EncodeToPNG());
+            }
+            finally
+            {
+                RenderTexture.active = previous; camera.targetTexture = null;
+                target.Release(); Object.Destroy(target); Object.Destroy(pixels); Object.Destroy(root);
+            }
+        }
 
         [UnityTest]
         public IEnumerator GuardsRollOnEachActionAndContactButHoldOneStaticPoseBetweenThem()
@@ -114,7 +211,7 @@ namespace TurnLimbo.Presentation.Tests
             var arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt());
             try
             {
-                foreach (var property in new[] { LegacySkillProperty.Slash, LegacySkillProperty.Penetrate })
+                foreach (var property in new[] { LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit })
                 {
                     arena.SetWeaponTrailOverride(true);
                     typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", BindingFlags.Instance | BindingFlags.NonPublic)

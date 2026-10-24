@@ -1,0 +1,204 @@
+{
+  "bindings": [
+    {
+      "id": 1,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 2,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 3,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 4,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 5,
+      "property": 1,
+      "key": "beat"
+    },
+    {
+      "id": 6,
+      "property": 1,
+      "key": "loaded"
+    },
+    {
+      "id": 14,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 15,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 16,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 21,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 10,
+      "property": 1,
+      "key": "measured"
+    },
+    {
+      "id": 12,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 42,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 44,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 46,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 47,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 48,
+      "property": 1,
+      "key": "beat"
+    },
+    {
+      "id": 50,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 51,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 52,
+      "property": 1,
+      "key": "beat"
+    },
+    {
+      "id": 53,
+      "property": 1,
+      "key": "measured"
+    },
+    {
+      "id": 54,
+      "property": 1,
+      "key": "evade"
+    },
+    {
+      "id": 55,
+      "property": 1,
+      "key": "loaded"
+    },
+    {
+      "id": 56,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 57,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 59,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 60,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 61,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 62,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 63,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 64,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 65,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 67,
+      "property": 2,
+      "key": "pierce"
+    },
+    {
+      "id": 68,
+      "property": 1,
+      "key": "loaded"
+    },
+    {
+      "id": 500,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 502,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 503,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 504,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 506,
+      "property": 0,
+      "key": "slash"
+    },
+    {
+      "id": 600,
+      "property": 0,
+      "key": "slash"
+    }
+  ]
+}

@@ -2,6 +2,7 @@
 import json
 import shutil
 import uuid
+import csv
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,10 +19,14 @@ def main():
         ('beat', 'Strike_SkillFamilies_20261024/01_BladeBeat', 'animation.json', 7),
         ('loaded', 'Strike_SkillFamilies_20261024/02_LoadedStrike', 'animation.json', 4),
         ('measured', 'Strike_SkillFamilies_20261024/03_MeasuredGuard', 'animation.json', 3),
-        ('evade', 'Strike_SkillFamilies_20261024/04_EvadeCounter', 'animation.json', 9),
+        ('evade', 'Strike_SkillFamilies_20261024/04_EvadeCounter', 'animation.json', 8),
     ]
     for key, folder, manifest, impact in inputs:
         source = SOURCE / folder
+        if key in ('beat', 'loaded', 'measured', 'evade'):
+            trail_source = source.parent / 'WithTrails' / source.name
+            if trail_source.exists():
+                source = trail_source
         data = json.loads((source / manifest).read_text(encoding='utf-8-sig'))
         frames = data['frames']
         durations = [f.get('durationMs', data.get('frameDurationMs', 100)) for f in frames]
@@ -60,6 +65,17 @@ def main():
             meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
             clips.append(dict(key=key, durationsMs=[100], impactIndex=0))
     (DEST / 'timing.json').write_text(json.dumps(dict(clips=clips), indent=2), encoding='utf-8')
+    families = {5:'beat', 48:'beat', 52:'beat', 6:'loaded', 55:'loaded', 68:'loaded', 10:'measured', 53:'measured', 54:'evade'}
+    bindings = []
+    with (ROOT / 'Assets/Game/Resources/Skills/skills.csv').open(encoding='utf-8-sig', newline='') as stream:
+        for row in csv.DictReader(stream):
+            if row['종류'] != '공격':
+                continue
+            skill_id = int(row['ID'])
+            property_id = {'참격':0, '타격':1, '관통':2}[row['속성']]
+            key = 'slash' if property_id == 0 else 'pierce' if property_id == 2 else families.get(skill_id, 'beat')
+            bindings.append(dict(id=skill_id, property=property_id, key=key))
+    (DEST / 'bindings.json').write_text(json.dumps(dict(bindings=bindings), indent=2), encoding='utf-8')
     print(json.dumps({c['key']: len(c['durationsMs']) for c in clips}))
 
 if __name__ == '__main__':

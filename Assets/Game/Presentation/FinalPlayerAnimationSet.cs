@@ -12,6 +12,7 @@ namespace TurnLimbo.Presentation
         public const int GuardVariationCount = 3;
         private readonly Dictionary<string, Clip> clips = new Dictionary<string, Clip>();
         private readonly List<Sprite> owned = new List<Sprite>();
+        private readonly Dictionary<int, Binding> bindings = new Dictionary<int, Binding>();
         public bool IsReady { get; private set; }
         public int LoadedFrameCount => owned.Count;
 
@@ -43,7 +44,15 @@ namespace TurnLimbo.Presentation
                 }
                 clips.Add(definition.key, clip);
             }
-            IsReady = clips.Count == 10 && clips.ContainsKey("idle") && clips.ContainsKey("slash") &&
+            var bindingAsset = Resources.Load<TextAsset>(ResourceRoot + "bindings");
+            var mapping = bindingAsset != null ? JsonUtility.FromJson<BindingManifest>(bindingAsset.text) : null;
+            if (mapping?.bindings == null) return;
+            foreach (var entry in mapping.bindings)
+            {
+                if (entry == null || !CompatibleKey(entry.property, entry.key) || !clips.ContainsKey(entry.key) || bindings.ContainsKey(entry.id)) return;
+                bindings.Add(entry.id, entry);
+            }
+            IsReady = bindings.Count > 0 && clips.Count == 10 && clips.ContainsKey("idle") && clips.ContainsKey("slash") &&
                 clips.ContainsKey("pierce") && clips.ContainsKey("beat") && clips.ContainsKey("loaded") &&
                 clips.ContainsKey("measured") && clips.ContainsKey("evade") &&
                 clips.ContainsKey("guard-01") && clips.ContainsKey("guard-02") && clips.ContainsKey("guard-03");
@@ -70,7 +79,28 @@ namespace TurnLimbo.Presentation
 
         public Sprite GetAttack(LegacySkillProperty property, int skillId, float normalizedTime)
         {
-            string key = AttackKey(property, skillId);
+            return SampleAttack(AttackKey(property, skillId), normalizedTime);
+        }
+
+        public string ResolveAttackKey(LegacySkill skill)
+        {
+            if (skill == null || skill.Kind != LegacySkillKind.Attack) return null;
+            // Property wins over a stale/mismatched ID or animation label: a Hit can never select Slash.
+            if (bindings.TryGetValue(skill.Id, out var binding) && binding.property == skill.Property)
+                return binding.key;
+            return AttackKey(skill.Property, skill.Id);
+        }
+
+        public Sprite GetAttack(LegacySkill skill, float normalizedTime)
+            => SampleAttack(ResolveAttackKey(skill), normalizedTime);
+
+        private static bool CompatibleKey(LegacySkillProperty property, string key) =>
+            property == LegacySkillProperty.Slash ? key == "slash" :
+            property == LegacySkillProperty.Penetrate ? key == "pierce" :
+            property == LegacySkillProperty.Hit && (key == "beat" || key == "loaded" || key == "measured" || key == "evade");
+
+        private Sprite SampleAttack(string key, float normalizedTime)
+        {
             if (!IsReady || key == null) return null;
             var clip = clips[key];
             float phase = Mathf.Clamp01(normalizedTime);
@@ -88,6 +118,15 @@ namespace TurnLimbo.Presentation
                 else UnityEngine.Object.DestroyImmediate(sprite);
             owned.Clear();
             clips.Clear();
+            bindings.Clear();
+        }
+
+        [Serializable] private sealed class BindingManifest { public Binding[] bindings; }
+        [Serializable] private sealed class Binding
+        {
+            public int id;
+            public LegacySkillProperty property;
+            public string key;
         }
 
         [Serializable] private sealed class Manifest { public Definition[] clips; }
