@@ -75,13 +75,20 @@ namespace TurnLimbo.Presentation
             if (!facts.HasSlot || slot == null) return;
             bool newSlot = !readoutFacts.HasSlot || facts.SlotIndex != readoutFacts.SlotIndex;
             if (newSlot) readoutOpponent = LegacyClashReadout.OpponentLabel(session);
-            if (readoutFacts != facts || !ReferenceEquals(readoutPlayerSkill, slot.PlayerSkill) ||
-                !ReferenceEquals(readoutEnemySkill, slot.EnemySkill))
+            var timing = UsesTempoQueue(session) ? slot as LegacyCurrentSlot : null;
+            LegacySkill playerAction = timing != null ? timing.PlayerActionSkill : slot.PlayerSkill;
+            LegacySkill enemyAction = timing != null ? timing.EnemyActionSkill : slot.EnemySkill;
+            if (readoutFacts != facts || !ReferenceEquals(readoutPlayerSkill, playerAction) ||
+                !ReferenceEquals(readoutEnemySkill, enemyAction))
             {
                 readoutFacts = facts;
-                readoutPlayerSkill = slot.PlayerSkill;
-                readoutEnemySkill = slot.EnemySkill;
-                string pair = LegacyClashReadout.Pair(readoutPlayerSkill, readoutEnemySkill, readoutOpponent);
+                readoutPlayerSkill = playerAction;
+                readoutEnemySkill = enemyAction;
+                string pair = timing == null ? LegacyClashReadout.Pair(playerAction, enemyAction, readoutOpponent)
+                    : "내 " + (playerAction?.Name ?? "빈자리") +
+                        (playerAction != null && !timing.PlayerActionCompletes ? " (준비 중)" : string.Empty) +
+                        "  ↔  " + readoutOpponent + " " + (enemyAction?.Name ?? "빈자리") +
+                        (enemyAction != null && !timing.EnemyActionCompletes ? " (준비 중)" : string.Empty);
                 string result = LegacyClashReadout.Result(facts);
                 if (combatReadoutPair.text != pair) combatReadoutPair.text = pair;
                 if (combatReadoutResult.text != result) combatReadoutResult.text = result;

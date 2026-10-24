@@ -47,7 +47,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (skill == null) return null;
                 copy[index] = new LegacySkill(skill.Id, skill.Name, skill.Cost, skill.MinPower, skill.MaxPower,
                     skill.Kind, skill.Property, skill.AttackCount, skill.LaneIndex, skill.Description,
-                    skill.AnimationName, skill.IconId);
+                    skill.AnimationName, skill.IconId, skill.DurationHalfUnits);
             }
             return copy;
         }

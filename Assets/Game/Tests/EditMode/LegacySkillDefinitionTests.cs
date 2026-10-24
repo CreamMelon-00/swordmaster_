@@ -20,6 +20,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(all.Select(d => d.Skill).ToArray(), Is.EquivalentTo(LegacyInitialSkills.All
                 .Concat(CampaignSkillCatalog.AcquisitionSkills).Concat(LegacySkillDefinitions.EnemySkills)
                 .Concat(LegacySkillDefinitions.TemporarySkills).Concat(LegacySkillDefinitions.VersusSkills)
+                .Concat(LegacySkillDefinitions.PrototypeSkills)
                 .Concat(LegacySkillDefinitions.InitialCounterSkills).ToArray()));
             // The curriculum may grow; the starting set stays at nine.
             Assert.That(LegacyInitialSkills.All.Count, Is.EqualTo(9));
@@ -318,7 +319,7 @@ namespace TurnLimbo.Core.Tests
             LegacySkillTable table = LegacySkillSheet.Parse("shipped", File.ReadAllText(path));
             Assert.That(table.All.Select(d => d.Skill.Id), Is.EqualTo(new[]
                 { 1, 2, 3, 4, 5, 6, 7, 8, 9, 14, 15, 16, 17, 21, 32, 10, 12, 19, 42, 43, 44, 45, 46, 47, 48, 49, 50,
-                    51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 500, 501, 502, 503, 504, 505, 506, 600 }));
+                    51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 500, 501, 502, 503, 504, 505, 506, 600, 601, 602 }));
             Assert.That(table.InitialSkills.Select(s => s.Id), Is.EqualTo(Enumerable.Range(1, 9)));
             Assert.That(table.InitialCounterSkills.Select(s => s.Id), Is.EqualTo(new[] { 600 }));
             Assert.That(table.AcquisitionSkills.Select(s => s.Id),
@@ -326,6 +327,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(table.VersusSkills.Select(s => s.Id), Is.EqualTo(new[] { 62 }));
             Assert.That(table.EnemySkills.Select(s => s.Id), Is.EqualTo(new[] { 500, 501, 502, 503, 504, 505, 506 }));
             Assert.That(table.TemporarySkills.Select(s => s.Id), Is.EqualTo(new[] { 59 }));
+            Assert.That(table.PrototypeSkills.Select(s => s.Id), Is.EqualTo(new[] { 601, 602 }));
             Assert.That(LegacySkillDefinitions.All.Select(d => d.Skill.Id), Is.EqualTo(table.All.Select(d => d.Skill.Id)),
                 "The runtime reads the same file.");
             Assert.That(LegacySkillDefinitions.Table.SheetId, Is.EqualTo(LegacySkillDefinitions.SheetAssetPath));

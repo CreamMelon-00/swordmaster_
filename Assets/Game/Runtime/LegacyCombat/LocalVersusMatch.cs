@@ -689,6 +689,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public int ResolutionSlotCount => slotCount;
         public bool IsTurnResolved => Phase == LegacyDuelPhase.Resolving && CurrentSlot == null && nextSlot >= slotCount;
+
+        // Derived from existing execution progress: starting a slot exposes only the techniques actually executing
+        // there. A break-canceled reservation remains in the public queue but its execution copy is null, so skipping
+        // that slot cannot reveal it. No presentation-specific state changes the match or its deterministic hash.
+        internal bool IsQueuedSkillRevealed(int playerIndex, int slotIndex)
+        {
+            LocalVersusFighter fighter = GetFighter(playerIndex);
+            if (slotIndex < 0 || slotIndex >= fighter.Queue.Count) return false;
+            if (slotIndex < LegacyQueueVisibility.InitiallyRevealedSlots) return true;
+            bool started = slotIndex < nextSlot || CurrentSlot != null && CurrentSlot.SlotIndex == slotIndex;
+            return started && slotIndex < fighter.ExecutionQueue.Count && fighter.ExecutionQueue[slotIndex] != null;
+        }
         public bool IsFinished => Phase == LegacyDuelPhase.Finished;
 
         public bool TryQueueLane(int playerIndex, int laneIndex)

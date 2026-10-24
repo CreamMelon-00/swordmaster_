@@ -113,6 +113,17 @@ namespace TurnLimbo.Presentation
             if (enemy && enemyActRecoveryIsPlayerOnly && actRecovery)
                 content = new SkillInfoContent(content.Main, content.MainSymbol, content.MainTone, content.Secondary,
                     content.SecondarySymbol, content.SecondaryTone, PlayerOnlyActDescription(content.Description));
+            if (skill.IsFast || skill.IsCharge)
+            {
+                string durationDescription = skill.IsFast
+                    ? "연속된 고속 기술 두 개가 한 칸을 나눠 씁니다. 하나만 쓰면 남은 반 칸을 쉽니다."
+                    : (skill.DurationHalfUnits / 2) + "칸 동안 준비한 뒤 기술을 실행합니다. 준비 중에는 상대의 공격을 받습니다.";
+                content = new SkillInfoContent(skill.IsFast ? "고속" : "차지 " + (skill.DurationHalfUnits / 2) + "칸",
+                    skill.IsFast ? LegacySkillSymbol.Followup : LegacySkillSymbol.Sword,
+                    skill.IsFast ? LegacySkillTone.Followup : LegacySkillTone.HighPower,
+                    content.Main, content.MainSymbol, content.MainTone,
+                    durationDescription + (string.IsNullOrEmpty(content.Description) ? string.Empty : "\n" + content.Description));
+            }
             return content;
         }
 

@@ -83,7 +83,12 @@ namespace TurnLimbo.Presentation
             else enemyStyle.Clear(EnemySkillCaption);
             enemyExplanationIcon.sprite = enemy.IsWait ? null : iconFor(enemy.IconId);
             enemyExplanationIcon.enabled = enemyExplanationIcon.sprite != null;
-            if (enemy.IsWait) enemyInfo.SetEmptyMessage(enemy.Description);
+            if (IsEnemyInformationHidden(enemy)) MaskEnemyInformation(enemy);
+            else if (enemy.IsWait)
+            {
+                RestoreEnemyInformation(enemy);
+                enemyInfo.SetEmptyMessage(enemy.Description);
+            }
             else SetEnemyInfoSkill(enemy);
             UpdateEnemyForecastNote();
             enemyExplanationHint.text = ComparisonSlotHint;

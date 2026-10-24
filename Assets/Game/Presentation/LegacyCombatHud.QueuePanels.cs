@@ -128,6 +128,9 @@ namespace TurnLimbo.Presentation
             // Use the full turn's queues so resolution never grows or spreads its remaining cards after a consumed slot.
             int count = displayedSession == null ? 0
                 : Mathf.Max(displayedSession.PlayerQueue.Count, displayedSession.EnemyQueue.Count);
+            if (UsesTempoQueue(displayedSession))
+                count = (Mathf.Max(LegacySkillTiming.TotalHalfTicks(displayedSession.PlayerQueue),
+                    LegacySkillTiming.TotalHalfTicks(displayedSession.EnemyQueue)) + 1) / 2;
             float card = LegacyQueuePanelLayout.CardSize(QueueCardRoom(), count, QueueCardSetting, QueueCardSpacing);
             queueCardScale = card / QueueCardSize;
             playerQueue.CardScale = enemyQueue.CardScale = queueCardScale;
@@ -147,6 +150,11 @@ namespace TurnLimbo.Presentation
         /// clock, so it follows bullet time and the hit stop, and stops with the battle).</summary>
         private void LayoutQueuePanels(bool resolving, int activeSlot, float delta)
         {
+            if (UsesTempoQueue(displayedSession))
+            {
+                LayoutTempoQueuePanels(resolving);
+                return;
+            }
             Vector2 size = root.rect.size;
             if (size.x < 1f || size.y < 1f) size = new Vector2(1920f, 1080f);
             Vector2 half = size * .5f;

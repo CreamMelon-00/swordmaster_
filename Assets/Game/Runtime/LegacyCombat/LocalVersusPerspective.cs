@@ -8,8 +8,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
     /// it: that player is always the HUD's player (its desk, its queue row, the arena's left) and the other the enemy,
     /// whichever side of the match each one is. The host plays Left and the guest Right, so the guest's view is the match
     /// mirrored. Versus has no 반격, 맞물림 or steps, so those read empty; every lane, 숨고르기 and 넘기기 are open
-    /// (<see cref="Features"/>). Both queues are public and live. Reading never changes the match, its rules or its state
-    /// hash.</summary>
+    /// (<see cref="Features"/>). Both exact queues remain live data; <see cref="IsEnemySkillRevealed"/> decides which
+    /// opposing identities presentation may show. Reading never changes the match, its rules or its state hash.</summary>
     public sealed class LocalVersusPerspective : ILegacyDuelView
     {
         private LocalVersusSlot shownSource;
@@ -100,6 +100,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacyStatusSnapshot> EnemyStatuses => Opponent.Statuses;
         public IReadOnlyList<LegacySkill> PlayerQueue => Me.Queue;
         public IReadOnlyList<LegacySkill> EnemyQueue => Opponent.Queue;
+        public bool IsEnemySkillRevealed(int slotIndex) => Match.IsQueuedSkillRevealed(OpponentPlayer, slotIndex);
         public int PlayerBreakCanceledFromSlotIndex => Me.BreakCanceledFromSlotIndex;
         public int EnemyBreakCanceledFromSlotIndex => Opponent.BreakCanceledFromSlotIndex;
         public LocalVersusPerspectiveSlot CurrentSlot => Slot(Match.CurrentSlot);

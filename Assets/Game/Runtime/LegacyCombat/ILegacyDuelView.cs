@@ -23,6 +23,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The player's reservations: live while planning, the committed queue while it resolves.</summary>
         IReadOnlyList<LegacySkill> PlayerQueue { get; }
         IReadOnlyList<LegacySkill> EnemyQueue { get; }
+        /// <summary>Whether the opposing reservation's identity may be shown. Versus reveals the first two and each
+        /// later technique as its slot actually starts; other duels reveal every reservation. Invalid indices are false.
+        /// The exact EnemyQueue data remain unchanged for simulation and property-only hidden cards.</summary>
+        bool IsEnemySkillRevealed(int slotIndex);
         /// <summary>The first later reservation canceled by a new break this turn, or -1. Original queue entries remain
         /// readable for their shatter animation; these and later entries never execute or refund ACT. The current skill
         /// finishes all its hits. Both cutoffs reset at the next planning turn, even while resistance remains broken.</summary>

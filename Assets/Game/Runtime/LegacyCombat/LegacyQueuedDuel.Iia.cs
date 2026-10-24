@@ -131,7 +131,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // A missing action or a breath has no technique power, including no minimum-one attack roll.
             if (maximum == 0) return 0;
             var mirror = new LegacySkill(skill.Id, skill.Name, skill.Cost, maximum, maximum, skill.Kind,
-                skill.Property, skill.AttackCount, skill.LaneIndex, skill.Description, skill.AnimationName, skill.IconId);
+                skill.Property, skill.AttackCount, skill.LaneIndex, skill.Description, skill.AnimationName, skill.IconId,
+                skill.DurationHalfUnits);
             return RollPower(mirror, multiplier, out _, powerBonus);
         }
 
@@ -146,6 +147,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             int index = enemyQueue.IndexOf(skill);
             if (index < 0) return 0;
+            if (HasTempoSkills) return TimedIiaMirrorPreview(index);
             if (CurrentSlot != null && CurrentSlot.SlotIndex == index)
             {
                 LegacySkill current = CurrentSlot.PlayerSkill ?? CurrentSlot.PendingPlayerCounter;

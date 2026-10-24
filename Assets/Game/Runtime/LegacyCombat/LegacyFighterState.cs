@@ -191,6 +191,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Outcome = outcome;
             PlayerBleedingHealthDamage = playerBleedingHealthDamage;
             EnemyBleedingHealthDamage = enemyBleedingHealthDamage;
+            PlayerQueueIndex = playerSkill == null ? -1 : slotIndex;
+            EnemyQueueIndex = enemySkill == null ? -1 : slotIndex;
+            StartHalfTick = slotIndex * 2;
+            EndHalfTick = StartHalfTick + 2;
         }
 
         public int SlotIndex { get; }
@@ -205,6 +209,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public DuelMatchOutcome Outcome { get; }
         public int PlayerBleedingHealthDamage { get; }
         public int EnemyBleedingHealthDamage { get; }
+        public int PlayerQueueIndex { get; internal set; }
+        public int EnemyQueueIndex { get; internal set; }
+        public int StartHalfTick { get; internal set; }
+        public int EndHalfTick { get; internal set; }
     }
 
     public sealed class LegacyCurrentSlot : ILegacySlotView
@@ -227,9 +235,37 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyStartingHealth = enemy.Health;
             PlayerStartingResistance = player.Resistance;
             EnemyStartingResistance = enemy.Resistance;
+            StartHalfTick = index * 2;
+            EndHalfTick = StartHalfTick + 2;
+            PlayerQueueIndex = playerSkill == null ? -1 : index;
+            EnemyQueueIndex = enemySkill == null ? -1 : index;
+            PlayerActionSkill = playerSkill;
+            EnemyActionSkill = enemySkill;
+            PlayerActionStartHalfTick = EnemyActionStartHalfTick = StartHalfTick;
+            PlayerActionDurationHalfTicks = EnemyActionDurationHalfTicks = 2;
+            PlayerActionStarts = playerSkill != null;
+            EnemyActionStarts = enemySkill != null;
+            PlayerActionCompletes = playerSkill != null;
+            EnemyActionCompletes = enemySkill != null;
         }
 
         public int SlotIndex { get; }
+        /// <summary>Execution interval; queue indices remain reservation indices rather than interval indices.</summary>
+        public int StartHalfTick { get; internal set; }
+        public int EndHalfTick { get; internal set; }
+        public int DurationHalfTicks => EndHalfTick - StartHalfTick;
+        public int PlayerQueueIndex { get; internal set; }
+        public int EnemyQueueIndex { get; internal set; }
+        public LegacySkill PlayerActionSkill { get; internal set; }
+        public LegacySkill EnemyActionSkill { get; internal set; }
+        public int PlayerActionStartHalfTick { get; internal set; }
+        public int EnemyActionStartHalfTick { get; internal set; }
+        public int PlayerActionDurationHalfTicks { get; internal set; }
+        public int EnemyActionDurationHalfTicks { get; internal set; }
+        public bool PlayerActionStarts { get; internal set; }
+        public bool EnemyActionStarts { get; internal set; }
+        public bool PlayerActionCompletes { get; internal set; }
+        public bool EnemyActionCompletes { get; internal set; }
         /// <summary>Null for an empty slot, including while <see cref="PendingPlayerCounter"/> awaits the first hit.</summary>
         public LegacySkill PlayerSkill { get; internal set; }
         public LegacySkill EnemySkill { get; }

@@ -209,6 +209,6 @@ namespace TurnLimbo.Runtime.Tavern
         private static LegacySkill Copy(LegacySkill skill)
             => new LegacySkill(skill.Id, skill.Name, skill.Cost, skill.MinPower, skill.MaxPower,
                 skill.Kind, skill.Property, skill.AttackCount, skill.LaneIndex, skill.Description,
-                skill.AnimationName, skill.IconId);
+                skill.AnimationName, skill.IconId, skill.DurationHalfUnits);
     }
 }

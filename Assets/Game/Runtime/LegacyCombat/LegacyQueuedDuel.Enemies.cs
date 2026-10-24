@@ -74,7 +74,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int owner = EnemyOwnerAtSlot(slotIndex);
             if (owner >= 0 && !IsEnemySlotCanceled(slotIndex) && !enemyStates[owner].IsDefeated) return owner;
             int previous = LivingEnemyFallback(activeEnemyIndex);
-            if (Phase != LegacyDuelPhase.Planning && slotIndex == nextSlot) return previous;
+            int currentQueueIndex = tempoExecution && nextSlot < timeSegments.Length
+                ? timeSegments[nextSlot].Enemy?.QueueIndex ?? -1 : nextSlot;
+            if (Phase != LegacyDuelPhase.Planning && slotIndex == currentQueueIndex) return previous;
             for (int i = Math.Min(slotIndex - 1, enemyQueueOwners.Count - 1); i >= 0; i--)
             {
                 int candidate = enemyQueueOwners[i];
@@ -188,12 +190,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             CancelFutureEnemyReservations(activeEnemyIndex, slotIndex + 1);
         }
 
-        private void CancelEnemyAfterDeath(int slotIndex)
+        private void CancelEnemyAfterDeath(int slotIndex, bool includeCurrent = false)
         {
             if (enemyDefinitions == null || enemyDefeatedFrom[activeEnemyIndex] >= 0) return;
-            enemyDefeatedFrom[activeEnemyIndex] = slotIndex + 1;
+            int first = slotIndex + (includeCurrent ? 0 : 1);
+            enemyDefeatedFrom[activeEnemyIndex] = first;
             enemyCountersByOwner[activeEnemyIndex] = 0;
-            CancelFutureEnemyReservations(activeEnemyIndex, slotIndex + 1);
+            CancelFutureEnemyReservations(activeEnemyIndex, first);
         }
 
         private void CancelFutureEnemyReservations(int owner, int firstSlot)

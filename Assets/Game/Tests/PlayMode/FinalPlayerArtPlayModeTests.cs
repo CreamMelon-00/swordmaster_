@@ -84,7 +84,7 @@ namespace TurnLimbo.Presentation.Tests
                         report.Add(new BindingAudit { id = skill.Id, name = skill.Name, property = skill.Property.ToString(),
                             animation = key, hits = skill.AttackCount });
                     }
-                    Assert.That(report.Count, Is.EqualTo(40));
+                    Assert.That(report.Count, Is.EqualTo(42));
                     foreach (int id in new[] { 1, 5, 6, 54 })
                     {
                         var mislabeled = new LegacySkill(id, "Mismatched label", 0, 1, 1, LegacySkillKind.Attack,

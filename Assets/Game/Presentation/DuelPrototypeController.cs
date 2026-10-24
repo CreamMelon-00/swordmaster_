@@ -421,6 +421,8 @@ namespace TurnLimbo.Presentation
             barks = new DuelBarks(hud, art.UIFont, () => presentationSettings);
             startCard = new DuelStartCard(transform, art, () => SkipStartCard());
             forestAmbience = new DuelForestAmbience(transform, () => presentationSettings);
+            arena.StrongClashPresented += forestAmbience.PresentClash;
+            arena.CombatAccentsCleared += forestAmbience.ClearClash;
             Sprite lobbyRoomSprite = LobbyRoomBackdrop.PickRandom();
             lobbyHud = new CampaignLobbyHud(transform, art,
                 id => LearnCurriculumNode(id), () => ResetCurriculum(), id => EquipSkill(id),
@@ -470,6 +472,8 @@ namespace TurnLimbo.Presentation
             if (onlineVersus != null && onlineVersus.IsActive)
             {
                 onlineVersus.Tick(realDelta, keyboard);
+                // A room has no forest bed; keep its fade and transient gain alive without adding outdoor sound indoors.
+                forestAmbience.Tick(realDelta, localVersus.IsActive && arena.BackdropKind == ArenaBackdropKind.Forest, 1f, 0f);
                 return;
             }
             if (IsPaused)
@@ -478,6 +482,7 @@ namespace TurnLimbo.Presentation
                 return;
             }
             // Break impulses use real time even during the finale's frozen frame and the result hand-off.
+            arena.AdvanceContrastImpact(realDelta);
             hud.AdvanceBreakQueueFragments(realDelta);
             breakImpactCue.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
@@ -809,17 +814,19 @@ namespace TurnLimbo.Presentation
                 while (!session.IsFinished && !session.IsTurnResolved) session.ResolveNextSlot();
             if (session.IsFinished || session.IsTurnResolved)
             {
+                // A turn-limit draw can be decided at slot completion or an empty commit, without a finishing hit.
+                if (session.IsFinished) arena.PresentBattleEndImpact(session.Outcome);
                 SetViewPhase(ViewPhase.AfterTurn);
                 return;
             }
             highlightedSlot = session.LastResolvedSlot + 1;
-            if (waitBetweenSlots)
+            if (waitBetweenSlots && !session.HasTempoSkills)
             {
                 // After a Minor slot the wait is shorter too (the director saves the time).
                 // The exhausted attack's empty gap is compressed without speeding its clip or funding extra emphasis.
                 betweenSlotsDuration = showDirector.ShortenGap(Mathf.Max(0f, presentationSettings.SkillInterval))
                     * showDirector.PlaybackGapScale;
-                if (IsGroupBattle && ((ILegacyEnemyRosterView)session).EnemyIndexForSlot(highlightedSlot) != arena.ActiveEnemyIndex)
+                if (IsGroupBattle && ((ILegacyEnemyRosterView)session).EnemyIndexForSlot(EnemyQueueIndexForExecutionSlot(highlightedSlot)) != arena.ActiveEnemyIndex)
                     betweenSlotsDuration /= presentationSettings.EnemyHandoffSpeedMultiplier;
                 if (betweenSlotsDuration > 0f)
                 {
@@ -835,6 +842,8 @@ namespace TurnLimbo.Presentation
 
         internal static bool HasOnlyBreakCanceledSlotsLeft(ILegacyDuelView duel, int nextSlot)
         {
+            // Reservation indices and execution intervals differ when a swing spans several faster actions.
+            if (duel is LegacyQueuedDuel timed && timed.HasTempoSkills) return false;
             if (duel is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1)
             {
                 if (duel.Phase != LegacyDuelPhase.Resolving || duel.CurrentSlot != null) return false;
@@ -880,22 +889,24 @@ namespace TurnLimbo.Presentation
             ShowSlotWeight(slot.SlotIndex, startRank);
             slotPlaybackSpeed = Mathf.Max(0.01f, presentationSettings.AnimationPlaybackSpeed);
             slotAttackInterval = Mathf.Max(0f, presentationSettings.AttackInterval);
+            ConfigureTempoPlayback(slot);
             float clipDuration = OriginalClipDuration / slotPlaybackSpeed;
-            slotImpactTime = OriginalAttackEventTime / slotPlaybackSpeed;
+            slotImpactTime = tempoWindupDuration + OriginalAttackEventTime / slotPlaybackSpeed;
             slotCycleDuration = clipDuration + slotAttackInterval;
             // The windup is the steps' warning; a meshed slot (맞물림) takes no steps, so it strikes without one.
-            slotAnticipationDuration = StepFeatures.AllowsAnyStep() && !slot.PlayerMesh.IsMeshed
+            slotAnticipationDuration = StepFeatures.AllowsAnyStep() && !slot.PlayerMesh.IsMeshed &&
+                (!session.HasTempoSkills || slot.StartHalfTick % 2 == 0)
                 ? presentationSettings.StepAnticipationDuration : 0f;
             slotStepWindow = presentationSettings.StepTimingWindow;
             slotStepWindowDecay = presentationSettings.StepWindowDecay;
             slotStepMinimumWindow = presentationSettings.StepMinimumWindow;
-            slotDuration = SlotDurationFor(slot.HitCount);
+            slotDuration = tempoWindupDuration + SlotDurationFor(slot.HitCount);
             playerSlotDamage = enemySlotDamage = 0;
             arena.ConfigureSlotTiming(slotPlaybackSpeed, slotAttackInterval);
             // A pending player counter plays from the windup; a dodge attempt withdraws it.
-            LegacySkill playerAction = slot.PlayerSkill ?? slot.PendingPlayerCounter;
+            LegacySkill playerAction = slot.PlayerActionSkill ?? slot.PlayerSkill ?? slot.PendingPlayerCounter;
             slotStartDeferred = slot.PendingPlayerCounter != null;
-            arena.BeginSlot(playerAction, slot.EnemySkill);
+            arena.BeginTempoSlot(slot, slot.PendingPlayerCounter, tempoWindupDuration);
             // A signature move's windup glow gathers to its first strike (the steps' windup is untouched).
             BeginSignatures(startRank, playerAction, slot.EnemySkill, slotAnticipationDuration + slotImpactTime);
             // 자동 회피: the skill steps back from the attack by itself as the slot starts, with the dodge's sound but none of a
@@ -907,7 +918,7 @@ namespace TurnLimbo.Presentation
             }
             // One of 이아's 수훈 techniques opens with its cut-in; the slot's clock waits for it (HoldBattle).
             if (missionEmpowered) empowermentCues.TryBeginCutIn(mission.Empowerment, slot.EnemySkill);
-            hud.SetCurrentSkills(playerAction, slot.EnemySkill, slotDuration + slotAnticipationDuration);
+            hud.SetCurrentSkills(playerAction, slot.EnemyActionSkill ?? slot.EnemySkill, slotDuration + slotAnticipationDuration);
             skillActivationCue.Reset();
             PrepareBladeExchange(slot);
             SetViewPhase(slotAnticipationDuration > 0f ? ViewPhase.SkillWindup : ViewPhase.PlayingSlot);
@@ -926,7 +937,7 @@ namespace TurnLimbo.Presentation
         private string KeywordCue(LegacyCurrentSlot slot)
         {
             var words = new System.Collections.Generic.List<string>(3);
-            string ahead = LegacyKeywordPreview.AheadPowerCue(session.PlayerQueue, slot.SlotIndex);
+            string ahead = slot.PlayerQueueIndex < 0 ? null : LegacyKeywordPreview.AheadPowerCue(session.PlayerQueue, slot.PlayerQueueIndex);
             if (ahead != null) words.Add(ahead);
             string time = committedTurnClockRan ? LegacyKeywordPreview.AheadTimeCue(slot.PlanningSecondsGained) : null;
             if (time != null) words.Add(time);
@@ -939,7 +950,7 @@ namespace TurnLimbo.Presentation
             if (bladeBindHitPending) return;
             LegacyCurrentSlot slot = session.CurrentSlot;
             float attackTime = slotImpactTime + slotCycleDuration * slot.HitsResolved;
-            float animationClipEnd = slotCycleDuration * slot.HitsResolved + OriginalClipDuration / slotPlaybackSpeed;
+            float animationClipEnd = tempoWindupDuration + slotCycleDuration * slot.HitsResolved + OriginalClipDuration / slotPlaybackSpeed;
             if (!slot.IsResolved && phaseTime >= attackTime)
             {
                 bool firstStepImpact = slot.HitsResolved == 0 && (slot.DodgeSucceeded || slot.PressureSucceeded);
@@ -1004,7 +1015,7 @@ namespace TurnLimbo.Presentation
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
                         enemyHealthBefore > 0 && enemyHealthBefore - (hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage) <= 0,
-                        Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill, enemyHurt);
+                        Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill, enemyHurt, hit.HitIndex);
                 if (hit.EnemyAttacked && !hit.PlayerDodged)
                 {
                     decisiveNow |= PresentHit(false, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage,
@@ -1012,7 +1023,7 @@ namespace TurnLimbo.Presentation
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
                         playerHealthBefore > 0 && playerHealthBefore - (hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage) <= 0,
-                        Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill, playerHurt);
+                        Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill, playerHurt, hit.HitIndex);
                     if (missionEmpowered) empowermentCues.NotifyEnemyHit(mission.Empowerment, hit.EnemySkill);
                 }
                 hud.ShowBleedingDamage(true, hit.PlayerBleedingHealthDamage, arena.PlayerRenderer.transform.position);
@@ -1115,7 +1126,7 @@ namespace TurnLimbo.Presentation
 
         // A slot's weight on the queue panels' seam: a Major pair goes farther.
         private void ShowSlotWeight(int slotIndex, LegacySlotRank rank)
-            => hud.SetClashEmphasis(slotIndex, showDirector.Enabled && rank.Tier == LegacySlotTier.Major
+            => hud.SetClashEmphasis(session.HasTempoSkills ? -1 : slotIndex, showDirector.Enabled && rank.Tier == LegacySlotTier.Major
                 ? presentationSettings.MajorClashScale : 1f);
 
         // Presentation intent is read from the current exchange only. It never advances a skill or the battle clock.
@@ -1170,7 +1181,7 @@ namespace TurnLimbo.Presentation
         private void CueRead(int slotIndex)
         {
             if (showDirector.TakeReadCue() == LegacyReadEvent.None || !presentationSettings.ReadCueEnabled) return;
-            hud.ShowReadCue(slotIndex);
+            hud.ShowReadCue(session.HasTempoSkills ? session.CurrentSlot?.PlayerQueueIndex ?? -1 : slotIndex);
             if (presentationSettings.ReadFighterAccent) arena.AccentFighter(true, presentationSettings.ReadCueInk);
         }
 
@@ -1208,7 +1219,7 @@ namespace TurnLimbo.Presentation
             arena.BeginBladeBind(seconds, presentationSettings.BladeBindSway, presentationSettings.BladeBindPress,
                 presentationSettings.BladeBindSpring, presentationSettings.BladeBindSparks);
             hud.ObserveClash(session);
-            hud.BindClash(slotIndex, seconds, presentationSettings.BladeBindSparks);
+            if (!session.HasTempoSkills) hud.BindClash(slotIndex, seconds, presentationSettings.BladeBindSparks);
             art.PlayClash(effectsSource, true, false, .4f);
             return true;
         }
@@ -1302,12 +1313,15 @@ namespace TurnLimbo.Presentation
         // Returns whether the hit was decisive (a break, the finishing blow, a heavy hit).
         private bool PresentHit(bool playerAttacks, int healthDamage, int resistanceDamage,
             int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, bool finishingBlow,
-            LegacyArenaView.HitExchange exchange, LegacyDamageReason damageReasons, LegacySkill attackingSkill, bool hurtReaction)
+            LegacyArenaView.HitExchange exchange, LegacyDamageReason damageReasons, LegacySkill attackingSkill, bool hurtReaction,
+            int hitIndex = -1)
         {
             // Only decisive moments get the slow close-up, tilt and critical sound: a break, the finishing blow, or one hit
             // taking a set share of the target's maximum health (LegacyDecisiveHit). A merely big number is still gold and larger.
             bool decisive = LegacyDecisiveHit.IsDecisive(resistanceBroke, finishingBlow, healthDamage,
                 (playerAttacks ? session.Enemy : session.Player).MaxHealth, presentationSettings.DecisiveHealthDamagePercent);
+            float impactStrength = LegacyMultiHitEmphasis.Strength(attackingSkill, hitIndex, decisive,
+                presentationSettings.MultiHitEmphasisEnabled, presentationSettings.MultiHitMiddleStrength);
             bool emphasised = decisive || displayedDamage >= 12;
             // A resistance-only hit displays exactly its resistance loss. Anything more reached
             // the body, even when the health change was clamped at zero.
@@ -1322,13 +1336,13 @@ namespace TurnLimbo.Presentation
                 hitStopRemaining = Mathf.Max(hitStopRemaining, presentationSettings.HitStopDuration);
             // A locked pair releases in its strike pose, including a large resistance-only number.
             arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded,
-                emphasised && !releasingBladeBindHit, pushPower, exchange, decisive, hurtReaction);
+                emphasised && !releasingBladeBindHit, pushPower, exchange, decisive, hurtReaction, impactStrength);
             if (decisive) hud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
             hud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber,
                 damageReasons, resistanceBroke, attackingSkill, mixedResources);
             effectsSource.pitch = resistanceBroke ? (playerAttacks ? .96f : .82f) : Random.Range(0.75f, 1.25f);
-            art.PlayClash(effectsSource, false, Random.value >= 0.5f);
+            art.PlayClash(effectsSource, false, Random.value >= 0.5f, .55f * impactStrength);
             if (decisive && criticalSound != null)
                 effectsSource.PlayOneShot(criticalSound, resistanceBroke ? .72f : .55f);
             return decisive;
@@ -1387,7 +1401,7 @@ namespace TurnLimbo.Presentation
             {
                 // Evading forgoes the counter: its strikes no longer lengthen the slot,
                 // and pressure that backed it is withdrawn with it.
-                slotDuration = SlotDurationFor(slot.HitCount);
+                slotDuration = tempoWindupDuration + SlotDurationFor(slot.HitCount);
                 arena.SetPlayerSlotSkill(null);
                 hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
                 if (pressureBacked) stepHud.ClearFeedback(LegacyStepAction.Pressure);
@@ -1407,6 +1421,11 @@ namespace TurnLimbo.Presentation
 
         private void SetViewPhase(ViewPhase next)
         {
+            if (next == ViewPhase.Outcome)
+            {
+                arena.ClearContrastImpact();
+                arena.ClearCombatAccents();
+            }
             if (next == ViewPhase.AfterTurn) turnCleanupDuration = presentationSettings.TurnCleanupSeconds;
             if (next != ViewPhase.AfterTurn) finishingHitPlayback = false;
             viewPhase = next;
@@ -2547,6 +2566,7 @@ namespace TurnLimbo.Presentation
         {
             if (IsInSkillTavern || IsPaused || session == null || session.IsFinished || viewPhase == ViewPhase.Outcome ||
                 IsPlayingScene || IsShowingResult || startCard.IsShowing || finale.IsRunning) return false;
+            arena.ClearCombatAccents();
             ClearHeldKeys();
             ConsumeHeldLaneKeys();
             pauseHud.Show();
@@ -3231,7 +3251,7 @@ namespace TurnLimbo.Presentation
             {
                 int slot = Mathf.Clamp(inspectingEnemy, 0, session.EnemyQueue.Count - 1);
                 hud.SetInspectedSlot(slot);
-                LegacySkill reserved = slot < session.PlayerQueue.Count ? session.PlayerQueue[slot] : null;
+                LegacySkill reserved = PlayerSkillMeetingEnemy(slot);
                 CampaignOwnedSkill owned = reserved != null ? campaign.GetOwnedSkill(reserved.Id) : null;
                 hud.ShowQueueComparison(session.EnemyQueue[slot], reserved,
                     ReferenceEquals(owned?.Skill, reserved) ? owned : null);
@@ -3258,6 +3278,11 @@ namespace TurnLimbo.Presentation
 
         private void OnDestroy()
         {
+            if (arena != null && forestAmbience != null)
+            {
+                arena.StrongClashPresented -= forestAmbience.PresentClash;
+                arena.CombatAccentsCleared -= forestAmbience.ClearClash;
+            }
             DisposeCombatDebug();
             // First, while the arena and the screens it touches still exist: it releases the senior knight's runtime art
             // and its sounds, and gives a suspended battle's arena back. Its continuation never runs.

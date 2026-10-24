@@ -63,6 +63,12 @@ namespace TurnLimbo.Presentation
         {
             if (row.GetAnchor(slot) == null ||
                 !row.TryGetCardLook(slot, out RectTransform source, out Color ring, out Sprite icon, out _)) return;
+            // A cancellation can arrive before the next row refresh. Recheck visibility instead of copying old revealed art.
+            if (!playerSide && EnemyCardIsHidden(slot))
+            {
+                icon = null;
+                ring = HiddenQueuePropertyInk(EnemySkillForMask(slot));
+            }
             BreakFragmentCard card = AcquireBreakFragmentCard();
             if (card == null) return;
             card.Root.anchoredPosition = breakQueueLayer.InverseTransformPoint(source.TransformPoint(source.rect.center));

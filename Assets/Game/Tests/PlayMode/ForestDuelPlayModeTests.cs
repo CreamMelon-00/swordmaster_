@@ -165,7 +165,8 @@ namespace TurnLimbo.Presentation.Tests
                 arena.SetPlanningState(10f, false);
                 SettleCamera(arena);
                 Assert.That(arena.ArenaCamera.transform.localPosition.x, Is.EqualTo(arena.DuelCenter.x).Within(.01f));
-                Assert.That(arena.ArenaCamera.transform.localPosition.y, Is.EqualTo(arena.DuelCenter.y - 1f).Within(.01f));
+                Assert.That(arena.ArenaCamera.transform.localPosition.y,
+                    Is.EqualTo(arena.DuelCenter.y - 1f + controller.PresentationSettings.CameraFramingLift).Within(.01f));
                 arena.BeginSlot(LegacySkillDefinitions.Skill(1), LegacySkillDefinitions.Skill(1));
                 SettleCamera(arena);
                 Assert.That(arena.ArenaCamera.transform.localPosition.x, Is.EqualTo(arena.DuelCenter.x).Within(.01f),

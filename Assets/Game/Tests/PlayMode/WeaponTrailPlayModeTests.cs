@@ -119,7 +119,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.HoldPhase(.40f);
                 Stroke(scope.Arena, .016f, true);
                 Assert.That(scope.Arena.WeaponTrailEmissionCount, Is.EqualTo(first), "A blade arc must wait until its raw strike phase.");
-                scope.HoldPhase(.44f);
+                scope.HoldPhase(.48f);
                 Stroke(scope.Arena, 0f, true);
                 Stroke(scope.Arena, .016f, false);
                 Assert.That(scope.Arena.WeaponTrailEmissionCount, Is.EqualTo(first), "Paused and non-playing clocks cannot create a stroke.");
@@ -208,7 +208,7 @@ namespace TurnLimbo.Presentation.Tests
 
                 scope.Begin(true, hits: 3);
                 first = scope.Arena.WeaponTrailEmissionCount;
-                // A fast frame can jump from windup past contact without ever sampling raw phase .44.
+                // A fast frame can jump from windup past contact without ever sampling raw phase .48.
                 scope.HoldPhase(.60f);
                 Invoke(scope.Arena, "PresentWeaponTrailContact", 0, true, true);
                 scope.Arena.PresentHit(false, 5, 0, false, false, 5);

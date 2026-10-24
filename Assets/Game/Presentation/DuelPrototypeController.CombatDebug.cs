@@ -11,6 +11,7 @@ namespace TurnLimbo.Presentation
         // The preview uses another instance of the production player, so timing changes have exactly one playback path.
         // The original session and its presentation objects stay suspended; the preview owns no save store.
         private bool combatDebugInstance, combatDebugActive;
+        private bool combatDebugDeepThrustEnabled;
         private bool? combatDebugAttackRhythmChoice;
         private bool? combatDebugWeaponTrailChoice;
         private int combatDebugEnemyCount = 5, combatDebugPlayerCount = 5, combatDebugLoopNumber;
@@ -44,6 +45,7 @@ namespace TurnLimbo.Presentation
         public DuelPrototypeController CombatDebugPreview => combatDebugPreview;
         public int CombatDebugEnemyAttackCount => combatDebugEnemyCount;
         public int CombatDebugPlayerAttackCount => combatDebugPlayerCount;
+        public bool CombatDebugDeepThrustEnabled => combatDebugDeepThrustEnabled;
         public bool CombatDebugAttackRhythmEnabled => combatDebugAttackRhythmChoice ??
             (presentationSettings == null || presentationSettings.AttackRhythmEnabled);
         public bool CombatDebugWeaponTrailEnabled => combatDebugWeaponTrailChoice ??
@@ -97,6 +99,7 @@ namespace TurnLimbo.Presentation
                     combatDebugPreview.presentationSettings = presentationSettings;
                     combatDebugPreview.combatDebugEnemyCount = combatDebugEnemyCount;
                     combatDebugPreview.combatDebugPlayerCount = combatDebugPlayerCount;
+                    combatDebugPreview.combatDebugDeepThrustEnabled = combatDebugDeepThrustEnabled;
                     combatDebugPreview.combatDebugAttackRhythmChoice = combatDebugAttackRhythmChoice;
                     combatDebugPreview.combatDebugWeaponTrailChoice = combatDebugWeaponTrailChoice;
                     combatDebugRoot.SetActive(true);
@@ -104,7 +107,7 @@ namespace TurnLimbo.Presentation
                     combatDebugHud = new DuelCombatDebugHud(combatDebugRoot.transform, art,
                         SetCombatDebugEnemyAttackCount, SetCombatDebugPlayerAttackCount,
                         RestartCombatDebugPreview, () => SetCombatDebugMode(false), SetCombatDebugAttackRhythmEnabled,
-                        SetCombatDebugWeaponTrailEnabled);
+                        SetCombatDebugWeaponTrailEnabled, SetCombatDebugDeepThrustEnabled);
                 }
                 else
                 {
@@ -144,6 +147,7 @@ namespace TurnLimbo.Presentation
             if (combatDebugPreview == null) return;
             combatDebugPreview.combatDebugEnemyCount = combatDebugEnemyCount;
             combatDebugPreview.combatDebugPlayerCount = combatDebugPlayerCount;
+            combatDebugPreview.combatDebugDeepThrustEnabled = combatDebugDeepThrustEnabled;
             combatDebugPreview.combatDebugAttackRhythmChoice = combatDebugAttackRhythmChoice;
             combatDebugPreview.combatDebugWeaponTrailChoice = combatDebugWeaponTrailChoice;
             combatDebugPreview.arena.SetAttackRhythmOverride(combatDebugAttackRhythmChoice);
@@ -167,6 +171,14 @@ namespace TurnLimbo.Presentation
             RestartCombatDebugPreview();
         }
 
+        /// <summary>Uses the real 깊은 찌르기 technique in the fixed player queue, retaining the normal opponent sample.</summary>
+        public void SetCombatDebugDeepThrustEnabled(bool enabled)
+        {
+            if (combatDebugDeepThrustEnabled == enabled) return;
+            combatDebugDeepThrustEnabled = enabled;
+            RestartCombatDebugPreview();
+        }
+
         private bool AdvanceCombatDebug(float realDelta, Keyboard keyboard)
         {
             if (combatDebugInstance) return false;
@@ -187,7 +199,8 @@ namespace TurnLimbo.Presentation
             combatDebugLoopNumber++;
             mission = null;
             guide = null;
-            session = LegacyCombatDebugSession.Create(combatDebugEnemyCount, combatDebugPlayerCount);
+            session = LegacyCombatDebugSession.Create(combatDebugEnemyCount, combatDebugPlayerCount,
+                useFeaturedTechnique: combatDebugDeepThrustEnabled);
             // Reset the same arena/HUD as a real attempt, preserving this sample's already arranged queues.
             ResetBattlePresentation();
             hud.SetStageText("전투 연출 확인");
@@ -198,7 +211,7 @@ namespace TurnLimbo.Presentation
 
         private void RefreshCombatDebugHud()
             => combatDebugHud?.Refresh(combatDebugEnemyCount, combatDebugPlayerCount, CombatDebugLoopNumber,
-                CombatDebugAttackRhythmEnabled, CombatDebugWeaponTrailEnabled);
+                CombatDebugAttackRhythmEnabled, CombatDebugWeaponTrailEnabled, combatDebugDeepThrustEnabled);
 
         private void RestoreCombatDebugScreen()
         {

@@ -53,6 +53,40 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void FeaturedSample_UsesTheSheetTechniqueAgainstTheOrdinaryOpponent_AndReachesABreak()
+        {
+            LegacySkill source = LegacySkillDefinitions.Skill(LegacyFeaturedTechnique.SkillId);
+            var sheetValues = (source.Cost, source.MinPower, source.MaxPower, source.AnimationName, source.IconId);
+            LegacyQueuedDuel duel = LegacyCombatDebugSession.Create(5, useFeaturedTechnique: true);
+            LegacySkill sample = duel.PlayerQueue[0];
+            Assert.That((sample.Id, sample.Name, sample.MinPower, sample.MaxPower, sample.Kind, sample.Property,
+                sample.AttackCount, sample.LaneIndex, sample.AnimationName, sample.IconId),
+                Is.EqualTo((source.Id, source.Name, source.MinPower, source.MaxPower, source.Kind, source.Property,
+                    source.AttackCount, source.LaneIndex, source.AnimationName, source.IconId)));
+            Assert.That((sample.Id, sample.Cost, sample.MinPower, sample.MaxPower, sample.Property, sample.AttackCount,
+                sample.LaneIndex), Is.EqualTo((3, 0, 15, 18, LegacySkillProperty.Penetrate, 1, 1)));
+            LegacySkill unchanged = LegacySkillDefinitions.Skill(LegacyFeaturedTechnique.SkillId);
+            Assert.That((unchanged.Cost, unchanged.MinPower, unchanged.MaxPower, unchanged.AnimationName, unchanged.IconId),
+                Is.EqualTo(sheetValues), "Preparing a free sample must not edit the shared skill sheet.");
+            Assert.That((duel.PlayerQueue.Count, duel.EnemyQueue.Count), Is.EqualTo((5, 5)));
+            foreach (LegacySkill skill in duel.PlayerQueue)
+                Assert.That((skill.Id, skill.Cost, skill.MinPower, skill.MaxPower, skill.Kind, skill.Property,
+                    skill.AttackCount, skill.LaneIndex, skill.AnimationName, skill.IconId),
+                    Is.EqualTo((sample.Id, sample.Cost, sample.MinPower, sample.MaxPower, sample.Kind, sample.Property,
+                        sample.AttackCount, sample.LaneIndex, sample.AnimationName, sample.IconId)));
+            foreach (LegacySkill skill in duel.EnemyQueue)
+                Assert.That((skill.Id, skill.MinPower, skill.MaxPower, skill.IconId), Is.EqualTo((-10001, 10, 10, 1)));
+            Assert.That(duel.LaneReservationsThisTurn(1), Is.Zero);
+
+            duel.Commit();
+            while (!duel.IsTurnResolved) duel.ResolveNextSlot();
+            Assert.That(duel.Enemy.IsResistanceBroken, Is.True, "Default five-against-five reaches the featured break presentation.");
+            Assert.That(duel.Player.IsDefeated || duel.Enemy.IsDefeated, Is.False);
+            Assert.That(LegacyCombatDebugSession.Create(5).PlayerQueue[0].Id, Is.EqualTo(-10001),
+                "The original sample remains the default after the selected sample has played.");
+        }
+
+        [Test]
         public void BothFloors_PreserveDamageNumbersAndBreaks_WithoutDefeat_AndSurviveReset()
         {
             LegacyQueuedDuel duel = HeavyDuel(1, 1);

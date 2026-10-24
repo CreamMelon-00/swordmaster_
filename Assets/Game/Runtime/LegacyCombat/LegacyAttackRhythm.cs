@@ -8,6 +8,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const float DefaultStrength = 1f;
         public const float DefaultLungeDistance = .6f;
 
+        /// <summary>Every attack shares the same held preparation and finish. Stances and waits keep their original poses.</summary>
+        public static float PosePhase(LegacySkill skill, float phase, float strength)
+            => PosePhase(phase, skill?.Kind == LegacySkillKind.Attack ? strength : 0f);
+
+        /// <summary>Only attacks advance their drawn bodies; defence and waits stay where they stand.</summary>
+        public static float LungeShare(LegacySkill skill, float phase)
+            => skill?.Kind == LegacySkillKind.Attack ? LungeShare(phase) : 0f;
+
+        /// <summary>Cosmetic trail onset only. A skipped frame still captures the authoritative contact separately.</summary>
+        public static float TrailStartPhase(LegacySkill skill, float strength)
+            => strength > 0f && skill?.Kind == LegacySkillKind.Attack ? .48f : .44f;
+
         /// <param name="phase">Elapsed share of one attack clip. Contact remains at 0.5.</param>
         /// <param name="strength">Blend from the original linear poses (0) to the full rhythm (1).</param>
         public static float PosePhase(float phase, float strength)
@@ -19,15 +31,16 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 ? DefaultStrength : Math.Max(0f, Math.Min(1f, strength));
             if (strength == 0f) return phase;
 
-            // Raise early, gather, then strike into contact. Brief contact gives way to a quick follow-through and settle.
-            // Clock -> pose: 0->0, .16->.28, .38->.34, .5->.5, .56->.53, .74->.86, 1->1.
+            // Gather early, release quickly into exact contact, then leave the extended finish readable.
+            // Clock -> pose: 0->0, .12->.28, .42->.29, .5->.5, .54->.53, .66->.90, .90->.92, 1->1.
             float pose;
-            if (phase <= .16f) pose = Segment(phase, 0f, .16f, 0f, .28f);
-            else if (phase <= .38f) pose = Segment(phase, .16f, .38f, .28f, .34f);
-            else if (phase <= .5f) pose = Segment(phase, .38f, .5f, .34f, .5f);
-            else if (phase <= .56f) pose = Segment(phase, .5f, .56f, .5f, .53f);
-            else if (phase <= .74f) pose = Segment(phase, .56f, .74f, .53f, .86f);
-            else pose = Segment(phase, .74f, 1f, .86f, 1f);
+            if (phase <= .12f) pose = Segment(phase, 0f, .12f, 0f, .28f);
+            else if (phase <= .42f) pose = Segment(phase, .12f, .42f, .28f, .29f);
+            else if (phase <= .5f) pose = Segment(phase, .42f, .5f, .29f, .5f);
+            else if (phase <= .54f) pose = Segment(phase, .5f, .54f, .5f, .53f);
+            else if (phase <= .66f) pose = Segment(phase, .54f, .66f, .53f, .90f);
+            else if (phase <= .90f) pose = Segment(phase, .66f, .90f, .90f, .92f);
+            else pose = Segment(phase, .90f, 1f, .92f, 1f);
             return strength == 1f ? pose : phase + (pose - phase) * strength;
         }
 
@@ -38,15 +51,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (float.IsNaN(phase) || phase <= 0f || phase >= 1f) return 0f;
 
-            // Clock -> lunge: 0->0, .12->-1/6, .34->-.3, .46->.7, .5->1, .58->1, .72->11/30, 1->0.
+            // Release at the end of the gathered pose; keep maximum reach and the original clip end.
             float share;
-            if (phase <= .12f) share = Segment(phase, 0f, .12f, 0f, -.1666667f);
-            else if (phase <= .34f) share = Segment(phase, .12f, .34f, -.1666667f, -.3f);
-            else if (phase <= .46f) share = Segment(phase, .34f, .46f, -.3f, .7f);
-            else if (phase < .5f) share = Segment(phase, .46f, .5f, .7f, 1f);
-            else if (phase <= .58f) return 1f;
-            else if (phase <= .72f) share = Segment(phase, .58f, .72f, 1f, .3666667f);
-            else share = Segment(phase, .72f, 1f, .3666667f, 0f);
+            if (phase <= .12f) share = Segment(phase, 0f, .12f, 0f, -.3f);
+            else if (phase <= .42f) return -.3f;
+            else if (phase < .5f) share = Segment(phase, .42f, .5f, -.3f, 1f);
+            else if (phase <= .66f) return 1f;
+            else if (phase <= .78f) share = Segment(phase, .66f, .78f, 1f, .15f);
+            else if (phase <= .92f) share = Segment(phase, .78f, .92f, .15f, .12f);
+            else share = Segment(phase, .92f, 1f, .12f, 0f);
             return Math.Max(-.3f, Math.Min(1f, share));
         }
 

@@ -252,8 +252,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (slotIndex < 0 || slotIndex >= queue.Count || queue[slotIndex] == null) return 0;
             int usesNow = CycleUses(queue[slotIndex].Id);
             if (Phase == LegacyDuelPhase.Planning) return LegacyKeywordLinks.PlannedCycleUses(queue, slotIndex, usesNow);
-            if (CurrentSlot != null && CurrentSlot.SlotIndex == slotIndex) return CurrentSlot.PlayerCycleUses;
-            return LegacyKeywordLinks.UpcomingCycleUses(queue, slotIndex, CurrentSlot != null ? CurrentSlot.SlotIndex + 1 : nextSlot,
+            if (CurrentSlot != null && CurrentSlot.PlayerQueueIndex == slotIndex && CurrentSlot.PlayerSkill != null)
+                return CurrentSlot.PlayerCycleUses;
+            int firstUncast = queue.Count;
+            for (int i = CurrentSlot != null ? nextSlot + 1 : nextSlot; i < timeSegments.Length; i++)
+            {
+                LegacyTimedSkill action = ActionAt(true, i);
+                if (action != null) { firstUncast = action.QueueIndex; break; }
+            }
+            if (CurrentSlot != null && CurrentSlot.PlayerActionSkill != null && !CurrentSlot.PlayerActionCompletes)
+                firstUncast = CurrentSlot.PlayerQueueIndex;
+            return LegacyKeywordLinks.UpcomingCycleUses(queue, slotIndex, firstUncast,
                 usesNow);
         }
         int ILegacyDuelView.EnemyCycleUsesAtSlot(int slotIndex) => 0;
@@ -292,6 +301,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public DuelMatchOutcome Outcome { get; private set; }
         public IReadOnlyList<LegacySkill> PlayerQueue { get; }
         public IReadOnlyList<LegacySkill> EnemyQueue { get; }
+        public bool IsEnemySkillRevealed(int slotIndex) => slotIndex >= 0 && slotIndex < EnemyQueue.Count;
         public int PlayerBreakCanceledFromSlotIndex { get; private set; } = -1;
         public int EnemyBreakCanceledFromSlotIndex { get; private set; } = -1;
         public LegacyCurrentSlot CurrentSlot { get; private set; }
@@ -463,7 +473,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return slots;
         }
 
-        /// <summary>Allocation-free form for per-frame presentation; clears <paramref name="slots"/> first.</summary>
+        /// <summary>Clears and reuses the output list. Tempo preparations also simulate an isolated timeline.</summary>
         public void ForecastEnemyCounterSlots(List<int> slots) => ForecastCounterSlots(false, slots);
 
         /// <summary>This turn's slots whose one-sided enemy attack the player's counter answers, in order:
@@ -476,12 +486,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return slots;
         }
 
-        /// <summary>Allocation-free form for per-frame presentation; clears <paramref name="slots"/> first.</summary>
+        /// <summary>Clears and reuses the output list. Tempo preparations also simulate an isolated timeline.</summary>
         public void ForecastPlayerCounterSlots(List<int> slots) => ForecastCounterSlots(true, slots);
 
         /// <summary>The enemy counter that would meet <paramref name="skill"/> if the player queued it next, or null.</summary>
         public LegacySkill EnemyCounterFacing(LegacySkill skill)
         {
+            if (HasTempoSkills || (skill != null && skill.DurationHalfUnits != 2)) return TimedEnemyCounterFacing(skill);
             if (enemyDefinitions != null) return GroupEnemyCounterFacing(skill);
             if (Phase != LegacyDuelPhase.Planning || EnemyCounter == null || !IsAttack(skill) ||
                 playerQueue.Count < enemyQueue.Count) return null;
@@ -512,8 +523,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             new LegacyQueuedDuel(this).ResolveForecast(slots);
         }
 
-        /// <summary>The slot the front skill of <paramref name="laneIndex"/> would take if it were queued now, forecast with the
-        /// whole turn as <see cref="ForecastTurn(List{LegacySlotForecast})"/> does (a skill that takes earlier ones off the queue
+        /// <summary>The whole interval the front skill of <paramref name="laneIndex"/> would occupy if queued now, including
+        /// attacks it receives while preparing. Forecasts the turn as <see cref="ForecastTurn(List{LegacySlotForecast})"/> does (a skill that takes earlier ones off the queue
         /// lands where that leaves it). Null outside planning or when the lane cannot queue its front (closed, empty, a wait or
         /// short of ACT).</summary>
         public LegacySlotForecast ForecastIfQueued(int laneIndex)
@@ -525,7 +536,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int slotIndex = copy.LastQueuedSlotIndex;
             var slots = new List<LegacySlotForecast>();
             copy.ResolveForecast(slots);
-            return slotIndex < slots.Count ? slots[slotIndex] : null;
+            return LegacySlotForecast.AggregateForQueue(slots, slotIndex, true);
         }
 
         // Only on a forecast's copy: commits the turn and resolves every slot, noting what each one did.
@@ -536,20 +547,23 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 if (Phase != LegacyDuelPhase.Resolving)
                 {
-                    slots.Add(LegacySlotForecast.Unreached(index,
-                        index < committedPlayerQueue.Length ? committedPlayerQueue[index] : null,
-                        index < committedEnemyQueue.Length ? committedEnemyQueue[index] : null, Outcome));
+                    var unreached = LegacySlotForecast.Unreached(index,
+                        CompletingAt(true, index), CompletingAt(false, index), Outcome);
+                    SetForecastTiming(unreached, index);
+                    slots.Add(unreached);
                     continue;
                 }
-                activeEnemyIndex = EnemyIndexForSlot(index);
+                activeEnemyIndex = EnemyIndexForSlot(ActionAt(false, index)?.QueueIndex ?? -1);
                 bool playerWhole = !Player.IsResistanceBroken, enemyWhole = !Enemy.IsResistanceBroken;
                 int secondsBefore = NextPlanningSeconds;
                 LegacySlotResult result = ResolveNextSlot();
-                slots.Add(new LegacySlotForecast(result.SlotIndex, result.PlayerSkill, result.EnemySkill,
+                var forecast = new LegacySlotForecast(result.SlotIndex, result.PlayerSkill, result.EnemySkill,
                     result.PlayerHealthDamage, result.EnemyHealthDamage,
                     result.PlayerResistanceDamage, result.EnemyResistanceDamage,
                     playerWhole && Player.IsResistanceBroken, enemyWhole && Enemy.IsResistanceBroken, result.Outcome,
-                    nextTurnSeconds: NextPlanningSeconds - secondsBefore));
+                    nextTurnSeconds: NextPlanningSeconds - secondsBefore);
+                SetForecastTiming(forecast, index);
+                slots.Add(forecast);
             }
         }
 
@@ -562,6 +576,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (slots == null) throw new ArgumentNullException(nameof(slots));
             slots.Clear();
             if (Phase == LegacyDuelPhase.Finished) return;
+            if (ForecastTimedCounterSlots(playerCounter, slots)) return;
             if (enemyDefinitions != null)
             {
                 ForecastGroupCounterSlots(playerCounter, slots);
@@ -719,7 +734,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // 순환 +1 counts from the committed queue only, so a feeder or target taken off before now gives or gets nothing.
             LegacyKeywordLinks.ApplyCycleFeed(committedPlayerQueue, cycleUses);
             nextSlot = 0;
-            slotCount = Math.Max(committedPlayerQueue.Length, committedEnemyQueue.Length);
+            BuildExecutionTiming();
+            slotCount = timeSegments.Length;
             Phase = LegacyDuelPhase.Resolving;
             if (slotCount == 0 && RoundNumber >= roundLimit)
             {
@@ -790,41 +806,42 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (Phase != LegacyDuelPhase.Resolving || CurrentSlot != null || nextSlot >= slotCount)
                 throw new InvalidOperationException("A committed slot must be available and the previous slot must be complete.");
-            LegacySkill playerSkill = nextSlot < committedPlayerQueue.Length ? committedPlayerQueue[nextSlot] : null;
-            LegacySkill enemySkill = nextSlot < committedEnemyQueue.Length ? committedEnemyQueue[nextSlot] : null;
-            activeEnemyIndex = EnemyIndexForSlot(nextSlot);
+            LegacyTimedSkill playerAction = ActionAt(true, nextSlot), enemyAction = ActionAt(false, nextSlot);
+            LegacySkill playerSkill = CompletingAt(true, nextSlot), enemySkill = CompletingAt(false, nextSlot);
+            int playerQueueIndex = playerAction?.QueueIndex ?? -1, enemyQueueIndex = enemyAction?.QueueIndex ?? -1;
+            activeEnemyIndex = EnemyIndexForSlot(enemyQueueIndex);
             // A one-sided attack on a truly empty slot draws that side's counter (breathing is a skill).
             // A counter never answers a counter: each side's trigger requires its own empty slot.
-            bool enemyCounters = !EnemyCannotCounterThisTurn && enemySkill == null && IsAttack(playerSkill) && EnemyCountersRemaining > 0;
+            bool enemyCounters = !EnemyCannotCounterThisTurn && enemyAction == null && IsAttack(playerSkill) && EnemyCountersRemaining > 0;
             if (enemyCounters)
             {
                 enemySkill = EnemyCounter.Skill;
                 EnemyCountersRemaining--;
             }
-            LegacySkill pendingCounter = PlayerBreakCanceledFromSlotIndex < 0 && playerSkill == null && IsAttack(enemySkill) && PlayerCountersRemaining > 0
+            LegacySkill pendingCounter = PlayerBreakCanceledFromSlotIndex < 0 && playerAction == null && IsAttack(enemySkill) && PlayerCountersRemaining > 0
                 ? PlayerCounter.Skill : null;
             // Spend protection before either received-damage snapshot: this attack forgoes protection even against
             // the opponent's simultaneous hit. Vulnerability and all other statuses remain.
             playerProtectionSpendPowerBonus = playerStatuses.SpendProtectionForPower(playerSkill);
             enemyProtectionSpendPowerBonus = enemyStatuses.SpendProtectionForPower(enemySkill);
             // 맞물림 adds into the player's power percent beside the buffs. A counter fills an empty slot, which never meshes.
-            LegacyMeshSlot playerMesh = LegacyMeshing.Find(committedPlayerQueue, nextSlot, meshPercent);
+            LegacyMeshSlot playerMesh = playerAction == null ? default : LegacyMeshing.Find(committedPlayerQueue, playerQueueIndex, meshPercent);
             double playerAttackMultiplier = AttackMultiplier(playerStatuses, playerMesh.BonusPercent, out int playerPowerBuffPercent);
             // Queue power is a whole-skill multiplier, separate from additive buffs and meshing.
-            playerAttackMultiplier *= QueuePowerMultiplierForSlot(nextSlot);
+            if (playerSkill != null) playerAttackMultiplier *= QueuePowerMultiplierForSlot(playerQueueIndex);
             double enemyAttackMultiplier = AttackMultiplier(enemyStatuses, 0, out int enemyPowerBuffPercent);
             double playerReceivedMultiplier = ReceivedMultiplier(playerStatuses, out int playerProtectionBuffPercent);
             double enemyReceivedMultiplier = ReceivedMultiplier(enemyStatuses, out int enemyProtectionBuffPercent);
             // 사용 효과 앞 X마다 위력 adds into the roll beside 순환, for the queue's first copy of the skill.
             int playerPower = RollPower(playerSkill, playerAttackMultiplier, out int playerTotalPower,
-                checked(CyclePowerBonus(playerSkill) + LegacyKeywordLinks.AheadPowerBonus(committedPlayerQueue, nextSlot, playerSkill) +
+                checked(CyclePowerBonus(playerSkill) + LegacyKeywordLinks.AheadPowerBonus(committedPlayerQueue, playerQueueIndex, playerSkill) +
                     playerProtectionSpendPowerBonus + BleedingPowerBonus(playerSkill, playerStatuses, enemyStatuses)));
             int playerCycleUses = CycleUsesRead(playerSkill);
             RecordCycleUse(playerSkill);
             int enemyPower = RollIiaEnemyPower(enemySkill, playerSkill ?? pendingCounter,
                 playerSkill == null ? CycleUsesRead(pendingCounter) : playerCycleUses, enemyAttackMultiplier,
                 checked(enemyProtectionSpendPowerBonus + BleedingPowerBonus(enemySkill, enemyStatuses, playerStatuses) + (enemyCounters ? 0
-                    : LegacyKeywordLinks.AheadPowerBonus(committedEnemyQueue, nextSlot, enemySkill))));
+                    : LegacyKeywordLinks.AheadPowerBonus(committedEnemyQueue, enemyQueueIndex, enemySkill))));
 
             playerStatusBoundary = playerStatuses.GrantSerial;
             enemyStatusBoundary = enemyStatuses.GrantSerial;
@@ -832,6 +849,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             CurrentSlot = new LegacyCurrentSlot(nextSlot, playerSkill, enemySkill,
                 playerPower, enemyPower, playerTotalPower,
                 playerReceivedMultiplier, enemyReceivedMultiplier, Player, Enemy);
+            SetCurrentTiming(CurrentSlot);
             CurrentSlot.EnemyCountered = enemyCounters;
             CurrentSlot.PlayerStartingBleeding = playerStatuses.BleedingCount;
             CurrentSlot.EnemyStartingBleeding = enemyStatuses.BleedingCount;
@@ -840,7 +858,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // 사용 효과 앞 X마다 다음 턴 제한시간: the queued skill's first copy adds to the next turn's clock.
             int nextSeconds = NextPlanningSeconds;
             CurrentSlot.PlanningSecondsGained = LegacyPlanningClock.AddBonus(ref nextSeconds,
-                LegacyKeywordLinks.AheadTimeBonus(committedPlayerQueue, nextSlot, playerSkill));
+                LegacyKeywordLinks.AheadTimeBonus(committedPlayerQueue, playerQueueIndex, playerSkill));
             NextPlanningSeconds = nextSeconds;
             // 사용 효과 자동 회피: the same slot's attack, a counter filling it included, misses entirely. Not a step attempt.
             if (LegacySkillDefinitions.Find(playerSkill)?.Effect.AutoDodge == true)
@@ -889,9 +907,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             slot.EnemyFeedback = ApplyInitialSkillEffects(slot.EnemySkill, slot.PlayerSkill, enemyStatuses, false,
                 enemyPowerBuffPercent, enemyProtectionBuffPercent);
             slot.PlayerFeedback = WithUsePowerFeedback(slot.PlayerFeedback, slot.PlayerSkill, committedPlayerQueue,
-                slot.SlotIndex, playerProtectionSpendPowerBonus, slot.PlayerCountered);
+                slot.PlayerQueueIndex, playerProtectionSpendPowerBonus, slot.PlayerCountered);
             slot.EnemyFeedback = WithUsePowerFeedback(slot.EnemyFeedback, slot.EnemySkill, committedEnemyQueue,
-                slot.SlotIndex, enemyProtectionSpendPowerBonus, slot.EnemyCountered);
+                slot.EnemyQueueIndex, enemyProtectionSpendPowerBonus, slot.EnemyCountered);
             int playerInflicted = playerEffect.BleedingToInflict(slot.EnemyStartingBleeding);
             int enemyInflicted = enemyEffect.BleedingToInflict(slot.PlayerStartingBleeding);
             playerStatuses.GrantBleeding(playerEffect.SelfBleedingCount);
@@ -977,6 +995,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 slot.PlayerCycleUses = CycleUsesRead(counter);
                 RecordCycleUse(counter);
                 slot.PlayerTotalPower = totalPower;
+                SetCurrentTiming(slot);
             }
             RefreshIiaMirrorAfterCounterChoice(slot);
             ApplySlotStart(slot, deferredPlayerPowerBuffPercent, deferredPlayerProtectionBuffPercent,
@@ -1080,7 +1099,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (hitOutcome != DuelMatchOutcome.InProgress || Enemy.IsDefeated)
                 slot.HitCount = slot.HitsResolved;
             ConsumeFinishedBleeding(slot);
-            if (Enemy.IsDefeated) CancelEnemyAfterDeath(slot.SlotIndex);
+            if (Enemy.IsDefeated)
+            {
+                LegacyTimedSkill dyingAction = ActionAt(false, slot.SlotIndex);
+                CancelEnemyAfterDeath(BreakQueueIndex(false, slot.SlotIndex),
+                    dyingAction != null && dyingAction.EndHalfTick > slot.EndHalfTick);
+            }
             // Only while the duel goes on: a hit that also ends it leaves nothing to interrupt.
             bool thresholdReached = enemyHealthThresholdPercent > 0 && !EnemyHealthThresholdReached &&
                 hitOutcome == DuelMatchOutcome.InProgress &&
@@ -1128,7 +1152,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return new LegacySlotResult(slot.SlotIndex, slot.PlayerSkill, slot.EnemySkill,
                 slot.PlayerStartingHealth - Player.Health, slot.EnemyStartingHealth - Enemy.Health,
                 slot.PlayerStartingResistance - Player.Resistance, slot.EnemyStartingResistance - Enemy.Resistance, Outcome,
-                slot.PlayerBleedingHealthDamage, slot.EnemyBleedingHealthDamage);
+                slot.PlayerBleedingHealthDamage, slot.EnemyBleedingHealthDamage)
+            {
+                StartHalfTick = slot.StartHalfTick, EndHalfTick = slot.EndHalfTick,
+                PlayerQueueIndex = slot.PlayerQueueIndex, EnemyQueueIndex = slot.EnemyQueueIndex
+            };
         }
 
         public void BeginNextTurn()
@@ -1384,7 +1412,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         // Never touch this slot's skill, hit count, powers or paid ACT. A broken fighter may reserve again next turn.
         private void CancelAfterBreak(bool player, int breakingSlot)
         {
-            int first = breakingSlot + 1;
+            int breakingQueueIndex = BreakQueueIndex(player, breakingSlot);
+            int first = breakingQueueIndex + 1;
             if (player)
             {
                 if (PlayerBreakCanceledFromSlotIndex >= 0) return;
@@ -1394,7 +1423,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 if (enemyDefinitions != null)
                 {
-                    CancelEnemyAfterBreak(breakingSlot);
+                    CancelEnemyAfterBreak(breakingQueueIndex);
                     return;
                 }
                 if (EnemyBreakCanceledFromSlotIndex >= 0) return;

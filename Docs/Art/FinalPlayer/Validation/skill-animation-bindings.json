@@ -279,6 +279,20 @@
             "name": "연습 반격",
             "property": "Slash",
             "animation": "slash"
+        },
+        {
+            "id": 601,
+            "hits": 1,
+            "name": "시험 고속 베기",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 602,
+            "hits": 1,
+            "name": "시험 차지 베기",
+            "property": "Slash",
+            "animation": "slash"
         }
     ]
 }

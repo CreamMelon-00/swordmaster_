@@ -60,6 +60,7 @@ namespace TurnLimbo.Presentation
             PresentWeaponTrailContact(0, player.Skill?.Kind == LegacySkillKind.Attack,
                 enemy.Skill?.Kind == LegacySkillKind.Attack);
             if (disposed || !resolving || approaching || returning) return;
+            StrongClashPresented?.Invoke();
             // The regular particle prefab starts after a battle-clock delay, so it would appear only on release while
             // that clock is held. The existing bind's starlight is immediate and ages on real time instead.
             impactGlow.Emit(BladeBindContactPosition, false, false);

@@ -251,7 +251,8 @@ namespace TurnLimbo.Presentation.Tests
                 arena.BeginTurn();
                 arena.SetPlanningState(10f, false);
                 Settle(arena, floor);
-                Assert.That(camera.transform.localPosition.y, Is.EqualTo(arena.DuelCenter.y - 1f).Within(.01f));
+                Assert.That(camera.transform.localPosition.y,
+                    Is.EqualTo(arena.DuelCenter.y - 1f + controller.PresentationSettings.CameraFramingLift).Within(.01f));
                 Assert.That(FeetShare(arena), Is.GreaterThan(floor));
             }
             finally

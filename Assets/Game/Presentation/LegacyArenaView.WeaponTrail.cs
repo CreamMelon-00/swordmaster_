@@ -38,7 +38,8 @@ namespace TurnLimbo.Presentation
         {
             if (!resolving || approaching || returning || actor.ReactionTime > 0f ||
                 actor == enemy && EnemyIsDummy || actor.Skill?.Kind != LegacySkillKind.Attack ||
-                !TryGetSkillFrame(actor, out float clipTime) || clipTime / OriginalClipDuration + .00001f < .44f) return;
+                !TryGetSkillFrame(actor, out float clipTime) ||
+                clipTime / OriginalClipDuration + .00001f < LegacyAttackRhythm.TrailStartPhase(actor.Skill, slotAttackRhythmStrength)) return;
             int hit = Mathf.FloorToInt(actor.AnimationTime / (OriginalClipDuration / slotAnimationSpeed + slotAttackInterval));
             EmitWeaponTrail(actor, hit, actor.AttackVisualOffset);
         }
@@ -70,9 +71,11 @@ namespace TurnLimbo.Presentation
                 // big swing. Never substitute the old slash mesh or stack it over the authored trail.
                 return;
             }
+            float strength = LegacyMultiHitEmphasis.Strength(actor.Skill, hit, false,
+                settings.MultiHitEmphasisEnabled, settings.MultiHitMiddleStrength);
             weaponTrails.Emit(actor.Renderer.transform.position + visibleOffset, actor == player,
                 actor.Skill.Property, AttackVariant(actor, hit), actor == enemy && !EnemyIsElisa,
-                slotWeaponTrailStrength, slotWeaponTrailSeconds);
+                slotWeaponTrailStrength * strength, slotWeaponTrailSeconds);
         }
     }
 }

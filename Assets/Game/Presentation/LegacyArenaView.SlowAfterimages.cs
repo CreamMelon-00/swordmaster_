@@ -55,6 +55,7 @@ namespace TurnLimbo.Presentation
         // Arena.Tick has already faded it exactly once, whether this final displayed pose is held or moving.
         internal void SampleSlowAfterimages(float realDelta)
         {
+            RefreshContrastImpact();
             if (disposed || suspension != null || !(realDelta > 0f) || float.IsInfinity(realDelta)) return;
             SpriteRenderer source = player.Renderer;
             // Automatic planning/manual slow clocks and a failed gesture do not invent a success trail.

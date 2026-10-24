@@ -27,7 +27,7 @@ namespace TurnLimbo.Presentation
         {
             if (!IsGroupBattle) return;
             var roster = (ILegacyEnemyRosterView)session;
-            int target = roster.EnemyIndexForSlot(slotIndex);
+            int target = roster.EnemyIndexForSlot(EnemyQueueIndexForExecutionSlot(slotIndex));
             if (target < 0 || target >= roster.Enemies.Count || target == arena.ActiveEnemyIndex) return;
             arena.SelectActiveEnemy(target);
             resistanceFeedback.Reset();
@@ -39,8 +39,11 @@ namespace TurnLimbo.Presentation
         {
             if (!IsGroupBattle) return session.Enemy;
             var roster = (ILegacyEnemyRosterView)session;
-            return roster.Enemies[roster.EnemyIndexForSlot(session.LastResolvedSlot + 1)];
+            return roster.Enemies[roster.EnemyIndexForSlot(EnemyQueueIndexForExecutionSlot(session.LastResolvedSlot + 1))];
         }
+
+        private int EnemyQueueIndexForExecutionSlot(int slotIndex)
+            => session.HasTempoSkills ? session.QueueIndexAtSegment(false, slotIndex) : slotIndex;
 
         // Look ahead only after the last actual impact. Readying another body is presentation, not BeginNextSlot:
         // the current skill keeps its target, recovery, damage and original shared queue indices.
@@ -55,6 +58,8 @@ namespace TurnLimbo.Presentation
             {
                 var roster = (ILegacyEnemyRosterView)session;
                 int next = session.CurrentSlot != null ? session.CurrentSlot.SlotIndex + 1 : session.LastResolvedSlot + 1;
+                next = EnemyQueueIndexForExecutionSlot(next);
+                if (next < 0) { arena.SetUpcomingEnemy(-1, null); return; }
                 for (int slot = next; slot < session.EnemyQueue.Count; slot++)
                 {
                     LegacySkill candidate = session.EnemyQueue[slot];

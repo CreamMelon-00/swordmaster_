@@ -14,11 +14,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         public LegacySkill(int id, string name, int cost, int minPower, int maxPower,
             LegacySkillKind kind, LegacySkillProperty property, int attackCount,
-            int laneIndex, string description, string animationName = null, int iconId = 0)
+            int laneIndex, string description, string animationName = null, int iconId = 0, int durationHalfUnits = 2)
         {
             if (cost < 0 || minPower < 0 || maxPower < minPower || attackCount < 1)
                 throw new ArgumentOutOfRangeException(nameof(cost), "Skill costs and power must be valid and hit count must be positive.");
             if (laneIndex < 0 || laneIndex > 2) throw new ArgumentOutOfRangeException(nameof(laneIndex));
+            if (durationHalfUnits != 1 && (durationHalfUnits < 2 || durationHalfUnits > 8 || durationHalfUnits % 2 != 0))
+                throw new ArgumentOutOfRangeException(nameof(durationHalfUnits), "A skill takes half a slot, one slot, or two to four whole slots.");
             Id = id;
             IconId = iconId > 0 ? iconId : id;
             baseName = Name = name ?? throw new ArgumentNullException(nameof(name));
@@ -31,6 +33,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LaneIndex = laneIndex;
             Description = description ?? string.Empty;
             AnimationName = animationName ?? DefaultAnimationName(property);
+            DurationHalfUnits = durationHalfUnits;
         }
 
         /// <summary>The animation a skill plays when it names none; the skill sheet leaves this one blank.</summary>
@@ -50,6 +53,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int LaneIndex { get; }
         public string Description { get; }
         public string AnimationName { get; }
+        /// <summary>Two units make one normal skill slot. Only consecutive fast skills share that slot.</summary>
+        public int DurationHalfUnits { get; }
+        public bool IsFast => DurationHalfUnits == 1;
+        public bool IsCharge => DurationHalfUnits >= 4;
 
         /// <summary>Only a player's owned copy is upgraded. Keeping that copy stable lets a duel already holding it
         /// use its new base power from the next slot, without changing the shared sheet definition.</summary>

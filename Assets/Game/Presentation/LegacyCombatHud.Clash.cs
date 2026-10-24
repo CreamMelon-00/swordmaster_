@@ -248,7 +248,7 @@ namespace TurnLimbo.Presentation
         public void ObserveClash(ILegacyDuelView session)
         {
             ObserveCombatReadout(session);
-            if (disposed || session == null || !ClashMotionEnabled) return;
+            if (disposed || session == null || !ClashMotionEnabled || UsesTempoQueue(session)) return;
             LegacyClashInput input = session.CurrentClash;
             if (liveClash != null && liveClash.Slot != input.SlotIndex)
             {
@@ -364,7 +364,7 @@ namespace TurnLimbo.Presentation
         /// switched off, nothing of it is left.</summary>
         private void AdvanceQueueClash(ILegacyDuelView session, bool resolving, int activeSlot, float delta)
         {
-            if (!resolving || !ClashMotionEnabled)
+            if (!resolving || !ClashMotionEnabled || UsesTempoQueue(session))
             {
                 ClearQueueClash();
                 return;
@@ -527,11 +527,25 @@ namespace TurnLimbo.Presentation
         {
             if (!side.Posed || !row.TryGetCardLook(play.Slot, out RectTransform card, out Color ring, out Sprite icon, out float rest))
                 return;
+            bool hidden = !side.IsPlayer && EnemyCardIsHidden(play.Slot);
+            if (hidden)
+            {
+                icon = null;
+                ring = HiddenQueuePropertyInk(EnemySkillForMask(play.Slot));
+            }
             Image copy = Panel(ClashCardName, queueCues, card.anchoredPosition, Vector2.one * QueueCardSize, Card, ring);
             // The card's ring in its school's dye and its icon, as the row builds them.
             PanelSurface(copy).rectTransform.sizeDelta = -Vector2.one * (QueueCardRing * 2f);
             Image picture = Image("Icon", copy.transform, icon, Vector2.zero, Vector2.one * QueueIconSize);
             picture.preserveAspect = true;
+            picture.enabled = !hidden && icon != null;
+            if (hidden)
+            {
+                Text property = BuildHiddenQueueProperty(copy.rectTransform, art.UIFont);
+                property.text = HiddenQueuePropertyText(EnemySkillForMask(play.Slot));
+                property.color = ring;
+                property.gameObject.SetActive(true);
+            }
             side.Ghost = copy.rectTransform;
             side.Ghost.localRotation = card.localRotation;
             side.Ghost.localScale = card.localScale;
@@ -576,6 +590,15 @@ namespace TurnLimbo.Presentation
         /// reservation sparks (moving on on real time with their cards, and a pending one begun).</summary>
         private void UpdateQueueCues(ILegacyDuelView session, bool planning, float realDelta)
         {
+            if (UsesTempoQueue(session))
+            {
+                ringSlot = -1;
+                pendingReservationSpark = -1;
+                nextOpponentRing.gameObject.SetActive(false);
+                nextReservationSocket.gameObject.SetActive(false);
+                foreach (SparkBurst burst in reservationSparks) FollowReservationSpark(burst, realDelta);
+                return;
+            }
             int slot = planning && QueuePairCuesEnabled && !inputsHeld && inspectedSlot < 0 && CanReserveNow()
                 ? LegacyClashMotion.NextOpponentSlot(session) : -1;
             RectTransform target = slot >= 0 ? enemyQueue.GetAnchor(slot) : null;
@@ -630,7 +653,7 @@ namespace TurnLimbo.Presentation
             float seconds = presentationSettings != null ? presentationSettings.ReservationSparkSeconds : DefaultReservationSparkSeconds;
             int baseCount = presentationSettings != null ? presentationSettings.ReservationSparkCount : DefaultReservationSparkCount;
             if (mine == null || theirs == null || !(seconds > 0f) || baseCount <= 0) return;
-            LegacyForecastVerdict? verdict = slot < forecastVerdicts.Count && forecastVerdicts[slot] >= 0
+            LegacyForecastVerdict? verdict = !EnemyCardIsHidden(slot) && slot < forecastVerdicts.Count && forecastVerdicts[slot] >= 0
                 ? (LegacyForecastVerdict)forecastVerdicts[slot] : (LegacyForecastVerdict?)null;
             ReservationLook(verdict, out Color ink, out float scale);
             float size = (presentationSettings != null ? presentationSettings.ReservationSparkSize : DefaultReservationSparkSize) *

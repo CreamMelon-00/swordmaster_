@@ -78,7 +78,7 @@ namespace TurnLimbo.Runtime.Campaign
             {
                 LegacySkill source = ids[i] < 0 ? LegacyCommonActions.Breathe : LegacySkillDefinitions.Skill(ids[i]);
                 result[i] = new LegacySkill(source.Id, source.Name, source.Cost, source.MinPower, source.MaxPower,
-                    source.Kind, source.Property, source.AttackCount, source.LaneIndex, source.Description, source.AnimationName, source.IconId);
+                    source.Kind, source.Property, source.AttackCount, source.LaneIndex, source.Description, source.AnimationName, source.IconId, source.DurationHalfUnits);
             }
             return Array.AsReadOnly(result);
         }
