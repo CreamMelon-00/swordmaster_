@@ -1,0 +1,173 @@
+{
+  "frameCount": 8,
+  "allExact": true,
+  "frames": [
+    {
+      "frame": 0,
+      "groundY": 215,
+      "bbox": [
+        76,
+        88,
+        156,
+        216
+      ],
+      "sha256": "64a975ee5a59c081aa093ccd03932c418e1ff5e1f2b0c5d5c4d36c6836ccb6b8",
+      "exactPixelLabPaletteAndIntegerTranslation": true
+    },
+    {
+      "frame": 1,
+      "groundY": 215,
+      "bbox": [
+        75,
+        89,
+        154,
+        216
+      ],
+      "sha256": "3ade116b24ff2ef5abdeb4c01752f9f5b13fc33910d498e55cf301d671ea6fc9",
+      "exactPixelLabPaletteAndIntegerTranslation": true
+    },
+    {
+      "frame": 2,
+      "groundY": 215,
+      "bbox": [
+        79,
+        87,
+        164,
+        216
+      ],
+      "sha256": "34c6ab01d8b545126fbe5b5270dd55b315a7df20d83182e87c87aeb017eb6cc5",
+      "exactPixelLabPaletteAndIntegerTranslation": true
+    },
+    {
+      "frame": 3,
+      "groundY": 215,
+      "bbox": [
+        85,
+        84,
+        174,
+        216
+      ],
+      "sha256": "c7181897012ac8b0aa47d231646ab8988cb3cae6939506b98f92b39e22ce975f",
+      "exactPixelLabPaletteAndIntegerTranslation": true
+    },
+    {
+      "frame": 4,
+      "groundY": 215,
+      "bbox": [
+        83,
+        87,
+        186,
+        216
+      ],
+      "sha256": "9674c072c6587309958694dbdf8d91181d0e428a22646247b868d3bc22da1fed",
+      "exactPixelLabPaletteAndIntegerTranslation": true
+    },
+    {
+      "frame": 5,
+      "groundY": 215,
+      "bbox": [
+        73,
+        90,
+        189,
+        216
+      ],
+      "sha256": "fd826acbf1497ff3c0f010c35e503ea5bb9e5a38dbfed2e36b9c88029b7ee6ac",
+      "exactPixelLabPaletteAndIntegerTranslation": true
+    },
+    {
+      "frame": 6,
+      "groundY": 215,
+      "bbox": [
+        82,
+        87,
+        180,
+        216
+      ],
+      "sha256": "27c7d20957a8dccf51ad1d8c4ab10a4393669dfd62fb89833205ab0868ba6975",
+      "exactPixelLabPaletteAndIntegerTranslation": true
+    },
+    {
+      "frame": 7,
+      "groundY": 215,
+      "bbox": [
+        81,
+        86,
+        168,
+        216
+      ],
+      "sha256": "d929aebfc0d9e7a9ab633a8d184a3d7462a2ee1b79da92a91826f053c034cbd1",
+      "exactPixelLabPaletteAndIntegerTranslation": true
+    }
+  ],
+  "runningAssetsAndPreviewByteUnchanged": true,
+  "runningBaseline": [
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-00.png",
+      "Hash": "5D0217AF4D0C281F6E9C15B51C3C08AB676B67FE7003FCC922E5ABEC655E520A"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-00.png.meta",
+      "Hash": "EAC51D78DA40EECCD024B5AD88FB7294DF6DDB73D589DABE39A7FC9D2330EC65"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-01.png",
+      "Hash": "FEEF6F12CDB158309EC3E634B688842B6479C029BD8D992C9643666A31101E6E"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-01.png.meta",
+      "Hash": "27FCB6C9BB5BF8951541E023E42025CE3E9E9413D1D0A31D811ED5C18A6C4A3A"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-02.png",
+      "Hash": "B1E05E93697FBF48F8ADC3255A86B879C4C433F7076CED0726DBF38828FCD9DF"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-02.png.meta",
+      "Hash": "783A2937A9BDB3DCA35988A692BD453648F483D62419ACA831A63B68475801F6"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-03.png",
+      "Hash": "DCD8A7A6A4FC9BF377090BD46EE5D3EDC029DF0C5B07C61B3D8575C8B0E3D0B5"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-03.png.meta",
+      "Hash": "6A3DFE248FDEAB45E8FF3C0A6FA0D7D5EC0CB69879288C5443A515E96511F7E9"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-04.png",
+      "Hash": "C6D1802405EED97D64B5CF5E7DFEC0171029C327F49AD1D85E986E17AE44B5D4"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-04.png.meta",
+      "Hash": "4D913CD3A0D084E8FF04D3F38B336B0D23BE85D56FEC79D3A0B4683BDC3E15FD"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-05.png",
+      "Hash": "226615E69933887BFAA44A2C650654CBB3C55FEEF3B05796025B8A1050F5C713"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-05.png.meta",
+      "Hash": "732947711A4A55C1872627BF753458A61CAB90B6E15B531B85F990DA43459924"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-06.png",
+      "Hash": "F076994C3E03A9765B49F80432DB9203444072B81C864C714E87CFE48B819E47"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-06.png.meta",
+      "Hash": "22F78357D708431F9E5737B65BF2BBEC49C94CF54688F563A4FCB5B25DB1B1EC"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-07.png",
+      "Hash": "13CA211391B51156FE35098792FDA7A1728E0F91178656B2D01A2DA21D7BA778"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Assets\\Game\\Resources\\SwordGirl\\FinalPlayer\\run\\frame-07.png.meta",
+      "Hash": "E3AE68D619C0AD2BD92C4C2391A211F537826EA922D769B40D80672916433787"
+    },
+    {
+      "Path": "C:\\Fork\\swordmaster_\\Docs\\Art\\FinalPlayer\\GIF\\lobby-run.gif",
+      "Hash": "D19A5F623DD2C1D436C9EB556ADF209AB9AD7690C3E1C894814A881EC7BAF3FE"
+    }
+  ]
+}

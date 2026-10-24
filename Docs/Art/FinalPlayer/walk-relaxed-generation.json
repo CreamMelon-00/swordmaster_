@@ -1,0 +1,936 @@
+{
+  "tool": "PixelLab animate_image_pixminimax then animate_image and pixelart_workbench",
+  "poseJob": "b24241bb-d050-43ed-891c-0951c56d21d3",
+  "cycleJob": "92fab9cb-b6b4-4f0b-a8d0-cb9864a0e3d2",
+  "joined": "3e5f63e0-00c2-431d-8a92-6804c5b436c4",
+  "finalImage": "cdace25d-fda0-49e4-8d79-72d544a0fc1e",
+  "selection": "Frames 0-7. Generated frame 8 repeats contact pose and is omitted to avoid holding the seam.",
+  "poseGeneration": {
+    "tool": "PixelLab animate_image_pixminimax",
+    "jobId": "b24241bb-d050-43ed-891c-0951c56d21d3",
+    "request": {
+      "first_frame_url": "https://api.pixellab.ai/mcp/images/13ce0b5b-54ab-4623-a012-b84424cd9d1d/download?index=0",
+      "description": "Seamless relaxed WALK in place facing right, one complete left-right two-step cycle. Upright torso, head over hips, no running lean. Short calm steps: heel contact, transfer weight, low passing foot, opposite contact. At least one boot stays planted; no flight, high knees or heels kicking up. Lower sword into ONE hand beside the body, blade pointing diagonally down-forward safely away from legs. Free arm swings gently opposite the legs. Sword follows hand with very little sway, no attacks. Tiny vertical bob. Preserve exact compact proportions, head size and detailed original colors. Bangs completely hide eyes throughout. Neck connects naturally to shoulders; skirt stays outside thighs. Fixed camera and body origin, no resizing. Finish matching start for continuous walking. No running, crouching, hopping, lunges, FX or trails.",
+      "frame_count": 8,
+      "no_background": true,
+      "direction": "east",
+      "view": "side",
+      "subject_description": "Compact female swordswoman pixel sprite: pale cream blonde bob, bangs completely hiding eyes, dark headband, dark brown gold-trim uniform and ribbon, pleated skirt, brown boots, silver lavender straight sword.",
+      "initial_pose": "Three-quarter right facing standing sword guard, both feet on ground, sword angled up in front. Transition into a relaxed upright single-hand sword carry for walking.",
+      "enhance_prompt": false,
+      "seed": 241026
+    },
+    "requirements": [
+      "Walking only; accepted running unchanged",
+      "Upright relaxed posture, low steps, one-handed lowered sword",
+      "Approved new player appearance and palette; eyes hidden"
+    ],
+    "status": "Awaiting generation and visual review"
+  },
+  "cycleGeneration": {
+    "tool": "PixelLab animate_image",
+    "jobId": "92fab9cb-b6b4-4f0b-a8d0-cb9864a0e3d2",
+    "referenceJob": "b24241bb-d050-43ed-891c-0951c56d21d3",
+    "referenceIndex": 4,
+    "request": {
+      "first_frame_url": "https://api.pixellab.ai/mcp/images/b24241bb-d050-43ed-891c-0951c56d21d3/download?index=4",
+      "last_frame_url": "https://api.pixellab.ai/mcp/images/b24241bb-d050-43ed-891c-0951c56d21d3/download?index=4",
+      "action": "A seamless complete relaxed WALK cycle in place facing right. Exactly two alternating small steps, returning to identical starting contact pose. Torso upright and relaxed, no forward running lean. Heel contact, low foot passing under hips, opposite heel contact. At least one foot touching same floor at all times; knees and rear heels lift only slightly. No bouncing, hopping or running. Keep sword held steadily in the SAME single hand near hip, pointing diagonally down-forward as reference throughout, angle changes at most a few degrees, straight blade and connected grip. Free arm gently swings opposite legs. Preserve same head, compact body proportions, pixel scale and original colors. Hair and skirt move subtly; bangs completely hide eyes, no eye lines. Both legs stay connected to hips, skirt never intersects thighs. Stable head position with only tiny vertical bob, no whole-body drift or resizing, no sword pose transitions or effects.",
+      "frame_count": 8,
+      "no_background": true,
+      "seed": 241027
+    }
+  },
+  "corrections": {
+    "dy": [
+      -3,
+      -4,
+      -3,
+      -4,
+      -3,
+      -3,
+      -3,
+      -2
+    ],
+    "ops": [
+      {
+        "operation": "brush",
+        "layer": "image",
+        "frames": [
+          1
+        ],
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            255,
+            0
+          ],
+          [
+            255,
+            32
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            0,
+            64
+          ],
+          [
+            255,
+            64
+          ],
+          [
+            255,
+            96
+          ],
+          [
+            0,
+            96
+          ],
+          [
+            0,
+            128
+          ],
+          [
+            255,
+            128
+          ],
+          [
+            255,
+            160
+          ],
+          [
+            0,
+            160
+          ],
+          [
+            0,
+            192
+          ],
+          [
+            255,
+            192
+          ],
+          [
+            255,
+            223
+          ],
+          [
+            0,
+            223
+          ]
+        ],
+        "size": 64,
+        "shape": "square",
+        "mode": "erase",
+        "reason": "Clear destination before whole-canvas integer registration."
+      },
+      {
+        "operation": "copy_region",
+        "layer": "image",
+        "frames": [
+          1
+        ],
+        "source_layer": "image",
+        "source_frame": 1,
+        "region": [
+          0,
+          3,
+          255,
+          223
+        ],
+        "at": [
+          0,
+          0
+        ],
+        "reason": "Align ground origin only; retain complete newly drawn pose without body-part transforms."
+      },
+      {
+        "operation": "brush",
+        "layer": "image",
+        "frames": [
+          2
+        ],
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            255,
+            0
+          ],
+          [
+            255,
+            32
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            0,
+            64
+          ],
+          [
+            255,
+            64
+          ],
+          [
+            255,
+            96
+          ],
+          [
+            0,
+            96
+          ],
+          [
+            0,
+            128
+          ],
+          [
+            255,
+            128
+          ],
+          [
+            255,
+            160
+          ],
+          [
+            0,
+            160
+          ],
+          [
+            0,
+            192
+          ],
+          [
+            255,
+            192
+          ],
+          [
+            255,
+            223
+          ],
+          [
+            0,
+            223
+          ]
+        ],
+        "size": 64,
+        "shape": "square",
+        "mode": "erase",
+        "reason": "Clear destination before whole-canvas integer registration."
+      },
+      {
+        "operation": "copy_region",
+        "layer": "image",
+        "frames": [
+          2
+        ],
+        "source_layer": "image",
+        "source_frame": 2,
+        "region": [
+          0,
+          4,
+          255,
+          223
+        ],
+        "at": [
+          0,
+          0
+        ],
+        "reason": "Align ground origin only; retain complete newly drawn pose without body-part transforms."
+      },
+      {
+        "operation": "brush",
+        "layer": "image",
+        "frames": [
+          3
+        ],
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            255,
+            0
+          ],
+          [
+            255,
+            32
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            0,
+            64
+          ],
+          [
+            255,
+            64
+          ],
+          [
+            255,
+            96
+          ],
+          [
+            0,
+            96
+          ],
+          [
+            0,
+            128
+          ],
+          [
+            255,
+            128
+          ],
+          [
+            255,
+            160
+          ],
+          [
+            0,
+            160
+          ],
+          [
+            0,
+            192
+          ],
+          [
+            255,
+            192
+          ],
+          [
+            255,
+            223
+          ],
+          [
+            0,
+            223
+          ]
+        ],
+        "size": 64,
+        "shape": "square",
+        "mode": "erase",
+        "reason": "Clear destination before whole-canvas integer registration."
+      },
+      {
+        "operation": "copy_region",
+        "layer": "image",
+        "frames": [
+          3
+        ],
+        "source_layer": "image",
+        "source_frame": 3,
+        "region": [
+          0,
+          3,
+          255,
+          223
+        ],
+        "at": [
+          0,
+          0
+        ],
+        "reason": "Align ground origin only; retain complete newly drawn pose without body-part transforms."
+      },
+      {
+        "operation": "brush",
+        "layer": "image",
+        "frames": [
+          4
+        ],
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            255,
+            0
+          ],
+          [
+            255,
+            32
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            0,
+            64
+          ],
+          [
+            255,
+            64
+          ],
+          [
+            255,
+            96
+          ],
+          [
+            0,
+            96
+          ],
+          [
+            0,
+            128
+          ],
+          [
+            255,
+            128
+          ],
+          [
+            255,
+            160
+          ],
+          [
+            0,
+            160
+          ],
+          [
+            0,
+            192
+          ],
+          [
+            255,
+            192
+          ],
+          [
+            255,
+            223
+          ],
+          [
+            0,
+            223
+          ]
+        ],
+        "size": 64,
+        "shape": "square",
+        "mode": "erase",
+        "reason": "Clear destination before whole-canvas integer registration."
+      },
+      {
+        "operation": "copy_region",
+        "layer": "image",
+        "frames": [
+          4
+        ],
+        "source_layer": "image",
+        "source_frame": 4,
+        "region": [
+          0,
+          4,
+          255,
+          223
+        ],
+        "at": [
+          0,
+          0
+        ],
+        "reason": "Align ground origin only; retain complete newly drawn pose without body-part transforms."
+      },
+      {
+        "operation": "brush",
+        "layer": "image",
+        "frames": [
+          5
+        ],
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            255,
+            0
+          ],
+          [
+            255,
+            32
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            0,
+            64
+          ],
+          [
+            255,
+            64
+          ],
+          [
+            255,
+            96
+          ],
+          [
+            0,
+            96
+          ],
+          [
+            0,
+            128
+          ],
+          [
+            255,
+            128
+          ],
+          [
+            255,
+            160
+          ],
+          [
+            0,
+            160
+          ],
+          [
+            0,
+            192
+          ],
+          [
+            255,
+            192
+          ],
+          [
+            255,
+            223
+          ],
+          [
+            0,
+            223
+          ]
+        ],
+        "size": 64,
+        "shape": "square",
+        "mode": "erase",
+        "reason": "Clear destination before whole-canvas integer registration."
+      },
+      {
+        "operation": "copy_region",
+        "layer": "image",
+        "frames": [
+          5
+        ],
+        "source_layer": "image",
+        "source_frame": 5,
+        "region": [
+          0,
+          3,
+          255,
+          223
+        ],
+        "at": [
+          0,
+          0
+        ],
+        "reason": "Align ground origin only; retain complete newly drawn pose without body-part transforms."
+      },
+      {
+        "operation": "brush",
+        "layer": "image",
+        "frames": [
+          6
+        ],
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            255,
+            0
+          ],
+          [
+            255,
+            32
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            0,
+            64
+          ],
+          [
+            255,
+            64
+          ],
+          [
+            255,
+            96
+          ],
+          [
+            0,
+            96
+          ],
+          [
+            0,
+            128
+          ],
+          [
+            255,
+            128
+          ],
+          [
+            255,
+            160
+          ],
+          [
+            0,
+            160
+          ],
+          [
+            0,
+            192
+          ],
+          [
+            255,
+            192
+          ],
+          [
+            255,
+            223
+          ],
+          [
+            0,
+            223
+          ]
+        ],
+        "size": 64,
+        "shape": "square",
+        "mode": "erase",
+        "reason": "Clear destination before whole-canvas integer registration."
+      },
+      {
+        "operation": "copy_region",
+        "layer": "image",
+        "frames": [
+          6
+        ],
+        "source_layer": "image",
+        "source_frame": 6,
+        "region": [
+          0,
+          3,
+          255,
+          223
+        ],
+        "at": [
+          0,
+          0
+        ],
+        "reason": "Align ground origin only; retain complete newly drawn pose without body-part transforms."
+      },
+      {
+        "operation": "brush",
+        "layer": "image",
+        "frames": [
+          7
+        ],
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            255,
+            0
+          ],
+          [
+            255,
+            32
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            0,
+            64
+          ],
+          [
+            255,
+            64
+          ],
+          [
+            255,
+            96
+          ],
+          [
+            0,
+            96
+          ],
+          [
+            0,
+            128
+          ],
+          [
+            255,
+            128
+          ],
+          [
+            255,
+            160
+          ],
+          [
+            0,
+            160
+          ],
+          [
+            0,
+            192
+          ],
+          [
+            255,
+            192
+          ],
+          [
+            255,
+            223
+          ],
+          [
+            0,
+            223
+          ]
+        ],
+        "size": 64,
+        "shape": "square",
+        "mode": "erase",
+        "reason": "Clear destination before whole-canvas integer registration."
+      },
+      {
+        "operation": "copy_region",
+        "layer": "image",
+        "frames": [
+          7
+        ],
+        "source_layer": "image",
+        "source_frame": 7,
+        "region": [
+          0,
+          3,
+          255,
+          223
+        ],
+        "at": [
+          0,
+          0
+        ],
+        "reason": "Align ground origin only; retain complete newly drawn pose without body-part transforms."
+      },
+      {
+        "operation": "brush",
+        "layer": "image",
+        "frames": [
+          8
+        ],
+        "points": [
+          [
+            0,
+            0
+          ],
+          [
+            255,
+            0
+          ],
+          [
+            255,
+            32
+          ],
+          [
+            0,
+            32
+          ],
+          [
+            0,
+            64
+          ],
+          [
+            255,
+            64
+          ],
+          [
+            255,
+            96
+          ],
+          [
+            0,
+            96
+          ],
+          [
+            0,
+            128
+          ],
+          [
+            255,
+            128
+          ],
+          [
+            255,
+            160
+          ],
+          [
+            0,
+            160
+          ],
+          [
+            0,
+            192
+          ],
+          [
+            255,
+            192
+          ],
+          [
+            255,
+            223
+          ],
+          [
+            0,
+            223
+          ]
+        ],
+        "size": 64,
+        "shape": "square",
+        "mode": "erase",
+        "reason": "Clear destination before whole-canvas integer registration."
+      },
+      {
+        "operation": "copy_region",
+        "layer": "image",
+        "frames": [
+          8
+        ],
+        "source_layer": "image",
+        "source_frame": 8,
+        "region": [
+          0,
+          2,
+          255,
+          223
+        ],
+        "at": [
+          0,
+          0
+        ],
+        "reason": "Align ground origin only; retain complete newly drawn pose without body-part transforms."
+      },
+      {
+        "operation": "map_colors",
+        "layer": "image",
+        "frames": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8
+        ],
+        "region": [
+          0,
+          0,
+          255,
+          223
+        ],
+        "colors": {
+          "#271017ff": "#371b20ff",
+          "#372c38ff": "#432326ff",
+          "#4e424dff": "#5f3937ff",
+          "#581821ff": "#432326ff",
+          "#645150ff": "#744944ff",
+          "#645d60ff": "#604e65ff",
+          "#6e2b2cff": "#5f3937ff",
+          "#73595bff": "#805248ff",
+          "#7b4133ff": "#724743ff",
+          "#7d5e60ff": "#8c5c4cff",
+          "#7f7075ff": "#716076ff",
+          "#81707dff": "#716076ff",
+          "#8e463dff": "#805248ff",
+          "#934444ff": "#805248ff",
+          "#9c756aff": "#b6856bff",
+          "#a75f43ff": "#94624eff",
+          "#a98c8bff": "#908097ff",
+          "#b4abb7ff": "#bfb3c1ff",
+          "#b55250ff": "#ae734eff",
+          "#b57165ff": "#b6856bff",
+          "#c0a89eff": "#daaa8cff",
+          "#c27e5bff": "#b6856bff",
+          "#c68356ff": "#b6856bff",
+          "#ce8a56ff": "#e29754ff",
+          "#cebfc7ff": "#bfb3c1ff",
+          "#cf7f6dff": "#c28e70ff",
+          "#d1b1aaff": "#e8bb9cff",
+          "#da8c7dff": "#cf9b7bff",
+          "#e09684ff": "#cf9b7bff",
+          "#e4a46bff": "#f7b66fff",
+          "#e5a05bff": "#e29754ff",
+          "#e7a67bff": "#daaa8cff",
+          "#e9e0e3ff": "#d8ced9ff",
+          "#f5dd9cff": "#f2c8aaff",
+          "#f8c789ff": "#f9ba79ff",
+          "#fbe7d8ff": "#fdd8c9ff"
+        },
+        "reason": "Match approved idle palette without changing placement or alpha."
+      }
+    ]
+  },
+  "importSettings": {
+    "frames": [
+      {
+        "file": "Frames/frame-00.png",
+        "durationMs": 100
+      },
+      {
+        "file": "Frames/frame-01.png",
+        "durationMs": 100
+      },
+      {
+        "file": "Frames/frame-02.png",
+        "durationMs": 100
+      },
+      {
+        "file": "Frames/frame-03.png",
+        "durationMs": 100
+      },
+      {
+        "file": "Frames/frame-04.png",
+        "durationMs": 100
+      },
+      {
+        "file": "Frames/frame-05.png",
+        "durationMs": 100
+      },
+      {
+        "file": "Frames/frame-06.png",
+        "durationMs": 100
+      },
+      {
+        "file": "Frames/frame-07.png",
+        "durationMs": 100
+      }
+    ],
+    "ppu": 36.864,
+    "pivotPixels": [
+      114,
+      8
+    ],
+    "durationMs": 800,
+    "loop": true
+  }
+}

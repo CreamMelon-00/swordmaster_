@@ -14,7 +14,7 @@ def main():
     clips = []
     inputs = [
         ('idle', 'Movement_Idle_PixelLab_20261024/Idle', 'idle.json', 0),
-        ('walk', 'Lobby_Locomotion_PixelLab_20261024/walk', 'animation.json', 0),
+        ('walk', 'Walk_Relaxed_PixelLab_20261024', 'animation.json', 0),
         ('run', 'Lobby_Locomotion_PixelLab_20261024/run', 'animation.json', 0),
         ('slash', 'Slash_01_PixelLab', 'slash.json', 4),
         ('pierce', 'Pierce_01_PixelLab/TrailFix', 'pierce.json', 5),
@@ -45,11 +45,14 @@ def main():
                 meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
             if key in ('walk', 'run'):
                 import re
-                text = meta.read_text(encoding='utf-8')
+                original_text = meta.read_text(encoding='utf-8')
+                text = original_text
                 pivot = data['pivotPixels']
                 text = re.sub(r'spritePixelsToUnits: .*', f"spritePixelsToUnits: {data['ppu']}", text)
                 text = re.sub(r'spritePivot: .*', f"spritePivot: {{x: {pivot[0] / 256}, y: {pivot[1] / 224}}}", text)
-                meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
+                normalized = '\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n'
+                if normalized != original_text:
+                    meta.write_text(normalized, encoding='utf-8')
         # Original idle remains in the source archive; obsolete active cels must not remain in Resources.
         if key == 'idle':
             for stale in (DEST / key).glob('frame-*.png'):
