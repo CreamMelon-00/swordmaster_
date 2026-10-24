@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new FinalPlayerAnimationSet())
             {
                 Assert.That(set.IsReady, Is.True);
-                Assert.That(set.LoadedFrameCount, Is.EqualTo(116));
+                Assert.That(set.LoadedFrameCount, Is.EqualTo(118));
                 Sprite idle = set.GetIdle(0);
                 Assert.That(idle.pixelsPerUnit, Is.EqualTo(36));
                 Assert.That(idle.texture.filterMode, Is.EqualTo(FilterMode.Point));
@@ -321,6 +321,78 @@ namespace TurnLimbo.Presentation.Tests
                 arena.Dispose(); Object.Destroy(host);
                 if (oldRoot != null) oldRoot.SetActive(wasActive);
                 if (controller != null) controller.enabled = wasEnabled;
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator HurtAndBrokenPosesFollowReactionAndRecoveryWithoutReplacingAttacks()
+        {
+            yield return null;
+            var controller = Object.FindAnyObjectByType<DuelPrototypeController>();
+            bool enabled = controller != null && controller.enabled;
+            var oldRoot = controller != null ? controller.ArenaView.PlayerRenderer.transform.parent.gameObject : null;
+            bool active = oldRoot != null && oldRoot.activeSelf;
+            if (controller != null) controller.enabled = false;
+            if (oldRoot != null) oldRoot.SetActive(false);
+            var host = new GameObject("Hurt and Break Art Test");
+            var arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt());
+            try
+            {
+                arena.SetDepthPresentationVisible(true);
+                arena.BeginSlot(null, null);
+                arena.PresentHit(false, 2, 0, false, false, 0, closeUp: false, hurtReaction: true);
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-hurt-frame-00"));
+                Sprite hurt = arena.PlayerRenderer.sprite;
+                arena.Tick(0f, .05f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(hurt), "Hit stop holds the static hurt pose.");
+                Capture(arena, "unity-hurt.png");
+                arena.Tick(.3f, .3f);
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-idle"));
+
+                arena.SetResistanceBroken(true, false);
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-break-frame-00"));
+                Sprite broken = arena.PlayerRenderer.sprite;
+                arena.Tick(.3f, .3f);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(broken), "Broken idle stays after the short impact ends.");
+                Capture(arena, "unity-break.png");
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.Not.StartWith("final-"));
+
+                arena.PresentHit(false, 2, 0, false, false, 0, closeUp: false, hurtReaction: true);
+                Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(broken), "Incoming hits use the broken reaction while broken.");
+                arena.BeginSlot(LegacySkillDefinitions.Skill(1), null);
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-slash"),
+                    "The current/next permitted attack still follows combat's own clock.");
+                arena.SetResistanceBroken(false, false);
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-slash"));
+                arena.BeginSlot(null, null);
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-idle"));
+                arena.SetResistanceBroken(true, false);
+                arena.Reset();
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-idle"));
+                Assert.That(arena.PlayerBreakAura.IsBroken, Is.False);
+
+                using (var set = new FinalPlayerAnimationSet())
+                {
+                    var poses = new[] { set.GetHurt(), set.GetBreak() };
+                    float[] centers = {82f, 105f};
+                    int[] floors = {201, 218};
+                    for (int i = 0; i < poses.Length; i++)
+                    {
+                        var pose = poses[i];
+                        Assert.That(pose.texture.filterMode, Is.EqualTo(FilterMode.Point));
+                        Assert.That(pose.rect.size, Is.EqualTo(new Vector2(256, 224)));
+                        Assert.That(pose.pixelsPerUnit, Is.EqualTo(36f));
+                        Assert.That(pose.pivot.x, Is.EqualTo(centers[i]).Within(.001));
+                        Assert.That((224 - floors[i] - 1 - pose.pivot.y) / pose.pixelsPerUnit,
+                            Is.EqualTo(MobStudentAnimationSet.GroundOffset).Within(.001));
+                    }
+                }
+            }
+            finally
+            {
+                arena.Dispose(); Object.Destroy(host);
+                if (oldRoot != null) oldRoot.SetActive(active);
+                if (controller != null) controller.enabled = enabled;
             }
         }
 

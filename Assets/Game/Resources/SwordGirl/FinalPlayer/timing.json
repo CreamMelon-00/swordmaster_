@@ -175,6 +175,20 @@
         100
       ],
       "impactIndex": 0
+    },
+    {
+      "key": "hurt",
+      "durationsMs": [
+        100
+      ],
+      "impactIndex": 0
+    },
+    {
+      "key": "break",
+      "durationsMs": [
+        100
+      ],
+      "impactIndex": 0
     }
   ]
 }

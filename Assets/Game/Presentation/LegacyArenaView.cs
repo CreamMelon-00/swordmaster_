@@ -1258,6 +1258,18 @@ namespace TurnLimbo.Presentation
         public void SetResistanceBroken(bool playerBroken, bool enemyBroken)
         {
             if (disposed) return;
+            bool playerChanged = player.ResistanceBroken != playerBroken;
+            player.ResistanceBroken = playerBroken;
+            if (playerChanged && UseFinalPlayerArt && finalPlayerAnimations.IsReady)
+            {
+                if (playerBroken)
+                {
+                    player.ReactionIsBlock = false;
+                    player.ReactionTime = ReactionPoseDuration;
+                }
+                else if (!player.ReactionIsBlock) player.ReactionTime = 0f;
+                if (suspension == null) SampleActor(player);
+            }
             playerBreakAura.SetBroken(playerBroken);
             enemyBreakAura.SetBroken(enemyBroken);
         }
@@ -1642,6 +1654,12 @@ namespace TurnLimbo.Presentation
                 if (fallenAnimations.HasRequiredAssets) actor.Renderer.sprite = fallenAnimations.GetHurt(actor.ReactionVariant);
                 return;
             }
+            if (actor == player && UseFinalPlayerArt && finalPlayerAnimations.IsReady &&
+                actor.ReactionTime > 0f && !actor.ReactionIsBlock)
+            {
+                actor.Renderer.sprite = actor.ResistanceBroken ? finalPlayerAnimations.GetBreak() : finalPlayerAnimations.GetHurt();
+                return;
+            }
             if (TrySampleUpcomingPreparation(actor)) return;
             bool active = TryGetSkillFrame(actor, out float clipTime);
             // Only the sampled attack pose changes. Its cycle, hit index, contact and combat clock stay authoritative.
@@ -1676,7 +1694,8 @@ namespace TurnLimbo.Presentation
                     Sprite finalAttack = active && actor.Skill.Kind == LegacySkillKind.Attack
                         ? finalPlayerAnimations.GetAttack(actor.Skill, clipTime / OriginalClipDuration) : null;
                     actor.Renderer.sprite = finalAttack != null ? finalAttack : actor.Moving
-                        ? mobAnimations.GetMove() : finalPlayerAnimations.GetIdle(idleTime);
+                        ? mobAnimations.GetMove() : actor.ResistanceBroken
+                            ? finalPlayerAnimations.GetBreak() : finalPlayerAnimations.GetIdle(idleTime);
                     return;
                 }
                 Sprite attack = active && actor.Skill.Kind == LegacySkillKind.Attack
@@ -2009,6 +2028,7 @@ namespace TurnLimbo.Presentation
             actor.FlashTime = actor.AnimationTime = 0f;
             actor.ReactionTime = 0f;
             actor.ReactionIsBlock = false;
+            actor.ResistanceBroken = false;
             actor.ReactionVariant = actor.GuardVariant = 0;
             actor.GuardPoseSelected = false;
             actor.AttackVariants.Clear();
@@ -2083,6 +2103,7 @@ namespace TurnLimbo.Presentation
             public float AnimationTime, FlashTime, PushTime, ChaseDelay;
             public float ReactionTime;
             public bool ReactionIsBlock;
+            public bool ResistanceBroken;
             public int ReactionVariant, GuardVariant;
             public bool GuardPoseSelected;
             public readonly Dictionary<int, int> AttackVariants = new Dictionary<int, int>();

@@ -1,0 +1,34 @@
+[
+  {
+    "key": "hurt",
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "originalAlphaPreserved": true,
+    "colorsSubsetOfIdle": true,
+    "colorCount": 34,
+    "footSupportBounds": [
+      51,
+      193,
+      114,
+      202
+    ]
+  },
+  {
+    "key": "break",
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "originalAlphaPreserved": true,
+    "colorsSubsetOfIdle": true,
+    "colorCount": 23,
+    "footSupportBounds": [
+      59,
+      210,
+      152,
+      219
+    ]
+  }
+]

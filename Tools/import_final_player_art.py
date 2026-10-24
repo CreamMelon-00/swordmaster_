@@ -64,6 +64,20 @@ def main():
             text = re.sub(r'spritePivot: .*', f'spritePivot: {{x: {pivot_x / 256}, y: {(224 - floor - 1) / 224}}}', text)
             meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
             clips.append(dict(key=key, durationsMs=[100], impactIndex=0))
+    reactions = SOURCE / 'Reactions_PixelLab_20261024'
+    reaction_import = json.loads((reactions / 'import.json').read_text(encoding='utf-8'))
+    import re
+    for pose in reaction_import['poses']:
+        key = pose['key']
+        target = DEST / key / 'frame-00.png'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(reactions / (key + '.png'), target)
+        meta = Path(str(target) + '.meta')
+        text = meta.read_text(encoding='utf-8') if meta.exists() else re.sub(r'guid: [a-f0-9]+', 'guid: ' + uuid.uuid4().hex, template, count=1)
+        text = re.sub(r'spritePixelsToUnits: .*', f"spritePixelsToUnits: {pose['ppu']}", text)
+        text = re.sub(r'spritePivot: .*', f"spritePivot: {{x: {pose['pivotX'] / 256}, y: {(224 - pose['groundY'] - 1) / 224}}}", text)
+        meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
+        clips.append(dict(key=key, durationsMs=[100], impactIndex=0))
     (DEST / 'timing.json').write_text(json.dumps(dict(clips=clips), indent=2), encoding='utf-8')
     families = {5:'beat', 48:'beat', 52:'beat', 6:'loaded', 55:'loaded', 68:'loaded', 10:'measured', 53:'measured', 54:'evade'}
     bindings = []

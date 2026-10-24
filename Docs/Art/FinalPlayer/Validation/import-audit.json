@@ -1,5 +1,5 @@
 {
-  "frameCount": 116,
+  "frameCount": 118,
   "allSourceByteIdentical": true,
   "frames": [
     {
@@ -696,6 +696,18 @@
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/guard-03/frame-00.png",
       "source": "Guard_ThreePoses_20261024/guard-03.png",
       "sha256": "7d5321bc03825dc655e567d8883939c49f1026f3d36e2ad20b38d77aae9b71fd",
+      "sourceByteIdentical": true
+    },
+    {
+      "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/hurt/frame-00.png",
+      "source": "Reactions_PixelLab_20261024/hurt.png",
+      "sha256": "274c81fb70789cb5129f60ceef1b7da9b771f34c84f57dd9b911c7e57623d031",
+      "sourceByteIdentical": true
+    },
+    {
+      "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/break/frame-00.png",
+      "source": "Reactions_PixelLab_20261024/break.png",
+      "sha256": "b84fc7f248fc9c8d5ca8514a7acc3e8c330309bcef6918d4b2044d7f615c6679",
       "sourceByteIdentical": true
     }
   ]

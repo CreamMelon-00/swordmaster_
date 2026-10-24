@@ -1,0 +1,154 @@
+{
+  "tool": "PixelLab edit_image + pixelart_workbench",
+  "normalHurt": {
+    "jobId": "cd3670c1-0f56-4694-a86c-0e7938dd3fc0",
+    "poseReference": "codex-clipboard-e0fe1bef-e44b-4d2c-9095-1ceb458fa8f3.png",
+    "prompt": "Redraw this SAME girl in EXACTLY the input hurt pose: bent forward toward RIGHT, shoulders curled, one hand clutches upper abdomen, knees flexed, other arm lowered behind her holding ONE sword diagonally DOWN-LEFT. Preserve this pose, body segment lengths and compact proportions. Refine to the current final game sprite quality: layered warm pale blonde bob, full long bangs COMPLETELY hide BOTH eyes including eyelids, dark headband; medium warm brown academy blazer and pleated skirt, gold trim, white collar, gold neck ribbon, tall brown boots; crisp detailed pixel clusters, soft bright pastel highlights, dark BROWN outlines not black. Same 256x224 transparent canvas, same physical scale, native pixel grid. Straight collinear sword hilt and blade. No attack or guard pose, no trails, no effects, no text, no blood. Do NOT darken outfit, oversaturate palette or elongate limbs.",
+    "paletteImageId": "6b096a70-20e6-47f4-87e3-0e6b10d5eba8",
+    "paletteChanges": [
+      {
+        "operation": "map_colors",
+        "layer": "image",
+        "frames": [
+          1
+        ],
+        "region": [
+          0,
+          0,
+          255,
+          223
+        ],
+        "colors": {
+          "#fdd3c2ff": "#fdd8c9ff",
+          "#f1caa5ff": "#f5cdb3ff",
+          "#824f42ff": "#805248ff",
+          "#552d2dff": "#523031ff",
+          "#76453eff": "#744944ff",
+          "#452123ff": "#432326ff",
+          "#3f1d20ff": "#432326ff",
+          "#3a1a1dff": "#371b20ff",
+          "#5c3231ff": "#593434ff",
+          "#f1c6a2ff": "#f2c8aaff",
+          "#71433dff": "#724743ff",
+          "#7a4a41ff": "#784c45ff",
+          "#4f2929ff": "#523031ff",
+          "#361719ff": "#371b20ff",
+          "#623632ff": "#5f3937ff",
+          "#eec09eff": "#f2c8aaff",
+          "#673b39ff": "#69403dff",
+          "#301618ff": "#371b20ff",
+          "#482627ff": "#432326ff",
+          "#a97561ff": "#b6856bff",
+          "#6d3d35ff": "#69403dff",
+          "#b9836bff": "#b6856bff",
+          "#946254ff": "#94624eff",
+          "#dfad8eff": "#daaa8cff",
+          "#e7b795ff": "#e8bb9cff",
+          "#fcf9f8ff": "#fdf6f2ff",
+          "#f2a493ff": "#f1a394ff",
+          "#c79378ff": "#cc9776ff",
+          "#d49f80ff": "#cf9b7bff",
+          "#f5ae5cff": "#f7b66fff",
+          "#80697dff": "#716076ff",
+          "#f8eee6ff": "#fdf5f1ff",
+          "#93563dff": "#8c5c4cff",
+          "#f8b8a6ff": "#fdd8c9ff",
+          "#bd7748ff": "#ae734eff",
+          "#e99d52ff": "#e29754ff",
+          "#a96741ff": "#ae734eff",
+          "#735b6eff": "#716076ff",
+          "#604557ff": "#604e65ff",
+          "#372324ff": "#432326ff",
+          "#d28a4eff": "#e29754ff",
+          "#452f42ff": "#604e65ff",
+          "#503b35ff": "#5f3937ff",
+          "#968595ff": "#908097ff",
+          "#352534ff": "#371b20ff",
+          "#b0a3aeff": "#bfb3c1ff",
+          "#190f18ff": "#371b20ff",
+          "#220a0aff": "#371b20ff",
+          "#d48c7dff": "#f1a394ff",
+          "#cbc2caff": "#d8ced9ff",
+          "#e8d6cfff": "#f8d4beff",
+          "#b28984ff": "#c28e70ff",
+          "#ac9dbfff": "#a598abff",
+          "#120100ff": "#371b20ff",
+          "#fcd488ff": "#f7b66fff"
+        },
+        "reason": "Use exact approved idle shades for blonde hair, skin, cloth, gold and blade; lift near-black contours to warm brown; preserve geometry."
+      }
+    ]
+  },
+  "resistanceBreak": {
+    "poseJobId": "4d05eb24-cea6-4e31-afd3-458aceea63f1",
+    "paletteImageId": "4cf7d323-c84f-44ec-b588-a276ee22d789",
+    "paletteChanges": [
+      {
+        "operation": "map_colors",
+        "layer": "image",
+        "frames": [
+          1
+        ],
+        "region": [
+          0,
+          0,
+          255,
+          223
+        ],
+        "colors": {
+          "#f6ccaaff": "#f2c8aaff",
+          "#75463eff": "#784c45ff",
+          "#6f423cff": "#724743ff",
+          "#fdd9c7ff": "#fdd8c9ff",
+          "#2b1219ff": "#371b20ff",
+          "#4d2a2cff": "#523031ff",
+          "#552e2fff": "#5f3937ff",
+          "#48252aff": "#523031ff",
+          "#f6a492ff": "#f1a394ff",
+          "#3e1f24ff": "#432326ff",
+          "#250e15ff": "#371b20ff",
+          "#693c39ff": "#69403dff",
+          "#5f3635ff": "#5f3937ff",
+          "#8e5947ff": "#94624eff",
+          "#ab7154ff": "#ae734eff",
+          "#210e14ff": "#371b20ff",
+          "#34151cff": "#432326ff",
+          "#fefbfaff": "#fdf5f1ff",
+          "#544662ff": "#604e65ff",
+          "#19090fff": "#371b20ff",
+          "#c68760ff": "#cc9776ff",
+          "#ecb790ff": "#e8bb9cff",
+          "#d89e78ff": "#daaa8cff",
+          "#998a9dff": "#a598abff",
+          "#f9b46cff": "#f7b66fff",
+          "#a698a8ff": "#a598abff",
+          "#f4ecedff": "#fdf5f1ff",
+          "#d8ced6ff": "#d8ced9ff",
+          "#e99e5eff": "#f9ba79ff",
+          "#fdbca9ff": "#fdd8c9ff",
+          "#fec371ff": "#f7b66fff",
+          "#44354bff": "#604e65ff",
+          "#78697dff": "#716076ff",
+          "#e28a80ff": "#f1a394ff",
+          "#bfb3c0ff": "#bfb3c1ff",
+          "#0d0105ff": "#371b20ff",
+          "#b15f53ff": "#94624eff",
+          "#7d363bff": "#724743ff",
+          "#4e4c4aff": "#5f3937ff",
+          "#ffdc82ff": "#f7b66fff"
+        },
+        "reason": "Match exact approved idle palette: lift near-black cloth outlines and shadows to warm browns, keep native highlights and silhouette."
+      }
+    ],
+    "finalColorFix": {
+      "#311c22ff": "#432326ff"
+    },
+    "note": "Previous hurt pose reassigned to break per user; kneeling draft not used"
+  },
+  "eyePolicy": "Eyes and closed eyelid marks fully covered by bangs in both poses",
+  "paletteReference": "FinalPlayer/idle/frame-00.png",
+  "failedPriorJob": {
+    "job": "59c766c0-14e0-403a-8450-30490a771831",
+    "reason": "Tool returned no raw image; not used"
+  }
+}

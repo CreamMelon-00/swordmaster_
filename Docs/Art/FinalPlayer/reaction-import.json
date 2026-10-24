@@ -1,0 +1,18 @@
+{
+  "poses": [
+    {
+      "key": "hurt",
+      "ppu": 36,
+      "pivotX": 82.0,
+      "groundY": 201
+    },
+    {
+      "key": "break",
+      "ppu": 36,
+      "pivotX": 105.0,
+      "groundY": 218
+    }
+  ],
+  "scaleReason": "Native 36 PPU, no image resampling. Bent posture keeps its shorter silhouette.",
+  "groundReason": "Bottom boot support midpoint excludes sword; each pose has its own floor."
+}
