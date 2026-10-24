@@ -394,91 +394,91 @@
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-00.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-00.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-00.png",
       "sha256": "ed8df0d3055e9004edecb052c34405f9bd319814e0f7c284bd010af9a4c04852",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-01.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-01.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-01.png",
       "sha256": "93df8eba99dbef1d478b310c2267f39a6bc922f1b23b8585720024d2f7502b65",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-02.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-02.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-02.png",
       "sha256": "88f0cc1b4edfb1ef953be538c8c567b44a6147f72534a7c02d3bd55b5adc60b8",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-03.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-03.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-03.png",
       "sha256": "98eef86b0d9252441b94c9ca343693deb667195d09559187ae2607f7fdbb4f06",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-04.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-04.png",
-      "sha256": "ae7fde1d235c73004d0153908114b6f4c47b697bd1948d402f4691351f626818",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-04.png",
+      "sha256": "2c90425d6c97b13535f59ec115816c0d05c800ae2b2d73a8128922a041109e18",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-05.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-05.png",
-      "sha256": "1fea0c79813f049a32b75588d7b5b0472156df330ff782fdf23385f5279dc5b7",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-05.png",
+      "sha256": "6751e49fc65b1cb8558fabc159c7f5f14a6e50d2b1f81f321bb9aebaea14ea41",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-06.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-06.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-06.png",
       "sha256": "086425f1e03efea8ec98f4a796dce780dad43c5e77e7ab28c0da0562da572040",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-07.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-07.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-07.png",
       "sha256": "581f075b4d47a61c3cc7335abd33c1cad1ee8ed3a3c5e683863e6338298133c6",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-08.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-08.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-08.png",
       "sha256": "216eeff904470809967feeb75af563bf1a1f5031fb514f36df3b09341ec89fdc",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-09.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-09.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-09.png",
       "sha256": "124ab202842c8c78b8dafb73ed09a251de6973762525c907b5892a7be8b73fb7",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-10.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-10.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-10.png",
       "sha256": "a82828bec414dfa86b1c1f8d47e60e10d16516829560233b167cfca117ef8e8a",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-11.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-11.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-11.png",
       "sha256": "a25991a723dfe49716e73ac042945db412acb4453bf7e64ebc2ae6f6ed238f39",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-12.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-12.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-12.png",
       "sha256": "85c0cbf8b6e6bd727ca2e584ea6054e34b6ef5d0648f7bc74b24a19f71c8a045",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-13.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-13.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-13.png",
       "sha256": "c742ba8d055a4599542d01e7dc21e488a0dbf63a77cf296426851d75a4d82c8a",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/loaded/frame-14.png",
-      "source": "Strike_SkillFamilies_20261024/Loaded_SlashStyle_20261024/Frames/frame-14.png",
+      "source": "Strike_SkillFamilies_20261024/Loaded_FullBladeSweep_20261024/Frames/frame-14.png",
       "sha256": "1db443958122fb0679ea77139afb4ceb6c8f9d1833e5a6192e5e6c4fbffd068b",
       "sourceByteIdentical": true
     },

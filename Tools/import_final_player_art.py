@@ -24,7 +24,7 @@ def main():
     for key, folder, manifest, impact in inputs:
         source = SOURCE / folder
         if key == 'loaded':
-            trail_source = source.parent / 'Loaded_SlashStyle_20261024'
+            trail_source = source.parent / 'Loaded_FullBladeSweep_20261024'
             if trail_source.exists():
                 source = trail_source
         data = json.loads((source / manifest).read_text(encoding='utf-8-sig'))
