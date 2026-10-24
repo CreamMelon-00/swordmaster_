@@ -13,19 +13,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>A planning duel with both queues ready. Counts are kept between zero and ten, both fighters take
         /// damage and may break but cannot die, and the usual single-player step anticipation remains available.</summary>
         public static LegacyQueuedDuel Create(int enemyAttackCount, int playerAttackCount = DefaultPlayerAttackCount,
-            int randomSeed = 1)
+            int randomSeed = 1, bool useFeaturedTechnique = false)
         {
             enemyAttackCount = ClampCount(enemyAttackCount);
             playerAttackCount = ClampCount(playerAttackCount);
-            var duel = new LegacyQueuedDuel(100, 30, 100, 30, new[] { Attack },
+            LegacySkill playerAttack = useFeaturedTechnique ? FeaturedAttack() : Attack;
+            var duel = new LegacyQueuedDuel(100, 30, 100, 30, new[] { playerAttack },
                 enemyAttackCount == 0 ? Array.Empty<LegacySkill>() : new[] { Attack }, new[] { enemyAttackCount },
                 randomSeed: randomSeed, features: CombatFeature.All, enemyHealthFloor: 1, meshPercent: 0,
                 playerHealthFloor: 1);
             var preparedPlayerQueue = new LegacySkill[playerAttackCount];
-            for (int index = 0; index < preparedPlayerQueue.Length; index++) preparedPlayerQueue[index] = Attack;
+            for (int index = 0; index < preparedPlayerQueue.Length; index++) preparedPlayerQueue[index] = playerAttack;
             if (!duel.TrySetPreparedQueues(preparedPlayerQueue, duel.EnemyQueue))
                 throw new InvalidOperationException("Could not prepare the combat presentation sample.");
             return duel;
+        }
+
+        private static LegacySkill FeaturedAttack()
+        {
+            LegacySkill source = LegacySkillDefinitions.Skill(LegacyFeaturedTechnique.SkillId);
+            // Prepared samples spend no ACT, while the production ID, power and artwork select the real presentation.
+            return new LegacySkill(source.Id, source.Name, 0, source.MinPower, source.MaxPower, source.Kind,
+                source.Property, source.AttackCount, source.LaneIndex, source.Description, source.AnimationName, source.IconId);
         }
 
         private static int ClampCount(int count) => Math.Max(0, Math.Min(MaximumAttackCount, count));

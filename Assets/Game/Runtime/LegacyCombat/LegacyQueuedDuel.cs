@@ -292,6 +292,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public DuelMatchOutcome Outcome { get; private set; }
         public IReadOnlyList<LegacySkill> PlayerQueue { get; }
         public IReadOnlyList<LegacySkill> EnemyQueue { get; }
+        public bool IsEnemySkillRevealed(int slotIndex) => slotIndex >= 0 && slotIndex < EnemyQueue.Count;
         public int PlayerBreakCanceledFromSlotIndex { get; private set; } = -1;
         public int EnemyBreakCanceledFromSlotIndex { get; private set; } = -1;
         public LegacyCurrentSlot CurrentSlot { get; private set; }

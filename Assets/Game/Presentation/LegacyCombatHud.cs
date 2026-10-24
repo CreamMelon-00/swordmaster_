@@ -1116,7 +1116,7 @@ namespace TurnLimbo.Presentation
             (enemy ? playerExplanation : enemyExplanation).gameObject.SetActive(false);
             // The common idle action has no weapon type or Q/W/E style.
             // Its compact planning control already explains its entire rule.
-            if (skill.Kind == LegacySkillKind.Wait)
+            if (skill.Kind == LegacySkillKind.Wait && !(enemy && IsEnemyInformationHidden(skill)))
             {
                 panel.gameObject.SetActive(false);
                 ClearConditionPreview();
@@ -1217,6 +1217,8 @@ namespace TurnLimbo.Presentation
         // opponent cycles too. The campaign's scripted enemy never does, so its card shows the sheet's cost and power.
         private void SetEnemyInfoSkill(LegacySkill skill)
         {
+            if (MaskEnemyInformation(skill)) return;
+            RestoreEnemyInformation(skill);
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             bool playerOnlyAct = !(displayedSession is LocalVersusPerspective);
             if (displayedSession == null || effect?.HasCycle != true)
@@ -1227,8 +1229,12 @@ namespace TurnLimbo.Presentation
 
             displayedSession.EnemyEffectivePowerRange(skill, out int min, out int max);
             string power = min == max ? min.ToString() : min + "–" + max;
+            // The next reservation's price counts uncommitted copies of this ID, including hidden cards.
+            int cost = HasHiddenEnemyInformation()
+                ? checked(skill.Cost + displayedSession.EnemyCycleUses(skill.Id) * effect.CycleCostPerUse)
+                : displayedSession.EnemyEffectiveCost(skill);
             enemyInfo.SetSkill(skill, true, cycleUses: displayedSession.EnemyCycleUses(skill.Id),
-                effectiveCost: displayedSession.EnemyEffectiveCost(skill), effectivePower: power,
+                effectiveCost: cost, effectivePower: power,
                 enemyActRecoveryIsPlayerOnly: playerOnlyAct);
         }
 
@@ -2264,7 +2270,7 @@ namespace TurnLimbo.Presentation
         /// slot 1 is its row's right end and the row grows left (read right to left); the enemy's slot 1 is its row's left
         /// end and the row grows right. The HUD lays both rows out together (<see cref="Layout"/>, one spacing, so slot k
         /// stands at the same distance from the seam on both sides).</summary>
-        private sealed class QueueView
+        private sealed partial class QueueView
         {
             private const float DefaultPitch = LegacyQueuePanelLayout.DefaultCardSpacing;
             private readonly List<RectTransform> visibleItems = new List<RectTransform>();
@@ -2344,6 +2350,7 @@ namespace TurnLimbo.Presentation
                 int selected, float scale, ILegacyDuelView cycleSession = null,
                 bool animateReservations = false, float realDelta = 0f, bool replayLastTechnique = false)
             {
+                visibilitySession = cycleSession;
                 insertion.Refresh(queue, animateReservations, realDelta, replayLastTechnique);
                 while (icons.Count < queue.Count)
                 {
@@ -2365,6 +2372,7 @@ namespace TurnLimbo.Presentation
                     if (!player) AddDodgeStrike(item);
                     AddCycleMark(item);
                     if (!player) AddOwnerMark(item);
+                    AddHiddenProperty(item);
                     if (player) AddForecastMark(item);
                     restScales.Add(1f);
                 }
@@ -2395,11 +2403,10 @@ namespace TurnLimbo.Presentation
                             ownerLabels[i].text = EnemyIdentityNumber(owner);
                         }
                     }
-                    keywordMarkValues.Add(visible ? LegacyKeywordPreview.QueueMark(cycleSession, player, i, !resolving)
+                    keywordMarkValues.Add(visible && IdentityVisible(i) ? LegacyKeywordPreview.QueueMark(cycleSession, player, i, !resolving)
                         : LegacyKeywordMark.None);
                     if (!visible) { feedback[i].Clear(); continue; }
-                    icons[i].sprite = iconFor(queue[i].IconId);
-                    frames[i].color = schoolsNamed && !queue[i].IsWait ? SkillLaneStyle.Edge(queue[i].LaneIndex) : Border;
+                    bool revealed = RefreshCardIdentity(i, queue[i], iconFor);
                     visibleItems.Add(item);
                     visibleSlots.Add(i);
                     restScales[i] = (resolving && i == activeSlot ? Mathf.Min(scale, QueueActiveCardMaxScale) : 1) * CardScale;
@@ -2407,14 +2414,20 @@ namespace TurnLimbo.Presentation
                     highlights[i].enabled = !resolving && i == selected;
                     // Each row counts its own side's uses: a versus opponent cycles too.
                     LegacySkillEffect effect = LegacySkillDefinitions.Find(queue[i])?.Effect;
-                    bool cycle = effect?.HasCycle == true;
+                    bool cycle = revealed && effect?.HasCycle == true;
                     cycleMarks[i].gameObject.SetActive(cycle);
                     if (cycle)
                     {
                         // The count this slot reads as it starts: two copies of one skill show their own, and 순환 +1
                         // already counts while planning, written as its rise (1→2/2), or 최대 at the cap.
                         string count = LegacyKeywordPreview.CycleCount(cycleSession, player, i, !resolving,
-                            out bool raised, out bool capped) ?? "0/" + effect.CycleMaxCount;
+                            out bool raised, out bool capped);
+                        if (count == null && cycleSession != null)
+                        {
+                            cycleMarks[i].gameObject.SetActive(false);
+                            continue;
+                        }
+                        if (count == null) count = "0/" + effect.CycleMaxCount;
                         if (cycleLabels[i].text != count) cycleLabels[i].text = count;
                         cycleLabels[i].color = capped ? DuelVisualTheme.Muted : raised ? CycleRaisedInk : Foreground;
                         cycleMarks[i].sizeDelta = new Vector2(raised ? 50f : 36f, 20f);
@@ -2424,9 +2437,9 @@ namespace TurnLimbo.Presentation
                     }
                 }
                 for (int i = 0; i < counterMarks.Count; i++)
-                    counterMarks[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && counterSlots.Contains(i));
+                    counterMarks[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && IdentityVisible(i) && counterSlots.Contains(i));
                 for (int i = 0; i < dodgeStrikes.Count; i++)
-                    dodgeStrikes[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && dodgedSlots.Contains(i));
+                    dodgeStrikes[i].SetActive(icons[i].transform.parent.gameObject.activeSelf && IdentityVisible(i) && dodgedSlots.Contains(i));
                 UpdateMeshMarks();
                 UpdateQueuePowerMarks();
                 UpdateKeywordMarks();
@@ -2624,7 +2637,7 @@ namespace TurnLimbo.Presentation
                 for (int index = 0; index < feedback.Count; index++)
                 {
                     bool visible = icons[index].transform.parent.gameObject.activeSelf &&
-                        displayedQueue != null && index < displayedQueue.Count;
+                        displayedQueue != null && index < displayedQueue.Count && IdentityVisible(index);
                     bool target = visible && LegacySkillConditions.MatchesOpponent(preview, displayedQueue[index]);
                     bool actual = visible && index == feedbackSlot && currentFeedback != null;
                     bool beneficial = actual && currentFeedback.HasBeneficialBuff;
@@ -2940,6 +2953,7 @@ namespace TurnLimbo.Presentation
                 visibleSlots.Clear();
                 CurrentPitch = DefaultPitch;
                 displayedQueue = null;
+                visibilitySession = null;
                 QueueEndSlot = 0;
                 preview = null;
                 previewSlot = feedbackSlot = -1;

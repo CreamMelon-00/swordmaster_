@@ -13,17 +13,18 @@ namespace TurnLimbo.Presentation
 
         private readonly LegacyDuelArt art;
         private readonly Action<int> setEnemyCount, setPlayerCount;
-        private readonly Action<bool> setAttackRhythm, setWeaponTrail;
-        private readonly Text enemyValue, playerValue, status, attackRhythmLabel, weaponTrailLabel;
-        private readonly Button enemyLess, enemyMore, playerLess, playerMore, restartButton, closeButton, attackRhythmButton, weaponTrailButton;
+        private readonly Action<bool> setAttackRhythm, setWeaponTrail, setDeepThrust;
+        private readonly Text enemyValue, playerValue, status, attackRhythmLabel, weaponTrailLabel, deepThrustLabel;
+        private readonly Button enemyLess, enemyMore, playerLess, playerMore, restartButton, closeButton, attackRhythmButton,
+            weaponTrailButton, deepThrustButton;
         private int enemyCount, playerCount;
-        private bool attackRhythmEnabled, weaponTrailEnabled, disposed;
+        private bool attackRhythmEnabled, weaponTrailEnabled, deepThrustEnabled, disposed;
 
         public GameObject Root { get; }
 
         public DuelCombatDebugHud(Transform parent, LegacyDuelArt art, Action<int> setEnemyCount,
             Action<int> setPlayerCount, Action restart, Action close, Action<bool> setAttackRhythm = null,
-            Action<bool> setWeaponTrail = null)
+            Action<bool> setWeaponTrail = null, Action<bool> setDeepThrust = null)
         {
             if (parent == null) throw new ArgumentNullException(nameof(parent));
             this.art = art ?? throw new ArgumentNullException(nameof(art));
@@ -31,6 +32,7 @@ namespace TurnLimbo.Presentation
             this.setPlayerCount = setPlayerCount;
             this.setAttackRhythm = setAttackRhythm;
             this.setWeaponTrail = setWeaponTrail;
+            this.setDeepThrust = setDeepThrust;
 
             RectTransform root = Rect("Combat Debug HUD", parent, Vector2.zero, Vector2.zero);
             Root = root.gameObject;
@@ -86,11 +88,15 @@ namespace TurnLimbo.Presentation
                 new Vector2(38f, 38f), () => ChangePlayer(1));
             restartButton = ActionButton("Debug Restart", card.transform, "다시 재생", new Vector2(316f, -28f),
                 new Vector2(164f, 40f), restart, true);
+            deepThrustButton = ActionButton("Debug Deep Thrust", card.transform, string.Empty, new Vector2(510f, -28f),
+                new Vector2(210f, 40f), ToggleDeepThrust);
+            deepThrustButton.interactable = setDeepThrust != null;
+            deepThrustLabel = deepThrustButton.GetComponentInChildren<Text>();
             Refresh(0, 0, 0);
         }
 
         public void Refresh(int enemyCount, int playerCount, int loopNumber, bool attackRhythmEnabled = true,
-            bool weaponTrailEnabled = true)
+            bool weaponTrailEnabled = true, bool deepThrustEnabled = false)
         {
             if (disposed) return;
             this.enemyCount = Mathf.Clamp(enemyCount, 0, MaximumAttackCount);
@@ -100,6 +106,8 @@ namespace TurnLimbo.Presentation
             RefreshAttackRhythm();
             this.weaponTrailEnabled = weaponTrailEnabled;
             RefreshWeaponTrail();
+            this.deepThrustEnabled = deepThrustEnabled;
+            RefreshDeepThrust();
             status.text = "자동 반복 · 양측 무적" + (loopNumber > 0 ? " · " + loopNumber + "회" : string.Empty);
         }
 
@@ -131,6 +139,21 @@ namespace TurnLimbo.Presentation
             weaponTrailLabel.text = "베기 잔광 · " + (weaponTrailEnabled ? "켬" : "끔");
             weaponTrailLabel.color = weaponTrailEnabled ? DuelVisualTheme.Accent : DuelVisualTheme.Muted;
             weaponTrailButton.targetGraphic.color = weaponTrailEnabled ? DuelVisualTheme.Selected : DuelVisualTheme.RaisedSurface;
+        }
+
+        private void ToggleDeepThrust()
+        {
+            if (setDeepThrust == null) return;
+            deepThrustEnabled = !deepThrustEnabled;
+            RefreshDeepThrust();
+            setDeepThrust(deepThrustEnabled);
+        }
+
+        private void RefreshDeepThrust()
+        {
+            deepThrustLabel.text = "깊은 찌르기 · " + (deepThrustEnabled ? "켬" : "끔");
+            deepThrustLabel.color = deepThrustEnabled ? DuelVisualTheme.Accent : DuelVisualTheme.Muted;
+            deepThrustButton.targetGraphic.color = deepThrustEnabled ? DuelVisualTheme.Selected : DuelVisualTheme.RaisedSurface;
         }
 
         private void ChangeEnemy(int delta)
@@ -166,7 +189,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             disposed = true;
             foreach (Button button in new[] { enemyLess, enemyMore, playerLess, playerMore, restartButton, closeButton,
-                attackRhythmButton, weaponTrailButton })
+                attackRhythmButton, weaponTrailButton, deepThrustButton })
                 button.onClick.RemoveAllListeners();
             Root.SetActive(false);
             GameObject selected = EventSystem.current != null ? EventSystem.current.currentSelectedGameObject : null;

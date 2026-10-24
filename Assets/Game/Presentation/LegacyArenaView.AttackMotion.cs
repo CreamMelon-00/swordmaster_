@@ -86,7 +86,7 @@ namespace TurnLimbo.Presentation
                     offset = actor.AttackRecoilOffset * Mathf.Clamp01(actor.ReactionTime / ReactionPoseDuration);
                 else if (actor.Skill?.Kind == LegacySkillKind.Attack && TryGetSkillFrame(actor, out float clipTime))
                 {
-                    float distance = LegacyAttackRhythm.LungeShare(clipTime / OriginalClipDuration) * AttackLungeDistanceFor(actor);
+                    float distance = LegacyAttackRhythm.LungeShare(actor.Skill, clipTime / OriginalClipDuration) * AttackLungeDistanceFor(actor);
                     offset = arenaRoot.transform.TransformVector(Vector3.right * (actor == player ? distance : -distance));
                     actor.AttackRecoilOffset = offset;
                 }
@@ -139,7 +139,8 @@ namespace TurnLimbo.Presentation
                 !TryGetSkillFrame(actor, out float clipTime)) return;
             float phase = clipTime / OriginalClipDuration;
             // Roundoff at a manually held or multiplied clip boundary must still count as that stroke moment.
-            int due = (phase + .00001f >= .40f ? 1 : 0) | (phase + .00001f >= .48f ? 2 : 0);
+            const float firstStroke = .46f, secondStroke = .49f;
+            int due = (phase + .00001f >= firstStroke ? 1 : 0) | (phase + .00001f >= secondStroke ? 2 : 0);
             int hit = Mathf.FloorToInt(actor.AnimationTime / (OriginalClipDuration / slotAnimationSpeed + slotAttackInterval));
             actor.AttackEchoMasks.TryGetValue(hit, out int shown);
             if ((due & ~shown) == 0) return;

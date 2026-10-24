@@ -79,7 +79,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new MotionScope())
             foreach (bool enemyReceivedHit in new[] { true, false })
             {
-                scope.Begin(); scope.Hold(.4f);
+                scope.Begin(); scope.Hold(.46f);
                 Vector3 ordinary = scope.Arena.PlayerAttackVisualOffset;
                 Vector3 enemyOffset = scope.Arena.EnemyAttackVisualOffset;
                 Vector3 playerAnchor = scope.Arena.PlayerRenderer.transform.position;
@@ -91,7 +91,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Capture(enemyReceivedHit ? "attack-normal" : "received-hit-normal");
                 scope.Arena.PresentDecisiveFocus(enemyReceivedHit);
                 scope.Arena.Tick(0f, .12f);
-                scope.Hold(.4f);
+                scope.Hold(.46f);
                 Assert.That(scope.Arena.PlayerAttackVisualOffset.x, Is.GreaterThan(ordinary.x * 1.5f));
                 Assert.That(scope.Arena.PlayerAttackVisualOffset.x, Is.LessThanOrEqualTo(ordinary.x * 1.7001f));
                 Assert.That(scope.Arena.EnemyAttackVisualOffset, Is.EqualTo(enemyOffset));
@@ -102,7 +102,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.Arena.IsInRange, Is.EqualTo(inRange));
                 scope.Capture(enemyReceivedHit ? "attack-slow" : "received-hit-slow");
                 Vector3 held = scope.Arena.PlayerAttackVisualOffset;
-                scope.Hold(.4f); scope.Hold(.4f);
+                scope.Hold(.46f); scope.Hold(.46f);
                 Assert.That(scope.Arena.PlayerAttackVisualOffset, Is.EqualTo(held),
                     "Controller contact holds resample the pose without advancing or compounding its movement boost.");
             }

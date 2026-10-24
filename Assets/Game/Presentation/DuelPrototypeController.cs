@@ -478,6 +478,7 @@ namespace TurnLimbo.Presentation
                 return;
             }
             // Break impulses use real time even during the finale's frozen frame and the result hand-off.
+            arena.AdvanceContrastImpact(realDelta);
             hud.AdvanceBreakQueueFragments(realDelta);
             breakImpactCue.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
@@ -809,6 +810,8 @@ namespace TurnLimbo.Presentation
                 while (!session.IsFinished && !session.IsTurnResolved) session.ResolveNextSlot();
             if (session.IsFinished || session.IsTurnResolved)
             {
+                // A turn-limit draw can be decided at slot completion or an empty commit, without a finishing hit.
+                if (session.IsFinished) arena.PresentBattleEndImpact(session.Outcome);
                 SetViewPhase(ViewPhase.AfterTurn);
                 return;
             }
@@ -1407,6 +1410,7 @@ namespace TurnLimbo.Presentation
 
         private void SetViewPhase(ViewPhase next)
         {
+            if (next == ViewPhase.Outcome) arena.ClearContrastImpact();
             if (next == ViewPhase.AfterTurn) turnCleanupDuration = presentationSettings.TurnCleanupSeconds;
             if (next != ViewPhase.AfterTurn) finishingHitPlayback = false;
             viewPhase = next;

@@ -184,7 +184,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 // The enemy skill already in the slot this one would take (none yet: the slot is still open).
                 LegacySkill facing = slot < view.EnemyQueue.Count ? view.EnemyQueue[slot] : null;
-                parts.Add(facing == null ? "자동 회피 · 이 칸 상대 공격을 모두 피함"
+                parts.Add(facing == null || !view.IsEnemySkillRevealed(slot) ? "자동 회피 · 이 칸 상대 공격을 모두 피함"
                     : facing.Kind == LegacySkillKind.Attack ? "자동 회피 · 지금 예약하면 " + KoreanParticle.Attach(facing.Name, "을") + " 피함"
                     : "자동 회피 · 이 칸 상대는 공격하지 않음");
             }
@@ -199,6 +199,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public static LegacyKeywordMark QueueMark(ILegacyDuelView view, bool playerRow, int slotIndex, bool planning)
         {
             if (view == null) return LegacyKeywordMark.None;
+            if (!playerRow && !view.IsEnemySkillRevealed(slotIndex)) return LegacyKeywordMark.None;
             IReadOnlyList<LegacySkill> queue = playerRow ? view.PlayerQueue : view.EnemyQueue;
             if (slotIndex < 0 || slotIndex >= queue.Count || queue[slotIndex] == null) return LegacyKeywordMark.None;
             LegacySkill skill = queue[slotIndex];
@@ -285,6 +286,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             if (effect.ReserveCycleFeed && planning)
             {
+                if (!playerRow && !LegacyQueueVisibility.CanForecastSlot(view, slotIndex)) return LegacyKeywordMark.None;
                 int raised = first ? RaisedAhead(queue, slotIndex, CycleUsesOf(view, playerRow)).Count : 0;
                 return new LegacyKeywordMark(raised > 0 ? "순환 +1 ×" + raised : "순환 +0", LegacyKeywordMarkKind.CycleFeed,
                     raised == 0);
@@ -338,6 +340,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             raised = capped = false;
             if (view == null) return null;
+            // Planned cycle reads include every feeder in the committed queue. A concealed later feeder must not be
+            // disclosed through the raised count of an otherwise revealed card. Actual execution reads remain public.
+            if (!playerRow && (!view.IsEnemySkillRevealed(slotIndex) ||
+                planning && !LegacyQueueVisibility.CanForecastSlot(view, slotIndex))) return null;
             IReadOnlyList<LegacySkill> queue = playerRow ? view.PlayerQueue : view.EnemyQueue;
             if (slotIndex < 0 || slotIndex >= queue.Count) return null;
             LegacySkill skill = queue[slotIndex];

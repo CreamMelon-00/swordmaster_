@@ -308,7 +308,8 @@ namespace TurnLimbo.Presentation.Tests
                     initialX[index] = tile.transform.localPosition.x;
                 }
                 arena.Tick(0f, 1f);
-                Assert.That(camera.transform.localPosition.y, Is.EqualTo(-1.5f).Within(.01f),
+                Assert.That(camera.transform.localPosition.y,
+                    Is.EqualTo(-1.5f + controller.PresentationSettings.CameraFramingLift).Within(.01f),
                     "Moving only the actors forward must keep the corridor framing unchanged.");
                 camera.transform.localPosition += Vector3.right;
                 arena.TickBackdrop(camera, false, 0f);

@@ -233,6 +233,7 @@ namespace TurnLimbo.Presentation
         public void Stop()
         {
             if (disposed || !active) return;
+            arena.ClearContrastImpact();
             arena.ClearLowHealthHeartbeat();
             arena.ClearSlowMotionAfterimages();
             active = false;
@@ -406,6 +407,7 @@ namespace TurnLimbo.Presentation
             }
             // The question never pauses the match: the host's clocks keep running, and so does what is on screen.
             // Break impulses use real time even during the finishing blow's frozen frame.
+            arena.AdvanceContrastImpact(realDelta);
             battleHud.AdvanceBreakQueueFragments(realDelta);
             breakImpactCue.Tick(realDelta, arena.ArenaCamera,
                 arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
@@ -782,8 +784,12 @@ namespace TurnLimbo.Presentation
             temporaryUsedBefore = (view.Me.ReserveEffectsUsedThisTurn & LegacyReserveEffect.Temporary) != 0;
             ownFeedCue = LegacyKeywordPreview.CycleFeedCue(view.PlayerQueue, view.CycleUses);
             ownFeeder = LegacyKeywordPreview.FirstCycleFeeder(view.PlayerQueue);
-            opponentFeedCue = LegacyKeywordPreview.CycleFeedCue(view.EnemyQueue, view.EnemyCycleUses);
-            opponentFeeder = LegacyKeywordPreview.FirstCycleFeeder(view.EnemyQueue);
+            // Commit effects still run normally. Their banner must not identify a future hidden feeder or its targets.
+            bool enemyFullyRevealed = true;
+            for (int index = 0; index < view.EnemyQueue.Count; index++)
+                if (!view.IsEnemySkillRevealed(index)) { enemyFullyRevealed = false; break; }
+            opponentFeedCue = enemyFullyRevealed ? LegacyKeywordPreview.CycleFeedCue(view.EnemyQueue, view.EnemyCycleUses) : null;
+            opponentFeeder = enemyFullyRevealed ? LegacyKeywordPreview.FirstCycleFeeder(view.EnemyQueue) : null;
         }
 
         private void PlaySelection()
@@ -836,6 +842,8 @@ namespace TurnLimbo.Presentation
                     nextSlotIndex = match.ResolveNextSlot().SlotIndex + 1;
             if (match.IsFinished || match.IsTurnResolved)
             {
+                // A turn-limit draw has no finishing hit; the arena ignores a knockout already presented this battle.
+                if (match.IsFinished) arena.PresentBattleEndImpact(view.Outcome);
                 EndRound();
                 return;
             }
@@ -1225,6 +1233,7 @@ namespace TurnLimbo.Presentation
         private void ShowResult()
         {
             if (!match.IsFinished) return;
+            arena.ClearContrastImpact();
             arena.ClearLowHealthHeartbeat();
             arena.ClearSlowMotionAfterimages();
             finale.Clear();

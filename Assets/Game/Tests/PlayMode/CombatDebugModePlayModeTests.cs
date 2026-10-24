@@ -166,6 +166,44 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator FeaturedSampleButton_RestartsWithDeepThrust_AndReturnsToTheOriginalSample()
+        {
+            yield return null;
+            using (var scope = new DebugScope())
+            {
+                DuelPrototypeController controller = scope.Controller;
+                scope.StartStage();
+                LegacyQueuedDuel original = controller.Session;
+                string campaignBefore = CampaignState(controller);
+                float clock = controller.TurnTimeRemaining;
+                Assert.That(controller.CombatDebugDeepThrustEnabled, Is.False);
+                Assert.That(controller.SetCombatDebugMode(true), Is.True);
+                DuelPrototypeController preview = controller.CombatDebugPreview;
+                bool rhythm = controller.CombatDebugAttackRhythmEnabled;
+                LegacyQueuedDuel beforeSelection = preview.Session;
+
+                ButtonNamed(controller, "Debug Deep Thrust").onClick.Invoke();
+                Assert.That(controller.CombatDebugDeepThrustEnabled && preview.CombatDebugDeepThrustEnabled, Is.True);
+                Assert.That(preview.Session, Is.Not.SameAs(beforeSelection));
+                AssertQueues(preview, controller.CombatDebugPlayerAttackCount, controller.CombatDebugEnemyAttackCount);
+                foreach (LegacySkill skill in preview.Session.PlayerQueue)
+                    Assert.That(skill.Id, Is.EqualTo(LegacyFeaturedTechnique.SkillId));
+                Assert.That(preview.Session.EnemyQueue[0].Id, Is.EqualTo(-10001));
+                Assert.That(controller.CombatDebugAttackRhythmEnabled, Is.EqualTo(rhythm),
+                    "Choosing a technique keeps the existing attack-emphasis comparison setting.");
+                controller.RestartCombatDebugPreview();
+                Assert.That(preview.Session.PlayerQueue[0].Id, Is.EqualTo(LegacyFeaturedTechnique.SkillId));
+
+                ButtonNamed(controller, "Debug Deep Thrust").onClick.Invoke();
+                Assert.That(controller.CombatDebugDeepThrustEnabled || preview.CombatDebugDeepThrustEnabled, Is.False);
+                Assert.That(preview.Session.PlayerQueue[0].Id, Is.EqualTo(-10001));
+                Assert.That(controller.Session, Is.SameAs(original));
+                Assert.That(controller.TurnTimeRemaining, Is.EqualTo(clock));
+                Assert.That(CampaignState(controller), Is.EqualTo(campaignBefore));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator AnOnlineRoom_RefusesTheLocalPreview_AndKeepsItsOwnScreenActive()
         {
             yield return null;
@@ -294,7 +332,8 @@ namespace TurnLimbo.Presentation.Tests
 
         private sealed class DebugScope : IDisposable
         {
-            private readonly bool originalEnabled, originalStartCards, originalStoryProgression, originalAutoSave;
+            private readonly bool originalEnabled, originalStartCards, originalStoryProgression, originalAutoSave,
+                originalDeepThrust;
             private readonly int originalEnemyCount, originalPlayerCount;
             private readonly GameSaveStore originalStore;
             private readonly string directory;
@@ -314,9 +353,11 @@ namespace TurnLimbo.Presentation.Tests
                 originalAutoSave = Controller.AutoSaveEnabled;
                 originalEnemyCount = Controller.CombatDebugEnemyAttackCount;
                 originalPlayerCount = Controller.CombatDebugPlayerAttackCount;
+                originalDeepThrust = Controller.CombatDebugDeepThrustEnabled;
                 originalStore = Controller.SaveStore;
                 Controller.enabled = false;
                 Controller.SetCombatDebugMode(false);
+                Controller.SetCombatDebugDeepThrustEnabled(false);
                 Controller.StartCardsEnabled = false;
                 storyProgression.SetValue(Controller, false);
                 autoSave.SetValue(Controller, false);
@@ -351,6 +392,7 @@ namespace TurnLimbo.Presentation.Tests
                 Controller.ShowTitle();
                 Controller.SetCombatDebugEnemyAttackCount(originalEnemyCount);
                 Controller.SetCombatDebugPlayerAttackCount(originalPlayerCount);
+                Controller.SetCombatDebugDeepThrustEnabled(originalDeepThrust);
                 Controller.RestartJourney();
                 Controller.StartCardsEnabled = originalStartCards;
                 storyProgression.SetValue(Controller, originalStoryProgression);

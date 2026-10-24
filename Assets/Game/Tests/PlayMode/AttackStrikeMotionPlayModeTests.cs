@@ -110,19 +110,19 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new StrikeScope())
             {
                 scope.Begin(true);
-                scope.HoldPhase(.40f);
+                scope.HoldPhase(.46f);
                 Trail(scope.Arena, .016f, true);
                 int first = scope.Arena.ActiveAttackEchoCount;
                 Assert.That(first, Is.GreaterThan(0));
                 Assert.That(scope.Arena.AttackEchoPoolSize, Is.EqualTo(8));
                 for (int hold = 0; hold < 12; hold++)
                 {
-                    scope.HoldPhase(.40f);
+                    scope.HoldPhase(.46f);
                     Trail(scope.Arena, 0f, true);
                     scope.Arena.Tick(0f, 0f);
                 }
                 Assert.That(scope.Arena.ActiveAttackEchoCount, Is.EqualTo(first), "A frozen contact or paused clock cannot duplicate a stroke's echo.");
-                scope.HoldPhase(.48f);
+                scope.HoldPhase(.49f);
                 Trail(scope.Arena, .016f, true);
                 Assert.That(scope.Arena.ActiveAttackEchoCount, Is.GreaterThan(first).And.LessThanOrEqualTo(8));
                 for (int hold = 0; hold < 12; hold++) Trail(scope.Arena, .016f, true);

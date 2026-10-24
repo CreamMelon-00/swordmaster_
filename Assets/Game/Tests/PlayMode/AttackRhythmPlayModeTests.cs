@@ -23,7 +23,79 @@ namespace TurnLimbo.Presentation.Tests
             "\"attackRhythmStrength\":1";
 
         [UnityTest]
-        public IEnumerator Arena_RetimesVisiblePreparationContactHoldAndRecovery_ButPinsTheActualContactAndClipEnd()
+        public IEnumerator SheetAttacks_HoldTheirAuthoredGatherAndFinish_OnBothBodies_WithoutReplacingReactionsOrExtendingTheClip()
+        {
+            yield return null;
+            var root = new GameObject("Shared Attack Rhythm Test");
+            var settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
+            using (var art = new LegacyDuelArt())
+            using (var arena = LegacyArenaView.Create(root.transform, art, settings,
+                attackPoseRandom: new FirstVariant(), enemyAttackPoseRandom: new FirstVariant()))
+            {
+                try
+                {
+                    foreach (LegacySkillProperty property in new[] { LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit })
+                    {
+                        LegacySkill attack = SheetAttack(property);
+                        Configure(settings, true);
+                        arena.Reset();
+                        arena.SetEnemyAppearance(EnemyAppearance.CadetA);
+                        typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", Private).Invoke(arena, new object[] { 1f, .12f });
+                        arena.BeginSlot(attack, attack);
+                        Vector3 playerPosition = arena.PlayerRenderer.transform.position, enemyPosition = arena.EnemyRenderer.transform.position;
+                        Hold(arena, LegacyArenaView.OriginalClipDuration * .16f);
+                        Sprite playerGather = arena.PlayerRenderer.sprite, enemyGather = arena.EnemyRenderer.sprite;
+                        Hold(arena, LegacyArenaView.OriginalClipDuration * .40f);
+                        Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerGather));
+                        Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyGather));
+                        Assert.That(arena.PlayerAttackVisualOffset.x, Is.LessThan(0f));
+                        Assert.That(arena.EnemyAttackVisualOffset.x, Is.GreaterThan(0f));
+                        Assert.That(arena.PlayerRenderer.transform.position, Is.EqualTo(playerPosition));
+                        Assert.That(arena.EnemyRenderer.transform.position, Is.EqualTo(enemyPosition));
+
+                        Hold(arena, LegacyArenaView.OriginalClipDuration * .70f);
+                        Sprite playerFinish = arena.PlayerRenderer.sprite, enemyFinish = arena.EnemyRenderer.sprite;
+                        Hold(arena, LegacyArenaView.OriginalClipDuration * .88f);
+                        Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(playerFinish));
+                        Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyFinish));
+                        Assert.That(playerFinish, Is.Not.SameAs(playerGather));
+
+                        Hold(arena, LegacyArenaView.OriginalClipDuration * .5f);
+                        Assert.That(FrameNumber(arena.PlayerRenderer.sprite), Is.EqualTo(5), "The authored contact cel is still sampled exactly halfway through.");
+                        Assert.That(FrameNumber(arena.EnemyRenderer.sprite), Is.EqualTo(5));
+                        arena.PresentHit(false, 5, 0, false, false, 5);
+                        Sprite hurt = arena.PlayerRenderer.sprite;
+                        Assert.That(hurt.name, Does.Contain("hurt"));
+                        Hold(arena, LegacyArenaView.OriginalClipDuration * .88f);
+                        Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(hurt), "A held finish cannot overwrite an active hit reaction.");
+                        arena.Tick(.25f, .25f);
+                        Hold(arena, LegacyArenaView.OriginalClipDuration);
+                        Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                        Assert.That(arena.EnemyRenderer.sprite.name, Does.Contain("idle-frame-"));
+                        Assert.That(arena.PlayerAttackVisualOffset, Is.EqualTo(Vector3.zero));
+                        Assert.That(arena.EnemyAttackVisualOffset, Is.EqualTo(Vector3.zero));
+
+                        arena.Reset();
+                        Assert.That(arena.PlayerAttackVisualOffset, Is.EqualTo(Vector3.zero));
+                        Assert.That(arena.EnemyAttackVisualOffset, Is.EqualTo(Vector3.zero));
+                        typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", Private).Invoke(arena, new object[] { 1f, .12f });
+                        arena.BeginSlot(Attack(88501, property), attack);
+                        Hold(arena, LegacyArenaView.OriginalClipDuration * .16f);
+                        Sprite newAttackGather = arena.PlayerRenderer.sprite;
+                        Hold(arena, LegacyArenaView.OriginalClipDuration * .40f);
+                        Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(newAttackGather), "An unregistered attack automatically receives the same held preparation after reset.");
+                    }
+                }
+                finally
+                {
+                    Object.Destroy(settings);
+                    Object.Destroy(root);
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator Arena_RetimesVisiblePreparationAndFollowThrough_ButPinsTheActualContactAndClipEnd()
         {
             yield return null;
             var root = new GameObject("Attack Rhythm Arena Test");
@@ -46,7 +118,7 @@ namespace TurnLimbo.Presentation.Tests
                             typeof(LegacyArenaView).GetMethod("ConfigureSlotTiming", Private).Invoke(arena, new object[] { 1f, .12f });
                             LegacySkill attack = Attack(88501, property);
                             arena.BeginSlot(attack, attack);
-                            float[] anchors = { .16f, .56f, .74f, .5f, .999f };
+                            float[] anchors = { .16f, .60f, .74f, .5f, .999f };
                             for (int index = 0; index < anchors.Length; index++)
                             {
                                 Hold(arena, LegacyArenaView.OriginalClipDuration * anchors[index]);
@@ -61,7 +133,7 @@ namespace TurnLimbo.Presentation.Tests
                         {
                             string at = appearance + " / " + property + " / side " + side;
                             Assert.That(frames[1, side], Is.Not.EqualTo(frames[0, side]), at + " changes the preparation cel.");
-                            Assert.That(frames[1, 2 + side], Is.Not.EqualTo(frames[0, 2 + side]), at + " holds contact longer.");
+                            Assert.That(frames[1, 2 + side], Is.Not.EqualTo(frames[0, 2 + side]), at + " accelerates the follow-through.");
                             Assert.That(frames[1, 4 + side], Is.Not.EqualTo(frames[0, 4 + side]), at + " advances recovery sooner.");
                             Assert.That(frames[0, 6 + side], Is.EqualTo(5));
                             Assert.That(frames[1, 6 + side], Is.EqualTo(5), at + " retains the half-cycle contact cel.");
@@ -269,6 +341,14 @@ namespace TurnLimbo.Presentation.Tests
         }
         private static LegacySkill Attack(int id, LegacySkillProperty property = LegacySkillProperty.Slash, int hits = 1)
             => new LegacySkill(id, "동작 리듬 검증", 0, 6, 6, LegacySkillKind.Attack, property, hits, 0, string.Empty);
+
+        private static LegacySkill SheetAttack(LegacySkillProperty property)
+        {
+            foreach (LegacySkill skill in LegacySkillDefinitions.InitialSkills)
+                if (skill.Kind == LegacySkillKind.Attack && skill.Property == property) return skill;
+            Assert.Fail("The initial sheet must provide an attack for " + property);
+            return null;
+        }
 
         private struct Trace
         {

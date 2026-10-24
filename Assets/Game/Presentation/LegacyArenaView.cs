@@ -393,6 +393,7 @@ namespace TurnLimbo.Presentation
             if (breakShader != null && breakShader.isSupported)
                 breakMaterial = new Material(breakShader) { name = "Duel Break Silhouette (Runtime)" };
             else Debug.LogWarning("Break aura shader DuelVFX/BreakSilhouette is missing or unsupported.");
+            contrastImpact = new DuelContrastImpact(arenaRoot.transform, breakMaterial, ArenaLayer);
             playerBreakAura = new DuelBreakAura(player.Renderer, player.LowerRenderer, playerShadow, breakMaterial, ArenaLayer);
             enemyBreakAura = new DuelBreakAura(enemy.Renderer, null, enemyShadow, breakMaterial, ArenaLayer);
             playerPowerAura = new DuelPowerAura(player.Renderer.transform, spriteMaterial, ArenaLayer, 11);
@@ -428,6 +429,8 @@ namespace TurnLimbo.Presentation
 
         public void Reset()
         {
+            ClearContrastImpact();
+            battleEndImpactShown = false;
             ClearResistanceImpact();
             ClearSlowMovement();
             ClearCombatShot();
@@ -531,6 +534,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            ClearContrastImpact();
             ClearResistanceImpact();
             ClearSlotMovement();
             contactRead.Clear();
@@ -1239,6 +1243,7 @@ namespace TurnLimbo.Presentation
             TickDefeatedFigure(enemy, scaledDelta);
             RefreshDepthPresentation();
             TickSlowAfterimages(realDelta, deferSlowAfterimages);
+            RefreshContrastImpact();
         }
 
         /// <summary>Shows which fighters are broken (incoming HP damage x2). The cue lasts until the
@@ -1252,7 +1257,7 @@ namespace TurnLimbo.Presentation
 
         private void RefreshBloom()
         {
-            bloom.active = settings.GlowEnabled && settings.BloomIntensity > 0f;
+            bloom.active = !ContrastImpactActive && settings.GlowEnabled && settings.BloomIntensity > 0f;
             bloom.intensity.value = settings.BloomIntensity;
             bloom.threshold.value = settings.BloomThreshold;
         }
@@ -1322,6 +1327,9 @@ namespace TurnLimbo.Presentation
                 pivot.y += CameraCompensation(ArenaCamera.orthographicSize, 0f);
                 // As TickCamera frames it: the feet stay over the duel HUD's queue panels.
                 pivot.y = Mathf.Min(pivot.y, LegacyQueuePanelLayout.CameraCeiling(FeetY, ArenaCamera.orthographicSize, hudFloor));
+                float restoredSize = ArenaCamera.orthographicSize;
+                LiftOrdinaryCameraFraming(ref pivot, ref restoredSize);
+                ArenaCamera.orthographicSize = restoredSize;
                 pivot.z = -10f;
                 ArenaCamera.transform.localPosition = pivot;
                 ArenaCamera.transform.localRotation = Quaternion.Euler(0f, 0f, CameraRotate ? cameraRotation : 0f);
@@ -1347,7 +1355,8 @@ namespace TurnLimbo.Presentation
             float pulse = settings.GlowEnabled
                 ? Mathf.Clamp01(impactFlashTime / Mathf.Min(0.12f, settings.GlowDuration)) : 0f;
             // The tension lighting's dimming and a flow's swell over the hit's flash.
-            colorAdjustments.postExposure.value = Mathf.Max(fatalExposure, settings.FlashExposure * pulse * pulse) + LightingExposure;
+            colorAdjustments.postExposure.value = ContrastImpactActive ? 0f :
+                Mathf.Max(fatalExposure, settings.FlashExposure * pulse * pulse) + LightingExposure;
         }
 
         private void TickActor(Actor actor, float delta)
@@ -1439,6 +1448,7 @@ namespace TurnLimbo.Presentation
         internal void SuspendForCutscene()
         {
             if (disposed || suspension != null) return;
+            ClearContrastImpact();
             ClearResistanceImpact();
             ClearCombatShot();
             ClearUpcomingEnemy();
@@ -1540,6 +1550,15 @@ namespace TurnLimbo.Presentation
         /// open edges), and a cutscene's flashback over all of them (full desaturation, no tint).</summary>
         private void ApplyGrade()
         {
+            // The short flat frame reads as ink and paper. Existing pulses continue aging underneath it.
+            aberration.active = !ContrastImpactActive;
+            if (ContrastImpactActive)
+            {
+                colorAdjustments.saturation.value = -100f;
+                colorAdjustments.colorFilter.value = Color.white;
+                vignette.intensity.value = 0f;
+                return;
+            }
             float saturation = saturationPulse - settings.BattleDesaturation * bulletTimeAmount;
             Color filter = Color.Lerp(Color.white, BulletTimeCoolColor, settings.BattleCoolTint * bulletTimeAmount);
             if (empowermentAmount > 0f)
@@ -1635,7 +1654,7 @@ namespace TurnLimbo.Presentation
             // Only the sampled attack pose changes. Its cycle, hit index, contact and combat clock stay authoritative.
             // Preserve half-cycle contact so a held blade bind still shows the authored contact cel.
             if (active && actor.Skill.Kind == LegacySkillKind.Attack && slotAttackRhythmStrength > 0f)
-                clipTime = OriginalClipDuration * LegacyAttackRhythm.PosePhase(clipTime / OriginalClipDuration,
+                clipTime = OriginalClipDuration * LegacyAttackRhythm.PosePhase(actor.Skill, clipTime / OriginalClipDuration,
                     slotAttackRhythmStrength);
             if ((actor == player || actor == enemy && EnemyIsElisa) && mobAnimations.HasRequiredAssets)
             {
@@ -1845,6 +1864,7 @@ namespace TurnLimbo.Presentation
             if (floorWeight > 0f && pivot.y > ceiling) pivot.y = Mathf.Lerp(pivot.y, ceiling, floorWeight);
             if (!readingContact) FitPlayerSlowMotionShot(ref pivot, ref size, cameraCloseUp ? 1f : focus);
             FitCombatShot(ref pivot, ref size);
+            LiftOrdinaryCameraFraming(ref pivot, ref size);
             pivot.z = -10f;
             if (cameraJoltTime > 0f) pivot += cameraJolt * (cameraJoltTime / 0.1f);
             ArenaCamera.orthographicSize = Mathf.Lerp(ArenaCamera.orthographicSize, size, blend);
@@ -2007,6 +2027,7 @@ namespace TurnLimbo.Presentation
             DisposeDepthPresentation();
             DisposeAttackMotion();
             weaponTrails?.Dispose();
+            contrastImpact?.Dispose();
             DisposeDirector();
             CorridorBackdrop.Dispose();
             mobAnimations.Dispose();

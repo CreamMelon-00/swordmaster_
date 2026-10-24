@@ -26,6 +26,8 @@ namespace TurnLimbo.Presentation
         // On the paper cards the verdict reads in the keyword inks (ACT 회복's green, 고화력's red-brown).
         private static readonly Color FavourableInk = new Color32(36, 89, 75, 255), UnfavourableInk = new Color32(116, 61, 45, 255);
         private readonly List<LegacySlotForecast> turnForecast = new List<LegacySlotForecast>();
+        // The rule forecast stays exact; only its safe, revealed prefix reaches the HUD or its public accessor.
+        private readonly List<LegacySlotForecast> rawTurnForecast = new List<LegacySlotForecast>();
         private readonly List<int> forecastVerdicts = new List<int>();
         // The enemy's queued attacks the player's skill in their slot will dodge by itself (자동 회피), as forecast.
         private readonly List<int> forecastDodged = new List<int>();
@@ -47,7 +49,7 @@ namespace TurnLimbo.Presentation
             presentationSettings.SlotForecastEnabled &&
             (!(displayedSession is LocalVersusPerspective) || presentationSettings.SlotForecastInVersus));
 
-        /// <summary>The turn as last forecast for the shown duel (empty outside planning or while switched off).</summary>
+        /// <summary>The revealed, safe prefix of the shown turn's forecast (empty outside planning or while switched off).</summary>
         public IReadOnlyList<LegacySlotForecast> SlotForecast => turnForecast;
 
         /// <summary>Whether the enemy's queued card <paramref name="queueIndex"/> is struck through: the forecast has the player's
@@ -115,6 +117,7 @@ namespace TurnLimbo.Presentation
                         forecastDodged.Add(slot);
                 }
             }
+            else ResetForecast();
             playerQueue.SetForecastVerdicts(forecastVerdicts);
             enemyQueue.SetDodgedSlots(forecastDodged);
         }
@@ -151,20 +154,22 @@ namespace TurnLimbo.Presentation
             Remember(forecastPlayerQueue, session.PlayerQueue);
             Remember(forecastEnemyQueue, session.EnemyQueue);
             forecastVersion++;
-            session.ForecastTurn(turnForecast);
+            session.ForecastTurn(rawTurnForecast);
+            turnForecast.Clear();
+            for (int index = 0; index < rawTurnForecast.Count; index++)
+            {
+                if (!LegacyQueueVisibility.CanForecastSlot(session, index)) break;
+                turnForecast.Add(rawTurnForecast[index]);
+            }
         }
 
         /// <summary>The held explanation's 예상 line for <paramref name="skill"/>, the front of its lane: the slot it would take if
         /// queued now. Shown for as long as the duel forecasts; true when the row came or went, so the card is laid out again.</summary>
         private bool UpdatePlayerForecastNote(LegacySkill skill)
         {
-            bool shown = SlotForecastEnabled;
-            bool toggled = playerForecastNote.gameObject.activeSelf != shown;
-            if (toggled) playerForecastNote.gameObject.SetActive(shown);
-            if (!shown) return toggled;
+            bool planning = displayedSession?.Phase == LegacyDuelPhase.Planning;
             LegacySlotForecast forecast = null;
-            bool planning = displayedSession.Phase == LegacyDuelPhase.Planning;
-            if (planning)
+            if (SlotForecastEnabled && planning)
             {
                 EnsureForecast(displayedSession);
                 if (!ReferenceEquals(heldForecastSkill, skill) || heldForecastVersion != forecastVersion)
@@ -177,6 +182,17 @@ namespace TurnLimbo.Presentation
                 }
                 forecast = heldForecast;
             }
+            // A cancel/return skill can land before the current queue's end; judge the slot it will actually take.
+            int slot = forecast?.SlotIndex ?? displayedSession?.PlayerQueue.Count ?? 0;
+            bool shown = SlotForecastEnabled && (!planning || LegacyQueueVisibility.CanForecastSlot(displayedSession, slot));
+            bool toggled = playerForecastNote.gameObject.activeSelf != shown;
+            if (toggled) playerForecastNote.gameObject.SetActive(shown);
+            if (!shown)
+            {
+                playerForecastText.text = string.Empty;
+                playerForecastGlyph.gameObject.SetActive(false);
+                return toggled;
+            }
             ShowForecastLine(playerForecastText, playerForecastGlyph, forecast, planning ? ForecastUnavailable : ForecastPlanningOnly);
             return toggled;
         }
@@ -184,12 +200,19 @@ namespace TurnLimbo.Presentation
         /// <summary>The Tab card's 예상 line for the inspected slot (<see cref="SetInspectedSlot"/>).</summary>
         private bool UpdateEnemyForecastNote()
         {
-            bool shown = SlotForecastEnabled;
+            bool planning = displayedSession?.Phase == LegacyDuelPhase.Planning;
+            bool shown = SlotForecastEnabled && (!planning ||
+                LegacyQueueVisibility.CanForecastSlot(displayedSession, inspectedSlot));
             bool toggled = enemyForecastNote.gameObject.activeSelf != shown;
             if (toggled) enemyForecastNote.gameObject.SetActive(shown);
-            if (!shown) return toggled;
+            if (!shown)
+            {
+                enemyForecastText.text = string.Empty;
+                enemyForecastGlyph.gameObject.SetActive(false);
+                return toggled;
+            }
             LegacySlotForecast forecast = null;
-            if (displayedSession.Phase == LegacyDuelPhase.Planning)
+            if (planning)
             {
                 EnsureForecast(displayedSession);
                 if (inspectedSlot >= 0 && inspectedSlot < turnForecast.Count) forecast = turnForecast[inspectedSlot];
@@ -215,7 +238,9 @@ namespace TurnLimbo.Presentation
         private void ResetForecast()
         {
             turnForecast.Clear();
+            rawTurnForecast.Clear();
             forecastVerdicts.Clear();
+            forecastDodged.Clear();
             forecastPlayerQueue.Clear();
             forecastEnemyQueue.Clear();
             for (int lane = 0; lane < forecastFronts.Length; lane++) forecastFronts[lane] = null;

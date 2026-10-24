@@ -44,7 +44,7 @@ namespace TurnLimbo.Presentation
         public bool EndsInGrey => timeline.EndsInGrey;
         public float CombatSpeed => timeline.CombatSpeed;
 
-        /// <summary>Starts at the finishing hit, after its decisive presentation.</summary>
+        /// <summary>Starts at the finishing hit, after its decisive presentation, with one short contrast frame for either outcome.</summary>
         /// <param name="fall">The 서막's forced loss: after the freeze the picture drains to black and white.</param>
         /// <param name="hitStop">The real seconds of hit stop still to come before the slow motion starts, so the close-up
         /// lasts until the freeze.</param>
@@ -52,6 +52,8 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             if (settings == null) throw new ArgumentNullException(nameof(settings));
+            if (outcome != DuelMatchOutcome.PlayerVictory && outcome != DuelMatchOutcome.EnemyVictory &&
+                outcome != DuelMatchOutcome.Draw) return;
             ClearGrey();
             timeline.Begin(settings.FinishingSlowMotionSeconds, settings.FinishingSlowMotionScale,
                 settings.FinishingBarSeconds, settings.FinishingFreezeSeconds, fall ? settings.FinalFallGreySeconds : 0f);
@@ -59,6 +61,7 @@ namespace TurnLimbo.Presentation
                 arena.HoldFinishingFocus(outcome == DuelMatchOutcome.EnemyVictory || outcome == DuelMatchOutcome.Draw,
                     outcome == DuelMatchOutcome.PlayerVictory || outcome == DuelMatchOutcome.Draw,
                     settings.FinishingSlowMotionSeconds + Mathf.Max(0f, hitStop) + FocusMargin);
+            arena.PresentBattleEndImpact(outcome);
             Apply();
         }
 
@@ -75,6 +78,7 @@ namespace TurnLimbo.Presentation
         public void Clear()
         {
             if (disposed) return;
+            arena.ClearContrastImpact();
             timeline.Clear();
             letterbox.SetAmount(0f);
             ClearGrey();
@@ -83,6 +87,7 @@ namespace TurnLimbo.Presentation
         public void Dispose()
         {
             if (disposed) return;
+            arena.ClearContrastImpact();
             disposed = true;
             letterbox.Dispose();
         }

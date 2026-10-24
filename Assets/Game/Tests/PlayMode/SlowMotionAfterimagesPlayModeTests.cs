@@ -88,7 +88,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Arena.PerformStep(LegacyStepAction.Pressure, false);
                 scope.Arena.Tick(0f, scope.Arena.StepGestureDuration);
                 Invoke(scope.Arena, "ConfigureSlotTiming", .6f, .1f);
-                Invoke(scope.Arena, "HoldSlotAtTime", LegacyArenaView.OriginalClipDuration / .6f * .4f);
+                Invoke(scope.Arena, "HoldSlotAtTime", LegacyArenaView.OriginalClipDuration / .6f * .46f);
                 Invoke(scope.Arena, "TickPressureAttackTrail", .04f, true);
                 Assert.That(scope.Arena.ActiveStepAfterimageCount, Is.GreaterThan(0), "The ordinary pressure path still has its own trail.");
                 scope.Arena.BeginSignature(true, Color.cyan, 0f, false, .4f, .5f);
@@ -111,7 +111,7 @@ namespace TurnLimbo.Presentation.Tests
                 for (int frame = 0; frame < 20; frame++)
                 {
                     scope.Arena.Tick(0f, .02f);
-                    Invoke(scope.Arena, "HoldSlotAtTime", LegacyArenaView.OriginalClipDuration / .6f * .48f);
+                    Invoke(scope.Arena, "HoldSlotAtTime", LegacyArenaView.OriginalClipDuration / .6f * .49f);
                     Invoke(scope.Arena, "TickPressureAttackTrail", .02f, true);
                     Invoke(scope.Arena, "TickSignatureTrails", .02f, true);
                     Invoke(scope.Arena, "EmitAttackEcho", player);
@@ -143,7 +143,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 scope.Begin();
                 Invoke(scope.Arena, "ConfigureSlotTiming", .6f, .1f);
-                Invoke(scope.Arena, "HoldSlotAtTime", LegacyArenaView.OriginalClipDuration / .6f * .4f);
+                Invoke(scope.Arena, "HoldSlotAtTime", LegacyArenaView.OriginalClipDuration / .6f * .46f);
                 scope.Arena.BeginSignature(true, Color.cyan, 0f, false, .4f, .5f);
                 scope.Arena.BeginSignature(false, Color.red, 0f, false, .4f, .5f);
                 Invoke(scope.Arena, "TickSignatureTrails", .04f, true);
@@ -159,7 +159,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.Arena.ActiveSignatureAfterimageCount, Is.EqualTo(1), "The existing enemy trail keeps its own slow-shot cadence.");
                 Invoke(scope.Arena, "TickSignatureTrails", .046f, true);
                 Assert.That(scope.Arena.ActiveSignatureAfterimageCount, Is.EqualTo(2), "An enemy signature can still emit while player signature copies are suppressed.");
-                Invoke(scope.Arena, "HoldSlotAtTime", LegacyArenaView.OriginalClipDuration / .6f * .48f);
+                Invoke(scope.Arena, "HoldSlotAtTime", LegacyArenaView.OriginalClipDuration / .6f * .49f);
                 Invoke(scope.Arena, "TickAttackMotionTrail", .04f, true);
                 Assert.That(scope.Arena.ActiveAttackEchoCount, Is.EqualTo(2), "The next enemy stroke adds one echo, while the player's stroke stays suppressed.");
             }

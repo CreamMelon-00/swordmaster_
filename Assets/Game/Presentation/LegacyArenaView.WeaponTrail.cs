@@ -38,7 +38,8 @@ namespace TurnLimbo.Presentation
         {
             if (!resolving || approaching || returning || actor.ReactionTime > 0f ||
                 actor == enemy && EnemyIsDummy || actor.Skill?.Kind != LegacySkillKind.Attack ||
-                !TryGetSkillFrame(actor, out float clipTime) || clipTime / OriginalClipDuration + .00001f < .44f) return;
+                !TryGetSkillFrame(actor, out float clipTime) ||
+                clipTime / OriginalClipDuration + .00001f < LegacyAttackRhythm.TrailStartPhase(actor.Skill, slotAttackRhythmStrength)) return;
             int hit = Mathf.FloorToInt(actor.AnimationTime / (OriginalClipDuration / slotAnimationSpeed + slotAttackInterval));
             EmitWeaponTrail(actor, hit, actor.AttackVisualOffset);
         }
