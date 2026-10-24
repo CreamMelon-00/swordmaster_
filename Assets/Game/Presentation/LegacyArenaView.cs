@@ -393,6 +393,7 @@ namespace TurnLimbo.Presentation
             if (breakShader != null && breakShader.isSupported)
                 breakMaterial = new Material(breakShader) { name = "Duel Break Silhouette (Runtime)" };
             else Debug.LogWarning("Break aura shader DuelVFX/BreakSilhouette is missing or unsupported.");
+            InitializeReengageSpeedLines();
             contrastImpact = new DuelContrastImpact(arenaRoot.transform, breakMaterial, ArenaLayer);
             playerBreakAura = new DuelBreakAura(player.Renderer, player.LowerRenderer, playerShadow, breakMaterial, ArenaLayer);
             enemyBreakAura = new DuelBreakAura(enemy.Renderer, null, enemyShadow, breakMaterial, ArenaLayer);
@@ -429,6 +430,8 @@ namespace TurnLimbo.Presentation
 
         public void Reset()
         {
+            ClearTempoSlot();
+            ResetCombatAccents();
             ClearContrastImpact();
             battleEndImpactShown = false;
             ClearResistanceImpact();
@@ -534,6 +537,8 @@ namespace TurnLimbo.Presentation
 
         public void BeginTurn()
         {
+            ClearTempoSlot();
+            ClearCombatAccents();
             ClearContrastImpact();
             ClearResistanceImpact();
             ClearSlotMovement();
@@ -608,6 +613,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginApproach()
         {
+            ClearReengageSpeedLines();
             ClearSlotMovement();
             ClearUpcomingEnemy();
             BeginDepthApproach();
@@ -644,6 +650,7 @@ namespace TurnLimbo.Presentation
 
         public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
         {
+            ClearTempoSlot();
             ClearResistanceImpact();
             PrepareSlotMovement(playerSkill, enemySkill);
             contactRead.AwaitImpact();
@@ -707,6 +714,8 @@ namespace TurnLimbo.Presentation
 
         public void EndTurn()
         {
+            ClearTempoSlot();
+            ClearCombatAccents();
             ClearResistanceImpact();
             ClearSlotMovement();
             contactRead.ReleasePending();
@@ -935,8 +944,11 @@ namespace TurnLimbo.Presentation
         /// pose; null preserves the legacy direct-presentation behaviour.</param>
         public void PresentHit(bool playerAttacks, int hpDamage, int resistanceDamage, bool guarded,
             bool fatal, int pushPower = -1, HitExchange exchange = HitExchange.None, bool closeUp = true,
-            bool? hurtReaction = null)
+            bool? hurtReaction = null, float impactStrength = 1f)
         {
+            impactStrength = ImpactStrength(impactStrength);
+            if (playerAttacks) PlayerImpactStrength = impactStrength;
+            else EnemyImpactStrength = impactStrength;
             ObserveCombatContact();
             var attacker = playerAttacks ? player : enemy;
             var target = playerAttacks ? enemy : player;
@@ -994,6 +1006,7 @@ namespace TurnLimbo.Presentation
                 SampleActor(enemy);
             }
             float rawPower = Mathf.Max(0, pushPower);
+            ObserveStrongClash(guarded, exchange, hpDamage, Mathf.Max(damage, rawPower));
             float distance;
             if (guarded && damage <= 0f)
                 distance = Mathf.Clamp(0.18f + rawPower * 0.025f, 0.18f, 0.35f);
@@ -1036,16 +1049,20 @@ namespace TurnLimbo.Presentation
             }
             target.FlashTime = 0.25f;
             target.FlashColor = guarded ? Color.cyan : hpDamage > 0 ? Color.red : Color.yellow;
-            // One bounded impulse per clash: simultaneous hits replace it rather
-            // than teleporting/zooming the camera twice over the contact pose.
-            float shake = settings.ImpactCameraShake * (fatal ? 2f : guarded ? 0.5f : 1f);
-            cameraJolt = new Vector3(playerAttacks ? 1f : -1f, 0.2f, 0f).normalized * shake;
+            // One bounded impulse per clash. Coincident contacts keep the stronger one, so a middle strike
+            // cannot overwrite the full-weight end of the opposing technique. The impulses never add up.
+            float shake = settings.ImpactCameraShake * (fatal ? 2f : guarded ? 0.5f : 1f) * impactStrength;
+            if (cameraJoltTime < .1f || shake * shake >= cameraJolt.sqrMagnitude)
+                cameraJolt = new Vector3(playerAttacks ? 1f : -1f, 0.2f, 0f).normalized * shake;
             cameraJoltTime = 0.1f;
             var impactPosition = attacker.Renderer.transform.position + Vector3.right * (playerAttacks ? 2f : -2f);
-            EmitImpact(impactPosition);
-            impactGlow.Emit(impactPosition, guarded, fatal);
+            EmitImpact(impactPosition, impactStrength);
+            impactGlow.Emit(impactPosition, guarded, fatal, impactStrength);
             if (settings.GlowEnabled && settings.FlashExposure > 0f)
+            {
+                impactFlashStrength = impactFlashTime > 0f ? Mathf.Max(impactFlashStrength, impactStrength) : impactStrength;
                 impactFlashTime = Mathf.Min(0.12f, settings.GlowDuration);
+            }
             if (fatal && closeUp) PresentDecisiveFocus(playerAttacks);
             RefreshExposure();
         }
@@ -1243,6 +1260,7 @@ namespace TurnLimbo.Presentation
             TickDefeatedFigure(enemy, scaledDelta);
             RefreshDepthPresentation();
             TickSlowAfterimages(realDelta, deferSlowAfterimages);
+            TickReengageSpeedLines(scaledDelta, realDelta);
             RefreshContrastImpact();
         }
 
@@ -1356,12 +1374,12 @@ namespace TurnLimbo.Presentation
                 ? Mathf.Clamp01(impactFlashTime / Mathf.Min(0.12f, settings.GlowDuration)) : 0f;
             // The tension lighting's dimming and a flow's swell over the hit's flash.
             colorAdjustments.postExposure.value = ContrastImpactActive ? 0f :
-                Mathf.Max(fatalExposure, settings.FlashExposure * pulse * pulse) + LightingExposure;
+                Mathf.Max(fatalExposure, settings.FlashExposure * pulse * pulse * impactFlashStrength) + LightingExposure;
         }
 
         private void TickActor(Actor actor, float delta)
         {
-            actor.AnimationTime += delta;
+            actor.AnimationTime = AdvanceTempoPose(actor, delta);
             // Use combat time so hit stop freezes the reaction and slow playback remains readable.
             actor.ReactionTime = Mathf.Max(0f, actor.ReactionTime - delta * slotAnimationSpeed);
             if (actor == enemy && EnemyIsDummy)
@@ -1448,6 +1466,7 @@ namespace TurnLimbo.Presentation
         internal void SuspendForCutscene()
         {
             if (disposed || suspension != null) return;
+            ClearCombatAccents();
             ClearContrastImpact();
             ClearResistanceImpact();
             ClearCombatShot();
@@ -1470,6 +1489,7 @@ namespace TurnLimbo.Presentation
                 CameraPosition = ArenaCamera.transform.localPosition, CameraRotation = ArenaCamera.transform.localRotation,
                 CameraSize = ArenaCamera.orthographicSize, Appearance = enemyAppearance, Flashback = flashbackAmount,
                 Aberration = aberration.intensity.value, FatalExposure = fatalExposure, ImpactFlash = impactFlashTime,
+                ImpactFlashStrength = impactFlashStrength,
                 SaturationPulse = saturationPulse, Empowerment = empowermentAmount,
                 // The tension lighting waits for the battle too (a swell ends here).
                 Tension = SetLightingAside(),
@@ -1525,6 +1545,7 @@ namespace TurnLimbo.Presentation
             aberration.intensity.value = saved.Aberration;
             fatalExposure = saved.FatalExposure;
             impactFlashTime = saved.ImpactFlash;
+            impactFlashStrength = saved.ImpactFlashStrength;
             saturationPulse = saved.SaturationPulse;
             empowermentAmount = saved.Empowerment;
             PutLightingBack(saved.Tension);
@@ -1629,7 +1650,9 @@ namespace TurnLimbo.Presentation
 
         internal void HoldSlotAtTime(float elapsed)
         {
-            player.AnimationTime = enemy.AnimationTime = Mathf.Max(0f, elapsed);
+            playerTempoElapsed = enemyTempoElapsed = Mathf.Max(0f, elapsed);
+            player.AnimationTime = tempoSlot == null ? playerTempoElapsed : TempoPoseTime(true, playerTempoElapsed);
+            enemy.AnimationTime = tempoSlot == null ? enemyTempoElapsed : TempoPoseTime(false, enemyTempoElapsed);
             SampleActor(player);
             SampleActor(enemy);
         }
@@ -1637,6 +1660,8 @@ namespace TurnLimbo.Presentation
         private void SampleActor(Actor actor)
         {
             if (TrySampleResistanceImpact(actor)) return;
+            // A committed longer action takes the damage while its swing continues through the faster hits.
+            if (TempoKeepsSwinging(actor)) actor.ReactionTime = 0f;
             SampleActorPose(actor);
             ApplyAttackMotion(actor);
         }
@@ -1897,9 +1922,9 @@ namespace TurnLimbo.Presentation
             }
         }
 
-        private void EmitImpact(Vector3 position)
+        private void EmitImpact(Vector3 position, float strength = 1f)
         {
-            if (effectPrefab == null) return;
+            if (effectPrefab == null || !(strength > 0f)) return;
             ImpactEffect effect = null;
             foreach (var candidate in effects)
                 if (!candidate.Active) { effect = candidate; break; }
@@ -1923,11 +1948,13 @@ namespace TurnLimbo.Presentation
                 effect = new ImpactEffect
                 {
                     Instance = instance, Particles = instance.GetComponent<ParticleSystem>(),
+                    BaseScale = instance.transform.localScale,
                     Systems = systems, EmissionDuration = emissionDuration
                 };
                 effects.Add(effect);
             }
             effect.Instance.transform.position = position;
+            effect.Instance.transform.localScale = effect.BaseScale * Mathf.Sqrt(strength);
             effect.Instance.SetActive(true);
             effect.Particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             effect.Particles.Simulate(0.0001f, true, true, false);
@@ -2019,6 +2046,7 @@ namespace TurnLimbo.Presentation
         public void Dispose()
         {
             if (disposed) return;
+            ClearCombatAccents();
             if (enemyFigures.Count > 0) SelectEnemyContext(0);
             disposed = true;
             CancelStep();
@@ -2027,6 +2055,7 @@ namespace TurnLimbo.Presentation
             DisposeDepthPresentation();
             DisposeAttackMotion();
             weaponTrails?.Dispose();
+            DisposeReengageSpeedLines();
             contrastImpact?.Dispose();
             DisposeDirector();
             CorridorBackdrop.Dispose();
@@ -2125,7 +2154,7 @@ namespace TurnLimbo.Presentation
             public Quaternion CameraRotation;
             public float CameraSize, Flashback;
             // The hit's grade: chromatic aberration, the close-up's exposure, the impact flash's time left, the saturation pulse.
-            public float Aberration, FatalExposure, ImpactFlash, SaturationPulse;
+            public float Aberration, FatalExposure, ImpactFlash, ImpactFlashStrength, SaturationPulse;
             // The 수훈 atmosphere, and the tension lighting's tension.
             public float Empowerment, Tension;
             public EnemyAppearance Appearance;
@@ -2135,6 +2164,7 @@ namespace TurnLimbo.Presentation
         private sealed class ImpactEffect
         {
             public GameObject Instance;
+            public Vector3 BaseScale;
             public ParticleSystem Particles;
             public ParticleSystem[] Systems;
             public float EmissionDuration;

@@ -14,7 +14,8 @@ namespace TurnLimbo.Presentation
                 return !displayedSession.IsEnemySkillRevealed(inspectedSlot);
             var current = displayedSession.CurrentSlot;
             if (current != null && ReferenceEquals(current.EnemySkill, skill))
-                return !displayedSession.IsEnemySkillRevealed(current.SlotIndex);
+                return !displayedSession.IsEnemySkillRevealed(UsesTempoQueue(displayedSession) && current is LegacyCurrentSlot timed
+                    ? timed.EnemyQueueIndex : current.SlotIndex);
             // Without an inspected index, a repeated object could refer to an unrevealed reservation.
             for (int index = 0; index < displayedSession.EnemyQueue.Count; index++)
                 if (ReferenceEquals(displayedSession.EnemyQueue[index], skill) && !displayedSession.IsEnemySkillRevealed(index))

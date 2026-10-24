@@ -30,6 +30,7 @@ namespace TurnLimbo.Presentation
         public void ObserveCombatContact()
         {
             if (disposed || suspension != null) return;
+            NotifyReengageContact();
             contactRead.ObserveImpact();
             // The controllers tick the arena before resolving a hit. Correct an old close-up on this same frame.
             if (resolving || IsFatalFocus)

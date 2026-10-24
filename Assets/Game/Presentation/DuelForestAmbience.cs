@@ -22,6 +22,8 @@ namespace TurnLimbo.Presentation
         private readonly AudioSource source;
         private readonly AudioClip clip;
         private readonly System.Random random = new System.Random();
+        private readonly LegacyClashAmbienceDuck clashDuck = new LegacyClashAmbienceDuck();
+        private float ambienceVolume;
         private bool playing, disposed;
 
         /// <param name="settings">Read when used, so live tuning (and a test's clone) applies at once.</param>
@@ -47,6 +49,23 @@ namespace TurnLimbo.Presentation
         /// <summary>The volume it is fading toward.</summary>
         public float TargetVolume { get; private set; }
 
+        /// <summary>Leaves room for one strong sword collision without changing other sounds or the scene's mix.</summary>
+        public void PresentClash()
+        {
+            if (disposed || !playing) return;
+            DuelPresentationSettings tuning = settings();
+            if (tuning.ClashAmbienceDuckEnabled && tuning.ClashAmbienceDuckStrength > 0f) clashDuck.Trigger();
+        }
+
+        /// <summary>Restores the scene's existing mix at once on pause, reset or a story transition.</summary>
+        public void ClearClash()
+        {
+            if (disposed) return;
+            clashDuck.Clear();
+            Volume = ambienceVolume;
+            source.volume = Volume;
+        }
+
         /// <summary>A frame of real time, whatever is on screen.</summary>
         /// <param name="isForest">The forest is the scene: a battle, its result, a scene on the forest arena.</param>
         /// <param name="visibility">How much of the picture shows, 0 (black) to 1.</param>
@@ -55,13 +74,19 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             DuelPresentationSettings tuning = settings();
+            realDelta = !(realDelta > 0f) || float.IsInfinity(realDelta) ? 0f : realDelta;
+            if (!isForest || !tuning.ClashAmbienceDuckEnabled || tuning.ClashAmbienceDuckStrength <= 0f)
+                clashDuck.Clear();
+            clashDuck.Tick(realDelta);
             float volume = tuning.ForestAmbienceVolume;
             TargetVolume = clip == null ? 0f
                 : LegacyAmbienceMix.Target(isForest, volume, visibility, storyLoop, tuning.ForestAmbienceSceneDuck);
-            Volume = LegacyAmbienceMix.Step(Volume, TargetVolume, realDelta, tuning.ForestAmbienceFadeSeconds, volume);
+            // The slow scene fade and the short clash envelope have separate clocks, so neither loses its prior mix.
+            ambienceVolume = LegacyAmbienceMix.Step(ambienceVolume, TargetVolume, realDelta, tuning.ForestAmbienceFadeSeconds, volume);
+            Volume = ambienceVolume * clashDuck.Gain(tuning.ClashAmbienceDuckStrength);
             if (!playing && Volume > 0f) Start();
             source.volume = Volume;
-            if (playing && Volume <= 0f && TargetVolume <= 0f) Stop();
+            if (playing && ambienceVolume <= 0f && TargetVolume <= 0f) Stop();
         }
 
         /// <summary>Silent at once (the controller is going away).</summary>
@@ -69,7 +94,8 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             playing = false;
-            Volume = 0f;
+            clashDuck.Clear();
+            ambienceVolume = Volume = TargetVolume = 0f;
             source.Stop();
             source.clip = null;
             source.volume = 0f;

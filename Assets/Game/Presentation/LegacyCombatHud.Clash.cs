@@ -248,7 +248,7 @@ namespace TurnLimbo.Presentation
         public void ObserveClash(ILegacyDuelView session)
         {
             ObserveCombatReadout(session);
-            if (disposed || session == null || !ClashMotionEnabled) return;
+            if (disposed || session == null || !ClashMotionEnabled || UsesTempoQueue(session)) return;
             LegacyClashInput input = session.CurrentClash;
             if (liveClash != null && liveClash.Slot != input.SlotIndex)
             {
@@ -364,7 +364,7 @@ namespace TurnLimbo.Presentation
         /// switched off, nothing of it is left.</summary>
         private void AdvanceQueueClash(ILegacyDuelView session, bool resolving, int activeSlot, float delta)
         {
-            if (!resolving || !ClashMotionEnabled)
+            if (!resolving || !ClashMotionEnabled || UsesTempoQueue(session))
             {
                 ClearQueueClash();
                 return;
@@ -590,6 +590,15 @@ namespace TurnLimbo.Presentation
         /// reservation sparks (moving on on real time with their cards, and a pending one begun).</summary>
         private void UpdateQueueCues(ILegacyDuelView session, bool planning, float realDelta)
         {
+            if (UsesTempoQueue(session))
+            {
+                ringSlot = -1;
+                pendingReservationSpark = -1;
+                nextOpponentRing.gameObject.SetActive(false);
+                nextReservationSocket.gameObject.SetActive(false);
+                foreach (SparkBurst burst in reservationSparks) FollowReservationSpark(burst, realDelta);
+                return;
+            }
             int slot = planning && QueuePairCuesEnabled && !inputsHeld && inspectedSlot < 0 && CanReserveNow()
                 ? LegacyClashMotion.NextOpponentSlot(session) : -1;
             RectTransform target = slot >= 0 ? enemyQueue.GetAnchor(slot) : null;

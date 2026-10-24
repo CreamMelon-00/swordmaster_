@@ -36,6 +36,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Outcome = outcome;
             Reached = reached;
             NextTurnSeconds = Math.Max(0, nextTurnSeconds);
+            StartHalfTick = slotIndex * 2;
+            EndHalfTick = StartHalfTick + 2;
+            PlayerQueueIndex = playerSkill == null ? -1 : slotIndex;
+            EnemyQueueIndex = enemySkill == null ? -1 : slotIndex;
+            PlayerActionSkill = playerSkill;
+            EnemyActionSkill = enemySkill;
         }
 
         /// <summary>A slot the turn never reaches: the fight ended in an earlier slot.</summary>
@@ -44,6 +50,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             => new LegacySlotForecast(slotIndex, playerSkill, enemySkill, 0, 0, 0, 0, false, false, outcome, false);
 
         public int SlotIndex { get; }
+        public int StartHalfTick { get; internal set; }
+        public int EndHalfTick { get; internal set; }
+        public int PlayerQueueIndex { get; internal set; }
+        public int EnemyQueueIndex { get; internal set; }
+        public LegacySkill PlayerActionSkill { get; internal set; }
+        public LegacySkill EnemyActionSkill { get; internal set; }
         /// <summary>The skills that meet in the slot, a counter filling an empty side included (null for nothing).</summary>
         public LegacySkill PlayerSkill { get; }
         public LegacySkill EnemySkill { get; }
@@ -60,6 +72,40 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Planning seconds the player's skill in this slot adds to the next turn (사용 효과 앞 X마다 다음 턴 제한시간,
         /// within the turn's cap); 0 for none. A battle whose clock is held gains nothing from it.</summary>
         public int NextTurnSeconds { get; }
+
+        /// <summary>The complete expectation for one reservation, including hits it takes while still preparing.</summary>
+        public static LegacySlotForecast AggregateForQueue(IReadOnlyList<LegacySlotForecast> segments, int queueIndex, bool player)
+        {
+            if (segments == null) throw new ArgumentNullException(nameof(segments));
+            if (queueIndex < 0) return null;
+            LegacySlotForecast first = null, last = null;
+            int playerHealth = 0, enemyHealth = 0, playerResistance = 0, enemyResistance = 0, seconds = 0;
+            bool playerBroken = false, enemyBroken = false, reached = false;
+            LegacySkill playerSkill = null, enemySkill = null;
+            for (int i = 0; i < segments.Count; i++)
+            {
+                LegacySlotForecast segment = segments[i];
+                if ((player ? segment.PlayerQueueIndex : segment.EnemyQueueIndex) != queueIndex) continue;
+                if (first == null) first = segment;
+                last = segment;
+                playerHealth += segment.PlayerHealthDamage; enemyHealth += segment.EnemyHealthDamage;
+                playerResistance += segment.PlayerResistanceDamage; enemyResistance += segment.EnemyResistanceDamage;
+                seconds += segment.NextTurnSeconds;
+                playerBroken |= segment.PlayerBroken; enemyBroken |= segment.EnemyBroken; reached |= segment.Reached;
+                if (segment.PlayerSkill != null) playerSkill = segment.PlayerSkill;
+                if (segment.EnemySkill != null) enemySkill = segment.EnemySkill;
+            }
+            if (first == null) return null;
+            return new LegacySlotForecast(first.SlotIndex, playerSkill ?? first.PlayerActionSkill, enemySkill ?? first.EnemyActionSkill,
+                playerHealth, enemyHealth, playerResistance, enemyResistance, playerBroken, enemyBroken, last.Outcome,
+                reached, seconds)
+            {
+                PlayerQueueIndex = player ? queueIndex : first.PlayerQueueIndex,
+                EnemyQueueIndex = player ? first.EnemyQueueIndex : queueIndex,
+                StartHalfTick = first.StartHalfTick, EndHalfTick = last.EndHalfTick,
+                PlayerActionSkill = first.PlayerActionSkill, EnemyActionSkill = first.EnemyActionSkill
+            };
+        }
 
         /// <summary>The power a forecast rolls for a range: its average, a half rounded up (3–4 rolls 4, 15–18 rolls 17).</summary>
         public static int AveragePower(int minPower, int maxPower)

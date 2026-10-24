@@ -28,6 +28,10 @@ namespace TurnLimbo.Presentation
         private readonly List<LegacySlotForecast> turnForecast = new List<LegacySlotForecast>();
         // The rule forecast stays exact; only its safe, revealed prefix reaches the HUD or its public accessor.
         private readonly List<LegacySlotForecast> rawTurnForecast = new List<LegacySlotForecast>();
+        private readonly List<LegacySlotForecast> tempoPlayerForecast = new List<LegacySlotForecast>(),
+            tempoEnemyForecast = new List<LegacySlotForecast>();
+        private int tempoForecastVersion = -1;
+        private IReadOnlyList<LegacyTimedSkill> forecastEnemyTiming;
         private readonly List<int> forecastVerdicts = new List<int>();
         // The enemy's queued attacks the player's skill in their slot will dodge by itself (자동 회피), as forecast.
         private readonly List<int> forecastDodged = new List<int>();
@@ -108,14 +112,21 @@ namespace TurnLimbo.Presentation
                 EnsureForecast(session);
                 for (int slot = 0; slot < session.PlayerQueue.Count; slot++)
                 {
-                    LegacySlotForecast forecast = slot < turnForecast.Count ? turnForecast[slot] : null;
+                    LegacySlotForecast forecast = QueueForecast(true, slot);
                     forecastVerdicts.Add(forecast != null && forecast.Reached ? (int)Judge(forecast) : -1);
                     // 자동 회피: the enemy's attack in that slot is struck through on its card.
-                    if (forecast != null && forecast.Reached && forecast.EnemySkill?.Kind == LegacySkillKind.Attack &&
+                    if (!UsesTempoQueue(session) && forecast != null && forecast.Reached && forecast.EnemySkill?.Kind == LegacySkillKind.Attack &&
                         slot < session.EnemyQueue.Count && session.EnemyQueue[slot]?.Id == forecast.EnemySkill.Id &&
                         LegacySkillDefinitions.Find(forecast.PlayerSkill)?.Effect.AutoDodge == true)
                         forecastDodged.Add(slot);
                 }
+                if (UsesTempoQueue(session))
+                    foreach (LegacySlotForecast segment in turnForecast)
+                        if (segment.Reached && segment.EnemyQueueIndex >= 0 &&
+                            segment.EnemySkill?.Kind == LegacySkillKind.Attack &&
+                            LegacySkillDefinitions.Find(segment.PlayerSkill)?.Effect.AutoDodge == true &&
+                            !forecastDodged.Contains(segment.EnemyQueueIndex))
+                            forecastDodged.Add(segment.EnemyQueueIndex);
             }
             else ResetForecast();
             playerQueue.SetForecastVerdicts(forecastVerdicts);
@@ -153,12 +164,15 @@ namespace TurnLimbo.Presentation
             forecastCycles = cycles;
             Remember(forecastPlayerQueue, session.PlayerQueue);
             Remember(forecastEnemyQueue, session.EnemyQueue);
+            forecastEnemyTiming = UsesTempoQueue(session) ? LegacySkillTiming.Build(session.EnemyQueue) : null;
             forecastVersion++;
             session.ForecastTurn(rawTurnForecast);
             turnForecast.Clear();
+            int enemyIndex = 0;
             for (int index = 0; index < rawTurnForecast.Count; index++)
             {
-                if (!LegacyQueueVisibility.CanForecastSlot(session, index)) break;
+                enemyIndex = Mathf.Max(enemyIndex, rawTurnForecast[index].EnemyQueueIndex);
+                if (!LegacyQueueVisibility.CanForecastSlot(session, UsesTempoQueue(session) ? enemyIndex : index)) break;
                 turnForecast.Add(rawTurnForecast[index]);
             }
         }
@@ -183,8 +197,18 @@ namespace TurnLimbo.Presentation
                 forecast = heldForecast;
             }
             // A cancel/return skill can land before the current queue's end; judge the slot it will actually take.
-            int slot = forecast?.SlotIndex ?? displayedSession?.PlayerQueue.Count ?? 0;
+            int slot = UsesTempoQueue(displayedSession) ? forecast?.EnemyQueueIndex ?? 0
+                : forecast?.SlotIndex ?? displayedSession?.PlayerQueue.Count ?? 0;
+            slot = Mathf.Max(0, slot);
             bool shown = SlotForecastEnabled && (!planning || LegacyQueueVisibility.CanForecastSlot(displayedSession, slot));
+            if (shown && planning && UsesTempoQueue(displayedSession) && forecast != null && forecastEnemyTiming != null)
+                for (int index = 0; index < forecastEnemyTiming.Count; index++)
+                {
+                    LegacyTimedSkill enemy = forecastEnemyTiming[index];
+                    if (enemy.StartHalfTick < forecast.EndHalfTick && enemy.EndHalfTick > forecast.StartHalfTick &&
+                        !LegacyQueueVisibility.CanForecastSlot(displayedSession, index))
+                    { shown = false; break; }
+                }
             bool toggled = playerForecastNote.gameObject.activeSelf != shown;
             if (toggled) playerForecastNote.gameObject.SetActive(shown);
             if (!shown)
@@ -215,10 +239,40 @@ namespace TurnLimbo.Presentation
             if (planning)
             {
                 EnsureForecast(displayedSession);
-                if (inspectedSlot >= 0 && inspectedSlot < turnForecast.Count) forecast = turnForecast[inspectedSlot];
+                forecast = QueueForecast(false, inspectedSlot);
             }
             ShowForecastLine(enemyForecastText, enemyForecastGlyph, forecast, ForecastPlanningOnly);
             return toggled;
+        }
+
+        // One ordinary/charged card can span several enemy completions. Its mark describes the whole occupied
+        // interval, including attacks it receives while still winding up, instead of borrowing another card's segment.
+        private LegacySlotForecast QueueForecast(bool player, int queueIndex)
+        {
+            if (queueIndex < 0) return null;
+            if (!UsesTempoQueue(displayedSession)) return queueIndex < turnForecast.Count ? turnForecast[queueIndex] : null;
+            if (tempoForecastVersion != forecastVersion)
+            {
+                CacheTempoForecast(tempoPlayerForecast, displayedSession.PlayerQueue.Count, true);
+                CacheTempoForecast(tempoEnemyForecast, displayedSession.EnemyQueue.Count, false);
+                tempoForecastVersion = forecastVersion;
+            }
+            var cache = player ? tempoPlayerForecast : tempoEnemyForecast;
+            return queueIndex < cache.Count ? cache[queueIndex] : null;
+        }
+
+        private void CacheTempoForecast(List<LegacySlotForecast> cache, int count, bool player)
+        {
+            cache.Clear();
+            for (int queueIndex = 0; queueIndex < count; queueIndex++)
+            {
+                bool hidden = false;
+                // Do not show a partial verdict for an action crossing a hidden enemy tail.
+                for (int i = turnForecast.Count; i < rawTurnForecast.Count; i++)
+                    if ((player ? rawTurnForecast[i].PlayerQueueIndex : rawTurnForecast[i].EnemyQueueIndex) == queueIndex)
+                    { hidden = true; break; }
+                cache.Add(hidden ? null : LegacySlotForecast.AggregateForQueue(turnForecast, queueIndex, player));
+            }
         }
 
         private void ShowForecastLine(Text text, SlotForecastGlyph glyph, LegacySlotForecast forecast, string fallback)
@@ -239,6 +293,10 @@ namespace TurnLimbo.Presentation
         {
             turnForecast.Clear();
             rawTurnForecast.Clear();
+            tempoPlayerForecast.Clear();
+            tempoEnemyForecast.Clear();
+            tempoForecastVersion = -1;
+            forecastEnemyTiming = null;
             forecastVerdicts.Clear();
             forecastDodged.Clear();
             forecastPlayerQueue.Clear();

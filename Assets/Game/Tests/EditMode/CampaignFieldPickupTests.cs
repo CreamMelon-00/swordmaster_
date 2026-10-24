@@ -74,7 +74,7 @@ namespace TurnLimbo.Core.Tests
 
             Assert.That(run.TryCollectFieldPickup(Pierce), Is.True);
             Assert.That(run.CollectedFieldPickups, Is.EqualTo(new[] { Finisher, Pierce }), "In the order they were taken.");
-            Assert.That(run.OwnedSkills.Where(owned => !run.IsCounterSkill(owned.SkillId)).Skip(9).Select(entry => entry.SkillId), Is.EqualTo(new[] { 50, 47 }));
+            Assert.That(run.OwnedSkills.Where(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)).Skip(9).Select(entry => entry.SkillId), Is.EqualTo(new[] { 50, 47 }));
 
             // Equipped through the loadout like any other owned skill.
             Assert.That(run.TryPlaceLoadoutSkill(50, 2, 0), Is.True);
@@ -145,7 +145,7 @@ namespace TurnLimbo.Core.Tests
                     var error = Assert.Throws<InvalidOperationException>(() => run.TryCollectFieldPickup(StrikeBack));
                     Assert.That(error.Message, Does.Contain("ID 48 기술이 없습니다"));
                     Assert.That(run.IsFieldPickupCollected(StrikeBack), Is.False);
-                    Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(9));
+                    Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(9));
                 }
                 Assert.That(run.TryCollectFieldPickup(Sidestep), Is.True, "The others still work.");
             }

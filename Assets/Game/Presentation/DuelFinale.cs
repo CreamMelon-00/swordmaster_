@@ -79,6 +79,7 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             arena.ClearContrastImpact();
+            arena.ClearCombatAccents();
             timeline.Clear();
             letterbox.SetAmount(0f);
             ClearGrey();

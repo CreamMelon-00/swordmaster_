@@ -16,6 +16,7 @@ namespace TurnLimbo.Presentation
                 (outcome != DuelMatchOutcome.PlayerVictory && outcome != DuelMatchOutcome.EnemyVictory &&
                  outcome != DuelMatchOutcome.Draw) || !contrastImpact.Show()) return false;
             battleEndImpactShown = true;
+            ClearReengageSpeedLines();
             RefreshContrastImpact();
             RefreshContrastGrade();
             return true;

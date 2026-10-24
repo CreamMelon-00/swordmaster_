@@ -138,3 +138,9 @@ MonoBehaviour:
   bloomThreshold: 1.2
   flashExposure: 0.18
   cameraFramingLift: 0.3
+  clashAmbienceDuckEnabled: 1
+  clashAmbienceDuckStrength: 0.7
+  multiHitEmphasisEnabled: 1
+  multiHitMiddleStrength: 0.65
+  reengageSpeedLinesEnabled: 1
+  reengageSpeedLinesStrength: 0.65

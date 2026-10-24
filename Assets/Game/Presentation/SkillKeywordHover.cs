@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈", "질투", "고정" };
+        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈", "질투", "고정", "고속", "차지" };
         // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
         // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
@@ -96,6 +96,14 @@ namespace TurnLimbo.Presentation
         {
             switch (term)
             {
+                case "고속":
+                    explanation = "연속된 고속 기술 두 개가 한 칸을 나눠 씁니다. 하나만 쓰면 반 칸을 쉽니다. " +
+                        "연타가 아닌 별개의 기술이며, 상대 일반 기술도 끝까지 진행됩니다.";
+                    return true;
+                case "차지":
+                    explanation = "표시된 칸 수 동안 준비한 뒤 마지막에 기술을 실행합니다. 준비 중에는 상대의 공격을 받습니다. " +
+                        "피해를 받아도 동작을 이어가지만 사망하면 끝납니다.";
+                    return true;
                 case "질투":
                     explanation = LegacyStatusNames.Description(LegacyStatusKind.Jealousy, 0);
                     return true;

@@ -12,7 +12,7 @@ namespace TurnLimbo.Presentation
 
         private bool AllowsBladeExchange(LegacyCurrentSlot slot)
         {
-            return slot != null && !(slot.HitsResolved != 0 || slot.PendingPlayerCounter != null || slot.PlayerCountered || slot.EnemyCountered ||
+            return slot != null && !LegacyArenaView.UsesTempoPresentation(slot) && !(slot.HitsResolved != 0 || slot.PendingPlayerCounter != null || slot.PlayerCountered || slot.EnemyCountered ||
                 slot.DodgeSucceeded || slot.PressureSucceeded || arena.IsStepping ||
                 session.Player.IsResistanceBroken || session.Enemy.IsResistanceBroken || IsTrainingBattle ||
                 missionEventPending || releasingBladeBindHit);

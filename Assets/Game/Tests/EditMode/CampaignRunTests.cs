@@ -32,7 +32,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.StageCount, Is.EqualTo(8));
             Assert.That(run.Currency, Is.Zero);
             Assert.That(run.LastReward, Is.Zero);
-            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(9));
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(9));
             Assert.That(duel.Player.Health, Is.EqualTo(100));
             Assert.That(duel.Player.Resistance, Is.EqualTo(50));
             Assert.That(duel.Enemy.Health, Is.EqualTo(80));
@@ -181,7 +181,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.Phase, Is.EqualTo(CampaignPhase.Maintenance));
             Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True, "Between battles too.");
             Assert.That(run.Curriculum.LastCompleted.Id, Is.EqualTo("horizontal-cut"));
-            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(11), "The first clear also grants 탐색.");
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(11), "The first clear also grants 탐색.");
             CampaignOwnedSkill owned = Owned(run, granted.Id);
             Assert.That(owned.Skill, Is.Not.SameAs(granted), "Player upgrades must not mutate the shared skill sheet.");
             Assert.That(owned.Skill.IconId, Is.EqualTo(10));
@@ -255,11 +255,11 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryResetCurriculum(), Is.True);
             Assert.That(Owned(run, 14), Is.Null);
             Assert.That(Owned(run, 43), Is.Not.Null, "Curriculum reset keeps stage first-clear rewards.");
-            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(10), "Reclearing does not award a second copy.");
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(10), "Reclearing does not award a second copy.");
             Assert.That(run.TryStartNextStage(), Is.True);
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(Owned(run, 44)?.Skill.Name, Is.EqualTo("몰아치기"));
-            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(11));
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(11));
 
             Assert.That(run.TryUnequipSkill(7), Is.True);
             Assert.That(run.TryEquipSkill(44), Is.True);
@@ -272,7 +272,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(restored.IsSkillEquipped(44), Is.True);
             Assert.That(restored.TryStartStage(2), Is.True);
             Assert.That(restored.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
-            Assert.That(restored.OwnedSkills.Count(owned => !restored.IsCounterSkill(owned.SkillId)), Is.EqualTo(11));
+            Assert.That(restored.OwnedSkills.Count(owned => !restored.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(11));
         }
 
         [Test]
@@ -583,7 +583,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.StageNumber, Is.EqualTo(1));
             Assert.That(run.Currency, Is.Zero);
             Assert.That(run.LastReward, Is.Zero);
-            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(9));
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(9));
             Assert.That(Owned(run, 14), Is.Null);
             Assert.That(run.Curriculum.CompletedCount, Is.Zero);
             Assert.That(run.CurriculumPoints, Is.Zero, "A new journey starts without 수련 점수.");

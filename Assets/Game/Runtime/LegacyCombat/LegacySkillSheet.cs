@@ -37,6 +37,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         Temporary,
         /// <summary>대전: available in multiplayer loadouts only; never granted or owned in the campaign.</summary>
         Versus,
+        /// <summary>시험: campaign prototype techniques, owned separately from the nine starting slots. Never in the tavern or multiplayer pool.</summary>
+        Prototype,
     }
 
     /// <summary>The techniques one sheet defines: every row in sheet order, split into the starting rows (시작), the
@@ -56,6 +58,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             var enemy = new List<LegacySkill>();
             var temporary = new List<LegacySkill>();
             var versus = new List<LegacySkill>();
+            var prototype = new List<LegacySkill>();
             for (int index = 0; index < definitions.Count; index++)
             {
                 LegacySkill skill = definitions[index].Skill;
@@ -72,6 +75,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     case LegacySkillGroup.Enemy: enemy.Add(skill); break;
                     case LegacySkillGroup.Temporary: temporary.Add(skill); break;
                     case LegacySkillGroup.Versus: versus.Add(skill); break;
+                    case LegacySkillGroup.Prototype: prototype.Add(skill); break;
                     default: throw new ArgumentOutOfRangeException(nameof(groups), groups[index], "Unknown skill group.");
                 }
             }
@@ -82,6 +86,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemySkills = enemy.AsReadOnly();
             TemporarySkills = temporary.AsReadOnly();
             VersusSkills = versus.AsReadOnly();
+            PrototypeSkills = prototype.AsReadOnly();
         }
 
         public string SheetId { get; }
@@ -99,6 +104,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacySkill> TemporarySkills { get; }
         /// <summary>The 대전 rows in sheet order: only available in multiplayer loadouts.</summary>
         public IReadOnlyList<LegacySkill> VersusSkills { get; }
+        /// <summary>The 시험 rows: immediately available in campaign loadouts, outside the default nine and other modes' pools.</summary>
+        public IReadOnlyList<LegacySkill> PrototypeSkills { get; }
 
         public LegacySkillDefinition Find(int id) => byId.TryGetValue(id, out LegacySkillDefinition definition) ? definition : null;
 
@@ -109,6 +116,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool IsTemporary(LegacySkillDefinition definition) => Is(definition, LegacySkillGroup.Temporary);
 
         public bool IsVersus(LegacySkillDefinition definition) => Is(definition, LegacySkillGroup.Versus);
+        public bool IsPrototype(LegacySkillDefinition definition) => Is(definition, LegacySkillGroup.Prototype);
 
         /// <summary>The 구분 of this table's row with the definition's id; throws for an id the table lacks.</summary>
         public LegacySkillGroup GroupOf(LegacySkillDefinition definition)
@@ -209,6 +217,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             public const string UseEffect = "사용 효과";
             /// <summary>Optional for older sheets: zero/blank is a normal skill, positive is a separate counter technique.</summary>
             public const string CounterUsesPerTurn = "반격 횟수";
+            /// <summary>Optional for older sheets. Blank/1 is normal, 0.5 is fast, and 2..4 are whole-slot charges.</summary>
+            public const string DurationSlots = "소요 칸";
         }
 
         public const string StartingGroup = "시작";
@@ -216,6 +226,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const string EnemyGroup = "적";
         public const string TemporaryGroup = "일회성";
         public const string VersusGroup = "대전";
+        public const string PrototypeGroup = "시험";
         /// <summary>Ids from here up belong to techniques written in code, the 서막's practice skills (1001-1003). They are
         /// looked up by id like sheet rows, so a sheet row with one of these ids would take them over; the sheet may not use them.</summary>
         public const int ReservedIdStart = 1000;
@@ -249,6 +260,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Column.CyclePowerPerUse, Column.CycleCostPerUse, Column.CycleMaxCount,
             Column.ReserveEffect, Column.UseEffect,
             Column.CounterUsesPerTurn,
+            Column.DurationSlots,
         });
         // What the phrase columns read, for their problems (Choice adds '중 하나를 적으세요').
         private static readonly string ReserveEffectChoices =
@@ -452,7 +464,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             foreach (string name in Headers)
                 if (counts.TryGetValue(name, out int count) && count > 1)
                     problems.Add($"1행: '{name}' 열이 {count}번 있습니다. 같은 이름의 열은 하나만 둘 수 있습니다.");
-            string[] missing = Headers.Where(name => name != Column.CounterUsesPerTurn && !columns.ContainsKey(name)).ToArray();
+            string[] missing = Headers.Where(name => name != Column.CounterUsesPerTurn && name != Column.DurationSlots && !columns.ContainsKey(name)).ToArray();
             if (missing.Length > 0)
                 problems.Add($"1행: 필요한 열이 없습니다: {Quoted(missing)}. 첫 행의 열 이름은 띄어쓰기까지 똑같이 적어야 합니다 " +
                     $"(순서는 자유, 다른 이름의 열은 메모로 무시합니다). 필요한 열: {Quoted(Headers)}.");
@@ -472,6 +484,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacySkillProperty property = r.Property(Column.Property, required: true) ?? LegacySkillProperty.Slash;
             int cost = r.Integer(Column.Cost, 0, required: true);
             int counterUses = r.Integer(Column.CounterUsesPerTurn, 0, required: false);
+            int durationHalfUnits = r.DurationHalfUnits();
             int minPower = r.Integer(Column.MinPower, 0, required: true);
             int maxPower = r.Integer(Column.MaxPower, 0, required: true);
             int hits = r.Integer(Column.Hits, 1, required: true);
@@ -526,8 +539,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (r.Ok(Column.Id)) r.Id = id;
             if (counterUses > 0)
             {
-                if (group == LegacySkillGroup.Enemy || group == LegacySkillGroup.Temporary || group == LegacySkillGroup.Versus)
+                if (group != LegacySkillGroup.Starting && group != LegacySkillGroup.Acquisition)
                     r.Problem(Column.CounterUsesPerTurn, "반격 기술은 구분이 시작 또는 획득이어야 합니다.");
+                if (durationHalfUnits != 2)
+                    r.Problem(Column.DurationSlots, "반격 기술은 대기열을 차지하지 않으므로 소요 칸을 비우거나 1로 적으세요.");
                 if (cost != 0) r.Problem(Column.Cost, "반격 기술은 ACT를 쓰지 않으므로 0이어야 합니다.");
                 if (effect.HasReserveEffect || effect.HasUseEffect || effect.HasCycle ||
                     effect.QueueRemovalMode != LegacyQueueRemovalMode.None || effect.QueuePowerMultiplierCap > 0)
@@ -637,7 +652,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 effect.ConditionalDamagePercent != 0 || effect.QueueRemovalMode != LegacyQueueRemovalMode.None ||
                 effect.QueuePowerMultiplierCap > 0 || effect.HasCycle || effect.HasReserveEffect || effect.HasUseEffect;
             row.Definition = new LegacySkillDefinition(
-                new LegacySkill(id, name, cost, minPower, maxPower, kind, property, hits, lane, description, animation, icon),
+                new LegacySkill(id, name, cost, minPower, maxPower, kind, property, hits, lane, description, animation, icon, durationHalfUnits),
                 hasEffect ? effect : null, text, highPower, variablePower, counterUses);
             return row;
         }
@@ -682,6 +697,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 [Column.ReserveEffect] = LegacySkillLabels.ReserveEffect(effect),
                 [Column.UseEffect] = LegacySkillLabels.UseEffect(effect),
                 [Column.CounterUsesPerTurn] = Optional(definition.CounterUsesPerTurn),
+                [Column.DurationSlots] = skill.DurationHalfUnits == 2 ? string.Empty
+                    : (skill.DurationHalfUnits / 2m).ToString(CultureInfo.InvariantCulture),
                 [Column.OpponentProperty] = effect.OpponentProperty.HasValue ? LegacySkillLabels.Property(effect.OpponentProperty.Value) : string.Empty,
                 [Column.OpponentKind] = effect.OpponentKind.HasValue ? LegacySkillLabels.Kind(effect.OpponentKind.Value) : string.Empty,
                 [Column.HighPower] = definition.HighPower ? TrueCell : string.Empty,
@@ -713,6 +730,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 case LegacySkillGroup.Enemy: return EnemyGroup;
                 case LegacySkillGroup.Temporary: return TemporaryGroup;
                 case LegacySkillGroup.Versus: return VersusGroup;
+                case LegacySkillGroup.Prototype: return PrototypeGroup;
                 default: throw new ArgumentOutOfRangeException(nameof(group), group, "Unknown skill group.");
             }
         }
@@ -793,8 +811,20 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (cell == EnemyGroup) return LegacySkillGroup.Enemy;
                 if (cell == TemporaryGroup) return LegacySkillGroup.Temporary;
                 if (cell == VersusGroup) return LegacySkillGroup.Versus;
-                Problem(Column.Group, Choice(cell, $"{StartingGroup}, {AcquisitionGroup}, {EnemyGroup}, {TemporaryGroup}, {VersusGroup}"));
+                if (cell == PrototypeGroup) return LegacySkillGroup.Prototype;
+                Problem(Column.Group, Choice(cell, $"{StartingGroup}, {AcquisitionGroup}, {EnemyGroup}, {TemporaryGroup}, {VersusGroup}, {PrototypeGroup}"));
                 return LegacySkillGroup.Acquisition;
+            }
+
+            public int DurationHalfUnits()
+            {
+                string cell = Cell(Column.DurationSlots);
+                if (cell.Length == 0) return 2;
+                if (decimal.TryParse(cell, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out decimal slots) &&
+                    (slots == 0.5m || slots == 1m || slots == 2m || slots == 3m || slots == 4m))
+                    return (int)(slots * 2m);
+                Problem(Column.DurationSlots, Choice(cell, "비워 두거나 0.5, 1, 2, 3, 4"));
+                return 2;
             }
 
             public int Lane()

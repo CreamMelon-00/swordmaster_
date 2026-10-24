@@ -347,6 +347,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public static IReadOnlyList<LegacySkill> AcquisitionSkills => Table.AcquisitionSkills;
         /// <summary>The 대전 rows, available in multiplayer but never owned or granted in the campaign.</summary>
         public static IReadOnlyList<LegacySkill> VersusSkills => Table.VersusSkills;
+        /// <summary>Campaign-only prototype techniques; owned immediately but never part of the nine default slots.</summary>
+        public static IReadOnlyList<LegacySkill> PrototypeSkills => Table.PrototypeSkills;
         /// <summary>The enemy-only techniques (적 rows), such as 이아's 라우다레 in the 서막's last mission. The player never
         /// owns, equips or learns them; enemies name them by id.</summary>
         public static IReadOnlyList<LegacySkill> EnemySkills => Table.EnemySkills;
@@ -358,6 +360,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// its lane. False for breathing and unknown skills.</summary>
         public static bool IsTemporary(LegacySkill skill)
             => skill != null && !skill.IsWait && Table.IsTemporary(Table.Find(skill.Id));
+        public static bool IsPrototype(LegacySkill skill)
+            => skill != null && !skill.IsWait && Table.IsPrototype(Table.Find(skill.Id));
 
         /// <summary>The loaded table. The first access reads the sheet; a sheet with problems throws its
         /// <see cref="SkillSheetException"/> on every access until <see cref="Install"/> or <see cref="Reload"/>.

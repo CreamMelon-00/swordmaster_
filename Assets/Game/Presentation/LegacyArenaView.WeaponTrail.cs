@@ -65,9 +65,11 @@ namespace TurnLimbo.Presentation
         {
             // Raw hit identity survives contact holds, rewinds and cutscene restoration. Drawing never rolls new RNG.
             if (!actor.WeaponTrailHits.Add(hit)) return;
+            float strength = LegacyMultiHitEmphasis.Strength(actor.Skill, hit, false,
+                settings.MultiHitEmphasisEnabled, settings.MultiHitMiddleStrength);
             weaponTrails.Emit(actor.Renderer.transform.position + visibleOffset, actor == player,
                 actor.Skill.Property, AttackVariant(actor, hit), actor == enemy && !EnemyIsElisa,
-                slotWeaponTrailStrength, slotWeaponTrailSeconds);
+                slotWeaponTrailStrength * strength, slotWeaponTrailSeconds);
         }
     }
 }

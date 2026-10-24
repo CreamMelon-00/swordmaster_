@@ -45,8 +45,12 @@ namespace TurnLimbo.Presentation
             bool enemyCanceled = duel is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1
                 ? roster.IsEnemySlotCanceled(slotIndex)
                 : duel.EnemyBreakCanceledFromSlotIndex >= 0 && slotIndex >= duel.EnemyBreakCanceledFromSlotIndex;
-            LegacySkill playerSkill = !playerCanceled && slotIndex < duel.PlayerQueue.Count ? duel.PlayerQueue[slotIndex] : null;
-            LegacySkill enemySkill = !enemyCanceled && slotIndex < duel.EnemyQueue.Count ? duel.EnemyQueue[slotIndex] : null;
+            LegacySkill playerSkill = duel is LegacyQueuedDuel queued && queued.HasTempoSkills && duel.Phase != LegacyDuelPhase.Planning
+                ? queued.ActionSkillAtSegment(true, slotIndex)
+                : !playerCanceled && slotIndex < duel.PlayerQueue.Count ? duel.PlayerQueue[slotIndex] : null;
+            LegacySkill enemySkill = duel is LegacyQueuedDuel queuedEnemy && queuedEnemy.HasTempoSkills && duel.Phase != LegacyDuelPhase.Planning
+                ? queuedEnemy.ActionSkillAtSegment(false, slotIndex)
+                : !enemyCanceled && slotIndex < duel.EnemyQueue.Count ? duel.EnemyQueue[slotIndex] : null;
             PrepareSlotMovement(playerSkill, enemySkill);
         }
 

@@ -233,6 +233,7 @@ namespace TurnLimbo.Presentation
         public void Stop()
         {
             if (disposed || !active) return;
+            arena.ClearCombatAccents();
             arena.ClearContrastImpact();
             arena.ClearLowHealthHeartbeat();
             arena.ClearSlowMotionAfterimages();
@@ -970,14 +971,14 @@ namespace TurnLimbo.Presentation
                         hit.EnemySkill?.Kind == LegacySkillKind.Defence,
                         enemyBrokeNow,
                         enemyHealthBefore > 0 && enemyHealthBefore - (hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage) <= 0,
-                        DuelPrototypeController.Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill, enemyHurt);
+                        DuelPrototypeController.Exchange(hit.EnemySkill, hit.EnemyAttacked), hit.EnemyDamageReasons, hit.PlayerSkill, enemyHurt, hit.HitIndex);
                 if (hit.EnemyAttacked)
                     decisiveNow |= PresentHit(false, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage,
                         hit.PlayerDisplayedDamage, hit.PlayerPushPower,
                         hit.PlayerSkill?.Kind == LegacySkillKind.Defence,
                         playerBrokeNow,
                         playerHealthBefore > 0 && playerHealthBefore - (hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage) <= 0,
-                        DuelPrototypeController.Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill, playerHurt);
+                        DuelPrototypeController.Exchange(hit.PlayerSkill, hit.PlayerAttacked), hit.PlayerDamageReasons, hit.EnemySkill, playerHurt, hit.HitIndex);
                 battleHud.ShowBleedingDamage(true, hit.PlayerBleedingHealthDamage, arena.PlayerRenderer.transform.position);
                 battleHud.ShowBleedingDamage(false, hit.EnemyBleedingHealthDamage, arena.EnemyRenderer.transform.position);
                 AnnounceBreaks(playerWasBroken, enemyWasBroken, hit.EnemyAttacked, hit.PlayerAttacked);
@@ -1140,12 +1141,15 @@ namespace TurnLimbo.Presentation
         // Returns whether the hit was decisive (a break, the finishing blow, a heavy hit).
         private bool PresentHit(bool playerAttacks, int healthDamage, int resistanceDamage,
             int displayedDamage, int pushPower, bool guarded, bool resistanceBroke, bool finishingBlow,
-            LegacyArenaView.HitExchange exchange, LegacyDamageReason damageReasons, LegacySkill attackingSkill, bool hurtReaction)
+            LegacyArenaView.HitExchange exchange, LegacyDamageReason damageReasons, LegacySkill attackingSkill, bool hurtReaction,
+            int hitIndex = -1)
         {
             // Only decisive moments get the slow close-up, tilt and critical sound: a break, the finishing blow, or one hit
             // taking a set share of the target's maximum health. A merely big number is still gold and larger.
             bool decisive = LegacyDecisiveHit.IsDecisive(resistanceBroke, finishingBlow, healthDamage,
                 (playerAttacks ? view.Enemy : view.Player).MaxHealth, settings.DecisiveHealthDamagePercent);
+            float impactStrength = LegacyMultiHitEmphasis.Strength(attackingSkill, hitIndex, decisive,
+                settings.MultiHitEmphasisEnabled, settings.MultiHitMiddleStrength);
             bool emphasised = decisive || displayedDamage >= 12;
             // A resistance-only hit displays exactly its resistance loss; anything more reached the body.
             bool bodyHit = healthDamage > 0 || displayedDamage > resistanceDamage;
@@ -1156,13 +1160,13 @@ namespace TurnLimbo.Presentation
             if (!releasingBladeBindHit)
                 hitStopRemaining = Mathf.Max(hitStopRemaining, settings.HitStopDuration);
             arena.PresentHit(playerAttacks, healthDamage, resistanceDamage, guarded,
-                emphasised && !releasingBladeBindHit, pushPower, exchange, decisive, hurtReaction);
+                emphasised && !releasingBladeBindHit, pushPower, exchange, decisive, hurtReaction, impactStrength);
             if (decisive) battleHud.FatalAttack(playerAttacks);
             Transform target = playerAttacks ? arena.EnemyRenderer.transform : arena.PlayerRenderer.transform;
             battleHud.ShowHitDamage(!playerAttacks, displayedDamage, target.position, emphasised, resistanceNumber,
                 damageReasons, resistanceBroke, attackingSkill, mixedResources);
             effects.pitch = resistanceBroke ? (playerAttacks ? .96f : .82f) : UnityEngine.Random.Range(.75f, 1.25f);
-            art.PlayClash(effects, false, UnityEngine.Random.value >= .5f);
+            art.PlayClash(effects, false, UnityEngine.Random.value >= .5f, .55f * impactStrength);
             if (decisive && criticalSound != null)
                 effects.PlayOneShot(criticalSound, resistanceBroke ? .72f : .55f);
             return decisive;
@@ -1233,6 +1237,7 @@ namespace TurnLimbo.Presentation
         private void ShowResult()
         {
             if (!match.IsFinished) return;
+            arena.ClearCombatAccents();
             arena.ClearContrastImpact();
             arena.ClearLowHealthHeartbeat();
             arena.ClearSlowMotionAfterimages();

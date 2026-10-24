@@ -180,7 +180,7 @@ namespace TurnLimbo.Core.Tests
                 "상대 출혈 3 이상 기본 위력 +16; 자기 출혈 3 이상 기본 위력 +12"));
             LegacySkillTable reread = LegacySkillSheet.Parse("bleeding round trip", LegacySkillSheet.Write(parsed));
             Assert.That(LegacySkillSheetTests.Dump(reread.Find(3)), Is.EqualTo(LegacySkillSheetTests.Dump(definition)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(47), "Compound use effects require no new columns.");
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(48), "Compound use effects stay in their phrase column; the optional duration column serves prototype skills.");
         }
 
         [TestCase(1, 1)]

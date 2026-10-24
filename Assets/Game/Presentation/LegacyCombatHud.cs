@@ -932,10 +932,7 @@ namespace TurnLimbo.Presentation
             if (slotAnimation) slotElapsed += delta;
             float activeScale = ActiveIconScale();
             // Mark each queued attack the opponent's counter will answer, forecast at planning.
-            session.ForecastEnemyCounterSlots(counterForecast);
-            playerQueue.SetCounterMarks(counterForecast);
-            session.ForecastPlayerCounterSlots(counterForecast);
-            enemyQueue.SetCounterMarks(counterForecast);
+            RefreshCounterForecasts(session);
             playerStatus.SetCounter(session.PlayerCounter, session.PlayerCountersRemaining);
             enemyStatus.SetCounter(session.EnemyCounter, session.EnemyCountersRemaining);
             SetMeshMarks(session);
@@ -1039,8 +1036,9 @@ namespace TurnLimbo.Presentation
             ClearSkillFeedback();
             if (slot == null) return;
             feedbackSlot = slot;
-            playerQueue.SetCurrentFeedback(slot.SlotIndex, slot.PlayerFeedback);
-            enemyQueue.SetCurrentFeedback(slot.SlotIndex, slot.EnemyFeedback);
+            var timedSlot = UsesTempoQueue(displayedSession) ? slot as LegacyCurrentSlot : null;
+            playerQueue.SetCurrentFeedback(timedSlot != null ? timedSlot.PlayerQueueIndex : slot.SlotIndex, slot.PlayerFeedback);
+            enemyQueue.SetCurrentFeedback(timedSlot != null ? timedSlot.EnemyQueueIndex : slot.SlotIndex, slot.EnemyFeedback);
             playerStatus.SetBuffFeedback(slot.PlayerFeedback);
             enemyStatus.SetBuffFeedback(slot.EnemyFeedback);
             UpdateEffectEmphasis();
@@ -2390,7 +2388,7 @@ namespace TurnLimbo.Presentation
                 for (int i = 0; i < icons.Count; i++)
                 {
                     var item = icons[i].transform.parent.GetComponent<RectTransform>();
-                    bool visible = i < QueueEndSlot && i >= consumed && queue[i] != null &&
+                    bool visible = i < QueueEndSlot && (tempoLayout ? TempoUnconsumed(i) : i >= consumed) && queue[i] != null &&
                         (!multipleEnemies || !roster.IsEnemySlotCanceled(i));
                     item.gameObject.SetActive(visible);
                     if (!player)
@@ -2946,6 +2944,7 @@ namespace TurnLimbo.Presentation
 
             public void Clear()
             {
+                ResetTempo();
                 ClearInsertions();
                 DisplaySize = Vector2.zero;
                 HorizontalSpan = Vector2.zero;

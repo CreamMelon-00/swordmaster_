@@ -483,7 +483,7 @@ namespace TurnLimbo.Core.Tests
             FinishBattle(run, DuelMatchOutcome.EnemyVictory);
             Assert.That(run.CurriculumPoints, Is.EqualTo(5));
             Assert.That(run.Curriculum.CompletedCount, Is.Zero, "Points wait to be spent.");
-            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(10), "The first stage clear grants 탐색 independently of the curriculum.");
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(10), "The first stage clear grants 탐색 independently of the curriculum.");
             Assert.That(run.Curriculum.GetState("horizontal-cut"), Is.EqualTo(CurriculumNodeState.Available));
             Assert.That(run.TryResetCurriculum(), Is.False, "There is nothing to reset.");
             Assert.That(run.CurriculumPoints, Is.EqualTo(5));
@@ -497,7 +497,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryCompleteBattle(DuelMatchOutcome.PlayerVictory), Is.True);
             Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
 
-            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(11), "The curriculum skill and first-clear skill are separate rewards.");
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(11), "The curriculum skill and first-clear skill are separate rewards.");
             CampaignOwnedSkill granted = run.OwnedSkills.Single(owned => owned.SkillId == 14);
             LegacySkill basis = CampaignSkillCatalog.AcquisitionSkills.First(skill => skill.Id == 14);
             Assert.That(granted.Skill, Is.Not.SameAs(basis));
@@ -536,7 +536,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.CurriculumPoints, Is.EqualTo(5), "The spent 4 come back on top of the unspent 1.");
             Assert.That(run.CurriculumRefund, Is.Zero);
             CollectionAssert.AreEqual(new[] { 1, 2, 3, 4, 5, 6, 7, 8, 9 },
-                run.OwnedSkills.Where(owned => !run.IsCounterSkill(owned.SkillId)).Select(owned => owned.SkillId));
+                run.OwnedSkills.Where(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)).Select(owned => owned.SkillId));
             CollectionAssert.AreEqual(new[] { 1, 2, 7 }, EquippedIds(run, 0), "An emptied lane gets its starting skills back in order.");
             CollectionAssert.AreEqual(new[] { 3, 4, 8 }, EquippedIds(run, 1));
             Assert.That(run.GetLoadoutSlot(1, 0).SkillId, Is.EqualTo(3), "The unsaved edit is discarded.");
@@ -569,7 +569,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(run.TryLearnCurriculumNode("horizontal-cut"), Is.True);
             Assert.That(run.TryResetCurriculum(), Is.True);
             Assert.That(run.CurriculumPoints, Is.EqualTo(3));
-            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId)), Is.EqualTo(9));
+            Assert.That(run.OwnedSkills.Count(owned => !run.IsCounterSkill(owned.SkillId) && !LegacySkillDefinitions.IsPrototype(owned.Skill)), Is.EqualTo(9));
         }
 
         [TestCase(CampaignPhase.Battle)]

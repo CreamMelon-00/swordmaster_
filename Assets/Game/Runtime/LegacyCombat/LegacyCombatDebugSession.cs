@@ -34,7 +34,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacySkill source = LegacySkillDefinitions.Skill(LegacyFeaturedTechnique.SkillId);
             // Prepared samples spend no ACT, while the production ID, power and artwork select the real presentation.
             return new LegacySkill(source.Id, source.Name, 0, source.MinPower, source.MaxPower, source.Kind,
-                source.Property, source.AttackCount, source.LaneIndex, source.Description, source.AnimationName, source.IconId);
+                source.Property, source.AttackCount, source.LaneIndex, source.Description, source.AnimationName, source.IconId, source.DurationHalfUnits);
         }
 
         private static int ClampCount(int count) => Math.Max(0, Math.Min(MaximumAttackCount, count));

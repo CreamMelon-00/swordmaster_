@@ -544,7 +544,7 @@ namespace TurnLimbo.Runtime.Campaign
             if (!IsCurriculumOpen || !CanEditLoadout || curriculum.CompletedCount == 0) return false;
             CurriculumPoints = AddPoints(CurriculumPoints, curriculum.SpentPoints);
             curriculum.Reset();
-            ownedSkills.RemoveAll(owned => !IsStartingSkill(owned.SkillId) && !IsUnlockedStageSkill(owned.SkillId) &&
+            ownedSkills.RemoveAll(owned => !IsAlwaysOwnedSkill(owned.SkillId) && !IsUnlockedStageSkill(owned.SkillId) &&
                 !IsCollectedFieldSkill(owned.SkillId));
             RefillLanesWithStartingSkills();
             ResetLoadoutDraft();
@@ -604,7 +604,7 @@ namespace TurnLimbo.Runtime.Campaign
             int bonus = CurrentStage.EnemyPowerBonus;
             return new LegacySkill(basis.Id, basis.Name, basis.Cost,
                 basis.MinPower + bonus, basis.MaxPower + bonus, basis.Kind, basis.Property,
-                basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId);
+                basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId, basis.DurationHalfUnits);
         }
 
         private static IReadOnlyList<LegacyEnemyDefinition> StageFiveEnemies()
@@ -627,7 +627,7 @@ namespace TurnLimbo.Runtime.Campaign
             LegacySkill basis = LegacySkillDefinitions.Skill(id);
             return new LegacySkill(basis.Id, basis.Name, basis.Cost,
                 Math.Max(1, basis.MinPower * 70 / 100), Math.Max(1, basis.MaxPower * 70 / 100),
-                basis.Kind, basis.Property, basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId);
+                basis.Kind, basis.Property, basis.AttackCount, basis.LaneIndex, basis.Description, basis.AnimationName, basis.IconId, basis.DurationHalfUnits);
         }
 
         /// <summary>A new journey with no story mission won (a new game, tests and direct API use): balance 0.</summary>
@@ -650,6 +650,8 @@ namespace TurnLimbo.Runtime.Campaign
                 equippedLanes[skill.LaneIndex].Add(owned);
             }
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills)
+                ownedSkills.Add(new CampaignOwnedSkill(skill));
+            foreach (LegacySkill skill in LegacySkillDefinitions.PrototypeSkills)
                 ownedSkills.Add(new CampaignOwnedSkill(skill));
             equippedCounter = null;
             ResetLoadoutDraft();
@@ -722,6 +724,7 @@ namespace TurnLimbo.Runtime.Campaign
             ownedSkills.Clear();
             foreach (LegacySkill skill in LegacyInitialSkills.All) ownedSkills.Add(new CampaignOwnedSkill(skill));
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills) ownedSkills.Add(new CampaignOwnedSkill(skill));
+            foreach (LegacySkill skill in LegacySkillDefinitions.PrototypeSkills) ownedSkills.Add(new CampaignOwnedSkill(skill));
             foreach (string id in save.CurriculumCompleted) GrantSkills(curriculum.Tree.Find(id));
             foreach (int number in save.ClearedStages)
                 if (stages[number - 1].FirstClearSkillId != 0) GrantSkill(stages[number - 1].FirstClearSkillId);
@@ -802,6 +805,7 @@ namespace TurnLimbo.Runtime.Campaign
             var owned = new HashSet<int>();
             foreach (LegacySkill skill in LegacyInitialSkills.All) owned.Add(skill.Id);
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills) owned.Add(skill.Id);
+            foreach (LegacySkill skill in LegacySkillDefinitions.PrototypeSkills) owned.Add(skill.Id);
             foreach (int number in reset.ClearedStages)
                 if (number >= 1 && number <= stages.Length && stages[number - 1].FirstClearSkillId != 0)
                     owned.Add(stages[number - 1].FirstClearSkillId);
@@ -932,6 +936,7 @@ namespace TurnLimbo.Runtime.Campaign
             var owned = new Dictionary<int, LegacySkill>();
             foreach (LegacySkill skill in LegacyInitialSkills.All) owned[skill.Id] = skill;
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills) owned[skill.Id] = skill;
+            foreach (LegacySkill skill in LegacySkillDefinitions.PrototypeSkills) owned[skill.Id] = skill;
             foreach (string id in save.CurriculumCompleted)
                 foreach (int skillId in curriculum.Tree.Find(id).SkillIds)
                 {
@@ -1022,6 +1027,14 @@ namespace TurnLimbo.Runtime.Campaign
             foreach (LegacySkill skill in LegacyInitialSkills.All)
                 if (skill.Id == skillId) return true;
             foreach (LegacySkill skill in LegacySkillDefinitions.InitialCounterSkills)
+                if (skill.Id == skillId) return true;
+            return false;
+        }
+
+        private static bool IsAlwaysOwnedSkill(int skillId)
+        {
+            if (IsStartingSkill(skillId)) return true;
+            foreach (LegacySkill skill in LegacySkillDefinitions.PrototypeSkills)
                 if (skill.Id == skillId) return true;
             return false;
         }
@@ -1179,7 +1192,7 @@ namespace TurnLimbo.Runtime.Campaign
             if (skill == null) throw new ArgumentNullException(nameof(skill));
             Skill = new LegacySkill(skill.Id, skill.Name, skill.Cost, skill.MinPower, skill.MaxPower,
                 skill.Kind, skill.Property, skill.AttackCount, skill.LaneIndex, skill.Description,
-                skill.AnimationName, skill.IconId);
+                skill.AnimationName, skill.IconId, skill.DurationHalfUnits);
         }
 
         public LegacySkill Skill { get; }

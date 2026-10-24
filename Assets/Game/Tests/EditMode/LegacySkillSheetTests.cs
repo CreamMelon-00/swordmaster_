@@ -98,9 +98,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(csv[0], Is.EqualTo('\ufeff'), "Excel needs the mark to read Korean.");
             Assert.That(csv, Does.Not.Contain("\r"));
             Assert.That(csv.Substring(1, csv.IndexOf('\n') - 1), Is.EqualTo(string.Join(",", LegacySkillSheet.Headers)));
-            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(47));
-            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(47));
-            Assert.That(LegacySkillSheet.Headers.Skip(44), Is.EqualTo(new[] { "예약 효과", "사용 효과", "반격 횟수" }));
+            Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(48));
+            Assert.That(LegacySkillSheet.Headers.Distinct().Count(), Is.EqualTo(48));
+            Assert.That(LegacySkillSheet.Headers.Skip(44), Is.EqualTo(new[] { "예약 효과", "사용 효과", "반격 횟수", "소요 칸" }));
             Assert.That(LegacySkillSheet.Headers, Has.No.Member("로비 목적"), "The lobby purpose column left the sheet on 2026-10-16.");
         }
 
@@ -211,7 +211,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.Id, "0", "1 이상의 정수")]
         [TestCase(Column.Id, "", "비어 있습니다")]
         [TestCase(Column.Name, " ", "비어 있습니다")]
-        [TestCase(Column.Group, "기본", "시작, 획득, 적, 일회성, 대전 중 하나")]
+        [TestCase(Column.Group, "기본", "시작, 획득, 적, 일회성, 대전, 시험 중 하나")]
         [TestCase(Column.Lane, "R", "Q, W, E 중 하나")]
         [TestCase(Column.Kind, "베기", "공격, 방어 중 하나")]
         [TestCase(Column.Kind, "대기", "공용 행동")]
