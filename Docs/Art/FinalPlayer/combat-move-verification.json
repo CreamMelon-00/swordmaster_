@@ -1,16 +1,16 @@
 {
-  "frameCount": 1,
   "nativeSize": [
     256,
     224
   ],
-  "sameAlphaAsGenerated": true,
-  "paletteMatchesApprovedIdle": true,
-  "onlyPaletteChanged": true,
-  "groundY": 218,
-  "sha256": "ada11653e3d400fb334e68c243490b8c65ea9449526c8933fd76a9f37c4338d4",
-  "scope": "Static player combat approach/close-distance only; lobby locomotion unchanged.",
+  "sourceByteIdentical": true,
+  "sha256": "18b608cc5e11a7e145807eedd6dd60013e4af6965d98608ce07a4992263f7d9f",
   "existing123PNGsUnchanged": true,
-  "source": "Combat_Move_PixelLab_20261024",
-  "reference": "New player Idle frame-00; pose-only description from user screenshot."
+  "ppu": 37.44,
+  "pivotPixels": [
+    123,
+    7
+  ],
+  "groundY": 216,
+  "approvedPreviewSource": "C:\\Users\\user\\Documents\\SwordMasterStory\\Aseprite_Character\\Player_Final_AnimationCanvas_20261023\\Combat_Move_Reference2_Preview_20261024\\charge.png"
 }

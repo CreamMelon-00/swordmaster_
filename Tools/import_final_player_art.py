@@ -16,7 +16,7 @@ def main():
         ('idle', 'Lobby_Refinement_20261024/idle', 'animation.json', 0),
         ('walk', 'Lobby_Refinement_20261024/walk', 'animation.json', 0),
         ('run', 'Lobby_Refinement_20261024/run', 'animation.json', 0),
-        ('combat-move', 'Combat_Move_PixelLab_20261024', 'animation.json', 0),
+        ('combat-move', 'Combat_Move_Reference2_Preview_20261024', 'animation.json', 0),
         ('slash', 'Slash_01_PixelLab', 'slash.json', 4),
         ('pierce', 'Pierce_01_PixelLab/TrailFix', 'pierce.json', 5),
         ('beat', 'Strike_SkillFamilies_20261024/01_BladeBeat', 'animation.json', 7),

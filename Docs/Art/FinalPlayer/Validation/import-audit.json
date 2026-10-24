@@ -742,8 +742,8 @@
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/combat-move/frame-00.png",
-      "source": "Combat_Move_PixelLab_20261024/Frames/frame-00.png",
-      "sha256": "ada11653e3d400fb334e68c243490b8c65ea9449526c8933fd76a9f37c4338d4",
+      "source": "Combat_Move_Reference2_Preview_20261024/Frames/frame-00.png",
+      "sha256": "18b608cc5e11a7e145807eedd6dd60013e4af6965d98608ce07a4992263f7d9f",
       "sourceByteIdentical": true
     }
   ]
