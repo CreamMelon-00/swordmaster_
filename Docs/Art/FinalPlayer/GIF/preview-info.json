@@ -1,0 +1,49 @@
+{
+  "source": "Currently imported Unity PNG frames and timing.json",
+  "nativeCanvas": [
+    256,
+    224
+  ],
+  "fixedCrop": [
+    28,
+    0,
+    229,
+    224
+  ],
+  "previewScale": 2,
+  "authoredCycleMs": 960,
+  "endPauseMs": 400,
+  "note": "원본 프레임별 타이밍 미리보기. 게임의 속도 보정·접촉 정지·카메라 연출은 포함하지 않음.",
+  "outputs": [
+    {
+      "file": "beat.gif",
+      "frames": 16,
+      "durationMs": 1360,
+      "colors": 39
+    },
+    {
+      "file": "loaded.gif",
+      "frames": 15,
+      "durationMs": 1360,
+      "colors": 65
+    },
+    {
+      "file": "measured.gif",
+      "frames": 16,
+      "durationMs": 1360,
+      "colors": 56
+    },
+    {
+      "file": "evade.gif",
+      "frames": 14,
+      "durationMs": 1360,
+      "colors": 64
+    },
+    {
+      "file": "strike-four-families-with-trails.gif",
+      "frames": 51,
+      "durationMs": 1360,
+      "colors": 112
+    }
+  ]
+}
