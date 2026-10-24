@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new FinalPlayerAnimationSet())
             {
                 Assert.That(set.IsReady, Is.True);
-                Assert.That(set.LoadedFrameCount, Is.EqualTo(118));
+                Assert.That(set.LoadedFrameCount, Is.EqualTo(122));
                 Sprite idle = set.GetIdle(0);
                 Assert.That(idle.pixelsPerUnit, Is.EqualTo(36));
                 Assert.That(idle.texture.filterMode, Is.EqualTo(FilterMode.Point));
@@ -393,6 +393,30 @@ namespace TurnLimbo.Presentation.Tests
                 arena.Dispose(); Object.Destroy(host);
                 if (oldRoot != null) oldRoot.SetActive(active);
                 if (controller != null) controller.enabled = enabled;
+            }
+        }
+
+        [Test]
+        public void LobbyLocomotionLoopsWithSharedPhaseAndFixedImportOrigin()
+        {
+            using (var set = new FinalPlayerAnimationSet())
+            {
+                foreach (bool running in new[] { false, true })
+                {
+                    string key = running ? "run" : "walk";
+                    Assert.That(set.LocomotionDuration(running), Is.EqualTo(running ? .56f : .8f).Within(.001f));
+                    Sprite first = set.GetLocomotion(running, 0f);
+                    Assert.That(first.name, Is.EqualTo("final-" + key + "-frame-00"));
+                    Assert.That(set.GetLocomotion(running, 1f), Is.SameAs(first));
+                    Assert.That(set.GetLocomotion(running, .125f).name, Is.EqualTo("final-" + key + "-frame-01"));
+                    for (int i = 0; i < 8; i++)
+                    {
+                        Sprite frame = set.GetLocomotion(running, (i + .1f) / 8f);
+                        Assert.That(frame.pivot, Is.EqualTo(first.pivot));
+                        Assert.That(frame.pixelsPerUnit, Is.EqualTo(first.pixelsPerUnit));
+                        Assert.That(frame.texture.filterMode, Is.EqualTo(FilterMode.Point));
+                    }
+                }
             }
         }
 

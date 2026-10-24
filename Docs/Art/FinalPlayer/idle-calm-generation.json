@@ -1,0 +1,115 @@
+{
+  "job": "13ce0b5b-54ab-4623-a012-b84424cd9d1d",
+  "joined": "35aef774-7e18-426a-a5fd-3ba2f5f1c5e6",
+  "protected": "a4c1d1e4-a586-44b6-a95d-b6bf846a8c8f",
+  "paletteImage": "ca4cb6bc-ea52-4a0c-b5aa-78b9abc6b281",
+  "changes": [
+    {
+      "operation": "copy_region",
+      "layer": "image",
+      "frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "source_layer": "image",
+      "source_frame": 1,
+      "region": [
+        0,
+        0,
+        255,
+        134
+      ],
+      "at": [
+        0,
+        0
+      ],
+      "reason": "Protect original eyes, sword, skirt, thighs and planted feet; only a small chest/shoulder area breathes."
+    },
+    {
+      "operation": "copy_region",
+      "layer": "image",
+      "frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "source_layer": "image",
+      "source_frame": 1,
+      "region": [
+        0,
+        153,
+        255,
+        223
+      ],
+      "at": [
+        0,
+        153
+      ],
+      "reason": "Protect original eyes, sword, skirt, thighs and planted feet; only a small chest/shoulder area breathes."
+    },
+    {
+      "operation": "copy_region",
+      "layer": "image",
+      "frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "source_layer": "image",
+      "source_frame": 1,
+      "region": [
+        0,
+        135,
+        94,
+        152
+      ],
+      "at": [
+        0,
+        135
+      ],
+      "reason": "Protect original eyes, sword, skirt, thighs and planted feet; only a small chest/shoulder area breathes."
+    },
+    {
+      "operation": "copy_region",
+      "layer": "image",
+      "frames": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "source_layer": "image",
+      "source_frame": 1,
+      "region": [
+        135,
+        135,
+        255,
+        152
+      ],
+      "at": [
+        135,
+        135
+      ],
+      "reason": "Protect original eyes, sword, skirt, thighs and planted feet; only a small chest/shoulder area breathes."
+    }
+  ],
+  "playbackSequence": [
+    0,
+    1,
+    2,
+    1,
+    0
+  ],
+  "durationsMs": [
+    260,
+    240,
+    400,
+    240,
+    260
+  ],
+  "note": "Only chest x95..134,y135..152 changes; head, face, sword, skirt, thighs, boots and all alpha outside are exact original. No source scaling or image-part translations."
+}

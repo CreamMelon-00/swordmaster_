@@ -31,7 +31,7 @@ namespace TurnLimbo.Editor.ArtValidation
             Api.Execute(new ExecutionSettings(new Filter
             {
                 testMode = TestMode.PlayMode,
-                groupNames = new[] { "FinalPlayerArtPlayModeTests", "SwordGirl", "MobStudentAnimationPlayModeTests", "WeaponTrailPlayModeTests", "AttackRhythmPlayModeTests", "CombatTempoPlayModeTests" }
+                groupNames = new[] { "FinalPlayerArtPlayModeTests", "AcademyFieldViewPlayModeTests", "SwordGirl", "MobStudentAnimationPlayModeTests", "WeaponTrailPlayModeTests", "AttackRhythmPlayModeTests", "CombatTempoPlayModeTests" }
             }));
         }
 

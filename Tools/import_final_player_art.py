@@ -13,7 +13,9 @@ def main():
     template = (ROOT / 'Assets/Game/Resources/SwordGirl/Animations/idle/frame-01.png.meta').read_text(encoding='utf-8')
     clips = []
     inputs = [
-        ('idle', 'Idle_PixelLab', 'idle.json', 0),
+        ('idle', 'Movement_Idle_PixelLab_20261024/Idle', 'idle.json', 0),
+        ('walk', 'Lobby_Locomotion_PixelLab_20261024/walk', 'animation.json', 0),
+        ('run', 'Lobby_Locomotion_PixelLab_20261024/run', 'animation.json', 0),
         ('slash', 'Slash_01_PixelLab', 'slash.json', 4),
         ('pierce', 'Pierce_01_PixelLab/TrailFix', 'pierce.json', 5),
         ('beat', 'Strike_SkillFamilies_20261024/01_BladeBeat', 'animation.json', 7),
@@ -41,6 +43,19 @@ def main():
                 text = text.replace('spritePixelsToUnits: 40', 'spritePixelsToUnits: 36')
                 text = re.sub(r'spritePivot: .*', 'spritePivot: {x: 0.4453125, y: 0.022321428571428572}', text)
                 meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
+            if key in ('walk', 'run'):
+                import re
+                text = meta.read_text(encoding='utf-8')
+                pivot = data['pivotPixels']
+                text = re.sub(r'spritePixelsToUnits: .*', f"spritePixelsToUnits: {data['ppu']}", text)
+                text = re.sub(r'spritePivot: .*', f"spritePivot: {{x: {pivot[0] / 256}, y: {pivot[1] / 224}}}", text)
+                meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
+        # Original idle remains in the source archive; obsolete active cels must not remain in Resources.
+        if key == 'idle':
+            for stale in (DEST / key).glob('frame-*.png'):
+                if int(stale.stem.split('-')[-1]) >= len(frames):
+                    stale.unlink()
+                    Path(str(stale) + '.meta').unlink(missing_ok=True)
         clips.append(dict(key=key, durationsMs=durations, impactIndex=impact))
     # Static guard PNGs are separate from attack timelines. Each uses its own foot origin.
     guards = SOURCE / 'Guard_ThreePoses_20261024'
@@ -64,20 +79,21 @@ def main():
             text = re.sub(r'spritePivot: .*', f'spritePivot: {{x: {pivot_x / 256}, y: {(224 - floor - 1) / 224}}}', text)
             meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
             clips.append(dict(key=key, durationsMs=[100], impactIndex=0))
-    reactions = SOURCE / 'Reactions_PixelLab_20261024'
-    reaction_import = json.loads((reactions / 'import.json').read_text(encoding='utf-8'))
     import re
-    for pose in reaction_import['poses']:
-        key = pose['key']
-        target = DEST / key / 'frame-00.png'
-        target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(reactions / (key + '.png'), target)
-        meta = Path(str(target) + '.meta')
-        text = meta.read_text(encoding='utf-8') if meta.exists() else re.sub(r'guid: [a-f0-9]+', 'guid: ' + uuid.uuid4().hex, template, count=1)
-        text = re.sub(r'spritePixelsToUnits: .*', f"spritePixelsToUnits: {pose['ppu']}", text)
-        text = re.sub(r'spritePivot: .*', f"spritePivot: {{x: {pose['pivotX'] / 256}, y: {(224 - pose['groundY'] - 1) / 224}}}", text)
-        meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
-        clips.append(dict(key=key, durationsMs=[100], impactIndex=0))
+    for folder in ['Reactions_PixelLab_20261024']:
+        static_source = SOURCE / folder
+        static_import = json.loads((static_source / 'import.json').read_text(encoding='utf-8'))
+        for pose in static_import['poses']:
+            key = pose['key']
+            target = DEST / key / 'frame-00.png'
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(static_source / (key + '.png'), target)
+            meta = Path(str(target) + '.meta')
+            text = meta.read_text(encoding='utf-8') if meta.exists() else re.sub(r'guid: [a-f0-9]+', 'guid: ' + uuid.uuid4().hex, template, count=1)
+            text = re.sub(r'spritePixelsToUnits: .*', f"spritePixelsToUnits: {pose['ppu']}", text)
+            text = re.sub(r'spritePivot: .*', f"spritePivot: {{x: {pose['pivotX'] / 256}, y: {(224 - pose['groundY'] - 1) / 224}}}", text)
+            meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
+            clips.append(dict(key=key, durationsMs=[100], impactIndex=0))
     (DEST / 'timing.json').write_text(json.dumps(dict(clips=clips), indent=2), encoding='utf-8')
     families = {5:'beat', 48:'beat', 52:'beat', 6:'loaded', 55:'loaded', 68:'loaded', 10:'measured', 53:'measured', 54:'evade'}
     bindings = []

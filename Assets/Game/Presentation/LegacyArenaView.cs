@@ -252,6 +252,7 @@ namespace TurnLimbo.Presentation
         public float BulletTimeAmount => bulletTimeAmount;
         // Cutscenes (CutsceneDirector) pose the figures themselves while the duel is not ticking.
         internal MobStudentAnimationSet PlayerAnimations => mobAnimations;
+        internal FinalPlayerAnimationSet FinalPlayerAnimations => finalPlayerAnimations;
         internal EnemyStudentAnimationSet EnemyAnimations => enemyAnimations;
         internal TrainingDummyAnimationSet DummyAnimations => dummyAnimations;
         internal Transform Root => arenaRoot.transform;

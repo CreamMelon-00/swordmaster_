@@ -1,0 +1,194 @@
+[
+  {
+    "clip": "walk",
+    "index": 0,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 0,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "walk",
+    "index": 1,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 0,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "walk",
+    "index": 2,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 0,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "walk",
+    "index": 3,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 0,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "walk",
+    "index": 4,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 1,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "walk",
+    "index": 5,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 0,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "walk",
+    "index": 6,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 0,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "walk",
+    "index": 7,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 2,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "run",
+    "index": 0,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 0,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "run",
+    "index": 1,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": -4,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "run",
+    "index": 2,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": -4,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "run",
+    "index": 3,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": 0,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "run",
+    "index": 4,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": -4,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "run",
+    "index": 5,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": -4,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "run",
+    "index": 6,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": -4,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  },
+  {
+    "clip": "run",
+    "index": 7,
+    "nativeCanvas": [
+      256,
+      224
+    ],
+    "groundY": 215,
+    "integerTranslationY": -4,
+    "noResampling": true,
+    "pixelLabOutputVerified": true
+  }
+]

@@ -52,11 +52,12 @@ namespace TurnLimbo.Presentation
                 if (entry == null || !CompatibleKey(entry.property, entry.key) || !clips.ContainsKey(entry.key) || bindings.ContainsKey(entry.id)) return;
                 bindings.Add(entry.id, entry);
             }
-            IsReady = bindings.Count > 0 && clips.Count == 12 && clips.ContainsKey("idle") && clips.ContainsKey("slash") &&
+            IsReady = bindings.Count > 0 && clips.Count == 14 && clips.ContainsKey("idle") && clips.ContainsKey("slash") &&
                 clips.ContainsKey("pierce") && clips.ContainsKey("beat") && clips.ContainsKey("loaded") &&
                 clips.ContainsKey("measured") && clips.ContainsKey("evade") &&
                 clips.ContainsKey("guard-01") && clips.ContainsKey("guard-02") && clips.ContainsKey("guard-03") &&
-                clips.ContainsKey("hurt") && clips.ContainsKey("break");
+                clips.ContainsKey("hurt") && clips.ContainsKey("break") &&
+                clips.ContainsKey("walk") && clips.ContainsKey("run");
         }
 
         public static string AttackKey(LegacySkillProperty property, int skillId)
@@ -80,6 +81,9 @@ namespace TurnLimbo.Presentation
 
         public Sprite GetHurt() => IsReady ? clips["hurt"].frames[0] : null;
         public Sprite GetBreak() => IsReady ? clips["break"].frames[0] : null;
+        public float LocomotionDuration(bool running) => IsReady ? clips[running ? "run" : "walk"].duration : 1f;
+        public Sprite GetLocomotion(bool running, float phase) => IsReady
+            ? clips[running ? "run" : "walk"].Sample(Mathf.Repeat(phase, 1f) * LocomotionDuration(running)) : null;
 
         public Sprite GetAttack(LegacySkillProperty property, int skillId, float normalizedTime)
         {

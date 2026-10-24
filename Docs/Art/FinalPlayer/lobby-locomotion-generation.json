@@ -1,0 +1,977 @@
+{
+  "tool": "PixelLab animate_image + pixelart_workbench",
+  "scope": "Main lobby normal walking and running only. Broken movement deferred by user.",
+  "reference": "Approved new player Movement_NewDesign_20261024/move.png",
+  "jobs": [
+    {
+      "key": "walk",
+      "jobId": "34db7e95-6cd0-4465-9755-9c36bc6fc962",
+      "finalImageId": "cf2b17d6-b367-4b1f-8e9b-3f25edc90518"
+    },
+    {
+      "key": "run",
+      "jobId": "02916644-d128-42fc-9b82-f1fa9c787a3a",
+      "finalImageId": "5f2182ba-2ff2-45d0-989c-7995c234b485"
+    }
+  ],
+  "prompts": [
+    {
+      "key": "walk",
+      "action": "A seamless complete WALK cycle in place toward RIGHT, two alternating steps. Heel contacts ground, body passes over planted leg, toe lifts, opposite foot swings through, alternating left and right support naturally. No flight phase. Relaxed slight forward lean, head-neck-shoulders form one continuous natural body, tiny vertical bob only 1-2 pixels. Both hands retain sword in stable forward guard, blade stays straight and connected to hilt. Keep exact character appearance, proportions, pale blonde fringe fully covering eyes, dark brown uniform and gold trim. Skirt follows legs without intersecting thighs. Feet share one fixed ground plane, no whole-body drift or resizing. Hair follows movement subtly. Return to identical initial step phase for smooth looping. No trails, FX, extra limbs."
+    },
+    {
+      "key": "run",
+      "action": "A seamless complete RUN cycle in place toward RIGHT, two alternating running strides, clearly distinct from walking. Forward lean through hips chest neck and head, powerful push-off, knees bend on recovery, rear boot lifts behind, short airborne phase then soft landing, opposite leg repeats. Natural continuous neck-to-shoulder connection, no detached head, no torso stretching. Stable body proportions and pixel scale, small vertical bounce only. Both hands retain same straight sword in forward guard, consistent grip. Exact pale blonde hair, bangs hiding all eyes, dark brown gold-trim uniform. Skirt and hair swing gently with motion without cutting through thighs. No translational drift. Fixed ground plane and camera; end in initial step phase for a seamless loop. No effects or trails."
+    }
+  ],
+  "correctionPlans": [
+    {
+      "key": "walk",
+      "id": "1fd48db2-80da-4d20-86c8-ad7d745e0d72",
+      "dy": [
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        2
+      ],
+      "ops": [
+        {
+          "operation": "brush",
+          "layer": "image",
+          "frames": [
+            5
+          ],
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              255,
+              0
+            ],
+            [
+              255,
+              32
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              0,
+              64
+            ],
+            [
+              255,
+              64
+            ],
+            [
+              255,
+              96
+            ],
+            [
+              0,
+              96
+            ],
+            [
+              0,
+              128
+            ],
+            [
+              255,
+              128
+            ],
+            [
+              255,
+              160
+            ],
+            [
+              0,
+              160
+            ],
+            [
+              0,
+              192
+            ],
+            [
+              255,
+              192
+            ],
+            [
+              255,
+              223
+            ],
+            [
+              0,
+              223
+            ]
+          ],
+          "size": 64,
+          "shape": "square",
+          "mode": "erase",
+          "reason": "Clear destination canvas before lossless whole-frame integer registration; no body parts are sliced or resized."
+        },
+        {
+          "operation": "copy_region",
+          "layer": "image",
+          "frames": [
+            5
+          ],
+          "source_layer": "image",
+          "source_frame": 5,
+          "region": [
+            0,
+            0,
+            255,
+            222
+          ],
+          "at": [
+            0,
+            1
+          ],
+          "reason": "Align authored boot contact to common native ground row215 without any resampling."
+        },
+        {
+          "operation": "brush",
+          "layer": "image",
+          "frames": [
+            8
+          ],
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              255,
+              0
+            ],
+            [
+              255,
+              32
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              0,
+              64
+            ],
+            [
+              255,
+              64
+            ],
+            [
+              255,
+              96
+            ],
+            [
+              0,
+              96
+            ],
+            [
+              0,
+              128
+            ],
+            [
+              255,
+              128
+            ],
+            [
+              255,
+              160
+            ],
+            [
+              0,
+              160
+            ],
+            [
+              0,
+              192
+            ],
+            [
+              255,
+              192
+            ],
+            [
+              255,
+              223
+            ],
+            [
+              0,
+              223
+            ]
+          ],
+          "size": 64,
+          "shape": "square",
+          "mode": "erase",
+          "reason": "Clear destination canvas before lossless whole-frame integer registration; no body parts are sliced or resized."
+        },
+        {
+          "operation": "copy_region",
+          "layer": "image",
+          "frames": [
+            8
+          ],
+          "source_layer": "image",
+          "source_frame": 8,
+          "region": [
+            0,
+            0,
+            255,
+            221
+          ],
+          "at": [
+            0,
+            2
+          ],
+          "reason": "Align authored boot contact to common native ground row215 without any resampling."
+        },
+        {
+          "operation": "map_colors",
+          "layer": "image",
+          "frames": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "region": [
+            0,
+            0,
+            255,
+            223
+          ],
+          "colors": {
+            "#51233bff": "#523031ff",
+            "#632026ff": "#523031ff",
+            "#d99259ff": "#e29754ff",
+            "#170611ff": "#371b20ff",
+            "#b3605dff": "#ae734eff",
+            "#70302fff": "#5f3937ff",
+            "#864739ff": "#784c45ff",
+            "#887888ff": "#908097ff",
+            "#553d4dff": "#5f3937ff",
+            "#756468ff": "#716076ff",
+            "#796772ff": "#716076ff",
+            "#c1835bff": "#b6856bff",
+            "#8d4442ff": "#805248ff",
+            "#260d16ff": "#371b20ff",
+            "#4d3c46ff": "#593434ff",
+            "#9b4f43ff": "#8c5c4cff",
+            "#99514eff": "#8c5c4cff",
+            "#3a2639ff": "#432326ff",
+            "#554a4cff": "#69403dff",
+            "#e17c6eff": "#cc9776ff",
+            "#423640ff": "#523031ff",
+            "#ecb170ff": "#f7b66fff",
+            "#f6ae99ff": "#f1a394ff",
+            "#a85744ff": "#94624eff",
+            "#f8e7d8ff": "#fdd8c9ff",
+            "#9c8e95ff": "#908097ff",
+            "#e18a78ff": "#cc9776ff",
+            "#3a0c18ff": "#371b20ff",
+            "#bdb0b6ff": "#bfb3c1ff",
+            "#e5a466ff": "#e29754ff",
+            "#793732ff": "#69403dff",
+            "#cc736bff": "#b6856bff",
+            "#d3b2a9ff": "#e8bb9cff",
+            "#b47c66ff": "#b6856bff",
+            "#ece2e8ff": "#fdf5f1ff",
+            "#352e34ff": "#432326ff",
+            "#a97c6dff": "#b6856bff",
+            "#cd8349ff": "#e29754ff",
+            "#381638ff": "#371b20ff",
+            "#56444bff": "#69403dff"
+          },
+          "reason": "Normalize minor generated shades to approved new-player idle palette while preserving all pose geometry."
+        }
+      ]
+    },
+    {
+      "key": "run",
+      "id": "65433d6f-24b2-4822-ac84-3f45ae693bb9",
+      "dy": [
+        0,
+        -4,
+        -4,
+        0,
+        -4,
+        -4,
+        -4,
+        -4
+      ],
+      "ops": [
+        {
+          "operation": "brush",
+          "layer": "image",
+          "frames": [
+            2
+          ],
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              255,
+              0
+            ],
+            [
+              255,
+              32
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              0,
+              64
+            ],
+            [
+              255,
+              64
+            ],
+            [
+              255,
+              96
+            ],
+            [
+              0,
+              96
+            ],
+            [
+              0,
+              128
+            ],
+            [
+              255,
+              128
+            ],
+            [
+              255,
+              160
+            ],
+            [
+              0,
+              160
+            ],
+            [
+              0,
+              192
+            ],
+            [
+              255,
+              192
+            ],
+            [
+              255,
+              223
+            ],
+            [
+              0,
+              223
+            ]
+          ],
+          "size": 64,
+          "shape": "square",
+          "mode": "erase",
+          "reason": "Clear destination canvas before lossless whole-frame integer registration; no body parts are sliced or resized."
+        },
+        {
+          "operation": "copy_region",
+          "layer": "image",
+          "frames": [
+            2
+          ],
+          "source_layer": "image",
+          "source_frame": 2,
+          "region": [
+            0,
+            4,
+            255,
+            223
+          ],
+          "at": [
+            0,
+            0
+          ],
+          "reason": "Align authored boot contact to common native ground row215 without any resampling."
+        },
+        {
+          "operation": "brush",
+          "layer": "image",
+          "frames": [
+            3
+          ],
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              255,
+              0
+            ],
+            [
+              255,
+              32
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              0,
+              64
+            ],
+            [
+              255,
+              64
+            ],
+            [
+              255,
+              96
+            ],
+            [
+              0,
+              96
+            ],
+            [
+              0,
+              128
+            ],
+            [
+              255,
+              128
+            ],
+            [
+              255,
+              160
+            ],
+            [
+              0,
+              160
+            ],
+            [
+              0,
+              192
+            ],
+            [
+              255,
+              192
+            ],
+            [
+              255,
+              223
+            ],
+            [
+              0,
+              223
+            ]
+          ],
+          "size": 64,
+          "shape": "square",
+          "mode": "erase",
+          "reason": "Clear destination canvas before lossless whole-frame integer registration; no body parts are sliced or resized."
+        },
+        {
+          "operation": "copy_region",
+          "layer": "image",
+          "frames": [
+            3
+          ],
+          "source_layer": "image",
+          "source_frame": 3,
+          "region": [
+            0,
+            4,
+            255,
+            223
+          ],
+          "at": [
+            0,
+            0
+          ],
+          "reason": "Align authored boot contact to common native ground row215 without any resampling."
+        },
+        {
+          "operation": "brush",
+          "layer": "image",
+          "frames": [
+            5
+          ],
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              255,
+              0
+            ],
+            [
+              255,
+              32
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              0,
+              64
+            ],
+            [
+              255,
+              64
+            ],
+            [
+              255,
+              96
+            ],
+            [
+              0,
+              96
+            ],
+            [
+              0,
+              128
+            ],
+            [
+              255,
+              128
+            ],
+            [
+              255,
+              160
+            ],
+            [
+              0,
+              160
+            ],
+            [
+              0,
+              192
+            ],
+            [
+              255,
+              192
+            ],
+            [
+              255,
+              223
+            ],
+            [
+              0,
+              223
+            ]
+          ],
+          "size": 64,
+          "shape": "square",
+          "mode": "erase",
+          "reason": "Clear destination canvas before lossless whole-frame integer registration; no body parts are sliced or resized."
+        },
+        {
+          "operation": "copy_region",
+          "layer": "image",
+          "frames": [
+            5
+          ],
+          "source_layer": "image",
+          "source_frame": 5,
+          "region": [
+            0,
+            4,
+            255,
+            223
+          ],
+          "at": [
+            0,
+            0
+          ],
+          "reason": "Align authored boot contact to common native ground row215 without any resampling."
+        },
+        {
+          "operation": "brush",
+          "layer": "image",
+          "frames": [
+            6
+          ],
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              255,
+              0
+            ],
+            [
+              255,
+              32
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              0,
+              64
+            ],
+            [
+              255,
+              64
+            ],
+            [
+              255,
+              96
+            ],
+            [
+              0,
+              96
+            ],
+            [
+              0,
+              128
+            ],
+            [
+              255,
+              128
+            ],
+            [
+              255,
+              160
+            ],
+            [
+              0,
+              160
+            ],
+            [
+              0,
+              192
+            ],
+            [
+              255,
+              192
+            ],
+            [
+              255,
+              223
+            ],
+            [
+              0,
+              223
+            ]
+          ],
+          "size": 64,
+          "shape": "square",
+          "mode": "erase",
+          "reason": "Clear destination canvas before lossless whole-frame integer registration; no body parts are sliced or resized."
+        },
+        {
+          "operation": "copy_region",
+          "layer": "image",
+          "frames": [
+            6
+          ],
+          "source_layer": "image",
+          "source_frame": 6,
+          "region": [
+            0,
+            4,
+            255,
+            223
+          ],
+          "at": [
+            0,
+            0
+          ],
+          "reason": "Align authored boot contact to common native ground row215 without any resampling."
+        },
+        {
+          "operation": "brush",
+          "layer": "image",
+          "frames": [
+            7
+          ],
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              255,
+              0
+            ],
+            [
+              255,
+              32
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              0,
+              64
+            ],
+            [
+              255,
+              64
+            ],
+            [
+              255,
+              96
+            ],
+            [
+              0,
+              96
+            ],
+            [
+              0,
+              128
+            ],
+            [
+              255,
+              128
+            ],
+            [
+              255,
+              160
+            ],
+            [
+              0,
+              160
+            ],
+            [
+              0,
+              192
+            ],
+            [
+              255,
+              192
+            ],
+            [
+              255,
+              223
+            ],
+            [
+              0,
+              223
+            ]
+          ],
+          "size": 64,
+          "shape": "square",
+          "mode": "erase",
+          "reason": "Clear destination canvas before lossless whole-frame integer registration; no body parts are sliced or resized."
+        },
+        {
+          "operation": "copy_region",
+          "layer": "image",
+          "frames": [
+            7
+          ],
+          "source_layer": "image",
+          "source_frame": 7,
+          "region": [
+            0,
+            4,
+            255,
+            223
+          ],
+          "at": [
+            0,
+            0
+          ],
+          "reason": "Align authored boot contact to common native ground row215 without any resampling."
+        },
+        {
+          "operation": "brush",
+          "layer": "image",
+          "frames": [
+            8
+          ],
+          "points": [
+            [
+              0,
+              0
+            ],
+            [
+              255,
+              0
+            ],
+            [
+              255,
+              32
+            ],
+            [
+              0,
+              32
+            ],
+            [
+              0,
+              64
+            ],
+            [
+              255,
+              64
+            ],
+            [
+              255,
+              96
+            ],
+            [
+              0,
+              96
+            ],
+            [
+              0,
+              128
+            ],
+            [
+              255,
+              128
+            ],
+            [
+              255,
+              160
+            ],
+            [
+              0,
+              160
+            ],
+            [
+              0,
+              192
+            ],
+            [
+              255,
+              192
+            ],
+            [
+              255,
+              223
+            ],
+            [
+              0,
+              223
+            ]
+          ],
+          "size": 64,
+          "shape": "square",
+          "mode": "erase",
+          "reason": "Clear destination canvas before lossless whole-frame integer registration; no body parts are sliced or resized."
+        },
+        {
+          "operation": "copy_region",
+          "layer": "image",
+          "frames": [
+            8
+          ],
+          "source_layer": "image",
+          "source_frame": 8,
+          "region": [
+            0,
+            4,
+            255,
+            223
+          ],
+          "at": [
+            0,
+            0
+          ],
+          "reason": "Align authored boot contact to common native ground row215 without any resampling."
+        },
+        {
+          "operation": "map_colors",
+          "layer": "image",
+          "frames": [
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8
+          ],
+          "region": [
+            0,
+            0,
+            255,
+            223
+          ],
+          "colors": {
+            "#ac6a46ff": "#ae734eff",
+            "#823738ff": "#724743ff",
+            "#682730ff": "#593434ff",
+            "#a97b6dff": "#b6856bff",
+            "#bb764aff": "#ae734eff",
+            "#e77368ff": "#e29754ff",
+            "#612827ff": "#593434ff",
+            "#de7674ff": "#c28e70ff",
+            "#54424bff": "#5f3937ff",
+            "#a78779ff": "#b6856bff",
+            "#392c3aff": "#432326ff",
+            "#88768bff": "#908097ff",
+            "#ad7665ff": "#b6856bff",
+            "#a05750ff": "#94624eff",
+            "#450f1dff": "#371b20ff",
+            "#c5814fff": "#ae734eff",
+            "#cc8077ff": "#c28e70ff",
+            "#793238ff": "#69403dff",
+            "#ad5857ff": "#94624eff",
+            "#dd856dff": "#cc9776ff",
+            "#d17b62ff": "#c28e70ff",
+            "#a37263ff": "#ae734eff",
+            "#865a60ff": "#8c5c4cff",
+            "#742d3aff": "#69403dff",
+            "#e7a260ff": "#e29754ff",
+            "#b7abb8ff": "#bfb3c1ff",
+            "#efae64ff": "#f7b66fff",
+            "#f6c15fff": "#f7b66fff",
+            "#49334aff": "#523031ff",
+            "#350b11ff": "#371b20ff",
+            "#ebe1e7ff": "#fdf5f1ff",
+            "#f8e8deff": "#fdf5f1ff",
+            "#71646bff": "#716076ff",
+            "#f8b6a5ff": "#e8bb9cff",
+            "#3f243eff": "#432326ff",
+            "#974b41ff": "#8c5c4cff",
+            "#3d0d17ff": "#371b20ff",
+            "#e99079ff": "#cf9b7bff",
+            "#b45e54ff": "#ae734eff",
+            "#24131dff": "#371b20ff",
+            "#8c423bff": "#805248ff",
+            "#140b13ff": "#371b20ff"
+          },
+          "reason": "Normalize minor generated shades to approved new-player idle palette while preserving all pose geometry."
+        }
+      ]
+    }
+  ],
+  "frameSelection": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "endpoint8": "Omitted duplicated pinned endpoint",
+  "note": "Body motion generated by PixelLab. Corrections only whole-canvas integer origin registration and palette normalization; no resizing, cut-body motion or synthetic tweening."
+}

@@ -71,6 +71,7 @@ namespace TurnLimbo.Presentation
         private readonly DuelStepAfterimages runAfterimages;
         private readonly Transform playerGround;
         private readonly MobStudentAnimationSet playerAnimations;
+        private readonly FinalPlayerAnimationSet finalPlayerAnimations;
         private readonly EnemyStudentAnimationSet cadetA;
         private readonly EnemyStudentAnimationSet cadetB;
         private readonly EnemyStudentAnimationSet studentAnimations;
@@ -102,7 +103,7 @@ namespace TurnLimbo.Presentation
         private CampaignRun run;
         private string storyStatus;
         private float animationTime;
-        private float moveTime;
+        private float locomotionPhase;
         private float runAfterimageRemaining;
         private float arrivalRemaining;
         private float flourishRemaining;
@@ -169,6 +170,7 @@ namespace TurnLimbo.Presentation
             white = Resources.Load<Sprite>("LegacyHud/white");
             spriteMaterial = arena.SpriteMaterial;
             playerAnimations = arena.PlayerAnimations;
+            finalPlayerAnimations = arena.FinalPlayerAnimations;
             dummyAnimations = arena.DummyAnimations;
             studentAnimations = arena.EnemyAnimations;
             cadetA = new EnemyStudentAnimationSet(EnemyStudentAnimationSet.CadetAResourceRoot, "field-cadet-a");
@@ -193,7 +195,7 @@ namespace TurnLimbo.Presentation
 
             backdrop = new ExplorationFieldBackdrop(root.transform, arena.SpriteMaterial, FieldLayer);
             playerGround = Child("Elisa Ground", root.transform);
-            player = Sprite("Elisa", playerGround, playerAnimations.GetIdleUpper(0f), 35, arena.SpriteMaterial);
+            player = Sprite("Elisa", playerGround, PlayerIdlePose(0f), 35, arena.SpriteMaterial);
             CreateShadow(playerGround, arena.SpriteMaterial);
             runAfterimages = new DuelStepAfterimages(root.transform, arena.SpriteMaterial, FieldLayer,
                 false, 5, "Field Running");
@@ -272,7 +274,7 @@ namespace TurnLimbo.Presentation
                 hasEntered = true;
             }
             player.flipX = !facingRight;
-            animationTime = moveTime = 0f;
+            animationTime = 0f;
             PauseMovement();
             // The board stays in the school even when its next mission is waiting for a battle.
             storyBoard.CanInteract = storyAvailable;
@@ -338,14 +340,18 @@ namespace TurnLimbo.Presentation
             uiRoot.gameObject.SetActive(false);
         }
 
+        private Sprite PlayerIdlePose(float elapsed) => finalPlayerAnimations.IsReady
+            ? finalPlayerAnimations.GetIdle(elapsed) : playerAnimations.GetIdleUpper(elapsed);
+
         /// <summary>Stop the pose and clear temporary trails before a menu or another screen takes input.</summary>
         public void PauseMovement()
         {
             if (disposed) return;
             IsRunning = false;
+            locomotionPhase = 0f;
             runAfterimageRemaining = 0f;
             runAfterimages.Reset();
-            player.sprite = playerAnimations.GetIdleUpper(animationTime);
+            player.sprite = PlayerIdlePose(animationTime);
             player.transform.localPosition = Vector3.zero;
         }
 
@@ -404,16 +410,25 @@ namespace TurnLimbo.Presentation
                 position.x = Mathf.Clamp(position.x, bounds.xMin + 1.5f, rightBound);
                 position.y = Mathf.Clamp(position.y, BottomBound, TopBound);
                 playerGround.localPosition = position;
-                IsRunning = shiftHeld && (position - previous).sqrMagnitude > .000001f;
+                float distance = Vector3.Distance(position, previous);
+                bool traveling = distance > .000001f;
+                IsRunning = shiftHeld && traveling;
                 if (motion.x < -.01f) facingRight = false;
                 else if (motion.x > .01f) facingRight = true;
-                moveTime += dt * (shiftHeld ? RunMultiplier : 1f);
-                player.sprite = playerAnimations.GetMove();
-                player.transform.localPosition = new Vector3(0f, Mathf.Sin(moveTime * 13f) * .04f, 0f);
+                if (traveling && finalPlayerAnimations.IsReady)
+                {
+                    // Actual distance drives the gait; Shift preserves phase and pauses/walls do not skate.
+                    locomotionPhase = Mathf.Repeat(locomotionPhase + distance /
+                        (speed * finalPlayerAnimations.LocomotionDuration(IsRunning)), 1f);
+                    player.sprite = finalPlayerAnimations.GetLocomotion(IsRunning, locomotionPhase);
+                }
+                else player.sprite = traveling ? playerAnimations.GetMove() : PlayerIdlePose(animationTime);
+                player.transform.localPosition = Vector3.zero;
             }
             else
             {
-                player.sprite = playerAnimations.GetIdleUpper(animationTime);
+                locomotionPhase = 0f;
+                player.sprite = PlayerIdlePose(animationTime);
                 player.transform.localPosition = Vector3.zero;
             }
             player.flipX = !facingRight;

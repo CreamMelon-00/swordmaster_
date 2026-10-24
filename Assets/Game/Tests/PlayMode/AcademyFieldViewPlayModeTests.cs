@@ -18,6 +18,80 @@ namespace TurnLimbo.Presentation.Tests
     public sealed class AcademyFieldViewPlayModeTests : InputTestFixture
     {
         [UnityTest]
+        public IEnumerator FieldUsesWalkRunCyclesAndKeepsPhaseAcrossShiftAndDirectionChanges()
+        {
+            yield return null;
+            var host = new GameObject("Field Final Art Test");
+            var art = new LegacyDuelArt();
+            var arena = LegacyArenaView.Create(host.transform, art);
+            var field = new AcademyFieldView(host.transform, art, arena, _ => { }, () => { }, () => { }, () => { });
+            try
+            {
+                field.Show(new CampaignRun(), false, false);
+                var renderer = (SpriteRenderer)typeof(AcademyFieldView).GetField("player",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(field);
+                var keyboard = InputSystem.AddDevice<Keyboard>();
+                Assert.That(renderer.sprite.name, Does.StartWith("final-idle"));
+                Sprite first = renderer.sprite;
+                Advance(field, keyboard, .7f);
+                Assert.That(renderer.sprite.name, Does.StartWith("final-idle"));
+                Assert.That(renderer.sprite, Is.Not.SameAs(first), "The calm idle still animates.");
+                CaptureField(field.FieldCamera, "unity-lobby-idle.png");
+                Press(keyboard.dKey);
+                TickInput(field, keyboard, .1f);
+                Assert.That(renderer.sprite.name, Does.StartWith("final-walk-frame-"));
+                Sprite move = renderer.sprite;
+                TickInput(field, keyboard, .1f);
+                Assert.That(renderer.sprite, Is.Not.SameAs(move), "Walking advances through authored frames.");
+                Assert.That(renderer.transform.localPosition, Is.EqualTo(Vector3.zero), "Vertical motion comes from the authored cels.");
+                CaptureField(field.FieldCamera, "unity-lobby-walk.png");
+                var phaseField = typeof(AcademyFieldView).GetField("locomotionPhase",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                float previousPhase = (float)phaseField.GetValue(field);
+                Press(keyboard.leftShiftKey);
+                TickInput(field, keyboard, .1f);
+                Assert.That(renderer.sprite.name, Does.StartWith("final-run-frame-"));
+                Assert.That((float)phaseField.GetValue(field), Is.EqualTo(Mathf.Repeat(previousPhase + .1f / .56f, 1f)).Within(.001f),
+                    "Shift changes gait without restarting the phase.");
+                Sprite running = renderer.sprite;
+                TickInput(field, keyboard, .1f);
+                Assert.That(renderer.sprite, Is.Not.SameAs(running));
+                CaptureField(field.FieldCamera, "unity-lobby-run.png");
+                ReleaseInput(keyboard.leftShiftKey);
+                ReleaseInput(keyboard.dKey);
+                Press(keyboard.aKey);
+                TickInput(field, keyboard, .1f);
+                Assert.That(renderer.flipX, Is.True);
+                Assert.That(renderer.sprite.name, Does.StartWith("final-walk-frame-"));
+                ReleaseInput(keyboard.aKey);
+                field.PauseMovement();
+                Assert.That(renderer.sprite.name, Does.StartWith("final-idle"));
+                Assert.That((float)phaseField.GetValue(field), Is.Zero);
+            }
+            finally { field.Dispose(); arena.Dispose(); art.Dispose(); Object.Destroy(host); }
+        }
+
+        private static void CaptureField(Camera camera, string name)
+        {
+            var target = new RenderTexture(1280, 720, 24);
+            var image = new Texture2D(1280, 720, TextureFormat.RGB24, false);
+            var oldTarget = camera.targetTexture;
+            var oldActive = RenderTexture.active;
+            try
+            {
+                camera.targetTexture = target; camera.Render(); RenderTexture.active = target;
+                image.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0); image.Apply();
+                System.IO.File.WriteAllBytes(System.IO.Path.Combine(Application.dataPath,
+                    "../Docs/Art/FinalPlayer/" + name), image.EncodeToPNG());
+            }
+            finally
+            {
+                camera.targetTexture = oldTarget; RenderTexture.active = oldActive;
+                target.Release(); Object.Destroy(target); Object.Destroy(image);
+            }
+        }
+
+        [UnityTest]
         public IEnumerator SchoolField_ResumesAtItsPosition_AndRepositionsVisibleOpponents()
         {
             yield return null;
