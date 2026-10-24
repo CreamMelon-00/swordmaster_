@@ -664,6 +664,7 @@ namespace TurnLimbo.Presentation
             ResetMovementPose(enemy);
             player.ReactionTime = enemy.ReactionTime = 0f;
             player.GuardVariant = enemy.GuardVariant = 0;
+            player.GuardPoseSelected = false;
             player.AttackVariants.Clear();
             enemy.AttackVariants.Clear();
             player.AnimationTime = enemy.AnimationTime = 0f;
@@ -701,6 +702,7 @@ namespace TurnLimbo.Presentation
         {
             if (disposed || ReferenceEquals(player.Skill, skill)) return;
             player.Skill = skill;
+            player.GuardPoseSelected = false;
             PrepareSlotMovement(skill, enemy.Skill);
             player.AttackVariants.Clear();
             SampleActor(player);
@@ -963,8 +965,13 @@ namespace TurnLimbo.Presentation
                 player.ReactionIsBlock = blocks;
                 // Draw exactly once per incoming hit/guard, including repeated hits in the same slot.
                 // Independent draws intentionally allow the same pose on consecutive impacts.
-                player.ReactionVariant = reactionPoseRandom.Next(MobStudentAnimationSet.ReactionVariationCount);
-                if (player.ReactionIsBlock) player.GuardVariant = player.ReactionVariant;
+                player.ReactionVariant = reactionPoseRandom.Next(blocks && UseFinalPlayerArt && finalPlayerAnimations.IsReady
+                    ? FinalPlayerAnimationSet.GuardVariationCount : MobStudentAnimationSet.ReactionVariationCount);
+                if (player.ReactionIsBlock)
+                {
+                    player.GuardVariant = player.ReactionVariant;
+                    player.GuardPoseSelected = true;
+                }
                 player.ReactionTime = ReactionPoseDuration;
                 SampleActor(player);
             }
@@ -1646,7 +1653,7 @@ namespace TurnLimbo.Presentation
             {
                 if (actor.ReactionTime > 0f)
                 {
-                    actor.Renderer.sprite = actor.ReactionIsBlock ? mobAnimations.GetBlockPose(actor.ReactionVariant)
+                    actor.Renderer.sprite = actor.ReactionIsBlock ? GuardPoseFor(actor, actor.ReactionVariant)
                         : mobAnimations.GetHurtPose(actor.ReactionVariant);
                     return;
                 }
@@ -1654,7 +1661,12 @@ namespace TurnLimbo.Presentation
                 // A finished attack guards the same way while the opponent is still striking.
                 if (actor.Skill?.Kind == LegacySkillKind.Defence || IsHoldingExchange(actor))
                 {
-                    actor.Renderer.sprite = mobAnimations.GetBlockPose(actor.GuardVariant);
+                    if (actor == player && UseFinalPlayerArt && finalPlayerAnimations.IsReady && !actor.GuardPoseSelected)
+                    {
+                        actor.GuardVariant = reactionPoseRandom.Next(FinalPlayerAnimationSet.GuardVariationCount);
+                        actor.GuardPoseSelected = true;
+                    }
+                    actor.Renderer.sprite = GuardPoseFor(actor, actor.GuardVariant);
                     return;
                 }
                 float cycle = OriginalClipDuration / slotAnimationSpeed + slotAttackInterval;
@@ -1757,6 +1769,9 @@ namespace TurnLimbo.Presentation
             player.LastVisualPosition = position;
             player.HasLowerTravelProgress = false;
         }
+
+        private Sprite GuardPoseFor(Actor actor, int variant) => actor == player && UseFinalPlayerArt && finalPlayerAnimations.IsReady
+            ? finalPlayerAnimations.GetGuard(variant) : mobAnimations.GetBlockPose(variant);
 
         private int AttackVariant(Actor actor, int hitIndex)
         {
@@ -1995,6 +2010,7 @@ namespace TurnLimbo.Presentation
             actor.ReactionTime = 0f;
             actor.ReactionIsBlock = false;
             actor.ReactionVariant = actor.GuardVariant = 0;
+            actor.GuardPoseSelected = false;
             actor.AttackVariants.Clear();
             ResetMovementPose(actor);
             actor.Skill = null;
@@ -2068,6 +2084,7 @@ namespace TurnLimbo.Presentation
             public float ReactionTime;
             public bool ReactionIsBlock;
             public int ReactionVariant, GuardVariant;
+            public bool GuardPoseSelected;
             public readonly Dictionary<int, int> AttackVariants = new Dictionary<int, int>();
             public float PushPlaybackDuration = PushDuration;
             public Color FlashColor;

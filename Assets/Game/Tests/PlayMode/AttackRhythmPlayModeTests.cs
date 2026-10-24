@@ -70,7 +70,7 @@ namespace TurnLimbo.Presentation.Tests
                             Assert.That(frames[1, 2 + side], Is.Not.EqualTo(frames[0, 2 + side]), at + " holds contact longer.");
                             Assert.That(frames[1, 4 + side], Is.Not.EqualTo(frames[0, 4 + side]), at + " advances recovery sooner.");
                             int contact = side == 1 ? 5 : property == LegacySkillProperty.Slash ? 4 : property == LegacySkillProperty.Penetrate ? 5 : 7;
-                            int last = side == 1 ? 12 : property == LegacySkillProperty.Hit ? 15 : 14;
+                            int last = side == 1 ? 12 : property == LegacySkillProperty.Hit ? 15 : property == LegacySkillProperty.Slash ? 16 : 14;
                             Assert.That(frames[0, 6 + side], Is.EqualTo(contact));
                             Assert.That(frames[1, 6 + side], Is.EqualTo(contact), at + " retains the half-cycle contact cel.");
                             Assert.That(frames[0, 8 + side], Is.EqualTo(last));

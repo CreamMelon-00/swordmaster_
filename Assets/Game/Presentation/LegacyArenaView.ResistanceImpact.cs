@@ -132,7 +132,7 @@ namespace TurnLimbo.Presentation
                 actor.Renderer.sprite = dummyAnimations.GetIdle(actor.IdleClock);
             }
             else if (actor == player || actor == enemy && EnemyIsElisa)
-                actor.Renderer.sprite = mobAnimations.GetBlockPose(actor.GuardVariant);
+                actor.Renderer.sprite = GuardPoseFor(actor, actor.GuardVariant);
             else
                 actor.Renderer.sprite = AnimationsFor(actor).GetGuard(actor.GuardVariant);
             SetAttackDrawOffset(actor, ResistanceImpactDrawOffset(actor, resistanceImpactTime));

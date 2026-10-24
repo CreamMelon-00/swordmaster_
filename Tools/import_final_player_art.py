@@ -13,8 +13,8 @@ def main():
     clips = []
     inputs = [
         ('idle', 'Idle_PixelLab', 'idle.json', 0),
-        ('slash', 'Slash_01_PixelLab/NoTrail', 'slash.json', 4),
-        ('pierce', 'Pierce_01_PixelLab/TrailFix/NoTrail', 'pierce.json', 5),
+        ('slash', 'Slash_01_PixelLab', 'slash.json', 4),
+        ('pierce', 'Pierce_01_PixelLab/TrailFix', 'pierce.json', 5),
         ('beat', 'Strike_SkillFamilies_20261024/01_BladeBeat', 'animation.json', 7),
         ('loaded', 'Strike_SkillFamilies_20261024/02_LoadedStrike', 'animation.json', 4),
         ('measured', 'Strike_SkillFamilies_20261024/03_MeasuredGuard', 'animation.json', 3),
@@ -37,6 +37,28 @@ def main():
                 text = re.sub(r'spritePivot: .*', 'spritePivot: {x: 0.4453125, y: 0.022321428571428572}', text)
                 meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
         clips.append(dict(key=key, durationsMs=durations, impactIndex=impact))
+    # Static guard PNGs are separate from attack timelines. Each uses its own foot origin.
+    guards = SOURCE / 'Guard_ThreePoses_20261024'
+    if guards.exists():
+        from PIL import Image
+        import re
+        for index, head_y in enumerate([53, 64, 85], 1):
+            key = f'guard-{index:02}'
+            source = guards / (key + '.png')
+            image = Image.open(source).convert('RGBA')
+            floor = image.getbbox()[3] - 1
+            foot = image.getchannel('A').crop((0, floor - 8, image.width, floor + 1)).getbbox()
+            pivot_x = (foot[0] + foot[2] - 1) / 2
+            ppu = (floor - head_y + 1) / (125 / 36)
+            target = DEST / key / 'frame-00.png'
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+            meta = Path(str(target) + '.meta')
+            text = meta.read_text(encoding='utf-8') if meta.exists() else re.sub(r'guid: [a-f0-9]+', 'guid: ' + uuid.uuid4().hex, template, count=1)
+            text = re.sub(r'spritePixelsToUnits: .*', f'spritePixelsToUnits: {ppu}', text)
+            text = re.sub(r'spritePivot: .*', f'spritePivot: {{x: {pivot_x / 256}, y: {(224 - floor - 1) / 224}}}', text)
+            meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
+            clips.append(dict(key=key, durationsMs=[100], impactIndex=0))
     (DEST / 'timing.json').write_text(json.dumps(dict(clips=clips), indent=2), encoding='utf-8')
     print(json.dumps({c['key']: len(c['durationsMs']) for c in clips}))
 

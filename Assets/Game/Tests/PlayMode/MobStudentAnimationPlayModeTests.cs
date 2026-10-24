@@ -142,7 +142,7 @@ namespace TurnLimbo.Presentation.Tests
                 arena.Reset();
                 arena.BeginSlot(LegacySkillDefinitions.Skill(7), LegacySkillDefinitions.Skill(7));
                 arena.CloseDistance(.02f);
-                Assert.That(arena.PlayerRenderer.sprite.name, Does.Contain("block"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-guard-"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.Contain("block"));
             }
             Object.Destroy(host);

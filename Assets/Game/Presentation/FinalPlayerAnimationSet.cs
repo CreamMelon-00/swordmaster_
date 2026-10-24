@@ -9,6 +9,7 @@ namespace TurnLimbo.Presentation
     public sealed class FinalPlayerAnimationSet : IDisposable
     {
         public const string ResourceRoot = "SwordGirl/FinalPlayer/";
+        public const int GuardVariationCount = 3;
         private readonly Dictionary<string, Clip> clips = new Dictionary<string, Clip>();
         private readonly List<Sprite> owned = new List<Sprite>();
         public bool IsReady { get; private set; }
@@ -42,9 +43,10 @@ namespace TurnLimbo.Presentation
                 }
                 clips.Add(definition.key, clip);
             }
-            IsReady = clips.Count == 7 && clips.ContainsKey("idle") && clips.ContainsKey("slash") &&
+            IsReady = clips.Count == 10 && clips.ContainsKey("idle") && clips.ContainsKey("slash") &&
                 clips.ContainsKey("pierce") && clips.ContainsKey("beat") && clips.ContainsKey("loaded") &&
-                clips.ContainsKey("measured") && clips.ContainsKey("evade");
+                clips.ContainsKey("measured") && clips.ContainsKey("evade") &&
+                clips.ContainsKey("guard-01") && clips.ContainsKey("guard-02") && clips.ContainsKey("guard-03");
         }
 
         public static string AttackKey(LegacySkillProperty property, int skillId)
@@ -62,6 +64,9 @@ namespace TurnLimbo.Presentation
         }
 
         public Sprite GetIdle(float elapsed) => IsReady ? clips["idle"].Sample(Mathf.Max(0, elapsed) % clips["idle"].duration) : null;
+
+        public Sprite GetGuard(int variant) => IsReady
+            ? clips["guard-" + (Mathf.Clamp(variant, 0, GuardVariationCount - 1) + 1).ToString("00")].frames[0] : null;
 
         public Sprite GetAttack(LegacySkillProperty property, int skillId, float normalizedTime)
         {

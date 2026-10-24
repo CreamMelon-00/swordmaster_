@@ -312,6 +312,7 @@ namespace TurnLimbo.Presentation.Tests
                     "\"weaponTrailEnabled\":true,\"weaponTrailStrength\":1,\"weaponTrailSeconds\":0.12}", settings);
                 Arena = LegacyArenaView.Create(Root.transform, art, settings,
                     attackPoseRandom: new FirstVariant(), enemyAttackPoseRandom: new FirstVariant());
+                Arena.UseFinalPlayerArt = false; // This fixture verifies the retained procedural-trail path.
                 target = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
                 Arena.ArenaCamera.targetTexture = target;
             }

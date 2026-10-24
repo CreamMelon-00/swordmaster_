@@ -67,6 +67,8 @@ namespace TurnLimbo.Presentation
             if (actor == player && UseFinalPlayerArt && finalPlayerAnimations.IsReady)
             {
                 string key = FinalPlayerAnimationSet.AttackKey(actor.Skill.Property, actor.Skill.Id);
+                // These two clips already contain their authored trail. Do not stack the old mesh effect over it.
+                if (key == "slash" || key == "pierce") return;
                 Vector4 blade = key == "pierce" ? new Vector4(1.61f, .05f, 3.61f, .05f)
                     : key == "slash" ? new Vector4(.86f, -.84f, 2.78f, -1.62f)
                     : key == "loaded" ? new Vector4(.47f, -1.06f, 1.5f, -2.23f)

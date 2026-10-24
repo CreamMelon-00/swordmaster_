@@ -1,0 +1,42 @@
+{
+  "tool": "PixelLab",
+  "reference": "FinalPlayer/idle/frame-00.png",
+  "jobs": [
+    {
+      "file": "guard-01.png",
+      "job": "349bfc88-f990-4ec5-a860-62902c8af5d3",
+      "model": "Pro"
+    },
+    {
+      "file": "guard-02.png",
+      "job": "0da62886-4f48-4889-8eb9-fed34737a765",
+      "model": "Pro"
+    },
+    {
+      "file": "guard-03.png",
+      "job": "cb26dc4b-c5c1-4d5c-a4a0-81b5e14db968",
+      "model": "Pixen"
+    }
+  ],
+  "discarded": [
+    {
+      "job": "49f93e3b-4da9-47c7-a0e0-9034edc8e6a0",
+      "reason": "Pose too close to original ready stance"
+    }
+  ],
+  "prompts": [
+    {
+      "key": "guard-01",
+      "prompt": "Redraw this same game character into ONE static defensive guard pose, facing RIGHT toward opponent. Preserve exact character identity, blonde bob covering eyes, headband, brown gold academy uniform, boots, slim original body proportions and native pixel style/palette. Same 256x224 transparent canvas; same head-to-foot height about125 pixels, planted soles at y218 and stance centered x114. Both hands visibly grip ONE straight sword with collinear hilt guard and blade. No shields, no effects, no motion blur, no other character, no text. Middle guard: knees slightly bent, both hands near chest, sword held diagonally upright in FRONT of the torso to intercept an incoming strike from the right; readable protective silhouette."
+    },
+    {
+      "key": "guard-02",
+      "prompt": "Redraw this same game character into ONE static defensive guard pose, facing RIGHT toward opponent. Preserve exact character identity, blonde bob covering eyes, headband, brown gold academy uniform, boots, slim original body proportions and native pixel style/palette. Same 256x224 transparent canvas; same head-to-foot height about125 pixels, planted soles at y218 and stance centered x114. Both hands visibly grip ONE straight sword with collinear hilt guard and blade. No shields, no effects, no motion blur, no other character, no text. High guard: lift both hands above forehead, elbows bent and visible; hold the sword diagonally across above the head, blade extending upper-right, protecting from an overhead slash; torso stays upright, same height and feet."
+    },
+    {
+      "key": "guard-03",
+      "prompt": "Redraw this same game character into ONE static defensive guard pose, facing RIGHT toward opponent. Preserve exact character identity, blonde bob covering eyes, headband, brown gold academy uniform, boots, slim original body proportions and native pixel style/palette. Same 256x224 transparent canvas; same head-to-foot height about125 pixels, planted soles at y218 and stance centered x114. Both hands visibly grip ONE straight sword with collinear hilt guard and blade. No shields, no effects, no motion blur, no other character, no text. Low braced guard: knees bent modestly, waist not stretched; both hands near waist, sword steeply diagonal upright in front of body, blade projecting rightward above hands; clearly different arm positions from middle guard, guarding a low attack. Preserve character scale."
+    }
+  ],
+  "finalGuard03Prompt": "Change pose completely into a LOW DEFENSIVE GUARD, NOT the original ready pose. Crouch slightly with knees bent. Lift both hands together to stomach level and turn sword blade almost VERTICAL in FRONT of her right shoulder, pointing upward. Both hands gripping straight aligned hilt. Same blonde schoolgirl, same pixelart style, outfit, proportions, RIGHT facing, same scale125px and foot baseline218 on transparent256x224. One static pose, no shield, no effects."
+}

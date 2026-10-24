@@ -30,6 +30,8 @@
         60,
         70,
         80,
+        30,
+        30,
         50,
         50,
         50,
@@ -152,6 +154,27 @@
         110
       ],
       "impactIndex": 9
+    },
+    {
+      "key": "guard-01",
+      "durationsMs": [
+        100
+      ],
+      "impactIndex": 0
+    },
+    {
+      "key": "guard-02",
+      "durationsMs": [
+        100
+      ],
+      "impactIndex": 0
+    },
+    {
+      "key": "guard-03",
+      "durationsMs": [
+        100
+      ],
+      "impactIndex": 0
     }
   ]
 }
