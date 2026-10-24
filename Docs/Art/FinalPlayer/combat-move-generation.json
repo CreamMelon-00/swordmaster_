@@ -1,0 +1,86 @@
+{
+  "tool": "PixelLab edit_image",
+  "jobId": "4da49786-7c6c-462a-bff3-f7ffab850552",
+  "request": {
+    "image_urls": [
+      "upload:d1ef6ea2-fc71-465d-8d80-c1293d6db061"
+    ],
+    "description": "Change ONLY the pose of THIS approved pixel-art swordswoman into one static combat-advance step facing RIGHT. Keep her EXACT cream-blonde layered bob, dark headband, dense full bangs completely covering eyes, compact original head/body proportions, rich detailed pixel clusters, dark chocolate brown uniform with warm gold piping/ribbon, brown gold-trim boots, pale silver lavender straight sword. Pose: whole upper torso leans forward about 20 degrees from hips with naturally connected neck and head; front right boot planted under forward bent knee; rear leg lifted behind with knee bent around 90 degrees, rear boot off ground. BOTH hands visibly grip the SAME sword hilt just in front of waist. Sword points forward-right and slightly up, about 15 degrees above horizontal, a long straight blade connected through crossguard and handle. Hair and skirt trail gently backward. This is a held forward-moving pose, not an attack. Keep full legs, both arms and hands coherent, skirt outside thighs, no neck gaps, no missing limbs or visible eyes. Keep same drawing style, exact soft warm palette, same native body size and 256x224 transparent canvas. Do not adopt a different older sprite style, wash out colors, make legs longer, enlarge head, or crop sword. No shadow, background, FX or trails.",
+    "width": 256,
+    "height": 224,
+    "no_background": true,
+    "seed": 241041
+  },
+  "reference": "Approved new player Idle frame-00, not the old character sprite. User screenshot used for pose description only.",
+  "scope": "Single static combat movement pose; lobby walk/run/idle unchanged.",
+  "finalPixelLabId": "407a4eff-3e48-453e-a647-79c6dc842d6f",
+  "paletteCorrection": [
+    {
+      "operation": "map_colors",
+      "layer": "image",
+      "frames": [
+        1
+      ],
+      "region": [
+        0,
+        0,
+        255,
+        223
+      ],
+      "colors": {
+        "#ad6161ff": "#ae734eff",
+        "#cc9571ff": "#cc9776ff",
+        "#de9f64ff": "#e29754ff",
+        "#efbf9eff": "#e8bb9cff",
+        "#eb9d8bff": "#f1a394ff",
+        "#dcd7e1ff": "#d8ced9ff",
+        "#865a4dff": "#8c5c4cff",
+        "#fbeef4ff": "#fdf5f1ff",
+        "#624e65ff": "#604e65ff",
+        "#b57e5eff": "#b6856bff",
+        "#3a1c21ff": "#371b20ff",
+        "#563231ff": "#523031ff",
+        "#8f7a95ff": "#908097ff",
+        "#6d4540ff": "#724743ff",
+        "#794e45ff": "#784c45ff",
+        "#9f6c55ff": "#94624eff",
+        "#4a282aff": "#432326ff",
+        "#d6c4d3ff": "#d8ced9ff",
+        "#f9d4c2ff": "#f8d4beff",
+        "#603a37ff": "#5f3937ff",
+        "#fcf0e7ff": "#fdf5f1ff",
+        "#c77a70ff": "#c28e70ff",
+        "#522f2eff": "#523031ff",
+        "#6f5a73ff": "#716076ff",
+        "#f3c9acff": "#f2c8aaff",
+        "#34191eff": "#371b20ff",
+        "#402225ff": "#432326ff",
+        "#e5b08bff": "#daaa8cff",
+        "#ab97afff": "#a598abff",
+        "#d5a27fff": "#cf9b7bff",
+        "#3d1e21ff": "#371b20ff",
+        "#bd896bff": "#b6856bff",
+        "#6e453eff": "#724743ff",
+        "#efb06cff": "#f7b66fff",
+        "#f6cdb4ff": "#f5cdb3ff",
+        "#f6bd70ff": "#f7b66fff"
+      },
+      "reason": "Approved new-player palette only; preserve exact pose, silhouette and alpha."
+    }
+  ],
+  "importSettings": {
+    "frames": [
+      {
+        "file": "Frames/frame-00.png",
+        "durationMs": 100
+      }
+    ],
+    "ppu": 37.44,
+    "pivotPixels": [
+      114,
+      5
+    ],
+    "durationMs": 100,
+    "loop": false
+  }
+}

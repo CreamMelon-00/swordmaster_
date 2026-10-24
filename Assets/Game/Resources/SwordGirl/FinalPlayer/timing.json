@@ -41,6 +41,13 @@
       "impactIndex": 0
     },
     {
+      "key": "combat-move",
+      "durationsMs": [
+        100
+      ],
+      "impactIndex": 0
+    },
+    {
       "key": "slash",
       "durationsMs": [
         100,

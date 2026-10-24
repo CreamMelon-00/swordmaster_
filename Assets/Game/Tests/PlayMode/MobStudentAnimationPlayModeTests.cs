@@ -97,7 +97,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 arena.BeginApproach();
                 arena.Tick(.015f, .015f);
-                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("move-frame-01"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-combat-move-frame-00"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-move-frame-01"));
                 Sprite playerHeld = arena.PlayerRenderer.sprite;
                 Sprite enemyHeld = arena.EnemyRenderer.sprite;
@@ -121,7 +121,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyHeld));
                 // Acceleration and the final planting step keep the run pose until the physical travel has stopped.
                 for (int frame = 0; frame < 120 && (!arena.ApproachComplete ||
-                    arena.PlayerRenderer.sprite.name == "move-frame-01" || arena.EnemyRenderer.sprite.name == "enemy-move-frame-01"); frame++)
+                    arena.PlayerRenderer.sprite.name == "final-combat-move-frame-00" || arena.EnemyRenderer.sprite.name == "enemy-move-frame-01"); frame++)
                     arena.Tick(.01f, .01f);
                 Assert.That(arena.ApproachComplete, Is.True);
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-idle-frame-"));
@@ -129,12 +129,12 @@ namespace TurnLimbo.Presentation.Tests
 
                 arena.Reset();
                 arena.CloseDistance(.01f);
-                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("move-frame-01"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-combat-move-frame-00"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-move-frame-01"));
                 arena.CloseDistance(.02f);
-                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("move-frame-01"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-combat-move-frame-00"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-move-frame-01"));
-                for (int frame = 0; frame < 120 && (arena.PlayerRenderer.sprite.name == "move-frame-01" ||
+                for (int frame = 0; frame < 120 && (arena.PlayerRenderer.sprite.name == "final-combat-move-frame-00" ||
                     arena.EnemyRenderer.sprite.name == "enemy-move-frame-01"); frame++) arena.Tick(.01f, .01f);
                 Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-idle-frame-"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
@@ -209,6 +209,11 @@ namespace TurnLimbo.Presentation.Tests
             RenderTexture previous = camera.targetTexture;
             try
             {
+                arena.BeginApproach();
+                arena.Tick(.15f, .15f);
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-combat-move-frame-00"));
+                CaptureCombatMove(arena);
+                arena.Reset();
                 arena.CloseDistance(1f);
                 camera.targetTexture = target;
                 foreach (var property in new[] { LegacySkillProperty.None, LegacySkillProperty.Slash, LegacySkillProperty.Penetrate, LegacySkillProperty.Hit })
@@ -241,6 +246,27 @@ namespace TurnLimbo.Presentation.Tests
             {
                 camera.targetTexture = previous; target.Release(); Object.Destroy(target);
                 controller.RestartMatch(); controller.enabled = true;
+            }
+        }
+
+        private static void CaptureCombatMove(LegacyArenaView arena)
+        {
+            var camera = arena.ArenaCamera;
+            var target = new RenderTexture(1280, 720, 24);
+            var image = new Texture2D(1280, 720, TextureFormat.RGB24, false);
+            var previous = camera.targetTexture;
+            var active = RenderTexture.active;
+            try
+            {
+                camera.targetTexture = target;
+                camera.Render(); RenderTexture.active = target;
+                image.ReadPixels(new Rect(0, 0, 1280, 720), 0, 0); image.Apply();
+                File.WriteAllBytes(Path.Combine(Application.dataPath, "../Docs/Art/FinalPlayer/unity-combat-move.png"), image.EncodeToPNG());
+            }
+            finally
+            {
+                camera.targetTexture = previous; RenderTexture.active = active;
+                target.Release(); Object.Destroy(target); Object.Destroy(image);
             }
         }
 

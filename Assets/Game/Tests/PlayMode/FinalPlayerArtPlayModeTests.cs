@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new FinalPlayerAnimationSet())
             {
                 Assert.That(set.IsReady, Is.True);
-                Assert.That(set.LoadedFrameCount, Is.EqualTo(123));
+                Assert.That(set.LoadedFrameCount, Is.EqualTo(124));
                 Sprite idle = set.GetIdle(0);
                 Assert.That(idle.pixelsPerUnit, Is.EqualTo(36));
                 Assert.That(idle.texture.filterMode, Is.EqualTo(FilterMode.Point));

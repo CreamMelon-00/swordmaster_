@@ -1695,7 +1695,7 @@ namespace TurnLimbo.Presentation
                     Sprite finalAttack = active && actor.Skill.Kind == LegacySkillKind.Attack
                         ? finalPlayerAnimations.GetAttack(actor.Skill, clipTime / OriginalClipDuration) : null;
                     actor.Renderer.sprite = finalAttack != null ? finalAttack : actor.Moving
-                        ? mobAnimations.GetMove() : actor.ResistanceBroken
+                        ? finalPlayerAnimations.GetCombatMove() : actor.ResistanceBroken
                             ? finalPlayerAnimations.GetBreak() : finalPlayerAnimations.GetIdle(idleTime);
                     return;
                 }

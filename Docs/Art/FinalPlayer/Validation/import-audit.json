@@ -1,5 +1,5 @@
 {
-  "frameCount": 123,
+  "frameCount": 124,
   "allSourceByteIdentical": true,
   "frames": [
     {
@@ -738,6 +738,12 @@
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-07.png",
       "source": "Lobby_Refinement_20261024/run/Frames/frame-07.png",
       "sha256": "13ca211391b51156fe35098792fda7a1728e0f91178656b2d01a2da21d7ba778",
+      "sourceByteIdentical": true
+    },
+    {
+      "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/combat-move/frame-00.png",
+      "source": "Combat_Move_PixelLab_20261024/Frames/frame-00.png",
+      "sha256": "ada11653e3d400fb334e68c243490b8c65ea9449526c8933fd76a9f37c4338d4",
       "sourceByteIdentical": true
     }
   ]

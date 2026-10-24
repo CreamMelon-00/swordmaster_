@@ -1,0 +1,16 @@
+{
+  "frameCount": 1,
+  "nativeSize": [
+    256,
+    224
+  ],
+  "sameAlphaAsGenerated": true,
+  "paletteMatchesApprovedIdle": true,
+  "onlyPaletteChanged": true,
+  "groundY": 218,
+  "sha256": "ada11653e3d400fb334e68c243490b8c65ea9449526c8933fd76a9f37c4338d4",
+  "scope": "Static player combat approach/close-distance only; lobby locomotion unchanged.",
+  "existing123PNGsUnchanged": true,
+  "source": "Combat_Move_PixelLab_20261024",
+  "reference": "New player Idle frame-00; pose-only description from user screenshot."
+}
