@@ -23,8 +23,8 @@ def main():
     ]
     for key, folder, manifest, impact in inputs:
         source = SOURCE / folder
-        if key in ('beat', 'loaded', 'measured', 'evade'):
-            trail_source = source.parent / 'WithTrails' / source.name
+        if key == 'loaded':
+            trail_source = source.parent / 'Loaded_SlashStyle_20261024'
             if trail_source.exists():
                 source = trail_source
         data = json.loads((source / manifest).read_text(encoding='utf-8-sig'))

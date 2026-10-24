@@ -1,38 +1,12 @@
 [
   {
-    "key": "beat",
-    "index": 7,
-    "changedPixels": 863,
-    "originalOpaquePixelsPreserved": true
-  },
-  {
-    "key": "beat",
-    "index": 8,
-    "changedPixels": 160,
-    "originalOpaquePixelsPreserved": true
-  },
-  {
-    "key": "loaded",
     "index": 4,
-    "changedPixels": 3242,
-    "originalOpaquePixelsPreserved": true
+    "originalOpaquePixelsPreserved": true,
+    "changedPixels": 6616
   },
   {
-    "key": "loaded",
     "index": 5,
-    "changedPixels": 300,
-    "originalOpaquePixelsPreserved": true
-  },
-  {
-    "key": "evade",
-    "index": 8,
-    "changedPixels": 844,
-    "originalOpaquePixelsPreserved": true
-  },
-  {
-    "key": "evade",
-    "index": 9,
-    "changedPixels": 111,
-    "originalOpaquePixelsPreserved": true
+    "originalOpaquePixelsPreserved": true,
+    "changedPixels": 2136
   }
 ]
