@@ -1,0 +1,6 @@
+{
+  "name": "TurnLimbo.ArtValidation.Editor",
+  "references": ["UnityEditor.TestRunner"],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}

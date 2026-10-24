@@ -58,6 +58,9 @@ namespace TurnLimbo.Presentation
         private readonly Actor player;
         private Actor enemy;
         private readonly MobStudentAnimationSet mobAnimations;
+        private readonly FinalPlayerAnimationSet finalPlayerAnimations;
+        // Retain the previous art path for comparisons and its existing regression tests.
+        public bool UseFinalPlayerArt { get; set; } = true;
         private readonly EnemyStudentAnimationSet enemyAnimations;
         private EnemyStudentAnimationSet cadetAAnimations;
         private EnemyStudentAnimationSet cadetBAnimations;
@@ -367,9 +370,11 @@ namespace TurnLimbo.Presentation
             impactGlow = new DuelImpactGlow(arenaRoot.transform, ArenaLayer, this.settings);
 
             mobAnimations = new MobStudentAnimationSet();
+            finalPlayerAnimations = new FinalPlayerAnimationSet();
             if (!mobAnimations.HasRequiredAssets)
                 Debug.LogWarning("Mob student animation resources are incomplete: " + string.Join(", ", mobAnimations.MissingResources));
             player = CreateActor("Player", mobAnimations.HasRequiredAssets ? mobAnimations.GetIdleUpper(0f) : art.GetPlayerSprite(0f));
+            if (finalPlayerAnimations.IsReady) player.Renderer.sprite = finalPlayerAnimations.GetIdle(0f);
             player.LowerRenderer = CreateSprite("Mob Student Lower Body", player.Renderer.transform,
                 mobAnimations.GetLower(0f, false), -1);
             player.LowerRenderer.enabled = mobAnimations.HasRequiredAssets && !mobAnimations.UsesFullBodyFrames;
@@ -1654,6 +1659,14 @@ namespace TurnLimbo.Presentation
                 }
                 float cycle = OriginalClipDuration / slotAnimationSpeed + slotAttackInterval;
                 int hitIndex = Mathf.FloorToInt(actor.AnimationTime / cycle);
+                if (actor == player && UseFinalPlayerArt && finalPlayerAnimations.IsReady)
+                {
+                    Sprite finalAttack = active && actor.Skill.Kind == LegacySkillKind.Attack
+                        ? finalPlayerAnimations.GetAttack(actor.Skill.Property, actor.Skill.Id, clipTime / OriginalClipDuration) : null;
+                    actor.Renderer.sprite = finalAttack != null ? finalAttack : actor.Moving
+                        ? mobAnimations.GetMove() : finalPlayerAnimations.GetIdle(idleTime);
+                    return;
+                }
                 Sprite attack = active && actor.Skill.Kind == LegacySkillKind.Attack
                     ? mobAnimations.GetAttackUpper(actor.Skill.Property, AttackVariant(actor, hitIndex), clipTime / OriginalClipDuration) : null;
                 actor.Renderer.sprite = attack != null ? attack : actor.Moving
@@ -2010,6 +2023,7 @@ namespace TurnLimbo.Presentation
             DisposeDirector();
             CorridorBackdrop.Dispose();
             mobAnimations.Dispose();
+            finalPlayerAnimations.Dispose();
             enemyAnimations.Dispose();
             cadetAAnimations?.Dispose();
             cadetBAnimations?.Dispose();

@@ -151,7 +151,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             private readonly GameObject host = new GameObject("Blunt Variant Test");
             public LegacyArenaView Arena { get; }
-            public ArenaScope(System.Random random) { Arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt(), null, null, random); }
+            public ArenaScope(System.Random random) { Arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt(), null, null, random); Arena.UseFinalPlayerArt = false; }
             public void Dispose() { Arena.Dispose(); Object.Destroy(host); }
         }
         private sealed class BluntRandom : System.Random

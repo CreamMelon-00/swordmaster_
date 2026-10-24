@@ -31,11 +31,11 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.Zero);
                 Assert.That(controller.Session.Player.Resistance, Is.EqualTo(1000));
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(1000));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-04$"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("final-slash-frame-03"));
                 scope.Advance(.002f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 // Both strike on this hit: the resistance clash keeps each contact frame.
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("final-slash-frame-04"));
                 Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "slash(?:-[23])?-frame-05")));
                 scope.Until(() => controller.IsBetweenSlots);
                 Assert.That(controller.Session.CurrentSlot, Is.Null);
@@ -74,11 +74,11 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(slot.HitsResolved, Is.EqualTo(hit + 1));
                     // The first hit is a mutual clash and the rest land on the enemy's finished
                     // attack, so no incoming hit interrupts the player's own strikes.
-                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
+                    Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("final-slash-frame-04"));
                     if (hit < 2)
                     {
                         scope.AdvanceToSlotTime(clip + cycle * hit + .001f);
-                        Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^(?:idle|move)-frame-[0-9]+$"),
+                        Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^(?:final-idle|move)-frame-[0-9]+$"),
                             "The attack gap permits idle or closing footwork, never a stretched attack pose.");
                         string enemyPose = hit == 0 ? "poses-block(?:-2)?" : "poses-hurt(?:-2)?";
                         Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, enemyPose)),
@@ -130,7 +130,7 @@ namespace TurnLimbo.Presentation.Tests
                 for (int frame = 0; frame < 5000 && !controller.IsShowingResult; frame++)
                 {
                     Assert.That(controller.ArenaView.PlayerRenderer.sprite.name,
-                        Does.Not.Match("^slash(?:-[23])?-frame-0[1-4]$"),
+                        Does.Not.Match("^final-slash-frame-0[0-3]$"),
                         "The next attack must not restart after the finishing blow.");
                     Assert.That(slot.HitsResolved, Is.EqualTo(1));
                     scope.Advance(.001f);
@@ -237,7 +237,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.CurrentSlot, Is.SameAs(slot));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("final-slash-frame-04"));
                 Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "slash(?:-[23])?-frame-05")));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
@@ -259,7 +259,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
                 Assert.That(controller.Session.Enemy.Resistance, Is.EqualTo(999));
                 Assert.That(controller.ActiveSlotElapsedTime, Is.EqualTo(1f / 24f).Within(.0001f));
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Is.EqualTo("final-slash-frame-04"));
                 Assert.That(controller.ArenaView.EnemyRenderer.sprite.name, Does.Match(EnemyCel(controller, "slash(?:-[23])?-frame-05")));
                 scope.Advance(0f);
                 Assert.That(slot.HitsResolved, Is.EqualTo(1));
@@ -290,7 +290,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(controller.Campaign.StageNumber, Is.EqualTo(1));
             Assert.That(controller.Campaign.Currency, Is.Zero);
             Assert.That(controller.TurnTimeRemaining, Is.EqualTo(10f));
-            Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+            Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("final-idle-frame-"));
         }
 
         /// <summary>Run the real presentation clock deterministically, without changing the shared settings asset.</summary>

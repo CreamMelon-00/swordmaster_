@@ -124,7 +124,7 @@ namespace TurnLimbo.Presentation.Tests
                     arena.PlayerRenderer.sprite.name == "move-frame-01" || arena.EnemyRenderer.sprite.name == "enemy-move-frame-01"); frame++)
                     arena.Tick(.01f, .01f);
                 Assert.That(arena.ApproachComplete, Is.True);
-                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-idle-frame-"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
 
                 arena.Reset();
@@ -136,7 +136,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("enemy-move-frame-01"));
                 for (int frame = 0; frame < 120 && (arena.PlayerRenderer.sprite.name == "move-frame-01" ||
                     arena.EnemyRenderer.sprite.name == "enemy-move-frame-01"); frame++) arena.Tick(.01f, .01f);
-                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-idle-frame-"));
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
 
                 arena.Reset();
@@ -188,7 +188,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(contact));
                 Assert.That(arena.PlayerRenderer.flipX, Is.False);
                 arena.Reset();
-                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("idle-frame-01"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-idle-frame-00"));
                 Assert.That(arena.PlayerLowerRenderer.enabled, Is.False);
                 Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(enemyIdle));
             }
@@ -216,10 +216,10 @@ namespace TurnLimbo.Presentation.Tests
                     arena.BeginSlot(property == LegacySkillProperty.None ? null : Attack(property, 1), null);
                     arena.Tick(0f, 1f);
                     if (property != LegacySkillProperty.None) Hold(arena, LegacyArenaView.OriginalImpactTime);
-                    string key = property == LegacySkillProperty.None ? "idle" : MobStudentAnimationSet.AttackKey(property, 0);
-                    Assert.That(arena.PlayerRenderer.sprite.name, property != LegacySkillProperty.None
-                        ? Does.Match("^" + key + "(?:-[23])?-frame-05$")
-                        : Is.EqualTo(key + (key == "idle" ? "-frame-01" : "-frame-05")));
+                    string key = property == LegacySkillProperty.None ? "idle" : FinalPlayerAnimationSet.AttackKey(property, 101);
+                    int contact = property == LegacySkillProperty.Slash ? 4 : property == LegacySkillProperty.Penetrate ? 5 : 7;
+                    Assert.That(arena.PlayerRenderer.sprite.name,
+                        Is.EqualTo("final-" + key + "-frame-" + (key == "idle" ? 0 : contact).ToString("00")));
                     yield return null;
                     yield return null;
                     if (!string.IsNullOrEmpty(directory))

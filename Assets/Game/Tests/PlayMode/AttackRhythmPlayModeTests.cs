@@ -49,12 +49,18 @@ namespace TurnLimbo.Presentation.Tests
                             float[] anchors = { .16f, .56f, .74f, .5f, .999f };
                             for (int index = 0; index < anchors.Length; index++)
                             {
-                                Hold(arena, LegacyArenaView.OriginalClipDuration * anchors[index]);
+                                // New clips have different contact-cel lengths; sample their contact edge,
+                                // while the unchanged enemy still uses the historical .56 checkpoint.
+                                float playerPhase = index != 1 ? anchors[index]
+                                    : property == LegacySkillProperty.Penetrate ? .54f
+                                    : property == LegacySkillProperty.Hit ? .58f : anchors[index];
+                                Hold(arena, LegacyArenaView.OriginalClipDuration * playerPhase);
                                 frames[enabled, index * 2] = FrameNumber(arena.PlayerRenderer.sprite);
+                                Hold(arena, LegacyArenaView.OriginalClipDuration * anchors[index]);
                                 frames[enabled, index * 2 + 1] = FrameNumber(arena.EnemyRenderer.sprite);
                             }
                             Hold(arena, LegacyArenaView.OriginalClipDuration);
-                            Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"), "The remap cannot extend the clip past its original end.");
+                            Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-idle-frame-"), "The remap cannot extend the clip past its original end.");
                             Assert.That(arena.EnemyRenderer.sprite.name, Does.Contain("idle-frame-"));
                         }
                         for (int side = 0; side < 2; side++)
@@ -63,10 +69,12 @@ namespace TurnLimbo.Presentation.Tests
                             Assert.That(frames[1, side], Is.Not.EqualTo(frames[0, side]), at + " changes the preparation cel.");
                             Assert.That(frames[1, 2 + side], Is.Not.EqualTo(frames[0, 2 + side]), at + " holds contact longer.");
                             Assert.That(frames[1, 4 + side], Is.Not.EqualTo(frames[0, 4 + side]), at + " advances recovery sooner.");
-                            Assert.That(frames[0, 6 + side], Is.EqualTo(5));
-                            Assert.That(frames[1, 6 + side], Is.EqualTo(5), at + " retains the half-cycle contact cel.");
-                            Assert.That(frames[0, 8 + side], Is.EqualTo(12));
-                            Assert.That(frames[1, 8 + side], Is.EqualTo(12), at + " retains the final cel before the clip ends.");
+                            int contact = side == 1 ? 5 : property == LegacySkillProperty.Slash ? 4 : property == LegacySkillProperty.Penetrate ? 5 : 7;
+                            int last = side == 1 ? 12 : property == LegacySkillProperty.Hit ? 15 : 14;
+                            Assert.That(frames[0, 6 + side], Is.EqualTo(contact));
+                            Assert.That(frames[1, 6 + side], Is.EqualTo(contact), at + " retains the half-cycle contact cel.");
+                            Assert.That(frames[0, 8 + side], Is.EqualTo(last));
+                            Assert.That(frames[1, 8 + side], Is.EqualTo(last), at + " retains the final cel before the clip ends.");
                         }
                     }
                 }
@@ -200,7 +208,7 @@ namespace TurnLimbo.Presentation.Tests
                     }
                     Assert.That(slot.HitsResolved, Is.EqualTo(hit + 1));
                     trace.HitTimes[hit] = scope.Elapsed - started;
-                    Assert.That(FrameNumber(controller.ArenaView.PlayerRenderer.sprite), Is.EqualTo(5));
+                    Assert.That(FrameNumber(controller.ArenaView.PlayerRenderer.sprite), Is.EqualTo(4));
                     Assert.That(FrameNumber(controller.ArenaView.EnemyRenderer.sprite), Is.EqualTo(5));
                 }
                 if (trace.WindowCloses < 0f) trace.WindowCloses = trace.HitTimes[0];
@@ -236,9 +244,9 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That((hostSlot.HitsResolved, guestSlot.HitsResolved), Is.EqualTo((nextHit, nextHit)));
                     Assert.That(host.Elapsed, Is.EqualTo(guest.Elapsed));
                     trace.HitTimes[hit] = host.Elapsed;
-                    Assert.That(FrameNumber(host.Arena.PlayerRenderer.sprite), Is.EqualTo(5));
+                    Assert.That(FrameNumber(host.Arena.PlayerRenderer.sprite), Is.EqualTo(4));
                     Assert.That(FrameNumber(host.Arena.EnemyRenderer.sprite), Is.EqualTo(5));
-                    Assert.That(FrameNumber(guest.Arena.PlayerRenderer.sprite), Is.EqualTo(5));
+                    Assert.That(FrameNumber(guest.Arena.PlayerRenderer.sprite), Is.EqualTo(4));
                     Assert.That(FrameNumber(guest.Arena.EnemyRenderer.sprite), Is.EqualTo(5));
                 }
                 UntilBoth(host, guest, () => !host.Versus.IsResolving && !guest.Versus.IsResolving);

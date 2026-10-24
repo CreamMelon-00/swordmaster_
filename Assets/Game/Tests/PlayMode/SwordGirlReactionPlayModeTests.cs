@@ -340,7 +340,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             private readonly GameObject host = new GameObject("SwordGirl Reaction Test");
             public LegacyArenaView Arena { get; }
-            public ArenaScope(System.Random random = null) { Arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt(), null, random); }
+            public ArenaScope(System.Random random = null) { Arena = LegacyArenaView.Create(host.transform, new LegacyDuelArt(), null, random); Arena.UseFinalPlayerArt = false; }
             public void Dispose() { Arena.Dispose(); Object.Destroy(host); }
         }
 

@@ -104,7 +104,7 @@ namespace TurnLimbo.Presentation
         /// <summary>Leaves one fixed stroke of light. Left-facing fighters mirror the canonical art coordinates.
         /// Defence/None, invalid positions, non-positive strength or lifetime leave nothing behind.</summary>
         public void Emit(Vector3 worldVisualOrigin, bool facesRight, LegacySkillProperty property, int variant,
-            bool studentStyle, float strength, float lifetime)
+            bool studentStyle, float strength, float lifetime, Vector4? bladeOverride = null)
         {
             if (!HasRequiredAssets || !IsFinite(worldVisualOrigin) || !IsFinite(strength) || !(strength > 0f) ||
                 !IsFinite(lifetime) || !(lifetime > 0f) ||
@@ -113,7 +113,7 @@ namespace TurnLimbo.Presentation
             View view = views[nextView];
             nextView = (nextView + 1) % views.Length;
             int variation = ((variant % 3) + 3) % 3;
-            BuildStroke(view, property, variation, studentStyle);
+            BuildStroke(view, property, variation, studentStyle, bladeOverride);
             view.Transform.position = worldVisualOrigin;
             view.Transform.localRotation = Quaternion.identity;
             view.Transform.localScale = new Vector3(facesRight ? 1f : -1f, 1f, 1f);
@@ -205,9 +205,11 @@ namespace TurnLimbo.Presentation
             return view;
         }
 
-        private static void BuildStroke(View view, LegacySkillProperty property, int variant, bool studentStyle)
+        private static void BuildStroke(View view, LegacySkillProperty property, int variant, bool studentStyle, Vector4? bladeOverride)
         {
-            BladeAnchor anchor = Anchors(property, studentStyle)[variant];
+            BladeAnchor anchor = bladeOverride.HasValue
+                ? new BladeAnchor(bladeOverride.Value.x, bladeOverride.Value.y, bladeOverride.Value.z, bladeOverride.Value.w)
+                : Anchors(property, studentStyle)[variant];
             Vector2 blade = anchor.Tip - anchor.Hand;
             Vector2 direction = blade.normalized;
             float endAngle = Mathf.Atan2(blade.y, blade.x);
