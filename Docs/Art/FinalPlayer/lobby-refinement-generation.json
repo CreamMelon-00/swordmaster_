@@ -1,0 +1,110 @@
+{
+  "idle": {
+    "first_frame_url": "upload:d1ef6ea2-fc71-465d-8d80-c1293d6db061",
+    "last_frame_url": "upload:d1ef6ea2-fc71-465d-8d80-c1293d6db061",
+    "frame_count": 8,
+    "no_background": true,
+    "seed": 241031,
+    "action": "Subtle seamless full-body idle breathing in the same sword guard. One slow breath in and out, ending at starting pose. Draw coherent complete poses: connected head neck shoulders elbows wrists hands and straight sword. Tiny chest rise, shoulders ease only 1 pixel, hands and sword follow naturally together; no isolated moving rectangles. Both boots stay planted and hips stay still. Knees and thighs keep their starting pose. Pleated skirt remains outside and OVER thighs, hem covers upper thighs, no exposed thigh crossing skirt fabric, no leg or cloth intersection. Hair tips and ribbon move at most 1-2 pixels. No weight shifts, swaying, crouching, bouncing, scaling or large movement. Preserve exact original compact proportions, cream blonde fringe fully hiding eyes, detailed dark brown gold uniform and pale silver sword. No face or eye lines, no trails. Smooth loop, slow and calm."
+  },
+  "walkPose": {
+    "image_urls": [
+      "upload:4eb5a0be-ba28-4999-a407-242bbcc2b5fb"
+    ],
+    "description": "Keep exactly the same character, pixel art detail, colors, head and body proportions and right-facing view. Relax her WALKING posture: shoulders dropped, neck relaxed, back comfortably upright. The empty arm should hang loosely beside the body with a soft elbow and gently curved relaxed fingers, not held up in a claw or clenched fist. Sword stays in the other hand at hip level, blade diagonally down-forward. Keep the same low walking contact step. Do not make legs longer or head smaller, no extra accessories, no combat tension. Bangs completely hide eyes. Preserve transparent 256x224 canvas and current body size and foot ground.",
+    "width": 256,
+    "height": 224,
+    "no_background": true,
+    "seed": 241032
+  },
+  "walk": {
+    "first_frame_url": "https://api.pixellab.ai/mcp/images/f1c5d916-5490-4bc9-8f34-3f0e00f1ce40/download",
+    "last_frame_url": "https://api.pixellab.ai/mcp/images/f1c5d916-5490-4bc9-8f34-3f0e00f1ce40/download",
+    "frame_count": 8,
+    "no_background": true,
+    "seed": 241033,
+    "action": "A smooth relaxed casual walking loop in place to the right, one complete alternating left-right stride returning to first pose. Unhurried easy steps, short stride, feet lift only slightly and roll heel to toe, one foot planted throughout. Comfortable upright back, shoulders DOWN and loose, neck relaxed, no bracing or clenched body. Empty arm hangs low and swings gently with a soft elbow and relaxed fingers, never raised like a claw. Sword hand loosely carries sword beside hip pointing diagonally down-forward, no two-handed grip or attack. Little bob, no marching high knees, kicking heels, crouching or running lean. Preserve exact compact body and head size, eye-hiding bangs and current detailed colors. Keep one coherent connected full-body drawing each frame; skirt stays over upper thighs with no intersections. Sword straight and attached to its hilt. No drifting or scaling, no FX. Easy low-energy walk, smooth repeating loop."
+  },
+  "idleSequence": [
+    0,
+    1,
+    2,
+    3,
+    2,
+    1
+  ],
+  "idlePaletteMap": {
+    "operation": "map_colors",
+    "layer": "image",
+    "frames": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "region": [
+      0,
+      0,
+      255,
+      223
+    ],
+    "colors": {
+      "#2a0e16ff": "#371b20ff",
+      "#322032ff": "#371b20ff",
+      "#3d2e35ff": "#432326ff",
+      "#43353eff": "#523031ff",
+      "#473c44ff": "#523031ff",
+      "#504249ff": "#5f3937ff",
+      "#58494cff": "#69403dff",
+      "#6d5b5cff": "#604e65ff",
+      "#6f2b2eff": "#5f3937ff",
+      "#775e60ff": "#716076ff",
+      "#777377ff": "#716076ff",
+      "#817085ff": "#716076ff",
+      "#89423eff": "#805248ff",
+      "#956c61ff": "#94624eff",
+      "#a05c38ff": "#94624eff",
+      "#a23847ff": "#8c5c4cff",
+      "#a68d98ff": "#a598abff",
+      "#a8665bff": "#ae734eff",
+      "#a87963ff": "#b6856bff",
+      "#aea5b8ff": "#a598abff",
+      "#c0adb6ff": "#bfb3c1ff",
+      "#c17b5eff": "#b6856bff",
+      "#c28156ff": "#b6856bff",
+      "#c88651ff": "#e29754ff",
+      "#c99f97ff": "#daaa8cff",
+      "#d17973ff": "#c28e70ff",
+      "#d3c0c9ff": "#d8ced9ff",
+      "#db746dff": "#c28e70ff",
+      "#de8e82ff": "#cf9b7bff",
+      "#e4a86aff": "#f7b66fff",
+      "#e78b77ff": "#cf9b7bff",
+      "#edaa5eff": "#f7b66fff",
+      "#eee4e9ff": "#fdf5f1ff",
+      "#f5b453ff": "#f7b66fff",
+      "#f9c88bff": "#f9ba79ff",
+      "#f9e3d9ff": "#fdd8c9ff",
+      "#fab39fff": "#e8bb9cff",
+      "#fece6bff": "#f9ba79ff"
+    },
+    "reason": "Exact approved player palette. Preserve complete generated poses."
+  },
+  "run": {
+    "oldPPU": 35.136,
+    "newPPU": 37.44,
+    "note": "Uniform clip-wide display scale reduction only. Original run PNGs and timing remain identical; no per-frame resizing."
+  },
+  "jobs": {
+    "idle": "453327b1-75b3-4d28-ae8f-56f36373c18b",
+    "walkPose": "f1c5d916-5490-4bc9-8f34-3f0e00f1ce40",
+    "walk": "3aeb56bf-99c0-41df-8773-4dc50b1fdc5e"
+  },
+  "finals": {
+    "idle": "8a6d9dba-aae7-4b12-9553-e0eba3d24898",
+    "walk": "b591c2e5-a50b-4e22-b8b2-56a25893f1a5"
+  },
+  "idleTemporalSelectionNote": "Six complete coherent redraws, small amplitude segment played forward then back. No body-region copying."
+}

@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new FinalPlayerAnimationSet())
             {
                 Assert.That(set.IsReady, Is.True);
-                Assert.That(set.LoadedFrameCount, Is.EqualTo(122));
+                Assert.That(set.LoadedFrameCount, Is.EqualTo(123));
                 Sprite idle = set.GetIdle(0);
                 Assert.That(idle.pixelsPerUnit, Is.EqualTo(36));
                 Assert.That(idle.texture.filterMode, Is.EqualTo(FilterMode.Point));
@@ -404,7 +404,7 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (bool running in new[] { false, true })
                 {
                     string key = running ? "run" : "walk";
-                    Assert.That(set.LocomotionDuration(running), Is.EqualTo(running ? .56f : .8f).Within(.001f));
+                    Assert.That(set.LocomotionDuration(running), Is.EqualTo(running ? .56f : .96f).Within(.001f));
                     Sprite first = set.GetLocomotion(running, 0f);
                     Assert.That(first.name, Is.EqualTo("final-" + key + "-frame-00"));
                     Assert.That(set.GetLocomotion(running, 1f), Is.SameAs(first));

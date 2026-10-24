@@ -13,9 +13,9 @@ def main():
     template = (ROOT / 'Assets/Game/Resources/SwordGirl/Animations/idle/frame-01.png.meta').read_text(encoding='utf-8')
     clips = []
     inputs = [
-        ('idle', 'Movement_Idle_PixelLab_20261024/Idle', 'idle.json', 0),
-        ('walk', 'Walk_Relaxed_PixelLab_20261024', 'animation.json', 0),
-        ('run', 'Lobby_Locomotion_PixelLab_20261024/run', 'animation.json', 0),
+        ('idle', 'Lobby_Refinement_20261024/idle', 'animation.json', 0),
+        ('walk', 'Lobby_Refinement_20261024/walk', 'animation.json', 0),
+        ('run', 'Lobby_Refinement_20261024/run', 'animation.json', 0),
         ('slash', 'Slash_01_PixelLab', 'slash.json', 4),
         ('pierce', 'Pierce_01_PixelLab/TrailFix', 'pierce.json', 5),
         ('beat', 'Strike_SkillFamilies_20261024/01_BladeBeat', 'animation.json', 7),
@@ -43,7 +43,7 @@ def main():
                 text = text.replace('spritePixelsToUnits: 40', 'spritePixelsToUnits: 36')
                 text = re.sub(r'spritePivot: .*', 'spritePivot: {x: 0.4453125, y: 0.022321428571428572}', text)
                 meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
-            if key in ('walk', 'run'):
+            if key in ('idle', 'walk', 'run'):
                 import re
                 original_text = meta.read_text(encoding='utf-8')
                 text = original_text

@@ -1,0 +1,232 @@
+{
+  "nativeSize": [
+    256,
+    224
+  ],
+  "paletteSize": 35,
+  "clips": [
+    {
+      "key": "idle",
+      "frames": [
+        {
+          "frame": 0,
+          "sourceFrame": 0,
+          "sha256": "ed8df0d3055e9004edecb052c34405f9bd319814e0f7c284bd010af9a4c04852",
+          "bbox": [
+            71,
+            94,
+            185,
+            219
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 1,
+          "sourceFrame": 1,
+          "sha256": "bbfdf7663d0b9bbf057c34d119c0fbbb68f46e01b693c701746148d3b9c4b7b9",
+          "bbox": [
+            71,
+            94,
+            184,
+            219
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 2,
+          "sourceFrame": 2,
+          "sha256": "162571349f6abdb39cc698fd615552e9c302b7db43b593c8fb709f7df240c484",
+          "bbox": [
+            71,
+            93,
+            183,
+            219
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 3,
+          "sourceFrame": 3,
+          "sha256": "240cdd7f0a2ae340732a9515c68288ecccfa59670195b2aeb1e12506fdc35b10",
+          "bbox": [
+            71,
+            92,
+            183,
+            219
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 4,
+          "sourceFrame": 2,
+          "sha256": "162571349f6abdb39cc698fd615552e9c302b7db43b593c8fb709f7df240c484",
+          "bbox": [
+            71,
+            93,
+            183,
+            219
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 5,
+          "sourceFrame": 1,
+          "sha256": "bbfdf7663d0b9bbf057c34d119c0fbbb68f46e01b693c701746148d3b9c4b7b9",
+          "bbox": [
+            71,
+            94,
+            184,
+            219
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        }
+      ],
+      "finalPixelLabId": "8a6d9dba-aae7-4b12-9553-e0eba3d24898",
+      "partialBodyCompositing": false
+    },
+    {
+      "key": "walk",
+      "frames": [
+        {
+          "frame": 0,
+          "sourceFrame": 0,
+          "sha256": "5f72a94c5d972e1fd4f07ddee1d43ec35519a01638fc04eca7aafa7d2c71f2e3",
+          "bbox": [
+            76,
+            89,
+            156,
+            216
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 1,
+          "sourceFrame": 1,
+          "sha256": "853baca5fe9b177539bf234e16447dbcfd8ff1370b6e84e759a11b15ac5b6fa5",
+          "bbox": [
+            76,
+            88,
+            158,
+            216
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 2,
+          "sourceFrame": 2,
+          "sha256": "240d13a1221bae36139e6153601dedebbf793b687d3e86418e73f95efc608312",
+          "bbox": [
+            83,
+            86,
+            168,
+            216
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 3,
+          "sourceFrame": 3,
+          "sha256": "400b2109abf480e629f609d9f9bd46740e7b968dde97187391c7ac522fd0d965",
+          "bbox": [
+            88,
+            85,
+            180,
+            216
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 4,
+          "sourceFrame": 4,
+          "sha256": "6ad9f29e6454ae7da139d07f532b50566ddca86b0f2fc2e5dda787202904f3a2",
+          "bbox": [
+            81,
+            87,
+            190,
+            216
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 5,
+          "sourceFrame": 5,
+          "sha256": "4b972866e97200b247dfdde666c064af6851243926ed7d81d191b6a2f5128347",
+          "bbox": [
+            75,
+            90,
+            187,
+            216
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 6,
+          "sourceFrame": 6,
+          "sha256": "6008fff378bbc787842d5062b276d65cd4a948a0cd218e91d3bbdb1b968e9be1",
+          "bbox": [
+            85,
+            88,
+            176,
+            216
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        },
+        {
+          "frame": 7,
+          "sourceFrame": 7,
+          "sha256": "dd0eeb30f39819c9749d6522271c2fac9e1b338b357c2a32f61492acf707d06b",
+          "bbox": [
+            83,
+            86,
+            167,
+            216
+          ],
+          "wholeFrameSourceExactAfterPaletteAndOrigin": true
+        }
+      ],
+      "finalPixelLabId": "b591c2e5-a50b-4e22-b8b2-56a25893f1a5",
+      "partialBodyCompositing": false
+    },
+    {
+      "key": "run",
+      "sourcePNGUnchanged": true,
+      "oldPPU": 35.136,
+      "newPPU": 37.44,
+      "uniformDisplayScaleRatio": 0.9384615384615386,
+      "frames": [
+        {
+          "frame": 0,
+          "sha256": "5d0217af4d0c281f6e9c15b51c3c08ab676b67fe7003fcc922e5abec655e520a"
+        },
+        {
+          "frame": 1,
+          "sha256": "feef6f12cdb158309ec3e634b688842b6479c029bd8d992c9643666a31101e6e"
+        },
+        {
+          "frame": 2,
+          "sha256": "b1e05e93697fbf48f8adc3255a86b879c4c433f7076ced0726dbf38828fcd9df"
+        },
+        {
+          "frame": 3,
+          "sha256": "dcd8a7a6a4fc9bf377090bd46ee5d3edc029df0c5b07c61b3d8575c8b0e3d0b5"
+        },
+        {
+          "frame": 4,
+          "sha256": "c6d1802405eed97d64b5cf5e7dfec0171029c327f49ad1d85e986e17ae44b5d4"
+        },
+        {
+          "frame": 5,
+          "sha256": "226615e69933887bfaa44a2c650654cbb3c55feef3b05796025b8a1050f5c713"
+        },
+        {
+          "frame": 6,
+          "sha256": "f076994c3e03a9765b49f80432db9203444072b81c864c714e87cfe48b819e47"
+        },
+        {
+          "frame": 7,
+          "sha256": "13ca211391b51156fe35098792fda7a1728e0f91178656b2d01a2da21d7ba778"
+        }
+      ]
+    }
+  ]
+}

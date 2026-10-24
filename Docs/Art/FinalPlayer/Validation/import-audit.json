@@ -1,5 +1,5 @@
 {
-  "frameCount": 122,
+  "frameCount": 123,
   "allSourceByteIdentical": true,
   "frames": [
     {
@@ -610,127 +610,133 @@
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/idle/frame-00.png",
-      "source": "Movement_Idle_PixelLab_20261024/Idle/Frames/idle-00.png",
+      "source": "Lobby_Refinement_20261024/idle/Frames/frame-00.png",
       "sha256": "ed8df0d3055e9004edecb052c34405f9bd319814e0f7c284bd010af9a4c04852",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/idle/frame-01.png",
-      "source": "Movement_Idle_PixelLab_20261024/Idle/Frames/idle-01.png",
-      "sha256": "533d309878d42bbdf85279145f553230a242443ea19906c96cf90092512dcf51",
+      "source": "Lobby_Refinement_20261024/idle/Frames/frame-01.png",
+      "sha256": "bbfdf7663d0b9bbf057c34d119c0fbbb68f46e01b693c701746148d3b9c4b7b9",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/idle/frame-02.png",
-      "source": "Movement_Idle_PixelLab_20261024/Idle/Frames/idle-02.png",
-      "sha256": "aa7231fa016194a1312ff99d6126bd874b97ccac956bdc4c928869c66ae5af16",
+      "source": "Lobby_Refinement_20261024/idle/Frames/frame-02.png",
+      "sha256": "162571349f6abdb39cc698fd615552e9c302b7db43b593c8fb709f7df240c484",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/idle/frame-03.png",
-      "source": "Movement_Idle_PixelLab_20261024/Idle/Frames/idle-03.png",
-      "sha256": "533d309878d42bbdf85279145f553230a242443ea19906c96cf90092512dcf51",
+      "source": "Lobby_Refinement_20261024/idle/Frames/frame-03.png",
+      "sha256": "240cdd7f0a2ae340732a9515c68288ecccfa59670195b2aeb1e12506fdc35b10",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/idle/frame-04.png",
-      "source": "Movement_Idle_PixelLab_20261024/Idle/Frames/idle-04.png",
-      "sha256": "ed8df0d3055e9004edecb052c34405f9bd319814e0f7c284bd010af9a4c04852",
+      "source": "Lobby_Refinement_20261024/idle/Frames/frame-04.png",
+      "sha256": "162571349f6abdb39cc698fd615552e9c302b7db43b593c8fb709f7df240c484",
+      "sourceByteIdentical": true
+    },
+    {
+      "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/idle/frame-05.png",
+      "source": "Lobby_Refinement_20261024/idle/Frames/frame-05.png",
+      "sha256": "bbfdf7663d0b9bbf057c34d119c0fbbb68f46e01b693c701746148d3b9c4b7b9",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/walk/frame-00.png",
-      "source": "Walk_Relaxed_PixelLab_20261024/Frames/frame-00.png",
-      "sha256": "64a975ee5a59c081aa093ccd03932c418e1ff5e1f2b0c5d5c4d36c6836ccb6b8",
+      "source": "Lobby_Refinement_20261024/walk/Frames/frame-00.png",
+      "sha256": "5f72a94c5d972e1fd4f07ddee1d43ec35519a01638fc04eca7aafa7d2c71f2e3",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/walk/frame-01.png",
-      "source": "Walk_Relaxed_PixelLab_20261024/Frames/frame-01.png",
-      "sha256": "3ade116b24ff2ef5abdeb4c01752f9f5b13fc33910d498e55cf301d671ea6fc9",
+      "source": "Lobby_Refinement_20261024/walk/Frames/frame-01.png",
+      "sha256": "853baca5fe9b177539bf234e16447dbcfd8ff1370b6e84e759a11b15ac5b6fa5",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/walk/frame-02.png",
-      "source": "Walk_Relaxed_PixelLab_20261024/Frames/frame-02.png",
-      "sha256": "34c6ab01d8b545126fbe5b5270dd55b315a7df20d83182e87c87aeb017eb6cc5",
+      "source": "Lobby_Refinement_20261024/walk/Frames/frame-02.png",
+      "sha256": "240d13a1221bae36139e6153601dedebbf793b687d3e86418e73f95efc608312",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/walk/frame-03.png",
-      "source": "Walk_Relaxed_PixelLab_20261024/Frames/frame-03.png",
-      "sha256": "c7181897012ac8b0aa47d231646ab8988cb3cae6939506b98f92b39e22ce975f",
+      "source": "Lobby_Refinement_20261024/walk/Frames/frame-03.png",
+      "sha256": "400b2109abf480e629f609d9f9bd46740e7b968dde97187391c7ac522fd0d965",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/walk/frame-04.png",
-      "source": "Walk_Relaxed_PixelLab_20261024/Frames/frame-04.png",
-      "sha256": "9674c072c6587309958694dbdf8d91181d0e428a22646247b868d3bc22da1fed",
+      "source": "Lobby_Refinement_20261024/walk/Frames/frame-04.png",
+      "sha256": "6ad9f29e6454ae7da139d07f532b50566ddca86b0f2fc2e5dda787202904f3a2",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/walk/frame-05.png",
-      "source": "Walk_Relaxed_PixelLab_20261024/Frames/frame-05.png",
-      "sha256": "fd826acbf1497ff3c0f010c35e503ea5bb9e5a38dbfed2e36b9c88029b7ee6ac",
+      "source": "Lobby_Refinement_20261024/walk/Frames/frame-05.png",
+      "sha256": "4b972866e97200b247dfdde666c064af6851243926ed7d81d191b6a2f5128347",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/walk/frame-06.png",
-      "source": "Walk_Relaxed_PixelLab_20261024/Frames/frame-06.png",
-      "sha256": "27c7d20957a8dccf51ad1d8c4ab10a4393669dfd62fb89833205ab0868ba6975",
+      "source": "Lobby_Refinement_20261024/walk/Frames/frame-06.png",
+      "sha256": "6008fff378bbc787842d5062b276d65cd4a948a0cd218e91d3bbdb1b968e9be1",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/walk/frame-07.png",
-      "source": "Walk_Relaxed_PixelLab_20261024/Frames/frame-07.png",
-      "sha256": "d929aebfc0d9e7a9ab633a8d184a3d7462a2ee1b79da92a91826f053c034cbd1",
+      "source": "Lobby_Refinement_20261024/walk/Frames/frame-07.png",
+      "sha256": "dd0eeb30f39819c9749d6522271c2fac9e1b338b357c2a32f61492acf707d06b",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-00.png",
-      "source": "Lobby_Locomotion_PixelLab_20261024/run/Frames/frame-00.png",
+      "source": "Lobby_Refinement_20261024/run/Frames/frame-00.png",
       "sha256": "5d0217af4d0c281f6e9c15b51c3c08ab676b67fe7003fcc922e5abec655e520a",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-01.png",
-      "source": "Lobby_Locomotion_PixelLab_20261024/run/Frames/frame-01.png",
+      "source": "Lobby_Refinement_20261024/run/Frames/frame-01.png",
       "sha256": "feef6f12cdb158309ec3e634b688842b6479c029bd8d992c9643666a31101e6e",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-02.png",
-      "source": "Lobby_Locomotion_PixelLab_20261024/run/Frames/frame-02.png",
+      "source": "Lobby_Refinement_20261024/run/Frames/frame-02.png",
       "sha256": "b1e05e93697fbf48f8adc3255a86b879c4c433f7076ced0726dbf38828fcd9df",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-03.png",
-      "source": "Lobby_Locomotion_PixelLab_20261024/run/Frames/frame-03.png",
+      "source": "Lobby_Refinement_20261024/run/Frames/frame-03.png",
       "sha256": "dcd8a7a6a4fc9bf377090bd46ee5d3edc029df0c5b07c61b3d8575c8b0e3d0b5",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-04.png",
-      "source": "Lobby_Locomotion_PixelLab_20261024/run/Frames/frame-04.png",
+      "source": "Lobby_Refinement_20261024/run/Frames/frame-04.png",
       "sha256": "c6d1802405eed97d64b5cf5e7dfec0171029c327f49ad1d85e986e17ae44b5d4",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-05.png",
-      "source": "Lobby_Locomotion_PixelLab_20261024/run/Frames/frame-05.png",
+      "source": "Lobby_Refinement_20261024/run/Frames/frame-05.png",
       "sha256": "226615e69933887bfaa44a2c650654cbb3c55feef3b05796025b8a1050f5c713",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-06.png",
-      "source": "Lobby_Locomotion_PixelLab_20261024/run/Frames/frame-06.png",
+      "source": "Lobby_Refinement_20261024/run/Frames/frame-06.png",
       "sha256": "f076994c3e03a9765b49f80432db9203444072b81c864c714e87cfe48b819e47",
       "sourceByteIdentical": true
     },
     {
       "file": "Assets/Game/Resources/SwordGirl/FinalPlayer/run/frame-07.png",
-      "source": "Lobby_Locomotion_PixelLab_20261024/run/Frames/frame-07.png",
+      "source": "Lobby_Refinement_20261024/run/Frames/frame-07.png",
       "sha256": "13ca211391b51156fe35098792fda7a1728e0f91178656b2d01a2da21d7ba778",
       "sourceByteIdentical": true
     }
