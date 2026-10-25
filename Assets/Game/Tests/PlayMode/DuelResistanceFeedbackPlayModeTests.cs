@@ -71,14 +71,16 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.PlayerLabel.color, Is.EqualTo(DuelVisualTheme.Health));
                 Assert.That(fixture.PlayerLabel.gameObject.activeSelf, Is.True);
 
-                var draw = new LegacyQueuedDuel(100, 50, 100, 12,
+                // The authored reduction is 10; nine remaining resistance tests the actual capped delta.
+                var draw = new LegacyQueuedDuel(100, 50, 100, 9,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 draw.TryQueueLane(0); draw.Commit();
                 before = draw.Enemy.Resistance;
                 draw.BeginNextSlot();
                 fixture.Feedback.Show(false, draw.Enemy.Resistance - before);
                 fixture.Tick(0f);
-                Assert.That(fixture.EnemyLabel.text, Is.EqualTo("저항 -12"), "A direct reduction cannot remove more resistance than remains.");
+                Assert.That(fixture.EnemyLabel.text, Is.EqualTo("저항 -9"), "A direct reduction cannot remove more resistance than remains.");
+                Assert.That(draw.Enemy.Resistance, Is.Zero);
                 Assert.That(fixture.EnemyLabel.color, Is.EqualTo(DuelVisualTheme.Danger));
                 Assert.That(fixture.EnemyLabel.gameObject.activeSelf, Is.True);
                 Assert.That(draw.Enemy.Health, Is.EqualTo(100));

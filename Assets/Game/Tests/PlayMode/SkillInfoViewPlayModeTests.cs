@@ -41,8 +41,8 @@ namespace TurnLimbo.Presentation.Tests
                 // Authored expectations, not values copied from the view model.
                 int[] ids = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19, 21, 32, 42, 51, 52, 53, 54, 55, 56 };
                 int[] costs = { 1, 1, 2, 3, 1, 2, 1, 2, 2, 1, 1, 1, 1, 4, 1, 2, 3, 1, 1, 3, 1, 1, 2, 2, 3 };
-                string[] powers = { "3–4", "6–7", "15–18", "23–27", "4–6", "9–12", "5–8", "13–16", "4–6", "2–3", "4–8", "5–9", "4–5", "18–42", "4–6", "7–11", "18–22", "6–9", "4–8",
-                    "14–18", "2–4", "5–7", "6–8", "5–7", "15–19" };
+                string[] powers = { "2–3", "6–7", "15–18", "25–29", "4–6", "12–15", "5–8", "13–16", "4–6", "2–3", "4–8", "5–9", "4–5", "18–40", "4–6", "7–11", "18–22", "6–9", "4–8",
+                    "14–18", "2–4", "5–7", "4–6", "5–7", "15–19" };
                 int[] hits = { 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 };
                 for (int index = 0; index < ids.Length; index++)
                 {
@@ -124,8 +124,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.View.EffectText.text, Does.Contain("공격 기술").And.Contain("저항 즉시 10 감소"));
 
                 fixture.View.SetSkill(Skill(6));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -15").And.Contain("방어 대응"));
-                Assert.That(fixture.View.EffectText.text, Does.Contain("방어 기술").And.Contain("저항 즉시 15 감소"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -18").And.Contain("방어 대응"));
+                Assert.That(fixture.View.EffectText.text, Does.Contain("방어 기술").And.Contain("저항 즉시 18 감소"));
 
                 fixture.View.SetSkill(Skill(7));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("ACT").And.Contain("2"));
@@ -190,17 +190,17 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.View.SetSkill(Skill(19));
                 Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 회복").And.Contain("20%"));
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("기술 시작").And.Contain("최대 저항의 20% 회복"));
+                    Does.Contain("사용 시").And.Contain("상대가 붕괴 상태").And.Contain("최대 저항의 20% 회복"));
                 Assert.That(Keywords(fixture.View.Root), Does.Not.Contain("피해 -30%"));
                 Assert.That(CampaignSkillText.Effect(Skill(19)), Does.Contain("최대 저항의 20%"));
 
                 fixture.View.SetSkill(Skill(42));
-                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -15").And.Contain("방어 대응"));
+                Assert.That(Keywords(fixture.View.Root), Does.Contain("저항 -10").And.Contain("방어 대응"));
                 Assert.That(Keywords(fixture.View.Root), Does.Not.Contain("ACT"), "쿠페 has one mechanic since 2026-10-12.");
                 Assert.That(fixture.View.EffectText.text,
-                    Does.Contain("방어 기술").And.Contain("저항 즉시 15 감소"));
+                    Does.Contain("방어 기술").And.Contain("저항 즉시 10 감소"));
                 Assert.That(CampaignSkillText.Effect(Skill(42)),
-                    Does.Contain("방어 기술").And.Contain("사용 시 상대 저항을 15 직접 낮춥니다"));
+                    Does.Contain("방어 기술").And.Contain("사용 시 상대 저항을 10 직접 낮춥니다"));
 
                 // ACT recovery seen on the enemy's card stays the player's own. 쿠페 lost its ACT recovery on 2026-10-12, so
                 // 탐색 (43) stands in for it and 쿠페 joins the skills that must not claim the limit.
@@ -310,11 +310,11 @@ namespace TurnLimbo.Presentation.Tests
 
                 fixture.View.SetSkill(skill, cycleUses: 0, effectiveCost: 1, effectivePower: "5–10");
                 Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("순환 0/9"));
-                fixture.View.SetSkill(skill, cycleUses: 1, effectiveCost: 2, effectivePower: "10–15");
+                fixture.View.SetSkill(skill, cycleUses: 1, effectiveCost: 2, effectivePower: "11–16");
                 Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("순환 1/9"),
                     "The same skill object must refresh when its battle count changes.");
                 Assert.That(Label(fixture.View.Root, "ACT Value").text, Is.EqualTo("2"));
-                Assert.That(fixture.View.PowerText.text, Is.EqualTo("10–15"));
+                Assert.That(fixture.View.PowerText.text, Is.EqualTo("11–16"));
                 Assert.That(fixture.View.Height, Is.EqualTo(fixedHeight).Within(.1f));
                 fixture.View.SetSkill(skill);
                 Assert.That(Label(fixture.View.Root, "Keyword 1 Text").text, Is.EqualTo("순환"),
@@ -442,7 +442,10 @@ namespace TurnLimbo.Presentation.Tests
             {
                 var run = new CampaignRun();
                 float fixedHeight = fixture.View.Height;
-                Assert.That(LegacySkillDefinitions.All.Count, Is.EqualTo(53), "Every row of the shipped sheet, temporary and counter rows included.");
+                int[] authoredIds = LegacySkillDefinitions.All.Select(definition => definition.Skill.Id).ToArray();
+                Assert.That(authoredIds, Is.Unique);
+                CollectionAssert.IsSubsetOf(new[] { 62, 600, 601, 602 }, authoredIds,
+                    "Card coverage includes versus-only and trial rows, and follows additions to the sheet.");
                 foreach (LegacySkillDefinition definition in LegacySkillDefinitions.All)
                 {
                     foreach (bool enemy in new[] { false, true })
@@ -505,7 +508,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 fixture.View.SetSkill(Skill(1));
-                Assert.That(fixture.View.PowerText.text, Does.Contain("3–4"));
+                Assert.That(fixture.View.PowerText.text, Does.Contain("2–3"));
                 Assert.That(Keywords(fixture.View.Root), Is.Not.Empty);
 
                 fixture.View.Clear();
@@ -557,7 +560,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(fixture.View.Root, "Skill Experience Level").text, Is.EqualTo("숙련 3/3"));
                 Assert.That(Label(fixture.View.Root, "Skill Experience Value").text, Is.EqualTo("MAX"));
                 Assert.That(fill.rect.width, Is.EqualTo(progress.rect.width).Within(.1f));
-                Assert.That(fixture.View.PowerText.text, Is.EqualTo("9–10"));
+                Assert.That(fixture.View.PowerText.text, Is.EqualTo("8–9"));
                 Assert.That(fixture.View.Height, Is.EqualTo(height).Within(.1f));
 
                 fixture.View.SetSkill(owned.Skill, true, owned: owned);
@@ -632,6 +635,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 var run = new CampaignRun();
+                int ownedCount = run.OwnedSkills.Count;
                 lobby = new CampaignLobbyHud(parent.transform, new LegacyDuelArt(), null, null, null, null, null, null, null);
                 lobby.Show(run);
                 lobby.ShowTab(LobbyTab.Loadout);
@@ -654,7 +658,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "Curriculum Detail Name").text, Is.EqualTo("에스토카다"));
                 Assert.That(Label(detail, "ACT Value").text, Does.Contain("3"));
                 Assert.That(Label(detail, "Curriculum Detail Values").text, Does.Contain("14–18"));
-                Assert.That(Keywords(detail), Does.Contain("감소 1종당 +5"));
+                Assert.That(Keywords(detail), Does.Contain("감소 1종당 +7"));
                 // Each node shows the skill it grants: 준비 10, 플레슈 12, 르프리즈 19, 쿠페 42.
                 foreach (string id in new[] { "preparation", "advance", "fighting-spirit", "quick-draw" })
                 {
@@ -671,7 +675,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(Label(detail, "Power Label").text, Is.Empty);
                 Assert.That(Keywords(detail), Does.Contain("반환"), "Its queue removal owns the first badge.");
                 Assert.That(run.Curriculum.CompletedCount, Is.Zero);
-                Assert.That(run.OwnedSkills.Count, Is.EqualTo(10), "Nine lane skills and one unequipped counter remain unchanged.");
+                Assert.That(run.OwnedSkills.Count, Is.EqualTo(ownedCount), "Inspecting the current catalog never grants or removes a skill.");
                 Assert.That(run.HasLoadoutChanges, Is.False);
             }
             finally
@@ -709,9 +713,9 @@ namespace TurnLimbo.Presentation.Tests
 
         private static LegacySkill Skill(int id)
         {
-            foreach (LegacySkill skill in LegacyInitialSkills.All) if (skill.Id == id) return skill;
-            foreach (LegacySkill skill in CampaignSkillCatalog.AcquisitionSkills) if (skill.Id == id) return skill;
-            throw new InvalidOperationException("Missing authored skill " + id);
+            LegacySkill skill = LegacySkillDefinitions.Skill(id);
+            Assert.That(skill.Id, Is.EqualTo(id), "Resolve the authored row, including versus-only skills.");
+            return skill;
         }
 
         private static void AssertNoVisibleValues(SkillInfoView view)

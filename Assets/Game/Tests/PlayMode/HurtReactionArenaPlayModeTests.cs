@@ -107,12 +107,15 @@ namespace TurnLimbo.Presentation.Tests
                         {
                             arena.PresentHit(!playerTarget, 0, 3, true, false, 3,
                                 LegacyArenaView.HitExchange.None, hurtReaction: hurtReaction);
-                            Assert.That(target.sprite.name, Does.Contain("block"), "Successful guard has its own reaction.");
+                            Assert.That(target.sprite.name, playerTarget ? (NUnit.Framework.Constraints.Constraint)Does.Match("^final-guard-0[1-3]-frame-00$")
+                                : Does.Contain("block"), "Successful guard has its own reaction.");
                         }
                         arena.PresentHit(!playerTarget, 0, 3, true, true, 3, hurtReaction: true);
-                        Assert.That(target.sprite.name, Does.Contain("hurt"), "A broken guard can still recoil on resistance damage.");
+                        Assert.That(target.sprite.name, playerTarget ? (NUnit.Framework.Constraints.Constraint)Is.EqualTo("final-hurt-frame-00")
+                            : Does.Contain("hurt"), "A broken guard can still recoil on resistance damage.");
                         arena.PresentHit(!playerTarget, 1, 0, true, false, 1, hurtReaction: false);
-                        Assert.That(target.sprite.name, Does.Contain("block"), "Clearing the flinch restores the held defense.");
+                        Assert.That(target.sprite.name, playerTarget ? (NUnit.Framework.Constraints.Constraint)Does.Match("^final-guard-0[1-3]-frame-00$")
+                            : Does.Contain("block"), "Clearing the flinch restores the held defense.");
                     }
             }
             yield return null;

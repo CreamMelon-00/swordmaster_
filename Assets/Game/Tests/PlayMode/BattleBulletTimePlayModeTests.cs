@@ -43,7 +43,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(grade.colorFilter.value.b, Is.EqualTo(1f).Within(1e-4f));
                 Assert.That(grade.colorFilter.value.r, Is.LessThan(1f), "A cold filter.");
                 Sprite run = arena.PlayerRenderer.sprite;
-                Assert.That(run.name, Does.StartWith("move-frame-"), "Slow planning travel holds a movement pose.");
+                Assert.That(run.name, Is.EqualTo("final-combat-move-frame-00"), "Slow planning travel holds the authored movement pose.");
 
                 scope.AdvanceFor(1f);
                 Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(run), "The planning movement cel stays held while approaching.");
@@ -52,7 +52,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.AdvanceFor(.5f);
                 Assert.That(arena.Separation, Is.EqualTo(5f).Within(1e-3f), "The slow approach never crosses its floor.");
                 Sprite held = arena.PlayerRenderer.sprite;
-                Assert.That(held.name, Does.StartWith("idle-frame-"), "At the floor, the held pose becomes idle.");
+                Assert.That(held.name, Does.Match("^final-idle-frame-0[0-5]$"), "At the floor, the held pose belongs to the six-frame idle clip.");
                 scope.AdvanceFor(.5f);
                 Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(held), "The idle motion stays stopped while planning.");
                 Assert.That(controller.TurnTimeRemaining, Is.EqualTo(6f).Within(1e-4f));

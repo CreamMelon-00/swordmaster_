@@ -134,7 +134,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Refresh(duel);
                 Assert.That(hud.AutoBreathCount, Is.EqualTo("자동 1/1"), "A lane holds a skill that adds one.");
                 Assert.That(hud.GetLanePreview(Q), Is.EqualTo("자동 숨 1/1"));
-                Assert.That(hud.GetLanePreview(E), Is.EqualTo("숨 0/4 · +0"));
+                Assert.That(hud.GetLanePreview(E), Is.EqualTo("숨 0/3 · +0"));
 
                 Assert.That(duel.TryQueueLane(Q), Is.True);
                 fixture.Refresh(duel);
@@ -142,19 +142,19 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.GetKeywordMarkLabel(true, 0), Is.Null, "The guard itself carries no mark.");
                 Assert.That(hud.AutoBreathCount, Is.EqualTo("자동 0/1"));
                 Assert.That(hud.GetLanePreview(Q), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn));
-                Assert.That(hud.GetLanePreview(E), Is.EqualTo("숨 1/4 · +4"));
+                Assert.That(hud.GetLanePreview(E), Is.EqualTo("숨 1/3 · +6"));
                 hud.ShowExplanation(duel.GetLane(E)[0], false);
-                Assert.That(hud.KeywordNote, Is.EqualTo("숨고르기 1/4 · 지금 예약하면 위력 +4"));
+                Assert.That(hud.KeywordNote, Is.EqualTo("숨고르기 1/3 · 지금 예약하면 위력 +6"));
                 hud.HideExplanation();
 
                 Assert.That(duel.TryQueueLane(E), Is.True);
                 fixture.Refresh(duel);
-                Assert.That(hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("숨 +4"));
+                Assert.That(hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("숨 +6"));
             }
         }
 
         [UnityTest]
-        public IEnumerator Pursuit_UpdatesTheFiveHitPreviewAndFirstCopyMarks_ThenUsesActualFeedback()
+        public IEnumerator Pursuit_UpdatesTheFourHitPreviewAndFirstCopyMarks_ThenUsesActualFeedback()
         {
             yield return null;
             using (var fixture = new HudFixture())
@@ -164,21 +164,21 @@ namespace TurnLimbo.Presentation.Tests
                 var pursuit = new LegacySkill(61, "추격", 0, 6, 6,
                     LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 1, E, "");
                 var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000,
-                    new[] { Attack(88010, 2), Attack(88011, 3), pursuit }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
+                    new[] { Attack(88010, 3), Attack(88011, 1), pursuit }, Array.Empty<LegacySkill>(), new[] { 0 }, meshPercent: 0);
                 fixture.Refresh(duel);
-                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 0/5 · +0"));
+                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 0/4 · +0"));
                 Assert.That(duel.TryQueueLane(Q), Is.True);
                 fixture.Refresh(duel);
-                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 2/5 · +0"));
+                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 3/4 · +0"));
                 Assert.That(duel.TryQueueLane(Q), Is.True);
                 fixture.Refresh(duel);
-                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 5/5 · +12"));
+                Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo("총타수 4/4 · +14"));
                 fixture.Hud.ShowExplanation(pursuit, false);
-                Assert.That(fixture.Hud.KeywordNote, Does.Contain("서로 다른 앞 공격 총타수 5/5"));
+                Assert.That(fixture.Hud.KeywordNote, Does.Contain("서로 다른 앞 공격 총타수 4/4"));
                 fixture.Hud.HideExplanation();
                 Assert.That(duel.TryQueueLane(E) && duel.TryQueueLane(E), Is.True);
                 fixture.Refresh(duel);
-                Assert.That(fixture.Hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("총타수 +12"));
+                Assert.That(fixture.Hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("총타수 +14"));
                 Assert.That(fixture.Hud.GetKeywordMarkLabel(true, 3), Is.EqualTo("+0"));
                 Assert.That(fixture.Hud.GetLanePreview(E), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn));
                 duel.Commit();
@@ -186,8 +186,8 @@ namespace TurnLimbo.Presentation.Tests
                 duel.ResolveNextSlot();
                 duel.BeginNextSlot();
                 fixture.Refresh(duel);
-                Assert.That(duel.CurrentSlot.PlayerFeedback.AheadHitPowerBonus, Is.EqualTo(12));
-                Assert.That(fixture.Hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("총타수 +12"));
+                Assert.That(duel.CurrentSlot.PlayerFeedback.AheadHitPowerBonus, Is.EqualTo(14));
+                Assert.That(fixture.Hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("총타수 +14"));
             }
         }
 
@@ -220,9 +220,9 @@ namespace TurnLimbo.Presentation.Tests
                     duel.BeginNextSlot();
                     Assert.That(duel.CurrentSlot.EnemySkill.Id, Is.EqualTo(61));
                     Assert.That(duel.IsEnemySlotCanceled(firstOwnerSlot + 2), Is.True);
-                    int expectedBonus = canceledPursuit ? 12 : 0;
+                    int expectedBonus = canceledPursuit ? 14 : 0;
                     Assert.That(LegacyKeywordLinks.AheadAttackHitsPowerBonus(duel.EnemyQueue, 4, pursuit),
-                        Is.EqualTo(canceledPursuit ? 0 : 12), "The public authored queue intentionally still includes canceled entries.");
+                        Is.EqualTo(canceledPursuit ? 0 : 14), "The public authored queue intentionally still includes canceled entries.");
                     Assert.That(duel.CurrentSlot.EnemyFeedback.AheadHitPowerBonus, Is.EqualTo(expectedBonus));
                     Assert.That(duel.CurrentSlot.EnemyFeedback.AheadAttackHits, Is.EqualTo(canceledPursuit ? 6 : 1));
                     fixture.Refresh(duel);
@@ -349,9 +349,9 @@ namespace TurnLimbo.Presentation.Tests
             SkillInfoContent grind = SkillInfoContent.For(LegacySkillDefinitions.Skill(59), false);
             Assert.That((grind.Main, grind.Secondary, grind.SecondarySymbol), Is.EqualTo(("순환", "일회성", LegacySkillSymbol.OneShot)));
             SkillInfoContent breakthrough = SkillInfoContent.For(LegacySkillDefinitions.Skill(60), false);
-            Assert.That((breakthrough.Main, breakthrough.Secondary), Is.EqualTo(("보호 소모", "위력 +10")));
+            Assert.That((breakthrough.Main, breakthrough.Secondary), Is.EqualTo(("보호 소모", "위력 +16")));
             SkillInfoContent pursuit = SkillInfoContent.For(LegacySkillDefinitions.Skill(61), false);
-            Assert.That((pursuit.Main, pursuit.Secondary), Is.EqualTo(("앞 공격 5타", "효과 턴당 1회")));
+            Assert.That((pursuit.Main, pursuit.Secondary), Is.EqualTo(("앞 공격 4타", "효과 턴당 1회")));
         }
 
         // A duel of the given sheet rows (each in its own lane) against one plain enemy attack a turn, with ACT to spare.

@@ -10,6 +10,8 @@ namespace TurnLimbo.Editor.ArtValidation
     {
         private static readonly TestRunnerApi Api;
         private const string Request = "Library/ArtValidation.request";
+        private const string OwnRun = "TurnLimbo.ArtValidation.OwnRun";
+        private const string AnyRun = "TurnLimbo.ArtValidation.AnyRun";
         static ArtValidationRunner()
         {
             Api = ScriptableObject.CreateInstance<TestRunnerApi>();
@@ -19,8 +21,7 @@ namespace TurnLimbo.Editor.ArtValidation
 
         private static void Poll()
         {
-            if (!File.Exists(Request) || EditorApplication.isCompiling ||
-                EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode) return;
+            if (!File.Exists(Request) || IsBusy()) return;
             File.Delete(Request);
             Run();
         }
@@ -28,23 +29,48 @@ namespace TurnLimbo.Editor.ArtValidation
         [MenuItem("Tools/Art/Validate Final Player Resources")]
         public static void Run()
         {
-            Api.Execute(new ExecutionSettings(new Filter
+            if (IsBusy()) return;
+            // SessionState survives the domain reload when PlayMode starts and ends.
+            SessionState.SetBool(OwnRun, true);
+            try
             {
-                testMode = TestMode.PlayMode,
-                groupNames = new[] { "FinalPlayerArtPlayModeTests", "AcademyFieldViewPlayModeTests", "SwordGirl", "MobStudentAnimationPlayModeTests", "WeaponTrailPlayModeTests", "AttackRhythmPlayModeTests", "CombatTempoPlayModeTests" }
-            }));
+                Api.Execute(new ExecutionSettings(new Filter
+                {
+                    testMode = TestMode.PlayMode,
+                    groupNames = new[] { "FinalPlayerArtPlayModeTests", "AcademyFieldViewPlayModeTests", "SwordGirl", "MobStudentAnimationPlayModeTests", "WeaponTrailPlayModeTests", "AttackRhythmPlayModeTests", "CombatTempoPlayModeTests" }
+                }));
+            }
+            catch
+            {
+                SessionState.EraseBool(OwnRun);
+                SessionState.EraseBool(AnyRun);
+                throw;
+            }
         }
 
-        private sealed class Results : ICallbacks
+        private static bool IsBusy() => SessionState.GetBool(OwnRun, false) || SessionState.GetBool(AnyRun, false) ||
+            EditorApplication.isCompiling || EditorApplication.isUpdating || EditorApplication.isPlayingOrWillChangePlaymode;
+
+        private sealed class Results : IErrorCallbacks
         {
-            public void RunStarted(ITestAdaptor testsToRun) { }
+            public void RunStarted(ITestAdaptor testsToRun) => SessionState.SetBool(AnyRun, true);
             public void TestStarted(ITestAdaptor test) { }
             public void TestFinished(ITestResultAdaptor result) { }
             public void RunFinished(ITestResultAdaptor result)
             {
+                SessionState.EraseBool(AnyRun);
+                if (!SessionState.GetBool(OwnRun, false)) return;
+                // Consume before writing: duplicate callbacks and a failed write cannot claim another run.
+                SessionState.EraseBool(OwnRun);
                 string directory = Path.GetFullPath("Docs/Art/FinalPlayer/Validation");
                 Directory.CreateDirectory(directory);
                 TestRunnerApi.SaveResultToFile(result, Path.Combine(directory, "playmode.xml"));
+            }
+
+            public void OnError(string message)
+            {
+                SessionState.EraseBool(AnyRun);
+                SessionState.EraseBool(OwnRun);
             }
         }
     }

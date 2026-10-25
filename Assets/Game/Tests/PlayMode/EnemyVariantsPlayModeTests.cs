@@ -169,6 +169,9 @@ namespace TurnLimbo.Presentation.Tests
                         .SetValue(settings,false);
                 }
                 Arena=LegacyArenaView.Create(host.transform,art,settings,null,player,enemy,new FirstReaction());
+                // These tests audit the legacy variant RNG streams; FinalPlayer has its own authored bindings.
+                Arena.UseFinalPlayerArt=false;
+                Arena.Reset();
             }
             public void Dispose(){Arena.Dispose();art.Dispose();Object.Destroy(host);if(settings!=null)Object.Destroy(settings);}
         }

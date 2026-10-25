@@ -245,7 +245,19 @@ namespace TurnLimbo.Presentation.Tests
             }
 
             public Transform Card(bool player, int slot)
-                => Hud.Root.transform.Find(player ? "Player Requests" : "Enemy Requests").GetChild(slot);
+            {
+                Transform row = Hud.Root.transform.Find(player ? "Player Requests" : "Enemy Requests");
+                Assert.That(row, Is.Not.Null);
+                int cardIndex = 0;
+                foreach (Transform child in row)
+                {
+                    // The guide focus is a sibling of the cards, not a queue slot.
+                    if (child.name != "Queued Skill") continue;
+                    if (cardIndex++ == slot) return child;
+                }
+                Assert.Fail("Missing " + (player ? "player" : "enemy") + " queue card " + slot);
+                return null;
+            }
 
             public void Refresh(ILegacyDuelView view)
             {

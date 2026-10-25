@@ -140,7 +140,7 @@ namespace TurnLimbo.Presentation.Tests
             controller.RestartMatch();
             var arena = controller.ArenaView;
             Assert.That(arena.HasMobStudentAnimations, Is.True);
-            Assert.That(arena.PlayerRenderer.sprite.pixelsPerUnit, Is.EqualTo(MobStudentAnimationSet.PixelsPerUnit));
+            Assert.That(arena.PlayerRenderer.sprite.pixelsPerUnit, Is.EqualTo(36f), "The approved FinalPlayer import preserves its authored world scale.");
             Assert.That(arena.EnemyRenderer.sprite.pixelsPerUnit, Is.EqualTo(40f));
             Assert.That(arena.PlayerRenderer.transform.localScale, Is.EqualTo(Vector3.one));
             Assert.That(arena.PlayerRenderer.transform.localPosition, Is.EqualTo(new Vector3(-5, arena.ActorGroundY, 0)));
@@ -180,7 +180,10 @@ namespace TurnLimbo.Presentation.Tests
                 arena.BeginApproach();
                 arena.Tick(.5f, .5f);
                 float enemyStart = arena.EnemyRenderer.transform.position.x;
-                arena.BeginSlot(controller.Session.GetLane(0)[0], controller.Session.EnemyQueue[0]);
+                // Knockback belongs to blunt hits; the starting lane's slash intentionally cuts in place.
+                var blunt = new LegacySkill(99857, "Impact feedback test", 0, 4, 4,
+                    LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 0, string.Empty);
+                arena.BeginSlot(blunt, controller.Session.EnemyQueue[0]);
                 arena.PresentHit(true, 8, 0, false, true, 4);
                 arena.Tick(.1f, .1f);
                 Assert.That(arena.EnemyRenderer.transform.position.x, Is.GreaterThan(enemyStart));

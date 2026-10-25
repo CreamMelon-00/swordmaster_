@@ -118,7 +118,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator VersusUsesMirroredElisaForBothFightersAcrossAttackAndReactions()
+        public IEnumerator VersusKeepsFinalLocalPlayerAndMirroredElisaOpponentAcrossAttackAndReactions()
         {
             yield return null;
             using (var scope = new SaveScope())
@@ -127,16 +127,18 @@ namespace TurnLimbo.Presentation.Tests
                 LegacyArenaView arena = scope.Controller.ArenaView;
                 Assert.That(arena.BackdropKind, Is.EqualTo(ArenaBackdropKind.SchoolCorridor));
                 Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.Elisa));
-                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
-                Assert.That(arena.EnemyRenderer.sprite, Is.SameAs(arena.PlayerRenderer.sprite));
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-idle-frame-00"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Is.EqualTo("idle-frame-01"));
+                Assert.That(arena.EnemyRenderer.sprite, Is.Not.SameAs(arena.PlayerRenderer.sprite),
+                    "The local FinalPlayer and the opposing Elisa use their own authored animation sets.");
                 Assert.That(arena.PlayerRenderer.flipX, Is.False);
                 Assert.That(arena.EnemyRenderer.flipX, Is.True);
 
                 var attack = new LegacySkill(991, "검증", 1, 1, 1,
                     LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 0, string.Empty);
                 arena.BeginSlot(attack, attack);
-                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("slash"));
-                Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("slash"),
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-slash-frame-00"));
+                Assert.That(arena.EnemyRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-01$"),
                     "The opposing fighter must keep Elisa's attack frames beyond the first idle frame.");
 
                 arena.PresentHit(true, 0, 1, true, false, 1);

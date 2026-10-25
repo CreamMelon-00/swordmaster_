@@ -97,7 +97,10 @@ namespace TurnLimbo.Presentation.Tests
                 arena.Reset();
                 arena.BeginSlot(Blunt(), null);
                 arena.PresentHit(true, 12, 0, false, false, 12);
-                arena.Tick(LegacyArenaView.PushDuration + .01f, LegacyArenaView.PushDuration + .01f);
+                // The authored movement speed scales push duration. Finish the push before translating its
+                // transform, so a still-pending target at the old world position cannot invalidate the fixture.
+                for (int frame = 0; arena.HasPendingPush && frame < 100; frame++) arena.Tick(.01f, .01f);
+                Assert.That(arena.HasPendingPush, Is.False, "The setup's knockback must finish within one simulated second.");
                 Transform player = arena.PlayerRenderer.transform;
                 Transform enemy = arena.EnemyRenderer.transform;
                 // Translate an already displaced duel far from its spawns without changing combat data.
@@ -336,7 +339,7 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     Assert.That(actor.transform.localScale, Is.EqualTo(Vector3.one));
                     Assert.That(actor.sprite.pixelsPerUnit, Is.EqualTo(
-                        MobStudentAnimationSet.PixelsPerUnit));
+                        actor == arena.PlayerRenderer ? 36f : MobStudentAnimationSet.PixelsPerUnit));
                     Assert.That(actor.bounds.min.y, Is.InRange(groundFront, groundBack),
                         "Both idle actors' feet must sit inside the broad belt floor, not on a distant narrow ledge.");
                 }

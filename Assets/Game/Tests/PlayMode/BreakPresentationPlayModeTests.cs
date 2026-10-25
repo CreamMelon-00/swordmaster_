@@ -187,7 +187,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 // 쿠페 breaks a guarding enemy at slot start, before any hit: the same decisive cue as an impact break.
-                var draw = new LegacyQueuedDuel(100, 50, 100, 15,
+                var draw = new LegacyQueuedDuel(100, 50, 100, 9,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 sessionField.SetValue(controller, draw);
                 reset.Invoke(controller, new object[] { null, null });
@@ -265,7 +265,7 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 // A skill effect can break resistance before an impact. It still needs a one-shot cue.
-                var direct = new LegacyQueuedDuel(100, 50, 100, 15,
+                var direct = new LegacyQueuedDuel(100, 50, 100, 9,
                     new[] { Attack(42, 1) }, new[] { Guard(900, 100) }, new[] { 1 });
                 sessionField.SetValue(controller, direct);
                 reset.Invoke(controller, new object[] { null, null });

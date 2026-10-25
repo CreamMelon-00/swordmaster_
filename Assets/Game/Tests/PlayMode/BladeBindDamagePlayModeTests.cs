@@ -191,8 +191,8 @@ namespace TurnLimbo.Presentation.Tests
                 scope.BeginBind();
                 Sprite playerContact = controller.ArenaView.PlayerRenderer.sprite;
                 Sprite enemyContact = controller.ArenaView.EnemyRenderer.sprite;
-                AssertAttackContact(playerContact);
-                AssertAttackContact(enemyContact);
+                AssertAttackContact(playerContact, true);
+                AssertAttackContact(enemyContact, false);
                 scope.Advance(controller.HitStopTimeRemaining + controller.BladeBindTimeRemaining + .5f);
                 Assert.That(controller.Session.CurrentSlot.HitsResolved, Is.EqualTo(1));
                 Assert.That((controller.PlayerHealth, controller.EnemyHealth), Is.EqualTo((1000, 1000)));
@@ -214,8 +214,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(versus.BladeBindTimeRemaining, Is.GreaterThan(0f));
                 Sprite playerContact = scope.Arena.PlayerRenderer.sprite;
                 Sprite enemyContact = scope.Arena.EnemyRenderer.sprite;
-                AssertAttackContact(playerContact);
-                AssertAttackContact(enemyContact);
+                AssertAttackContact(playerContact, true);
+                AssertAttackContact(enemyContact, false);
                 versus.Tick(versus.HitStopTimeRemaining + versus.BladeBindTimeRemaining + .5f, null);
                 Assert.That(versus.Match.CurrentSlot.HitsResolved, Is.EqualTo(1));
                 Assert.That((versus.Match.Left.State.Health, versus.Match.Right.State.Health), Is.EqualTo((100, 100)));
@@ -227,10 +227,11 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
-        private static void AssertAttackContact(Sprite sprite)
+        private static void AssertAttackContact(Sprite sprite, bool finalPlayer)
         {
             Assert.That(sprite, Is.Not.Null);
-            Assert.That(sprite.name, Does.Match("^slash(?:-[23])?-frame-05$"));
+            Assert.That(sprite.name, finalPlayer ? (NUnit.Framework.Constraints.Constraint)Is.EqualTo("final-slash-frame-04")
+                : Does.Match("^slash(?:-[23])?-frame-05$"));
         }
 
         private static void AssertHeld(DuelPrototypeController controller, (int, int, int, int) untouched)

@@ -73,7 +73,7 @@ namespace TurnLimbo.Presentation.Tests
                 hud.ShowExplanation(skill, false);
                 Assert.That(Label(popup, "Keyword 1 Text").text, Is.EqualTo("순환 1/9"));
                 Assert.That(Label(popup, "ACT Value").text, Is.EqualTo("2"));
-                Assert.That(Label(popup, "Player Detail Values").text, Is.EqualTo("10–15"));
+                Assert.That(Label(popup, "Player Detail Values").text, Is.EqualTo("11–16"));
 
                 duel.Reset();
                 hud.Refresh(duel, 10f, false, -1, null, null, null);
@@ -276,6 +276,10 @@ namespace TurnLimbo.Presentation.Tests
             try
             {
                 hud = new LegacyCombatHud(parent.transform, new LegacyDuelArt(), lane => queuedLane = lane, null, null);
+                var duel = new LegacyQueuedDuel(1000, 50, 1000, 50,
+                    new[] { Skill(1), Skill(3), Skill(5) }, Array.Empty<LegacySkill>(), new[] { 0 },
+                    playerActGainBonus: 10);
+                hud.Refresh(duel, 10f, false, -1, null, null, null);
                 for (int lane = 0; lane < 3; lane++)
                 {
                     GameObject current = Named(hud.Root, "Current " + SkillLaneStyle.Key(lane)).gameObject;

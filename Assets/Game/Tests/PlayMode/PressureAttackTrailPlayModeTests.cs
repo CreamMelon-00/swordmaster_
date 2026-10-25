@@ -27,7 +27,7 @@ namespace TurnLimbo.Presentation.Tests
                     "Pressure must continue after the dash and all of its original snapshots have expired.");
                 SpriteRenderer source = fixture.Arena.PlayerRenderer;
                 // At 0.2 s with half-speed playback, the authored recovery has reached frame 7.
-                Assert.That(source.sprite.name, Does.Match("^slash(?:-[23])?-frame-07$"));
+                Assert.That(source.sprite.name, Is.EqualTo("final-slash-frame-07"));
                 Assert.That(source.sprite, Is.Not.SameAs(movementPose));
                 fixture.Advance(0f, .04f);
                 bool currentPoseFound = false;
@@ -60,7 +60,7 @@ namespace TurnLimbo.Presentation.Tests
                 fixture.Advance(0f, .04f);
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.GreaterThan(0));
                 fixture.Hold(.18f);
-                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Does.StartWith("idle-frame-"));
+                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Is.EqualTo("final-idle-frame-00"));
                 fixture.Advance(0f, DuelStepAfterimages.Lifetime + .02f);
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.Zero,
                     "Inter-hit idle must not leave an endlessly refreshed stationary ghost.");
@@ -68,8 +68,8 @@ namespace TurnLimbo.Presentation.Tests
                     "The same skill retains its armed feedback for the next strike.");
                 fixture.Hold(.5f);
                 fixture.Advance(0f, .04f);
-                // Second hit: (0.5 - (1/6 + 0.3)) / (1/6) = 0.2, authored frame 2.
-                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Does.Match("^slash(?:-[23])?-frame-02$"));
+                // Second hit: phase .2 maps to .124 s in FinalPlayer's preparation, its second authored cel.
+                Assert.That(fixture.Arena.PlayerRenderer.sprite.name, Is.EqualTo("final-slash-frame-01"));
                 Assert.That(fixture.Arena.ActiveStepAfterimageCount, Is.EqualTo(1));
                 float lastClipEnd = LegacyArenaView.OriginalClipDuration * 3f + .3f * 2f;
                 fixture.Hold(lastClipEnd + .0001f);
@@ -220,7 +220,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(realElapsed, Is.GreaterThan(LegacyArenaView.StepDuration + DuelStepAfterimages.Lifetime));
                 Assert.That(controller.ArenaView.IsStepping, Is.False);
                 Assert.That(controller.ArenaView.IsPressureAttackTrailActive, Is.True);
-                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.StartWith("slash-"));
+                Assert.That(controller.ArenaView.PlayerRenderer.sprite.name, Does.Match("^final-slash-frame-(?:0[0-9]|1[0-6])$"));
                 Assert.That(controller.ArenaView.ActiveStepAfterimageCount, Is.GreaterThan(0),
                     "The real controller must keep sampling after its contact/animation holds, not only during the dash.");
                 controller.ReturnToLobby();

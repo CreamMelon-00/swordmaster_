@@ -14,6 +14,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             yield return null;
             var controller = FindPrototype();
+            bool originalFinalPlayerArt = controller.ArenaView.UseFinalPlayerArt;
             controller.RestartMatch();
             controller.enabled = false;
             try
@@ -27,7 +28,7 @@ namespace TurnLimbo.Presentation.Tests
                     AssertFrame(arena, "pa_player_idle-Sheet", "pa_enemy_1_i-Sheet", frame % 8);
                 }
             }
-            finally { controller.RestartMatch(); controller.enabled = true; }
+            finally { controller.ArenaView.UseFinalPlayerArt = originalFinalPlayerArt; controller.RestartMatch(); controller.enabled = true; }
         }
 
         [UnityTest]
@@ -35,6 +36,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             yield return null;
             var controller = FindPrototype();
+            bool originalFinalPlayerArt = controller.ArenaView.UseFinalPlayerArt;
             controller.RestartMatch();
             controller.enabled = false;
             try
@@ -60,7 +62,7 @@ namespace TurnLimbo.Presentation.Tests
                         ? Is.EqualTo("enemy-poses-block") : Does.StartWith("enemy-idle-frame-"));
                 }
             }
-            finally { controller.RestartMatch(); controller.enabled = true; }
+            finally { controller.ArenaView.UseFinalPlayerArt = originalFinalPlayerArt; controller.RestartMatch(); controller.enabled = true; }
         }
 
         [UnityTest]
@@ -68,6 +70,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             yield return null;
             var controller = FindPrototype();
+            bool originalFinalPlayerArt = controller.ArenaView.UseFinalPlayerArt;
             controller.RestartMatch();
             controller.enabled = false;
             try
@@ -87,7 +90,7 @@ namespace TurnLimbo.Presentation.Tests
                 arena.Tick(0, 0);
                 AssertFrame(arena, "pa_player_idle-Sheet", "pa_enemy_1_i-Sheet", 0);
             }
-            finally { controller.RestartMatch(); controller.enabled = true; }
+            finally { controller.ArenaView.UseFinalPlayerArt = originalFinalPlayerArt; controller.RestartMatch(); controller.enabled = true; }
         }
 
         [UnityTest]
@@ -95,6 +98,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             yield return null;
             var controller = FindPrototype();
+            bool originalFinalPlayerArt = controller.ArenaView.UseFinalPlayerArt;
             controller.RestartMatch();
             controller.enabled = false;
             try
@@ -128,7 +132,7 @@ namespace TurnLimbo.Presentation.Tests
                 arena.Tick(LegacyArenaView.OriginalClipDuration * 2f, 0);
                 Assert.That(arena.EnemyRenderer.sprite.name, Does.StartWith("enemy-idle-frame-"));
             }
-            finally { controller.RestartMatch(); controller.enabled = true; }
+            finally { controller.ArenaView.UseFinalPlayerArt = originalFinalPlayerArt; controller.RestartMatch(); controller.enabled = true; }
         }
 
         private static string[] SheetsFor(LegacySkillProperty property)
@@ -175,6 +179,8 @@ namespace TurnLimbo.Presentation.Tests
         /// which the missions keep. The finally's RestartMatch puts the stage's cadet back.</summary>
         private static void UseRemadeStudent(LegacyArenaView arena)
         {
+            // This suite checks the retained MobStudent loops; FinalPlayer's authored clips have their own suite.
+            arena.UseFinalPlayerArt = false;
             arena.SetEnemyAppearance(EnemyAppearance.Student);
             arena.Reset();
             Assert.That(arena.EnemyAppearance, Is.EqualTo(EnemyAppearance.Student));

@@ -115,7 +115,7 @@ namespace TurnLimbo.Presentation.Tests
                 var coupe = Attack(42, 1, 1);
                 var guard = new LegacySkill(88202, "검증 방어", 0, 100, 100, LegacySkillKind.Defence,
                     LegacySkillProperty.Defence, 1, 0, string.Empty, iconId: 1);
-                LegacyQueuedDuel duel = scope.Prepare(new LegacyQueuedDuel(1000, 1000, 1000, 15,
+                LegacyQueuedDuel duel = scope.Prepare(new LegacyQueuedDuel(1000, 1000, 1000, 9,
                     new[] { coupe, Attack(42, 1, 1, lane: 1) }, new[] { guard }, new[] { 4 }, meshPercent: 0));
                 for (int i = 0; i < 4; i++) Assert.That(scope.Controller.QueueLane(i / LegacyLaneLimit.MaxReservations), Is.True);
                 scope.Begin();

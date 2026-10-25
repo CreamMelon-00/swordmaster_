@@ -138,7 +138,8 @@ namespace TurnLimbo.Presentation.Tests
         public IEnumerator PressureMultiHit_AfterFirstImpactWaitsForContactAgainWhileKnockbackIsMoving()
         {
             yield return null;
-            using (var scope = new StepScope(playerHits: 3))
+            // Only blunt attacks displace fighters; slash skills intentionally cut without knockback.
+            using (var scope = new StepScope(playerHits: 3, attackProperty: LegacySkillProperty.Hit))
             {
                 scope.Settings("{\"animationPlaybackSpeed\":2,\"attackInterval\":0,\"hitStopDuration\":0," +
                     "\"movementDistanceMultiplier\":1.4,\"movementSpeedMultiplier\":1,\"bladeRecoilScale\":1}");
@@ -575,7 +576,7 @@ namespace TurnLimbo.Presentation.Tests
             public DuelPrototypeController Controller { get; }
 
             public StepScope(int playerHits = 1, int enemyHits = 1, bool playerGuard = false, bool enemyGuard = false,
-                int enemyActionCount = 1)
+                int enemyActionCount = 1, LegacySkillProperty attackProperty = LegacySkillProperty.Slash)
             {
                 Controller = Object.FindAnyObjectByType<DuelPrototypeController>();
                 Assert.That(Controller, Is.Not.Null);
@@ -595,10 +596,10 @@ namespace TurnLimbo.Presentation.Tests
                 arenaSettingsField.SetValue(Controller.ArenaView, settingsClone);
                 var playerSkills = new[]
                 {
-                    WeakSkill(101, 0, playerHits, playerGuard), WeakSkill(103, 1, 1, false), WeakSkill(105, 2, 1, false)
+                    WeakSkill(101, 0, playerHits, playerGuard, attackProperty), WeakSkill(103, 1, 1, false), WeakSkill(105, 2, 1, false)
                 };
                 SetField("session", new LegacyQueuedDuel(1000, 1000, 1000, 1000, playerSkills,
-                    new[] { WeakSkill(201, 0, enemyHits, enemyGuard) }, new[] { enemyActionCount }, 1));
+                    new[] { WeakSkill(201, 0, enemyHits, enemyGuard, attackProperty) }, new[] { enemyActionCount }, 1));
                 MethodInfo method = typeof(DuelPrototypeController).GetMethod("AdvancePresentation", PrivateInstance);
                 Assert.That(method, Is.Not.Null);
                 advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller, method);
@@ -630,11 +631,12 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(condition(), Is.True, "The controller must progress within ten simulated seconds.");
             }
 
-            private static LegacySkill WeakSkill(int id, int lane, int count, bool guard)
+            private static LegacySkill WeakSkill(int id, int lane, int count, bool guard,
+                LegacySkillProperty property = LegacySkillProperty.Slash)
                 => new LegacySkill(id, "Step Test", 1, count, count,
                     guard ? LegacySkillKind.Defence : LegacySkillKind.Attack,
-                    guard ? LegacySkillProperty.Defence : LegacySkillProperty.Slash,
-                    count, lane, string.Empty, guard ? "Defense" : "Slash", 1);
+                    guard ? LegacySkillProperty.Defence : property,
+                    count, lane, string.Empty, guard ? "Defense" : property == LegacySkillProperty.Hit ? "Hit" : "Slash", 1);
 
             private void SetField(string name, object value)
             {

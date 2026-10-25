@@ -192,7 +192,7 @@ namespace TurnLimbo.Presentation.Tests
                 for (int use = 0; use < 10; use++) owned.GainClashExperience();
                 fixture.Hud.Refresh();
                 Assert.That(Label(fixture.Hud.Root, "Loadout Detail Name").text, Is.EqualTo("베기+"));
-                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Values").text, Is.EqualTo("5–6"));
+                Assert.That(Label(fixture.Hud.Root, "Loadout Detail Values").text, Is.EqualTo("4–5"));
                 Assert.That(Label(fixture.Hud.Root, "Skill Experience Level").text, Is.EqualTo("숙련 1/3"));
                 Assert.That(Label(fixture.Hud.Root, "Skill Experience Value").text, Is.EqualTo("0/10"));
                 // The socket reads the levelled skill: still its icon and its ACT, no name.

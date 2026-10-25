@@ -384,8 +384,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(statuses.Count, Is.EqualTo(1));
                 Assert.That(statuses.GetStatus(0).Kind, Is.EqualTo(LegacyStatusKind.Vulnerability));
                 Assert.That(statuses.TooltipRoot.gameObject.activeSelf, Is.False);
-                Assert.That(duel.CurrentSlot.PlayerFeedback.ProtectionSpendPowerBonus, Is.EqualTo(10));
-                Assert.That(scope.Hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("보호 +10"));
+                Assert.That(duel.CurrentSlot.PlayerFeedback.ProtectionSpendPowerBonus, Is.EqualTo(16));
+                Assert.That(scope.Hud.GetKeywordMarkLabel(true, 2), Is.EqualTo("보호 +16"));
             }
         }
 

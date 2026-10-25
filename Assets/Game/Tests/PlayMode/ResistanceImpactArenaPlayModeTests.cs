@@ -31,7 +31,7 @@ namespace TurnLimbo.Presentation.Tests
                     Vector3 playerFeet = arena.PlayerRenderer.transform.position, enemyFeet = arena.EnemyRenderer.transform.position;
                     Vector3 playerShadow = scope.PlayerShadow.position, enemyShadow = scope.EnemyShadow.position;
                     Assert.That(arena.BeginResistanceImpact(playerChecks, !playerChecks), Is.True);
-                    Assert.That(arena.PlayerRenderer.sprite.name, Does.Contain("block"));
+                    Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-guard-01-frame-00"));
                     Assert.That(arena.EnemyRenderer.sprite.name, Does.Contain("block"));
                     arena.Tick(0f, 10f);
                     Assert.That(arena.IsResistanceImpactPlaying, Is.True, "Only the caller's real-time phase advances the check.");
@@ -214,7 +214,7 @@ namespace TurnLimbo.Presentation.Tests
                 float beforeX = BrightCentroid(before);
                 float bodyGapBefore = BodyPoint(arena, false).x - BodyPoint(arena, true).x;
                 arena.AdvanceResistanceImpact(.1f);
-                Assert.That(arena.PlayerRenderer.sprite.name, Does.Contain("block"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-guard-01-frame-00"));
                 yield return null;
                 Color32[] contact = scope.ReadPixels();
                 float pixelsPerWorldUnit = ArenaScope.Height / (2f * arena.ArenaCamera.orthographicSize);

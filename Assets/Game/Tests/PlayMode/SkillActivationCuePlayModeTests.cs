@@ -270,13 +270,14 @@ namespace TurnLimbo.Presentation.Tests
             using (var fixture = new Fixture())
             {
                 LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "쿠페");
-                LegacyCurrentSlot slot = BeginSlot(Guard(900, "방어"), draw, playerResistance: 13);
+                // Nine remaining resistance caps the authored ten-point reduction.
+                LegacyCurrentSlot slot = BeginSlot(Guard(900, "방어"), draw, playerResistance: 9);
                 Assert.That(slot.EnemyFeedback.ConditionMet, Is.True);
-                Assert.That(slot.EnemyFeedback.OpponentResistanceReduced, Is.EqualTo(13));
+                Assert.That(slot.EnemyFeedback.OpponentResistanceReduced, Is.EqualTo(9));
                 Assert.That(slot.EnemyFeedback.ActGainGranted, Is.Zero);
                 Assert.That(fixture.Cue.Show(false, draw, slot.EnemyFeedback), Is.True);
                 Assert.That(fixture.EnemyTitle.text, Is.EqualTo("상대 쿠페 성공!"));
-                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("내 저항 -13"));
+                Assert.That(fixture.EnemyDetail.text, Is.EqualTo("내 저항 -9"));
                 Assert.That(fixture.EnemyDetail.text, Does.Not.Contain("ACT"));
                 Assert.That(fixture.EnemyTitle.color, Is.EqualTo(DuelVisualTheme.Danger));
                 fixture.Tick(.02f);
@@ -319,7 +320,7 @@ namespace TurnLimbo.Presentation.Tests
             {
                 LegacySkill draw = Attack(42, LegacySkillProperty.Slash, "쿠페");
                 LegacyCurrentSlot strike = BeginSlot(draw, Guard(900, "방어"));
-                Assert.That(strike.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(15));
+                Assert.That(strike.PlayerFeedback.OpponentResistanceReduced, Is.EqualTo(10));
                 Assert.That(fixture.Cue.Show(true, draw, strike.PlayerFeedback), Is.True);
                 fixture.Tick(.02f);
                 Assert.That(fixture.PlayerBurst.gameObject.activeSelf, Is.True);
