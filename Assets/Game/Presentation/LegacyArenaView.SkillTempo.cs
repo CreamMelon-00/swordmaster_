@@ -50,7 +50,7 @@ namespace TurnLimbo.Presentation
 
         private float AdvanceTempoPose(Actor actor, float delta)
         {
-            if (tempoSlot == null) return actor.AnimationTime + delta;
+            if (tempoSlot == null || actor != player && actor != enemy) return actor.AnimationTime + delta;
             if (actor == player)
             {
                 playerTempoElapsed += Mathf.Max(0f, delta);
@@ -60,6 +60,10 @@ namespace TurnLimbo.Presentation
             return TempoPoseTime(false, enemyTempoElapsed);
         }
 
+        private float ActorMotionDelta(Actor actor, float worldDelta, float actionDelta)
+            => tempoSlot != null && (actor == player || actor == enemy) &&
+                DuelFastSkillSlowMotion.IsFast(tempoSlot, actor == player) ? actionDelta : worldDelta;
+
         private float TempoPoseTime(bool playerSide, float elapsed)
         {
             LegacySkill action = playerSide ? tempoSlot.PlayerActionSkill : tempoSlot.EnemyActionSkill;
@@ -68,6 +72,9 @@ namespace TurnLimbo.Presentation
             int start = playerSide ? tempoSlot.PlayerActionStartHalfTick : tempoSlot.EnemyActionStartHalfTick;
             int duration = playerSide ? tempoSlot.PlayerActionDurationHalfTicks : tempoSlot.EnemyActionDurationHalfTicks;
             float clip = OriginalClipDuration / slotAnimationSpeed;
+            if (elapsed > tempoLeadIn)
+                elapsed = tempoLeadIn + DuelFastSkillSlowMotion.ActionElapsed(tempoSlot, playerSide,
+                    elapsed - tempoLeadIn, clip, slotAttackInterval);
             return DuelSkillTempoPose.Sample(clip, elapsed, tempoLeadIn, tempoSlot.StartHalfTick - start,
                 tempoSlot.DurationHalfTicks, duration, completes);
         }

@@ -265,7 +265,7 @@ namespace TurnLimbo.Presentation
                 EnemyFigure figure = enemyFigures[i];
                 Actor actor = figure.Actor;
                 Vector3 start = actor.Renderer.transform.localPosition;
-                TickActor(actor, delta);
+                TickActor(actor, delta, delta);
                 float movementDelta = delta;
                 if (planning)
                 {
