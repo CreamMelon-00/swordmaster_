@@ -431,8 +431,8 @@ namespace TurnLimbo.Core.Tests
         }
 
         [TestCase(5, 0)]
-        [TestCase(15, 0)]
-        [TestCase(50, 35)]
+        [TestCase(15, 5)]
+        [TestCase(50, 40)]
         public void DrawSword_ReducesGuardResistanceOnceWithoutHealthOverflowAcrossMultipleHits(int resistance, int remaining)
         {
             var duel = Duel(new[] { Imported(42, 12, hits: 3) }, new[] { Guard(900, 100) },
@@ -459,7 +459,7 @@ namespace TurnLimbo.Core.Tests
         public void DrawSword_BreaksResistanceBeforeItsOwnGuardedHitUsesBrokenDamage()
         {
             var duel = Duel(new[] { Imported(42, 10) }, new[] { Guard(900, 4) },
-                new[] { 1 }, enemyResistance: 15);
+                new[] { 1 }, enemyResistance: 10);
             Queue(duel, 0);
             duel.Commit();
             duel.BeginNextSlot();
@@ -469,7 +469,7 @@ namespace TurnLimbo.Core.Tests
             LegacyHitResult hit = duel.ResolveNextHit();
             Assert.That(hit.EnemyHealthDamage, Is.EqualTo(12));
             LegacySlotResult result = duel.CompleteCurrentSlot();
-            Assert.That(result.EnemyResistanceDamage, Is.EqualTo(15));
+            Assert.That(result.EnemyResistanceDamage, Is.EqualTo(10));
             Assert.That(result.EnemyHealthDamage, Is.EqualTo(12));
         }
 
@@ -512,10 +512,10 @@ namespace TurnLimbo.Core.Tests
             Queue(duel, 0);
             duel.Commit();
             duel.BeginNextSlot();
-            Assert.That(duel.Player.Resistance, Is.EqualTo(35));
+            Assert.That(duel.Player.Resistance, Is.EqualTo(40));
             Assert.That(duel.NextActGain, Is.EqualTo(3));
             while (!duel.IsCurrentSlotResolved) duel.ResolveNextHit();
-            Assert.That(duel.CompleteCurrentSlot().PlayerResistanceDamage, Is.EqualTo(15));
+            Assert.That(duel.CompleteCurrentSlot().PlayerResistanceDamage, Is.EqualTo(10));
 
             duel.Reset();
             Assert.That(duel.Player.Resistance, Is.EqualTo(50));

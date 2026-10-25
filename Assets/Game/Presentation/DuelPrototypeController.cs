@@ -649,6 +649,11 @@ namespace TurnLimbo.Presentation
             // Keep local cinematic slow motion on the established combat clock;
             // the step gesture, camera and feedback lifetime still use real time.
             if (IsResolving) speed = Mathf.Min(speed, arena.StepPresentationSpeed);
+            // Retiming a longer opponent's windup alone does not enter slow motion. Slow the shared slot clock
+            // while a fast technique is playing, so poses, contact and damage stay synchronized. This also keeps
+            // progressive turn acceleration from immediately overriding the speedster beat below.
+            if (IsResolving) speed = DuelFastSkillSlowMotion.Limit(speed, session.CurrentSlot,
+                viewPhase == ViewPhase.PlayingSlot);
             // The finishing blow's longer slow motion takes over from the decisive close-up's.
             if (finale.IsRunning) speed = finale.CombatSpeed;
             // Each later slot plays faster, with an optional multiplier once one queue is exhausted. Step windows keep their

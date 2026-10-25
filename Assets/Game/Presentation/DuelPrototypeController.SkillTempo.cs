@@ -7,6 +7,11 @@ namespace TurnLimbo.Presentation
     {
         private float tempoWindupDuration;
 
+        /// <summary>The fast technique's cinematic combat-clock scale. Anticipation, planning and gaps retain
+        /// their ordinary clocks; a stronger step, impact or finale slow motion takes precedence.</summary>
+        public float FastSkillPresentationSpeed => DuelFastSkillSlowMotion.Speed(session?.CurrentSlot,
+            viewPhase == ViewPhase.PlayingSlot);
+
         private void ConfigureTempoPlayback(LegacyCurrentSlot slot)
         {
             tempoWindupDuration = 0f;
@@ -39,6 +44,22 @@ namespace TurnLimbo.Presentation
             for (int i = 0; i < player.Count; i++)
                 if (player[i].EndHalfTick == completion) return player[i].Skill;
             return null;
+        }
+    }
+
+    internal static class DuelFastSkillSlowMotion
+    {
+        public const float Scale = .4f;
+
+        public static float Speed(LegacyCurrentSlot slot, bool playing)
+            => playing && slot != null &&
+                ((slot.PlayerActionSkill ?? slot.PlayerSkill)?.IsFast == true ||
+                 (slot.EnemyActionSkill ?? slot.EnemySkill)?.IsFast == true) ? Scale : 1f;
+
+        public static float Limit(float combatSpeed, LegacyCurrentSlot slot, bool playing)
+        {
+            float scale = Speed(slot, playing);
+            return scale < 1f ? System.Math.Min(combatSpeed, scale) : combatSpeed;
         }
     }
 }

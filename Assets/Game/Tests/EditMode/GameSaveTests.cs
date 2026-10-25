@@ -303,6 +303,146 @@ namespace TurnLimbo.Core.Tests
         }
 
         [Test]
+        public void OnslaughtCostRebalance_MigratesEveryHistoricValueOnce_AndPreservesOtherProgress([Range(0, 9)] int previousExperience)
+        {
+            CampaignSave basis = PlayedCampaign().CaptureSave();
+            int counter = LegacySkillDefinitions.InitialCounterSkills[0].Id;
+            var historic = new CampaignSave(basis.Currency, new[] { 1, 2, 3 },
+                CampaignCurriculum.Default.Nodes.Select(node => node.Id), basis.CurriculumPoints, basis.Loadout, 2,
+                new[] { new KeyValuePair<int, int>(1, 4), new KeyValuePair<int, int>(12, 4),
+                    new KeyValuePair<int, int>(44, previousExperience), new KeyValuePair<int, int>(68, 7) },
+                new[] { "forest-pierce" }, CampaignCurriculum.TreeVersion, counter, onslaughtExperienceVersion: 0);
+            string text = GameSaveCodec.Serialize(new GameSave(2, historic));
+            StringAssert.DoesNotContain("onslaught-xp-version", text);
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            Assert.That(parsed.Campaign.OnslaughtExperienceVersion, Is.Zero);
+            Assert.That(parsed.Validate(out error), Is.True, error);
+            var restored = new CampaignRun();
+            var prologue = new PrologueRun();
+            Assert.That(parsed.TryApply(prologue, restored, out error), Is.True, error);
+            CampaignOwnedSkill onslaught = restored.GetOwnedSkill(44);
+            int expectedExperience = previousExperience * 5 / 3;
+            Assert.That(onslaught.Skill.Cost, Is.EqualTo(2));
+            Assert.That(onslaught.Experience, Is.EqualTo(expectedExperience));
+            Assert.That(onslaught.Level, Is.EqualTo(previousExperience / 3), "Every historic grade is preserved.");
+            Assert.That(onslaught.Skill.MinPower, Is.EqualTo(LegacySkillDefinitions.Skill(44).MinPower + onslaught.Level * 2));
+            Assert.That(restored.GetOwnedSkill(1).Experience, Is.EqualTo(4));
+            Assert.That(restored.GetOwnedSkill(12).Experience, Is.EqualTo(4), "Deferred 플레슈 is unaffected.");
+            Assert.That(restored.GetOwnedSkill(68).Experience, Is.EqualTo(7), "Excluded 혈투 is unaffected.");
+            CampaignSave normalized = restored.CaptureSave();
+            Assert.That(normalized.OnslaughtExperienceVersion, Is.EqualTo(CampaignSave.CurrentOnslaughtExperienceVersion));
+            Assert.That(normalized.Currency, Is.EqualTo(historic.Currency));
+            Assert.That(normalized.CurriculumPoints, Is.EqualTo(historic.CurriculumPoints));
+            Assert.That(normalized.TrainingVictoryCount, Is.EqualTo(historic.TrainingVictoryCount));
+            Assert.That(normalized.CounterSkillId, Is.EqualTo(counter));
+            CollectionAssert.AreEqual(historic.ClearedStages, normalized.ClearedStages);
+            CollectionAssert.AreEqual(historic.CurriculumCompleted, normalized.CurriculumCompleted);
+            CollectionAssert.AreEqual(historic.FieldPickups, normalized.FieldPickups);
+            for (int lane = 0; lane < 3; lane++) CollectionAssert.AreEqual(historic.Loadout[lane], normalized.Loadout[lane]);
+            string current = GameSaveCodec.Serialize(GameSave.Capture(prologue, restored));
+            if (expectedExperience > 0) StringAssert.Contains("\nonslaught-xp-version 1\n", current);
+            else StringAssert.DoesNotContain("onslaught-xp-version", current);
+            Assert.That(GameSaveCodec.TryParse(current, out GameSave again, out error), Is.True, error);
+            var reloaded = new CampaignRun();
+            Assert.That(again.TryApply(new PrologueRun(), reloaded, out error), Is.True, error);
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(prologue, reloaded)), Is.EqualTo(current),
+                "Migrated XP must not be multiplied again on reload.");
+        }
+
+        [Test]
+        public void OnslaughtCostRebalance_CurrentExperienceIsNeverMigrated([Range(0, 15)] int experience)
+        {
+            CampaignSave basis = PlayedCampaign().CaptureSave();
+            var current = new CampaignSave(basis.Currency, basis.ClearedStages, basis.CurriculumCompleted,
+                basis.CurriculumPoints, basis.Loadout, skillExperience: new[] { new KeyValuePair<int, int>(44, experience) });
+            Assert.That(current.OnslaughtExperienceVersion, Is.EqualTo(CampaignSave.CurrentOnslaughtExperienceVersion),
+                "Code-created saves describe today's rules by default.");
+            string text = GameSaveCodec.Serialize(new GameSave(2, current));
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            var restored = new CampaignRun();
+            Assert.That(parsed.TryApply(new PrologueRun(), restored, out error), Is.True, error);
+            Assert.That(restored.GetOwnedSkill(44).Experience, Is.EqualTo(experience));
+            Assert.That(restored.GetOwnedSkill(44).Level, Is.EqualTo(experience / 5));
+            Assert.That(GameSaveCodec.Serialize(new GameSave(2, restored.CaptureSave())), Is.EqualTo(text));
+        }
+
+        [TestCase(-1, 0)]
+        [TestCase(10, 0)]
+        [TestCase(15, 0)]
+        [TestCase(int.MaxValue, 0)]
+        [TestCase(-1, 1)]
+        [TestCase(16, 1)]
+        [TestCase(int.MaxValue, 1)]
+        public void OnslaughtCostRebalance_RejectsCorruptExperience_WithoutRepairingIt(int experience, int version)
+        {
+            CampaignSave basis = PlayedCampaign().CaptureSave();
+            // Existing cap migrations must not accidentally stamp corrupt legacy 44 data as current.
+            var corrupt = new CampaignSave(basis.Currency, new[] { 1, 2, 3 }, basis.CurriculumCompleted,
+                basis.CurriculumPoints, basis.Loadout, skillExperience: new[]
+                {
+                    new KeyValuePair<int, int>(9, 30), new KeyValuePair<int, int>(45, 30),
+                    new KeyValuePair<int, int>(44, experience)
+                }, onslaughtExperienceVersion: version);
+            string text = GameSaveCodec.Serialize(new GameSave(2, corrupt));
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            CampaignRun target = PlayedCampaign();
+            string before = Fingerprint(target);
+            var prologue = new PrologueRun();
+            Assert.That(parsed.TryApply(prologue, target, out error), Is.False);
+            StringAssert.Contains("기술 44의 경험치", error);
+            Assert.That(Fingerprint(target), Is.EqualTo(before));
+            Assert.That(prologue.ClearedCount, Is.Zero);
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        public void OnslaughtCostRebalance_StillRejectsUnownedAndDuplicateExperience(int version)
+        {
+            CampaignSave basis = new CampaignRun().CaptureSave();
+            var unowned = new CampaignSave(basis.Currency, basis.ClearedStages, basis.CurriculumCompleted,
+                basis.CurriculumPoints, basis.Loadout, skillExperience: new[] { new KeyValuePair<int, int>(44, 1) },
+                onslaughtExperienceVersion: version);
+            Assert.That(new CampaignRun().TryRestore(unowned, out string error), Is.False);
+            StringAssert.Contains("보유하지 않습니다", error);
+            basis = PlayedCampaign().CaptureSave();
+            var duplicate = new CampaignSave(basis.Currency, basis.ClearedStages, basis.CurriculumCompleted,
+                basis.CurriculumPoints, basis.Loadout, skillExperience: new[]
+                { new KeyValuePair<int, int>(44, 1), new KeyValuePair<int, int>(44, 2) },
+                onslaughtExperienceVersion: version);
+            Assert.That(new CampaignRun().TryRestore(duplicate, out error), Is.False);
+            StringAssert.Contains("기술 44의 경험치가 중복", error);
+        }
+
+        [Test]
+        public void OnslaughtCostRebalance_SaveWithoutOnslaughtStaysUnchanged()
+        {
+            var source = new CampaignRun();
+            source.GetOwnedSkill(1).GainClashExperience();
+            string text = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), source));
+            StringAssert.DoesNotContain("onslaught-xp-version", text);
+            Assert.That(GameSaveCodec.TryParse(text, out GameSave parsed, out string error), Is.True, error);
+            var restored = new CampaignRun();
+            Assert.That(parsed.TryApply(new PrologueRun(), restored, out error), Is.True, error);
+            Assert.That(restored.GetOwnedSkill(44), Is.Null);
+            Assert.That(restored.GetOwnedSkill(1).Experience, Is.EqualTo(1));
+            Assert.That(GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), restored)), Is.EqualTo(text));
+        }
+
+        [TestCase("onslaught-xp-version")]
+        [TestCase("onslaught-xp-version 0")]
+        [TestCase("onslaught-xp-version -1")]
+        [TestCase("onslaught-xp-version 2")]
+        [TestCase("onslaught-xp-version 1 1")]
+        [TestCase("onslaught-xp-version invalid")]
+        [TestCase("onslaught-xp-version 1\nonslaught-xp-version 1")]
+        public void OnslaughtExperienceMarker_RejectsMalformedOrRepeatedLines(string marker)
+        {
+            string text = GameSaveCodec.Serialize(GameSave.Capture(new PrologueRun(), new CampaignRun()));
+            Assert.That(GameSaveCodec.TryParse(text + marker + "\n", out _, out string error), Is.False);
+            Assert.That(error, Is.Not.Empty);
+        }
+
+        [Test]
         public void FieldPickups_RoundTripInVersionTwo_AndOlderSavesHaveNone()
         {
             var source = new CampaignRun();

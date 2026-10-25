@@ -308,7 +308,7 @@ namespace TurnLimbo.Core.Tests
         {
             List<string[]> rows = Rows();
             Set(rows, 1, Column.MinPower, "9");
-            Assert.That(Problem(rows), Is.EqualTo($"{Row1}행 (ID 1) '최대 위력'(4)이(가) '최소 위력'(9)보다 작습니다."));
+            Assert.That(Problem(rows), Is.EqualTo($"{Row1}행 (ID 1) '최대 위력'(3)이(가) '최소 위력'(9)보다 작습니다."));
 
             rows = Rows();
             Set(rows, 9, Column.BuffSlots, "");
@@ -432,12 +432,12 @@ namespace TurnLimbo.Core.Tests
         public void Cycle_ParsesAndRoundTrips_AndRequiresAValidCapAndGain()
         {
             List<string[]> rows = Rows();
-            Assert.That(RowOf(rows, 46)[Index(Column.CyclePowerPerUse)], Is.EqualTo("5"));
+            Assert.That(RowOf(rows, 46)[Index(Column.CyclePowerPerUse)], Is.EqualTo("6"));
             Assert.That(RowOf(rows, 46)[Index(Column.CycleCostPerUse)], Is.EqualTo("1"));
             Assert.That(RowOf(rows, 46)[Index(Column.CycleMaxCount)], Is.EqualTo("9"));
             LegacySkillEffect honing = Parse(rows).Find(46).Effect;
             Assert.That((honing.CyclePowerPerUse, honing.CycleCostPerUse, honing.CycleMaxCount),
-                Is.EqualTo((5, 1, 9)));
+                Is.EqualTo((6, 1, 9)));
             LegacySkillTable roundTrip = LegacySkillSheet.Parse("cycle round trip", LegacySkillSheet.Write(Parse(rows)));
             Assert.That(roundTrip.Find(46).Effect.HasCycle, Is.True);
 

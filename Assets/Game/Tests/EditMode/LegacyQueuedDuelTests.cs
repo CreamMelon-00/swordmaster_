@@ -192,7 +192,7 @@ namespace TurnLimbo.Core.Tests
             duel.BeginNextTurn();
             Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(2));
             duel.EffectivePowerRange(sharpening, out min, out max);
-            Assert.That((min, max), Is.EqualTo((10, 15)));
+            Assert.That((min, max), Is.EqualTo((11, 16)));
             Assert.That(duel.TryQueueLane(1), Is.True);
             Assert.That(duel.Act, Is.EqualTo(3));
         }
@@ -209,7 +209,7 @@ namespace TurnLimbo.Core.Tests
 
             Assert.That(duel.TryQueueLane(1), Is.True);
             Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(2));
-            Assert.That(duel.ForecastIfQueued(1).EnemyHealthDamage, Is.EqualTo(10));
+            Assert.That(duel.ForecastIfQueued(1).EnemyHealthDamage, Is.EqualTo(11));
             Assert.That((duel.Act, duel.PlayerQueue.Count, duel.CycleUses(46)), Is.EqualTo((2, 1, 0)),
                 "Forecasting the second reservation does not charge ACT or record a use.");
             Assert.That(duel.TryQueueLane(1), Is.True);
@@ -221,7 +221,7 @@ namespace TurnLimbo.Core.Tests
             duel.Commit();
             Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(5));
             Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(2), "Resolved casts are not counted again as pending copies.");
-            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(10));
+            Assert.That(duel.ResolveNextSlot().EnemyHealthDamage, Is.EqualTo(11));
             Assert.That(duel.CycleUses(46), Is.EqualTo(2));
         }
 
@@ -362,7 +362,7 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(duel.CycleUses(46), Is.EqualTo(cycle));
                 Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(1 + cycle));
                 duel.EffectivePowerRange(sharpening, out int min, out int max);
-                Assert.That((min, max), Is.EqualTo((5 + 5 * cycle, 10 + 5 * cycle)));
+                Assert.That((min, max), Is.EqualTo((5 + 6 * cycle, 10 + 6 * cycle)));
                 Assert.That(duel.TryQueueLane(1), Is.True);
                 Assert.That(duel.EffectiveCost(sharpening), Is.EqualTo(Math.Min(10, 2 + cycle)),
                     "Pending copies cannot raise the cost beyond the cycle cap.");
@@ -443,9 +443,9 @@ namespace TurnLimbo.Core.Tests
             Assert.That(first.EnemySkill.Id, Is.EqualTo(1));
             Assert.That(first.PlayerHealthDamage, Is.Zero);
             Assert.That(first.EnemyHealthDamage, Is.Zero);
-            Assert.That(first.PlayerResistanceDamage, Is.InRange(3, 4));
-            // 베기 (Q) meshes with the W skill after it (맞물림, +20%): floor(3 × 1.2) = 3 or floor(4 × 1.2) = 4.
-            Assert.That(first.EnemyResistanceDamage, Is.EqualTo(3).Or.EqualTo(4));
+            Assert.That(first.PlayerResistanceDamage, Is.InRange(2, 3));
+            // 베기 (Q) meshes with the W skill after it (맞물림, +20%): floor(2 × 1.2) = 2 or floor(3 × 1.2) = 3.
+            Assert.That(first.EnemyResistanceDamage, Is.EqualTo(2).Or.EqualTo(3));
             Assert.That(duel.IsTurnResolved, Is.False);
 
             LegacySlotResult second = duel.ResolveNextSlot();

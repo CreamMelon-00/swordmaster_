@@ -11,13 +11,15 @@ namespace TurnLimbo.Runtime.Campaign
     /// (<see cref="CurriculumTreeVersion"/>); <see cref="ForCurriculumTree"/> drops it for another.</summary>
     public sealed class CampaignSave
     {
+        public const int CurrentOnslaughtExperienceVersion = 1;
+
         /// <param name="curriculumPoints">The unspent 수련 점수, or null for a save written before points existed (its
         /// balance is then worked out when it is restored, <see cref="CampaignRun.CurriculumPointsIn"/>).</param>
         public CampaignSave(int currency, IEnumerable<int> clearedStages, IEnumerable<string> curriculumCompleted,
             int? curriculumPoints, IEnumerable<IEnumerable<int>> loadout,
             int trainingVictoryCount = 0, IEnumerable<KeyValuePair<int, int>> skillExperience = null,
             IEnumerable<string> fieldPickups = null, int curriculumTreeVersion = CampaignCurriculum.TreeVersion,
-            int counterSkillId = 0)
+            int counterSkillId = 0, int onslaughtExperienceVersion = CurrentOnslaughtExperienceVersion)
         {
             if (clearedStages == null) throw new ArgumentNullException(nameof(clearedStages));
             if (curriculumCompleted == null) throw new ArgumentNullException(nameof(curriculumCompleted));
@@ -32,6 +34,7 @@ namespace TurnLimbo.Runtime.Campaign
             FieldPickups = new List<string>(fieldPickups ?? Array.Empty<string>()).AsReadOnly();
             CurriculumTreeVersion = curriculumTreeVersion;
             CounterSkillId = counterSkillId;
+            OnslaughtExperienceVersion = onslaughtExperienceVersion;
             var lanes = new List<IReadOnlyList<int>>();
             foreach (IEnumerable<int> lane in loadout)
                 lanes.Add(new List<int>(lane ?? throw new ArgumentException("A loadout lane is missing.", nameof(loadout))).AsReadOnly());
@@ -50,6 +53,9 @@ namespace TurnLimbo.Runtime.Campaign
         public int? CurriculumPoints { get; }
         /// <summary>Nonzero cumulative clashes per owned skill ID. An absent entry has zero experience.</summary>
         public IReadOnlyList<KeyValuePair<int, int>> SkillExperience { get; }
+        /// <summary>The one-time 44 몰아치기 mastery migration. Zero means a file from before its ACT 3 to 2 change;
+        /// new saves use the current version. Other skill experience is unaffected.</summary>
+        public int OnslaughtExperienceVersion { get; }
         /// <summary>Ids of the field pickups taken (<see cref="CampaignFieldPickups"/>), in the order they were taken;
         /// omitted in older version 2 saves and then empty.</summary>
         public IReadOnlyList<string> FieldPickups { get; }
@@ -77,7 +83,7 @@ namespace TurnLimbo.Runtime.Campaign
             }
             droppedProgress = CurriculumCompleted.Count > 0;
             return new CampaignSave(Currency, ClearedStages, Array.Empty<string>(), CurriculumPoints, Loadout,
-                TrainingVictoryCount, SkillExperience, FieldPickups, treeVersion, CounterSkillId);
+                TrainingVictoryCount, SkillExperience, FieldPickups, treeVersion, CounterSkillId, OnslaughtExperienceVersion);
         }
     }
 }

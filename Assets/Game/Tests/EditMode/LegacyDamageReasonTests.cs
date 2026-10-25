@@ -184,7 +184,7 @@ namespace TurnLimbo.Core.Tests
         {
             LegacySkill finisher = LegacySkillDefinitions.Skill(50);
             Assert.That(LegacyDamageReasonText.Primary(LegacyDamageReason.ConditionalMultiplier, finisher),
-                Is.EqualTo("체력 30% 이하 ×2"));
+                Is.EqualTo("체력 40% 이하 ×2"));
             Assert.That(LegacyDamageReasonText.Primary(LegacyDamageReason.BrokenBonus, LegacySkillDefinitions.Skill(44)),
                 Is.EqualTo("붕괴 추가 +100%"));
             Assert.That(LegacyDamageReasonText.Primary(LegacyDamageReason.None, finisher), Is.Empty);

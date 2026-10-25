@@ -798,6 +798,7 @@ namespace TurnLimbo.Runtime.Campaign
         {
             droppedCurriculum = false;
             if (save == null) return null;
+            save = NormalizeOnslaughtExperience(save);
             save = NormalizePostureExperience(save);
             save = NormalizeFormerStageFourReward(save);
             if (save.CurriculumTreeVersion == CampaignCurriculum.TreeVersion) return save;
@@ -836,7 +837,8 @@ namespace TurnLimbo.Runtime.Campaign
             int counterSkillId = reset.CounterSkillId;
             if (IsCounterDefinition(counterSkillId) && !owned.Contains(counterSkillId)) counterSkillId = 0;
             return new CampaignSave(reset.Currency, reset.ClearedStages, reset.CurriculumCompleted, reset.CurriculumPoints,
-                lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups, reset.CurriculumTreeVersion, counterSkillId);
+                lanes, reset.TrainingVictoryCount, experience, reset.FieldPickups, reset.CurriculumTreeVersion, counterSkillId,
+                reset.OnslaughtExperienceVersion);
         }
 
         // Stage 4 used to grant 62 기세 훔치기. It is now multiplayer-only: remove only that formerly valid reward,
@@ -886,7 +888,31 @@ namespace TurnLimbo.Runtime.Campaign
                 lanes[2][rewardSlot] = replacement.Id;
             }
             return new CampaignSave(save.Currency, save.ClearedStages, save.CurriculumCompleted, save.CurriculumPoints,
-                lanes, save.TrainingVictoryCount, experience, save.FieldPickups, save.CurriculumTreeVersion, save.CounterSkillId);
+                lanes, save.TrainingVictoryCount, experience, save.FieldPickups, save.CurriculumTreeVersion, save.CounterSkillId,
+                save.OnslaughtExperienceVersion);
+        }
+
+        // 44 몰아치기 changed from ACT 3 (three clashes per level) to ACT 2 (five). Unlike a cap decrease,
+        // this needs an explicit once-only marker or an old level-three save would become level one on every load.
+        private static CampaignSave NormalizeOnslaughtExperience(CampaignSave save)
+        {
+            if (save.OnslaughtExperienceVersion != 0) return save;
+            const int previousRequired = 3;
+            const int previousMaximum = previousRequired * CampaignOwnedSkill.MaxLevel;
+            var experience = new List<KeyValuePair<int, int>>();
+            foreach (KeyValuePair<int, int> entry in save.SkillExperience)
+            {
+                if (entry.Key != 44) { experience.Add(entry); continue; }
+                // Keep corrupt historical values for strict validation, including values now inside the larger cap.
+                if (entry.Value < 0 || entry.Value > previousMaximum) return save;
+                LegacySkill adjusted = LegacySkillDefinitions.Find(44)?.Skill;
+                if (adjusted == null) return save;
+                int required = CampaignOwnedSkill.ExperienceRequiredForCost(adjusted.Cost);
+                experience.Add(new KeyValuePair<int, int>(44, entry.Value * required / previousRequired));
+            }
+            return new CampaignSave(save.Currency, save.ClearedStages, save.CurriculumCompleted, save.CurriculumPoints,
+                save.Loadout, save.TrainingVictoryCount, experience, save.FieldPickups, save.CurriculumTreeVersion,
+                save.CounterSkillId, CampaignSave.CurrentOnslaughtExperienceVersion);
         }
 
         // 자세 잡기 and 쳐내기 used to cost 1 ACT, so legitimate older saves can hold up to 30 clashes. Their new
@@ -910,12 +936,14 @@ namespace TurnLimbo.Runtime.Campaign
             }
             return changed ? new CampaignSave(save.Currency, save.ClearedStages, save.CurriculumCompleted,
                 save.CurriculumPoints, save.Loadout, save.TrainingVictoryCount, experience, save.FieldPickups,
-                save.CurriculumTreeVersion, save.CounterSkillId) : save;
+                save.CurriculumTreeVersion, save.CounterSkillId, save.OnslaughtExperienceVersion) : save;
         }
 
         private string ValidateSave(CampaignSave save)
         {
             if (save == null) return "저장 데이터가 없습니다.";
+            if (save.OnslaughtExperienceVersion < 0 || save.OnslaughtExperienceVersion > CampaignSave.CurrentOnslaughtExperienceVersion)
+                return $"지원하지 않는 몰아치기 경험치 버전 {save.OnslaughtExperienceVersion}입니다.";
             if (save.Currency < 0) return $"재화가 음수입니다({save.Currency}).";
             if (save.CurriculumPoints < 0) return $"수련 점수가 음수입니다({save.CurriculumPoints}).";
             if (save.TrainingVictoryCount < 0) return $"수련 승리 횟수가 음수입니다({save.TrainingVictoryCount}).";
@@ -970,6 +998,8 @@ namespace TurnLimbo.Runtime.Campaign
                     return $"경험치를 기록한 기술 {entry.Key}을(를) 보유하지 않습니다.";
                 if (!experienced.Add(entry.Key)) return $"기술 {entry.Key}의 경험치가 중복되었습니다.";
                 int maximum = CampaignOwnedSkill.ExperienceRequiredForCost(skill.Cost) * CampaignOwnedSkill.MaxLevel;
+                if (entry.Key == 44 && save.OnslaughtExperienceVersion == 0)
+                    maximum = 3 * CampaignOwnedSkill.MaxLevel;
                 if (entry.Value < 0 || entry.Value > maximum)
                     return $"기술 {entry.Key}의 경험치 {entry.Value}은(는) 0~{maximum} 범위 밖입니다.";
             }
