@@ -1,0 +1,23 @@
+{
+  "poses": [
+    {
+      "index": 1,
+      "file": "hurt-02.png",
+      "ppu": 36,
+      "pivotX": 44.5,
+      "groundY": 201,
+      "headY": 80,
+      "sha256": "2e1acf72ce6ded135d6958f807115914497c715ed850d73b31954eb1f458eba6"
+    },
+    {
+      "index": 2,
+      "file": "hurt-03.png",
+      "ppu": 36,
+      "pivotX": 82.0,
+      "groundY": 201,
+      "headY": 80,
+      "sha256": "c45e83f133df1c861c5ea9fcaf255dc83a616451bef2fce17b43f36616dca983"
+    }
+  ],
+  "policy": "Static alternatives, independently selected once per successful incoming hurt reaction. Exact existing hurt palette, unchanged pixel geometry and alpha."
+}

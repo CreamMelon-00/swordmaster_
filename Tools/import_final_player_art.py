@@ -98,6 +98,19 @@ def main():
             text = re.sub(r'spritePivot: .*', f"spritePivot: {{x: {pose['pivotX'] / 256}, y: {(224 - pose['groundY'] - 1) / 224}}}", text)
             meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
             clips.append(dict(key=key, durationsMs=[100], impactIndex=0))
+    # Optional authored static hurt alternatives: preserve frame 00 and its existing GUID.
+    hurt_source = SOURCE / 'Hurt_Variants_PixelLab_20261025'
+    if (hurt_source / 'import.json').exists():
+        hurt_import = json.loads((hurt_source / 'import.json').read_text(encoding='utf-8'))
+        for pose in hurt_import['poses']:
+            target = DEST / 'hurt' / f"frame-{pose['index']:02}.png"
+            shutil.copyfile(hurt_source / pose['file'], target)
+            meta = Path(str(target) + '.meta')
+            text = meta.read_text(encoding='utf-8') if meta.exists() else re.sub(r'guid: [a-f0-9]+', 'guid: ' + uuid.uuid4().hex, template, count=1)
+            text = re.sub(r'spritePixelsToUnits: .*', f"spritePixelsToUnits: {pose['ppu']}", text)
+            text = re.sub(r'spritePivot: .*', f"spritePivot: {{x: {pose['pivotX'] / 256}, y: {(224 - pose['groundY'] - 1) / 224}}}", text)
+            meta.write_text('\n'.join(line.rstrip() for line in text.splitlines()).rstrip() + '\n', encoding='utf-8')
+        next(clip for clip in clips if clip['key'] == 'hurt')['durationsMs'] = [100] * (1 + len(hurt_import['poses']))
     (DEST / 'timing.json').write_text(json.dumps(dict(clips=clips), indent=2), encoding='utf-8')
     families = {5:'beat', 48:'beat', 52:'beat', 6:'loaded', 55:'loaded', 68:'loaded', 10:'measured', 53:'measured', 54:'evade'}
     bindings = []

@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation.Tests
             using (var set = new FinalPlayerAnimationSet())
             {
                 Assert.That(set.IsReady, Is.True);
-                Assert.That(set.LoadedFrameCount, Is.EqualTo(124));
+                Assert.That(set.LoadedFrameCount, Is.EqualTo(126));
                 Sprite idle = set.GetIdle(0);
                 Assert.That(idle.pixelsPerUnit, Is.EqualTo(36));
                 Assert.That(idle.texture.filterMode, Is.EqualTo(FilterMode.Point));
@@ -84,7 +84,7 @@ namespace TurnLimbo.Presentation.Tests
                         report.Add(new BindingAudit { id = skill.Id, name = skill.Name, property = skill.Property.ToString(),
                             animation = key, hits = skill.AttackCount });
                     }
-                    Assert.That(report.Count, Is.EqualTo(42));
+                    Assert.That(report.Count, Is.EqualTo(46));
                     foreach (int id in new[] { 1, 5, 6, 54 })
                     {
                         var mislabeled = new LegacySkill(id, "Mismatched label", 0, 1, 1, LegacySkillKind.Attack,
@@ -341,7 +341,7 @@ namespace TurnLimbo.Presentation.Tests
                 arena.SetDepthPresentationVisible(true);
                 arena.BeginSlot(null, null);
                 arena.PresentHit(false, 2, 0, false, false, 0, closeUp: false, hurtReaction: true);
-                Assert.That(arena.PlayerRenderer.sprite.name, Is.EqualTo("final-hurt-frame-00"));
+                Assert.That(arena.PlayerRenderer.sprite.name, Does.StartWith("final-hurt-frame-"));
                 Sprite hurt = arena.PlayerRenderer.sprite;
                 arena.Tick(0f, .05f);
                 Assert.That(arena.PlayerRenderer.sprite, Is.SameAs(hurt), "Hit stop holds the static hurt pose.");

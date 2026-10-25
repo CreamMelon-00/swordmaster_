@@ -203,6 +203,8 @@
     {
       "key": "hurt",
       "durationsMs": [
+        100,
+        100,
         100
       ],
       "impactIndex": 0

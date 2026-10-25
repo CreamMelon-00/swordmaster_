@@ -1,0 +1,15 @@
+{
+  "poses": 3,
+  "added": 2,
+  "canvas": [
+    256,
+    224
+  ],
+  "ppu": 36,
+  "originalPaletteColors": 34,
+  "exactPaletteMatch": true,
+  "alphaPreserved": true,
+  "unchangedExistingPNGs": 124,
+  "selection": "One independent draw per hurt event; repeats allowed.",
+  "resistanceBreak": "Existing break pose takes priority."
+}

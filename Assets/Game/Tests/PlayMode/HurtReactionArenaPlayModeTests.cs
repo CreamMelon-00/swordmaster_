@@ -111,7 +111,7 @@ namespace TurnLimbo.Presentation.Tests
                                 : Does.Contain("block"), "Successful guard has its own reaction.");
                         }
                         arena.PresentHit(!playerTarget, 0, 3, true, true, 3, hurtReaction: true);
-                        Assert.That(target.sprite.name, playerTarget ? (NUnit.Framework.Constraints.Constraint)Is.EqualTo("final-hurt-frame-00")
+                        Assert.That(target.sprite.name, playerTarget ? (NUnit.Framework.Constraints.Constraint)Does.StartWith("final-hurt-frame-")
                             : Does.Contain("hurt"), "A broken guard can still recoil on resistance damage.");
                         arena.PresentHit(!playerTarget, 1, 0, true, false, 1, hurtReaction: false);
                         Assert.That(target.sprite.name, playerTarget ? (NUnit.Framework.Constraints.Constraint)Does.Match("^final-guard-0[1-3]-frame-00$")

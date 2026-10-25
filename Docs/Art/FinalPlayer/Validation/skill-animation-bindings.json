@@ -239,6 +239,34 @@
             "animation": "loaded"
         },
         {
+            "id": 69,
+            "hits": 1,
+            "name": "위압",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 71,
+            "hits": 3,
+            "name": "무리한 연격",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
+            "id": 73,
+            "hits": 1,
+            "name": "허점 찌르기",
+            "property": "Penetrate",
+            "animation": "pierce"
+        },
+        {
+            "id": 74,
+            "hits": 1,
+            "name": "침착한 일격",
+            "property": "Slash",
+            "animation": "slash"
+        },
+        {
             "id": 500,
             "hits": 5,
             "name": "라우다레",

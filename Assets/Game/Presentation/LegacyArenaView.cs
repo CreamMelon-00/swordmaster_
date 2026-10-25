@@ -991,8 +991,9 @@ namespace TurnLimbo.Presentation
                 player.ReactionIsBlock = blocks;
                 // Draw exactly once per incoming hit/guard, including repeated hits in the same slot.
                 // Independent draws intentionally allow the same pose on consecutive impacts.
-                player.ReactionVariant = reactionPoseRandom.Next(blocks && UseFinalPlayerArt && finalPlayerAnimations.IsReady
-                    ? FinalPlayerAnimationSet.GuardVariationCount : MobStudentAnimationSet.ReactionVariationCount);
+                player.ReactionVariant = reactionPoseRandom.Next(UseFinalPlayerArt && finalPlayerAnimations.IsReady
+                    ? (blocks ? FinalPlayerAnimationSet.GuardVariationCount : FinalPlayerAnimationSet.HurtVariationCount)
+                    : MobStudentAnimationSet.ReactionVariationCount);
                 if (player.ReactionIsBlock)
                 {
                     player.GuardVariant = player.ReactionVariant;
@@ -1728,7 +1729,8 @@ namespace TurnLimbo.Presentation
             if (actor == player && UseFinalPlayerArt && finalPlayerAnimations.IsReady &&
                 actor.ReactionTime > 0f && !actor.ReactionIsBlock)
             {
-                actor.Renderer.sprite = actor.ResistanceBroken ? finalPlayerAnimations.GetBreak() : finalPlayerAnimations.GetHurt();
+                actor.Renderer.sprite = actor.ResistanceBroken ? finalPlayerAnimations.GetBreak()
+                    : finalPlayerAnimations.GetHurt(actor.ReactionVariant);
                 return;
             }
             if (TrySampleUpcomingPreparation(actor)) return;

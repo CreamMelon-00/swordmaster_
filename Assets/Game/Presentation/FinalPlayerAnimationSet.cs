@@ -10,6 +10,7 @@ namespace TurnLimbo.Presentation
     {
         public const string ResourceRoot = "SwordGirl/FinalPlayer/";
         public const int GuardVariationCount = 3;
+        public const int HurtVariationCount = 3;
         private readonly Dictionary<string, Clip> clips = new Dictionary<string, Clip>();
         private readonly List<Sprite> owned = new List<Sprite>();
         private readonly Dictionary<int, Binding> bindings = new Dictionary<int, Binding>();
@@ -56,7 +57,7 @@ namespace TurnLimbo.Presentation
                 clips.ContainsKey("pierce") && clips.ContainsKey("beat") && clips.ContainsKey("loaded") &&
                 clips.ContainsKey("measured") && clips.ContainsKey("evade") &&
                 clips.ContainsKey("guard-01") && clips.ContainsKey("guard-02") && clips.ContainsKey("guard-03") &&
-                clips.ContainsKey("hurt") && clips.ContainsKey("break") &&
+                clips.ContainsKey("hurt") && clips["hurt"].frames.Length == HurtVariationCount && clips.ContainsKey("break") &&
                 clips.ContainsKey("walk") && clips.ContainsKey("run") && clips.ContainsKey("combat-move");
         }
 
@@ -79,7 +80,8 @@ namespace TurnLimbo.Presentation
         public Sprite GetGuard(int variant) => IsReady
             ? clips["guard-" + (Mathf.Clamp(variant, 0, GuardVariationCount - 1) + 1).ToString("00")].frames[0] : null;
 
-        public Sprite GetHurt() => IsReady ? clips["hurt"].frames[0] : null;
+        public Sprite GetHurt(int variant = 0) => IsReady
+            ? clips["hurt"].frames[Mathf.Clamp(variant, 0, HurtVariationCount - 1)] : null;
         public Sprite GetBreak() => IsReady ? clips["break"].frames[0] : null;
         public Sprite GetCombatMove() => IsReady ? clips["combat-move"].frames[0] : null;
         public float LocomotionDuration(bool running) => IsReady ? clips[running ? "run" : "walk"].duration : 1f;
