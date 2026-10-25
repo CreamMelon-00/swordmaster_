@@ -45,5 +45,14 @@
   "previewUsesActualLegacyCombatHud": true,
   "waveVisibilityPixelComparisonPassed": true,
   "initialValidationPushPerformed": false,
-  "latestPullValidation": "pull-validation.json"
+  "latestPullValidation": "pull-validation.json",
+  "shaderDisplacementValidation": {
+    "total": "20",
+    "passed": "20",
+    "failed": "0",
+    "start-time": "2026-10-25 10:09:03Z",
+    "end-time": "2026-10-25 10:09:05Z"
+  },
+  "tracksAttackShaderOffset": true,
+  "previewIncludesRecoilAndCameraRoll": true
 }

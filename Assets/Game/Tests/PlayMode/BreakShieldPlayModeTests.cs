@@ -158,6 +158,18 @@ namespace TurnLimbo.Presentation.Tests
                     yield return null;
                     arena.SetResistanceBroken(true, true);
                     arena.Tick(.1f, .1f);
+                    // Real attacks/recoil displace GPU vertices while keeping the actor Transform still.
+                    var displacement = new MaterialPropertyBlock();
+                    arena.PlayerRenderer.GetPropertyBlock(displacement);
+                    displacement.SetVector("_AttackOffset", new Vector4(1.1f, .1f, 0, 0));
+                    arena.PlayerRenderer.SetPropertyBlock(displacement);
+                    arena.EnemyRenderer.GetPropertyBlock(displacement);
+                    displacement.SetVector("_AttackOffset", new Vector4(-.75f, .1f, 0, 0));
+                    arena.EnemyRenderer.SetPropertyBlock(displacement);
+                    arena.PlayerBreakAura.RefreshPose();
+                    arena.EnemyBreakAura.RefreshPose();
+                    camera.transform.rotation = Quaternion.Euler(0, 0, -6);
+                    camera.orthographicSize = 4.8f;
                     hud.Refresh(new LegacyQueuedDuel(), 8f, false, -1, camera,
                         arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
                     foreach (Renderer other in Object.FindObjectsByType<Renderer>(FindObjectsSortMode.None))
@@ -179,12 +191,17 @@ namespace TurnLimbo.Presentation.Tests
                         cue.Show(true);
                         cue.Show(false);
                         cue.Tick(frame / 24f, camera, arena.PlayerRenderer.transform, arena.EnemyRenderer.transform);
-                        Vector3 torsoScreen = camera.WorldToScreenPoint(arena.PlayerRenderer.transform.TransformPoint(new Vector3(0, -.15f, 0)));
+                        Vector3 torsoScreen = camera.WorldToScreenPoint(arena.PlayerRenderer.transform.TransformPoint(new Vector3(1.1f, -.05f, 0)));
                         var shield = Shield(canvasRoot, true);
                         RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)shield.transform.parent,
                             torsoScreen, camera, out Vector2 torso);
                         Assert.That(Vector2.Distance(shield.rectTransform.anchoredPosition, torso), Is.LessThan(.1f),
-                            "The new player's centred pivot must not inherit the old upper-body's horizontal offset.");
+                            "The glyph must follow the drawn torso including shader-only attack/recoil displacement.");
+                        var enemyShield = Shield(canvasRoot, false);
+                        Vector3 enemyTorsoScreen = camera.WorldToScreenPoint(arena.EnemyRenderer.transform.TransformPoint(new Vector3(-.75f, -.05f, 0)));
+                        RectTransformUtility.ScreenPointToLocalPointInRectangle((RectTransform)enemyShield.transform.parent,
+                            enemyTorsoScreen, camera, out Vector2 enemyTorso);
+                        Assert.That(Vector2.Distance(enemyShield.rectTransform.anchoredPosition, enemyTorso), Is.LessThan(.1f));
                         AssertSharedCenter(canvasRoot, true);
                         AssertSharedCenter(canvasRoot, false);
                         Canvas.ForceUpdateCanvases();

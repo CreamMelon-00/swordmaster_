@@ -12,6 +12,8 @@ namespace TurnLimbo.Presentation
         private const float EdgeDuration = .38f;
         private static readonly Color PlayerInk = new Color32(255, 81, 68, 255);
         private static readonly Color EnemyInk = new Color32(255, 208, 119, 255);
+        private static readonly int AttackOffsetId = Shader.PropertyToID("_AttackOffset");
+        private readonly MaterialPropertyBlock actorProperties = new MaterialPropertyBlock();
 
         private readonly RectTransform root;
         private readonly Canvas canvas;
@@ -144,8 +146,16 @@ namespace TurnLimbo.Presentation
                     spriteName.StartsWith("enemy-", StringComparison.Ordinal) ||
                     spriteName.StartsWith("cadet-", StringComparison.Ordinal);
                 // The shield and its surrounding wave share one torso anchor, including during camera focus.
-                Vector3 body = actor.TransformPoint(centredBody
-                    ? new Vector3(0f, -.15f, 0f) : DuelStepHud.ActorBodyLocalOffset);
+                Vector3 localBody = centredBody ? new Vector3(0f, -.15f, 0f) : DuelStepHud.ActorBodyLocalOffset;
+                if (renderer != null)
+                {
+                    renderer.GetPropertyBlock(actorProperties);
+                    Vector4 offset = actorProperties.GetVector(AttackOffsetId);
+                    if (Finite(offset.x) && Finite(offset.y) && Finite(offset.z))
+                        localBody += new Vector3(offset.x, offset.y, offset.z);
+                }
+                // AttackSprite applies this displacement after sprite flipping without moving the Transform.
+                Vector3 body = actor.TransformPoint(localBody);
                 Vector3 screen = arenaCamera.WorldToScreenPoint(body);
                 Camera uiCamera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
                     ? canvas.worldCamera : null;
@@ -166,6 +176,8 @@ namespace TurnLimbo.Presentation
             // fixed HUD size, otherwise the 1920px combat canvas and camera close-ups hide them inside the body.
             view.Burst.rectTransform.localScale = Vector3.one * (view.Shield.rectTransform.sizeDelta.x / 200f);
         }
+
+        private static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
 
         private static void ResetView(View view)
         {

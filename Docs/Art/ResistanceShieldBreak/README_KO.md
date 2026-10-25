@@ -54,3 +54,9 @@ Unity 6000.5.9f1의 열린 에디터에서 관련 PlayMode 20개를 실행해 �
 - 결과와 실행 클래스 목록: [pull-validation.json](pull-validation.json).
 - 원본 테스트 XML 보관: `C:/Users/user/Documents/SwordMasterStory/Shield_Pull_Integration_20261025/test-reports.zip`.
 - 검증용 임시 Editor 실행 스크립트는 커밋하지 않습니다. stash는 복구용으로 유지합니다.
+
+## 실제 공격·피격 밀림 추적 수정
+
+인게임 스크린샷에서 정지 검수와 달리 몸통과 효과가 분리되는 사례가 확인됐습니다. AttackSprite 셰이더는 `_AttackOffset`으로 정점만 이동시키고 SpriteRenderer의 Transform은 옮기지 않으므로, Transform만 추적하던 효과가 원래 위치에 남았습니다. 이제 SpriteRenderer의 MaterialPropertyBlock에서 현재 보정값을 읽어 몸통 기준점에 합산합니다. 이 값은 스프라이트 뒤집기 이후 적용되는 로컬 좌표이므로 실제 셰이더와 같은 순서로 변환합니다.
+
+양쪽의 셰이더 밀림, 카메라 기울기와 확대를 넣은 실제 Arena/HUD 렌더로 검증 장면을 갱신했습니다. 관련 PlayMode **20/20 통과**([실행 결과](recoil-playmode.xml)). 이는 해당 변환 경로의 자동 렌더 검증이며 수동 전체 플레이 검증은 아닙니다. 이전 pull 이후 123개 통과 기록과 이번 수정 후 20개 검사는 별도 실행입니다.
