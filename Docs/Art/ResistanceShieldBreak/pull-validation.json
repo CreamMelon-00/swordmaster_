@@ -1,0 +1,606 @@
+{
+  "upstream": "cd06932399931fb414777dce2a187ac169627d1d",
+  "pullMode": "fast-forward",
+  "textConflicts": [],
+  "restoredWorkFiles": 21,
+  "stash": "3a9b2c1a12cde893d77533c19b97ff3c59f5822b",
+  "editmode": {
+    "scope": "entire EditMode suite",
+    "counts": {
+      "total": "2391",
+      "passed": "2391",
+      "failed": "0",
+      "skipped": "0"
+    },
+    "classes": {
+      "TurnLimbo.Core.Tests.ActRecoveryStealTests": {
+        "total": "28",
+        "passed": "28",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ActStealSkillSheetTests": {
+        "total": "22",
+        "passed": "22",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ActStealTests": {
+        "total": "22",
+        "passed": "22",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.AfterimageTrailTests": {
+        "total": "10",
+        "passed": "10",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.AttackRhythmTests": {
+        "total": "33",
+        "passed": "33",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BarkLayoutTests": {
+        "total": "7",
+        "passed": "7",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BarkScriptParserTests": {
+        "total": "11",
+        "passed": "11",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BarkTrackerTests": {
+        "total": "10",
+        "passed": "10",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BattleResultTests": {
+        "total": "17",
+        "passed": "17",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BladeBindHitEligibilityTests": {
+        "total": "13",
+        "passed": "13",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BladeExchangeTests": {
+        "total": "40",
+        "passed": "40",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BleedingStatusAndSheetTests": {
+        "total": "50",
+        "passed": "50",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BreakQueueCancellationTests": {
+        "total": "10",
+        "passed": "10",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.BreakthroughPursuitTests": {
+        "total": "16",
+        "passed": "16",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CampaignCounterLoadoutTests": {
+        "total": "27",
+        "passed": "27",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CampaignFieldPickupTests": {
+        "total": "5",
+        "passed": "5",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CampaignLoadoutTests": {
+        "total": "17",
+        "passed": "17",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CampaignLobbyTests": {
+        "total": "13",
+        "passed": "13",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CampaignRunTests": {
+        "total": "28",
+        "passed": "28",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CampaignSheetCheckTests": {
+        "total": "18",
+        "passed": "18",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ClashAmbienceDuckTests": {
+        "total": "10",
+        "passed": "10",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ClashMotionTests": {
+        "total": "37",
+        "passed": "37",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ClashPoseTests": {
+        "total": "14",
+        "passed": "14",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ClashReadoutTests": {
+        "total": "13",
+        "passed": "13",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CombatDebugSessionTests": {
+        "total": "12",
+        "passed": "12",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CombatTempoTests": {
+        "total": "12",
+        "passed": "12",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ContactCameraTests": {
+        "total": "15",
+        "passed": "15",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CounterSkillSheetTests": {
+        "total": "16",
+        "passed": "16",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CsvTableTests": {
+        "total": "8",
+        "passed": "8",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CurriculumPointTests": {
+        "total": "15",
+        "passed": "15",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CurriculumScreenTests": {
+        "total": "2",
+        "passed": "2",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CurriculumTests": {
+        "total": "45",
+        "passed": "45",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CutscenePlaybackTests": {
+        "total": "10",
+        "passed": "10",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.CutsceneScriptParserTests": {
+        "total": "98",
+        "passed": "98",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.DeferredSlotStartTests": {
+        "total": "11",
+        "passed": "11",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.DialogueScriptParserTests": {
+        "total": "38",
+        "passed": "38",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.DuelMatchSessionTests": {
+        "total": "5",
+        "passed": "5",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.DuelRoundResolverTests": {
+        "total": "6",
+        "passed": "6",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.EmpowermentCueTests": {
+        "total": "6",
+        "passed": "6",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.EncounterKindTests": {
+        "total": "2",
+        "passed": "2",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.EnemyRhythmTests": {
+        "total": "6",
+        "passed": "6",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.GameSaveTests": {
+        "total": "131",
+        "passed": "131",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.GearShimmerTests": {
+        "total": "4",
+        "passed": "4",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.GreenRibbonBossBattleTests": {
+        "total": "25",
+        "passed": "25",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.HitReactionTests": {
+        "total": "34",
+        "passed": "34",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.IiaSkillSheetTests": {
+        "total": "25",
+        "passed": "25",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ImportedNonChainSkillTests": {
+        "total": "51",
+        "passed": "51",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.KeywordLinkTests": {
+        "total": "10",
+        "passed": "10",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.KeywordPreviewTests": {
+        "total": "9",
+        "passed": "9",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.KoreanParticleTests": {
+        "total": "46",
+        "passed": "46",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LaneCycleTests": {
+        "total": "6",
+        "passed": "6",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LaneHoldTests": {
+        "total": "5",
+        "passed": "5",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyBleedingTests": {
+        "total": "42",
+        "passed": "42",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyBreathingActionTests": {
+        "total": "19",
+        "passed": "19",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyCounterTests": {
+        "total": "15",
+        "passed": "15",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyDamageReasonTests": {
+        "total": "21",
+        "passed": "21",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyDecisiveHitTests": {
+        "total": "7",
+        "passed": "7",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyFinishingBlowTests": {
+        "total": "6",
+        "passed": "6",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyQueuedDuelTests": {
+        "total": "54",
+        "passed": "54",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyQueueVisibilityTests": {
+        "total": "8",
+        "passed": "8",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacySkillDefinitionTests": {
+        "total": "53",
+        "passed": "53",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacySkillFeedbackTests": {
+        "total": "67",
+        "passed": "67",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacySkillNamesTests": {
+        "total": "6",
+        "passed": "6",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacySkillRoleTests": {
+        "total": "50",
+        "passed": "50",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacySkillSheetTests": {
+        "total": "125",
+        "passed": "125",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyStatusEffectTests": {
+        "total": "14",
+        "passed": "14",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyStepCombatTests": {
+        "total": "48",
+        "passed": "48",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LegacyTensionEngineTests": {
+        "total": "37",
+        "passed": "37",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LocalVersusMatchTests": {
+        "total": "19",
+        "passed": "19",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.LocalVersusPerspectiveTests": {
+        "total": "10",
+        "passed": "10",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.MeshCueTests": {
+        "total": "12",
+        "passed": "12",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.MeshingTests": {
+        "total": "51",
+        "passed": "51",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.MissionFourTests": {
+        "total": "24",
+        "passed": "24",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.MultiHitEmphasisTests": {
+        "total": "13",
+        "passed": "13",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.OpponentBreakTests": {
+        "total": "8",
+        "passed": "8",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.OpponentStateConditionTests": {
+        "total": "17",
+        "passed": "17",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.PlanningClockTests": {
+        "total": "13",
+        "passed": "13",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.PrologueMissionTests": {
+        "total": "17",
+        "passed": "17",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.PrologueSceneFileTests": {
+        "total": "8",
+        "passed": "8",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.QueueInsertionCueTests": {
+        "total": "20",
+        "passed": "20",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.QueuePanelLayoutTests": {
+        "total": "9",
+        "passed": "9",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ReceivedDamageScalingTests": {
+        "total": "33",
+        "passed": "33",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SheetUrlTests": {
+        "total": "25",
+        "passed": "25",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.ShowDirectorTests": {
+        "total": "21",
+        "passed": "21",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SkillGearTests": {
+        "total": "13",
+        "passed": "13",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SkillTavernBattleTests": {
+        "total": "40",
+        "passed": "40",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SkillTavernRunTests": {
+        "total": "47",
+        "passed": "47",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SkillTempoCombatTests": {
+        "total": "33",
+        "passed": "33",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SkillTempoDataTests": {
+        "total": "29",
+        "passed": "29",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SlotForecastTests": {
+        "total": "9",
+        "passed": "9",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SlotImportanceTests": {
+        "total": "52",
+        "passed": "52",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.SoundAndCameraCueTests": {
+        "total": "4",
+        "passed": "4",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.StartCardTests": {
+        "total": "3",
+        "passed": "3",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.StoryUnlockTests": {
+        "total": "11",
+        "passed": "11",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.TemporarySkillTests": {
+        "total": "6",
+        "passed": "6",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.TensionLightTests": {
+        "total": "38",
+        "passed": "38",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.TensionStatusAndSheetTests": {
+        "total": "49",
+        "passed": "49",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.TrioBattleTests": {
+        "total": "8",
+        "passed": "8",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.TutorialRecallTests": {
+        "total": "3",
+        "passed": "3",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.UnopposedStreakTests": {
+        "total": "13",
+        "passed": "13",
+        "failed": "0"
+      },
+      "TurnLimbo.Core.Tests.VersusLoadoutTests": {
+        "total": "6",
+        "passed": "6",
+        "failed": "0"
+      },
+      "TurnLimbo.Tests.LegacyReengageMotionTests": {
+        "total": "11",
+        "passed": "11",
+        "failed": "0"
+      },
+      "TurnLimbo.Tests.TimerGearTests": {
+        "total": "3",
+        "passed": "3",
+        "failed": "0"
+      },
+      "TurnLimbo.EditorTools.Dialogue.Tests.DialogueAuthoringUtilityTests": {
+        "total": "17",
+        "passed": "17",
+        "failed": "0"
+      }
+    },
+    "failures": {}
+  },
+  "playmode": {
+    "scope": "targeted shield, break, versus, fast-skill, tension, animation and trail suites",
+    "counts": {
+      "total": "123",
+      "passed": "123",
+      "failed": "0",
+      "skipped": "0"
+    },
+    "classes": {
+      "TurnLimbo.Presentation.Tests.BreakPresentationPlayModeTests": {
+        "total": "7",
+        "passed": "7",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.BreakQueueCancellationPlayModeTests": {
+        "total": "5",
+        "passed": "5",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.BreakShieldPlayModeTests": {
+        "total": "4",
+        "passed": "4",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.FastSkillFocusTests": {
+        "total": "11",
+        "passed": "11",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.FastSkillRenderedPoseTests": {
+        "total": "15",
+        "passed": "15",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.FastSkillSlowMotionPlayModeTests": {
+        "total": "50",
+        "passed": "50",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.LocalVersusPlayModeTests": {
+        "total": "4",
+        "passed": "4",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.MobStudentAnimationPlayModeTests": {
+        "total": "5",
+        "passed": "5",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.TensionPresentationPlayModeTests": {
+        "total": "20",
+        "passed": "20",
+        "failed": "0"
+      },
+      "TurnLimbo.Presentation.Tests.WeaponTrailPlayModeTests": {
+        "total": "2",
+        "passed": "2",
+        "failed": "0"
+      }
+    },
+    "failures": {}
+  },
+  "protectedResources": {
+    "comparedToPulledMain": 268,
+    "changed": [],
+    "textLineEndingsNormalized": true
+  }
+}

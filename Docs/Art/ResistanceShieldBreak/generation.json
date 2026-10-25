@@ -1,0 +1,13 @@
+{
+  "provider": "PixelLab VFX Workbench",
+  "effectId": "22fe6b44-52e6-4d9e-9bc4-ba5843ba81d0",
+  "stepId": "d015177d-89af-427d-acdd-c8a6bd5e8c62",
+  "exportId": "1b6dabca-181b-4ff4-a4e3-1b3f4070e702",
+  "frames": 14,
+  "fps": 24,
+  "canvas": [
+    128,
+    128
+  ],
+  "unityResource": "DuelVFX/ShieldBreak/shield-shatter"
+}

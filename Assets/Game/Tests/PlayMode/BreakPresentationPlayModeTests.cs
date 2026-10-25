@@ -280,6 +280,8 @@ namespace TurnLimbo.Presentation.Tests
                 FinishOpeningResistanceImpact(controller, advance);
                 Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.True);
                 Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.False);
+                Assert.That(BreakImpact(controller, "Enemy Break Shield").activeSelf, Is.True,
+                    "The authored shield shatters on the same real break transition as the existing cue.");
                 DuelSkillActivationBurst enemyBurst = BreakImpact(controller, "Enemy Break Impact")
                     .GetComponent<DuelSkillActivationBurst>();
                 Assert.That(enemyBurst.Style, Is.EqualTo(DuelSkillBurstStyle.Break));
@@ -297,6 +299,8 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(direct.Enemy.IsResistanceBroken, Is.True);
                 Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False,
                     "A later hit against an already-broken enemy must not restart the impact cue.");
+                Assert.That(BreakImpact(controller, "Enemy Break Shield").activeSelf, Is.False,
+                    "Already-broken targets must not repeatedly shatter a new shield on every hit.");
 
                 // A normal clash can instead break the player. The two sides use separate cues.
                 var clash = new LegacyQueuedDuel(100, 10, 100, 50,
@@ -311,6 +315,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(clash.Player.IsResistanceBroken, Is.True);
                 Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.True);
                 Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
+                Assert.That(BreakImpact(controller, "Player Break Shield").activeSelf, Is.True);
                 DuelSkillActivationBurst playerBurst = BreakImpact(controller, "Player Break Impact")
                     .GetComponent<DuelSkillActivationBurst>();
                 Assert.That(playerBurst.color.g, Is.LessThan(enemyBurst.color.g),
@@ -320,6 +325,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(BreakImpact(controller, "Player Break Impact").activeSelf, Is.False,
                     "A new battle clears a break impact still in progress.");
                 Assert.That(BreakImpact(controller, "Enemy Break Impact").activeSelf, Is.False);
+                Assert.That(BreakImpact(controller, "Player Break Shield").activeSelf, Is.False);
             }
             finally
             {

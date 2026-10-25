@@ -1,0 +1,49 @@
+{
+  "protectedResourcesComparedToCurrentMain": 268,
+  "textLineEndingsNormalizedForComparison": true,
+  "changedProtectedResources": [],
+  "pngCount": 124,
+  "pngChangesSincePreviousArt": [],
+  "playmode": {
+    "total": "20",
+    "passed": "20",
+    "failed": "0",
+    "skipped": "0",
+    "start-time": "2026-10-25 09:55:10Z",
+    "end-time": "2026-10-25 09:55:12Z"
+  },
+  "classes": {
+    "TurnLimbo.Presentation.Tests.BreakPresentationPlayModeTests": {
+      "total": "7",
+      "passed": "7",
+      "failed": "0"
+    },
+    "TurnLimbo.Presentation.Tests.BreakQueueCancellationPlayModeTests": {
+      "total": "5",
+      "passed": "5",
+      "failed": "0"
+    },
+    "TurnLimbo.Presentation.Tests.BreakShieldPlayModeTests": {
+      "total": "4",
+      "passed": "4",
+      "failed": "0"
+    },
+    "TurnLimbo.Presentation.Tests.LocalVersusPlayModeTests": {
+      "total": "4",
+      "passed": "4",
+      "failed": "0"
+    }
+  },
+  "branch": "main",
+  "mergedArtCommit": "e5e64e4",
+  "baseMainCommit": "483fcac",
+  "localArtDeleted": true,
+  "remoteArtDeleted": false,
+  "waveAndShieldShareTorsoAnchor": true,
+  "screenEdgeWaveClampingRemoved": true,
+  "waveScaleFollowsCameraAndCanvas": true,
+  "previewUsesActualLegacyCombatHud": true,
+  "waveVisibilityPixelComparisonPassed": true,
+  "initialValidationPushPerformed": false,
+  "latestPullValidation": "pull-validation.json"
+}

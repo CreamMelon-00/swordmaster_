@@ -16,6 +16,9 @@ namespace TurnLimbo.Presentation
         private readonly RectTransform root;
         private readonly Canvas canvas;
         private readonly View player, enemy;
+        private readonly DuelBreakShieldClip shieldClip;
+        private Camera lastCamera;
+        private Transform lastPlayer, lastEnemy;
         private bool disposed;
 
         public DuelBreakImpactCue(Transform parent)
@@ -29,6 +32,7 @@ namespace TurnLimbo.Presentation
             // The impact sits behind state callouts, damage and the skill dock. Its centre stays transparent.
             root.SetAsFirstSibling();
             canvas = root.GetComponentInParent<Canvas>();
+            shieldClip = new DuelBreakShieldClip();
             player = CreateView(true);
             enemy = CreateView(false);
             Reset();
@@ -43,11 +47,18 @@ namespace TurnLimbo.Presentation
             view.Burst.gameObject.SetActive(true);
             view.Edge.SetProgress(0f);
             view.Edge.gameObject.SetActive(true);
+            view.Shield.sprite = shieldClip.Sample(0f);
+            view.Shield.enabled = shieldClip.IsReady;
+            view.Shield.gameObject.SetActive(shieldClip.IsReady);
+            Position(view, lastCamera, targetPlayer ? lastPlayer : lastEnemy);
         }
 
         public void Tick(float realDelta, Camera arenaCamera, Transform playerActor, Transform enemyActor)
         {
             if (disposed) return;
+            lastCamera = arenaCamera;
+            lastPlayer = playerActor;
+            lastEnemy = enemyActor;
             float delta = realDelta > 0f && !float.IsNaN(realDelta) && !float.IsInfinity(realDelta)
                 ? realDelta : 0f;
             TickView(player, delta, arenaCamera, playerActor);
@@ -66,6 +77,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             Reset();
             disposed = true;
+            shieldClip.Dispose();
             Object.Destroy(root.gameObject);
         }
 
@@ -89,7 +101,15 @@ namespace TurnLimbo.Presentation
             burstRoot.sizeDelta = Vector2.one * 340f;
             var burst = burstRoot.GetComponent<DuelSkillActivationBurst>();
             burst.raycastTarget = false;
-            return new View(targetPlayer, tint, burst, edge);
+            var shieldRoot = new GameObject(side + " Break Shield", typeof(RectTransform),
+                typeof(CanvasRenderer), typeof(Image)).GetComponent<RectTransform>();
+            shieldRoot.SetParent(root, false);
+            shieldRoot.anchorMin = shieldRoot.anchorMax = Vector2.one * .5f;
+            shieldRoot.sizeDelta = Vector2.one * 256f;
+            var shield = shieldRoot.GetComponent<Image>();
+            shield.raycastTarget = false;
+            shield.color = Color.white;
+            return new View(targetPlayer, tint, burst, edge, shield);
         }
 
         private void TickView(View view, float delta, Camera arenaCamera, Transform actor)
@@ -102,6 +122,8 @@ namespace TurnLimbo.Presentation
                 return;
             }
             view.Burst.Configure(view.Tint, DuelSkillBurstStyle.Break, view.Elapsed / BurstDuration);
+            view.Shield.sprite = shieldClip.Sample(view.Elapsed);
+            view.Shield.gameObject.SetActive(shieldClip.IsReady && view.Elapsed < shieldClip.Duration);
             Position(view, arenaCamera, actor);
             if (view.Elapsed >= EdgeDuration) view.Edge.gameObject.SetActive(false);
             else view.Edge.SetProgress(view.Elapsed / EdgeDuration);
@@ -112,20 +134,37 @@ namespace TurnLimbo.Presentation
             Rect bounds = root.rect;
             Vector2 position = new Vector2(bounds.xMin + bounds.width * (view.TargetPlayer ? .3f : .7f),
                 bounds.yMin + bounds.height * .48f);
+            view.Shield.enabled = shieldClip.IsReady;
+            view.Shield.rectTransform.sizeDelta = Vector2.one * 256f;
             if (arenaCamera != null && actor != null && actor.gameObject.activeInHierarchy)
             {
-                Vector3 screen = arenaCamera.WorldToScreenPoint(actor.TransformPoint(DuelStepHud.ActorBodyLocalOffset));
+                var renderer = actor.GetComponent<SpriteRenderer>();
+                string spriteName = renderer != null && renderer.sprite != null ? renderer.sprite.name : "";
+                bool centredBody = spriteName.StartsWith("final-", StringComparison.Ordinal) ||
+                    spriteName.StartsWith("enemy-", StringComparison.Ordinal) ||
+                    spriteName.StartsWith("cadet-", StringComparison.Ordinal);
+                // The shield and its surrounding wave share one torso anchor, including during camera focus.
+                Vector3 body = actor.TransformPoint(centredBody
+                    ? new Vector3(0f, -.15f, 0f) : DuelStepHud.ActorBodyLocalOffset);
+                Vector3 screen = arenaCamera.WorldToScreenPoint(body);
                 Camera uiCamera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay
                     ? canvas.worldCamera : null;
                 if (screen.z > 0f && RectTransformUtility.ScreenPointToLocalPointInRectangle(
                         root, screen, uiCamera, out Vector2 projected))
+                {
                     position = projected;
+                    Vector3 right = arenaCamera.WorldToScreenPoint(body + arenaCamera.transform.right * DuelBreakShieldClip.WorldWidth);
+                    if (RectTransformUtility.ScreenPointToLocalPointInRectangle(root, right, uiCamera, out Vector2 edge))
+                        view.Shield.rectTransform.sizeDelta = Vector2.one * Vector2.Distance(projected, edge);
+                }
+                else view.Shield.enabled = false;
             }
-            float insetX = Mathf.Min(170f, bounds.width * .5f);
-            float insetY = Mathf.Min(170f, bounds.height * .5f);
-            view.Burst.rectTransform.anchoredPosition = new Vector2(
-                Mathf.Clamp(position.x, bounds.xMin + insetX, bounds.xMax - insetX),
-                Mathf.Clamp(position.y, bounds.yMin + insetY, bounds.yMax - insetY));
+            // Do not clamp only the wave inward at a screen edge: that separates its centre from the shield.
+            view.Shield.rectTransform.anchoredPosition = position;
+            view.Burst.rectTransform.anchoredPosition = position;
+            // The procedural arcs use local UI pixels. Match them to the projected shield instead of a
+            // fixed HUD size, otherwise the 1920px combat canvas and camera close-ups hide them inside the body.
+            view.Burst.rectTransform.localScale = Vector3.one * (view.Shield.rectTransform.sizeDelta.x / 200f);
         }
 
         private static void ResetView(View view)
@@ -133,6 +172,7 @@ namespace TurnLimbo.Presentation
             view.Elapsed = 0f;
             view.Burst.gameObject.SetActive(false);
             view.Edge.gameObject.SetActive(false);
+            view.Shield.gameObject.SetActive(false);
         }
 
         private sealed class View
@@ -141,14 +181,16 @@ namespace TurnLimbo.Presentation
             public readonly Color Tint;
             public readonly DuelSkillActivationBurst Burst;
             public readonly DuelBreakEdgeFlash Edge;
+            public readonly Image Shield;
             public float Elapsed;
 
-            public View(bool targetPlayer, Color tint, DuelSkillActivationBurst burst, DuelBreakEdgeFlash edge)
+            public View(bool targetPlayer, Color tint, DuelSkillActivationBurst burst, DuelBreakEdgeFlash edge, Image shield)
             {
                 TargetPlayer = targetPlayer;
                 Tint = tint;
                 Burst = burst;
                 Edge = edge;
+                Shield = shield;
             }
         }
     }
