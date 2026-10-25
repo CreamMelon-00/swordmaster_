@@ -1,0 +1,387 @@
+﻿번호,우선순위(제안),분류(원인확정아님),재현근거,테스트,실패소스위치,실패메시지,수정/조사방향
+1,P2 제안,기존: 전투/연출 원인 추가 조사,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.AttackRhythmPlayModeTests.SheetAttacks_HoldTheirAuthoredGatherAndFinish_OnBothBodies_WithoutReplacingReactionsOrExtendingTheClip,Assets/Game/Tests/PlayMode/AttackRhythmPlayModeTests.cs:50,"Expected: same as <cadet-a-slash-frame-02 (UnityEngine.Sprite)>
+  But was:  <cadet-a-slash-frame-03 (UnityEngine.Sprite)>",개별 실패 스택과 준비 조건을 확인하고 현재 main에서도 재현해 구현과 테스트 원인을 구분.
+2,P2 제안,기존: 전투/연출 원인 추가 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.BattleBarksPlayModeTests.TheSutunScene_TakesTheBubblesAway_AndTheResumedBattleHearsSutun,Assets/Game/Tests/PlayMode/BattleBarksPlayModeTests.cs:169,"The hit that opens the scene is the scene's to answer.
+  Expected: null
+  But was:  <TurnLimbo.Runtime.Barks.BarkLine>",개별 실패 스택과 준비 조건을 확인하고 현재 main에서도 재현해 구현과 테스트 원인을 구분.
+3,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.BattleBulletTimePlayModeTests.StagePlanning_EdgesTheFiguresTogetherInAHeldPoseUnderAColdGrade_WithTheClockUntouched,Assets/Game/Tests/PlayMode/BattleBulletTimePlayModeTests.cs:46,"Slow planning travel holds a movement pose.
+  Expected: String starting with ""move-frame-""
+  But was:  ""final-combat-move-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+4,P2 제안,기존: 카메라/레이아웃 조사,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.BattleIntroPlayModeTests.TheClocksLastShare_PushesTheCameraIn_AndTheCommitLetsGo,Assets/Game/Tests/PlayMode/BattleIntroPlayModeTests.cs:415,"…pushing the camera in.
+  Expected: less than 5.07249975f
+  But was:  5.86123896f",대표 화면비에서 실제 가림·잘림을 렌더 검증. 좌표계·앵커와 낡은 고정 수치를 구분.
+5,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.BattleResultMissionFlowPlayModeTests.CampaignVictory_ShowsPaidResult_BlocksActions_AndReturnsToStageSelection,Assets/Game/Tests/PlayMode/BattleResultMissionFlowPlayModeTests.cs:57,"Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+6,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.BladeBindDamagePlayModeTests.AnEmphasisedResistanceOnlyRelease_KeepsBothAttackPoses_InCampaignAndVersus,Assets/Game/Tests/PlayMode/BladeBindDamagePlayModeTests.cs:233,"Expected: String matching ""^slash(?:-[23])?-frame-05$""
+  But was:  ""final-slash-frame-04""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+7,P2 제안,기존: PNG/절차적 잔상 경로 검증,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.BladeExchangeContactPlayModeTests.LightContactLeavesBodiesAndCameraAlone_AndPreservesBothFirstStrikeTrails,Assets/Game/Tests/PlayMode/BladeExchangeContactPlayModeTests.cs:58,"Both real first hits still draw their trails after the two cosmetic contacts.
+  Expected: 2
+  But was:  1",플레이어 PNG 잔상과 구형 절차적 잔상을 구별하고 중복 억제를 유지한 상태로 검사.
+8,P2 제안,기존: PNG/절차적 잔상 경로 검증,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.BladeExchangePosePlayModeTests.GuardCanDeflectWithoutLeavingItsStance_AndNeitherSideConsumesARealStrikeTrail,Assets/Game/Tests/PlayMode/BladeExchangePosePlayModeTests.cs:143,"Expected: 1
+  But was:  0",플레이어 PNG 잔상과 구형 절차적 잔상을 구별하고 중복 억제를 유지한 상태로 검사.
+9,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.BreakPresentationPlayModeTests.ActualController_BreakImpactPlaysOncePerNewBreakOnEitherSideAndExpiresOnRealTime,Assets/Game/Tests/PlayMode/BreakPresentationPlayModeTests.cs:277,"Expected: True
+  But was:  False",쿠페 감소 10과 적 저항 15 등 준비 조건 확인. 실제 붕괴가 일어나는 시나리오를 구성한 뒤 연출 검사.
+10,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.BreakPresentationPlayModeTests.ActualController_CallsOutSkillAndHitBreaksAndTheTurnStartRefill,Assets/Game/Tests/PlayMode/BreakPresentationPlayModeTests.cs:197,"Expected: True
+  But was:  False",쿠페 감소 10과 적 저항 15 등 준비 조건 확인. 실제 붕괴가 일어나는 시나리오를 구성한 뒤 연출 검사.
+11,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.BreakQueueCancellationPlayModeTests.ActualOpeningEffect_ShatterStartsBeforeTheFirstHit_AndResetClearsTheLivingFragments,Assets/Game/Tests/PlayMode/BreakQueueCancellationPlayModeTests.cs:123,"Expected: True
+  But was:  False",쿠페 감소 10과 적 저항 15 등 준비 조건 확인. 실제 붕괴가 일어나는 시나리오를 구성한 뒤 연출 검사.
+12,P2 제안,기존: 카메라/레이아웃 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.BreathingHudPlayModeTests.IdleQueueCardAndCombatLog_UseThePauseEmblem_WithoutWeaponExplanation,Assets/Game/Tests/PlayMode/BreathingHudPlayModeTests.cs:165,"Expected: in range (1,1.2001)
+  But was:  0.838989258f",대표 화면비에서 실제 가림·잘림을 렌더 검증. 좌표계·앵커와 낡은 고정 수치를 구분.
+13,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.Actions_WithoutCallbacksUseTheRunAndLockOutsideTheLobbyAndMaintenance,Assets/Game/Tests/PlayMode/CampaignCurriculumHudPlayModeTests.cs:543,"Reset removes curriculum skills but keeps the first stage reward.
+  Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+14,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.Connectors_RunFromEveryPrerequisitesBottomToItsNodesTopBehindTheCards,Assets/Game/Tests/PlayMode/CampaignCurriculumHudPlayModeTests.cs:339,"Fifteen 'all' links and ten 'any' links in the 19-node tree.
+  Expected: 25
+  But was:  33",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+15,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.Detail_ShowsEveryNodesGrantedSkillThroughTheSharedSkillInfoView,Assets/Game/Tests/PlayMode/CampaignCurriculumHudPlayModeTests.cs:394,"Expected: 9
+  But was:  11",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+16,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.LearningMoment_PulsesTheCard_NamesTheTechniqueAndWhatItOpened_AndTurnsToIt,Assets/Game/Tests/PlayMode/CampaignCurriculumHudPlayModeTests.cs:1040,"Expected string length 21 but was 26. Strings differ at index 21.
+  Expected: ""새로 열린 과정: 르프리즈 · 에스키브""
+  But was:  ""새로 열린 과정: 르프리즈 · 에스키브 · 추격""
+  --------------------------------^",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+17,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.Reset_NeedsTwoClicksDisarmsOnPhaseChangeRefundsAndRemovesGrantedSkills,Assets/Game/Tests/PlayMode/CampaignCurriculumHudPlayModeTests.cs:599,"Reset keeps the first stage reward even after curriculum skills are removed.
+  Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+18,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.Scroll_TheTreeScrollsVerticallyInAClippedWindow_WithTheWheelAndAThinBar,Assets/Game/Tests/PlayMode/CampaignCurriculumHudPlayModeTests.cs:740,"Expected: 620.0f +/- 0.00999999978f
+  But was:  1292.0f",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+19,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CampaignCurriculumHudPlayModeTests.TreeLayout_KeepsEveryNodeCardInsideTheContentWithoutOverlaps_AndOnlySchoolsHaveBands,Assets/Game/Tests/PlayMode/CampaignCurriculumHudPlayModeTests.cs:638,"Six rows and the fork's gap: 208 + 168 × 5 + 32.
+  Expected: (760.00, 1080.00)
+  But was:  (760.00, 1752.00)",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+20,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignFlowPlayModeTests.ActualVictory_OpensMaintenance_CurriculumSkillJoinsNextStage,Assets/Game/Tests/PlayMode/CampaignFlowPlayModeTests.cs:151,"Expected: 11
+  But was:  13",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+21,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignFlowPlayModeTests.Defeat_EarnsAPoint_LearnedNodeThenResetRefundsItAndRefillsTheLane,Assets/Game/Tests/PlayMode/CampaignFlowPlayModeTests.cs:268,"Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+22,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignFlowPlayModeTests.EnterAfterCurriculumAction_ContinuesOnce_WithoutSelectingAgain,Assets/Game/Tests/PlayMode/CampaignFlowPlayModeTests.cs:118,"Expected: 11
+  But was:  13",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+23,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CampaignFlowPlayModeTests.FinalClear_StopsAtEight_NewJourneyRestoresInitialState,Assets/Game/Tests/PlayMode/CampaignFlowPlayModeTests.cs:321,"Nine starting, six stage rewards (4 gives 기세 훔치기, 7 gives 알티바호), 가로베기.
+  Expected: 16
+  But was:  17",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+24,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignFlowPlayModeTests.JourneyStartsInBedroom_LobbyPausesCombat_StageSelectionRequired,Assets/Game/Tests/PlayMode/CampaignFlowPlayModeTests.cs:70,"Expected: 9
+  But was:  11",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+25,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.ClosedLanes_AreNotDrawn_AndOpenLanesGearsShareOneRow,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:233,"Expected: 0
+  But was:  1",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+26,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.EarnedLevel_UpdatesSelectedDetailAndSocketWithoutChangingLoadout,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:195,"String lengths are both 3. Strings differ at index 0.
+  Expected: ""5–6""
+  But was:  ""4–5""
+  -----------^",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+27,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.LoadoutRemove_LeavesABareSocketAndAvailableSkill_ThenDragRestores,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:393,"Q's rack shows the removed skill.
+  Expected: 1
+  But was:  2",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+28,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.LoadoutView_HasOneGearPerLaneWithThreeSockets_AndOneSelectedExplanation,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:97,"Every starting skill is already in a socket.
+  Expected: 0
+  But was:  2",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+29,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.NewlyEarnedSkill_SelectsForDetailsAndReplacesByDrag_ThenLeavesOwnedList,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:476,"The first stage grants 탐색 and the learned node grants 가로베기.
+  Expected: 11
+  But was:  13",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+30,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.OwnedFilter_FollowsTheSelectedGear_CanBeClicked_AndNeverChangesTheDraft,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:942,"Shown under filter -1
+  Expected: 9
+  But was:  11",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+31,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.OwnedRack_FillsTwoRowsColumnByColumn_AndScrollsSideways,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:661,"Expected: 9
+  But was:  11",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+32,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.OwnedSelection_OnlyShowsDetails_AndDragHighlightsMatchingSocketsThenCompletesDraft,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:298,"Expected: 1
+  But was:  3",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+33,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLoadoutHudPlayModeTests.OwnedSelection_PersistsAcrossRebuild_AndSocketsSelectAnyOpenLane,Assets/Game/Tests/PlayMode/CampaignLoadoutHudPlayModeTests.cs:438,"Expected: 1
+  But was:  3",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+34,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CampaignLobbyHudPlayModeTests.ArrivalNotice_ShowsOnceInTheStatusSlip_UntilABattleOutcomeOrAResetReplacesIt,Assets/Game/Tests/PlayMode/CampaignLobbyHudPlayModeTests.cs:705,"No line is cut off.
+  Expected: less than or equal to 44.5f
+  But was:  45.0f",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+35,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLobbyHudPlayModeTests.Curriculum_NodeClickOnlySelectsChoiceSurvivesRebuildAndLearningDoesNotAutoEquip,Assets/Game/Tests/PlayMode/CampaignLobbyHudPlayModeTests.cs:414,"Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+36,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CampaignLobbyHudPlayModeTests.Curriculum_WithoutCallbacksUsesTheRunAndResetNeedsTwoClicks,Assets/Game/Tests/PlayMode/CampaignLobbyHudPlayModeTests.cs:459,"Expected: 11
+  But was:  13",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+37,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CompactHudPlayModeTests.ButtonSkillSprites_AllTwentyLoadCenteredDistinctAndMatchArtLookup,Assets/Game/Tests/PlayMode/CompactHudPlayModeTests.cs:46,"Expected: null
+  But was:  <role21 (UnityEngine.Sprite)>",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+38,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CompactHudPlayModeTests.ButtonSkillSprites_CurrentPreviewQueuesAndResolvedLogUseTheNewSet,Assets/Game/Tests/PlayMode/CompactHudPlayModeTests.cs:532,"Expected: not null
+  But was:  null",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+39,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CompactHudPlayModeTests.LaneButtons_QueueSpendActRotateIconsRejectUnaffordableClickAndReset,Assets/Game/Tests/PlayMode/CompactHudPlayModeTests.cs:525,"String lengths are both 5. Strings differ at index 0.
+  Expected: ""1 ACT""
+  But was:  ""2 ACT""
+  -----------^",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+40,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CompactSkillCardPlayModeTests.ActualCombatPopups_KeepOneSizeAndHeaderBodyAndHintSeparate,Assets/Game/Tests/PlayMode/CompactSkillCardPlayModeTests.cs:344,"Effect [예약 시
+- 앞에 예약된 기술 모두 반환
+- 2개 이상 반환하면 이번 턴 다음 기술 1개 위력 2배
+- 제한시간 -4초] should show all measured text lines.
+  Expected: greater than or equal to 113.0f
+  But was:  112.25f",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+41,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CompactSkillCardPlayModeTests.ActualCurriculumDetail_KeepsOneSizeAndReservesTheExclusiveLine,Assets/Game/Tests/PlayMode/CompactSkillCardPlayModeTests.cs:280,"Reading details never grants a skill.
+  Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+42,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.CompactSkillCardPlayModeTests.ActualLoadoutDetail_KeepsItsSizeAndTopWithTheRemoveButtonOutsideTheCard,Assets/Game/Tests/PlayMode/CompactSkillCardPlayModeTests.cs:227,"Nine lane skills and one unequipped counter remain unchanged.
+  Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+43,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CompactSkillCardPlayModeTests.ShortLongSingleKeywordAndEmptySelection_KeepTheSameSizeAndTopAnchor,Assets/Game/Tests/PlayMode/CompactSkillCardPlayModeTests.cs:97,"Expected: True
+  But was:  False",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+44,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.CounterLoadoutHudPlayModeTests.CancelRestoresCounterAndNormalSlots_WhileCounterSelectionSurvivesRebuild,Assets/Game/Tests/PlayMode/CounterLoadoutHudPlayModeTests.cs:155,"Expected string length 5 but was 6. Strings differ at index 0.
+  Expected: ""보유 기술""
+  But was:  ""미편성 기술""
+  -----------^",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+45,P2 제안,기존: 전투/연출 원인 추가 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.DuelPrototypePlayModeTests.OriginalImpact_HasParticlesKnockbackAndFocus_AndResetClearsThem,Assets/Game/Tests/PlayMode/DuelPrototypePlayModeTests.cs:186,"Expected: greater than 2.0f
+  But was:  2.0f",개별 실패 스택과 준비 조건을 확인하고 현재 main에서도 재현해 구현과 테스트 원인을 구분.
+46,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.DuelPrototypePlayModeTests.OriginalWorldScale_ApproachesBeforeFirstImpact_AndContinuesAtTheDuelPosition,Assets/Game/Tests/PlayMode/DuelPrototypePlayModeTests.cs:143,"Expected: 40.0f
+  But was:  36.0f",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+47,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.DuelResistanceFeedbackPlayModeTests.ActualCappedSkillChanges_ShowSignedResistanceWithoutDamageFeedback,Assets/Game/Tests/PlayMode/DuelResistanceFeedbackPlayModeTests.cs:81,"A direct reduction cannot remove more resistance than remains.
+  String lengths are both 6. Strings differ at index 5.
+  Expected: ""저항 -12""
+  But was:  ""저항 -10""
+  ----------------^",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+48,P2 제안,기존: 전투/연출 원인 추가 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.DuelResistanceFeedbackPlayModeTests.ActualController_ReportsCappedInitialChangesBeforeHitsWithoutPushOrHitStop,Assets/Game/Tests/PlayMode/DuelResistanceFeedbackPlayModeTests.cs:115,"Expected string length 6 but was 0. Strings differ at index 0.
+  Expected: ""저항 -12""
+  But was:  <string.Empty>
+  -----------^",개별 실패 스택과 준비 조건을 확인하고 현재 main에서도 재현해 구현과 테스트 원인을 구분.
+49,P2 제안,기존: 전투/연출 원인 추가 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.EnemyReactionPlayModeTests.BladeBlocksBodyDamageFatalHitsAndSlowClockUseTheCorrectReaction,Assets/Game/Tests/PlayMode/EnemyReactionPlayModeTests.cs:112,"Expected: 1
+  But was:  0",개별 실패 스택과 준비 조건을 확인하고 현재 main에서도 재현해 구현과 테스트 원인을 구분.
+50,P2 제안,기존: 카메라/레이아웃 조사,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.EnemyRosterHudPlayModeTests.ActualTrioHud_RendersAtThreeAspectRatios_WithVisibleNonOverlappingIndividualPanels,Assets/Game/Tests/PlayMode/EnemyRosterHudPlayModeTests.cs:205,"The status remains just above its actor, with room for overlapping neighbours to stack upward. {
+    ""canvasRect"": {
+        ""serializedVersion"": ""2"",
+        ""x"": -1108.5125732421875,
+        ""y"": -467.65374755859377,
+        ""width"": 2217.025146484375,
+        ""height"": 935.3074951171875
+    },
+    ""canvasScaleFactor"": 0.8660253882408142,
+    ""canvasScale"": {
+        ""x"": 0.015581668354570866,
+        ""y"": 0.015581668354570866,
+        ""z"": 0.015581668354570866
+    },
+    ""panels"": [
+        {
+            ""index"": 0,
+            ""anchoredPosition"": {
+                ""x"": 201.3267822265625,
+                ""y"": 216.64610290527345
+            },
+            ""size"": {
+                ""x"": 196.0,
+                ""y"": 102.0
+            },
+            ""pivot"": {
+                ""x"": 0.5,
+                ""y"": 0.5
+            },
+            ""localScale"": {
+                ""x"": 1.0,
+                ""y"": 1.0,
+                ""z"": 1.0
+            },
+            ""rect"": {
+                ""serializedVersion"": ""2"",
+                ""x"": 103.3267822265625,
+                ""y"": 165.64610290527345,
+                ""width"": 196.0,
+                ""height"": 102.0
+            }
+        },
+        {
+            ""index"": 1,
+            ""anchoredPosition"": {
+                ""x"": 405.8267822265625,
+                ""y"": 220.1461181640625
+            },
+            ""size"": {
+                ""x"": 196.0,
+                ""y"": 102.0
+            },
+            ""pivot"": {
+                ""x"": 0.5,
+                ""y"": 0.5
+            },
+            ""localScale"": {
+                ""x"": 1.0,
+                ""y"": 1.0,
+                ""z"": 1.0
+            },
+            ""rect"": {
+                ""serializedVersion"": ""2"",
+                ""x"": 307.8267822265625,
+                ""y"": 169.1461181640625,
+                ""width"": 196.0,
+                ""height"": 102.0
+            }
+        },
+        {
+            ""index"": 2,
+            ""anchoredPosition"": {
+                ""x"": 400.2784423828125,
+                ""y"": 330.6461181640625
+            },
+            ""size"": {
+                ""x"": 196.0,
+                ""y"": 102.0
+            },
+            ""pivot"": {
+                ""x"": 0.5,
+                ""y"": 0.5
+            },
+            ""localScale"": {
+                ""x"": 1.0,
+                ""y"": 1.0,
+                ""z"": 1.0
+            },
+            ""rect"": {
+                ""serializedVersion"": ""2"",
+                ""x"": 302.2784423828125,
+                ""y"": 279.6461181640625,
+                ""width"": 196.0,
+                ""height"": 102.0
+            }
+        }
+    ],
+    ""enemyActorPositions"": [
+        {
+            ""x"": 5.0,
+            ""y"": -2.299999952316284,
+            ""z"": 0.0
+        },
+        {
+            ""x"": 6.550000190734863,
+            ""y"": -1.4800000190734864,
+            ""z"": 0.0
+        },
+        {
+            ""x"": 8.100000381469727,
+            ""y"": -3.0199999809265138,
+            ""z"": 0.0
+        }
+    ]
+}
+  Expected: in range (6.928203,181.8653)
+  But was:  219.002075f",대표 화면비에서 실제 가림·잘림을 렌더 검증. 좌표계·앵커와 낡은 고정 수치를 구분.
+51,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.EnemyVariantsPlayModeTests.PlayerAndEnemyDrawFromIndependentStreamsAndBodyDamageOverridesGuard,Assets/Game/Tests/PlayMode/EnemyVariantsPlayModeTests.cs:85,"Expected string length 16 but was 20. Strings differ at index 0.
+  Expected: ""slash-2-frame-05""
+  But was:  ""final-slash-frame-04""
+  -----------^",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+52,P2 제안,기존: 카메라/레이아웃 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.FixedHudPlayModeTests.QueuePanels_KeepTheirMirroredRows_ThroughPlanningCombatAndNextTurn,Assets/Game/Tests/PlayMode/FixedHudPlayModeTests.cs:597,"Never a second row.
+  Expected: 0.0f +/- 0.00999999978f
+  But was:  38.1861534f",대표 화면비에서 실제 가림·잘림을 렌더 검증. 좌표계·앵커와 낡은 고정 수치를 구분.
+53,P2 제안,기존: 카메라/레이아웃 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.FixedHudPlayModeTests.QueuePanels_StayOverTheDock_WhileTheCameraAndActorsMove,Assets/Game/Tests/PlayMode/FixedHudPlayModeTests.cs:597,"Never a second row.
+  Expected: 0.0f +/- 0.00999999978f
+  But was:  14.5420103f",대표 화면비에서 실제 가림·잘림을 렌더 검증. 좌표계·앵커와 낡은 고정 수치를 구분.
+54,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.ForestDuelPlayModeTests.BeltForest_ReducesLayerGeometry_AndKeepsActorFeetInsideTheGroundBand,Assets/Game/Tests/PlayMode/ForestDuelPlayModeTests.cs:338,"Expected: 40.0f
+  But was:  36.0f",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+55,P2 제안,기존: 전투/연출 원인 추가 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.ForestDuelPlayModeTests.NextTurn_RetainsDisplacedPositions_AndRestartAloneRestoresSpawns,Assets/Game/Tests/PlayMode/ForestDuelPlayModeTests.cs:116,"Expected: less than or equal to 0.180999994f
+  But was:  39.9788132f",개별 실패 스택과 준비 조건을 확인하고 현재 main에서도 재현해 구현과 테스트 원인을 구분.
+56,P2 제안,기존: 상대 큐 정보 공개 계약,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.HiddenQueueHudPlayModeTests.AHiddenCyclingTechnique_HasNoBadge_AndItsStartedSlotRestoresTheRealCount,Assets/Game/Tests/PlayMode/HiddenQueueHudPlayModeTests.cs:179,"Expected: True
+  But was:  False",현 공개 규칙 확인. 숨긴 정보 누출과 공개 시점/조회 계층/기대값 불일치를 구분.
+57,P2 제안,기존: 상대 큐 정보 공개 계약,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.HiddenQueueHudPlayModeTests.AHiddenWaitHasNoUniquePicture_AndBrokenOpponentCardsCannotCopyTheirIconsIntoFragments,Assets/Game/Tests/PlayMode/HiddenQueueHudPlayModeTests.cs:140,"String lengths are both 2. Strings differ at index 0.
+  Expected: ""대기""
+  But was:  ""참격""
+  -----------^",현 공개 규칙 확인. 숨긴 정보 누출과 공개 시점/조회 계층/기대값 불일치를 구분.
+58,P1 제안,기존: 테스트/조회 예외 조사,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.HiddenQueueHudPlayModeTests.OpponentCards_KeepOnlyProperty_AndTheSameHudRestoresOwnAndSinglePlayerArt,Assets/Game/Tests/PlayMode/HiddenQueueHudPlayModeTests.cs:178,System.NullReferenceException : Object reference not set to an instance of an object,테스트 스택 위치에서 null 조회 또는 스킬 포함 조건부터 확인. 실제 게임 예외 여부 별도 재현.
+59,P2 제안,기존: 상대 큐 정보 공개 계약,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.HiddenQueueHudPlayModeTests.StartingASlot_RevealsItsPictureBeforeTheFirstHit_AndANewTurnHidesTheTailAgain,Assets/Game/Tests/PlayMode/HiddenQueueHudPlayModeTests.cs:192,"Expected: False
+  But was:  True",현 공개 규칙 확인. 숨긴 정보 누출과 공개 시점/조회 계층/기대값 불일치를 구분.
+60,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.HurtReactionArenaPlayModeTests.SuccessfulGuardsRemainGuardsAndSuppressedDamageReturnsToTheHeldGuard,Assets/Game/Tests/PlayMode/HurtReactionArenaPlayModeTests.cs:110,"Successful guard has its own reaction.
+  Expected: String containing ""block""
+  But was:  ""final-guard-01-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+61,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.HurtReactionControllerPlayModeTests.Campaign_AlreadyBrokenFightersOnlyFlinchWhenTheIncomingAttackActuallyLands,Assets/Game/Tests/PlayMode/HurtReactionControllerPlayModeTests.cs:184,"Own pose:
+  Expected: True
+  But was:  False",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+62,P2 제안,기존: 전투/연출 원인 추가 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.HurtReactionControllerPlayModeTests.Versus_BrokenStateDoesNotFlinchAtRest_ButBothEqualIncomingHitsDo,Assets/Game/Tests/PlayMode/HurtReactionControllerPlayModeTests.cs:184,"Own pose:
+  Expected: True
+  But was:  False",개별 실패 스택과 준비 조건을 확인하고 현재 main에서도 재현해 구현과 테스트 원인을 구분.
+63,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.KeywordHudPlayModeTests.AutoBreathAndBreathPayoff_CountTheBreaths_AndTheAutomaticOneIsTagged,Assets/Game/Tests/PlayMode/KeywordHudPlayModeTests.cs:137,"String lengths are both 10. Strings differ at index 4.
+  Expected: ""숨 0/4 · +0""
+  But was:  ""숨 0/3 · +0""
+  ---------------^",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+64,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.KeywordHudPlayModeTests.Badges_KeepTheKeywordEffectsAuthoredWords,Assets/Game/Tests/PlayMode/KeywordHudPlayModeTests.cs:352,"Expected: (보호 소모, 위력 +10)
+  But was:  (보호 소모, 위력 +16)",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+65,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.KeywordHudPlayModeTests.Glossary_ExplainsBreathAndDodge_AndEveryMeaningFitsThePopup,Assets/Game/Tests/PlayMode/KeywordHudPlayModeTests.cs:326,"Expected: String containing ""상대가 내게 닿기까지"" and containing ""시간이 멈춘 전투""
+  But was:  ""이번 턴에 기술을 예약할 수 있는 시간입니다. 제한시간이 없는 전투에서는 시간 증감 효과가 적용되지 않습니다.""",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+66,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.KeywordHudPlayModeTests.Pursuit_CurrentEnemyMarkUsesActualFeedbackAfterAnotherOwnersReservationWasCanceled,Assets/Game/Tests/PlayMode/KeywordHudPlayModeTests.cs:224,"The public authored queue intentionally still includes canceled entries.
+  Expected: 12
+  But was:  14",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+67,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.KeywordHudPlayModeTests.Pursuit_UpdatesTheFiveHitPreviewAndFirstCopyMarks_ThenUsesActualFeedback,Assets/Game/Tests/PlayMode/KeywordHudPlayModeTests.cs:169,"String lengths are both 12. Strings differ at index 6.
+  Expected: ""총타수 0/5 · +0""
+  But was:  ""총타수 0/4 · +0""
+  -----------------^",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+68,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.Animation_UsesScaledClock_AndResetRestoresIdleInsteadOfLeavingAttackPose,Assets/Game/Tests/PlayMode/LegacyAnimationPlayModeTests.cs:158,"Expected: String matching ""^slash(?:-[23])?-frame-01$""
+  But was:  ""final-slash-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+69,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.EveryOriginalSkill_ChangesPoseAtImpact_AndRepeatsEveryHitForBothActors,Assets/Game/Tests/PlayMode/LegacyAnimationPlayModeTests.cs:158,"Expected: String matching ""^slash(?:-[23])?-frame-01$""
+  But was:  ""final-slash-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+70,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.Idle_AdvancesBothRemadeActorLoops,Assets/Game/Tests/PlayMode/LegacyAnimationPlayModeTests.cs:150,"Expected: String starting with ""idle-frame-""
+  But was:  ""final-idle-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+71,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.LegacyAnimationPlayModeTests.UnequalAttackCounts_FinishedAttackGuardsUntilTheOpponentFinishes,Assets/Game/Tests/PlayMode/LegacyAnimationPlayModeTests.cs:108,"Expected: String matching ""^slash(?:-[23])?-frame-04$""
+  But was:  ""final-slash-frame-03""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+72,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.LobbyScreensPlayModeTests.KeywordBadges_UseReadableSemanticColorsAndActualViewsOmitSharedDamageRouting,Assets/Game/Tests/PlayMode/LobbyScreensPlayModeTests.cs:385,"Expected: False
+  But was:  True",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+73,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.LocalVersusPlayModeTests.VersusUsesMirroredElisaForBothFightersAcrossAttackAndReactions,Assets/Game/Tests/PlayMode/LocalVersusPlayModeTests.cs:130,"Expected: String starting with ""idle-frame-""
+  But was:  ""final-idle-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+74,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.PressureAttackTrailPlayModeTests.ControllerPressure_EmitsDuringLaterAttackAfterMovementEnds,Assets/Game/Tests/PlayMode/PressureAttackTrailPlayModeTests.cs:223,"Expected: String starting with ""slash-""
+  But was:  ""final-slash-frame-02""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+75,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.PressureAttackTrailPlayModeTests.MultiHitGaps_PauseEmission_ThenResumeUntilOwnFinalClip,Assets/Game/Tests/PlayMode/PressureAttackTrailPlayModeTests.cs:63,"Expected: String starting with ""idle-frame-""
+  But was:  ""final-idle-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+76,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.PressureAttackTrailPlayModeTests.PressureAfterDash_ContinuesUsingCurrentAttackSprite,Assets/Game/Tests/PlayMode/PressureAttackTrailPlayModeTests.cs:30,"Expected: String matching ""^slash(?:-[23])?-frame-07$""
+  But was:  ""final-slash-frame-07""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+77,P2 제안,기존: 상대 큐 정보 공개 계약,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.QueueComparisonPlayModeTests.MirroredVersus_UsesEachViewersEnemyAndOwnReservedSlots_WithoutSlowingEitherClock,Assets/Game/Tests/PlayMode/QueueComparisonPlayModeTests.cs:254,"Expected string length 5 but was 2. Strings differ at index 0.
+  Expected: ""오른쪽 E""
+  But was:  ""참격""
+  -----------^",현 공개 규칙 확인. 숨긴 정보 누출과 공개 시점/조회 계층/기대값 불일치를 구분.
+78,P2 제안,기존: 상대 큐 정보 공개 계약,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.QueueComparisonPlayModeTests.TabAndArrows_CompareTheSameReservedIndex_KeepSideSpecificFacts_AndHideOnlyMissingSlots,Assets/Game/Tests/PlayMode/QueueComparisonPlayModeTests.cs:45,"String lengths are both 1. Strings differ at index 0.
+  Expected: ""2""
+  But was:  ""3""
+  -----------^",현 공개 규칙 확인. 숨긴 정보 누출과 공개 시점/조회 계층/기대값 불일치를 구분.
+79,P2 제안,기존: 카메라/레이아웃 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.QueuePanelPlayModeTests.TheCorridorFraming_KeepsTheFeetOverThePanels_AndTabKeepsTheSamePlanningView,Assets/Game/Tests/PlayMode/QueuePanelPlayModeTests.cs:232,"…moving the camera no further than that.
+  Expected: less than 0.326666653f
+  But was:  0.356502712f",대표 화면비에서 실제 가림·잘림을 렌더 검증. 좌표계·앵커와 낡은 고정 수치를 구분.
+80,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.ResistanceImpactArenaPlayModeTests.ACheckBracesThenRushesInEitherDirectionWithoutMovingCombatFeetOrItsClock,Assets/Game/Tests/PlayMode/ResistanceImpactArenaPlayModeTests.cs:34,"Expected: String containing ""block""
+  But was:  ""final-guard-01-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+81,P2 제안,기존: 새 아트 테스트 호환,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.ResistanceImpactArenaPlayModeTests.NativeRenderedBraceActuallyMovesForward_WhenTheDrawOffsetIsApplied,Assets/Game/Tests/PlayMode/ResistanceImpactArenaPlayModeTests.cs:217,"Expected: String containing ""block""
+  But was:  ""final-guard-01-frame-00""",이전 이름/프레임/PPU 기대를 FinalPlayer 계약과 대조. 아트 되돌림 없이 의미 있는 동작 검사로 갱신.
+82,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.EnemyDraw_ReportsActualCappedResistanceLossAndSuppressesZeroEffect,Assets/Game/Tests/PlayMode/SkillActivationCuePlayModeTests.cs:275,"Expected: 13
+  But was:  10",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+83,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.SkillActivationCuePlayModeTests.PlayerDrawAndRecovery_UseDifferentBurstStylesForAppliedEffects,Assets/Game/Tests/PlayMode/SkillActivationCuePlayModeTests.cs:322,"Expected: 15
+  But was:  10",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+84,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.SkillCardAttachmentsPlayModeTests.ActualLoadoutAndCurriculum_TypeAndValuesFollowSelectionWithoutChangingTheRun,Assets/Game/Tests/PlayMode/SkillCardAttachmentsPlayModeTests.cs:249,"String lengths are both 3. Strings differ at index 0.
+  Expected: ""3–4""
+  But was:  ""2–3""
+  -----------^",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+85,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.ActualLoadoutAndCurriculumSelection_RefreshTheSameInformationCardWithoutProgress,Assets/Game/Tests/PlayMode/SkillInfoViewPlayModeTests.cs:657,"Expected: String containing ""감소 1종당 +5""
+  But was:  ""감소 1종당 +7
+효과 턴당 1회""",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+86,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.AddedUtilitySkills_ShowTheirOwnConditionsAndEnemyRecoveryLimit,Assets/Game/Tests/PlayMode/SkillInfoViewPlayModeTests.cs:192,"Expected: String containing ""기술 시작"" and containing ""최대 저항의 20% 회복""
+  But was:  ""사용 시 상대가 붕괴 상태이면
+- 자신의 최대 저항의 20% 회복""",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+87,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.ClearOrNull_NeverLeavesVisibleStaleValues,Assets/Game/Tests/PlayMode/SkillInfoViewPlayModeTests.cs:508,"Expected: String containing ""3–4""
+  But was:  ""2–3""",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+88,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.EveryAuthoredSkill_FitsTheSame334PixelCardAsPlayerEnemyAndOwned,Assets/Game/Tests/PlayMode/SkillInfoViewPlayModeTests.cs:445,"Every row of the shipped sheet, temporary and counter rows included.
+  Expected: 53
+  But was:  55",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+89,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.EveryImplementedSkill_ShowsItsActualCostPowerAndHitCount,Assets/Game/Tests/PlayMode/SkillInfoViewPlayModeTests.cs:53,"베기
+  String lengths are both 3. Strings differ at index 0.
+  Expected: ""3–4""
+  But was:  ""2–3""
+  -----------^",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+90,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.KeywordsAndConditions_ExplainTheStartingSchoolsWithoutChangingRules,Assets/Game/Tests/PlayMode/SkillInfoViewPlayModeTests.cs:127,"Expected: String containing ""저항 -15"" and containing ""방어 대응""
+  But was:  ""저항 -18
+방어 대응""",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+91,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.OwnedSkill_ShowsCompactProgressOnlyOnThePlayersCard,Assets/Game/Tests/PlayMode/SkillInfoViewPlayModeTests.cs:560,"Expected string length 4 but was 3. Strings differ at index 0.
+  Expected: ""9–10""
+  But was:  ""8–9""
+  -----------^",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+92,P1 제안,기존: 테스트/조회 예외 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.SkillInfoViewPlayModeTests.RecoverySteal_ShowsItsAttackConditionNextTurnTimingAndOncePerTurnBadge,Assets/Game/Tests/PlayMode/SkillInfoViewPlayModeTests.cs:714,System.InvalidOperationException : Missing authored skill 62,테스트 스택 위치에서 null 조회 또는 스킬 포함 조건부터 확인. 실제 게임 예외 여부 별도 재현.
+93,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.SkillKeywordHoverPlayModeTests.CommonTerms_ExplainMeaningAndTunedStatusPercentages,Assets/Game/Tests/PlayMode/SkillKeywordHoverPlayModeTests.cs:110,"Expected: String containing ""같은 칸"" and String containing ""공격 기술"" and String containing ""다음 턴"" and String containing ""최소 1"" and String containing ""실제 줄인 양"" and containing ""턴당 1회""
+  But was:  ""사용 시 같은 칸의 상대가 공격 기술을 쓰면 다음 턴 ACT 회복량을 빼앗습니다. 상대는 최소 1을 회복하고, 빼앗은 만큼 내 회복량이 늘어납니다. 기술마다 턴당 1회까지 빼앗을 수 있습니다.""",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+94,P1 제안,기존: 입력/접촉 동작 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.SkillLaneStylePlayModeTests.CombatInputs_KeepStandaloneQweKeysAndAddNonBlockingSchoolNames,Assets/Game/Tests/PlayMode/SkillLaneStylePlayModeTests.cs:287,"School decoration does not change the lane button callback.
+  Expected: 0
+  But was:  -1",클릭·raycast 또는 다단 타격 재접촉 조건을 에디터에서 재현. 테스트 준비/좌표 문제와 실제 실패 구분.
+95,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.SkillLaneStylePlayModeTests.CurriculumDetail_ShowsTheGrantedSkillsSchoolWhileKeepingTypeAndPower,Assets/Game/Tests/PlayMode/SkillLaneStylePlayModeTests.cs:261,"Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+96,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.SkillLaneStylePlayModeTests.CycleSkill_ShowsBattleUsesAndCurrentCostOnTheWCommandWindow,Assets/Game/Tests/PlayMode/SkillLaneStylePlayModeTests.cs:76,"String lengths are both 5. Strings differ at index 1.
+  Expected: ""10–15""
+  But was:  ""11–16""
+  ------------^",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+97,P2 제안,기존: 데이터/UI 사양·기대값 검토,기존 실패; 10월 24일 main 재현 이력; 최신 main 미재검증,TurnLimbo.Presentation.Tests.SkillLaneStylePlayModeTests.LoadoutHeadingsAndSelectedDetails_ShowSchoolWithoutChangingThreeSlotRules,Assets/Game/Tests/PlayMode/SkillLaneStylePlayModeTests.cs:212,"Nine lane skills and one unequipped counter remain unchanged.
+  Expected: 10
+  But was:  12",기술 수·트리·표시 문구·가격·카드 계층을 현 사양과 대조. 현재 기능 계약을 유지해 테스트/구현 수정.
+98,P2 제안,기존: 카메라/레이아웃 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.SlowMotionFramingPlayModeTests.StepAndDecisiveSlowMotion_EnlargeAndFrameThePlayer_WithHerFeetAboveTheHud_AtBothAspects,Assets/Game/Tests/PlayMode/SlowMotionFramingPlayModeTests.cs:43,"The player owns the close-up, not the opponent who received the hit.
+  Expected: in range (0.34,0.66)
+  But was:  0.259665132f",대표 화면비에서 실제 가림·잘림을 렌더 검증. 좌표계·앵커와 낡은 고정 수치를 구분.
+99,P2 제안,main 신규: 밸런스/시나리오 기대값 검토,최신 main 단독 재현: 동일 메시지 (773dec6),TurnLimbo.Presentation.Tests.StatusStripPlayModeTests.Breakthrough_RemovesTheHoveredProtectionOnItsStartFrame_WhileVulnerabilityStaysVisible,Assets/Game/Tests/PlayMode/StatusStripPlayModeTests.cs:387,"Expected: 10
+  But was:  16",현재 skills.csv와 의도한 규칙 확인 후 표시·시나리오 기대값 동기화. 실제 동작이 틀리면 구현 수정.
+100,P1 제안,기존: 입력/접촉 동작 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.StatusStripPlayModeTests.IiaJealousy_CanBeExplainedAtZeroBeforeCombatAndAfterConsumption,Assets/Game/Tests/PlayMode/StatusStripPlayModeTests.cs:75,"The live status icon must receive mouse hits: Status Symbol
+  Expected: greater than 0
+  But was:  0",클릭·raycast 또는 다단 타격 재접촉 조건을 에디터에서 재현. 테스트 준비/좌표 문제와 실제 실패 구분.
+101,P2 제안,기존: 카메라/레이아웃 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.StepFeedbackPlayModeTests.SuccessfulStep_SlowsCustomClock_DarkensOnlyBackdrop_AndFocusesCamera,Assets/Game/Tests/PlayMode/StepFeedbackPlayModeTests.cs:36,"Expected: less than -1.36575007f
+  But was:  -1.0608536f",대표 화면비에서 실제 가림·잘림을 렌더 검증. 좌표계·앵커와 낡은 고정 수치를 구분.
+102,P1 제안,기존: 입력/접촉 동작 조사,기존 art 기준에서도 실패; 최신 main 단독 미검증,TurnLimbo.Presentation.Tests.StepInputPlayModeTests.PressureMultiHit_AfterFirstImpactWaitsForContactAgainWhileKnockbackIsMoving,Assets/Game/Tests/PlayMode/StepInputPlayModeTests.cs:153,"Expected: True
+  But was:  False",클릭·raycast 또는 다단 타격 재접촉 조건을 에디터에서 재현. 테스트 준비/좌표 문제와 실제 실패 구분.
