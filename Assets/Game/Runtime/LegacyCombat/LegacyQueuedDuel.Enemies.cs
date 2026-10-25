@@ -19,11 +19,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacyQueuedDuel(int playerHealth, int playerResistance, IReadOnlyList<LegacySkill> playerSkills,
             IReadOnlyList<LegacyEnemyDefinition> enemies, int randomSeed = 1, LegacyCounter playerCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
-            int roundLimit = int.MaxValue, int meshPercent = LegacyMeshing.DefaultPercent, int playerHealthFloor = 0)
+            int roundLimit = int.MaxValue, int meshPercent = LegacyMeshing.DefaultPercent, int playerHealthFloor = 0,
+            bool usePowerBreak = false)
             : this(playerHealth, playerResistance, FirstEnemy(enemies).Health, FirstEnemy(enemies).Resistance,
                 playerSkills, FirstEnemy(enemies).Script, randomSeed, playerCounter: playerCounter,
                 features: features, playerActGainBonus: playerActGainBonus, playerActCapacityBonus: playerActCapacityBonus,
-                roundLimit: roundLimit, meshPercent: meshPercent, playerHealthFloor: playerHealthFloor)
+                roundLimit: roundLimit, meshPercent: meshPercent, playerHealthFloor: playerHealthFloor, usePowerBreak: usePowerBreak)
         {
             enemyDefinitions = new LegacyEnemyDefinition[enemies.Count];
             for (int i = 0; i < enemies.Count; i++)
@@ -72,7 +73,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (slotIndex < 0) return LivingEnemyFallback(activeEnemyIndex);
             int owner = EnemyOwnerAtSlot(slotIndex);
-            if (owner >= 0 && !IsEnemySlotCanceled(slotIndex) && !enemyStates[owner].IsDefeated) return owner;
+            if (owner >= 0 && (!IsEnemySlotCanceled(slotIndex) || UsePowerBreak && IsEnemySkillDestroyed(slotIndex)) &&
+                !enemyStates[owner].IsDefeated) return owner;
             int previous = LivingEnemyFallback(activeEnemyIndex);
             int currentQueueIndex = tempoExecution && nextSlot < timeSegments.Length
                 ? timeSegments[nextSlot].Enemy?.QueueIndex ?? -1 : nextSlot;
@@ -89,13 +91,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             int owner = EnemyOwnerAtSlot(slotIndex);
             if (owner < 0) return false;
+            if (UsePowerBreak)
+                return IsEnemySkillDestroyed(slotIndex) || enemyDefeatedFrom[owner] >= 0 && slotIndex >= enemyDefeatedFrom[owner];
             if (enemyDefinitions == null)
                 return EnemyBreakCanceledFromSlotIndex >= 0 && slotIndex >= EnemyBreakCanceledFromSlotIndex;
             return (enemyBrokenFrom[owner] >= 0 && slotIndex >= enemyBrokenFrom[owner]) ||
                 (enemyDefeatedFrom[owner] >= 0 && slotIndex >= enemyDefeatedFrom[owner]);
         }
 
-        private bool EnemyCannotCounterThisTurn => Enemy.IsDefeated || (enemyDefinitions == null
+        private bool EnemyCannotCounterThisTurn => Enemy.IsDefeated || !UsePowerBreak && (enemyDefinitions == null
             ? EnemyBreakCanceledFromSlotIndex >= 0 : enemyBrokenFrom[activeEnemyIndex] >= 0);
 
         private static LegacyEnemyDefinition FirstEnemy(IReadOnlyList<LegacyEnemyDefinition> enemies)
@@ -124,7 +128,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 LegacyEnemyDefinition definition = enemyDefinitions == null ? null : enemyDefinitions[i];
                 enemyStates.Add(new LegacyFighterState(definition?.Health ?? enemyMaxHealth,
-                    definition?.Resistance ?? enemyMaxResistance, definition == null ? enemyHealthFloor : 0));
+                    definition?.Resistance ?? enemyMaxResistance, definition == null ? enemyHealthFloor : 0, UsePowerBreak));
                 enemyStatusesByOwner[i] = new LegacyStatusCollection();
                 enemyBrokenFrom[i] = enemyDefeatedFrom[i] = -1;
             }

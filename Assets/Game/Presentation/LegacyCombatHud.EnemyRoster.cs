@@ -8,6 +8,8 @@ namespace TurnLimbo.Presentation
     public sealed partial class LegacyCombatHud
     {
         private static readonly Vector2 EnemyRosterPanelSize = new Vector2(196f, 102f);
+        private Vector2 EnemyRosterSize => displayedSession?.UsePowerBreak == true
+            ? new Vector2(196f, 78f) : EnemyRosterPanelSize;
         private const float EnemyRosterPanelGap = 8f;
         private readonly List<EnemyRosterStatus> enemyRosterStatuses = new List<EnemyRosterStatus>();
         private readonly List<Rect> enemyRosterBlockers = new List<Rect>(8);
@@ -58,13 +60,15 @@ namespace TurnLimbo.Presentation
                 status.Root.gameObject.SetActive(shown);
                 if (!shown) continue;
                 LegacyFighterState state = roster.Enemies[index];
+                status.SetPowerBreakMode(session.UsePowerBreak);
                 status.Refresh(state, delta);
                 bool active = index == highlightedEnemy;
                 Color identity = EnemyIdentityColor(index);
                 status.Frame.color = active ? Accent : new Color(identity.r, identity.g, identity.b, .6f);
                 status.ActiveLine.gameObject.SetActive(active);
-                status.State.text = state.IsResistanceBroken ? "붕괴" : active ? "교전" : string.Empty;
-                status.State.color = state.IsResistanceBroken ? DuelVisualTheme.Danger : Accent;
+                bool broken = session.UsePowerBreak ? active && session.CurrentSlot?.EnemyBrokenGap == true : state.IsResistanceBroken;
+                status.State.text = broken ? session.UsePowerBreak ? "빈틈" : "붕괴" : active ? "교전" : string.Empty;
+                status.State.color = broken ? DuelVisualTheme.Danger : Accent;
                 string name = roster.EnemyName(index);
                 if (status.ShownName != name)
                 {
@@ -77,8 +81,8 @@ namespace TurnLimbo.Presentation
                 Camera hudCamera = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
                 if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(root, screen, hudCamera, out Vector2 position)) continue;
                 Vector2 half = root.rect.size * .5f;
-                position = ClampCenter(position + half + Vector2.up * (EnemyRosterPanelSize.y * .5f + 12f),
-                    EnemyRosterPanelSize) - half;
+                position = ClampCenter(position + half + Vector2.up * (EnemyRosterSize.y * .5f + 12f),
+                    EnemyRosterSize) - half;
                 status.Root.anchoredPosition = position;
                 status.Stack = RosterRect(position);
             }
@@ -134,7 +138,7 @@ namespace TurnLimbo.Presentation
             Vector2 desired = status.Root.anchoredPosition;
             if (RosterPositionClear(desired)) return;
             Vector2 half = root.rect.size * .5f;
-            float halfWidth = EnemyRosterPanelSize.x * .5f, halfHeight = EnemyRosterPanelSize.y * .5f;
+            float halfWidth = EnemyRosterSize.x * .5f, halfHeight = EnemyRosterSize.y * .5f;
             float placementGap = EnemyRosterPanelGap + .5f;
             float bestScore = float.PositiveInfinity;
             Vector2 best = desired;
@@ -174,13 +178,13 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
-        private static Rect RosterRect(Vector2 centre) => new Rect(centre - EnemyRosterPanelSize * .5f, EnemyRosterPanelSize);
+        private Rect RosterRect(Vector2 centre) => new Rect(centre - EnemyRosterSize * .5f, EnemyRosterSize);
         private static Rect Expanded(Rect value, float gap)
             => UnityEngine.Rect.MinMaxRect(value.xMin - gap, value.yMin - gap, value.xMax + gap, value.yMax + gap);
 
         private EnemyRosterStatus BuildEnemyRosterStatus(int index)
         {
-            Image frame = Panel("Enemy Roster Status " + index, root, Vector2.zero, EnemyRosterPanelSize);
+            Image frame = Panel("Enemy Roster Status " + index, root, Vector2.zero, EnemyRosterSize);
             frame.transform.SetSiblingIndex(enemyStatus.Root.GetSiblingIndex() + index + 1);
             var status = new EnemyRosterStatus(frame);
             Image number = Image("Enemy Number Plate", frame.transform, null, new Vector2(-76f, 34f),
@@ -246,7 +250,22 @@ namespace TurnLimbo.Presentation
             public Rect Stack;
             public string ShownName;
             private float delay;
+            private bool powerBreakMode;
             public EnemyRosterStatus(Image frame) { Frame = frame; Root = frame.rectTransform; }
+            public void SetPowerBreakMode(bool enabled)
+            {
+                if (powerBreakMode == enabled) return;
+                powerBreakMode = enabled;
+                Root.sizeDelta = enabled ? new Vector2(196f, 78f) : EnemyRosterPanelSize;
+                foreach (RectTransform child in Root)
+                {
+                    if (child.name == "Surface" || child == ActiveLine) continue;
+                    if (child.name.StartsWith("Resistance", System.StringComparison.Ordinal)) child.gameObject.SetActive(!enabled);
+                    else child.anchoredPosition += new Vector2(0f, enabled ? -12f : 12f);
+                }
+                Values.SetResistanceVisible(!enabled);
+                ActiveLine.anchoredPosition = new Vector2(0f, enabled ? -35f : -48f);
+            }
             public void Refresh(LegacyFighterState state, float delta)
             {
                 Values.Refresh(state);

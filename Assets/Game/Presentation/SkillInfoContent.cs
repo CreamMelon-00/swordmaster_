@@ -5,7 +5,7 @@ namespace TurnLimbo.Presentation
 {
     /// <summary>The two keyword badges and the effect summary of a skill detail, free of any UI object.
     /// Skills with a definition use its copy; the rest use the generic text for their kind and hits.</summary>
-    public readonly struct SkillInfoContent
+    public readonly partial struct SkillInfoContent
     {
         public readonly string Main, Secondary, Description;
         public readonly LegacySkillSymbol MainSymbol, SecondarySymbol;
@@ -19,7 +19,8 @@ namespace TurnLimbo.Presentation
             Description = description;
         }
 
-        public static SkillInfoContent For(LegacySkill skill, bool enemy, bool enemyActRecoveryIsPlayerOnly = true)
+        public static SkillInfoContent For(LegacySkill skill, bool enemy, bool enemyActRecoveryIsPlayerOnly = true,
+            bool usePowerBreak = false)
         {
             LegacySkillDefinition definition = LegacySkillDefinitions.Find(skill);
             LegacySkillInfo info = definition?.Text.Info;
@@ -40,9 +41,9 @@ namespace TurnLimbo.Presentation
                         string.Empty, LegacySkillSymbol.Sword, LegacySkillTone.Neutral,
                         "같은 칸의 상대 기술의 최대 위력으로 공격합니다.\n상대 기술이 없거나 숨고르기면 위력 0.");
                 if (effect.BuffPowerFromPreviousOpponentUses)
-                    content = new SkillInfoContent("강화", LegacySkillSymbol.Followup, LegacySkillTone.Followup,
+                    content = new SkillInfoContent("강화 50%", LegacySkillSymbol.Followup, LegacySkillTone.Followup,
                         string.Empty, LegacySkillSymbol.Followup, LegacySkillTone.Neutral,
-                        "직전 턴 상대가 사용한 기술 수만큼\n강화 50% 횟수를 얻습니다.");
+                        "자신에게 강화 50% 부여\n횟수: 직전 턴 상대가 실제로 사용한 기술 수");
                 if (effect.ConsumeJealousyOnReserve || effect.InflictFixedTurns > 0)
                     content = new SkillInfoContent(effect.ConsumeJealousyOnReserve ? "질투" : "고정",
                         LegacySkillSymbol.Reduction, LegacySkillTone.Reduction,
@@ -100,8 +101,9 @@ namespace TurnLimbo.Presentation
                 LegacySkillEffect effect = definition.Effect;
                 content = new SkillInfoContent(LegacySkillLabels.ActRecoveryStealKeyword, LegacySkillSymbol.Act,
                     LegacySkillTone.Reduction, "효과 턴당 1회", LegacySkillSymbol.Act, LegacySkillTone.Recovery,
-                    info != null ? content.Description : "같은 칸의 상대가 공격 기술을 쓰면\n- 다음 턴 ACT 회복 " +
-                        effect.ActRecoveryStealAmount + " 강탈\n- 효과 턴당 1회");
+                    info != null ? content.Description :
+                        (LegacySkillDefinitions.Table.IsVersus(definition) ? "대전 전용 · " : string.Empty) +
+                        "같은 칸 상대가 공격 기술이면\n- 다음 턴 ACT 회복 " + effect.ActRecoveryStealAmount + " 강탈");
             }
             // Shared effect keywords take precedence over authored copy: queue removal first, then cycle. An authored
             // first badge naming an effect that reads the queue (예약 효과, 사용 효과: 숨고르기 +1, 앞 순환 +1, 일회성, 자동 회피,
@@ -128,16 +130,13 @@ namespace TurnLimbo.Presentation
             if (enemy && enemyActRecoveryIsPlayerOnly && actRecovery)
                 content = new SkillInfoContent(content.Main, content.MainSymbol, content.MainTone, content.Secondary,
                     content.SecondarySymbol, content.SecondaryTone, PlayerOnlyActDescription(content.Description));
+            if (usePowerBreak) content = WithoutResistanceEffects(skill, definition, content);
             if (skill.IsFast || skill.IsCharge)
             {
-                string durationDescription = skill.IsFast
-                    ? "연속된 고속 기술 두 개가 한 칸을 나눠 씁니다. 하나만 쓰면 남은 반 칸을 쉽니다."
-                    : (skill.DurationHalfUnits / 2) + "칸 동안 준비한 뒤 기술을 실행합니다. 준비 중에는 상대의 공격을 받습니다.";
                 content = new SkillInfoContent(skill.IsFast ? "고속" : "차지 " + (skill.DurationHalfUnits / 2) + "칸",
                     skill.IsFast ? LegacySkillSymbol.Followup : LegacySkillSymbol.Sword,
                     skill.IsFast ? LegacySkillTone.Followup : LegacySkillTone.HighPower,
-                    content.Main, content.MainSymbol, content.MainTone,
-                    durationDescription + (string.IsNullOrEmpty(content.Description) ? string.Empty : "\n" + content.Description));
+                    content.Main, content.MainSymbol, content.MainTone, content.Description);
             }
             return content;
         }

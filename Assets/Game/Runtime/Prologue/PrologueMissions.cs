@@ -77,13 +77,13 @@ namespace TurnLimbo.Runtime.Prologue
             // Resistance 8 matches the coached 베기 + 연속 베기's minimum rolls (2 + 3 + 3) after the 2026-10-25
             // balance adjustment, preserving the first-turn break taught by the coach.
             new PrologueMission(2, "인사는 칼로", Forest,
-                new[] { "맞부딪쳐 상대의 저항을 무너뜨린다", "떠돌이 기사를 쓰러뜨린다" },
+                new[] { LegacyPowerBreakRules.PrototypeEnabled ? "공격끼리 맞붙을 때의 위력 차이를 확인한다" : "맞부딪쳐 상대의 저항을 무너뜨린다", "떠돌이 기사를 쓰러뜨린다" },
                 new[] { new MissionEnemy("떠돌이 기사", EnemySilhouette) },
                 36, 8, new MissionSkill[] { PracticeSlash, PracticeSlash, PracticeDownwardSlash }, new[] { 2, 1 },
                 new[] { Slash, DoubleSlash }, false, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "상대도 공격합니다",
-                        "상대도 대기열에 공격을 예약합니다. 같은 칸의 공격끼리 맞붙으면 체력보다 저항이 먼저 줄어듭니다.", Continue),
+                        LegacyPowerBreakRules.PrototypeEnabled ? "상대도 대기열에 공격을 예약합니다. 같은 칸의 공격끼리 맞붙으면 양쪽 위력을 비교하고 체력에 피해를 줍니다." : "상대도 대기열에 공격을 예약합니다. 같은 칸의 공격끼리 맞붙으면 체력보다 저항이 먼저 줄어듭니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Inspect, "상대의 기술을 살펴보세요",
                         "상대 대기열에는 이번 턴에 쓸 기술이 보입니다. Tab을 누르고 있으면 선택한 칸의 기술 설명이 열립니다.",
                         "Tab 누르고 있기 · 좌우 방향키로 칸 확인"),
@@ -94,7 +94,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "두 공격을 확정하세요",
                         "상대의 두 공격과 같은 칸에 기술을 예약했습니다. 확정하면 이 순서로 전투를 시작합니다.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "공격끼리 맞붙습니다",
-                        "공격끼리 대결하면 저항이 줄어듭니다. 저항이 무너지면 받는 체력 피해가 2배가 되고, 캐릭터에 붉은 윤곽이 생깁니다.", Watch),
+                        LegacyPowerBreakRules.PrototypeEnabled ? "공격끼리 위력 차이가 " + LegacyPowerBreakRules.MinimumPowerDifference + " 이상이면 약한 쪽이 붕괴해 다음 기술 하나가 파괴됩니다. 파괴된 빈칸에 들어오는 공격 피해는 2배입니다. 방어는 붕괴당하지 않습니다." : "공격끼리 대결하면 저항이 줄어듭니다. 저항이 무너지면 받는 체력 피해가 2배가 되고, 캐릭터에 붉은 윤곽이 생깁니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Info, "턴이 시작될 때 ACT를 회복합니다",
                         "턴이 시작될 때 ACT를 3 회복합니다. {기술:1:를} 썼다면 다음 턴에 1을 더 회복합니다. 남은 ACT는 다음 턴으로 이어지며 최대 10까지 모입니다.",
                         Continue, focusAct: true),
@@ -102,7 +102,7 @@ namespace TurnLimbo.Runtime.Prologue
                         "Shift를 누르면 열의 맨 앞 기술을 쓰지 않고 맨 뒤로 보냅니다. ACT는 쓰지 않지만, 제한 시간이 있는 전투에서는 쓸 때마다 남은 시간이 1초 줄어듭니다. {기술:2:를} 맨 앞으로 가져오세요.",
                         "Shift / 넘기기 버튼"),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "무너진 틈을 노리세요",
-                        "넘기기로 쓸 기술을 고르고, 저항이 무너진 상대에게 공격을 몰아치세요.", FreeKeys),
+                        LegacyPowerBreakRules.PrototypeEnabled ? "넘기기로 쓸 기술을 고르고, 강한 공격 뒤에 후속 공격을 배치해 파괴된 빈틈을 노리세요." : "넘기기로 쓸 기술을 고르고, 저항이 무너진 상대에게 공격을 몰아치세요.", FreeKeys),
                 }, features: QWithCycle, encounter: EncounterKind.Duel),
             // 3. The enemy also guards: defence reduces the same slot's damage; 막기 against a Hit-property attack refunds ACT.
             new PrologueMission(3, "받아내는 법", Forest,

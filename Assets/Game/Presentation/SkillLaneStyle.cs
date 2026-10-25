@@ -84,7 +84,7 @@ namespace TurnLimbo.Presentation
         {
             if (skill == null || skill.IsWait) { Clear(); return; }
             if (ReferenceEquals(Skill, skill) && Root.gameObject.activeSelf) return;
-            SkillInfoContent content = SkillInfoContent.For(skill, false);
+            SkillInfoContent content = SkillInfoContent.ForPrototype(skill, false);
             Skill = skill;
             Symbol = content.MainSymbol;
             Tone = content.MainTone;

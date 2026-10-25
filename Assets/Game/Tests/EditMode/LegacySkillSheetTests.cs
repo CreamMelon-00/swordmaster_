@@ -202,7 +202,8 @@ namespace TurnLimbo.Core.Tests
         public void RowNumbers_CountAMultiLineCellAsOneRow()
         {
             List<string[]> rows = Rows();
-            Assert.That(RowOf(rows, 1)[Index(Column.Detail)], Does.Contain("\n"), "베기's detail spans two lines.");
+            Set(rows, 1, Column.Detail, "첫 번째 줄\n두 번째 줄");
+            Assert.That(RowOf(rows, 1)[Index(Column.Detail)], Does.Contain("\n"), "The fixture detail spans two lines.");
             Set(rows, 2, Column.Hits, "0");
             Assert.That(Problem(rows), Is.EqualTo($"{Row2}행 '타수': '0'은(는) 1 이상의 정수여야 합니다."));
         }
@@ -738,9 +739,9 @@ namespace TurnLimbo.Core.Tests
         [TestCase(Column.UseEffect, "보호 소모 위력 -10")]
         [TestCase(Column.UseEffect, "앞 공격 총타수 0 이상 위력 +12")]
         [TestCase(Column.UseEffect, "앞 공격 총타수 21 이상 위력 +12")]
-        [TestCase(Column.UseEffect, "앞 공격 총타수 5 이상 위력 +0")]
-        [TestCase(Column.UseEffect, "앞 공격 총타수 5 이상 위력 +51")]
-        [TestCase(Column.UseEffect, "앞 공격 총타수 5 초과 위력 +12")]
+        [TestCase(Column.UseEffect, "앞 공격 횟수 5 이상 위력 +0")]
+        [TestCase(Column.UseEffect, "앞 공격 횟수 5 이상 위력 +51")]
+        [TestCase(Column.UseEffect, "앞 공격 횟수 5 초과 위력 +12")]
         public void PhraseColumns_RefuseOtherPhrases_NamingTheOnesTheyRead(string column, string cell)
         {
             const int row3 = 4;
@@ -752,7 +753,7 @@ namespace TurnLimbo.Core.Tests
                 : "비워 두거나 앞 <대상>마다 위력 +N (최대 M)(<대상>은 숨고르기, 순환 기술, 저항 감소 기술, N은 1~10, M은 1~4의 정수, " +
                     "예: 앞 숨고르기마다 위력 +4 (최대 4)), 앞 <대상>마다 다음 턴 제한시간 +N초 (최대 M)(N은 1~3, M은 1~3의 정수, " +
                     "예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), 자동 회피, " +
-                    "보호 소모 위력 +N, 앞 공격 총타수 M 이상 위력 +N(N은 1~50, M은 1~20의 정수), " +
+                    "보호 소모 위력 +N, 앞 공격 횟수 M 이상 위력 +N(N은 1~50, M은 1~20의 정수), " +
                     "상대 ACT N 이상이면 ACT M 강탈(N과 M은 1~10의 정수), " +
                     "상대 공격 시 다음 턴 ACT 회복 N 강탈(N은 1~10의 정수, 효과 턴당 1회), " +
                     "자신에게 출혈 N 부여, 상대에게 출혈 N 부여, 상대가 출혈 상태면 출혈 N로 대체, 자신의 출혈 N 감소, " +
@@ -772,7 +773,7 @@ namespace TurnLimbo.Core.Tests
             {
                 List<string[]> rows = Rows();
                 Set(rows, 60, Column.UseEffect, "보호 소모 위력 +" + bonus);
-                Set(rows, 61, Column.UseEffect, $"앞 공격 총타수 {required} 이상 위력 +{bonus}");
+                Set(rows, 61, Column.UseEffect, $"앞 공격 횟수 {required} 이상 위력 +{bonus}");
                 LegacySkillTable parsed = Parse(rows);
                 LegacySkillTable reread = LegacySkillSheet.Parse("new use effects", LegacySkillSheet.Write(parsed));
                 foreach (LegacySkillTable table in new[] { parsed, reread })
@@ -790,7 +791,7 @@ namespace TurnLimbo.Core.Tests
         }
 
         [TestCase("보호 소모 위력 +10")]
-        [TestCase("앞 공격 총타수 5 이상 위력 +12")]
+        [TestCase("앞 공격 횟수 5 이상 위력 +12")]
         public void NewAttackUseEffects_RejectGuardRows(string phrase)
         {
             List<string[]> rows = Rows();

@@ -10,6 +10,8 @@ namespace TurnLimbo.Presentation
     {
         public const string CombatReadoutName = "Combat Readout";
         private const float ReadoutWidth = 600f, ReadoutHeight = 60f, ReadoutGap = 8f;
+        private float ReadoutShownHeight => displayedSession?.UsePowerBreak == true &&
+            (PowerClashVisible || ActivePowerNumberFragmentCount > 0) ? 134f : ReadoutHeight;
         private RectTransform combatReadout;
         private Text combatReadoutPair, combatReadoutResult;
         private LegacySlotFacts readoutFacts = LegacySlotFacts.None;
@@ -23,7 +25,7 @@ namespace TurnLimbo.Presentation
         public int CombatReadoutSlot => disposed ? -1 : readoutFacts.SlotIndex;
         /// <summary>The readout's top in HUD units from the screen's bottom; zero while hidden.</summary>
         public float CombatReadoutTop => disposed || combatReadout == null || !combatReadout.gameObject.activeSelf ? 0f
-            : combatReadout.anchoredPosition.y + ReadoutCanvasHeight * .5f + ReadoutHeight * .5f;
+            : combatReadout.anchoredPosition.y + ReadoutCanvasHeight * .5f + ReadoutShownHeight * .5f;
         private float ReadoutCanvasHeight => root.rect.height > 1f ? root.rect.height : 1080f;
 
         private void BuildCombatReadout()
@@ -89,7 +91,12 @@ namespace TurnLimbo.Presentation
                         (playerAction != null && !timing.PlayerActionCompletes ? " (준비 중)" : string.Empty) +
                         "  ↔  " + readoutOpponent + " " + (enemyAction?.Name ?? "빈자리") +
                         (enemyAction != null && !timing.EnemyActionCompletes ? " (준비 중)" : string.Empty);
-                string result = LegacyClashReadout.Result(facts);
+                if (session.UsePowerBreak)
+                    pair = "내 " + (slot.PlayerBrokenGap ? "파괴된 빈틈 ×2" : playerAction?.Name ?? "빈자리") +
+                        (timing != null && playerAction != null && !timing.PlayerActionCompletes ? " (준비 중)" : string.Empty) +
+                        "  ↔  " + readoutOpponent + " " + (slot.EnemyBrokenGap ? "파괴된 빈틈 ×2" : enemyAction?.Name ?? "빈자리") +
+                        (timing != null && enemyAction != null && !timing.EnemyActionCompletes ? " (준비 중)" : string.Empty);
+                string result = session.UsePowerBreak ? LegacyClashReadout.PowerBreakResult(facts) : LegacyClashReadout.Result(facts);
                 if (combatReadoutPair.text != pair) combatReadoutPair.text = pair;
                 if (combatReadoutResult.text != result) combatReadoutResult.text = result;
             }
@@ -100,9 +107,13 @@ namespace TurnLimbo.Presentation
         {
             ObserveCombatReadout(session);
             if (combatReadout == null || !combatReadout.gameObject.activeSelf) return;
+            combatReadout.sizeDelta = new Vector2(ReadoutWidth, ReadoutShownHeight);
+            bool numbers = ReadoutShownHeight > ReadoutHeight;
+            combatReadoutPair.rectTransform.anchoredPosition = new Vector2(0f, numbers ? -17f : 15f);
+            combatReadoutResult.rectTransform.anchoredPosition = new Vector2(0f, numbers ? -47f : -13f);
             float coachTop = explanationFloor > 0f ? ScreenPosition(new Vector3(0f, explanationFloor, 0f)).y : 0f;
             float bottom = Mathf.Max(queueRowTop, coachTop) + ReadoutGap;
-            combatReadout.anchoredPosition = new Vector2(0f, bottom + ReadoutHeight * .5f - ReadoutCanvasHeight * .5f);
+            combatReadout.anchoredPosition = new Vector2(0f, bottom + ReadoutShownHeight * .5f - ReadoutCanvasHeight * .5f);
         }
 
         private void ResetCombatReadout()

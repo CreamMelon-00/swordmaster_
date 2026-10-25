@@ -61,7 +61,40 @@ namespace TurnLimbo.Presentation
             }
 
             private bool IdentityVisible(int slot)
-                => player || visibilitySession == null || visibilitySession.IsEnemySkillRevealed(slot);
+                => !IsDestroyedGap(slot) && (player || visibilitySession == null || visibilitySession.IsEnemySkillRevealed(slot));
+
+            private bool IsDestroyedGap(int slot)
+            {
+                if (visibilitySession?.UsePowerBreak != true) return false;
+                if (player) return !visibilitySession.Player.IsDefeated && visibilitySession.IsPlayerSkillDestroyed(slot);
+                if (!visibilitySession.IsEnemySkillDestroyed(slot)) return false;
+                // Destruction remains in the turn's history after death. Its damage window belongs only to its
+                // original living owner, never to the ally who later takes over that owner's empty time.
+                if (visibilitySession is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1)
+                {
+                    int owner = roster.EnemyOwnerAtSlot(slot);
+                    return owner >= 0 && owner < roster.Enemies.Count && !roster.Enemies[owner].IsDefeated;
+                }
+                return !visibilitySession.Enemy.IsDefeated;
+            }
+
+            private void HideDestroyedCardMarks()
+            {
+                if (visibilitySession?.UsePowerBreak != true) return;
+                for (int slot = 0; slot < icons.Count; slot++)
+                {
+                    if (!IsDestroyedGap(slot)) continue;
+                    counterMarks[slot].SetActive(false);
+                    cycleMarks[slot].gameObject.SetActive(false);
+                    keywordMarks[slot].gameObject.SetActive(false);
+                    feedback[slot].Clear();
+                    if (slot < meshMarks.Count) meshMarks[slot].gameObject.SetActive(false);
+                    if (slot < forecastMarks.Count) forecastMarks[slot].gameObject.SetActive(false);
+                    if (slot < queuePowerSourceMarks.Count) queuePowerSourceMarks[slot].gameObject.SetActive(false);
+                    if (slot < queuePowerTargetMarks.Count) queuePowerTargetMarks[slot].gameObject.SetActive(false);
+                    if (slot < dodgeStrikes.Count) dodgeStrikes[slot].SetActive(false);
+                }
+            }
 
             private bool RefreshCardIdentity(int index, LegacySkill skill, Func<int, Sprite> iconFor)
             {

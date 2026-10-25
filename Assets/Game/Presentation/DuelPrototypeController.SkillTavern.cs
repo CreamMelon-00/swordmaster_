@@ -89,7 +89,8 @@ namespace TurnLimbo.Presentation
         private bool StartSkillTavernBattle()
         {
             if (skillTavernBattle == null)
-                skillTavernBattle = new SkillTavernBattle(skillTavernRun, System.Environment.TickCount);
+                skillTavernBattle = new SkillTavernBattle(skillTavernRun, System.Environment.TickCount,
+                    usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             if (!skillTavernBattle.TryStartTurn()) return false;
             skillTavernCampaignSession = session;
             skillTavernResult = false;

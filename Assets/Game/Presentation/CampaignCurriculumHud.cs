@@ -834,7 +834,7 @@ namespace TurnLimbo.Presentation
         {
             var parts = new List<string>(5);
             if (reward.Health > 0) parts.Add("최대 체력 +" + reward.Health);
-            if (reward.Resistance > 0) parts.Add("최대 저항 +" + reward.Resistance);
+            if (!LegacyPowerBreakRules.PrototypeEnabled && reward.Resistance > 0) parts.Add("최대 저항 +" + reward.Resistance);
             if (reward.ActGain > 0) parts.Add("매 턴 ACT 회복 +" + reward.ActGain);
             if (reward.ActCapacity > 0) parts.Add("ACT 상한 +" + reward.ActCapacity);
             if (reward.PlanningSeconds > 0) parts.Add("일반 스테이지 제한시간 +" + reward.PlanningSeconds + "초");

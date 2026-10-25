@@ -64,12 +64,14 @@ namespace TurnLimbo.Presentation
                 {
                     LegacySkill candidate = session.EnemyQueue[slot];
                     int owner = roster.EnemyOwnerAtSlot(slot);
+                    bool brokenGap = session.UsePowerBreak && session.IsEnemySkillDestroyed(slot);
                     if (candidate == null || owner < 0 || owner >= roster.Enemies.Count ||
-                        roster.IsEnemySlotCanceled(slot) || roster.Enemies[owner].IsDefeated) continue;
+                        roster.IsEnemySlotCanceled(slot) && !brokenGap || roster.Enemies[owner].IsDefeated) continue;
                     if (owner != arena.ActiveEnemyIndex)
                     {
                         upcoming = owner;
-                        skill = candidate;
+                        // The owner still occupies a destroyed reservation's time, without preparing its lost skill.
+                        skill = brokenGap ? null : candidate;
                     }
                     // A consecutive action by the same owner keeps that owner on the line; do not stage a later one.
                     break;

@@ -182,13 +182,13 @@ namespace TurnLimbo.Core.Tests
             var duel = new LegacyQueuedDuel(1000, 1000, 1000, 1000,
                 new[] { Attack(88010, 2), Attack(88011, 3), chase }, Array.Empty<LegacySkill>(), new[] { 0 },
                 playerActGainBonus: 7, meshPercent: 0);
-            Assert.That(LegacyKeywordPreview.LaneLine(duel, chase), Is.EqualTo("총타수 0/4 · +0"));
+            Assert.That(LegacyKeywordPreview.LaneLine(duel, chase), Is.EqualTo("공격 횟수 0/4 · +0"));
             KeywordLinkTests.Queue(duel, Q, Q);
-            Assert.That(LegacyKeywordPreview.LaneLine(duel, chase), Is.EqualTo("총타수 5/4 · +14"));
-            Assert.That(LegacyKeywordPreview.Note(duel, chase), Is.EqualTo("서로 다른 앞 공격 총타수 5/4 · 지금 예약하면 기본 위력 +14"));
+            Assert.That(LegacyKeywordPreview.LaneLine(duel, chase), Is.EqualTo("공격 횟수 5/4 · +14"));
+            Assert.That(LegacyKeywordPreview.Note(duel, chase), Is.EqualTo("서로 다른 앞 공격 횟수 5/4 · 지금 예약하면 기본 위력 +14"));
             KeywordLinkTests.Queue(duel, E);
             LegacyKeywordMark mark = LegacyKeywordPreview.QueueMark(duel, true, 2, true);
-            Assert.That((mark.Text, mark.Kind, mark.Spent), Is.EqualTo(("총타수 +14", LegacyKeywordMarkKind.AheadHitPower, false)));
+            Assert.That((mark.Text, mark.Kind, mark.Spent), Is.EqualTo(("공격 횟수 +14", LegacyKeywordMarkKind.AheadHitPower, false)));
             Assert.That(LegacyKeywordPreview.LaneLine(duel, chase), Is.EqualTo(LegacyKeywordPreview.UsedThisTurn));
             KeywordLinkTests.Queue(duel, E);
             mark = LegacyKeywordPreview.QueueMark(duel, true, 3, true);

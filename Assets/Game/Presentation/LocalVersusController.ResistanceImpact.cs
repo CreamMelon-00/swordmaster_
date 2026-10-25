@@ -27,9 +27,9 @@ namespace TurnLimbo.Presentation
         {
             battleHud.SetSkillFeedback(slot);
             activationCue.Show(true, slot.PlayerSkill, slot.PlayerFeedback, KeywordCue(view.PlayerQueue, slot.SlotIndex,
-                view.ForPlayer(slot.Source.LeftPlanningSecondsGained, slot.Source.RightPlanningSecondsGained)));
+                view.ForPlayer(slot.Source.LeftPlanningSecondsGained, slot.Source.RightPlanningSecondsGained), view.UsePowerBreak));
             activationCue.Show(false, slot.EnemySkill, slot.EnemyFeedback, KeywordCue(view.EnemyQueue, slot.SlotIndex,
-                view.ForEnemy(slot.Source.LeftPlanningSecondsGained, slot.Source.RightPlanningSecondsGained)));
+                view.ForEnemy(slot.Source.LeftPlanningSecondsGained, slot.Source.RightPlanningSecondsGained), view.UsePowerBreak));
             resistanceFeedback.Show(true, view.Player.Resistance - playerBefore);
             resistanceFeedback.Show(false, view.Enemy.Resistance - enemyBefore);
             AnnounceBreaks(playerWasBroken, enemyWasBroken);

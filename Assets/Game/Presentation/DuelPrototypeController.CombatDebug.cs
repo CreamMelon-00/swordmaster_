@@ -200,7 +200,7 @@ namespace TurnLimbo.Presentation
             mission = null;
             guide = null;
             session = LegacyCombatDebugSession.Create(combatDebugEnemyCount, combatDebugPlayerCount,
-                useFeaturedTechnique: combatDebugDeepThrustEnabled);
+                useFeaturedTechnique: combatDebugDeepThrustEnabled, usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             // Reset the same arena/HUD as a real attempt, preserving this sample's already arranged queues.
             ResetBattlePresentation();
             hud.SetStageText("전투 연출 확인");

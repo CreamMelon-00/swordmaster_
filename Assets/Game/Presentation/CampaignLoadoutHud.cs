@@ -404,8 +404,7 @@ namespace TurnLimbo.Presentation
             if (State.CounterMode) detailStyle.Clear("반격 · 턴당 " + CounterUses(skill.Id) + "회");
             else detailStyle.SetLane(skill.LaneIndex, true);
             detailName.text = skill.Name;
-            detailInfo.SetSkill(skill, owned: owned, effectiveCost: State.CounterMode ? 0 : (int?)null,
-                additionalDescription: State.CounterMode ? "내 칸이 비었을 때 상대 공격에 자동으로 대응합니다." : null);
+            detailInfo.SetSkill(skill, owned: owned, effectiveCost: State.CounterMode ? 0 : (int?)null);
             LayoutDetail();
         }
 

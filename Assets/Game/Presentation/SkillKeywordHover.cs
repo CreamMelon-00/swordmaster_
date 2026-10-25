@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈", "질투", "고정", "고속", "차지", "긴장" };
+        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "공격 횟수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "반격", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈", "질투", "고정", "고속", "차지", "긴장" };
         // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
         // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
@@ -128,10 +128,11 @@ namespace TurnLimbo.Presentation
                         "기술당 1회 적용되며 최대 ACT를 넘지 않습니다. ACT가 없는 적에게는 적용되지 않습니다.";
                     return true;
                 case "보호 소모":
-                    explanation = "사용 시 남은 보호를 모두 소모해 부가 위력을 얻습니다. 보호가 없으면 부가 위력을 얻지 못합니다.";
+                    explanation = "사용 시 남은 보호를 모두 소모해 부가 위력을 얻습니다. 보호가 없으면 부가 위력을 얻지 못합니다. " +
+                        "소모한 보호는 같은 칸에서 받는 공격에도 적용되지 않습니다.";
                     return true;
-                case "총타수":
-                    explanation = "이번 턴 앞에 예약한 공격 기술의 타수 합입니다. 같은 기술은 한 번만 세며, 방어·숨고르기는 제외합니다.";
+                case "공격 횟수":
+                    explanation = "이번 턴 앞에 예약한 기술의 원래 공격 횟수를 합산합니다. 같은 기술은 한 번만 세며, 방어·숨고르기는 제외합니다.";
                     return true;
                 case "강화":
                     explanation = LegacyStatusNames.Description(LegacyStatusKind.PowerUp, 0);
@@ -155,7 +156,10 @@ namespace TurnLimbo.Presentation
                         "빠진 기술은 열 맨 앞으로 돌아오지 않습니다.";
                     return true;
                 case "붕괴":
-                    explanation = "저항이 0인 상태입니다. 회복되기 전까지 받는 체력 피해가 2배가 됩니다.";
+                    explanation = LegacyPowerBreakRules.PrototypeEnabled
+                        ? "공격끼리 합을 칠 때 최종 위력 차이가 " + LegacyPowerBreakRules.MinimumPowerDifference +
+                            " 이상이면 약한 쪽의 다음 기술 하나가 파괴됩니다. 파괴된 자리만 빈칸으로 남으며, 그 자리에 들어오는 공격 피해는 2배입니다. 방어 기술은 붕괴당하지 않습니다."
+                        : "저항이 0인 상태입니다. 회복되기 전까지 받는 체력 피해가 2배가 됩니다.";
                     return true;
                 case "맞물림":
                     explanation = "서로 다른 검술의 기술을 연달아 예약하면, 연결된 기술 수 × 10%만큼 위력이 증가합니다.";
@@ -166,6 +170,9 @@ namespace TurnLimbo.Presentation
                     return true;
                 case "회피":
                     explanation = "같은 칸의 상대 공격을 모두 피합니다. 스텝 회피는 다음 턴 ACT가 줄지만 자동 회피는 줄지 않습니다.";
+                    return true;
+                case "반격":
+                    explanation = "내 칸이 비었을 때 상대 공격에 자동으로 대응합니다. ACT를 소모하지 않으며, 표시된 횟수만큼 턴마다 사용할 수 있습니다.";
                     return true;
                 case "일회성":
                     explanation = "열 맨 앞에 잠깐 생기는 기술로, 예약하거나 턴이 끝나면 사라집니다.";

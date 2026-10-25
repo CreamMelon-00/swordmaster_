@@ -553,7 +553,8 @@ namespace TurnLimbo.Runtime.Campaign
 
         /// <param name="meshPercent">맞물림's power percent per chained skill for this duel
         /// (<see cref="LegacyQueuedDuel.MeshPercent"/>); 0 switches it off.</param>
-        public LegacyQueuedDuel CreateDuel(int randomSeed = 1, int meshPercent = LegacyMeshing.DefaultPercent)
+        public LegacyQueuedDuel CreateDuel(int randomSeed = 1, int meshPercent = LegacyMeshing.DefaultPercent,
+            bool usePowerBreak = false)
         {
             CurriculumStatReward stats = CurriculumStats;
             LegacyCounter playerCounter = equippedCounter == null ? null : new LegacyCounter(equippedCounter.Skill,
@@ -567,12 +568,13 @@ namespace TurnLimbo.Runtime.Campaign
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                     TrainingDummyHealth, 0, playerSkills, Array.Empty<LegacySkill>(), new[] { 0 }, randomSeed,
                     playerCounter: playerCounter, features: Features, playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity,
-                    roundLimit: TrainingRoundLimit, meshPercent: meshPercent);
+                    roundLimit: TrainingRoundLimit, meshPercent: meshPercent, usePowerBreak: usePowerBreak);
 
             if (CurrentStage.Number == 5)
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                     playerSkills, StageFiveEnemies(), randomSeed, playerCounter: playerCounter, features: Features,
-                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
+                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent,
+                    usePowerBreak: usePowerBreak);
 
             LegacyCounter enemyCounter = CurrentStage.EnemyCounterBasis == null ? null
                 : new LegacyCounter(WithStagePower(CurrentStage.EnemyCounterBasis), CurrentStage.EnemyCountersPerTurn);
@@ -584,19 +586,22 @@ namespace TurnLimbo.Runtime.Campaign
                     checked(50 + stats.Resistance), CurrentStage.EnemyHealth, CurrentStage.EnemyResistance,
                     playerSkills, script, randomSeed, playerCounter: playerCounter, enemyCounter: enemyCounter, features: Features,
                     playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity,
-                    roundLimit: GreenRibbonBossBattle.RoundLimit, meshPercent: meshPercent).EnableIiaBossPatterns();
+                    roundLimit: GreenRibbonBossBattle.RoundLimit, meshPercent: meshPercent,
+                    usePowerBreak: usePowerBreak).EnableIiaBossPatterns();
             if (script != null)
                 return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                     CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills,
                     script.Select(WithStagePower), randomSeed, playerCounter: playerCounter, enemyCounter: enemyCounter, features: Features,
-                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
+                    playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent,
+                    usePowerBreak: usePowerBreak);
             // The basic rhythm: the six basic skills in order, 2→3→2→1 actions a turn.
             var enemySkills = new LegacySkill[BasicRhythmSkillIds.Length];
             for (int i = 0; i < enemySkills.Length; i++) enemySkills[i] = WithStagePower(LegacySkillDefinitions.Skill(BasicRhythmSkillIds[i]));
             return new LegacyQueuedDuel(checked(100 + stats.Health), checked(50 + stats.Resistance),
                 CurrentStage.EnemyHealth, CurrentStage.EnemyResistance, playerSkills, enemySkills,
                 new[] { 2, 3, 2, 1 }, randomSeed, playerCounter: playerCounter, enemyCounter: enemyCounter, features: Features,
-                playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent);
+                playerActGainBonus: stats.ActGain, playerActCapacityBonus: stats.ActCapacity, meshPercent: meshPercent,
+                usePowerBreak: usePowerBreak);
         }
 
         private LegacySkill WithStagePower(LegacySkill basis)

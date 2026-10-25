@@ -179,7 +179,7 @@ namespace TurnLimbo.Presentation
     public static class OnlineVersusProtocol
     {
         // Increment when the combat simulation changes without a corresponding skill-sheet edit.
-        public const string CombatRulesVersion = "local-versus-rules-18";
+        public const string CombatRulesVersion = "local-versus-rules-19";
         private const ulong Offset = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
@@ -214,6 +214,8 @@ namespace TurnLimbo.Presentation
 
             ulong hash = Offset;
             AddString(ref hash, CombatRulesVersion);
+            AddInt(ref hash, LegacyPowerBreakRules.PrototypeEnabled ? 1 : 0);
+            AddInt(ref hash, LegacyPowerBreakRules.MinimumPowerDifference);
             AddString(ref hash, applicationVersion);
             AddInt(ref hash, length);
             for (int i = 0; i < length; i++) AddByte(ref hash, normalized[i]);
@@ -229,6 +231,7 @@ namespace TurnLimbo.Presentation
             if (match == null) throw new ArgumentNullException(nameof(match));
             ulong hash = Offset;
             AddInt(ref hash, OnlineVersusMessage.CurrentProtocolVersion);
+            AddInt(ref hash, match.UsePowerBreak ? 1 : 0);
             AddInt(ref hash, match.RoundNumber);
             AddInt(ref hash, (int)match.Phase);
             AddInt(ref hash, (int)match.Outcome);
@@ -272,7 +275,11 @@ namespace TurnLimbo.Presentation
             }
             AddInt(ref hash, fighter.Queue.Count);
             AddInt(ref hash, fighter.BreakCanceledFromSlotIndex);
-            for (int i = 0; i < fighter.Queue.Count; i++) AddInt(ref hash, fighter.Queue[i].Id);
+            for (int i = 0; i < fighter.Queue.Count; i++)
+            {
+                AddInt(ref hash, fighter.Queue[i].Id);
+                AddInt(ref hash, fighter.IsSkillDestroyed(i) ? 1 : 0);
+            }
 
             // Include cycle counters for every playable skill so custom versus loadouts
             // cannot diverge silently when a non-starting cycling skill is used.

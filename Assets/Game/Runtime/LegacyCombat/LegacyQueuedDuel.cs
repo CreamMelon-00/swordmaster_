@@ -83,11 +83,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
             int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0,
-            int meshPercent = LegacyMeshing.DefaultPercent, int playerHealthFloor = 0)
+            int meshPercent = LegacyMeshing.DefaultPercent, int playerHealthFloor = 0, bool usePowerBreak = false)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills, enemySkills,
                 enemyTurnActionCounts, null, randomSeed, playerCounter, enemyCounter, features,
                 playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent,
-                meshPercent, playerHealthFloor) { }
+                meshPercent, playerHealthFloor, usePowerBreak) { }
 
         /// <summary>A duel whose enemy follows <paramref name="enemyScript"/> turn by turn.</summary>
         public LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
@@ -95,20 +95,21 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null,
             CombatFeature features = CombatFeature.All, int playerActGainBonus = 0, int playerActCapacityBonus = 0,
             int roundLimit = int.MaxValue, int enemyHealthFloor = 0, int enemyHealthThresholdPercent = 0,
-            int meshPercent = LegacyMeshing.DefaultPercent, int playerHealthFloor = 0)
+            int meshPercent = LegacyMeshing.DefaultPercent, int playerHealthFloor = 0, bool usePowerBreak = false)
             : this(playerHealth, playerResistance, enemyHealth, enemyResistance, playerSkills,
                 (enemyScript ?? throw new ArgumentNullException(nameof(enemyScript))).AllSkills, enemyScript.TurnSizes,
                 enemyScript, randomSeed, playerCounter, enemyCounter, features,
                 playerActGainBonus, playerActCapacityBonus, roundLimit, enemyHealthFloor, enemyHealthThresholdPercent,
-                meshPercent, playerHealthFloor) { }
+                meshPercent, playerHealthFloor, usePowerBreak) { }
 
         private LegacyQueuedDuel(int playerHealth, int playerResistance, int enemyHealth, int enemyResistance,
             IReadOnlyList<LegacySkill> playerSkills, IReadOnlyList<LegacySkill> enemySkills,
             IReadOnlyList<int> enemyTurnActionCounts, EnemyScript enemyScript, int randomSeed,
             LegacyCounter playerCounter, LegacyCounter enemyCounter, CombatFeature features,
             int playerActGainBonus, int playerActCapacityBonus, int roundLimit,
-            int enemyHealthFloor, int enemyHealthThresholdPercent, int meshPercent, int playerHealthFloor)
+            int enemyHealthFloor, int enemyHealthThresholdPercent, int meshPercent, int playerHealthFloor, bool usePowerBreak)
         {
+            UsePowerBreak = usePowerBreak;
             initialEnemyScript = enemyScript;
             PlayerCounter = playerCounter;
             singleEnemyCounter = enemyCounter;
@@ -164,6 +165,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (source.Phase != LegacyDuelPhase.Planning)
                 throw new InvalidOperationException("Only a planning turn can be forecast.");
             averageRolls = true;
+            UsePowerBreak = source.UsePowerBreak;
             initialPlayerSkills = source.initialPlayerSkills;
             enemyPattern = source.enemyPattern;
             initialEnemyScript = source.initialEnemyScript;
@@ -319,8 +321,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 return new LegacyClashInput(slot.SlotIndex, LegacyClashMotion.ActionOf(slot.PlayerSkill), slot.PlayerPower, Math.Max(1, slot.PlayerAttackCount),
                     LegacyClashMotion.ActionOf(slot.EnemySkill), slot.EnemyPower, Math.Max(1, slot.EnemyAttackCount),
                     playerDodged: slot.DodgeSucceeded, enemyDodged: false,
-                    playerBroken: slot.PlayerStartingResistance > 0 && Player.IsResistanceBroken,
-                    enemyBroken: slot.EnemyStartingResistance > 0 && Enemy.IsResistanceBroken,
+                    playerBroken: UsePowerBreak ? slot.PlayerBroken : slot.PlayerStartingResistance > 0 && Player.IsResistanceBroken,
+                    enemyBroken: UsePowerBreak ? slot.EnemyBroken : slot.EnemyStartingResistance > 0 && Enemy.IsResistanceBroken,
                     playerCountered: slot.PlayerCountered, enemyCountered: slot.EnemyCountered,
                     decided: slot.HitsResolved > 0, playerPressured: slot.PressureSucceeded);
             }
@@ -492,7 +494,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The enemy counter that would meet <paramref name="skill"/> if the player queued it next, or null.</summary>
         public LegacySkill EnemyCounterFacing(LegacySkill skill)
         {
-            if (HasTempoSkills || (skill != null && skill.DurationHalfUnits != 2)) return TimedEnemyCounterFacing(skill);
+            if (UsePowerBreak || HasTempoSkills || (skill != null && skill.DurationHalfUnits != 2)) return TimedEnemyCounterFacing(skill);
             if (enemyDefinitions != null) return GroupEnemyCounterFacing(skill);
             if (Phase != LegacyDuelPhase.Planning || EnemyCounter == null || !IsAttack(skill) ||
                 playerQueue.Count < enemyQueue.Count) return null;
@@ -560,9 +562,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 var forecast = new LegacySlotForecast(result.SlotIndex, result.PlayerSkill, result.EnemySkill,
                     result.PlayerHealthDamage, result.EnemyHealthDamage,
                     result.PlayerResistanceDamage, result.EnemyResistanceDamage,
-                    playerWhole && Player.IsResistanceBroken, enemyWhole && Enemy.IsResistanceBroken, result.Outcome,
+                    UsePowerBreak ? result.PlayerBroken : playerWhole && Player.IsResistanceBroken,
+                    UsePowerBreak ? result.EnemyBroken : enemyWhole && Enemy.IsResistanceBroken, result.Outcome,
                     nextTurnSeconds: NextPlanningSeconds - secondsBefore);
                 SetForecastTiming(forecast, index);
+                // A killing hit can end its owner's exposed interval, but the forecast still describes that actual hit.
+                forecast.PlayerBrokenGap = result.PlayerBrokenGap;
+                forecast.EnemyBrokenGap = result.EnemyBrokenGap;
                 forecast.PlayerAttackCount = result.PlayerAttackCount;
                 forecast.EnemyAttackCount = result.EnemyAttackCount;
                 forecast.PlayerActionAttackCount = result.PlayerActionAttackCount;
@@ -813,16 +819,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyTimedSkill playerAction = ActionAt(true, nextSlot), enemyAction = ActionAt(false, nextSlot);
             LegacySkill playerSkill = CompletingAt(true, nextSlot), enemySkill = CompletingAt(false, nextSlot);
             int playerQueueIndex = playerAction?.QueueIndex ?? -1, enemyQueueIndex = enemyAction?.QueueIndex ?? -1;
-            activeEnemyIndex = EnemyIndexForSlot(enemyQueueIndex);
+            activeEnemyIndex = EnemyIndexForSlot(UsePowerBreak ? OriginalActionAt(false, nextSlot)?.QueueIndex ?? enemyQueueIndex : enemyQueueIndex);
+            PreparePowerBreakGap(nextSlot);
             // A one-sided attack on a truly empty slot draws that side's counter (breathing is a skill).
             // A counter never answers a counter: each side's trigger requires its own empty slot.
-            bool enemyCounters = !EnemyCannotCounterThisTurn && enemyAction == null && IsAttack(playerSkill) && EnemyCountersRemaining > 0;
+            bool enemyCounters = !EnemyCannotCounterThisTurn && !Enemy.IsBrokenGap && enemyAction == null && IsAttack(playerSkill) && EnemyCountersRemaining > 0;
             if (enemyCounters)
             {
                 enemySkill = EnemyCounter.Skill;
                 EnemyCountersRemaining--;
             }
-            LegacySkill pendingCounter = PlayerBreakCanceledFromSlotIndex < 0 && playerAction == null && IsAttack(enemySkill) && PlayerCountersRemaining > 0
+            LegacySkill pendingCounter = (UsePowerBreak ? !Player.IsBrokenGap : PlayerBreakCanceledFromSlotIndex < 0) && playerAction == null && IsAttack(enemySkill) && PlayerCountersRemaining > 0
                 ? PlayerCounter.Skill : null;
             playerTensionAction = CaptureTensionAction(true, playerAction, pendingCounter);
             enemyTensionAction = CaptureTensionAction(false, enemyAction, enemyCounters ? enemySkill : null);
@@ -840,7 +847,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             double enemyReceivedMultiplier = ReceivedMultiplier(enemyStatuses, out int enemyProtectionBuffPercent);
             // 사용 효과 앞 X마다 위력 adds into the roll beside 순환, for the queue's first copy of the skill.
             int playerPower = RollPower(playerSkill, playerAttackMultiplier, out int playerTotalPower,
-                checked(CyclePowerBonus(playerSkill) + LegacyKeywordLinks.AheadPowerBonus(committedPlayerQueue, playerQueueIndex, playerSkill) +
+                checked(CyclePowerBonus(playerSkill) + LegacyPowerBreakRules.AheadPowerBonus(UsePowerBreak, committedPlayerQueue, playerQueueIndex, playerSkill) +
                     playerProtectionSpendPowerBonus + BleedingPowerBonus(playerSkill, playerStatuses, enemyStatuses) +
                     TensionPowerBonus(playerSkill, playerStatuses, enemyStatuses)));
             int playerCycleUses = CycleUsesRead(playerSkill);
@@ -849,7 +856,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 playerSkill == null ? CycleUsesRead(pendingCounter) : playerCycleUses, enemyAttackMultiplier,
                 checked(enemyProtectionSpendPowerBonus + BleedingPowerBonus(enemySkill, enemyStatuses, playerStatuses) +
                     TensionPowerBonus(enemySkill, enemyStatuses, playerStatuses) + (enemyCounters ? 0
-                    : LegacyKeywordLinks.AheadPowerBonus(committedEnemyQueue, enemyQueueIndex, enemySkill))));
+                    : LegacyPowerBreakRules.AheadPowerBonus(UsePowerBreak, committedEnemyQueue, enemyQueueIndex, enemySkill))));
 
             playerStatusBoundary = playerStatuses.GrantSerial;
             enemyStatusBoundary = enemyStatuses.GrantSerial;
@@ -867,7 +874,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // 사용 효과 앞 X마다 다음 턴 제한시간: the queued skill's first copy adds to the next turn's clock.
             int nextSeconds = NextPlanningSeconds;
             CurrentSlot.PlanningSecondsGained = LegacyPlanningClock.AddBonus(ref nextSeconds,
-                LegacyKeywordLinks.AheadTimeBonus(committedPlayerQueue, playerQueueIndex, playerSkill));
+                LegacyPowerBreakRules.AheadTimeBonus(UsePowerBreak, committedPlayerQueue, playerQueueIndex, playerSkill));
             NextPlanningSeconds = nextSeconds;
             // 사용 효과 자동 회피: the same slot's attack, a counter filling it included, misses entirely. Not a step attempt.
             if (LegacySkillDefinitions.Find(playerSkill)?.Effect.AutoDodge == true)
@@ -982,7 +989,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (skill == null || skill.IsWait || skill.Kind != LegacySkillKind.Attack) return 0;
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             if (effect == null || effect.ConditionalDamagePercent <= 0 || !effect.OpponentStateHolds(target)) return 0;
-            if (opposingSkill != null && opposingSkill.Kind == LegacySkillKind.Attack && !target.IsResistanceBroken) return 0;
+            if (!target.UsePowerBreak && opposingSkill != null && opposingSkill.Kind == LegacySkillKind.Attack && !target.IsResistanceBroken) return 0;
             if (opposingSkill != null && opposingSkill.Kind == LegacySkillKind.Defence &&
                 power <= opposingPower / skill.AttackCount) return 0;
             return effect.ConditionalDamagePercent;
@@ -1061,6 +1068,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacyCurrentSlot slot = CurrentSlot;
             PrepareCurrentSlotImpact();
             int hitIndex = slot.HitsResolved;
+            if (UsePowerBreak && hitIndex == 0) ResolvePowerBreak(slot);
             int playerHealth = Player.Health, enemyHealth = Enemy.Health;
             int playerResistance = Player.Resistance, enemyResistance = Enemy.Resistance;
             bool playerAttacked = HasAttackHit(slot.PlayerSkill, hitIndex, slot.PlayerAttackCount);
@@ -1108,8 +1116,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int enemyBleeding = enemyAttacked ? Enemy.ReceiveBleedingDamage(slot.EnemyBleedingDamagePerHit) : 0;
             slot.PlayerBleedingHealthDamage += playerBleeding;
             slot.EnemyBleedingHealthDamage += enemyBleeding;
-            if (playerResistance > 0 && Player.IsResistanceBroken) CancelAfterBreak(true, slot.SlotIndex);
-            if (enemyResistance > 0 && Enemy.IsResistanceBroken) CancelAfterBreak(false, slot.SlotIndex);
+            if (!UsePowerBreak && playerResistance > 0 && Player.IsResistanceBroken) CancelAfterBreak(true, slot.SlotIndex);
+            if (!UsePowerBreak && enemyResistance > 0 && Enemy.IsResistanceBroken) CancelAfterBreak(false, slot.SlotIndex);
             slot.HitsResolved++;
             // Presentation only (LegacySlotFacts): the slot's largest single hits and a 상대 상태 조건 met as a hit landed.
             slot.PlayerLargestHitTaken = Math.Max(slot.PlayerLargestHitTaken, playerHealth - Player.Health);
@@ -1182,6 +1190,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 Outcome = DuelMatchOutcome.Draw;
             if (Outcome != DuelMatchOutcome.InProgress) Phase = LegacyDuelPhase.Finished;
             CurrentSlot = null;
+            if (UsePowerBreak) { Player.SetBrokenGap(false); Enemy.SetBrokenGap(false); }
             return new LegacySlotResult(slot.SlotIndex, slot.PlayerSkill, slot.EnemySkill,
                 slot.PlayerStartingHealth - Player.Health, slot.EnemyStartingHealth - Enemy.Health,
                 slot.PlayerStartingResistance - Player.Resistance, slot.EnemyStartingResistance - Enemy.Resistance, Outcome,
@@ -1190,7 +1199,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 StartHalfTick = slot.StartHalfTick, EndHalfTick = slot.EndHalfTick,
                 PlayerQueueIndex = slot.PlayerQueueIndex, EnemyQueueIndex = slot.EnemyQueueIndex,
                 PlayerAttackCount = slot.PlayerAttackCount, EnemyAttackCount = slot.EnemyAttackCount,
-                PlayerActionAttackCount = slot.PlayerActionAttackCount, EnemyActionAttackCount = slot.EnemyActionAttackCount
+                PlayerActionAttackCount = slot.PlayerActionAttackCount, EnemyActionAttackCount = slot.EnemyActionAttackCount,
+                PlayerBroken = slot.PlayerBroken, EnemyBroken = slot.EnemyBroken,
+                PlayerBrokenGap = slot.PlayerBrokenGap, EnemyBrokenGap = slot.EnemyBrokenGap
             };
         }
 
@@ -1230,7 +1241,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             cycleUses.Clear();
             playerStatuses.Clear();
             random = new Random(randomSeed);
-            Player = new LegacyFighterState(playerMaxHealth, playerMaxResistance, playerHealthFloor);
+            Player = new LegacyFighterState(playerMaxHealth, playerMaxResistance, playerHealthFloor, UsePowerBreak);
             ResetEnemies();
             for (int i = 0; i < lanes.Length; i++) lanes[i].Clear();
             foreach (LegacySkill skill in initialPlayerSkills)
@@ -1300,6 +1311,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 for (int i = 0; i < enemyQueue.Count; i++) enemyQueueOwners.Add(0);
             committedPlayerQueue = committedEnemyQueue = null;
             PlayerBreakCanceledFromSlotIndex = EnemyBreakCanceledFromSlotIndex = -1;
+            playerDestroyedSkills = enemyDestroyedSkills = Array.Empty<bool>();
             CurrentSlot = null;
             slotCount = nextSlot = 0;
             LastResolvedSlot = -1;
@@ -1421,7 +1433,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                         opponentBroken = effectActivated = true;
                     }
                 }
-                if (targetWasWhole && target.IsResistanceBroken) CancelAfterBreak(!player, CurrentSlot.SlotIndex);
+                if (!UsePowerBreak && targetWasWhole && target.IsResistanceBroken) CancelAfterBreak(!player, CurrentSlot.SlotIndex);
                 if (effect.ActGain > 0 && player)
                 {
                     actGainGranted = effect.ActGain;

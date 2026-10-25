@@ -35,7 +35,8 @@ namespace TurnLimbo.Presentation
             resistanceFeedback.Show(true, session.Player.Resistance - playerBefore);
             resistanceFeedback.Show(false, session.Enemy.Resistance - enemyBefore);
             AnnounceBreaks(playerWasBroken, enemyWasBroken);
-            barks.Hit(Blow(session.Enemy, enemyWasBroken, 0), Blow(session.Player, playerWasBroken, 0));
+            barks.Hit(Blow(session.Enemy, enemyWasBroken, 0, session.UsePowerBreak ? (bool?)false : null),
+                Blow(session.Player, playerWasBroken, 0, session.UsePowerBreak ? (bool?)false : null));
         }
 
         // A counter's initial effects wait for the final step decision. Commit only those effects here; the real hit

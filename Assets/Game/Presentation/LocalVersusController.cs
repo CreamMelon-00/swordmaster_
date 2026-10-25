@@ -532,7 +532,8 @@ namespace TurnLimbo.Presentation
             // Another match on the same screens uses the retry setting, with the same minimum coin reveal on both peers.
             bool rematch = match != null;
             match = new LocalVersusMatch(leftSkills, rightSkills,
-                randomSeed: onlineSeed, roundLimit: RoundLimit, openingPlayer: onlineOpeningPlayer);
+                randomSeed: onlineSeed, roundLimit: RoundLimit, openingPlayer: onlineOpeningPlayer,
+                usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             view = new LocalVersusPerspective(match, onlineLocalPlayer);
             pendingOnlineRequest = false;
             active = true;
@@ -911,9 +912,13 @@ namespace TurnLimbo.Presentation
                 PresentSlotStartFeedback(slot, playerResistanceBefore, enemyResistanceBefore, playerWasBroken, enemyWasBroken);
         }
 
-        private static string KeywordCue(IReadOnlyList<LegacySkill> queue, int slotIndex, int secondsGained)
+        private static string KeywordCue(IReadOnlyList<LegacySkill> queue, int slotIndex, int secondsGained,
+            bool usePowerBreak = false)
         {
             string power = LegacyKeywordPreview.AheadPowerCue(queue, slotIndex);
+            if (usePowerBreak && slotIndex >= 0 && slotIndex < queue.Count &&
+                LegacySkillDefinitions.Find(queue[slotIndex])?.Effect.AheadPowerTarget == LegacyAheadTarget.ResistanceReduction)
+                power = null;
             string time = LegacyKeywordPreview.AheadTimeCue(secondsGained);
             return power == null ? time : time == null ? power : power + " · " + time;
         }
@@ -956,8 +961,11 @@ namespace TurnLimbo.Presentation
                 ShowSlotWeight(slot.SlotIndex, showDirector.Observe(view.CurrentSlotFacts));
                 if (hit.PlayerAttacked) playerSlotDamage = hit.EnemyDisplayedDamage;
                 if (hit.EnemyAttacked) enemySlotDamage = hit.PlayerDisplayedDamage;
-                bool enemyBrokeNow = enemyResistanceBefore > 0 && view.Enemy.Resistance <= 0;
-                bool playerBrokeNow = playerResistanceBefore > 0 && view.Player.Resistance <= 0;
+                bool enemyBrokeNow = view.UsePowerBreak ? hit.EnemyBroken
+                    : enemyResistanceBefore > 0 && view.Enemy.Resistance <= 0;
+                bool playerBrokeNow = view.UsePowerBreak ? hit.PlayerBroken
+                    : playerResistanceBefore > 0 && view.Player.Resistance <= 0;
+                if (view.UsePowerBreak && hit.HitIndex == 0) battleHud.PlayPowerClashImpact(view.CurrentSlot);
                 bool enemyHurt = LegacyHitReaction.ShouldHurt(hit.EnemyAttacked, view.Enemy.IsResistanceBroken,
                     hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage,
                     hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage, hit.PlayerResistanceDamage);
@@ -1177,8 +1185,12 @@ namespace TurnLimbo.Presentation
         private void AnnounceBreaks(bool playerWasBroken, bool enemyWasBroken,
             bool playerHitPresented = false, bool enemyHitPresented = false)
         {
-            bool playerBroke = !playerWasBroken && view.Player.IsResistanceBroken;
-            bool enemyBroke = !enemyWasBroken && view.Enemy.IsResistanceBroken;
+            bool playerBroke = view.UsePowerBreak
+                ? view.CurrentSlot?.HitsResolved == 1 && view.CurrentSlot.PlayerBroken
+                : !playerWasBroken && view.Player.IsResistanceBroken;
+            bool enemyBroke = view.UsePowerBreak
+                ? view.CurrentSlot?.HitsResolved == 1 && view.CurrentSlot.EnemyBroken
+                : !enemyWasBroken && view.Enemy.IsResistanceBroken;
             // Cancellation survives a recovery by the already-started opposing skill.
             battleHud.PlayBreakQueueCancellation(true, view.PlayerBreakCanceledFromSlotIndex);
             battleHud.PlayBreakQueueCancellation(false, view.EnemyBreakCanceledFromSlotIndex);

@@ -40,10 +40,11 @@ namespace TurnLimbo.Presentation
         {
             if (duel == null) throw new System.ArgumentNullException(nameof(duel));
             if (slotIndex < 0) throw new System.ArgumentOutOfRangeException(nameof(slotIndex));
-            bool playerCanceled = duel.PlayerBreakCanceledFromSlotIndex >= 0 &&
-                slotIndex >= duel.PlayerBreakCanceledFromSlotIndex;
+            bool playerCanceled = duel.UsePowerBreak ? duel.IsPlayerSkillDestroyed(slotIndex)
+                : duel.PlayerBreakCanceledFromSlotIndex >= 0 && slotIndex >= duel.PlayerBreakCanceledFromSlotIndex;
             bool enemyCanceled = duel is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1
                 ? roster.IsEnemySlotCanceled(slotIndex)
+                : duel.UsePowerBreak ? duel.IsEnemySkillDestroyed(slotIndex)
                 : duel.EnemyBreakCanceledFromSlotIndex >= 0 && slotIndex >= duel.EnemyBreakCanceledFromSlotIndex;
             LegacySkill playerSkill = duel is LegacyQueuedDuel queued && queued.HasTempoSkills && duel.Phase != LegacyDuelPhase.Planning
                 ? queued.ActionSkillAtSegment(true, slotIndex)

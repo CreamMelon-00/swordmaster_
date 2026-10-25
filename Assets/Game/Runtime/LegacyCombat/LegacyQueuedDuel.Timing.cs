@@ -47,6 +47,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             slot.PlayerActionAttackCount = TensionAttackCount(slot.PlayerActionSkill, slot.PlayerTensionActive);
             slot.EnemyActionAttackCount = TensionAttackCount(slot.EnemyActionSkill, slot.EnemyTensionActive);
             slot.HitCount = Math.Max(1, Math.Max(slot.PlayerAttackCount, slot.EnemyAttackCount));
+            slot.EnemyTotalPower = LegacyPowerBreakRules.TotalPower(slot.EnemySkill, slot.EnemyPower, slot.EnemyAttackCount);
+            if (UsePowerBreak)
+                slot.PlayerTotalPower = LegacyPowerBreakRules.TotalPower(slot.PlayerSkill, slot.PlayerPower, slot.PlayerAttackCount);
         }
 
         private static int TensionPowerBonus(LegacySkill skill, LegacyStatusCollection self, LegacyStatusCollection opponent)
@@ -90,7 +93,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (segmentIndex < 0 || segmentIndex >= segments.Length) return -1;
                 return (player ? segments[segmentIndex].Player : segments[segmentIndex].Enemy)?.QueueIndex ?? -1;
             }
-            return ActionAt(player, segmentIndex)?.QueueIndex ?? -1;
+            return (UsePowerBreak ? OriginalActionAt(player, segmentIndex) : ActionAt(player, segmentIndex))?.QueueIndex ?? -1;
         }
 
         private LegacySkill TimedEnemyCounterFacing(LegacySkill skill)
@@ -114,7 +117,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private bool ForecastTimedCounterSlots(bool player, List<int> slots)
         {
-            if (!HasTempoSkills) return false;
+            if (!UsePowerBreak && !HasTempoSkills) return false;
             if (Phase == LegacyDuelPhase.Planning)
             {
                 var copy = new LegacyQueuedDuel(this);
@@ -130,7 +133,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
             int uses = player ? PlayerCountersRemaining : EnemyCountersRemaining;
             int[] ownerUses = !player && enemyDefinitions != null ? (int[])enemyCountersByOwner.Clone() : null;
-            bool canceled = (player ? PlayerBreakCanceledFromSlotIndex : EnemyBreakCanceledFromSlotIndex) >= 0;
+            bool canceled = !UsePowerBreak && (player ? PlayerBreakCanceledFromSlotIndex : EnemyBreakCanceledFromSlotIndex) >= 0;
             int first = nextSlot;
             if (CurrentSlot != null)
             {
@@ -140,12 +143,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (pending) uses--;
             }
             for (int i = first, found = 0; !canceled && i < timeSegments.Length && (ownerUses != null || found < uses); i++)
-                if (ActionAt(player, i) == null && IsAttack(CompletingAt(!player, i)))
+                if (!IsBrokenGapAt(player, i) && ActionAt(player, i) == null && IsAttack(CompletingAt(!player, i)))
                 {
                     if (ownerUses != null)
                     {
                         int owner = EnemyIndexForSegment(i);
-                        if (enemyStates[owner].IsDefeated || enemyBrokenFrom[owner] >= 0 || ownerUses[owner] <= 0) continue;
+                        if (enemyStates[owner].IsDefeated || !UsePowerBreak && enemyBrokenFrom[owner] >= 0 || ownerUses[owner] <= 0) continue;
                         ownerUses[owner]--;
                     }
                     slots.Add(i); found++;
@@ -157,7 +160,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             for (int i = segmentIndex; i >= 0; i--)
             {
-                LegacyTimedSkill action = ActionAt(false, i);
+                LegacyTimedSkill action = UsePowerBreak ? OriginalActionAt(false, i) : ActionAt(false, i);
                 if (action != null) return EnemyIndexForSlot(action.QueueIndex);
             }
             return EnemyIndexForSlot(-1);
@@ -196,6 +199,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private void BuildExecutionTiming()
         {
             tensionActions.Clear();
+            playerDestroyedSkills = new bool[committedPlayerQueue.Length];
+            enemyDestroyedSkills = new bool[committedEnemyQueue.Length];
             tempoExecution = HasTempoSkills;
             timeSegments = LegacySkillTiming.Segments(LegacySkillTiming.Build(committedPlayerQueue),
                 LegacySkillTiming.Build(committedEnemyQueue));
@@ -257,6 +262,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 slot.EnemyActionDurationHalfTicks = segment.End - segment.Start;
                 slot.EnemyActionStarts = slot.EnemyActionCompletes = true;
             }
+            SetPowerBreakTiming(slot);
         }
 
         private void SetForecastTiming(LegacySlotForecast forecast, int segmentIndex)
@@ -267,6 +273,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             forecast.PlayerQueueIndex = player?.QueueIndex ?? -1;
             forecast.EnemyQueueIndex = enemy?.QueueIndex ?? -1;
             forecast.PlayerActionSkill = player?.Skill; forecast.EnemyActionSkill = enemy?.Skill;
+            forecast.UsePowerBreak = UsePowerBreak;
+            forecast.PlayerBrokenGap = IsBrokenGapAt(true, segmentIndex);
+            forecast.EnemyBrokenGap = IsBrokenGapAt(false, segmentIndex);
         }
     }
 }

@@ -2,7 +2,7 @@
 
 2026-10-25 긴장 후속 조정. 획득 기술 75 신경 집중은 기존 `ActGain=3`과 `SelfTensionCount=4`를 조합한다. 위압·견제·무리한 연격의 부여량은 각각 3·2·3이다. 현재 62종·48열이며 새 상태·문법·엔진 처리 순서·온라인 규칙 버전은 추가하지 않는다. 표시의 기본 경로에도 ACT 회복과 자기 긴장을 함께 설명한다.
 
-2026-10-25 긴장 확장. 획득 69~74와 `LegacyStatusKind.Tension`을 추가했다. 기존 버프·출혈·보스 상태와 독립으로 남은 공격 기술 횟수를 관리하며, `LegacySkillEffect`의 자가/상대 부여·자기 감소·자가/상대 조건부 위력으로 시트·역할·문구·피드백을 만든다. `LegacySkill.AttackCount`는 원래 정의로 유지하고 실행 슬롯·타격 결과·예측·관점 변환에는 긴장 적용 후 실제 타수를 별도로 전달한다. 타격당 위력·방어 배분·예약 총타수의 분모와 원본 데이터는 바꾸지 않는다. 총 61종·48열이며 현재 상태 규칙은 [StatusEffects.md](StatusEffects.md), 구절은 [SkillSheet.md](SkillSheet.md)를 따른다.
+2026-10-25 긴장 확장. 획득 69~74와 `LegacyStatusKind.Tension`을 추가했다. 기존 버프·출혈·보스 상태와 독립으로 남은 공격 기술 횟수를 관리하며, `LegacySkillEffect`의 자가/상대 부여·자기 감소·자가/상대 조건부 위력으로 시트·역할·문구·피드백을 만든다. `LegacySkill.AttackCount`는 원래 정의로 유지하고 실행 슬롯·타격 결과·예측·관점 변환에는 긴장 적용 후 실제 타수를 별도로 전달한다. 타격당 위력·방어 배분·예약 공격 횟수의 분모와 원본 데이터는 바꾸지 않는다. 총 61종·48열이며 현재 상태 규칙은 [StatusEffects.md](StatusEffects.md), 구절은 [SkillSheet.md](SkillSheet.md)를 따른다.
 
 2026-10-22 출혈 확장. 획득 기술 63~68과 `LegacyStatusKind.Bleeding`을 추가했다. `LegacySkillEffect`는 자가·상대 부여, 이미 출혈 중인 대상의 대체 부여, 지혈, 양측 출혈 조건부 기본 위력을 담는다. 이 값으로 시트 구절·설명·피드백·미리보기를 함께 만든다. 현재 총 49종·획득 34종이며 고정 피해 2와 처리 순서는 [StatusEffects.md](StatusEffects.md), 구절 검사는 [SkillSheet.md](SkillSheet.md)를 따른다.
 

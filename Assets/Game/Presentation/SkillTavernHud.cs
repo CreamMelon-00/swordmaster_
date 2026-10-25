@@ -96,7 +96,9 @@ namespace TurnLimbo.Presentation
                 new Vector2(820f, 40f), 23, DuelVisualTheme.Steel, TextAnchor.MiddleRight);
             Label("Tavern Rules", surface, new Vector2(0f, 372f), new Vector2(1730f, 48f), 18,
                 DuelVisualTheme.Muted).text = "편성은 왼쪽 첫 빈칸으로, 보관은 보관함으로 들어갑니다. 편성한 기술은 판매로만 뺄 수 있습니다.\n"
-                + "빈칸은 숨고르기입니다. 8칸을 자동 실행한 뒤 상점으로 돌아옵니다. HP와 저항은 이어지며, 카드 ACT는 예약 비용으로 쓰지 않습니다.";
+                + (LegacyPowerBreakRules.PrototypeEnabled
+                    ? "빈칸은 숨고르기입니다. 8칸을 자동 실행한 뒤 상점으로 돌아옵니다. HP는 이어지며, 카드 ACT는 예약 비용으로 쓰지 않습니다."
+                    : "빈칸은 숨고르기입니다. 8칸을 자동 실행한 뒤 상점으로 돌아옵니다. HP와 저항은 이어지며, 카드 ACT는 예약 비용으로 쓰지 않습니다.");
 
             Label("Tavern Shop Heading", surface, new Vector2(-305f, 328f), new Vector2(1130f, 36f), 25,
                 DuelVisualTheme.Foreground).text = "상점  ·  편성 / 보관 각 " + SkillTavernRun.PurchasePrice + " 자원";
@@ -394,8 +396,9 @@ namespace TurnLimbo.Presentation
         private static string FighterState(string name, LegacyFighterState fighter)
             => name + " · HP " + (fighter?.Health ?? SkillTavernBattle.FighterHealth)
                 + " / " + (fighter?.MaxHealth ?? SkillTavernBattle.FighterHealth)
-                + " · 저항 " + (fighter?.Resistance ?? SkillTavernBattle.FighterResistance)
-                + " / " + (fighter?.MaxResistance ?? SkillTavernBattle.FighterResistance);
+                + (LegacyPowerBreakRules.PrototypeEnabled ? string.Empty
+                    : " · 저항 " + (fighter?.Resistance ?? SkillTavernBattle.FighterResistance)
+                        + " / " + (fighter?.MaxResistance ?? SkillTavernBattle.FighterResistance));
 
         private Button SelectButton(Image image, Action select)
         {

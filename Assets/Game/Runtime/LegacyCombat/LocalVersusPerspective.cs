@@ -87,6 +87,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         // What the duel HUD reads (ILegacyDuelView): this player's desk, both fighters and both queues.
         public CombatFeature Features => CombatFeature.All;
+        public bool UsePowerBreak => Match.UsePowerBreak;
         public LegacyDuelPhase Phase => Match.Phase;
         public int RoundNumber => Match.RoundNumber;
         public int Act => Me.Act;
@@ -101,6 +102,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public IReadOnlyList<LegacySkill> PlayerQueue => Me.Queue;
         public IReadOnlyList<LegacySkill> EnemyQueue => Opponent.Queue;
         public bool IsEnemySkillRevealed(int slotIndex) => Match.IsQueuedSkillRevealed(OpponentPlayer, slotIndex);
+        public bool IsPlayerSkillDestroyed(int queueIndex) => Me.IsSkillDestroyed(queueIndex);
+        public bool IsEnemySkillDestroyed(int queueIndex) => Opponent.IsSkillDestroyed(queueIndex);
         public int PlayerBreakCanceledFromSlotIndex => Me.BreakCanceledFromSlotIndex;
         public int EnemyBreakCanceledFromSlotIndex => Opponent.BreakCanceledFromSlotIndex;
         public LocalVersusPerspectiveSlot CurrentSlot => Slot(Match.CurrentSlot);
@@ -176,6 +179,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacySkill EnemySkill => leftIsPlayer ? Source.RightSkill : Source.LeftSkill;
         public int PlayerAttackCount => leftIsPlayer ? Source.LeftAttackCount : Source.RightAttackCount;
         public int EnemyAttackCount => leftIsPlayer ? Source.RightAttackCount : Source.LeftAttackCount;
+        public int PlayerTotalPower => leftIsPlayer ? Source.LeftTotalPower : Source.RightTotalPower;
+        public int EnemyTotalPower => leftIsPlayer ? Source.RightTotalPower : Source.LeftTotalPower;
+        public bool PlayerBroken => leftIsPlayer ? Source.LeftBroken : Source.RightBroken;
+        public bool EnemyBroken => leftIsPlayer ? Source.RightBroken : Source.LeftBroken;
+        public bool PlayerBrokenGap => leftIsPlayer ? Source.LeftBrokenGap : Source.RightBrokenGap;
+        public bool EnemyBrokenGap => leftIsPlayer ? Source.RightBrokenGap : Source.LeftBrokenGap;
         public LegacySkillFeedback PlayerFeedback => leftIsPlayer ? Source.LeftFeedback : Source.RightFeedback;
         public LegacySkillFeedback EnemyFeedback => leftIsPlayer ? Source.RightFeedback : Source.LeftFeedback;
         public int HitCount => Source.HitCount;
@@ -200,6 +209,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyAttackCount = left ? hit.RightAttackCount : hit.LeftAttackCount;
             PlayerAttacked = left ? hit.LeftAttacked : hit.RightAttacked;
             EnemyAttacked = left ? hit.RightAttacked : hit.LeftAttacked;
+            PlayerBroken = left ? hit.LeftBroken : hit.RightBroken;
+            EnemyBroken = left ? hit.RightBroken : hit.LeftBroken;
+            PlayerBrokenGap = left ? hit.LeftBrokenGap : hit.RightBrokenGap;
+            EnemyBrokenGap = left ? hit.RightBrokenGap : hit.LeftBrokenGap;
+            PlayerDestroyedQueueIndex = left ? hit.LeftDestroyedQueueIndex : hit.RightDestroyedQueueIndex;
+            EnemyDestroyedQueueIndex = left ? hit.RightDestroyedQueueIndex : hit.LeftDestroyedQueueIndex;
             PlayerHealthDamage = left ? hit.LeftHealthDamage : hit.RightHealthDamage;
             EnemyHealthDamage = left ? hit.RightHealthDamage : hit.LeftHealthDamage;
             PlayerBleedingHealthDamage = left ? hit.LeftBleedingHealthDamage : hit.RightBleedingHealthDamage;
@@ -227,6 +242,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacySkill EnemySkill { get; }
         public bool PlayerAttacked { get; }
         public bool EnemyAttacked { get; }
+        public bool PlayerBroken { get; }
+        public bool EnemyBroken { get; }
+        public bool PlayerBrokenGap { get; }
+        public bool EnemyBrokenGap { get; }
+        public int PlayerDestroyedQueueIndex { get; }
+        public int EnemyDestroyedQueueIndex { get; }
         public int PlayerBleedingHealthDamage { get; }
         public int EnemyBleedingHealthDamage { get; }
         public int PlayerHealthDamage { get; }

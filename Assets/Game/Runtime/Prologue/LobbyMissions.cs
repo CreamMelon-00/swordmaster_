@@ -36,19 +36,19 @@ namespace TurnLimbo.Runtime.Prologue
             // 5. E열 (기교): matching the opponent's action can directly reduce resistance. Opens after stage 1. With a second
             // school, 맞물림 (LegacyMeshing) starts here; the free beat mentions it.
             new PrologueMission(5, "기교 검술", Corridor,
-                new[] { "상대 공격에 {기술:5:를} 맞춰 저항을 낮춘다", "떠돌이 기사를 쓰러뜨린다", "완료하면 E열이 열린다" },
+                new[] { LegacyPowerBreakRules.PrototypeEnabled ? "상대 공격에 {기술:5:를} 맞춰 공방을 확인한다" : "상대 공격에 {기술:5:를} 맞춰 저항을 낮춘다", "떠돌이 기사를 쓰러뜨린다", "완료하면 E열이 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
                 50, 15, new MissionSkill[] { PracticeSlash, PracticeGuard, PracticeDownwardSlash }, new[] { 3, 2 },
                 Concat(LaneQ, LaneE), true, new[]
                 {
                     new MissionGuideBeat(MissionGuideStepKind.Info, "기교 검술",
-                        "E열의 기교 검술은 상대 행동에 맞춰 같은 칸에 쓰면 추가 효과를 얻습니다. {기술:5:는} 상대가 공격하는 칸에 쓰면 저항을 직접 낮춥니다.", Continue),
+                        LegacyPowerBreakRules.PrototypeEnabled ? "E열에는 여러 번 나누어 공격하는 기술과 방어 기술이 있습니다. 상대의 다음 기술까지 살펴보고 Q열과 함께 배치해 보세요." : "E열의 기교 검술은 상대 행동에 맞춰 같은 칸에 쓰면 추가 효과를 얻습니다. {기술:5:는} 상대가 공격하는 칸에 쓰면 저항을 직접 낮춥니다.", Continue),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "E로 예약하세요",
                         "상대는 첫 칸에 공격을 예약했습니다. E를 짧게 누르거나 카드를 클릭해 {기술:5:를} 같은 칸에 예약하세요.", "E 짧게 누르기 / 카드 클릭", lane: 2),
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "기교 기술로 맞붙이세요",
                         "확정하면 첫 칸에서 기교 기술이 상대 공격과 맞붙습니다.", CommitKeys),
-                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "조건에 맞추면 추가 효과를 얻습니다",
-                        "상대 공격에 {기술:5:를} 맞추면 저항이 직접 10 줄어듭니다. 기술마다 조건이 다르니 Q나 E를 길게 눌러 설명을 확인하세요.", Watch),
+                    new MissionGuideBeat(MissionGuideStepKind.WatchTurn, LegacyPowerBreakRules.PrototypeEnabled ? "기교 기술로 공방을 만듭니다" : "조건에 맞추면 추가 효과를 얻습니다",
+                        LegacyPowerBreakRules.PrototypeEnabled ? "공격끼리 위력 차이가 " + LegacyPowerBreakRules.MinimumPowerDifference + " 이상이면 다음 기술 하나가 파괴됩니다. 방어 기술은 붕괴당하지 않습니다. Q나 E를 길게 누르면 기술 설명을 확인할 수 있습니다." : "상대 공격에 {기술:5:를} 맞추면 저항이 직접 10 줄어듭니다. 기술마다 조건이 다르니 Q나 E를 길게 눌러 설명을 확인하세요.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "두 열로 승리하세요",
                         "이제 넘기기는 열린 열을 모두 함께 한 칸씩 돌립니다. Q와 E를 섞어 떠돌이 기사를 쓰러뜨리세요. 두 열의 기술을 번갈아 예약하면 맞물림으로 위력이 오릅니다.",
                         "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 적 확인\nQ/E 길게 눌러 기술 설명 · Esc 일시정지"),

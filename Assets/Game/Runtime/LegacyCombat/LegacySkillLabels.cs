@@ -23,7 +23,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public const string ActStealKeyword = "ACT 강탈";
         public const string ActRecoveryStealKeyword = "ACT 회복 강탈";
         public const int MinimumActStealValue = 1, MaximumActStealValue = 10;
-        /// <summary>Bounds for 보호 소모 위력 +N and 앞 공격 총타수 M 이상 위력 +N.</summary>
+        /// <summary>Bounds for 보호 소모 위력 +N and 앞 공격 횟수 M 이상 위력 +N.</summary>
         public const int MinimumUsePowerBonus = 1, MaximumUsePowerBonus = 50;
         public const int MinimumAttackHitsRequired = 1, MaximumAttackHitsRequired = 20;
         public const int MinimumBleedingCount = 1, MaximumBleedingCount = 20;
@@ -65,7 +65,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private static readonly Regex ProtectionSpendPattern = new Regex(
             @"^보호\s*소모\s*위력\s*\+\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
         private static readonly Regex AheadAttackHitsPattern = new Regex(
-            @"^앞\s*공격\s*총\s*타수\s*([0-9]{1,3})\s*이상\s*위력\s*\+\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
+            @"^앞\s*공격\s*(?:횟\s*수|총\s*타수)\s*([0-9]{1,3})\s*이상\s*위력\s*\+\s*([0-9]{1,3})$", RegexOptions.CultureInvariant);
         private static readonly Regex ActStealPattern = new Regex(
             @"^상대\s*ACT\s*([0-9]{1,3})\s*이상이면\s*ACT\s*([0-9]{1,3})\s*강탈$", RegexOptions.CultureInvariant);
         private static readonly Regex ActRecoveryStealPattern = new Regex(
@@ -236,7 +236,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.HasProtectionSpend)
                 phrases.Add("보호 소모 위력 +" + effect.ConsumeProtectionPowerBonus.ToString(CultureInfo.InvariantCulture));
             if (effect.HasAheadHitPower)
-                phrases.Add("앞 공격 총타수 " + effect.AheadAttackHitsRequired.ToString(CultureInfo.InvariantCulture) +
+                phrases.Add("앞 공격 횟수 " + effect.AheadAttackHitsRequired.ToString(CultureInfo.InvariantCulture) +
                     " 이상 위력 +" + effect.AheadAttackHitsPowerBonus.ToString(CultureInfo.InvariantCulture));
             if (effect.HasActSteal)
                 phrases.Add("상대 ACT " + effect.ActStealThreshold.ToString(CultureInfo.InvariantCulture) +

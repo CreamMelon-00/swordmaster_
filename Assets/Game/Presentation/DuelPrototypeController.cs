@@ -451,7 +451,7 @@ namespace TurnLimbo.Presentation
             onlineVersus = new OnlineVersusController(transform, art, localVersus, () => ShowTitle());
             loadingHud = DuelLoadingHud.Create(transform, art.UIFont);
             if (!combatDebugInstance) saveStore = new GameSaveStore(GameSaveStore.DefaultPath);
-            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent, usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             ResetBattlePresentation();
             lobbyHud.ResetView();
             if (combatDebugInstance) BeginCombatDebugLoop();
@@ -846,6 +846,9 @@ namespace TurnLimbo.Presentation
 
         internal static bool HasOnlyBreakCanceledSlotsLeft(ILegacyDuelView duel, int nextSlot)
         {
+            // A destroyed reservation still owns its time. Even two opposing gaps must play rather than
+            // compacting the queue or skipping to the next turn as the old whole-tail cancellation did.
+            if (duel.UsePowerBreak) return false;
             // Reservation indices and execution intervals differ when a swing spans several faster actions.
             if (duel is LegacyQueuedDuel timed && timed.HasTempoSkills) return false;
             if (duel is ILegacyEnemyRosterView roster && roster.Enemies.Count > 1)
@@ -942,6 +945,8 @@ namespace TurnLimbo.Presentation
         {
             var words = new System.Collections.Generic.List<string>(3);
             string ahead = slot.PlayerQueueIndex < 0 ? null : LegacyKeywordPreview.AheadPowerCue(session.PlayerQueue, slot.PlayerQueueIndex);
+            if (session.UsePowerBreak && LegacySkillDefinitions.Find(slot.PlayerSkill)?.Effect.AheadPowerTarget ==
+                LegacyAheadTarget.ResistanceReduction) ahead = null;
             if (ahead != null) words.Add(ahead);
             string time = committedTurnClockRan ? LegacyKeywordPreview.AheadTimeCue(slot.PlanningSecondsGained) : null;
             if (time != null) words.Add(time);
@@ -1021,8 +1026,11 @@ namespace TurnLimbo.Presentation
                 }
                 if (hit.PlayerAttacked) playerSlotDamage = hit.EnemyDisplayedDamage;
                 if (hit.EnemyAttacked) enemySlotDamage = hit.PlayerDisplayedDamage;
-                bool enemyBrokeNow = enemyResistanceBefore > 0 && session.Enemy.Resistance <= 0;
-                bool playerBrokeNow = playerResistanceBefore > 0 && session.Player.Resistance <= 0;
+                bool enemyBrokeNow = session.UsePowerBreak ? hit.EnemyBroken
+                    : enemyResistanceBefore > 0 && session.Enemy.Resistance <= 0;
+                bool playerBrokeNow = session.UsePowerBreak ? hit.PlayerBroken
+                    : playerResistanceBefore > 0 && session.Player.Resistance <= 0;
+                if (session.UsePowerBreak && hit.HitIndex == 0) hud.PlayPowerClashImpact(slot);
                 // Both reactions read this one resolved hit. Self-inflicted bleeding is not an incoming sword strike.
                 bool enemyHurt = LegacyHitReaction.ShouldHurt(hit.EnemyAttacked, session.Enemy.IsResistanceBroken,
                     hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage, hit.EnemyResistanceDamage,
@@ -1065,8 +1073,10 @@ namespace TurnLimbo.Presentation
                 // The barks hear a hit the battle goes on after. The finishing blow is the finale's, and the event's
                 // scene answers the hit that opens it.
                 if (hit.Outcome == DuelMatchOutcome.InProgress && !missionEventPending)
-                    barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage),
-                        Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage));
+                    barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage,
+                            session.UsePowerBreak ? (bool?)enemyBrokeNow : null),
+                        Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage,
+                            session.UsePowerBreak ? (bool?)playerBrokeNow : null));
                 // A Minor slot (no attack) plays its rest after its last hit faster, as the director saves time.
                 if (hit.Outcome == DuelMatchOutcome.InProgress && slot.IsResolved && showDirector.ShortensSlot &&
                     !DuelFastSkillSlowMotion.HasSlowCompletion(slot))
@@ -1294,8 +1304,12 @@ namespace TurnLimbo.Presentation
         private void AnnounceBreaks(bool playerWasBroken, bool enemyWasBroken,
             bool playerHitPresented = false, bool enemyHitPresented = false)
         {
-            bool playerBroke = !playerWasBroken && session.Player.IsResistanceBroken;
-            bool enemyBroke = !enemyWasBroken && session.Enemy.IsResistanceBroken;
+            bool playerBroke = session.UsePowerBreak
+                ? session.CurrentSlot?.HitsResolved == 1 && session.CurrentSlot.PlayerBroken
+                : !playerWasBroken && session.Player.IsResistanceBroken;
+            bool enemyBroke = session.UsePowerBreak
+                ? session.CurrentSlot?.HitsResolved == 1 && session.CurrentSlot.EnemyBroken
+                : !enemyWasBroken && session.Enemy.IsResistanceBroken;
             // A current skill can restore resistance after an opening effect broke it. Cancellation still happened.
             hud.PlayBreakQueueCancellation(true, session.PlayerBreakCanceledFromSlotIndex);
             hud.PlayBreakQueueCancellation(false, session.EnemyBreakCanceledFromSlotIndex);
@@ -1324,8 +1338,8 @@ namespace TurnLimbo.Presentation
 
         /// <summary>What a fighter took in a moment, for the barks: whether its resistance broke just now, and the health it
         /// lost to the hit.</summary>
-        private static BarkBlow Blow(LegacyFighterState fighter, bool wasBroken, int healthDamage)
-            => new BarkBlow(!wasBroken && fighter.IsResistanceBroken, healthDamage, fighter.Health, fighter.MaxHealth);
+        private static BarkBlow Blow(LegacyFighterState fighter, bool wasBroken, int healthDamage, bool? brokeNow = null)
+            => new BarkBlow(brokeNow ?? (!wasBroken && fighter.IsResistanceBroken), healthDamage, fighter.Health, fighter.MaxHealth);
 
         // The rules resolve an attack against the target's attack skill as a resistance
         // exchange for the whole slot, even after that skill's own hits have ended.
@@ -1654,7 +1668,7 @@ namespace TurnLimbo.Presentation
             ClearMissionState();
             campaign.Reset(StoryProgressionEnabled ? prologue.ClearedCount : 0);
             SyncStoryProgression();
-            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent, usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             ResetBattlePresentation();
             lobbyHud.ResetView();
             ShowLobby();
@@ -1680,7 +1694,7 @@ namespace TurnLimbo.Presentation
             openingSuppressNextPointerAdvance = false;
             pointerPressedDuringReveal = false;
             SyncStoryProgression();
-            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent, usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             ResetBattlePresentation();
             // A new story remembers only the lessons it teaches again.
             recallAlbum.Clear();
@@ -1759,7 +1773,7 @@ namespace TurnLimbo.Presentation
             }
             dialogueHud.MaskElisaName = openingChoice == OpeningVoiceChoice.Leave;
             SyncStoryProgression();
-            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent, usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             ResetBattlePresentation();
             lobbyHud.ResetView();
             if (!openingCompleted)
@@ -2503,7 +2517,7 @@ namespace TurnLimbo.Presentation
         public bool StartTraining()
         {
             if (!IsInLobby || !campaign.TryStartTraining()) return false;
-            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent, usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             ResetBattlePresentation();
             loadingHud.Play("훈련장을 준비하는 중");
             return true;
@@ -2883,7 +2897,7 @@ namespace TurnLimbo.Presentation
             mission = next;
             guide = next.CreateGuide();
             session = next.CreateDuel(System.Environment.TickCount,
-                skill => campaign.GetOwnedSkill(skill.Id)?.Skill, MeshPercent);
+                skill => campaign.GetOwnedSkill(skill.Id)?.Skill, MeshPercent, usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             ResetBattlePresentation(carryIntroPositions ? playerOpeningX : (float?)null,
                 carryIntroPositions ? enemyOpeningX : (float?)null);
             loadingHud.Play("임무 전장을 준비하는 중");
@@ -3017,7 +3031,7 @@ namespace TurnLimbo.Presentation
 
         private void StartStageBattle()
         {
-            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent);
+            session = campaign.CreateDuel(System.Environment.TickCount, MeshPercent, usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             ResetBattlePresentation();
             loadingHud.Play("전투를 준비하는 중");
         }

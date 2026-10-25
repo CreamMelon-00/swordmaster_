@@ -277,7 +277,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             $"N은 {LegacySkillLabels.MinimumAheadSeconds}~{LegacySkillLabels.MaximumAheadSeconds}, " +
             $"M은 {LegacySkillLabels.MinimumAheadTimeCount}~{LegacySkillLabels.MaximumAheadTimeCount}의 정수, " +
             $"예: 앞 순환 기술마다 다음 턴 제한시간 +2초 (최대 3)), {LegacySkillLabels.AutoDodgePhrase}, " +
-            $"보호 소모 위력 +N, 앞 공격 총타수 M 이상 위력 +N(N은 {LegacySkillLabels.MinimumUsePowerBonus}~" +
+            $"보호 소모 위력 +N, 앞 공격 횟수 M 이상 위력 +N(N은 {LegacySkillLabels.MinimumUsePowerBonus}~" +
             $"{LegacySkillLabels.MaximumUsePowerBonus}, M은 {LegacySkillLabels.MinimumAttackHitsRequired}~" +
             $"{LegacySkillLabels.MaximumAttackHitsRequired}의 정수), 상대 ACT N 이상이면 ACT M 강탈(N과 M은 " +
             $"{LegacySkillLabels.MinimumActStealValue}~{LegacySkillLabels.MaximumActStealValue}의 정수), " +

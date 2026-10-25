@@ -135,7 +135,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// PowerUp and Vulnerability remain. Reservation alone never spends a status.</summary>
         public int ConsumeProtectionPowerBonus { get; internal set; }
         public bool HasProtectionSpend => ConsumeProtectionPowerBonus > 0;
-        /// <summary>사용 효과 앞 공격 총타수 N 이상 위력 +M: counts each distinct attack id ahead once, using
+        /// <summary>사용 효과 앞 공격 횟수 M 이상 위력 +N: counts each distinct attack id ahead once, using
         /// its AttackCount. Waits, defences and this skill's own id do not count. Only the first copy gains the bonus.</summary>
         public int AheadAttackHitsRequired { get; internal set; }
         public int AheadAttackHitsPowerBonus { get; internal set; }

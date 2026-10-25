@@ -13,14 +13,16 @@ namespace TurnLimbo.Runtime.Tavern
         public const int MaximumTurns = 24;
         private readonly SkillTavernRun run;
         private readonly int seed;
+        private readonly bool usePowerBreak;
         private readonly IReadOnlyList<LegacySkill> initialEnemyQueue;
         private readonly List<CompletedTurn> completedTurns = new List<CompletedTurn>();
         private bool recorded;
 
-        public SkillTavernBattle(SkillTavernRun run, int seed = 0)
+        public SkillTavernBattle(SkillTavernRun run, int seed = 0, bool usePowerBreak = false)
         {
             this.run = run ?? throw new ArgumentNullException(nameof(run));
             this.seed = seed;
+            this.usePowerBreak = usePowerBreak;
             PlayerQueue = Array.AsReadOnly(run.BuildQueue());
             EnemyQueue = Array.AsReadOnly(CreateEnemyQueue(run.RoundNumber));
             initialEnemyQueue = EnemyQueue;
@@ -121,7 +123,8 @@ namespace TurnLimbo.Runtime.Tavern
         private LegacyQueuedDuel CreateDuel()
             => new LegacyQueuedDuel(FighterHealth, FighterResistance, FighterHealth, FighterResistance,
                 new[] { LegacyCommonActions.Breathe }, initialEnemyQueue, new[] { SkillTavernRun.SlotCount },
-                randomSeed: seed, features: CombatFeature.LaneQ, roundLimit: MaximumTurns, meshPercent: 0);
+                randomSeed: seed, features: CombatFeature.LaneQ, roundLimit: MaximumTurns, meshPercent: 0,
+                usePowerBreak: usePowerBreak);
 
         private sealed class CompletedTurn
         {

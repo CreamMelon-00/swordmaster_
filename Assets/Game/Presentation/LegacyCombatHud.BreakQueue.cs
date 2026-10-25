@@ -12,6 +12,8 @@ namespace TurnLimbo.Presentation
         private readonly List<BreakFragmentCard> breakFragmentCards = new List<BreakFragmentCard>();
         private int playerShatteredFrom = int.MaxValue, enemyShatteredFrom = int.MaxValue;
         private readonly HashSet<int> enemyRosterShatteredSlots = new HashSet<int>();
+        private readonly HashSet<int> playerDestroyedShatteredSlots = new HashSet<int>(),
+            enemyDestroyedShatteredSlots = new HashSet<int>();
         public int BreakFragmentEmissionCount { get; private set; }
         public int ActiveBreakFragmentCardCount
         {
@@ -37,6 +39,11 @@ namespace TurnLimbo.Presentation
         public void PlayBreakQueueCancellation(bool playerSide, int firstCancelledSlot)
         {
             if (disposed || displayedSession == null || firstCancelledSlot < 0) return;
+            if (displayedSession.UsePowerBreak)
+            {
+                RefreshPowerBreakQueueFragments();
+                return;
+            }
             int previous = playerSide ? playerShatteredFrom : enemyShatteredFrom;
             if (firstCancelledSlot >= previous) return;
             if (playerSide) playerShatteredFrom = firstCancelledSlot;
@@ -49,13 +56,29 @@ namespace TurnLimbo.Presentation
             }
         }
 
+        private void RefreshPowerBreakQueueFragments()
+        {
+            if (displayedSession?.UsePowerBreak != true) return;
+            for (int slot = 0; slot < displayedSession.PlayerQueue.Count; slot++)
+                if (displayedSession.IsPlayerSkillDestroyed(slot) && playerDestroyedShatteredSlots.Add(slot))
+                    EmitBreakFragment(playerQueue, slot, true);
+            for (int slot = 0; slot < displayedSession.EnemyQueue.Count; slot++)
+                if (displayedSession.IsEnemySkillDestroyed(slot) && enemyDestroyedShatteredSlots.Add(slot))
+                    EmitBreakFragment(enemyQueue, slot, false);
+        }
+
         /// <summary>Only the individual cancelled enemy slots fracture. Mixed owners keep their original shared queue
         /// positions; a subsequent break or defeat can cancel another owner's slots without replaying any earlier one.</summary>
         public void PlayEnemyQueueCancellation()
         {
             if (disposed || !(displayedSession is ILegacyEnemyRosterView roster) || roster.Enemies.Count <= 1) return;
+            // Power breaks are observed independently of roster deaths. Share their emission ownership so the
+            // controller's break callback followed by its roster callback cannot fracture the same card twice.
+            if (displayedSession.UsePowerBreak) RefreshPowerBreakQueueFragments();
             for (int slot = 0; slot < displayedSession.EnemyQueue.Count; slot++)
-                if (roster.IsEnemySlotCanceled(slot) && enemyRosterShatteredSlots.Add(slot))
+                if (roster.IsEnemySlotCanceled(slot) &&
+                    (!displayedSession.UsePowerBreak || !displayedSession.IsEnemySkillDestroyed(slot)) &&
+                    enemyRosterShatteredSlots.Add(slot))
                     EmitBreakFragment(enemyQueue, slot, false);
         }
 
@@ -128,6 +151,8 @@ namespace TurnLimbo.Presentation
             foreach (BreakFragmentCard card in breakFragmentCards) card.Root.gameObject.SetActive(false);
             playerShatteredFrom = enemyShatteredFrom = int.MaxValue;
             enemyRosterShatteredSlots.Clear();
+            playerDestroyedShatteredSlots.Clear();
+            enemyDestroyedShatteredSlots.Clear();
             BreakFragmentEmissionCount = 0;
         }
 

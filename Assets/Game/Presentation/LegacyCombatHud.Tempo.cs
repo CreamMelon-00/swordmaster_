@@ -197,6 +197,7 @@ namespace TurnLimbo.Presentation
                     RectTransform item = visibleItems[n];
                     float ratio = timed.DurationHalfTicks * .5f;
                     item.sizeDelta = new Vector2(QueueCardSize * ratio, QueueCardSize);
+                    brokenGapLabels[index].rectTransform.sizeDelta = new Vector2(Mathf.Max(22f, item.sizeDelta.x - 6f), 46f);
                     highlights[index].rectTransform.sizeDelta = item.sizeDelta;
                     icons[index].rectTransform.sizeDelta = new Vector2(QueueIconSize * ratio, QueueIconSize);
                     icons[index].preserveAspect = false;
@@ -228,6 +229,7 @@ namespace TurnLimbo.Presentation
                     ((RectTransform)icons[i].transform.parent).sizeDelta = Vector2.one * QueueCardSize;
                     highlights[i].rectTransform.sizeDelta = Vector2.one * QueueCardSize;
                     icons[i].rectTransform.sizeDelta = Vector2.one * QueueIconSize;
+                    brokenGapLabels[i].rectTransform.sizeDelta = new Vector2(58f, 46f);
                     icons[i].preserveAspect = true;
                     if (player && i < forecastMarks.Count) forecastMarks[i].anchoredPosition = ForecastMarkCenter;
                 }

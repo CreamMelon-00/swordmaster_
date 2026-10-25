@@ -367,7 +367,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(definition.Text.Info, Is.Not.Null, "and its badges.");
             // The range is verified above; effect copy need not repeat the separately displayed power facts.
             if (kind == LegacySkillKind.Attack)
-                Assert.That(definition.Text.Detail, Does.EndWith("공격 대결: 저항부터 피해 / 방어·빈 행동: 체력 피해 (방어 위력 차감)"));
+                Assert.That(definition.Text.Detail, Does.Not.Contain("공격 대결:").And.Not.Contain("방어·빈 행동:"));
             LegacySkillEffect effect = definition.Effect;
             switch (id)
             {
@@ -396,7 +396,7 @@ namespace TurnLimbo.Core.Tests
                     Assert.That(description, Does.Contain("2개이상반환"));
                     Assert.That(description, Does.Contain("이번턴다음기술"));
                     Assert.That(description, Does.Contain("2배"));
-                    Assert.That(description, Does.Contain("제한시간4초를씁니다"));
+                    Assert.That(description, Does.Contain("제한시간-4초"));
                     break;
                 case 57:
                     Assert.That((effect.AheadTimeTarget, effect.AheadTimePerUnit, effect.AheadTimeMax),

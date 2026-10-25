@@ -194,7 +194,7 @@ namespace TurnLimbo.Presentation
             PowerText.text = effectivePower ?? CampaignSkillText.Power(skill);
             hitsLabel.text = string.Empty;
             hits.text = defence ? "같은 칸" : (effectiveAttackCount ?? skill.AttackCount) + "회";
-            SkillInfoContent content = SkillInfoContent.For(skill, enemy, enemyActRecoveryIsPlayerOnly);
+            SkillInfoContent content = SkillInfoContent.ForPrototype(skill, enemy, enemyActRecoveryIsPlayerOnly);
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             bool showCycleCount = cycleUses >= 0 && effect?.HasCycle == true;
             string cycleLabel = showCycleCount ? "순환 " + cycleUses + "/" + effect.CycleMaxCount : null;

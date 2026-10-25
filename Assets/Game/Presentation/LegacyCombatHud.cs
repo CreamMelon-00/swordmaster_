@@ -483,7 +483,11 @@ namespace TurnLimbo.Presentation
             playerQueue = new QueueView(Rect("Player Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), true, white,
                 art.UIFont, meshGearSprite);
             enemyQueue = new QueueView(Rect("Enemy Requests", root, Vector2.zero, Vector2.zero, Vector2.one * .5f), false, white, art.UIFont);
-            root.gameObject.AddComponent<LegacyQueueInsertionVisibility>().Configure(ResetQueueInsertions);
+            root.gameObject.AddComponent<LegacyQueueInsertionVisibility>().Configure(() =>
+            {
+                ResetQueueInsertions();
+                ClearPowerClash(true);
+            });
             guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
             BuildQueueSparks();
             // The 간파 cue over the cards and their sparks (LegacyCombatHud.Reads.cs).
@@ -493,6 +497,7 @@ namespace TurnLimbo.Presentation
             queueCancellationLayer.anchorMin = Vector2.zero;
             queueCancellationLayer.anchorMax = Vector2.one;
             BuildBreakQueueFragments();
+            BuildPowerClash();
 
             // A held skill's explanation: the enemy's card drawn larger (PlayerExplanationScale), on a dark drop shadow.
             const float explain = PlayerExplanationScale;
@@ -836,6 +841,8 @@ namespace TurnLimbo.Presentation
         {
             if (disposed || session == null) return;
             displayedSession = session;
+            playerStatus.SetPowerBreakMode(session.UsePowerBreak);
+            enemyStatus.SetPowerBreakMode(session.UsePowerBreak);
             worldCamera = camera;
             delta = Mathf.Max(0, delta);
             float actualDelta = realDelta < 0 ? delta : Mathf.Max(0, realDelta);
@@ -852,6 +859,8 @@ namespace TurnLimbo.Presentation
             lastPlanning = planning;
             if (feedbackSlot != null && (!isResolving || !ReferenceEquals(feedbackSlot, session.CurrentSlot)))
                 ClearSkillFeedback();
+            if (session.UsePowerBreak && isResolving && feedbackSlot != null &&
+                !ReferenceEquals(powerClashSlot, feedbackSlot)) SetPowerClash(feedbackSlot);
             if (!planning) ClearConditionPreview();
             canOpenLog = planning;
             inputs.alpha = planning ? 1 : 0;
@@ -943,11 +952,13 @@ namespace TurnLimbo.Presentation
             ApplyQueueCardSize();
             // The clash motion reads the resolving slot before the rows hide a slot just completed (its cards' copies
             // play out the rest of their meeting; the turn's last slot stays shown and plays it on its own cards).
+            RefreshPowerBreakQueueFragments();
             AdvanceQueueClash(session, isResolving, currentSlot, delta);
             RefreshReservationQueues(session, currentSlot, isResolving, planning, activeScale, actualDelta);
             // Both rows in their panels over the dock, sliding one step toward the seam after each resolved slot.
             LayoutQueuePanels(isResolving, currentSlot, delta);
             RefreshCombatReadout(session);
+            AdvancePowerClash(actualDelta);
             if (QueuePanelKeepsFightersClear && CombatReadoutTop > 0f)
                 queuePanelFloor = Mathf.Max(queuePanelFloor, Mathf.Clamp01((CombatReadoutTop + QueuePanelFighterClearance) /
                     (root.rect.height > 1f ? root.rect.height : 1080f)));
@@ -985,6 +996,7 @@ namespace TurnLimbo.Presentation
             ResetCombatReadout();
             ClearHoldCancel();
             ClearBreakQueueFragments();
+            ClearPowerClash(true);
             ForgetUsedTemporarySkills();
             targetTransition = transition = 0;
             cinematic = cinematicFrom = cinematicTarget = 0;
@@ -1003,6 +1015,7 @@ namespace TurnLimbo.Presentation
         public void EndTurn()
         {
             ResetQueueInsertions();
+            ClearPowerClash(true);
             ClearHoldCancel();
             targetTransition = 1;
             inputs.alpha = 0;
@@ -1036,6 +1049,7 @@ namespace TurnLimbo.Presentation
             ClearSkillFeedback();
             if (slot == null) return;
             feedbackSlot = slot;
+            SetPowerClash(slot);
             var timedSlot = UsesTempoQueue(displayedSession) ? slot as LegacyCurrentSlot : null;
             playerQueue.SetCurrentFeedback(timedSlot != null ? timedSlot.PlayerQueueIndex : slot.SlotIndex, slot.PlayerFeedback);
             enemyQueue.SetCurrentFeedback(timedSlot != null ? timedSlot.EnemyQueueIndex : slot.SlotIndex, slot.EnemyFeedback);
@@ -1048,6 +1062,7 @@ namespace TurnLimbo.Presentation
         {
             if (disposed) return;
             feedbackSlot = null;
+            ClearPowerClash(false);
             playerQueue.SetCurrentFeedback(-1, null);
             enemyQueue.SetCurrentFeedback(-1, null);
             playerStatus.SetBuffFeedback(null);
@@ -1269,7 +1284,8 @@ namespace TurnLimbo.Presentation
             for (int lane = 0; lane < laneFeedback.Length; lane++)
                 laneFeedback[lane].SetState(false, ready && skill != null && skill.LaneIndex == lane, false);
             playerExplanationHint.text = ready ? opponentCondition ? "지금 예약하면 조건 충족 · 놓으면 닫기"
-                    : stateCondition ? "현재 상대 상태: 조건 충족 · 놓으면 닫기" : "현재 저항: 회복 가능 · 놓으면 닫기"
+                    : stateCondition ? "현재 상대 상태: 조건 충족 · 놓으면 닫기"
+                    : displayedSession?.UsePowerBreak == true ? "현재 조건 충족 · 놓으면 닫기" : "현재 저항: 회복 가능 · 놓으면 닫기"
                 : opponentCondition ? "강조된 상대 기술에 맞춰 예약 · 놓으면 닫기"
                 : stateCondition ? StateConditionHint(skill) : "키를 놓으면 닫기";
             if (lastPlanning) playerEffectFeedback.SetState(false, ready, false);
@@ -1372,6 +1388,7 @@ namespace TurnLimbo.Presentation
         public void ShowOutcome(DuelMatchOutcome outcome, int turn)
         {
             if (outcome == DuelMatchOutcome.InProgress || disposed) return;
+            ClearPowerClash(true);
             HideExplanation();
             CloseLog(true);
             outcomePanel.gameObject.SetActive(true);
@@ -1429,7 +1446,8 @@ namespace TurnLimbo.Presentation
 
         /// <summary>Calls out a new resistance break, distinct from a later doubled HP hit.</summary>
         public void ShowBreakCallout(bool playerSide, Vector3 worldPosition, Transform follow = null) =>
-            ShowStateCallout(playerSide, worldPosition, follow, BreakCalloutText, BreakCalloutInk, BreakCalloutOutline, 1.05f);
+            ShowStateCallout(playerSide, worldPosition, follow, displayedSession?.UsePowerBreak == true ? "붕괴" : BreakCalloutText,
+                BreakCalloutInk, BreakCalloutOutline, 1.05f);
 
         /// <summary>Calls out the automatic refill of a fighter's resistance at the start of a turn.</summary>
         public void ShowRecoveryCallout(bool playerSide, Vector3 worldPosition, Transform follow = null) =>
@@ -1728,10 +1746,11 @@ namespace TurnLimbo.Presentation
                 FitExplanationLabel(result.Name, 12);
                 result.Name.text = string.Empty;
             }
-            Image("HP Track", status, null, new Vector2(0, 4), new Vector2(196, 10), Track);
+            result.HealthLabel = healthLabel;
+            result.HealthTrack = Image("HP Track", status, null, new Vector2(0, 4), new Vector2(196, 10), Track);
             result.HealthLag = Image("HP delayed", status, white, new Vector2(0, 4), new Vector2(196, 10), DuelVisualTheme.Danger);
             result.Health = Image("HP", status, white, new Vector2(0, 4), new Vector2(196, 10), DuelVisualTheme.Health);
-            Image("Resistance Track", status, null, new Vector2(0, -31), new Vector2(196, 6), Track);
+            var resistanceTrack = Image("Resistance Track", status, null, new Vector2(0, -31), new Vector2(196, 6), Track);
             result.ResistanceLag = Image("Resistance delayed", status, white, new Vector2(0, -31), new Vector2(196, 6), DuelVisualTheme.Danger);
             result.Resistance = Image("Resistance", status, white, new Vector2(0, -31), new Vector2(196, 6), DuelVisualTheme.Steel);
             foreach (var gauge in new[] { result.Health, result.HealthLag, result.Resistance, result.ResistanceLag })
@@ -1742,6 +1761,8 @@ namespace TurnLimbo.Presentation
             result.Counter.supportRichText = false;
             result.Values = BuildVitalNumbers(status, new Vector2(28, 20), new Vector2(28, -15),
                 new Vector2(140, 22), 22, 18);
+            result.ResistanceRoots = new[] { resistanceLabel.gameObject, resistanceTrack.gameObject,
+                result.Resistance.gameObject, result.ResistanceLag.gameObject };
             // Keep gauges at their original height above the actor as buff rows extend the panel upward.
             foreach (RectTransform child in status)
             {
@@ -2150,6 +2171,9 @@ namespace TurnLimbo.Presentation
         {
             public readonly RectTransform Root;
             public Image Health, HealthLag, Resistance, ResistanceLag;
+            public Image HealthTrack;
+            public Text HealthLabel;
+            public GameObject[] ResistanceRoots;
             public Text ActivePowerBuff, ActiveProtectionBuff, GrantedPowerBuff, GrantedProtectionBuff;
             public Text Counter;
             public VitalNumbers Values;
@@ -2159,7 +2183,23 @@ namespace TurnLimbo.Presentation
             private LegacyCounter shownCounter;
             private int shownCounterUses = -1;
             private float delay;
+            private bool powerBreakMode;
             public StatusView(RectTransform root) { Root = root; }
+
+            public void SetPowerBreakMode(bool enabled)
+            {
+                if (powerBreakMode == enabled) return;
+                powerBreakMode = enabled;
+                foreach (GameObject item in ResistanceRoots) item.SetActive(!enabled);
+                Values.SetResistanceVisible(!enabled);
+                Root.sizeDelta = new Vector2(StatusWidth, enabled ? 78f : StatusHeight);
+                float healthY = enabled ? 46f : 76f, barY = enabled ? 30f : 60f;
+                HealthLabel.rectTransform.anchoredPosition = new Vector2(-78f, healthY);
+                Values.SetHealthPosition(new Vector2(28f, healthY));
+                HealthTrack.rectTransform.anchoredPosition = Health.rectTransform.anchoredPosition =
+                    HealthLag.rectTransform.anchoredPosition = new Vector2(0f, barY);
+                if (Name != null) Name.rectTransform.anchoredPosition = new Vector2(0f, enabled ? 67f : 98f);
+            }
 
             public void SetCounter(LegacyCounter counter, int remaining)
             {
@@ -2180,7 +2220,7 @@ namespace TurnLimbo.Presentation
                 ActiveProtectionBuff.transform.parent.gameObject.SetActive(false);
                 GrantedPowerBuff.transform.parent.gameObject.SetActive(false);
                 GrantedProtectionBuff.transform.parent.gameObject.SetActive(false);
-                Root.sizeDelta = new Vector2(StatusWidth, StatusHeight);
+                Root.sizeDelta = new Vector2(StatusWidth, powerBreakMode ? 78f : StatusHeight);
             }
 
             private static void SetBuffRow(Text label, int percent, string prefix, string suffix, ref int rows)
@@ -2224,6 +2264,9 @@ namespace TurnLimbo.Presentation
             private int shownHealth = -1, shownMaxHealth = -1, shownResistance = -1, shownMaxResistance = -1;
 
             public VitalNumbers(Text health, Text resistance) { this.health = health; this.resistance = resistance; }
+
+            public void SetResistanceVisible(bool visible) => resistance.gameObject.SetActive(visible);
+            public void SetHealthPosition(Vector2 position) => health.rectTransform.anchoredPosition = position;
 
             public void Refresh(LegacyFighterState state)
             {
@@ -2333,6 +2376,8 @@ namespace TurnLimbo.Presentation
             private readonly List<Text> queuePowerSourceLabels = new List<Text>(), queuePowerTargetLabels = new List<Text>();
             private readonly List<RectTransform> cycleMarks = new List<RectTransform>();
             private readonly List<Text> cycleLabels = new List<Text>();
+            private readonly List<Text> brokenGapLabels = new List<Text>();
+            private readonly List<Image> cardSurfaces = new List<Image>();
             private readonly List<RectTransform> ownerMarks = new List<RectTransform>();
             private readonly List<Image> ownerFrames = new List<Image>();
             private readonly List<Text> ownerLabels = new List<Text>();
@@ -2369,12 +2414,22 @@ namespace TurnLimbo.Presentation
                     var item = frame.rectTransform;
                     Pin(item, Vector2.one * .5f);
                     // A 3px ring, so the school's dye reads round the icon.
-                    PanelSurface(frame).rectTransform.sizeDelta = -Vector2.one * (QueueCardRing * 2f);
+                    Image surface = PanelSurface(frame);
+                    surface.rectTransform.sizeDelta = -Vector2.one * (QueueCardRing * 2f);
+                    cardSurfaces.Add(surface);
                     frames.Add(frame);
                     var highlight = Image("Selected", item, white, Vector2.zero, new Vector2(64, 64), new Color(Accent.r, Accent.g, Accent.b, .4f));
                     var icon = Image("Icon", item, null, Vector2.zero, Vector2.one * QueueIconSize);
                     icon.preserveAspect = true;
                     icons.Add(icon); highlights.Add(highlight);
+                    Text brokenGap = BuildHiddenQueueProperty(item, font);
+                    brokenGap.name = "Broken Skill Gap";
+                    brokenGap.text = "빈틈\n×2";
+                    brokenGap.fontSize = 15;
+                    brokenGap.resizeTextMinSize = 11;
+                    brokenGap.rectTransform.sizeDelta = new Vector2(58f, 46f);
+                    brokenGap.color = DuelVisualTheme.Danger;
+                    brokenGapLabels.Add(brokenGap);
                     feedback.Add(SkillCardFeedbackGraphic.Create(item, "Skill Condition Feedback", 3f));
                     counterMarks.Add(CreateCounterMark(item));
                     if (meshGear != null) AddMeshMark(item);
@@ -2391,6 +2446,7 @@ namespace TurnLimbo.Presentation
                 int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
                 int breakFrom = cycleSession == null ? -1 : player
                     ? cycleSession.PlayerBreakCanceledFromSlotIndex : cycleSession.EnemyBreakCanceledFromSlotIndex;
+                if (cycleSession?.UsePowerBreak == true) breakFrom = -1;
                 QueueEndSlot = breakFrom >= 0 ? Mathf.Min(queue.Count, breakFrom) : queue.Count;
                 firstShown = consumed;
                 visibleItems.Clear();
@@ -2402,8 +2458,11 @@ namespace TurnLimbo.Presentation
                 {
                     var item = icons[i].transform.parent.GetComponent<RectTransform>();
                     bool visible = i < QueueEndSlot && (tempoLayout ? TempoUnconsumed(i) : i >= consumed) && queue[i] != null &&
-                        (!multipleEnemies || !roster.IsEnemySlotCanceled(i));
+                        (!multipleEnemies || !roster.IsEnemySlotCanceled(i) || IsDestroyedGap(i));
                     item.gameObject.SetActive(visible);
+                    bool gap = visible && IsDestroyedGap(i);
+                    brokenGapLabels[i].gameObject.SetActive(gap);
+                    frames[i].enabled = cardSurfaces[i].enabled = !gap;
                     if (!player)
                     {
                         int owner = multipleEnemies && i < queue.Count ? roster.EnemyOwnerAtSlot(i) : -1;
@@ -2418,6 +2477,14 @@ namespace TurnLimbo.Presentation
                         : LegacyKeywordMark.None);
                     if (!visible) { feedback[i].Clear(); continue; }
                     bool revealed = RefreshCardIdentity(i, queue[i], iconFor);
+                    if (gap)
+                    {
+                        icons[i].enabled = false;
+                        highlights[i].enabled = false;
+                        feedback[i].Clear();
+                        cycleMarks[i].gameObject.SetActive(false);
+                        if (!player) hiddenProperties[i].gameObject.SetActive(false);
+                    }
                     visibleItems.Add(item);
                     visibleSlots.Add(i);
                     restScales[i] = (resolving && i == activeSlot ? Mathf.Min(scale, QueueActiveCardMaxScale) : 1) * CardScale;
@@ -2425,7 +2492,7 @@ namespace TurnLimbo.Presentation
                     highlights[i].enabled = !resolving && i == selected;
                     // Each row counts its own side's uses: a versus opponent cycles too.
                     LegacySkillEffect effect = LegacySkillDefinitions.Find(queue[i])?.Effect;
-                    bool cycle = revealed && effect?.HasCycle == true;
+                    bool cycle = !gap && revealed && effect?.HasCycle == true;
                     cycleMarks[i].gameObject.SetActive(cycle);
                     if (cycle)
                     {
@@ -2456,6 +2523,7 @@ namespace TurnLimbo.Presentation
                 UpdateKeywordMarks();
                 UpdateForecastMarks();
                 UpdateFeedback();
+                HideDestroyedCardMarks();
             }
 
             /// <summary>The spacing between neighbouring cards now (the tuned one unless the panels had to tighten).</summary>
@@ -2989,6 +3057,7 @@ namespace TurnLimbo.Presentation
                 foreach (var mark in queuePowerSourceMarks) mark.gameObject.SetActive(false);
                 foreach (var mark in queuePowerTargetMarks) mark.gameObject.SetActive(false);
                 foreach (var mark in cycleMarks) mark.gameObject.SetActive(false);
+                foreach (var gap in brokenGapLabels) gap.gameObject.SetActive(false);
                 foreach (var mark in keywordMarks) mark.gameObject.SetActive(false);
                 keywordMarkValues.Clear();
                 foreach (var strike in dodgeStrikes) strike.SetActive(false);

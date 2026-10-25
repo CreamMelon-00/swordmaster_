@@ -119,7 +119,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     : "공격 대응 · 회복 강탈 " + effect.ActRecoveryStealAmount + " · 턴당 1회");
             if (effect.HasAheadHitPower)
                 parts.Add(!LegacyKeywordLinks.IsFirstOfKind(queue, slot, skill) ? UsedThisTurn
-                    : "총타수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
+                    : "공격 횟수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
                       effect.AheadAttackHitsRequired + " · +" + LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, slot, skill));
             LegacySkill spawned = LegacyKeywordLinks.TemporarySpawn(skill, out int copies);
             if (spawned != null && view.Features.HasLane(spawned.LaneIndex))
@@ -169,8 +169,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 parts.Add(RecoveryStealUsed(view, true, skill.Id) ? Used("ACT 회복 강탈")
                     : "같은 칸 상대 공격 시 다음 턴 ACT 회복 " + effect.ActRecoveryStealAmount + " 강탈 · 효과 턴당 1회");
             if (effect.HasAheadHitPower)
-                parts.Add(!first ? Used("총타수 보너스")
-                    : "서로 다른 앞 공격 총타수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
+                parts.Add(!first ? Used("공격 횟수 보너스")
+                    : "서로 다른 앞 공격 횟수 " + LegacyKeywordLinks.CountAheadAttackHits(queue, slot, skill) + "/" +
                       effect.AheadAttackHitsRequired + " · 지금 예약하면 기본 위력 +" +
                       LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, slot, skill));
             LegacySkill spawned = LegacyKeywordLinks.TemporarySpawn(skill, out int copies);
@@ -306,10 +306,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 LegacySkillFeedback actual = !planning && current != null && current.SlotIndex == slotIndex
                     ? playerRow ? current.PlayerFeedback : current.EnemyFeedback : null;
                 if (actual != null)
-                    return new LegacyKeywordMark("총타수 +" + actual.AheadHitPowerBonus,
+                    return new LegacyKeywordMark("공격 횟수 +" + actual.AheadHitPowerBonus,
                         LegacyKeywordMarkKind.AheadHitPower, actual.AheadHitPowerBonus == 0);
                 int bonus = LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, slotIndex, skill);
-                return new LegacyKeywordMark(first ? "총타수 +" + bonus : "+0", LegacyKeywordMarkKind.AheadHitPower, bonus == 0);
+                return new LegacyKeywordMark(first ? "공격 횟수 +" + bonus : "+0", LegacyKeywordMarkKind.AheadHitPower, bonus == 0);
             }
             if (effect.HasAheadPower)
             {

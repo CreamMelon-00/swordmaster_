@@ -200,7 +200,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fixture.View.EffectText.text,
                     Does.Contain("방어 기술").And.Contain("저항 즉시 10 감소"));
                 Assert.That(CampaignSkillText.Effect(Skill(42)),
-                    Does.Contain("방어 기술").And.Contain("사용 시 상대 저항을 10 직접 낮춥니다"));
+                    Does.StartWith("사용 시 상대가 방어 기술이면").And.Contain("상대 저항을 10 직접 낮춥니다"));
 
                 // ACT recovery seen on the enemy's card stays the player's own. 쿠페 lost its ACT recovery on 2026-10-12, so
                 // 탐색 (43) stands in for it and 쿠페 joins the skills that must not claim the limit.

@@ -6,11 +6,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
     public sealed class LegacyFighterState
     {
         internal LegacyFighterState(int maxHealth, int maxResistance, int healthFloor = 0)
+            : this(maxHealth, maxResistance, healthFloor, false) { }
+
+        internal LegacyFighterState(int maxHealth, int maxResistance, int healthFloor, bool usePowerBreak)
         {
             if (maxHealth <= 0 || maxResistance < 0) throw new ArgumentOutOfRangeException(nameof(maxHealth));
             if (healthFloor < 0 || healthFloor >= maxHealth) throw new ArgumentOutOfRangeException(nameof(healthFloor));
             MaxHealth = Health = maxHealth;
-            MaxResistance = Resistance = maxResistance;
+            UsePowerBreak = usePowerBreak;
+            MaxResistance = Resistance = usePowerBreak ? 0 : maxResistance;
             HealthFloor = healthFloor;
         }
 
@@ -23,6 +27,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             MaxResistance = source.MaxResistance;
             Resistance = source.Resistance;
             recoveryPending = source.recoveryPending;
+            UsePowerBreak = source.UsePowerBreak;
+            IsBrokenGap = source.IsBrokenGap;
         }
 
         internal LegacyFighterState Copy() => new LegacyFighterState(this);
@@ -33,12 +39,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int HealthFloor { get; }
         public int Resistance { get; private set; }
         public int MaxResistance { get; }
-        public bool IsResistanceBroken => Resistance <= 0;
+        public bool UsePowerBreak { get; }
+        /// <summary>Only the original time occupied by a destroyed reservation is exposed in the prototype.</summary>
+        public bool IsBrokenGap { get; private set; }
+        public bool IsResistanceBroken => UsePowerBreak ? IsBrokenGap : Resistance <= 0;
         public bool IsDefeated => Health <= 0;
         private bool recoveryPending;
 
         internal void BeginTurn()
         {
+            IsBrokenGap = false;
+            if (UsePowerBreak) return;
             // Original Unit.TurnInit leaves one complete planning/resolution turn
             // with broken resistance, then restores it at the following turn.
             if (Resistance <= 0 && !recoveryPending) recoveryPending = true;
@@ -49,13 +60,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
         }
 
+        internal void SetBrokenGap(bool exposed) => IsBrokenGap = UsePowerBreak && exposed;
+
         /// <param name="conditionalDamagePercent">The attacker's 조건 피해 배율 when its 상대 상태 조건 held against this
         /// fighter before the hit, otherwise zero. It multiplies the health damage last, a breaking hit's overflow included.</param>
         internal LegacyHitImpact ReceiveHit(int power, bool resistanceHit, double receivedMultiplier,
             bool halveDamage = false, int brokenTargetDamagePercent = 0, int conditionalDamagePercent = 0)
         {
             int scaled = Round(power * receivedMultiplier);
-            if (resistanceHit)
+            if (resistanceHit && !UsePowerBreak)
             {
                 LegacyDamageReason reasons = receivedMultiplier < 1d && scaled < power
                     ? LegacyDamageReason.ProtectionReduction : LegacyDamageReason.None;
@@ -89,7 +102,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int damage = pushPower;
             LegacyDamageReason reasons = receivedMultiplier < 1d && damage < power
                 ? LegacyDamageReason.ProtectionReduction : LegacyDamageReason.None;
-            if (Resistance <= 0)
+            if (IsResistanceBroken)
             {
                 damage *= 2;
                 if (damage > pushPower) reasons |= LegacyDamageReason.BrokenDouble;
@@ -137,6 +150,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         internal int RestoreResistance(int amount)
         {
+            if (UsePowerBreak) return 0;
             int previous = Resistance;
             Resistance = Math.Min(MaxResistance, Resistance + Math.Max(0, amount));
             // Keep any already scheduled automatic recovery at the turn boundary.
@@ -145,6 +159,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         internal int ReduceResistance(int amount)
         {
+            if (UsePowerBreak) return 0;
             // Skill effects alter resistance directly: no HP overflow, damage
             // multipliers, or guard mitigation apply to this state change.
             int previous = Resistance;
@@ -217,6 +232,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyAttackCount { get; internal set; }
         public int PlayerActionAttackCount { get; internal set; }
         public int EnemyActionAttackCount { get; internal set; }
+        public bool PlayerBroken { get; internal set; }
+        public bool EnemyBroken { get; internal set; }
+        public bool PlayerBrokenGap { get; internal set; }
+        public bool EnemyBrokenGap { get; internal set; }
     }
 
     public sealed class LegacyCurrentSlot : ILegacySlotView
@@ -237,6 +256,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             PlayerPower = playerPower;
             EnemyPower = enemyPower;
             PlayerTotalPower = playerTotalPower;
+            EnemyTotalPower = LegacyPowerBreakRules.TotalPower(enemySkill, enemyPower, EnemyAttackCount);
             PlayerReceivedMultiplier = playerReceivedMultiplier;
             EnemyReceivedMultiplier = enemyReceivedMultiplier;
             PlayerStartingHealth = player.Health;
@@ -327,7 +347,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool EnemyStateConditionHeld { get; internal set; }
         internal int PlayerPower { get; set; }
         internal int EnemyPower { get; set; }
-        internal int PlayerTotalPower { get; set; }
+        public int PlayerTotalPower { get; internal set; }
+        public int EnemyTotalPower { get; internal set; }
+        public bool PlayerBroken { get; internal set; }
+        public bool EnemyBroken { get; internal set; }
+        public bool PlayerBrokenGap { get; internal set; }
+        public bool EnemyBrokenGap { get; internal set; }
+        public int PlayerDestroyedQueueIndex { get; internal set; } = -1;
+        public int EnemyDestroyedQueueIndex { get; internal set; } = -1;
         internal double PlayerReceivedMultiplier { get; }
         internal double EnemyReceivedMultiplier { get; }
         internal int PlayerStartingHealth { get; }
@@ -383,6 +410,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             PlayerAttackConditionMet = playerAttackConditionMet;
             EnemyAttackConditionMet = enemyAttackConditionMet;
             PlayerMesh = slot.PlayerMesh;
+            PlayerBroken = slot.PlayerBroken && hitIndex == 0;
+            EnemyBroken = slot.EnemyBroken && hitIndex == 0;
+            PlayerBrokenGap = slot.PlayerBrokenGap;
+            EnemyBrokenGap = slot.EnemyBrokenGap;
+            PlayerDestroyedQueueIndex = PlayerBroken ? slot.PlayerDestroyedQueueIndex : -1;
+            EnemyDestroyedQueueIndex = EnemyBroken ? slot.EnemyDestroyedQueueIndex : -1;
         }
 
         public int SlotIndex { get; }
@@ -423,5 +456,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool EnemyAttackConditionMet { get; }
         /// <summary>맞물림 for the slot this hit belongs to (<see cref="LegacyCurrentSlot.PlayerMesh"/>).</summary>
         public LegacyMeshSlot PlayerMesh { get; }
+        public bool PlayerBroken { get; }
+        public bool EnemyBroken { get; }
+        public bool PlayerBrokenGap { get; }
+        public bool EnemyBrokenGap { get; }
+        public int PlayerDestroyedQueueIndex { get; }
+        public int EnemyDestroyedQueueIndex { get; }
     }
 }

@@ -88,7 +88,7 @@ namespace TurnLimbo.Runtime.Campaign
             // Optional bridges use the existing pool, so either neighbouring route can unlock them.
             new CurriculumNode("pursuit", null, CurriculumBranch.Bridge, 1.5f, 6, new[] { 61 },
                 requiresAny: new[] { "quick-draw", "diagonal-cut" },
-                cost: 2, description: "앞에 예약한 서로 다른 공격 기술의 총타수가 5 이상이면 기본 위력이 오릅니다."),
+                cost: 2, description: "앞 공격 횟수 4 이상이면 기본 위력 +14."),
             new CurriculumNode("breakthrough", null, CurriculumBranch.Bridge, 3.5f, 6, new[] { 60 },
                 requiresAny: new[] { "diagonal-cut", "breathing" },
                 cost: 2, description: "자신에게 남은 보호를 모두 소모해 이번 공격의 기본 위력을 높입니다."),

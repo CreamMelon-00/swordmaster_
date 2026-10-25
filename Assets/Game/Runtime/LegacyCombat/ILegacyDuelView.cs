@@ -10,6 +10,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     {
         /// <summary>What the duel allows: closed lanes are not drawn, closed 숨고르기 and 넘기기 hide their buttons.</summary>
         CombatFeature Features { get; }
+        bool UsePowerBreak { get; }
         LegacyDuelPhase Phase { get; }
         int RoundNumber { get; }
         /// <summary>The player's ACT now and its cap.</summary>
@@ -27,6 +28,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// later technique as its slot actually starts; other duels reveal every reservation. Invalid indices are false.
         /// The exact EnemyQueue data remain unchanged for simulation and property-only hidden cards.</summary>
         bool IsEnemySkillRevealed(int slotIndex);
+        bool IsPlayerSkillDestroyed(int queueIndex);
+        bool IsEnemySkillDestroyed(int queueIndex);
         /// <summary>The first later reservation canceled by a new break this turn, or -1. Original queue entries remain
         /// readable for their shatter animation; these and later entries never execute or refund ACT. The current skill
         /// finishes all its hits. Both cutoffs reset at the next planning turn, even while resistance remains broken.</summary>
@@ -118,6 +121,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         LegacySkill EnemySkill { get; }
         int PlayerAttackCount { get; }
         int EnemyAttackCount { get; }
+        int PlayerTotalPower { get; }
+        int EnemyTotalPower { get; }
+        bool PlayerBroken { get; }
+        bool EnemyBroken { get; }
+        bool PlayerBrokenGap { get; }
+        bool EnemyBrokenGap { get; }
         LegacySkillFeedback PlayerFeedback { get; }
         LegacySkillFeedback EnemyFeedback { get; }
     }

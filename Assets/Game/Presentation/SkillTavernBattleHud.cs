@@ -1,4 +1,5 @@
 using System;
+using TurnLimbo.Runtime.LegacyCombat;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.Tavern;
 using UnityEngine;
@@ -82,7 +83,9 @@ namespace TurnLimbo.Presentation
                 new Vector2(802f, 48f), 26, DuelVisualTheme.Foreground, TextAnchor.MiddleCenter);
             Label("Tavern Result Round Hint", card.transform, new Vector2(0f, -124f),
                 new Vector2(802f, 82f), 21, DuelVisualTheme.Muted, TextAnchor.MiddleCenter).text =
-                "대전이 끝났습니다. 새 실험으로 다시 시작할 수 있습니다.\n새 실험은 HP와 저항, 편성, 보관함, 자원을 처음 상태로 되돌립니다.";
+                LegacyPowerBreakRules.PrototypeEnabled
+                    ? "대전이 끝났습니다. 새 실험으로 다시 시작할 수 있습니다.\n새 실험은 HP, 편성, 보관함, 자원을 처음 상태로 되돌립니다."
+                    : "대전이 끝났습니다. 새 실험으로 다시 시작할 수 있습니다.\n새 실험은 HP와 저항, 편성, 보관함, 자원을 처음 상태로 되돌립니다.";
             titleButton = ActionButton("Tavern Result Title", card.transform, "타이틀로",
                 new Vector2(-176f, -231f), new Vector2(280f, 60f), () => Request(true, this.returnToTitle));
             nextRoundButton = ActionButton("Tavern Result Next Round", card.transform, "새 실험",

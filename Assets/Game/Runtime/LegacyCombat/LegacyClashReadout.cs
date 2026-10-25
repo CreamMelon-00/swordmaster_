@@ -77,6 +77,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return "기술 효과 적용";
         }
 
+        public static string PowerBreakResult(LegacySlotFacts facts)
+        {
+            LegacyClashInput input = facts.Clash;
+            if (input.Decided && input.EnemyBroken) return "상대 붕괴";
+            if (input.Decided && input.PlayerBroken) return "내 붕괴";
+            return Result(facts);
+        }
+
         private static string Loss(string side, int health, int resistance)
             => health > 0 ? side + (resistance > 0 ? " 체력·저항 손실" : " 체력 손실")
                 : resistance > 0 ? side + " 저항 손실" : string.Empty;

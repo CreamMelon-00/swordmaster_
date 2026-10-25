@@ -14,7 +14,7 @@ namespace TurnLimbo.Presentation.Tests
             SkillInfoContent content = SkillInfoContent.For(LegacySkillDefinitions.Skill(601), enemy);
             Assert.That(content.Main, Is.EqualTo("고속"));
             Assert.That(content.Secondary, Is.EqualTo("단타"));
-            Assert.That(content.Description, Does.Contain("고속 기술 두 개").And.Contain("반 칸"));
+            Assert.That(content.Description, Is.Empty);
             Assert.That(LegacySkillDefinitions.Skill(601).AttackCount, Is.EqualTo(1));
         }
 
@@ -24,7 +24,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             SkillInfoContent content = SkillInfoContent.For(LegacySkillDefinitions.Skill(602), enemy);
             Assert.That(content.Main, Is.EqualTo("차지 2칸"));
-            Assert.That(content.Description, Does.Contain("2칸").And.Contain("상대의 공격을 받습니다"));
+            Assert.That(content.Description, Is.Empty);
         }
 
         [Test]

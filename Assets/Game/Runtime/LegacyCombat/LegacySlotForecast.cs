@@ -62,6 +62,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyAttackCount { get; internal set; }
         public int PlayerActionAttackCount { get; internal set; }
         public int EnemyActionAttackCount { get; internal set; }
+        public bool UsePowerBreak { get; internal set; }
+        public bool PlayerBrokenGap { get; internal set; }
+        public bool EnemyBrokenGap { get; internal set; }
         /// <summary>The skills that meet in the slot, a counter filling an empty side included (null for nothing).</summary>
         public LegacySkill PlayerSkill { get; }
         public LegacySkill EnemySkill { get; }
@@ -113,7 +116,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 PlayerActionSkill = first.PlayerActionSkill, EnemyActionSkill = first.EnemyActionSkill,
                 PlayerAttackCount = playerSkill != null ? playerHits : first.PlayerActionAttackCount,
                 EnemyAttackCount = enemySkill != null ? enemyHits : first.EnemyActionAttackCount,
-                PlayerActionAttackCount = first.PlayerActionAttackCount, EnemyActionAttackCount = first.EnemyActionAttackCount
+                PlayerActionAttackCount = first.PlayerActionAttackCount, EnemyActionAttackCount = first.EnemyActionAttackCount,
+                UsePowerBreak = first.UsePowerBreak,
+                PlayerBrokenGap = first.PlayerBrokenGap, EnemyBrokenGap = first.EnemyBrokenGap
             };
         }
 
@@ -162,8 +167,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             {
                 if (!Reached) return UnreachedSummary;
                 var parts = new List<string>(5);
-                AddSide(parts, "상대", EnemyHealthDamage, EnemyResistanceDamage, EnemyBroken);
-                AddSide(parts, "내", PlayerHealthDamage, PlayerResistanceDamage, PlayerBroken);
+                AddSide(parts, "상대", EnemyHealthDamage, EnemyResistanceDamage, EnemyBroken, UsePowerBreak);
+                AddSide(parts, "내", PlayerHealthDamage, PlayerResistanceDamage, PlayerBroken, UsePowerBreak);
+                if (EnemyBrokenGap) parts.Add("상대 파괴 빈칸: 피해 2배");
+                if (PlayerBrokenGap) parts.Add("내 파괴 빈칸: 피해 2배");
                 if (NextTurnSeconds > 0) parts.Add(NextTurnTimeText(NextTurnSeconds));
                 if (Outcome == DuelMatchOutcome.PlayerVictory) parts.Add("승리");
                 else if (Outcome == DuelMatchOutcome.EnemyVictory) parts.Add("패배");
@@ -179,11 +186,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>The line for a slot the turn never reaches.</summary>
         public const string UnreachedSummary = SummaryPrefix + "앞 칸에서 결판";
 
-        private static void AddSide(List<string> parts, string side, int health, int resistance, bool broken)
+        private static void AddSide(List<string> parts, string side, int health, int resistance, bool broken, bool usePowerBreak)
         {
             if (health > 0) parts.Add(side + " 체력 -" + health);
             else if (health < 0) parts.Add(side + " 체력 +" + -health);
-            if (resistance != 0 || broken)
+            if (usePowerBreak && broken) parts.Add(side + " 붕괴: 다음 기술 파괴");
+            else if (resistance != 0 || broken)
                 parts.Add(side + " 저항 " + (resistance >= 0 ? "-" + resistance : "+" + -resistance) + (broken ? "(붕괴)" : string.Empty));
         }
 

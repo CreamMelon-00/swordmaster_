@@ -78,7 +78,9 @@ namespace TurnLimbo.Presentation
                 // attacking, and no guard absorbs them), so they carry the multiplier. The enemy's cue comes before the
                 // dodge window and reads as a warning: a dodge still cancels the strike.
                 detail = Join(detail, ConditionalDamageText(feedback.ConditionalDamagePercent) + " (" + (playerSide ? "상대 " : "내 ") +
-                    (effect.OpponentState == LegacyOpponentState.Broken ? "저항 붕괴" : "체력 " + effect.OpponentHealthPercent + "% 이하") + ")");
+                    (effect.OpponentState == LegacyOpponentState.Broken
+                        ? LegacyPowerBreakRules.PrototypeEnabled ? "파괴된 빈틈" : "저항 붕괴"
+                        : "체력 " + effect.OpponentHealthPercent + "% 이하") + ")");
                 if (playerSide) tint = DuelVisualTheme.Accent;
             }
             if (feedback.ActGainGranted > 0)
