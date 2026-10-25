@@ -108,7 +108,7 @@ namespace TurnLimbo.Core.Tests
             StringAssert.Contains("상대 저항을 10 직접", attackCounter);
             string guardCounter = LegacySkillRoles.GetDetail(FindSkill(6));
             Assert.That(guardCounter, Does.Contain("같은 칸").And.Contain("방어 기술").And.Contain("사용 시"));
-            StringAssert.Contains("상대 저항을 15 직접", guardCounter);
+            StringAssert.Contains("상대 저항을 18 직접", guardCounter);
             string guardedRecovery = LegacySkillRoles.GetDetail(FindSkill(7));
             StringAssert.Contains("상대가 타격 기술이면", guardedRecovery);
             StringAssert.Contains("다음 턴 ACT 회복량 +2", guardedRecovery);
@@ -142,7 +142,7 @@ namespace TurnLimbo.Core.Tests
 
             string draw = LegacySkillRoles.GetDetail(FindSkill(42));
             Assert.That(draw, Does.Contain("같은 칸").And.Contain("방어 기술").And.Contain("사용 시"));
-            StringAssert.Contains("상대 저항을 15 직접", draw);
+            StringAssert.Contains("상대 저항을 10 직접", draw);
             StringAssert.DoesNotContain("ACT", draw);
             StringAssert.Contains("초과 감소는 체력 피해가 되지", draw);
         }

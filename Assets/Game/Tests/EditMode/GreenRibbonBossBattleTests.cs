@@ -359,13 +359,13 @@ namespace TurnLimbo.Core.Tests
             Assert.That(duel.TrySetFixedQueues(new[] { LegacyCommonActions.Breathe },
                 new[] { LegacyCommonActions.Breathe, LegacySkillDefinitions.Skill(504) }), Is.True);
             ((ILegacyDuelView)duel).EnemyEffectivePowerRange(duel.EnemyQueue[1], out int min, out int max);
-            Assert.That(min, Is.EqualTo(27));
+            Assert.That(min, Is.EqualTo(26));
             Assert.That(max, Is.EqualTo(min));
             duel.Commit(); duel.ResolveNextSlot(); duel.BeginNextSlot();
             LegacyHitResult hit = duel.ResolveNextHit();
-            Assert.That(hit.PlayerResistanceDamage, Is.EqualTo(27));
+            Assert.That(hit.PlayerResistanceDamage, Is.EqualTo(26));
             ((ILegacyDuelView)duel).EnemyEffectivePowerRange(duel.EnemyQueue[1], out min, out max);
-            Assert.That(max, Is.EqualTo(27), "The mirrored value stays at the counter's count before this use.");
+            Assert.That(max, Is.EqualTo(26), "The mirrored value stays at the counter's count before this use.");
             duel.CompleteCurrentSlot(); duel.BeginNextTurn();
             Assert.That(duel.PlayerSkillsUsedPreviousTurn, Is.EqualTo(1));
         }

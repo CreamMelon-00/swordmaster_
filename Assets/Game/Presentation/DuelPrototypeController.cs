@@ -679,7 +679,10 @@ namespace TurnLimbo.Presentation
                     return;
                 }
             }
-            float delta = liveTime * speed;
+            // Fast actions and their actual contacts keep this ordinary combat clock. Only the surrounding world
+            // and the opponent's retimed pose/recovery slow down; hit stop and deeper cinematic clocks still freeze both.
+            DuelFastSkillSlowMotion.SplitDelta(liveTime, speed, session.CurrentSlot,
+                viewPhase == ViewPhase.PlayingSlot, out float worldDelta, out float delta);
             // 전투 planning is bullet time in the arena only; the planning clock above is unchanged.
             arena.SetPlanningState(planningTime, IsInspecting, CanChoose && Encounter == EncounterKind.Battle);
             // The running clock's last share pushes the camera in a touch (not untimed, not while a coached beat holds it).
@@ -703,7 +706,7 @@ namespace TurnLimbo.Presentation
                 RequestCombatCameraShot(arena, progress, session.CurrentSlot.PlayerSkill ?? session.CurrentSlot.PendingPlayerCounter,
                     session.CurrentSlot.EnemySkill);
             }
-            arena.Tick(delta, realDelta, deferSlowAfterimages: true);
+            arena.TickSkillTempo(worldDelta, delta, realDelta, deferSlowAfterimages: true);
             if (viewPhase == ViewPhase.PlayingSlot && !bladeBindHitPending)
                 PresentBladeExchange(phaseTime + delta);
             phaseTime += delta;
@@ -744,7 +747,7 @@ namespace TurnLimbo.Presentation
                     if (phaseTime >= slotAnticipationDuration) SetViewPhase(ViewPhase.PlayingSlot);
                     break;
                 case ViewPhase.PlayingSlot:
-                    UpdateSlot(delta);
+                    UpdateSlot(delta, worldDelta);
                     break;
                 case ViewPhase.BetweenSlots:
                     if (phaseTime >= betweenSlotsDuration) PrepareNextSlot();
@@ -870,7 +873,7 @@ namespace TurnLimbo.Presentation
         private float SlotDurationFor(int hits)
         {
             float clipDuration = OriginalClipDuration / slotPlaybackSpeed;
-            return clipDuration * hits + slotAttackInterval * (hits - 1) + 0.01f;
+            return DuelFastSkillSlowMotion.ClipEnd(session.CurrentSlot, hits - 1, clipDuration, slotAttackInterval) + .01f;
         }
 
         private void BeginSlotAnimation()
@@ -945,12 +948,15 @@ namespace TurnLimbo.Presentation
             return words.Count == 0 ? null : string.Join(" · ", words);
         }
 
-        private void UpdateSlot(float delta)
+        private void UpdateSlot(float delta, float worldDelta)
         {
             if (bladeBindHitPending) return;
             LegacyCurrentSlot slot = session.CurrentSlot;
-            float attackTime = slotImpactTime + slotCycleDuration * slot.HitsResolved;
-            float animationClipEnd = tempoWindupDuration + slotCycleDuration * slot.HitsResolved + OriginalClipDuration / slotPlaybackSpeed;
+            float clipDuration = OriginalClipDuration / slotPlaybackSpeed;
+            float attackTime = tempoWindupDuration + DuelFastSkillSlowMotion.HitTime(slot, slot.HitsResolved, clipDuration, slotAttackInterval);
+            float animationClipEnd = tempoWindupDuration + DuelFastSkillSlowMotion.ClipEnd(slot, slot.HitsResolved, clipDuration, slotAttackInterval);
+            float contactClipEnd = tempoWindupDuration + DuelFastSkillSlowMotion.ContactClipEnd(slot, slot.HitsResolved,
+                clipDuration, slotAttackInterval);
             if (!slot.IsResolved && phaseTime >= attackTime)
             {
                 bool firstStepImpact = slot.HitsResolved == 0 && (slot.DodgeSucceeded || slot.PressureSucceeded);
@@ -959,7 +965,7 @@ namespace TurnLimbo.Presentation
                     // Movement keeps running while this contact frame waits.
                     // Pausing the slot clock prevents off-screen air strikes or
                     // several deferred hits firing together after a long chase.
-                    if (!arena.IsPursuing) arena.CloseDistance(delta);
+                    if (!arena.IsPursuing) arena.CloseDistance(worldDelta, delta);
                     if (!arena.IsReadyForSlot)
                     {
                         phaseTime = attackTime;
@@ -970,6 +976,21 @@ namespace TurnLimbo.Presentation
                 // The blades touch now, but this first hit lands only when their struggle releases.
                 if (!releasingBladeBindHit && !resistanceImpactLocksStep && TryBeginBladeBind(slot.SlotIndex, attackTime)) return;
                 if (TryPrepareDeferredResistanceImpact(slot)) return;
+                contactClipEnd = tempoWindupDuration + DuelFastSkillSlowMotion.ContactClipEnd(slot, slot.HitsResolved,
+                    clipDuration, slotAttackInterval);
+                // Accepting a deferred counter can reveal a slow completing opponent only at contact.
+                // Recompute its recovery before the first hit, including a counter with several later strikes.
+                if (DuelFastSkillSlowMotion.HasSlowCompletion(slot))
+                {
+                    float duration = tempoWindupDuration + SlotDurationFor(slot.HitCount);
+                    if (duration > slotDuration)
+                    {
+                        slotDuration = duration;
+                        hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
+                    }
+                    animationClipEnd = tempoWindupDuration + DuelFastSkillSlowMotion.ClipEnd(slot, slot.HitsResolved,
+                        clipDuration, slotAttackInterval);
+                }
                 int playerResistanceBefore = session.Player.Resistance;
                 int enemyResistanceBefore = session.Enemy.Resistance;
                 int playerHealthBefore = session.Player.Health;
@@ -1046,7 +1067,8 @@ namespace TurnLimbo.Presentation
                     barks.Hit(Blow(session.Enemy, enemyWasBroken, hit.EnemyHealthDamage - hit.EnemyBleedingHealthDamage),
                         Blow(session.Player, playerWasBroken, hit.PlayerHealthDamage - hit.PlayerBleedingHealthDamage));
                 // A Minor slot (no attack) plays its rest after its last hit faster, as the director saves time.
-                if (hit.Outcome == DuelMatchOutcome.InProgress && slot.IsResolved && showDirector.ShortensSlot)
+                if (hit.Outcome == DuelMatchOutcome.InProgress && slot.IsResolved && showDirector.ShortensSlot &&
+                    !DuelFastSkillSlowMotion.HasSlowCompletion(slot))
                 {
                     slotDuration = attackTime + showDirector.ShortenSlotRest(Mathf.Max(0f, slotDuration - attackTime));
                     hud.SetCurrentSlotDuration(slotDuration + slotAnticipationDuration);
@@ -1072,7 +1094,7 @@ namespace TurnLimbo.Presentation
                 }
                 // A long frame must not batch several impacts before any push
                 // has been observed, nor immediately finish the final animation.
-                if (phaseTime >= animationClipEnd)
+                if (phaseTime >= contactClipEnd)
                 {
                     phaseTime = attackTime;
                     arena.HoldSlotAtTime(phaseTime);
@@ -1236,7 +1258,7 @@ namespace TurnLimbo.Presentation
                 bladeBindHitPending = false;
                 releasingBladeBindHit = true;
                 // Resolve exactly once, while the arena can still share the hit's pushes in FinishBladeBind.
-                try { UpdateSlot(0f); }
+                try { UpdateSlot(0f, 0f); }
                 finally { releasingBladeBindHit = false; }
             }
             arena.AdvanceBladeBind(bound);

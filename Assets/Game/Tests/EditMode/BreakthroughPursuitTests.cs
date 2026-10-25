@@ -42,7 +42,7 @@ namespace TurnLimbo.Core.Tests
             string before = Snapshot(duel);
             LegacySlotForecast candidate = duel.ForecastIfQueued(1);
             Assert.That(candidate.PlayerResistanceDamage, Is.EqualTo(18));
-            Assert.That(candidate.EnemyResistanceDamage, Is.EqualTo(18));
+            Assert.That(candidate.EnemyResistanceDamage, Is.EqualTo(24));
             Assert.That(duel.ForecastIfQueued(1).PlayerResistanceDamage, Is.EqualTo(18));
             Assert.That(Snapshot(duel), Is.EqualTo(before), "Candidate forecasts must keep both statuses, queues and ACT intact.");
 
@@ -52,7 +52,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(Snapshot(duel), Is.EqualTo(before));
             duel.Commit();
             LegacyCurrentSlot slot = duel.BeginNextSlot();
-            Assert.That(slot.PlayerFeedback.ProtectionSpendPowerBonus, Is.EqualTo(10));
+            Assert.That(slot.PlayerFeedback.ProtectionSpendPowerBonus, Is.EqualTo(16));
             Assert.That(duel.PlayerStatuses.Any(status => status.Kind == LegacyStatusKind.Protection), Is.False);
             LegacySlotResult result = duel.ResolveNextSlot();
             Assert.That(result.PlayerResistanceDamage, Is.EqualTo(candidate.PlayerResistanceDamage));
@@ -79,7 +79,7 @@ namespace TurnLimbo.Core.Tests
                 if (slot.PlayerSkill.Id == 60) bonuses.Add(slot.PlayerFeedback.ProtectionSpendPowerBonus);
                 duel.ResolveNextSlot();
             }
-            Assert.That(bonuses, Is.EqualTo(new[] { 10, 0, 10 }));
+            Assert.That(bonuses, Is.EqualTo(new[] { 16, 0, 16 }));
         }
 
         [Test]
@@ -88,7 +88,7 @@ namespace TurnLimbo.Core.Tests
             var duel = Duel(new[] { Skill(8, 1), Skill(10, 1), Skill(60, 8, 1) }, Array.Empty<LegacySkill>());
             Queue(duel, 0, 0, 1);
             LegacySlotResult[] result = Resolve(duel);
-            Assert.That(result.Last().EnemyHealthDamage, Is.EqualTo(27), "(8 + 10) × 강화 150%, not 8 × 150% + 10.");
+            Assert.That(result.Last().EnemyHealthDamage, Is.EqualTo(36), "(8 + 16) × 강화 150%, not 8 × 150% + 16.");
         }
 
         [Test]
@@ -107,10 +107,10 @@ namespace TurnLimbo.Core.Tests
             string a = Statuses(duel.GetEnemyStatuses(0)), b = Statuses(duel.GetEnemyStatuses(1));
             Assert.That(a, Is.EqualTo("Protection:50:1"));
             Assert.That(b, Is.EqualTo(a));
-            Assert.That(duel.ForecastTurn().Single(slot => slot.EnemySkill?.Id == 60).PlayerHealthDamage, Is.EqualTo(18));
+            Assert.That(duel.ForecastTurn().Single(slot => slot.EnemySkill?.Id == 60).PlayerHealthDamage, Is.EqualTo(24));
             Assert.That(Statuses(duel.GetEnemyStatuses(0)), Is.EqualTo(a));
             Assert.That(Statuses(duel.GetEnemyStatuses(1)), Is.EqualTo(b));
-            Assert.That(Resolve(duel).Single(slot => slot.EnemySkill?.Id == 60).PlayerHealthDamage, Is.EqualTo(18));
+            Assert.That(Resolve(duel).Single(slot => slot.EnemySkill?.Id == 60).PlayerHealthDamage, Is.EqualTo(24));
             Assert.That(duel.GetEnemyStatuses(0), Is.Empty);
             Assert.That(Statuses(duel.GetEnemyStatuses(1)), Is.EqualTo(b));
         }
@@ -127,7 +127,7 @@ namespace TurnLimbo.Core.Tests
             for (int player = 0; player < 2; player++)
             {
                 LegacySlotForecast candidate = match.ForecastIfQueued(player, 1);
-                Assert.That(candidate.EnemyHealthDamage, Is.EqualTo(9), "The unqueued opponent still retains its protection.");
+                Assert.That(candidate.EnemyHealthDamage, Is.EqualTo(12), "The unqueued opponent still retains its protection.");
             }
             Assert.That(MatchSnapshot(match), Is.EqualTo(before));
             QueueBoth(match, 1);
@@ -136,21 +136,21 @@ namespace TurnLimbo.Core.Tests
             {
                 var forecast = new List<LegacySlotForecast>();
                 match.ForecastTurn(player, forecast);
-                Assert.That(forecast[0].PlayerResistanceDamage, Is.EqualTo(18));
-                Assert.That(forecast[0].EnemyResistanceDamage, Is.EqualTo(18));
+                Assert.That(forecast[0].PlayerResistanceDamage, Is.EqualTo(24));
+                Assert.That(forecast[0].EnemyResistanceDamage, Is.EqualTo(24));
             }
             Assert.That(MatchSnapshot(match), Is.EqualTo(before));
             LocalVersusSlotResult result = Resolve(match).Single();
-            Assert.That(result.LeftResistanceDamage, Is.EqualTo(18));
-            Assert.That(result.RightResistanceDamage, Is.EqualTo(18));
+            Assert.That(result.LeftResistanceDamage, Is.EqualTo(24));
+            Assert.That(result.RightResistanceDamage, Is.EqualTo(24));
             Assert.That(match.Left.Statuses, Is.Empty);
             Assert.That(match.Right.Statuses, Is.Empty);
         }
 
-        [TestCase(4, 0)]
-        [TestCase(5, 12)]
-        [TestCase(6, 12)]
-        public void Pursuit_HasAnInclusiveFiveHitThreshold(int hits, int bonus)
+        [TestCase(3, 0)]
+        [TestCase(4, 14)]
+        [TestCase(5, 14)]
+        public void Pursuit_HasAnInclusiveFourHitThreshold(int hits, int bonus)
         {
             LegacySkill chase = Skill(61, 6, 2);
             LegacySkill[] queue = { Attack(88000, 1, hits: 2), Attack(88001, 1, hits: hits - 2), chase };
@@ -168,7 +168,7 @@ namespace TurnLimbo.Core.Tests
                 LegacySkillKind.Defence, LegacySkillProperty.Defence, 9, 1, "");
             LegacySkill[] queue = { two, two, LegacyCommonActions.Breathe, guard, three, chase, Attack(88003, 1, hits: 9) };
             Assert.That(LegacyKeywordLinks.CountAheadAttackHits(queue, 5), Is.EqualTo(5));
-            Assert.That(LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, 5, chase), Is.EqualTo(12));
+            Assert.That(LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, 5, chase), Is.EqualTo(14));
             LegacySkill[] repeated = { two, two, two, chase };
             Assert.That(LegacyKeywordLinks.CountAheadAttackHits(repeated, 3, chase), Is.EqualTo(2));
             Assert.That(LegacyKeywordLinks.AheadAttackHitsPowerBonus(repeated, 3, chase), Is.Zero);
@@ -186,20 +186,20 @@ namespace TurnLimbo.Core.Tests
             var duel = Duel(PursuitSkills(), Array.Empty<LegacySkill>());
             Queue(duel, 0, 0);
             string before = Snapshot(duel);
-            Assert.That(duel.ForecastIfQueued(2).EnemyHealthDamage, Is.EqualTo(18));
-            Assert.That(duel.ForecastIfQueued(2).EnemyHealthDamage, Is.EqualTo(18));
+            Assert.That(duel.ForecastIfQueued(2).EnemyHealthDamage, Is.EqualTo(20));
+            Assert.That(duel.ForecastIfQueued(2).EnemyHealthDamage, Is.EqualTo(20));
             Assert.That(Snapshot(duel), Is.EqualTo(before));
             Queue(duel, 2, 2);
             before = Snapshot(duel);
-            Assert.That(duel.ForecastTurn().Select(slot => slot.EnemyHealthDamage), Is.EqualTo(new[] { 4, 6, 18, 6 }));
+            Assert.That(duel.ForecastTurn().Select(slot => slot.EnemyHealthDamage), Is.EqualTo(new[] { 4, 6, 20, 6 }));
             Assert.That(Snapshot(duel), Is.EqualTo(before));
-            Assert.That(Resolve(duel).Select(slot => slot.EnemyHealthDamage), Is.EqualTo(new[] { 4, 6, 18, 6 }));
+            Assert.That(Resolve(duel).Select(slot => slot.EnemyHealthDamage), Is.EqualTo(new[] { 4, 6, 20, 6 }));
             duel.BeginNextTurn();
             Queue(duel, 2);
             Assert.That(Resolve(duel).Single().EnemyHealthDamage, Is.EqualTo(6), "Last turn's hits do not carry over.");
             duel.BeginNextTurn();
             Queue(duel, 0, 0, 2);
-            Assert.That(Resolve(duel).Last().EnemyHealthDamage, Is.EqualTo(18), "A new turn gets a new first-copy opportunity.");
+            Assert.That(Resolve(duel).Last().EnemyHealthDamage, Is.EqualTo(20), "A new turn gets a new first-copy opportunity.");
         }
 
         [Test]
@@ -207,8 +207,8 @@ namespace TurnLimbo.Core.Tests
         {
             var duel = Duel(PursuitSkills().Concat(new[] { Skill(10, 1, 1) }).ToArray(), Array.Empty<LegacySkill>());
             Queue(duel, 0, 0, 1, 2);
-            Assert.That(duel.ForecastTurn().Last().EnemyHealthDamage, Is.EqualTo(27));
-            Assert.That(Resolve(duel).Last().EnemyHealthDamage, Is.EqualTo(27), "(6 + 12) × 강화 150%.");
+            Assert.That(duel.ForecastTurn().Last().EnemyHealthDamage, Is.EqualTo(30));
+            Assert.That(Resolve(duel).Last().EnemyHealthDamage, Is.EqualTo(30), "(6 + 14) × 강화 150%.");
         }
 
         [TestCase("반환")]
@@ -219,7 +219,7 @@ namespace TurnLimbo.Core.Tests
             {
                 var duel = Duel(PursuitSkills().Concat(new[] { KeywordSheet.Skill(897) }).ToArray(), Array.Empty<LegacySkill>());
                 Queue(duel, 0, 0);
-                Assert.That(duel.ForecastIfQueued(2).EnemyHealthDamage, Is.EqualTo(18));
+                Assert.That(duel.ForecastIfQueued(2).EnemyHealthDamage, Is.EqualTo(20));
                 Queue(duel, 1);
                 Assert.That(duel.PlayerQueue.Select(skill => skill.Id), Is.EqualTo(new[] { 897 }));
                 Assert.That(duel.ForecastIfQueued(2).EnemyHealthDamage, Is.EqualTo(6));
@@ -234,13 +234,13 @@ namespace TurnLimbo.Core.Tests
             var match = Match(PursuitSkills());
             Assert.That(match.TryQueueLane(0, 0) && match.TryQueueLane(0, 0), Is.True);
             string before = MatchSnapshot(match);
-            Assert.That(match.ForecastIfQueued(0, 2).EnemyHealthDamage, Is.EqualTo(18));
+            Assert.That(match.ForecastIfQueued(0, 2).EnemyHealthDamage, Is.EqualTo(20));
             Assert.That(MatchSnapshot(match), Is.EqualTo(before));
             Assert.That(match.TryQueueLane(0, 2) && match.TryQueueLane(0, 2), Is.True);
             Assert.That(match.TryCommit(0), Is.True);
             Assert.That(match.TryQueueLane(1, 0) && match.TryQueueLane(1, 0), Is.True);
             before = MatchSnapshot(match);
-            Assert.That(match.ForecastIfQueued(1, 2).EnemyResistanceDamage, Is.EqualTo(18),
+            Assert.That(match.ForecastIfQueued(1, 2).EnemyResistanceDamage, Is.EqualTo(20),
                 "The responder's same bonus now clashes with the confirmed leading queue.");
             Assert.That(MatchSnapshot(match), Is.EqualTo(before));
             Assert.That(match.TryQueueLane(1, 2) && match.TryQueueLane(1, 2), Is.True);
@@ -249,13 +249,13 @@ namespace TurnLimbo.Core.Tests
             {
                 var forecast = new List<LegacySlotForecast>();
                 match.ForecastTurn(player, forecast);
-                Assert.That(forecast.Select(slot => slot.PlayerResistanceDamage), Is.EqualTo(new[] { 4, 6, 18, 6 }));
-                Assert.That(forecast.Select(slot => slot.EnemyResistanceDamage), Is.EqualTo(new[] { 4, 6, 18, 6 }));
+                Assert.That(forecast.Select(slot => slot.PlayerResistanceDamage), Is.EqualTo(new[] { 4, 6, 20, 6 }));
+                Assert.That(forecast.Select(slot => slot.EnemyResistanceDamage), Is.EqualTo(new[] { 4, 6, 20, 6 }));
             }
             Assert.That(MatchSnapshot(match), Is.EqualTo(before));
             LocalVersusSlotResult[] results = Resolve(match);
-            Assert.That(results.Select(slot => slot.LeftResistanceDamage), Is.EqualTo(new[] { 4, 6, 18, 6 }));
-            Assert.That(results.Select(slot => slot.RightResistanceDamage), Is.EqualTo(new[] { 4, 6, 18, 6 }));
+            Assert.That(results.Select(slot => slot.LeftResistanceDamage), Is.EqualTo(new[] { 4, 6, 20, 6 }));
+            Assert.That(results.Select(slot => slot.RightResistanceDamage), Is.EqualTo(new[] { 4, 6, 20, 6 }));
         }
 
         private static LegacySkill[] PursuitSkills()

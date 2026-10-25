@@ -119,8 +119,8 @@ namespace TurnLimbo.Core.Tests
             ResolveTurn(match);
             Assert.That(match.Left.CycleUses(46), Is.EqualTo(2));
             match.Left.EffectivePowerRange(cycle, out int min, out int max);
-            Assert.That(min, Is.EqualTo(15));
-            Assert.That(max, Is.EqualTo(20));
+            Assert.That(min, Is.EqualTo(17));
+            Assert.That(max, Is.EqualTo(22));
             match.BeginNextTurn();
             Assert.That(match.Left.EffectiveCost(cycle), Is.EqualTo(3));
         }

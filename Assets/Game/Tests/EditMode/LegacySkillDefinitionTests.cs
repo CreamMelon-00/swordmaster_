@@ -80,7 +80,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Attack));
             Assert.That(LegacySkillDefinitions.Find(pressure).Effect.OpponentResistanceReduction, Is.EqualTo(10));
             Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentKind, Is.EqualTo(LegacySkillKind.Defence));
-            Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentResistanceReduction, Is.EqualTo(15));
+            Assert.That(LegacySkillDefinitions.Find(opening).Effect.OpponentResistanceReduction, Is.EqualTo(18));
             Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffPowerPercent, Is.EqualTo(50));
             Assert.That(LegacySkillDefinitions.Find(deflect).Effect.BuffSlots, Is.EqualTo(2));
         }
@@ -97,7 +97,7 @@ namespace TurnLimbo.Core.Tests
 
             LegacySkill barrage = LegacySkillDefinitions.Skill(44);
             Assert.That((barrage.Name, barrage.Cost, barrage.MinPower, barrage.MaxPower, barrage.AttackCount),
-                Is.EqualTo(("몰아치기", 3, 12, 16, 4)));
+                Is.EqualTo(("몰아치기", 2, 12, 16, 4)));
             Assert.That(barrage.Kind, Is.EqualTo(LegacySkillKind.Attack));
             Assert.That(barrage.Property, Is.EqualTo(LegacySkillProperty.Slash));
             Assert.That(barrage.LaneIndex, Is.Zero);
@@ -151,7 +151,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That((honing.Kind, honing.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Slash)));
             LegacySkillDefinition definition = LegacySkillDefinitions.Find(honing);
             Assert.That((definition.Effect.CyclePowerPerUse, definition.Effect.CycleCostPerUse, definition.Effect.CycleMaxCount),
-                Is.EqualTo((5, 1, 9)));
+                Is.EqualTo((6, 1, 9)));
             Assert.That(definition.Effect.HasCycle, Is.True);
             Assert.That((LegacySkillRoles.Get(honing) & LegacySkillRole.Cycle) != 0, Is.True);
             Assert.That(definition.Text.Info.Main, Is.EqualTo("순환"));
@@ -162,7 +162,7 @@ namespace TurnLimbo.Core.Tests
         {
             LegacySkill pierce = LegacySkillDefinitions.Skill(47);
             Assert.That((pierce.Name, pierce.Cost, pierce.MinPower, pierce.MaxPower, pierce.AttackCount, pierce.LaneIndex),
-                Is.EqualTo(("꿰뚫기", 4, 30, 33, 1, 1)));
+                Is.EqualTo(("꿰뚫기", 4, 29, 32, 1, 1)));
             Assert.That((pierce.Kind, pierce.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Penetrate)));
             LegacySkillDefinition pierceDefinition = LegacySkillDefinitions.Find(pierce);
             Assert.That(pierceDefinition.HighPower, Is.True);
@@ -192,15 +192,15 @@ namespace TurnLimbo.Core.Tests
 
             LegacySkill finisher = LegacySkillDefinitions.Skill(50);
             Assert.That((finisher.Name, finisher.Cost, finisher.MinPower, finisher.MaxPower, finisher.AttackCount, finisher.LaneIndex),
-                Is.EqualTo(("끝내기", 2, 8, 10, 1, 2)));
+                Is.EqualTo(("끝내기", 2, 9, 11, 1, 2)));
             Assert.That((finisher.Kind, finisher.Property), Is.EqualTo((LegacySkillKind.Attack, LegacySkillProperty.Penetrate)));
             LegacySkillDefinition finisherDefinition = LegacySkillDefinitions.Find(finisher);
             Assert.That((finisherDefinition.Effect.OpponentState, finisherDefinition.Effect.OpponentHealthPercent,
-                finisherDefinition.Effect.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 200)));
+                finisherDefinition.Effect.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 40, 200)));
             Assert.That(finisherDefinition.HighPower, Is.False);
             // 프레디카레's condition badge, shortened so it stays on one line in the 334px loadout and curriculum cards.
-            Assert.That(finisherDefinition.Text.Info.Secondary, Is.EqualTo("상대 30% 이하"));
-            Assert.That(finisherDefinition.Text.Info.EnemySecondary, Is.EqualTo("내 30% 이하"));
+            Assert.That(finisherDefinition.Text.Info.Secondary, Is.EqualTo("상대 40% 이하"));
+            Assert.That(finisherDefinition.Text.Info.EnemySecondary, Is.EqualTo("내 40% 이하"));
 
             foreach (LegacySkill skill in new[] { pierce, strikeBack, sidestep, finisher })
             {
@@ -340,7 +340,7 @@ namespace TurnLimbo.Core.Tests
         [TestCase(51, "에스토카다", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 14, 18, 1, 27)]
         [TestCase(52, "바트망", 0, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 2, 4, 1, 28)]
         [TestCase(53, "카덴스", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 1, 5, 7, 1, 29)]
-        [TestCase(54, "에스키브", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 6, 8, 1, 30)]
+        [TestCase(54, "에스키브", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 4, 6, 1, 30)]
         [TestCase(55, "콩트르탕", 2, LegacySkillKind.Attack, LegacySkillProperty.Hit, 2, 5, 7, 1, 31)]
         [TestCase(56, "두블레", 1, LegacySkillKind.Attack, LegacySkillProperty.Penetrate, 3, 15, 19, 1, 32)]
         [TestCase(57, "잔걸음", 0, LegacySkillKind.Attack, LegacySkillProperty.Slash, 1, 5, 7, 1, 33)]
@@ -373,7 +373,7 @@ namespace TurnLimbo.Core.Tests
             {
                 case 51:
                     Assert.That((effect.AheadPowerTarget, effect.AheadPowerPerUnit, effect.AheadPowerMax),
-                        Is.EqualTo((LegacyAheadTarget.ResistanceReduction, 5, 3)));
+                        Is.EqualTo((LegacyAheadTarget.ResistanceReduction, 7, 2)));
                     break;
                 case 52:
                     Assert.That((effect.OpponentResistanceReduction, effect.OpponentKind), Is.EqualTo((5, (LegacySkillKind?)LegacySkillKind.Attack)));
@@ -387,7 +387,7 @@ namespace TurnLimbo.Core.Tests
                     break;
                 case 55:
                     Assert.That((effect.AheadPowerTarget, effect.AheadPowerPerUnit, effect.AheadPowerMax),
-                        Is.EqualTo((LegacyAheadTarget.Breath, 4, 4)));
+                        Is.EqualTo((LegacyAheadTarget.Breath, 6, 3)));
                     break;
                 case 56:
                     Assert.That((effect.QueueRemovalMode, effect.QueuePowerMultiplierCap), Is.EqualTo((LegacyQueueRemovalMode.Return, 2)));
@@ -411,12 +411,12 @@ namespace TurnLimbo.Core.Tests
                     break;
                 case 60:
                     Assert.That(effect.HasProtectionSpend && effect.HasUseEffect, Is.True);
-                    Assert.That(effect.ConsumeProtectionPowerBonus, Is.EqualTo(10));
+                    Assert.That(effect.ConsumeProtectionPowerBonus, Is.EqualTo(16));
                     Assert.That(effect.HasAheadHitPower, Is.False);
                     break;
                 case 61:
                     Assert.That(effect.HasAheadHitPower && effect.HasUseEffect, Is.True);
-                    Assert.That((effect.AheadAttackHitsRequired, effect.AheadAttackHitsPowerBonus), Is.EqualTo((5, 12)));
+                    Assert.That((effect.AheadAttackHitsRequired, effect.AheadAttackHitsPowerBonus), Is.EqualTo((4, 14)));
                     Assert.That(effect.HasProtectionSpend, Is.False);
                     break;
                 case 15:
@@ -429,7 +429,7 @@ namespace TurnLimbo.Core.Tests
                     Assert.That((effect.ResistanceRecoveryPercent, effect.OpponentState), Is.EqualTo((20, LegacyOpponentState.Broken)));
                     break;
                 case 21:
-                    Assert.That((effect.CyclePowerPerUse, effect.CycleCostPerUse, effect.CycleMaxCount), Is.EqualTo((5, 0, 2)));
+                    Assert.That((effect.CyclePowerPerUse, effect.CycleCostPerUse, effect.CycleMaxCount), Is.EqualTo((4, 0, 2)));
                     break;
                 case 32:
                     Assert.That((effect.QueueRemovalMode, effect.QueuePowerMultiplierCap), Is.EqualTo((LegacyQueueRemovalMode.Return, 0)));

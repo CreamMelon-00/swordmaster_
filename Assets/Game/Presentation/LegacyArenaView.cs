@@ -642,16 +642,21 @@ namespace TurnLimbo.Presentation
         }
 
         public void CloseDistance(float scaledDelta)
+            => CloseDistance(scaledDelta, scaledDelta);
+
+        internal void CloseDistance(float scaledDelta, float actionDelta)
         {
             if (IsReadyForSlot || approaching || returning || HasPendingPush || stepping) return;
             Vector3 playerStart = player.Renderer.transform.localPosition;
             Vector3 enemyStart = enemy.Renderer.transform.localPosition;
-            MoveFightersCloser(Mathf.Max(0f, scaledDelta), PursuitSpeed * pursuitMovementSpeed, !IsPursuing);
+            MoveFightersCloser(Mathf.Max(0f, scaledDelta), PursuitSpeed * pursuitMovementSpeed, !IsPursuing,
+                Mathf.Max(0f, actionDelta));
             // Tick owns depth once per frame; a contact retry here must not advance it a second time.
             RefreshDepthPresentation();
-            SamplePlayerLowerBody(scaledDelta, scaledDelta);
-            SampleMovementPose(player, playerStart, scaledDelta);
-            SampleMovementPose(enemy, enemyStart, scaledDelta);
+            float playerDelta = ActorMotionDelta(player, scaledDelta, actionDelta);
+            SamplePlayerLowerBody(playerDelta, playerDelta);
+            SampleMovementPose(player, playerStart, playerDelta);
+            SampleMovementPose(enemy, enemyStart, ActorMotionDelta(enemy, scaledDelta, actionDelta));
         }
 
         public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
@@ -1149,10 +1154,14 @@ namespace TurnLimbo.Presentation
         // Controllers may rewind a sampled pose to a windup, bind or exact impact after Tick. Age the trail here,
         // then let them snapshot only that final, actually displayed pose through SampleSlowAfterimages.
         internal void Tick(float scaledDelta, float realDelta, bool deferSlowAfterimages)
+            => TickSkillTempo(scaledDelta, scaledDelta, realDelta, deferSlowAfterimages);
+
+        internal void TickSkillTempo(float scaledDelta, float actionDelta, float realDelta, bool deferSlowAfterimages)
         {
             if (disposed) return;
             openingPlacementAvailable = false;
             scaledDelta = Mathf.Max(0f, scaledDelta);
+            actionDelta = Mathf.Max(0f, actionDelta);
             realDelta = realDelta > 0f && !float.IsInfinity(realDelta) ? realDelta : 0f;
             if (suspension == null) contactRead.Advance(realDelta);
             stepFocusTime = Mathf.Max(0f, stepFocusTime - realDelta);
@@ -1201,8 +1210,8 @@ namespace TurnLimbo.Presentation
             RefreshBloom();
             saturationPulse = Mathf.MoveTowards(saturationPulse, 0f, gradeDelta * 60f);
             ApplyGrade();
-            TickActor(player, scaledDelta);
-            TickActor(enemy, scaledDelta);
+            TickActor(player, scaledDelta, actionDelta);
+            TickActor(enemy, scaledDelta, actionDelta);
             stepAfterimages.Tick(realDelta);
             attackEchoes?.Tick(realDelta);
             weaponTrails?.Tick(realDelta);
@@ -1226,7 +1235,8 @@ namespace TurnLimbo.Presentation
                 movementTime += scaledDelta;
                 if (movementTime >= returnSettleSeconds && !HasPendingPush) returning = resolving = false;
             }
-            else if (IsPursuing && !stepMovedThisFrame) MoveFightersCloser(scaledDelta, PursuitSpeed * pursuitMovementSpeed, false);
+            else if (IsPursuing && !stepMovedThisFrame)
+                MoveFightersCloser(scaledDelta, PursuitSpeed * pursuitMovementSpeed, false, actionDelta);
             else if (bulletTime && !stepMovedThisFrame && (enemyFigures.Count > 1 || !HasPendingPush))
             {
                 if (enemyFigures.Count > 1)
@@ -1240,9 +1250,10 @@ namespace TurnLimbo.Presentation
             }
             TickDepthMovement(scaledDelta, realDelta);
             TickInactiveEnemies(scaledDelta, realDelta, bulletTime && !stepMovedThisFrame);
-            SamplePlayerLowerBody(scaledDelta, stepMovedThisFrame ? realDelta : scaledDelta, stepMovedThisFrame);
-            SampleMovementPose(player, playerTravelStart, movementSampleDelta);
-            SampleMovementPose(enemy, enemyTravelStart, movementSampleDelta);
+            float playerMotionDelta = ActorMotionDelta(player, scaledDelta, actionDelta);
+            SamplePlayerLowerBody(playerMotionDelta, stepMovedThisFrame ? realDelta : playerMotionDelta, stepMovedThisFrame);
+            SampleMovementPose(player, playerTravelStart, ActorMotionDelta(player, movementSampleDelta, actionDelta));
+            SampleMovementPose(enemy, enemyTravelStart, ActorMotionDelta(enemy, movementSampleDelta, actionDelta));
             foreach (var effect in effects)
             {
                 if (!effect.Active) continue;
@@ -1402,9 +1413,13 @@ namespace TurnLimbo.Presentation
                 Mathf.Max(fatalExposure, settings.FlashExposure * pulse * pulse * impactFlashStrength) + LightingExposure;
         }
 
-        private void TickActor(Actor actor, float delta)
+        private void TickActor(Actor actor, float delta, float actionDelta)
         {
-            actor.AnimationTime = AdvanceTempoPose(actor, delta);
+            // Canonical action progress always follows the contact clock. Feeding the slow world clock into the
+            // timed sampler would jump its pose at the next half-tick boundary. Only a fast actor's other motion
+            // (recoil/reaction) is exempt too; the opponent keeps the slower world delta.
+            actor.AnimationTime = AdvanceTempoPose(actor, actionDelta);
+            delta = ActorMotionDelta(actor, delta, actionDelta);
             // Use combat time so hit stop freezes the reaction and slow playback remains readable.
             actor.ReactionTime = Mathf.Max(0f, actor.ReactionTime - delta * slotAnimationSpeed);
             if (actor == enemy && EnemyIsDummy)
@@ -1634,7 +1649,12 @@ namespace TurnLimbo.Presentation
         }
 
         private void MoveFightersCloser(float delta, float speed, bool bothMayApproach)
+            => MoveFightersCloser(delta, speed, bothMayApproach, delta);
+
+        private void MoveFightersCloser(float delta, float speed, bool bothMayApproach, float actionDelta)
         {
+            float playerDelta = ActorMotionDelta(player, delta, actionDelta);
+            float enemyDelta = ActorMotionDelta(enemy, delta, actionDelta);
             float travelScale = enemyHandoffTravel ? settings.EnemyHandoffSpeedMultiplier : 1f;
             if (enemyFigures.Count > 1 && (enemySideRecovery || Separation < 0f) && delta > 0f && !stepping)
             {
@@ -1642,8 +1662,8 @@ namespace TurnLimbo.Presentation
                 // through actual footwork before the new exchange, including a negative signed separation.
                 float shortfall = Mathf.Max(0f, ContactDistance - Separation);
                 Vector2 recovery = new Vector2(shortfall * .5f, 0f);
-                if (!player.Pushing) TravelOnGround(player, -recovery, speed, delta, travelScale, true);
-                if (!enemy.Pushing) TravelOnGround(enemy, recovery, speed, delta, travelScale, true);
+                if (!player.Pushing) TravelOnGround(player, -recovery, speed, playerDelta, travelScale, true);
+                if (!enemy.Pushing) TravelOnGround(enemy, recovery, speed, enemyDelta, travelScale, true);
                 // Passing x=0 is not yet enough room for two bodies; finish this finite safety step.
                 enemySideRecovery = Separation < ContactDistance - .01f;
                 return;
@@ -1668,9 +1688,9 @@ namespace TurnLimbo.Presentation
                     player.LowerTravelActive = true;
                 }
                 player.HasLowerTravelProgress = true;
-                TravelOnGround(player, correction, speed, delta, travelScale, true);
+                TravelOnGround(player, correction, speed, playerDelta, travelScale, true);
             }
-            if (enemyMayMove) TravelOnGround(enemy, -correction, speed, delta, travelScale, true);
+            if (enemyMayMove) TravelOnGround(enemy, -correction, speed, enemyDelta, travelScale, true);
         }
 
         internal void HoldSlotAtTime(float elapsed)

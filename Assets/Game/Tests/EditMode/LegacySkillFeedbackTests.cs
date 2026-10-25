@@ -77,7 +77,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(feedback.HasBeneficialBuff, Is.False);
         }
 
-        // Since the 2026-10-12 lane rebalance 쿠페 has one mechanic (the guard counter, 15) and grants no ACT, so a
+        // 쿠페 has one mechanic (the guard counter, 10) and grants no ACT, so a
         // reduction against an empty resistance activates nothing for either fighter.
         [TestCase(true, 0, false)]
         [TestCase(true, 50, true)]
@@ -99,13 +99,13 @@ namespace TurnLimbo.Core.Tests
             Assert.That(feedback.EffectActivated, Is.EqualTo(activated));
             Assert.That(feedback.ActGainGranted, Is.Zero);
             Assert.That(feedback.ResistanceRestored, Is.Zero);
-            Assert.That(feedback.OpponentResistanceReduced, Is.EqualTo(resistance > 15 ? 15 : resistance));
-            Assert.That((playerDraws ? duel.Enemy : duel.Player).Resistance, Is.EqualTo(resistance > 15 ? resistance - 15 : 0));
+            Assert.That(feedback.OpponentResistanceReduced, Is.EqualTo(resistance > 10 ? 10 : resistance));
+            Assert.That((playerDraws ? duel.Enemy : duel.Player).Resistance, Is.EqualTo(resistance > 10 ? resistance - 10 : 0));
             Assert.That(duel.NextActGain, Is.EqualTo(3));
             duel.ResolveNextHit();
             Assert.That(feedback.EffectActivated, Is.EqualTo(activated), "Feedback remains the initialization snapshot.");
             Assert.That(feedback.ActGainGranted, Is.Zero);
-            Assert.That(feedback.OpponentResistanceReduced, Is.EqualTo(resistance > 15 ? 15 : resistance));
+            Assert.That(feedback.OpponentResistanceReduced, Is.EqualTo(resistance > 10 ? 10 : resistance));
         }
 
         [Test]
@@ -124,8 +124,8 @@ namespace TurnLimbo.Core.Tests
         [TestCase(5, LegacySkillKind.Attack, true, 10)]
         [TestCase(5, LegacySkillKind.Attack, false, 10)]
         [TestCase(5, LegacySkillKind.Defence, true, 0)]
-        [TestCase(6, LegacySkillKind.Defence, true, 15)]
-        [TestCase(6, LegacySkillKind.Defence, false, 15)]
+        [TestCase(6, LegacySkillKind.Defence, true, 18)]
+        [TestCase(6, LegacySkillKind.Defence, false, 18)]
         [TestCase(6, LegacySkillKind.Attack, true, 0)]
         public void StarterTrickFeedback_AppliesDirectResistanceOnlyAgainstItsOpposingKind(
             int id, LegacySkillKind opposingKind, bool playerUsesTrick, int expectedReduction)

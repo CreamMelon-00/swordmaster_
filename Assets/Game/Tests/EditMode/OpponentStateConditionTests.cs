@@ -15,7 +15,7 @@ namespace TurnLimbo.Core.Tests
     public sealed class OpponentStateConditionTests
     {
         private const int Laudare = 500, Benedicere = 501, Praedicare = 502, Reprise = 19, DiagonalCut = 15;
-        // 끝내기, the player's field-pickup finisher: 프레디카레's condition and multiplier on a 7~9 E thrust.
+        // 끝내기, the player's field-pickup finisher: a 9~11 E thrust doubled at 40% opposing health.
         private const int Finisher = 50;
 
         [Test]
@@ -31,7 +31,7 @@ namespace TurnLimbo.Core.Tests
             Assert.That(LegacySkillConditions.HasOpponentStateCondition(Skill(Praedicare)), Is.True);
             LegacySkillEffect finisher = LegacySkillDefinitions.Find(Finisher).Effect;
             Assert.That((finisher.OpponentState, finisher.OpponentHealthPercent, finisher.ResistanceRecoveryPercent,
-                finisher.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 30, 0, 200)));
+                finisher.ConditionalDamagePercent), Is.EqualTo((LegacyOpponentState.HealthAtMost, 40, 0, 200)));
             Assert.That(LegacySkillConditions.HasOpponentStateCondition(Skill(Finisher)), Is.True);
             // 르프리즈 since the keyword curriculum (2026-10-13): 베네디체레's pair at 20%.
             LegacySkillEffect reprise = LegacySkillDefinitions.Find(Reprise).Effect;

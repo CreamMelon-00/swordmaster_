@@ -9,8 +9,8 @@ namespace TurnLimbo.Core.Tests
 {
     /// <summary>The 서막's last mission: 이아 cannot fall, receives 수훈 at half health and then wins a forced loss
     /// that completes the 서막 with the Dominican motto turn (라우다레, 베네디체레, 프레디카레). The simulations play the
-    /// battle as presentation does: at the reported hit the event's scene plays and the enemy switches, then the turn
-    /// resumes where it paused.</summary>
+    /// battle as presentation does: the reported hit settles and interrupts its turn, the event's scene plays and the
+    /// enemy switches, then planning starts for the motto turn.</summary>
     public sealed class MissionFourTests
     {
         /// <summary>How the player plans every turn after the event (and, for <see cref="Pass"/>, also before it).</summary>
@@ -205,6 +205,7 @@ namespace TurnLimbo.Core.Tests
                 while (!duel.IsTurnResolved && !duel.IsFinished)
                 {
                     duel.BeginNextSlot();
+                    bool interrupted = false;
                     while (!duel.IsCurrentSlotResolved)
                     {
                         LegacyHitResult hit = duel.ResolveNextHit();
@@ -212,9 +213,14 @@ namespace TurnLimbo.Core.Tests
                         if (!hit.EnemyReachedHealthThreshold) continue;
                         Assert.That(eventRound, Is.Zero, "Once per attempt.");
                         eventRound = duel.RoundNumber;
+                        // Presentation interrupts immediately after the triggering hit: later strikes and
+                        // slots must not damage the player before the first motto turn starts.
+                        duel.InterruptResolvingTurn();
                         duel.ReplaceEnemyScript(MissionFour.Empowerment.EnemyScript);
+                        interrupted = true;
+                        break;
                     }
-                    duel.CompleteCurrentSlot();
+                    if (!interrupted) duel.CompleteCurrentSlot();
                 }
                 if (!duel.IsFinished) duel.BeginNextTurn();
             }
