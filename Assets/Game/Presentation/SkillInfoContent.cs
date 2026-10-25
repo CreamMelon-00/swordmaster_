@@ -69,6 +69,21 @@ namespace TurnLimbo.Presentation
                     LegacySkillTone.Reduction, string.Empty, LegacySkillSymbol.Reduction, LegacySkillTone.Neutral,
                     string.Join("\n", lines));
             }
+            if (info == null && definition?.Effect.HasTensionEffect == true)
+            {
+                LegacySkillEffect effect = definition.Effect;
+                var lines = new System.Collections.Generic.List<string>();
+                if (effect.ActGain > 0) lines.Add("다음 턴 ACT 회복 +" + effect.ActGain);
+                if (effect.SelfTensionCount > 0) lines.Add("사용 시 자신에게 긴장 " + effect.SelfTensionCount + " 부여");
+                if (effect.OpponentTensionCount > 0) lines.Add("사용 시 상대에게 긴장 " + effect.OpponentTensionCount + " 부여");
+                if (effect.TensionReduction > 0) lines.Add("사용 시 자신의 긴장 최대 " + effect.TensionReduction + " 감소");
+                if (effect.OpponentTensionRequired > 0)
+                    lines.Add("사용 시 상대 긴장 " + effect.OpponentTensionRequired + " 이상이면 기본 위력 +" + effect.OpponentTensionPowerBonus);
+                if (effect.SelfTensionRequired > 0)
+                    lines.Add("사용 시 자신의 긴장 " + effect.SelfTensionRequired + " 이상이면 기본 위력 +" + effect.SelfTensionPowerBonus);
+                content = new SkillInfoContent("긴장", LegacySkillSymbol.Reduction, LegacySkillTone.Followup,
+                    string.Empty, LegacySkillSymbol.Reduction, LegacySkillTone.Neutral, string.Join("\n", lines));
+            }
             if (definition?.Effect.HasActSteal == true)
             {
                 LegacySkillEffect effect = definition.Effect;

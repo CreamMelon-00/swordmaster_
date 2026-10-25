@@ -29,6 +29,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         ActRecoverySteal,
         Bleeding,
         BleedingPower,
+        Tension,
+        TensionPower,
     }
 
     /// <summary>One queued card's keyword mark: its words, what it stands for and whether it gains nothing (a second copy,
@@ -109,6 +111,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.HasProtectionSpend)
                 parts.Add("보호 소모 시 +" + effect.ConsumeProtectionPowerBonus);
             AddBleedingPreview(parts, effect, false);
+            AddTensionPreview(parts, effect);
             if (effect.HasActSteal)
                 parts.Add("상대 ACT " + effect.ActStealThreshold + "+ · 강탈 " + effect.ActStealAmount);
             if (effect.HasActRecoverySteal)
@@ -158,6 +161,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.HasProtectionSpend)
                 parts.Add("사용 시 보호가 남아 있으면 모두 소모 · 기본 위력 +" + effect.ConsumeProtectionPowerBonus);
             AddBleedingPreview(parts, effect, true);
+            AddTensionPreview(parts, effect);
             if (effect.HasActSteal)
                 parts.Add(LegacySkillLabels.ActStealKeyword + " · 사용 시 상대 ACT가 " + effect.ActStealThreshold +
                     " 이상이면 ACT " + effect.ActStealAmount + " 강탈");
@@ -208,6 +212,35 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     ? new LegacyKeywordMark(AutoBreathTag, LegacyKeywordMarkKind.AutoBreath, false) : LegacyKeywordMark.None;
             LegacySkillEffect effect = EffectOf(skill);
             if (effect == null) return LegacyKeywordMark.None;
+            if (effect.HasTensionEffect)
+            {
+                ILegacySlotView current = view.CurrentSlot;
+                bool actualSlot = !planning && current != null && current.SlotIndex == slotIndex;
+                if (!planning && view is LegacyQueuedDuel timedDuel && timedDuel.HasTempoSkills && current is LegacyCurrentSlot timed)
+                    actualSlot = playerRow
+                        ? timed.PlayerQueueIndex == slotIndex && timed.PlayerSkill != null && timed.PlayerActionCompletes
+                        : timed.EnemyQueueIndex == slotIndex && timed.EnemySkill != null && timed.EnemyActionCompletes;
+                LegacySkillFeedback actual = actualSlot
+                    ? playerRow ? current.PlayerFeedback : current.EnemyFeedback : null;
+                if (effect.HasTensionPower)
+                {
+                    int bonus = actual == null ? 0 : actual.SelfTensionPowerBonus + actual.OpponentTensionPowerBonus;
+                    bool selfCondition = effect.SelfTensionRequired > 0;
+                    int required = selfCondition ? effect.SelfTensionRequired : effect.OpponentTensionRequired;
+                    int reward = effect.SelfTensionPowerBonus + effect.OpponentTensionPowerBonus;
+                    return new LegacyKeywordMark(actual != null ? "긴장 위력 +" + bonus
+                        : (selfCondition ? "자기" : "상대") + " 긴장 " + required + "+ 시 +" + reward,
+                        LegacyKeywordMarkKind.TensionPower, actual != null && bonus == 0);
+                }
+                if (effect.TensionReduction > 0)
+                    return new LegacyKeywordMark("긴장 -" + (actual?.TensionRemoved ?? effect.TensionReduction),
+                        LegacyKeywordMarkKind.Tension, actual != null && actual.TensionRemoved == 0);
+                bool self = effect.SelfTensionCount > 0;
+                int count = actual != null ? self ? actual.SelfTensionGranted : actual.OpponentTensionGranted
+                    : self ? effect.SelfTensionCount : effect.OpponentTensionCount;
+                return new LegacyKeywordMark((self ? "자기" : "상대") + " 긴장 +" + count,
+                    LegacyKeywordMarkKind.Tension, actual != null && count == 0);
+            }
             if (effect.HasBleedingEffect)
             {
                 ILegacySlotView current = view.CurrentSlot;
@@ -439,6 +472,17 @@ namespace TurnLimbo.Runtime.LegacyCombat
         private static bool RecoveryStealUsed(ILegacyDuelView view, bool playerRow, int skillId)
             => view is LocalVersusPerspective versus &&
                 (playerRow ? versus.Me : versus.Opponent).HasUsedActRecoverySteal(skillId);
+
+        private static void AddTensionPreview(List<string> parts, LegacySkillEffect effect)
+        {
+            if (effect.SelfTensionCount > 0) parts.Add("사용 시 자기 긴장 +" + effect.SelfTensionCount);
+            if (effect.OpponentTensionCount > 0) parts.Add("사용 시 상대 긴장 +" + effect.OpponentTensionCount);
+            if (effect.TensionReduction > 0) parts.Add("사용 시 자기 긴장 최대 " + effect.TensionReduction + " 감소");
+            if (effect.OpponentTensionRequired > 0)
+                parts.Add("사용 시 상대 긴장 " + effect.OpponentTensionRequired + " 이상이면 기본 위력 +" + effect.OpponentTensionPowerBonus);
+            if (effect.SelfTensionRequired > 0)
+                parts.Add("사용 시 자기 긴장 " + effect.SelfTensionRequired + " 이상이면 기본 위력 +" + effect.SelfTensionPowerBonus);
+        }
 
         private static void AddBleedingPreview(List<string> parts, LegacySkillEffect effect, bool full)
         {

@@ -284,6 +284,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             "상대 공격 시 다음 턴 ACT 회복 N 강탈(N은 1~10의 정수, 효과 턴당 1회), " +
             "자신에게 출혈 N 부여, 상대에게 출혈 N 부여, 상대가 출혈 상태면 출혈 N로 대체, 자신의 출혈 N 감소, " +
             "상대 출혈 N 이상 기본 위력 +M, 자기 출혈 N 이상 기본 위력 +M(N은 1~20, M은 1~50의 정수), " +
+            "자신에게 긴장 N 부여, 상대에게 긴장 N 부여, 자신의 긴장 N 감소, " +
+            "자기 긴장 N 이상 기본 위력 +M, 상대 긴장 N 이상 기본 위력 +M(N은 1~20, M은 1~50의 정수), " +
             $"적 전용 {LegacySkillLabels.MirrorOpponentMaxPowerPhrase}, {LegacySkillLabels.PreviousOpponentUsesBuffPhrase}, " +
             "적중 시 상대에게 고정 N 부여(N은 1~10의 정수). 여러 구절은 ';'로 구분";
         /// <summary>The problem a 예약 효과 <c>제한시간 +n초</c> gets (time gained at reservation).</summary>
@@ -608,7 +610,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             bool playerReserveEffect = effect.ReserveCycleFeed || effect.ReserveBreath || effect.HasTemporarySpawn ||
                 effect.ReservePlanningSecondsCost > 0;
             bool playerUseEffect = effect.HasAheadPower || effect.HasAheadTime || effect.AutoDodge ||
-                effect.HasProtectionSpend || effect.HasAheadHitPower || effect.HasActSteal || effect.HasActRecoverySteal || effect.HasBleedingEffect;
+                effect.HasProtectionSpend || effect.HasAheadHitPower || effect.HasActSteal || effect.HasActRecoverySteal || effect.HasBleedingEffect || effect.HasTensionEffect;
             if (group == LegacySkillGroup.Enemy && playerReserveEffect && r.Ok(Column.Group, Column.ReserveEffect))
                 r.RowProblem($"'{Column.Group}'이(가) '{EnemyGroup}'인 기술은 '{Column.ReserveEffect}'을(를) 쓸 수 없습니다. " +
                     "적은 기술을 대기열에 직접 예약하지 않습니다.");
@@ -635,7 +637,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     $"'{LegacySkillLabels.ReserveEffect(effect)}'을(를) 쓸 수 없습니다. 앞 기술을 거두고 다시 예약해 같은 효과를 되풀이할 수 있습니다.");
             if (effect.AutoDodge && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.UseEffect}' '{LegacySkillLabels.AutoDodgePhrase}'은(는) 공격 기술에만 쓸 수 있습니다.");
-            if ((effect.HasProtectionSpend || effect.HasAheadHitPower || effect.HasActRecoverySteal || effect.HasBleedingPower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
+            if ((effect.HasProtectionSpend || effect.HasAheadHitPower || effect.HasActRecoverySteal || effect.HasBleedingPower || effect.HasTensionPower) && r.Ok(Column.Kind) && kind != LegacySkillKind.Attack)
                 r.RowProblem($"'{Column.UseEffect}' '{LegacySkillLabels.UseEffect(effect)}'은(는) 공격 기술에만 쓸 수 있습니다.");
             if (effect.OpponentBleedingReplacementCount > 0 && effect.OpponentBleedingCount == 0 && r.Ok(Column.UseEffect))
                 r.RowProblem($"'{Column.UseEffect}'의 출혈 대체 구절을 쓰려면 '상대에게 출혈 N 부여'도 지정해야 합니다.");

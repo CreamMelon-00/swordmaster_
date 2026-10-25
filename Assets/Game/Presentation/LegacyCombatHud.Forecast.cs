@@ -278,6 +278,13 @@ namespace TurnLimbo.Presentation
         private void ShowForecastLine(Text text, SlotForecastGlyph glyph, LegacySlotForecast forecast, string fallback)
         {
             string line = forecast?.Summary ?? fallback;
+            if (forecast != null && forecast.Reached)
+            {
+                if (forecast.PlayerSkill?.Kind == LegacySkillKind.Attack && forecast.PlayerAttackCount < forecast.PlayerSkill.AttackCount)
+                    line += " · 내 " + forecast.PlayerSkill.AttackCount + "→" + forecast.PlayerAttackCount + "타 (긴장)";
+                if (forecast.EnemySkill?.Kind == LegacySkillKind.Attack && forecast.EnemyAttackCount < forecast.EnemySkill.AttackCount)
+                    line += " · 상대 " + forecast.EnemySkill.AttackCount + "→" + forecast.EnemyAttackCount + "타 (긴장)";
+            }
             bool judged = forecast != null && forecast.Reached;
             LegacyForecastVerdict verdict = judged ? Judge(forecast) : LegacyForecastVerdict.Even;
             if (text.text != line) text.text = line;
@@ -330,6 +337,12 @@ namespace TurnLimbo.Presentation
                 for (int index = 0; index < queue.Count; index++) signature = signature * 31 + session.CycleUses(queue[index].Id);
                 queue = session.EnemyQueue;
                 for (int index = 0; index < queue.Count; index++) signature = signature * 31 + session.EnemyCycleUses(queue[index].Id);
+                signature = signature * 31 + session.PlayerStatuses.Count;
+                foreach (LegacyStatusSnapshot status in session.PlayerStatuses)
+                    signature = ((signature * 31 + (int)status.Kind) * 31 + status.Percent) * 31 + status.RemainingCount;
+                signature = signature * 31 + session.EnemyStatuses.Count;
+                foreach (LegacyStatusSnapshot status in session.EnemyStatuses)
+                    signature = ((signature * 31 + (int)status.Kind) * 31 + status.Percent) * 31 + status.RemainingCount;
                 return signature;
             }
         }

@@ -706,6 +706,7 @@ namespace TurnLimbo.Presentation
                 RequestCombatCameraShot(arena, progress, session.CurrentSlot.PlayerSkill ?? session.CurrentSlot.PendingPlayerCounter,
                     session.CurrentSlot.EnemySkill);
             }
+            arena.SetFastSkillFocus(FastSkillPresentationSpeed < 1f);
             arena.TickSkillTempo(worldDelta, delta, realDelta, deferSlowAfterimages: true);
             if (viewPhase == ViewPhase.PlayingSlot && !bladeBindHitPending)
                 PresentBladeExchange(phaseTime + delta);

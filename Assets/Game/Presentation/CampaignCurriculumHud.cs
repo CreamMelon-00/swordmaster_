@@ -453,6 +453,7 @@ namespace TurnLimbo.Presentation
                 case CurriculumBranch.Collapse: return LegacySkillTone.HighPower;
                 case CurriculumBranch.Retraction: return LegacySkillTone.Followup;
                 case CurriculumBranch.Bleeding: return LegacySkillTone.Reduction;
+                case CurriculumBranch.Tension: return LegacySkillTone.Followup;
                 default: return LegacySkillTone.Neutral;
             }
         }
@@ -849,6 +850,7 @@ namespace TurnLimbo.Presentation
                 case CurriculumBranch.Collapse: return "붕괴";
                 case CurriculumBranch.Retraction: return "판짜기";
                 case CurriculumBranch.Bleeding: return "출혈";
+                case CurriculumBranch.Tension: return "긴장";
                 default: return "다리";
             }
         }

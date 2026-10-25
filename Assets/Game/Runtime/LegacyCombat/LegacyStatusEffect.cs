@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace TurnLimbo.Runtime.LegacyCombat
 {
     // Jealousy and Fixed snapshots display the boss resolver's own counters; they are not collection modifiers.
-    public enum LegacyStatusKind { PowerUp, Protection, Vulnerability, Bleeding, Jealousy, Fixed }
+    public enum LegacyStatusKind { PowerUp, Protection, Vulnerability, Bleeding, Jealousy, Fixed, Tension }
 
     /// <summary>A read-only description of one applied status. Counts survive turn boundaries.</summary>
     public readonly struct LegacyStatusSnapshot
@@ -26,6 +26,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
     public sealed class LegacyStatusCollection
     {
         public const int BleedingDamagePerHit = 2;
+        public const int TensionHitReduction = 1;
         private sealed class Entry
         {
             internal LegacyStatusKind Kind;
@@ -52,6 +53,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 return 0;
             }
         }
+        /// <summary>Remaining actual attack techniques. Single-hit attacks also spend one count.</summary>
+        public int TensionCount
+        {
+            get
+            {
+                foreach (Entry entry in entries) if (entry.Kind == LegacyStatusKind.Tension) return entry.Count;
+                return 0;
+            }
+        }
         /// <summary>Actual protection entries, even when vulnerability cancels their net damage reduction.</summary>
         public bool HasProtection
         {
@@ -68,10 +78,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public void Grant(LegacyStatusKind kind, int percent, int count)
         {
             if (kind == LegacyStatusKind.Bleeding) percent = BleedingDamagePerHit;
+            if (kind == LegacyStatusKind.Tension) percent = TensionHitReduction;
             if (count <= 0 || percent == 0) return;
             // Vulnerability stacks duration, never its intensity. Other strengths remain independent, preserving
             // additive power/protection buffs. Different vulnerability strengths likewise remain separate.
-            if (kind == LegacyStatusKind.Vulnerability || kind == LegacyStatusKind.Bleeding)
+            if (kind == LegacyStatusKind.Vulnerability || kind == LegacyStatusKind.Bleeding || kind == LegacyStatusKind.Tension)
                 foreach (Entry existing in entries)
                     if (existing.Kind == kind && existing.Percent == percent)
                     {
@@ -138,6 +149,48 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
         }
 
+        public void GrantTension(int count) => Grant(LegacyStatusKind.Tension, TensionHitReduction, count);
+
+        /// <summary>Calm the existing tension at technique start, before either fighter grants fresh tension.</summary>
+        public int ReduceTension(int count)
+        {
+            if (count <= 0) return 0;
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Entry entry = entries[i];
+                if (entry.Kind != LegacyStatusKind.Tension) continue;
+                int removed = Math.Min(count, entry.Count);
+                entry.Count -= removed;
+                if (entry.Count == 0) entries.RemoveAt(i);
+                Refresh();
+                return removed;
+            }
+            return 0;
+        }
+
+        /// <summary>Only tension present before this technique's start effects can change its execution hit count.
+        /// Fully cleansing and then regranting tension cannot affect an attack that has already begun.</summary>
+        public bool TensionActiveThrough(int grantedThrough)
+        {
+            foreach (Entry entry in entries)
+                if (entry.Kind == LegacyStatusKind.Tension && entry.Serial <= grantedThrough) return true;
+            return false;
+        }
+
+        /// <summary>Spend once after an actual attack, including a single-hit attack or counter. Guards, breaths, empty
+        /// actions and cancelled attacks never call this. Freshly granted counts remain for later attacks.</summary>
+        public void ConsumeTensionAttack(int grantedThrough)
+        {
+            for (int i = 0; i < entries.Count; i++)
+            {
+                Entry entry = entries[i];
+                if (entry.Kind != LegacyStatusKind.Tension || entry.Serial > grantedThrough) continue;
+                if (--entry.Count == 0) entries.RemoveAt(i);
+                Refresh();
+                return;
+            }
+        }
+
         /// <summary>Spend every protection entry, leaving power and vulnerability untouched. True only when something
         /// was removed; callers must do this before taking the current attack's power and received-damage snapshots.</summary>
         public bool ConsumeProtection()
@@ -165,7 +218,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             for (int i = entries.Count - 1; i >= 0; i--)
             {
                 Entry entry = entries[i];
-                if (entry.Kind == LegacyStatusKind.Bleeding) continue;
+                if (entry.Kind == LegacyStatusKind.Bleeding || entry.Kind == LegacyStatusKind.Tension) continue;
                 if ((entry.Kind == LegacyStatusKind.PowerUp) != power || entry.Serial > grantedThrough) continue;
                 if (--entry.Count <= 0) entries.RemoveAt(i);
             }

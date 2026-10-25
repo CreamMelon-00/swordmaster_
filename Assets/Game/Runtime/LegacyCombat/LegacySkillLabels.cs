@@ -35,6 +35,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             @"^자신의출혈([0-9]{1,3})감소$", RegexOptions.CultureInvariant);
         private static readonly Regex BleedingPowerPattern = new Regex(
             @"^(상대|자기)출혈([0-9]{1,3})이상기본위력\+([0-9]{1,3})$", RegexOptions.CultureInvariant);
+        public const int MinimumTensionCount = 1, MaximumTensionCount = 20;
+        private static readonly Regex TensionGrantPattern = new Regex(
+            @"^(자신에게|상대에게)긴장([0-9]{1,3})부여$", RegexOptions.CultureInvariant);
+        private static readonly Regex TensionReductionPattern = new Regex(
+            @"^자신의긴장([0-9]{1,3})감소$", RegexOptions.CultureInvariant);
+        private static readonly Regex TensionPowerPattern = new Regex(
+            @"^(상대|자기)긴장([0-9]{1,3})이상기본위력\+([0-9]{1,3})$", RegexOptions.CultureInvariant);
         /// <summary>The range of n in 사용 효과 <c>앞 &lt;대상&gt;마다 위력 +n (최대 m)</c>.</summary>
         public const int MinimumAheadPowerPerUnit = 1, MaximumAheadPowerPerUnit = 10;
         /// <summary>The range of m in the same phrase.</summary>
@@ -254,6 +261,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.SelfBleedingRequired > 0)
                 phrases.Add("자기 출혈 " + effect.SelfBleedingRequired.ToString(CultureInfo.InvariantCulture) +
                     " 이상 기본 위력 +" + effect.SelfBleedingPowerBonus.ToString(CultureInfo.InvariantCulture));
+            if (effect.SelfTensionCount > 0)
+                phrases.Add("자신에게 긴장 " + effect.SelfTensionCount.ToString(CultureInfo.InvariantCulture) + " 부여");
+            if (effect.OpponentTensionCount > 0)
+                phrases.Add("상대에게 긴장 " + effect.OpponentTensionCount.ToString(CultureInfo.InvariantCulture) + " 부여");
+            if (effect.HasTensionReduction)
+                phrases.Add("자신의 긴장 " + effect.TensionReduction.ToString(CultureInfo.InvariantCulture) + " 감소");
+            if (effect.SelfTensionRequired > 0)
+                phrases.Add("자기 긴장 " + effect.SelfTensionRequired.ToString(CultureInfo.InvariantCulture) +
+                    " 이상 기본 위력 +" + effect.SelfTensionPowerBonus.ToString(CultureInfo.InvariantCulture));
+            if (effect.OpponentTensionRequired > 0)
+                phrases.Add("상대 긴장 " + effect.OpponentTensionRequired.ToString(CultureInfo.InvariantCulture) +
+                    " 이상 기본 위력 +" + effect.OpponentTensionPowerBonus.ToString(CultureInfo.InvariantCulture));
             return string.Join("; ", phrases);
         }
 
@@ -341,6 +360,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
             effect.OpponentBleedingPowerBonus = parsed.OpponentBleedingPowerBonus;
             effect.SelfBleedingRequired = parsed.SelfBleedingRequired;
             effect.SelfBleedingPowerBonus = parsed.SelfBleedingPowerBonus;
+            effect.SelfTensionCount = parsed.SelfTensionCount;
+            effect.OpponentTensionCount = parsed.OpponentTensionCount;
+            effect.TensionReduction = parsed.TensionReduction;
+            effect.SelfTensionRequired = parsed.SelfTensionRequired;
+            effect.SelfTensionPowerBonus = parsed.SelfTensionPowerBonus;
+            effect.OpponentTensionRequired = parsed.OpponentTensionRequired;
+            effect.OpponentTensionPowerBonus = parsed.OpponentTensionPowerBonus;
             return true;
         }
 
@@ -369,6 +395,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 return true;
             }
             if (TryReadBleedingEffect(trimmed, effect)) return true;
+            if (TryReadTensionEffect(trimmed, effect)) return true;
             if (Compact(trimmed) == Compact(AutoDodgePhrase))
             {
                 if (effect.AutoDodge) return false;
@@ -491,6 +518,56 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         private static bool ValidBleedingCount(int count) => count >= MinimumBleedingCount && count <= MaximumBleedingCount;
+
+        private static bool TryReadTensionEffect(string text, LegacySkillEffect effect)
+        {
+            string compact = Compact(text);
+            Match grant = TensionGrantPattern.Match(compact);
+            if (grant.Success)
+            {
+                int count = int.Parse(grant.Groups[2].Value, CultureInfo.InvariantCulture);
+                if (!ValidTensionCount(count)) return false;
+                if (grant.Groups[1].Value == "자신에게")
+                {
+                    if (effect.SelfTensionCount > 0) return false;
+                    effect.SelfTensionCount = count;
+                }
+                else
+                {
+                    if (effect.OpponentTensionCount > 0) return false;
+                    effect.OpponentTensionCount = count;
+                }
+                return true;
+            }
+            Match reduction = TensionReductionPattern.Match(compact);
+            if (reduction.Success)
+            {
+                int count = int.Parse(reduction.Groups[1].Value, CultureInfo.InvariantCulture);
+                if (effect.HasTensionReduction || !ValidTensionCount(count)) return false;
+                effect.TensionReduction = count;
+                return true;
+            }
+            Match power = TensionPowerPattern.Match(compact);
+            if (!power.Success) return false;
+            int required = int.Parse(power.Groups[2].Value, CultureInfo.InvariantCulture);
+            int bonus = int.Parse(power.Groups[3].Value, CultureInfo.InvariantCulture);
+            if (!ValidTensionCount(required) || bonus < MinimumUsePowerBonus || bonus > MaximumUsePowerBonus) return false;
+            if (power.Groups[1].Value == "자기")
+            {
+                if (effect.SelfTensionRequired > 0) return false;
+                effect.SelfTensionRequired = required;
+                effect.SelfTensionPowerBonus = bonus;
+            }
+            else
+            {
+                if (effect.OpponentTensionRequired > 0) return false;
+                effect.OpponentTensionRequired = required;
+                effect.OpponentTensionPowerBonus = bonus;
+            }
+            return true;
+        }
+
+        private static bool ValidTensionCount(int count) => count >= MinimumTensionCount && count <= MaximumTensionCount;
 
         private static bool TryReadAhead(Regex pattern, string text, int minimumPerUnit, int maximumPerUnit, int minimumCount,
             int maximumCount, out LegacyAheadTarget target, out int perUnit, out int max)

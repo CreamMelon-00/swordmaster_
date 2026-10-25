@@ -49,6 +49,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
         Bleeding = 1 << 26,
         BleedingReduction = 1 << 27,
         BleedingPower = 1 << 28,
+        Tension = 1 << 29,
+        TensionReduction = 1 << 30,
+        TensionPower = 1 << 31,
     }
 
     /// <summary>Presentation metadata for implemented rules, never a new combat authority.</summary>

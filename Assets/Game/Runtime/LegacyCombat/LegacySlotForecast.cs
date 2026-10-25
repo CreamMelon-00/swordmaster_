@@ -42,6 +42,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             EnemyQueueIndex = enemySkill == null ? -1 : slotIndex;
             PlayerActionSkill = playerSkill;
             EnemyActionSkill = enemySkill;
+            PlayerAttackCount = PlayerActionAttackCount = playerSkill?.Kind == LegacySkillKind.Attack ? playerSkill.AttackCount : 0;
+            EnemyAttackCount = EnemyActionAttackCount = enemySkill?.Kind == LegacySkillKind.Attack ? enemySkill.AttackCount : 0;
         }
 
         /// <summary>A slot the turn never reaches: the fight ended in an earlier slot.</summary>
@@ -56,6 +58,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyQueueIndex { get; internal set; }
         public LegacySkill PlayerActionSkill { get; internal set; }
         public LegacySkill EnemyActionSkill { get; internal set; }
+        public int PlayerAttackCount { get; internal set; }
+        public int EnemyAttackCount { get; internal set; }
+        public int PlayerActionAttackCount { get; internal set; }
+        public int EnemyActionAttackCount { get; internal set; }
         /// <summary>The skills that meet in the slot, a counter filling an empty side included (null for nothing).</summary>
         public LegacySkill PlayerSkill { get; }
         public LegacySkill EnemySkill { get; }
@@ -82,6 +88,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int playerHealth = 0, enemyHealth = 0, playerResistance = 0, enemyResistance = 0, seconds = 0;
             bool playerBroken = false, enemyBroken = false, reached = false;
             LegacySkill playerSkill = null, enemySkill = null;
+            int playerHits = 0, enemyHits = 0;
             for (int i = 0; i < segments.Count; i++)
             {
                 LegacySlotForecast segment = segments[i];
@@ -92,8 +99,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 playerResistance += segment.PlayerResistanceDamage; enemyResistance += segment.EnemyResistanceDamage;
                 seconds += segment.NextTurnSeconds;
                 playerBroken |= segment.PlayerBroken; enemyBroken |= segment.EnemyBroken; reached |= segment.Reached;
-                if (segment.PlayerSkill != null) playerSkill = segment.PlayerSkill;
-                if (segment.EnemySkill != null) enemySkill = segment.EnemySkill;
+                if (segment.PlayerSkill != null) { playerSkill = segment.PlayerSkill; playerHits = segment.PlayerAttackCount; }
+                if (segment.EnemySkill != null) { enemySkill = segment.EnemySkill; enemyHits = segment.EnemyAttackCount; }
             }
             if (first == null) return null;
             return new LegacySlotForecast(first.SlotIndex, playerSkill ?? first.PlayerActionSkill, enemySkill ?? first.EnemyActionSkill,
@@ -103,7 +110,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 PlayerQueueIndex = player ? queueIndex : first.PlayerQueueIndex,
                 EnemyQueueIndex = player ? first.EnemyQueueIndex : queueIndex,
                 StartHalfTick = first.StartHalfTick, EndHalfTick = last.EndHalfTick,
-                PlayerActionSkill = first.PlayerActionSkill, EnemyActionSkill = first.EnemyActionSkill
+                PlayerActionSkill = first.PlayerActionSkill, EnemyActionSkill = first.EnemyActionSkill,
+                PlayerAttackCount = playerSkill != null ? playerHits : first.PlayerActionAttackCount,
+                EnemyAttackCount = enemySkill != null ? enemyHits : first.EnemyActionAttackCount,
+                PlayerActionAttackCount = first.PlayerActionAttackCount, EnemyActionAttackCount = first.EnemyActionAttackCount
             };
         }
 

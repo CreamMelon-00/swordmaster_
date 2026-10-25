@@ -213,6 +213,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyQueueIndex { get; internal set; }
         public int StartHalfTick { get; internal set; }
         public int EndHalfTick { get; internal set; }
+        public int PlayerAttackCount { get; internal set; }
+        public int EnemyAttackCount { get; internal set; }
+        public int PlayerActionAttackCount { get; internal set; }
+        public int EnemyActionAttackCount { get; internal set; }
     }
 
     public sealed class LegacyCurrentSlot : ILegacySlotView
@@ -225,6 +229,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             SlotIndex = index;
             PlayerSkill = playerSkill;
             EnemySkill = enemySkill;
+            PlayerAttackCount = playerSkill?.Kind == LegacySkillKind.Attack ? playerSkill.AttackCount : 0;
+            EnemyAttackCount = enemySkill?.Kind == LegacySkillKind.Attack ? enemySkill.AttackCount : 0;
+            PlayerActionAttackCount = PlayerAttackCount;
+            EnemyActionAttackCount = EnemyAttackCount;
             HitCount = Math.Max(1, Math.Max(playerSkill?.AttackCount ?? 0, enemySkill?.AttackCount ?? 0));
             PlayerPower = playerPower;
             EnemyPower = enemyPower;
@@ -269,6 +277,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// <summary>Null for an empty slot, including while <see cref="PendingPlayerCounter"/> awaits the first hit.</summary>
         public LegacySkill PlayerSkill { get; internal set; }
         public LegacySkill EnemySkill { get; }
+        /// <summary>Actual executable hits, preserving the original skill's per-hit power and identity.</summary>
+        public int PlayerAttackCount { get; internal set; }
+        public int EnemyAttackCount { get; internal set; }
+        public int PlayerActionAttackCount { get; internal set; }
+        public int EnemyActionAttackCount { get; internal set; }
         /// <summary>Counts the remaining slot length, including a pending counter; shrinks after
         /// a cancelled counter or a decisive hit.</summary>
         public int HitCount { get; internal set; }
@@ -324,6 +337,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
         internal int PlayerStartingBleeding, EnemyStartingBleeding;
         internal int PlayerBleedingDamagePerHit, EnemyBleedingDamagePerHit;
         internal bool PlayerBleedingConsumed, EnemyBleedingConsumed;
+        public int PlayerStartingTension { get; internal set; }
+        public int EnemyStartingTension { get; internal set; }
+        public bool PlayerTensionActive { get; internal set; }
+        public bool EnemyTensionActive { get; internal set; }
+        public bool PlayerTensionConsumed { get; internal set; }
+        public bool EnemyTensionConsumed { get; internal set; }
+        internal int PlayerTensionBoundary, EnemyTensionBoundary;
     }
 
     public sealed class LegacyHitResult
@@ -338,6 +358,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             SlotIndex = slot.SlotIndex;
             PlayerSkill = slot.PlayerSkill;
             EnemySkill = slot.EnemySkill;
+            PlayerAttackCount = slot.PlayerAttackCount;
+            EnemyAttackCount = slot.EnemyAttackCount;
             HitIndex = hitIndex;
             PlayerAttacked = playerAttacked;
             EnemyAttacked = enemyAttacked;
@@ -367,6 +389,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacySkill PlayerSkill { get; }
         public LegacySkill EnemySkill { get; }
         public int HitIndex { get; }
+        public int PlayerAttackCount { get; }
+        public int EnemyAttackCount { get; }
         public bool PlayerAttacked { get; }
         public bool EnemyAttacked { get; }
         public bool PlayerDodged { get; }

@@ -5,8 +5,8 @@ namespace TurnLimbo.Runtime.Campaign
     /// row (바트망 between 붕괴 and 순환, 숫돌 between 순환 and 판짜기), each needing one inner twist from both neighbours. A school's later nodes count or raise the keyword its
     /// introduction carries (Docs/Curriculum.md). Learning a node costs 수련 점수 (<see cref="CurriculumNode.Cost"/>, written on
     /// each node so the author tunes them one by one): the trunk and the introductions 1, the twists 2, the capstones and the
-    /// bridges 3, with two additional two-point bridge choices on the seventh row and a six-node bleeding school:
-    /// 49 points for all 25. None excludes another,
+    /// bridges 3, with two additional two-point bridge choices on the seventh row, a six-node bleeding school,
+    /// and seven tension nodes: 63 points for all 32. None excludes another,
     /// so every node can be completed. Each node is titled with the current
     /// sheet name of the technique it grants (a null title), and descriptions name other techniques with {기술:ID} tokens, so
     /// a renamed row reaches the tree. 16 알티바호 is stage 7's first-clear reward instead
@@ -113,6 +113,29 @@ namespace TurnLimbo.Runtime.Campaign
             new CurriculumNode("wound-rend", null, CurriculumBranch.Bleeding, 4.5f, 9, new[] { 67 },
                 requiresAll: new[] { "deep-wound" },
                 cost: 3, description: "사용 시 상대의 출혈이 3 이상이면 기본 위력이 16 오릅니다."),
+
+            // An advanced choice after either bleeding route; original completed ids remain valid at version 2.
+            new CurriculumNode("intimidation", null, CurriculumBranch.Tension, 1.5f, 10, new[] { 69 },
+                requiresAny: new[] { "blood-fury", "wound-rend" },
+                cost: 1, description: "상대에게 긴장 3을 부여해 다음 연타의 타수를 줄입니다."),
+            new CurriculumNode("overextended-flurry", null, CurriculumBranch.Tension, 4.5f, 10, new[] { 71 },
+                requiresAny: new[] { "blood-fury", "wound-rend" },
+                cost: 1, description: "강한 3타 공격 뒤 자신에게 긴장 3을 부여합니다."),
+            new CurriculumNode("checking-guard", null, CurriculumBranch.Tension, 1.5f, 11, new[] { 70 },
+                requiresAll: new[] { "intimidation" },
+                cost: 2, description: "방어하며 상대에게 긴장 2를 부여합니다."),
+            new CurriculumNode("composure", null, CurriculumBranch.Tension, 4.5f, 11, new[] { 72 },
+                requiresAll: new[] { "overextended-flurry" },
+                cost: 2, description: "방어하며 자신의 긴장을 2 줄여 다음 연타를 준비합니다."),
+            new CurriculumNode("mental-focus", null, CurriculumBranch.Tension, 3f, 11, new[] { 75 },
+                requiresAny: new[] { "intimidation", "overextended-flurry" },
+                cost: 2, description: "방어하며 다음 턴 ACT 회복을 3 늘리고 자신에게 긴장 4를 부여합니다."),
+            new CurriculumNode("exploit-tension", null, CurriculumBranch.Tension, 1.5f, 12, new[] { 73 },
+                requiresAll: new[] { "checking-guard" },
+                cost: 3, description: "사용 시 상대에게 긴장이 있으면 기본 위력이 10 오릅니다."),
+            new CurriculumNode("steady-strike", null, CurriculumBranch.Tension, 4.5f, 12, new[] { 74 },
+                requiresAny: new[] { "composure", "mental-focus" },
+                cost: 3, description: "사용 시 자신에게 긴장이 있으면 단타의 기본 위력이 8 오릅니다."),
         });
     }
 }

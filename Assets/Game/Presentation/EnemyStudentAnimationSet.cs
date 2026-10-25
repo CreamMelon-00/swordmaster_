@@ -59,10 +59,16 @@ namespace TurnLimbo.Presentation
             if (disposed) return null;
             string key = AttackKey(property, variantIndex);
             if (key == null) return null;
+            return clips[key][AttackFrameIndex(phase)];
+        }
+
+        /// <summary>The actual authored cel selected for an attack phase, also available to managed render checks.</summary>
+        public static int AttackFrameIndex(float phase)
+        {
             phase = Mathf.Clamp01(phase);
             // Contact cel 5 at authored 420 ms must coincide with the existing half-cycle hit.
             float time = phase <= .5f ? phase * 2f * .42f : .42f + (phase - .5f) * 2f * .84f;
-            return Sample(clips[key], AttackDurations, time);
+            return SampleIndex(AttackDurations, time);
         }
 
         public static string AttackKey(LegacySkillProperty property, int variantIndex)
@@ -75,14 +81,17 @@ namespace TurnLimbo.Presentation
         }
 
         private static Sprite Sample(Sprite[] frames, int[] durations, float time)
+            => frames[SampleIndex(durations, time)];
+
+        private static int SampleIndex(int[] durations, float time)
         {
             float end = 0f;
-            for (int i = 0; i < frames.Length - 1; i++)
+            for (int i = 0; i < durations.Length - 1; i++)
             {
                 end += durations[i] / 1000f;
-                if (time + .000001f < end) return frames[i];
+                if (time + .000001f < end) return i;
             }
-            return frames[frames.Length - 1];
+            return durations.Length - 1;
         }
 
         private Sprite Load(string path)

@@ -43,7 +43,7 @@ namespace TurnLimbo.Core.Tests
         {
             LegacySkillTable parsed = LegacySkillSheet.Parse("iia round trip",
                 LegacySkillSheet.Write(LegacySkillDefinitions.Table));
-            Assert.That(parsed.All.Count, Is.EqualTo(55));
+            Assert.That(parsed.All.Count, Is.EqualTo(62));
             Assert.That(LegacySkillSheet.Headers.Count, Is.EqualTo(48), "Boss effects stay in the phrase columns; the optional duration column serves prototype skills.");
             Assert.That(parsed.Find(503).Effect.ActGain, Is.EqualTo(1));
             Assert.That(parsed.Find(504).Effect.MirrorOpponentMaxPower, Is.True);

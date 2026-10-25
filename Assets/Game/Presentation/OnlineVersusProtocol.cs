@@ -179,7 +179,7 @@ namespace TurnLimbo.Presentation
     public static class OnlineVersusProtocol
     {
         // Increment when the combat simulation changes without a corresponding skill-sheet edit.
-        public const string CombatRulesVersion = "local-versus-rules-17";
+        public const string CombatRulesVersion = "local-versus-rules-18";
         private const ulong Offset = 14695981039346656037UL;
         private const ulong Prime = 1099511628211UL;
 
@@ -295,6 +295,14 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, slot.HitsResolved);
             AddInt(ref hash, slot.LeftSkill == null ? 0 : slot.LeftSkill.Id);
             AddInt(ref hash, slot.RightSkill == null ? 0 : slot.RightSkill.Id);
+            AddInt(ref hash, slot.LeftAttackCount);
+            AddInt(ref hash, slot.RightAttackCount);
+            AddInt(ref hash, slot.LeftStartingTension);
+            AddInt(ref hash, slot.RightStartingTension);
+            AddInt(ref hash, slot.LeftTensionActive ? 1 : 0);
+            AddInt(ref hash, slot.RightTensionActive ? 1 : 0);
+            AddInt(ref hash, slot.LeftTensionConsumed ? 1 : 0);
+            AddInt(ref hash, slot.RightTensionConsumed ? 1 : 0);
             AddInt(ref hash, slot.LeftStartingBleeding);
             AddInt(ref hash, slot.RightStartingBleeding);
             AddInt(ref hash, slot.LeftBleedingDamagePerHit);
@@ -320,6 +328,11 @@ namespace TurnLimbo.Presentation
             AddInt(ref hash, feedback?.BleedingRemoved ?? 0);
             AddInt(ref hash, feedback?.SelfBleedingPowerBonus ?? 0);
             AddInt(ref hash, feedback?.OpponentBleedingPowerBonus ?? 0);
+            AddInt(ref hash, feedback?.SelfTensionGranted ?? 0);
+            AddInt(ref hash, feedback?.OpponentTensionGranted ?? 0);
+            AddInt(ref hash, feedback?.TensionRemoved ?? 0);
+            AddInt(ref hash, feedback?.SelfTensionPowerBonus ?? 0);
+            AddInt(ref hash, feedback?.OpponentTensionPowerBonus ?? 0);
         }
 
         private static void AddString(ref ulong hash, string value)

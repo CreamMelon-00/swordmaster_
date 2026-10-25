@@ -15,15 +15,15 @@ namespace TurnLimbo.Core.Tests
         {
             CurriculumTree tree = CampaignCurriculum.Default;
             string[] ends = tree.Nodes.Where(node => tree.EndsBranch(node.Id)).Select(node => node.Id).ToArray();
-            Assert.That(ends, Is.EqualTo(new[] { "advance", "estocada", "cadence", "doublet", "blood-fury", "wound-rend" }));
+            Assert.That(ends, Is.EqualTo(new[] { "advance", "estocada", "cadence", "doublet", "blood-fury", "wound-rend", "exploit-tension", "steady-strike" }));
             string[] capstones = tree.Nodes.Where(node => tree.IsCapstone(node.Id)).Select(node => node.Id).ToArray();
-            Assert.That(capstones, Is.EqualTo(new[] { "estocada", "cadence", "doublet", "blood-fury", "wound-rend" }), "The trunk has no capstone.");
+            Assert.That(capstones, Is.EqualTo(new[] { "estocada", "cadence", "doublet", "blood-fury", "wound-rend", "exploit-tension", "steady-strike" }), "The trunk has no capstone.");
             Assert.That(tree.EndsBranch("battement"), Is.False, "A bridge joins two schools; it ends neither.");
             Assert.That(tree.EndsBranch("missing"), Is.False);
             Assert.That(tree.IsCapstone(null), Is.False);
             foreach (string capstone in capstones)
                 Assert.That(tree.Find(capstone).StatReward.IsEmpty,
-                    Is.EqualTo(tree.Find(capstone).Branch == CurriculumBranch.Bleeding), capstone + ": bleeding rewards techniques only.");
+                    Is.EqualTo(tree.Find(capstone).Branch == CurriculumBranch.Bleeding || tree.Find(capstone).Branch == CurriculumBranch.Tension), capstone + ": status schools reward techniques only.");
         }
 
         [Test]

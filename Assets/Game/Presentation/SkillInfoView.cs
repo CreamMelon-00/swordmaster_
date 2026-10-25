@@ -27,7 +27,7 @@ namespace TurnLimbo.Presentation
         private LegacySkill shown;
         private CampaignOwnedSkill shownOwned;
         private int shownLevel, shownExperience, shownCycleUses = -1;
-        private int? shownEffectiveCost;
+        private int? shownEffectiveCost, shownEffectiveAttackCount;
         private string shownEffectivePower;
         private bool shownEnemy;
         private bool shownEnemyActRecoveryIsPlayerOnly;
@@ -164,7 +164,7 @@ namespace TurnLimbo.Presentation
 
         public void SetSkill(LegacySkill skill, bool enemy = false, string additionalDescription = null,
             CampaignOwnedSkill owned = null, int cycleUses = -1, int? effectiveCost = null, string effectivePower = null,
-            bool enemyActRecoveryIsPlayerOnly = true)
+            bool enemyActRecoveryIsPlayerOnly = true, int? effectiveAttackCount = null)
         {
             if (skill == null) { Clear(); return; }
             if (enemy || owned?.SkillId != skill.Id) owned = null;
@@ -173,11 +173,13 @@ namespace TurnLimbo.Presentation
             if (ReferenceEquals(shown, skill) && shownEnemy == enemy && shownAdditionalDescription == additionalDescription &&
                 shownEnemyActRecoveryIsPlayerOnly == enemyActRecoveryIsPlayerOnly &&
                 ReferenceEquals(shownOwned, owned) && shownLevel == level && shownExperience == experience &&
-                shownCycleUses == cycleUses && shownEffectiveCost == effectiveCost && shownEffectivePower == effectivePower) return;
+                shownCycleUses == cycleUses && shownEffectiveCost == effectiveCost && shownEffectivePower == effectivePower &&
+                shownEffectiveAttackCount == effectiveAttackCount) return;
             shown = skill; shownEnemy = enemy; shownAdditionalDescription = additionalDescription;
             shownEnemyActRecoveryIsPlayerOnly = enemyActRecoveryIsPlayerOnly;
             shownOwned = owned; shownLevel = level; shownExperience = experience;
             shownCycleUses = cycleUses; shownEffectiveCost = effectiveCost; shownEffectivePower = effectivePower;
+            shownEffectiveAttackCount = effectiveAttackCount;
             stats.gameObject.SetActive(true);
             keywords.gameObject.SetActive(true);
             bool defence = skill.Kind == LegacySkillKind.Defence;
@@ -191,7 +193,7 @@ namespace TurnLimbo.Presentation
             PowerText.rectTransform.sizeDelta = new Vector2(S(88f), S(30f));
             PowerText.text = effectivePower ?? CampaignSkillText.Power(skill);
             hitsLabel.text = string.Empty;
-            hits.text = defence ? "같은 칸" : skill.AttackCount + "회";
+            hits.text = defence ? "같은 칸" : (effectiveAttackCount ?? skill.AttackCount) + "회";
             SkillInfoContent content = SkillInfoContent.For(skill, enemy, enemyActRecoveryIsPlayerOnly);
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             bool showCycleCount = cycleUses >= 0 && effect?.HasCycle == true;
@@ -229,6 +231,7 @@ namespace TurnLimbo.Presentation
             shownLevel = shownExperience = 0;
             shownCycleUses = -1;
             shownEffectiveCost = null;
+            shownEffectiveAttackCount = null;
             shownEffectivePower = null;
             shownAdditionalDescription = null;
             stats.gameObject.SetActive(false);

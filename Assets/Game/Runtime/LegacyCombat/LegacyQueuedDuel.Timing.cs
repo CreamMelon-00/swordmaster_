@@ -7,6 +7,57 @@ namespace TurnLimbo.Runtime.LegacyCombat
     {
         private LegacyTimeSegment[] timeSegments = Array.Empty<LegacyTimeSegment>();
         private bool tempoExecution;
+        private sealed class TensionActionSnapshot
+        {
+            internal int SelfCount, OpponentCount, Boundary;
+            internal bool Active;
+        }
+        private readonly Dictionary<LegacyTimedSkill, TensionActionSnapshot> tensionActions = new Dictionary<LegacyTimedSkill, TensionActionSnapshot>();
+        private TensionActionSnapshot playerTensionAction, enemyTensionAction;
+
+        private TensionActionSnapshot CaptureTensionAction(bool player, LegacyTimedSkill action, LegacySkill counter)
+        {
+            if (action != null && tensionActions.TryGetValue(action, out TensionActionSnapshot existing)) return existing;
+            LegacyStatusCollection self = player ? playerStatuses : enemyStatuses;
+            LegacyStatusCollection opponent = player ? enemyStatuses : playerStatuses;
+            LegacySkill skill = action?.Skill ?? counter;
+            int reduction = LegacySkillDefinitions.Find(skill)?.Effect.TensionReduction ?? 0;
+            var snapshot = new TensionActionSnapshot
+            {
+                SelfCount = self.TensionCount, OpponentCount = opponent.TensionCount, Boundary = self.GrantSerial,
+                Active = self.TensionCount > reduction
+            };
+            if (action != null) tensionActions.Add(action, snapshot);
+            return snapshot;
+        }
+
+        private static int TensionAttackCount(LegacySkill skill, bool active)
+            => skill?.Kind == LegacySkillKind.Attack ? Math.Max(1, skill.AttackCount - (active ? LegacyStatusCollection.TensionHitReduction : 0)) : 0;
+
+        private void SetTensionTiming(LegacyCurrentSlot slot)
+        {
+            slot.PlayerStartingTension = playerTensionAction.SelfCount;
+            slot.EnemyStartingTension = enemyTensionAction.SelfCount;
+            slot.PlayerTensionBoundary = playerTensionAction.Boundary;
+            slot.EnemyTensionBoundary = enemyTensionAction.Boundary;
+            slot.PlayerTensionActive = playerTensionAction.Active;
+            slot.EnemyTensionActive = enemyTensionAction.Active;
+            slot.PlayerAttackCount = TensionAttackCount(slot.PlayerSkill, slot.PlayerTensionActive);
+            slot.EnemyAttackCount = TensionAttackCount(slot.EnemySkill, slot.EnemyTensionActive);
+            slot.PlayerActionAttackCount = TensionAttackCount(slot.PlayerActionSkill, slot.PlayerTensionActive);
+            slot.EnemyActionAttackCount = TensionAttackCount(slot.EnemyActionSkill, slot.EnemyTensionActive);
+            slot.HitCount = Math.Max(1, Math.Max(slot.PlayerAttackCount, slot.EnemyAttackCount));
+        }
+
+        private static int TensionPowerBonus(LegacySkill skill, LegacyStatusCollection self, LegacyStatusCollection opponent)
+            => skill?.Kind == LegacySkillKind.Attack
+                ? (LegacySkillDefinitions.Find(skill)?.Effect.TensionPowerBonus(self.TensionCount, opponent.TensionCount) ?? 0) : 0;
+
+        private static LegacySkillFeedback WithTensionFeedback(LegacySkillFeedback feedback, LegacySkillEffect effect,
+            int selfCount, int opponentCount, int removed)
+            => feedback.WithTensionEffects(effect.SelfTensionCount, effect.OpponentTensionCount, removed,
+                effect.SelfTensionRequired > 0 && selfCount >= effect.SelfTensionRequired ? effect.SelfTensionPowerBonus : 0,
+                effect.OpponentTensionRequired > 0 && opponentCount >= effect.OpponentTensionRequired ? effect.OpponentTensionPowerBonus : 0);
         public bool HasTempoSkills
         {
             get
@@ -144,6 +195,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private void BuildExecutionTiming()
         {
+            tensionActions.Clear();
             tempoExecution = HasTempoSkills;
             timeSegments = LegacySkillTiming.Segments(LegacySkillTiming.Build(committedPlayerQueue),
                 LegacySkillTiming.Build(committedEnemyQueue));

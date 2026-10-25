@@ -45,15 +45,16 @@ namespace TurnLimbo.Presentation
                 {
                     int matching = -1;
                     for (int i = 0; i < displayedStatuses.Count; i++)
-                        if (displayedStatuses[i].Kind == value.Kind && (value.Kind == LegacyStatusKind.Bleeding ||
+                        if (displayedStatuses[i].Kind == value.Kind && (value.Kind == LegacyStatusKind.Bleeding || value.Kind == LegacyStatusKind.Tension ||
                             displayedStatuses[i].RemainingCount == value.RemainingCount))
                         { matching = i; break; }
                     if (matching < 0) displayedStatuses.Add(value);
                     else
                     {
                         LegacyStatusSnapshot previous = displayedStatuses[matching];
-                        displayedStatuses[matching] = value.Kind == LegacyStatusKind.Bleeding
-                            ? new LegacyStatusSnapshot(value.Kind, 2, checked(previous.RemainingCount + value.RemainingCount))
+                        displayedStatuses[matching] = value.Kind == LegacyStatusKind.Bleeding || value.Kind == LegacyStatusKind.Tension
+                            ? new LegacyStatusSnapshot(value.Kind, value.Kind == LegacyStatusKind.Bleeding ? 2 : 1,
+                                checked(previous.RemainingCount + value.RemainingCount))
                             : new LegacyStatusSnapshot(value.Kind, checked(previous.Percent + value.Percent), value.RemainingCount);
                     }
                 }
@@ -74,11 +75,12 @@ namespace TurnLimbo.Presentation
                 Color ink = value.Kind == LegacyStatusKind.PowerUp ? new Color32(235, 210, 250, 255)
                     : value.Kind == LegacyStatusKind.Protection ? new Color32(143, 236, 226, 255)
                     : value.Kind == LegacyStatusKind.Bleeding ? new Color32(244, 96, 112, 255)
+                    : value.Kind == LegacyStatusKind.Tension ? new Color32(204, 177, 255, 255)
                     : value.Kind == LegacyStatusKind.Jealousy ? new Color32(172, 230, 142, 255)
                     : value.Kind == LegacyStatusKind.Fixed ? new Color32(255, 207, 123, 255)
                     : new Color32(255, 159, 135, 255);
                 icon.Symbol.color = ink;
-                icon.Magnitude.text = value.Kind == LegacyStatusKind.Bleeding || value.Kind == LegacyStatusKind.Jealousy ||
+                icon.Magnitude.text = value.Kind == LegacyStatusKind.Tension ? "-1타" : value.Kind == LegacyStatusKind.Bleeding || value.Kind == LegacyStatusKind.Jealousy ||
                     value.Kind == LegacyStatusKind.Fixed ? LegacyStatusNames.Name(value.Kind) : value.Percent + "%";
                 icon.Remaining.text = value.RemainingCount.ToString();
             }
@@ -124,13 +126,14 @@ namespace TurnLimbo.Presentation
         {
             LegacyStatusSnapshot value = icons[hovered].Snapshot;
             bool bleeding = value.Kind == LegacyStatusKind.Bleeding;
+            bool tension = value.Kind == LegacyStatusKind.Tension;
             bool bossKeyword = value.Kind == LegacyStatusKind.Jealousy || value.Kind == LegacyStatusKind.Fixed;
-            float height = bleeding ? BleedingTooltipHeight : bossKeyword ? BossTooltipHeight : TooltipHeight;
+            float height = bleeding || tension ? BleedingTooltipHeight : bossKeyword ? BossTooltipHeight : TooltipHeight;
             tooltip.sizeDelta = new Vector2(TooltipWidth, height);
             tooltipTitle.rectTransform.anchoredPosition = new Vector2(0f, height * .5f - 29f);
             tooltipDescription.rectTransform.sizeDelta = new Vector2(308f, height - 62f);
             tooltipTitle.text = LegacyStatusNames.Name(value.Kind) + "  ·  " +
-                (bleeding ? "공격 기술 " + value.RemainingCount + "개 남음"
+                (bleeding || tension ? "공격 기술 " + value.RemainingCount + "개 남음"
                     : value.Kind == LegacyStatusKind.Fixed ? "준비 " + value.RemainingCount + "턴 남음"
                     : value.Kind == LegacyStatusKind.Jealousy ? value.RemainingCount + "회"
                     : value.RemainingCount + "회 남음");

@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
     public sealed class SkillKeywordHover : MonoBehaviour
     {
         public const float DelaySeconds = 1.2f;
-        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈", "질투", "고정", "고속", "차지" };
+        private static readonly string[] Terms = { "ACT 회복 강탈", "ACT 강탈", "보호 소모", "총타수", "순환", "취소", "반환", "붕괴", "맞물림", "숨고르기", "회피", "일회성", "제한시간", "강화", "보호", "취약", "지혈", "출혈", "질투", "고정", "고속", "차지", "긴장" };
         // The popup's size before its scale: room for a six-line meaning at the smallest type (the longest, 숨고르기's, is
         // about five since 2026-10-14).
         private const float PopupWidth = 300f, PopupHeight = 196f, MeaningHeight = 124f;
@@ -96,6 +96,9 @@ namespace TurnLimbo.Presentation
         {
             switch (term)
             {
+                case "긴장":
+                    explanation = LegacyStatusNames.Description(LegacyStatusKind.Tension, 1);
+                    return true;
                 case "고속":
                     explanation = "연속된 고속 기술 두 개가 한 칸을 나눠 씁니다. 하나만 쓰면 반 칸을 쉽니다. " +
                         "연타가 아닌 별개의 기술이며, 상대 일반 기술도 끝까지 진행됩니다.";
@@ -384,7 +387,7 @@ namespace TurnLimbo.Presentation
             Vector3 upper = canvasRect.InverseTransformPoint(cardCorners[2]);
             Rect screen = canvasRect.rect;
             float width = Mathf.Min(PopupWidth * scale, Mathf.Max(80f, screen.width - 16f));
-            float requestedHeight = heading.text == "출혈" ? 350f : heading.text == "질투" ? 250f : PopupHeight;
+            float requestedHeight = heading.text == "출혈" || heading.text == "긴장" ? 350f : heading.text == "질투" ? 250f : PopupHeight;
             float height = Mathf.Min(requestedHeight * scale, Mathf.Max(80f, screen.height - 16f));
             popup.sizeDelta = new Vector2(width, height);
             float textWidth = Mathf.Max(60f, width - 30f * scale);

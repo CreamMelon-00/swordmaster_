@@ -75,6 +75,18 @@ namespace TurnLimbo.Presentation
 
         public static bool IsFast(LegacyCurrentSlot slot, bool player) => Action(slot, player)?.IsFast == true;
 
+        public static bool KeepSlowPose(LegacyCurrentSlot slot, bool player, LegacySkill skill, bool previous)
+        {
+            if (slot == null || skill == null || skill.IsWait || skill.IsFast) return false;
+            bool starts = player ? slot.PlayerActionStarts : slot.EnemyActionStarts;
+            return IsFast(slot, !player) || previous && !starts;
+        }
+
+        // A slow actor already has a retimed action clock. Reapplying the normal held-windup/quick-release
+        // curve compresses its moving cels into a few rendered frames and hides the slow motion.
+        public static float PosePhase(LegacySkill skill, float phase, float strength, bool slowPose)
+            => LegacyAttackRhythm.PosePhase(skill, phase, slowPose ? 0f : strength);
+
         private static bool SlowCompletion(LegacyCurrentSlot slot, bool player)
         {
             LegacySkill action = Action(slot, player);
@@ -85,12 +97,13 @@ namespace TurnLimbo.Presentation
         public static bool HasSlowCompletion(LegacyCurrentSlot slot)
             => SlowCompletion(slot, true) || SlowCompletion(slot, false);
 
-        private static int Hits(LegacySkill skill) => System.Math.Max(1, skill?.AttackCount ?? 1);
+        private static int Hits(LegacyCurrentSlot slot, bool player)
+            => System.Math.Max(1, player ? slot.PlayerActionAttackCount : slot.EnemyActionAttackCount);
 
         // Contacts shared with the fast action retain its original timing. After the final shared contact the
         // opponent's recovery and any remaining strikes can slow without delaying a fast strike or skipping a cel.
         private static float Anchor(LegacyCurrentSlot slot, bool player, float clip, float gap)
-            => clip * .5f + (System.Math.Min(Hits(Action(slot, player)), Hits(Action(slot, !player))) - 1) * (clip + gap);
+            => clip * .5f + (System.Math.Min(Hits(slot, player), Hits(slot, !player)) - 1) * (clip + gap);
 
         private static float ToSlowTime(float elapsed, float anchor)
             => elapsed <= anchor ? elapsed : anchor + (elapsed - anchor) * Scale;
@@ -107,7 +120,7 @@ namespace TurnLimbo.Presentation
             for (int side = 0; side < 2; side++)
             {
                 bool player = side == 0;
-                if (SlowCompletion(slot, player) && hitIndex >= Hits(Action(slot, !player)))
+                if (SlowCompletion(slot, player) && hitIndex >= Hits(slot, !player))
                     return FromSlowTime(contact, Anchor(slot, player, clip, gap));
             }
             return contact;
@@ -119,7 +132,7 @@ namespace TurnLimbo.Presentation
             for (int side = 0; side < 2; side++)
             {
                 bool player = side == 0;
-                if (SlowCompletion(slot, player) && hitIndex < Hits(Action(slot, player)))
+                if (SlowCompletion(slot, player) && hitIndex < Hits(slot, player))
                     end = System.Math.Max(end, FromSlowTime(clip * (hitIndex + 1) + hitIndex * gap,
                         Anchor(slot, player, clip, gap)));
             }
@@ -133,7 +146,7 @@ namespace TurnLimbo.Presentation
             {
                 bool player = side == 0;
                 LegacySkill skill = player ? slot?.PlayerSkill : slot?.EnemySkill;
-                if (skill?.Kind != LegacySkillKind.Attack || hitIndex >= skill.AttackCount) continue;
+                if (skill?.Kind != LegacySkillKind.Attack || hitIndex >= (player ? slot.PlayerAttackCount : slot.EnemyAttackCount)) continue;
                 float ownEnd = clip * (hitIndex + 1) + hitIndex * gap;
                 if (SlowCompletion(slot, player)) ownEnd = FromSlowTime(ownEnd, Anchor(slot, player, clip, gap));
                 end = System.Math.Min(end, ownEnd);

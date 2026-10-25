@@ -174,6 +174,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int SlotIndex => Source.SlotIndex;
         public LegacySkill PlayerSkill => leftIsPlayer ? Source.LeftSkill : Source.RightSkill;
         public LegacySkill EnemySkill => leftIsPlayer ? Source.RightSkill : Source.LeftSkill;
+        public int PlayerAttackCount => leftIsPlayer ? Source.LeftAttackCount : Source.RightAttackCount;
+        public int EnemyAttackCount => leftIsPlayer ? Source.RightAttackCount : Source.LeftAttackCount;
         public LegacySkillFeedback PlayerFeedback => leftIsPlayer ? Source.LeftFeedback : Source.RightFeedback;
         public LegacySkillFeedback EnemyFeedback => leftIsPlayer ? Source.RightFeedback : Source.LeftFeedback;
         public int HitCount => Source.HitCount;
@@ -194,6 +196,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             HitIndex = hit.HitIndex;
             PlayerSkill = left ? hit.LeftSkill : hit.RightSkill;
             EnemySkill = left ? hit.RightSkill : hit.LeftSkill;
+            PlayerAttackCount = left ? hit.LeftAttackCount : hit.RightAttackCount;
+            EnemyAttackCount = left ? hit.RightAttackCount : hit.LeftAttackCount;
             PlayerAttacked = left ? hit.LeftAttacked : hit.RightAttacked;
             EnemyAttacked = left ? hit.RightAttacked : hit.LeftAttacked;
             PlayerHealthDamage = left ? hit.LeftHealthDamage : hit.RightHealthDamage;
@@ -217,6 +221,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LocalVersusHit Source { get; }
         public int SlotIndex { get; }
         public int HitIndex { get; }
+        public int PlayerAttackCount { get; }
+        public int EnemyAttackCount { get; }
         public LegacySkill PlayerSkill { get; }
         public LegacySkill EnemySkill { get; }
         public bool PlayerAttacked { get; }

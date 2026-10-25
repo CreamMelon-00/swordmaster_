@@ -83,6 +83,20 @@ namespace TurnLimbo.Presentation
             }
             if (feedback.ActGainGranted > 0)
                 detail = Join(detail, "다음 턴 ACT 회복 +" + feedback.ActGainGranted);
+            if (feedback.SelfTensionGranted > 0)
+                detail = Join(detail, (playerSide ? "내" : "상대") + " 긴장 +" + feedback.SelfTensionGranted);
+            if (feedback.OpponentTensionGranted > 0)
+                detail = Join(detail, (playerSide ? "상대" : "내") + " 긴장 +" + feedback.OpponentTensionGranted);
+            if (feedback.TensionRemoved > 0)
+            {
+                detail = Join(detail, (playerSide ? "내" : "상대") + " 긴장 -" + feedback.TensionRemoved);
+                if (playerSide) tint = RecoveryInk;
+            }
+            if (feedback.SelfTensionPowerBonus > 0 || feedback.OpponentTensionPowerBonus > 0)
+            {
+                detail = Join(detail, "긴장 조건 · 기본 위력 +" + (feedback.SelfTensionPowerBonus + feedback.OpponentTensionPowerBonus));
+                if (playerSide) tint = PowerInk;
+            }
             if (feedback.SelfBleedingGranted > 0)
                 detail = Join(detail, (playerSide ? "내" : "상대") + " 출혈 +" + feedback.SelfBleedingGranted);
             if (feedback.OpponentBleedingGranted > 0)
@@ -144,6 +158,7 @@ namespace TurnLimbo.Presentation
             view.Tint = tint;
             view.BurstStyle = !playerSide ? DuelSkillBurstStyle.Danger
                 : feedback.OpponentResistanceReduced > 0 || feedback.ConditionalDamagePercent > 0 || feedback.ActStolen > 0 || feedback.ActRecoveryStolen > 0 ||
+                    feedback.OpponentTensionGranted > 0 || feedback.SelfTensionPowerBonus > 0 || feedback.OpponentTensionPowerBonus > 0 ||
                     feedback.OpponentBleedingGranted > 0 || feedback.SelfBleedingPowerBonus > 0 || feedback.OpponentBleedingPowerBonus > 0 ||
                     feedback.ProtectionSpendPowerBonus > 0 || feedback.AheadHitPowerBonus > 0 ? DuelSkillBurstStyle.Strike
                 : feedback.ResistanceRestored > 0 ? DuelSkillBurstStyle.Recovery

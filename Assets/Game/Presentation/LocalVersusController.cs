@@ -894,7 +894,7 @@ namespace TurnLimbo.Presentation
             slotDuration = SlotDurationFor(slot.HitCount);
             playerSlotDamage = enemySlotDamage = 0;
             arena.ConfigureSlotTiming(slotPlaybackSpeed, slotAttackInterval);
-            arena.BeginSlot(slot.PlayerSkill, slot.EnemySkill);
+            arena.BeginSlot(slot.PlayerSkill, slot.EnemySkill, slot.PlayerAttackCount, slot.EnemyAttackCount);
             // A signature move on either side (no windup in versus: its glow gathers to the first strike).
             if (settings.SignatureTreatmentEnabled)
             {

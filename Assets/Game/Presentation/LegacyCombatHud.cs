@@ -1201,14 +1201,15 @@ namespace TurnLimbo.Presentation
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
             if (displayedSession == null || effect?.HasCycle != true && effect?.MirrorOpponentMaxPower != true)
             {
-                info.SetSkill(skill, owned: owned);
+                info.SetSkill(skill, owned: owned, effectiveAttackCount: CurrentAttackCount(skill, true));
                 return;
             }
 
             displayedSession.EffectivePowerRange(skill, out int min, out int max);
             string power = min == max ? min.ToString() : min + "–" + max;
             info.SetSkill(skill, owned: owned, cycleUses: displayedSession.CycleUses(skill.Id),
-                effectiveCost: displayedSession.EffectiveCost(skill), effectivePower: power);
+                effectiveCost: displayedSession.EffectiveCost(skill), effectivePower: power,
+                effectiveAttackCount: CurrentAttackCount(skill, true));
         }
 
         // The enemy's card reads the enemy's own uses of a cycling skill, as the player's reads the player's: a versus
@@ -1221,7 +1222,8 @@ namespace TurnLimbo.Presentation
             bool playerOnlyAct = !(displayedSession is LocalVersusPerspective);
             if (displayedSession == null || effect?.HasCycle != true)
             {
-                enemyInfo.SetSkill(skill, true, enemyActRecoveryIsPlayerOnly: playerOnlyAct);
+                enemyInfo.SetSkill(skill, true, enemyActRecoveryIsPlayerOnly: playerOnlyAct,
+                    effectiveAttackCount: CurrentAttackCount(skill, false));
                 return;
             }
 
@@ -1233,7 +1235,18 @@ namespace TurnLimbo.Presentation
                 : displayedSession.EnemyEffectiveCost(skill);
             enemyInfo.SetSkill(skill, true, cycleUses: displayedSession.EnemyCycleUses(skill.Id),
                 effectiveCost: cost, effectivePower: power,
-                enemyActRecoveryIsPlayerOnly: playerOnlyAct);
+                enemyActRecoveryIsPlayerOnly: playerOnlyAct, effectiveAttackCount: CurrentAttackCount(skill, false));
+        }
+
+        private int? CurrentAttackCount(LegacySkill skill, bool playerSide)
+        {
+            ILegacySlotView slot = displayedSession?.CurrentSlot;
+            if (slot == null || displayedSession.Phase == LegacyDuelPhase.Planning || skill?.Kind != LegacySkillKind.Attack) return null;
+            if (ReferenceEquals(skill, playerSide ? slot.PlayerSkill : slot.EnemySkill))
+                return playerSide ? slot.PlayerAttackCount : slot.EnemyAttackCount;
+            if (slot is LegacyCurrentSlot timed && ReferenceEquals(skill, playerSide ? timed.PlayerActionSkill : timed.EnemyActionSkill))
+                return playerSide ? timed.PlayerActionAttackCount : timed.EnemyActionAttackCount;
+            return null;
         }
 
         private void UpdateConditionPreview()

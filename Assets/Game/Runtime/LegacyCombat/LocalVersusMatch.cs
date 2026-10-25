@@ -352,6 +352,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             SlotIndex = index;
             LeftSkill = left;
             RightSkill = right;
+            LeftAttackCount = left?.Kind == LegacySkillKind.Attack ? left.AttackCount : 0;
+            RightAttackCount = right?.Kind == LegacySkillKind.Attack ? right.AttackCount : 0;
             HitCount = Math.Max(1, Math.Max(left?.AttackCount ?? 0, right?.AttackCount ?? 0));
             LeftPower = leftPower;
             RightPower = rightPower;
@@ -365,6 +367,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int SlotIndex { get; }
         public LegacySkill LeftSkill { get; }
         public LegacySkill RightSkill { get; }
+        public int LeftAttackCount { get; internal set; }
+        public int RightAttackCount { get; internal set; }
         public int HitCount { get; internal set; }
         public int HitsResolved { get; internal set; }
         public bool IsResolved => HitsResolved >= HitCount;
@@ -388,6 +392,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int RightBleedingDamagePerHit { get; internal set; }
         public bool LeftBleedingConsumed { get; internal set; }
         public bool RightBleedingConsumed { get; internal set; }
+        public int LeftStartingTension { get; internal set; }
+        public int RightStartingTension { get; internal set; }
+        public bool LeftTensionActive { get; internal set; }
+        public bool RightTensionActive { get; internal set; }
+        public bool LeftTensionConsumed { get; internal set; }
+        public bool RightTensionConsumed { get; internal set; }
+        internal int LeftTensionBoundary, RightTensionBoundary;
         /// <summary>Each side's skill's 상대 상태 조건 has held against the other where the rules checked it this slot (the
         /// recovery's gate, the slot's start for a damage multiplier, or one of its hits; presentation only, never in the
         /// state hash: <see cref="LegacySlotFacts.PlayerStateConditionHeld"/>).</summary>
@@ -416,6 +427,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             SlotIndex = slot.SlotIndex;
             LeftSkill = slot.LeftSkill;
             RightSkill = slot.RightSkill;
+            LeftAttackCount = slot.LeftAttackCount;
+            RightAttackCount = slot.RightAttackCount;
             HitIndex = index;
             LeftAttacked = leftAttack;
             RightAttacked = rightAttack;
@@ -440,6 +453,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacySkill LeftSkill { get; }
         public LegacySkill RightSkill { get; }
         public int HitIndex { get; }
+        public int LeftAttackCount { get; }
+        public int RightAttackCount { get; }
         public bool LeftAttacked { get; }
         public bool RightAttacked { get; }
         public int LeftBleedingHealthDamage { get; }
@@ -478,6 +493,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             RightHealthDamage = slot.RightStartingHealth - right.State.Health;
             LeftResistanceDamage = slot.LeftStartingResistance - left.State.Resistance;
             RightResistanceDamage = slot.RightStartingResistance - right.State.Resistance;
+            LeftAttackCount = slot.LeftAttackCount;
+            RightAttackCount = slot.RightAttackCount;
             LeftBleedingHealthDamage = slot.LeftBleedingHealthDamage;
             RightBleedingHealthDamage = slot.RightBleedingHealthDamage;
             Outcome = outcome;
@@ -487,6 +504,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public LegacySkill RightSkill { get; }
         public int LeftHealthDamage { get; }
         public int RightHealthDamage { get; }
+        public int LeftAttackCount { get; }
+        public int RightAttackCount { get; }
         public int LeftBleedingHealthDamage { get; }
         public int RightBleedingHealthDamage { get; }
         public int LeftResistanceDamage { get; }
@@ -595,7 +614,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     left ? result.LeftResistanceDamage : result.RightResistanceDamage,
                     left ? result.RightResistanceDamage : result.LeftResistanceDamage,
                     selfWhole && self.State.IsResistanceBroken, otherWhole && other.State.IsResistanceBroken,
-                    PerspectiveOutcome(result.Outcome, perspectivePlayer), nextTurnSeconds: self.NextPlanningSeconds - secondsBefore));
+                    PerspectiveOutcome(result.Outcome, perspectivePlayer), nextTurnSeconds: self.NextPlanningSeconds - secondsBefore)
+                {
+                    PlayerAttackCount = left ? result.LeftAttackCount : result.RightAttackCount,
+                    EnemyAttackCount = left ? result.RightAttackCount : result.LeftAttackCount,
+                    PlayerActionAttackCount = left ? result.LeftAttackCount : result.RightAttackCount,
+                    EnemyActionAttackCount = left ? result.RightAttackCount : result.LeftAttackCount
+                });
             }
         }
 
@@ -655,8 +680,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (perspectivePlayer < 0 || perspectivePlayer > 1) throw new ArgumentOutOfRangeException(nameof(perspectivePlayer));
             LocalVersusSlot slot = CurrentSlot;
             if (slot == null) return LegacyClashInput.None;
-            LegacyClashInput left = LegacyClashInput.FromSkills(slot.SlotIndex, slot.LeftSkill, slot.LeftPower,
-                slot.RightSkill, slot.RightPower,
+            LegacyClashInput left = new LegacyClashInput(slot.SlotIndex, LegacyClashMotion.ActionOf(slot.LeftSkill), slot.LeftPower, Math.Max(1, slot.LeftAttackCount),
+                LegacyClashMotion.ActionOf(slot.RightSkill), slot.RightPower, Math.Max(1, slot.RightAttackCount),
                 playerBroken: slot.LeftStartingResistance > 0 && Left.State.IsResistanceBroken,
                 enemyBroken: slot.RightStartingResistance > 0 && Right.State.IsResistanceBroken,
                 decided: slot.HitsResolved > 0);
@@ -767,6 +792,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             CurrentSlot = slot;
             slot.LeftStartingBleeding = Left.StatusEffects.BleedingCount;
             slot.RightStartingBleeding = Right.StatusEffects.BleedingCount;
+            slot.LeftStartingTension = Left.StatusEffects.TensionCount;
+            slot.RightStartingTension = Right.StatusEffects.TensionCount;
+            slot.LeftTensionBoundary = Left.StatusEffects.GrantSerial;
+            slot.RightTensionBoundary = Right.StatusEffects.GrantSerial;
             slot.LeftStatusBoundary = Left.StatusEffects.GrantSerial;
             slot.RightStatusBoundary = Right.StatusEffects.GrantSerial;
             slot.LeftCycleUses = Left.CycleUsesRead(leftSkill);
@@ -808,8 +837,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int index = slot.HitsResolved;
             int leftHealth = Left.State.Health, rightHealth = Right.State.Health;
             int leftResistance = Left.State.Resistance, rightResistance = Right.State.Resistance;
-            bool leftAttack = HasAttackHit(slot.LeftSkill, index);
-            bool rightAttack = HasAttackHit(slot.RightSkill, index);
+            bool leftAttack = HasAttackHit(slot.LeftSkill, index, slot.LeftAttackCount);
+            bool rightAttack = HasAttackHit(slot.RightSkill, index, slot.RightAttackCount);
             bool leftCondition = false, rightCondition = false;
             // What each fighter receives, kept for presentation only (damage numbers and knockback).
             LegacyHitImpact leftImpact = default, rightImpact = default;
@@ -859,16 +888,28 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (slot.HitsResolved == 0) return;
             if (!slot.LeftBleedingConsumed && slot.LeftBleedingDamagePerHit > 0 && slot.LeftSkill?.Kind == LegacySkillKind.Attack &&
-                (slot.IsResolved || slot.HitsResolved >= slot.LeftSkill.AttackCount))
+                (slot.IsResolved || slot.HitsResolved >= slot.LeftAttackCount))
             {
                 Left.StatusEffects.ConsumeBleedingAttack(slot.LeftStatusBoundary);
                 slot.LeftBleedingConsumed = true;
             }
             if (!slot.RightBleedingConsumed && slot.RightBleedingDamagePerHit > 0 && slot.RightSkill?.Kind == LegacySkillKind.Attack &&
-                (slot.IsResolved || slot.HitsResolved >= slot.RightSkill.AttackCount))
+                (slot.IsResolved || slot.HitsResolved >= slot.RightAttackCount))
             {
                 Right.StatusEffects.ConsumeBleedingAttack(slot.RightStatusBoundary);
                 slot.RightBleedingConsumed = true;
+            }
+            if (!slot.LeftTensionConsumed && slot.LeftTensionActive && slot.LeftSkill?.Kind == LegacySkillKind.Attack &&
+                (slot.IsResolved || slot.HitsResolved >= slot.LeftAttackCount))
+            {
+                Left.StatusEffects.ConsumeTensionAttack(slot.LeftTensionBoundary);
+                slot.LeftTensionConsumed = true;
+            }
+            if (!slot.RightTensionConsumed && slot.RightTensionActive && slot.RightSkill?.Kind == LegacySkillKind.Attack &&
+                (slot.IsResolved || slot.HitsResolved >= slot.RightAttackCount))
+            {
+                Right.StatusEffects.ConsumeTensionAttack(slot.RightTensionBoundary);
+                slot.RightTensionConsumed = true;
             }
         }
 
@@ -957,7 +998,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int bonus = checked(fighter.PowerBonus(skill) + LegacyKeywordLinks.AheadPowerBonus(fighter.ExecutionQueue, slotIndex, skill) +
                 protectionSpendBonus + (skill.Kind == LegacySkillKind.Attack
                     ? (LegacySkillDefinitions.Find(skill)?.Effect.BleedingPowerBonus(fighter.StatusEffects.BleedingCount,
-                        (ReferenceEquals(fighter, Left) ? Right : Left).StatusEffects.BleedingCount) ?? 0) : 0));
+                        (ReferenceEquals(fighter, Left) ? Right : Left).StatusEffects.BleedingCount) ?? 0) +
+                      (LegacySkillDefinitions.Find(skill)?.Effect.TensionPowerBonus(fighter.StatusEffects.TensionCount,
+                        (ReferenceEquals(fighter, Left) ? Right : Left).StatusEffects.TensionCount) ?? 0) : 0));
             int roll = averageRolls
                 ? LegacySlotForecast.AveragePower(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus))
                 : random.Next(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus + 1));
@@ -970,6 +1013,15 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             LegacySkillEffect leftEffect = LegacySkillDefinitions.Find(slot.LeftSkill)?.Effect ?? LegacySkillEffect.None;
             LegacySkillEffect rightEffect = LegacySkillDefinitions.Find(slot.RightSkill)?.Effect ?? LegacySkillEffect.None;
+            int leftTensionRemoved = Left.StatusEffects.ReduceTension(leftEffect.TensionReduction);
+            int rightTensionRemoved = Right.StatusEffects.ReduceTension(rightEffect.TensionReduction);
+            slot.LeftTensionActive = Left.StatusEffects.TensionActiveThrough(slot.LeftTensionBoundary);
+            slot.RightTensionActive = Right.StatusEffects.TensionActiveThrough(slot.RightTensionBoundary);
+            slot.LeftAttackCount = slot.LeftSkill?.Kind == LegacySkillKind.Attack
+                ? Math.Max(1, slot.LeftSkill.AttackCount - (slot.LeftTensionActive ? LegacyStatusCollection.TensionHitReduction : 0)) : 0;
+            slot.RightAttackCount = slot.RightSkill?.Kind == LegacySkillKind.Attack
+                ? Math.Max(1, slot.RightSkill.AttackCount - (slot.RightTensionActive ? LegacyStatusCollection.TensionHitReduction : 0)) : 0;
+            slot.HitCount = Math.Max(1, Math.Max(slot.LeftAttackCount, slot.RightAttackCount));
             // Hemostasis applies to the existing state before either fighter receives this slot's new bleeding.
             int leftRemoved = Left.StatusEffects.ReduceBleeding(leftEffect.BleedingReduction);
             int rightRemoved = Right.StatusEffects.ReduceBleeding(rightEffect.BleedingReduction);
@@ -1019,6 +1071,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Right.StatusEffects.GrantBleeding(leftInflicted);
             Right.StatusEffects.GrantBleeding(rightEffect.SelfBleedingCount);
             Left.StatusEffects.GrantBleeding(rightInflicted);
+            Left.StatusEffects.GrantTension(leftEffect.SelfTensionCount);
+            Right.StatusEffects.GrantTension(leftEffect.OpponentTensionCount);
+            Right.StatusEffects.GrantTension(rightEffect.SelfTensionCount);
+            Left.StatusEffects.GrantTension(rightEffect.OpponentTensionCount);
             slot.LeftFeedback = Feedback(slot.LeftSkill, leftEffect, leftPowerBuff, leftProtectionBuff,
                 leftRestored, rightReduced + rightBrokenAmount, rightBrokenAmount > 0, leftOpponent, leftState,
                 leftStolen, leftReceived, leftRecoveryStolen);
@@ -1037,6 +1093,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             slot.RightFeedback = slot.RightFeedback.WithBleedingEffects(rightEffect.SelfBleedingCount, rightInflicted, rightRemoved,
                 rightEffect.SelfBleedingRequired > 0 && slot.RightStartingBleeding >= rightEffect.SelfBleedingRequired ? rightEffect.SelfBleedingPowerBonus : 0,
                 rightEffect.OpponentBleedingRequired > 0 && slot.LeftStartingBleeding >= rightEffect.OpponentBleedingRequired ? rightEffect.OpponentBleedingPowerBonus : 0);
+            slot.LeftFeedback = slot.LeftFeedback.WithTensionEffects(leftEffect.SelfTensionCount, leftEffect.OpponentTensionCount, leftTensionRemoved,
+                leftEffect.SelfTensionRequired > 0 && slot.LeftStartingTension >= leftEffect.SelfTensionRequired ? leftEffect.SelfTensionPowerBonus : 0,
+                leftEffect.OpponentTensionRequired > 0 && slot.RightStartingTension >= leftEffect.OpponentTensionRequired ? leftEffect.OpponentTensionPowerBonus : 0);
+            slot.RightFeedback = slot.RightFeedback.WithTensionEffects(rightEffect.SelfTensionCount, rightEffect.OpponentTensionCount, rightTensionRemoved,
+                rightEffect.SelfTensionRequired > 0 && slot.RightStartingTension >= rightEffect.SelfTensionRequired ? rightEffect.SelfTensionPowerBonus : 0,
+                rightEffect.OpponentTensionRequired > 0 && slot.LeftStartingTension >= rightEffect.OpponentTensionRequired ? rightEffect.OpponentTensionPowerBonus : 0);
             slot.LeftFeedback = slot.LeftFeedback.WithConditionalDamage(
                 ArmedConditionalDamage(slot.LeftSkill, slot.RightSkill, slot.LeftPower, slot.RightPower, Right.State));
             slot.RightFeedback = slot.RightFeedback.WithConditionalDamage(
@@ -1086,8 +1148,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return effect.ConditionalDamagePercent;
         }
 
-        private static bool HasAttackHit(LegacySkill skill, int hitIndex)
-            => skill != null && skill.Kind == LegacySkillKind.Attack && hitIndex < skill.AttackCount;
+        private static bool HasAttackHit(LegacySkill skill, int hitIndex, int attackCount = -1)
+            => skill != null && skill.Kind == LegacySkillKind.Attack && hitIndex < (attackCount >= 0 ? attackCount : skill.AttackCount);
 
         private static LegacyHitImpact ResolveHit(LegacySkill attack, LegacySkill defence, int attackPower, int defencePower,
             LegacyFighterState target, double received, out bool conditionMet)

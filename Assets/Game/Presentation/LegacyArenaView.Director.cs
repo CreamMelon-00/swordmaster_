@@ -214,7 +214,7 @@ namespace TurnLimbo.Presentation
         private bool HasRemainingAttack(Actor actor)
         {
             LegacySkill skill = actor.Skill;
-            return skill != null && skill.Kind == LegacySkillKind.Attack && actor.AnimationTime < AttackEnd(skill);
+            return skill != null && skill.Kind == LegacySkillKind.Attack && actor.AnimationTime < AttackEnd(actor);
         }
 
         // The ghosts fade on real time (as the steps' do).

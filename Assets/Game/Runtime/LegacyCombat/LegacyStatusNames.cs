@@ -16,6 +16,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 case LegacyStatusKind.Bleeding: return "출혈";
                 case LegacyStatusKind.Jealousy: return "질투";
                 case LegacyStatusKind.Fixed: return "고정";
+                case LegacyStatusKind.Tension: return "긴장";
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }
@@ -24,7 +25,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public static string Label(LegacyStatusKind kind, int percent, int count)
         {
             string strength = kind == LegacyStatusKind.Bleeding || kind == LegacyStatusKind.Jealousy ||
-                kind == LegacyStatusKind.Fixed || kind == LegacyStatusKind.Vulnerability && percent == 50
+                kind == LegacyStatusKind.Fixed || kind == LegacyStatusKind.Tension || kind == LegacyStatusKind.Vulnerability && percent == 50
                 ? string.Empty : " " + percent.ToString(CultureInfo.InvariantCulture) + "%";
             return Name(kind) + strength + " " + count.ToString(CultureInfo.InvariantCulture);
         }
@@ -59,6 +60,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 case LegacyStatusKind.Fixed:
                     return "남은 준비 단계 동안 넘기기를 사용할 수 없습니다. 기술 예약과 숨고르기는 사용할 수 있습니다. " +
                         "전투 중 부여받으면 다음 준비 단계부터 적용합니다. 같은 턴의 연속 적중은 기간을 더하지 않습니다.";
+                case LegacyStatusKind.Tension:
+                    return "다음 실제 공격 기술에서 원래 2타 이상인 공격의 실행 타수가 1 줄어듭니다. 타격당 위력은 유지합니다. " +
+                        "공격 기술 하나가 끝나면 남은 횟수가 1 줄어들며, 단타와 반격도 1회로 셉니다. " +
+                        "방어·숨고르기·빈 칸·취소된 기술은 소모하지 않습니다. " +
+                        "새로 부여된 긴장은 이미 시작한 공격에 적용하지 않습니다. 중복 부여는 횟수만 더하며 턴이 지나도 남습니다.";
                 default: throw new ArgumentOutOfRangeException(nameof(kind));
             }
         }

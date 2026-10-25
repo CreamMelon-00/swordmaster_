@@ -123,6 +123,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
             BleedingRemoved = source.BleedingRemoved;
             SelfBleedingPowerBonus = source.SelfBleedingPowerBonus;
             OpponentBleedingPowerBonus = source.OpponentBleedingPowerBonus;
+            SelfTensionGranted = source.SelfTensionGranted;
+            OpponentTensionGranted = source.OpponentTensionGranted;
+            TensionRemoved = source.TensionRemoved;
+            SelfTensionPowerBonus = source.SelfTensionPowerBonus;
+            OpponentTensionPowerBonus = source.OpponentTensionPowerBonus;
         }
 
         private LegacySkillFeedback(LegacySkillFeedback source, int protectionSpendPowerBonus,
@@ -168,6 +173,23 @@ namespace TurnLimbo.Runtime.LegacyCombat
             int removed, int selfPowerBonus, int opponentPowerBonus)
             => new LegacySkillFeedback(this, selfGranted, opponentGranted, removed, selfPowerBonus, opponentPowerBonus);
 
+        private LegacySkillFeedback(LegacySkillFeedback source, int selfGranted, int opponentGranted,
+            int removed, int selfPowerBonus, int opponentPowerBonus, bool tension) : this(source, source.ConditionalDamagePercent)
+        {
+            SelfTensionGranted = selfGranted;
+            OpponentTensionGranted = opponentGranted;
+            TensionRemoved = removed;
+            SelfTensionPowerBonus = selfPowerBonus;
+            OpponentTensionPowerBonus = opponentPowerBonus;
+            bool activated = selfGranted > 0 || opponentGranted > 0 || removed > 0 || selfPowerBonus > 0 || opponentPowerBonus > 0;
+            ConditionMet = source.ConditionMet || activated;
+            EffectActivated = source.EffectActivated || activated;
+        }
+
+        internal LegacySkillFeedback WithTensionEffects(int selfGranted, int opponentGranted,
+            int removed, int selfPowerBonus, int opponentPowerBonus)
+            => new LegacySkillFeedback(this, selfGranted, opponentGranted, removed, selfPowerBonus, opponentPowerBonus, true);
+
         /// <summary>This snapshot with the 조건 피해 배율 the slot's hits carry from its start; zero keeps it as it is.</summary>
         internal LegacySkillFeedback WithConditionalDamage(int percent)
             => percent > 0 ? new LegacySkillFeedback(this, percent) : this;
@@ -183,6 +205,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int ActReceived { get; }
         /// <summary>Actual next-turn recovery removed from the opponent and gained by this fighter. Current ACT is unchanged.</summary>
         public int ActRecoveryStolen { get; }
+        public int SelfTensionGranted { get; }
+        public int OpponentTensionGranted { get; }
+        public int TensionRemoved { get; }
+        public int SelfTensionPowerBonus { get; }
+        public int OpponentTensionPowerBonus { get; }
         /// <summary>Actual attack-technique uses of bleeding added or removed by this cast.</summary>
         public int SelfBleedingGranted { get; }
         public int OpponentBleedingGranted { get; }

@@ -154,6 +154,23 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public bool HasBleedingReduction => BleedingReduction > 0;
         public bool HasBleedingPower => OpponentBleedingRequired > 0 || SelfBleedingRequired > 0;
         public bool HasBleedingEffect => HasBleedingGrant || HasBleedingReduction || HasBleedingPower;
+        /// <summary>Tension effects use the existing counts at technique start, before cleansing or new grants.</summary>
+        public int SelfTensionCount { get; internal set; }
+        public int OpponentTensionCount { get; internal set; }
+        public int TensionReduction { get; internal set; }
+        public int SelfTensionRequired { get; internal set; }
+        public int SelfTensionPowerBonus { get; internal set; }
+        public int OpponentTensionRequired { get; internal set; }
+        public int OpponentTensionPowerBonus { get; internal set; }
+        public bool HasTensionGrant => SelfTensionCount > 0 || OpponentTensionCount > 0;
+        public bool HasTensionReduction => TensionReduction > 0;
+        public bool HasTensionPower => SelfTensionRequired > 0 || OpponentTensionRequired > 0;
+        public bool HasTensionEffect => HasTensionGrant || HasTensionReduction || HasTensionPower;
+
+        /// <summary>Adds to base power before strengthening, meshing, queue multipliers and original per-hit division.</summary>
+        public int TensionPowerBonus(int selfCount, int opponentCount)
+            => checked((SelfTensionRequired > 0 && selfCount >= SelfTensionRequired ? SelfTensionPowerBonus : 0) +
+                (OpponentTensionRequired > 0 && opponentCount >= OpponentTensionRequired ? OpponentTensionPowerBonus : 0));
 
         /// <summary>Enemy-only: uses the opposing slot's maximum base power (including upgrades and cycle, before
         /// strengthening). An empty slot or a breath has zero power.</summary>
@@ -203,7 +220,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
         /// time cost; a remover may not carry one, since taking its own work back and reserving again would repeat it.</summary>
         public bool HasReserveGain => ReserveCycleFeed || ReserveBreath || HasTemporarySpawn;
         /// <summary>Whether the row writes its 사용 효과 cell.</summary>
-        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal || HasActRecoverySteal || HasBleedingEffect ||
+        public bool HasUseEffect => HasAheadPower || HasAheadTime || AutoDodge || HasProtectionSpend || HasAheadHitPower || HasActSteal || HasActRecoverySteal || HasBleedingEffect || HasTensionEffect ||
             MirrorOpponentMaxPower || BuffPowerFromPreviousOpponentUses || InflictFixedTurns > 0;
 
         public bool HasOpponentCondition => OpponentProperty.HasValue || OpponentKind.HasValue;
@@ -255,6 +272,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 if (HasBleedingGrant) roles |= LegacySkillRole.Bleeding;
                 if (HasBleedingReduction) roles |= LegacySkillRole.BleedingReduction;
                 if (HasBleedingPower) roles |= LegacySkillRole.BleedingPower;
+                if (HasTensionGrant) roles |= LegacySkillRole.Tension;
+                if (HasTensionReduction) roles |= LegacySkillRole.TensionReduction;
+                if (HasTensionPower) roles |= LegacySkillRole.TensionPower;
                 return roles;
             }
         }

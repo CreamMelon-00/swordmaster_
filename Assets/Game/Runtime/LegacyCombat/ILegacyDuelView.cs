@@ -116,6 +116,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
         int SlotIndex { get; }
         LegacySkill PlayerSkill { get; }
         LegacySkill EnemySkill { get; }
+        int PlayerAttackCount { get; }
+        int EnemyAttackCount { get; }
         LegacySkillFeedback PlayerFeedback { get; }
         LegacySkillFeedback EnemyFeedback { get; }
     }

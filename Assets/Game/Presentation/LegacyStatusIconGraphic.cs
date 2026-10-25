@@ -24,6 +24,13 @@ namespace TurnLimbo.Presentation
             Vector2 centre = bounds.center;
             float scale = Mathf.Min(bounds.width, bounds.height) * .5f;
             if (scale <= 0f) return;
+            if (kind == LegacyStatusKind.Tension)
+            {
+                Polygon(mesh, centre, scale, new[] { new Vector2(.26f, .94f), new Vector2(-.59f, -.08f),
+                    new Vector2(-.1f, -.08f), new Vector2(-.3f, -.94f), new Vector2(.63f, .22f),
+                    new Vector2(.13f, .22f) });
+                return;
+            }
             if (kind == LegacyStatusKind.Jealousy)
             {
                 Vector2[] eye = { new Vector2(-.92f, 0f), new Vector2(-.45f, .52f), new Vector2(.45f, .52f),

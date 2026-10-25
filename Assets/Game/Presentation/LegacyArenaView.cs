@@ -659,9 +659,10 @@ namespace TurnLimbo.Presentation
             SampleMovementPose(enemy, enemyStart, ActorMotionDelta(enemy, scaledDelta, actionDelta));
         }
 
-        public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill)
+        public void BeginSlot(LegacySkill playerSkill, LegacySkill enemySkill,
+            int? playerAttackCount = null, int? enemyAttackCount = null)
         {
-            ClearTempoSlot();
+            ClearTempoSlot(preserveFocus: true);
             ClearResistanceImpact();
             PrepareSlotMovement(playerSkill, enemySkill);
             contactRead.AwaitImpact();
@@ -677,6 +678,8 @@ namespace TurnLimbo.Presentation
             ClearSignatureTrails(false);
             player.Skill = playerSkill;
             enemy.Skill = enemySkill;
+            player.AttackCount = Mathf.Max(1, playerAttackCount ?? playerSkill?.AttackCount ?? 1);
+            enemy.AttackCount = Mathf.Max(1, enemyAttackCount ?? enemySkill?.AttackCount ?? 1);
             ResetMovementPose(player);
             ResetMovementPose(enemy);
             player.ReactionTime = enemy.ReactionTime = 0f;
@@ -846,13 +849,13 @@ namespace TurnLimbo.Presentation
         {
             var skill = player.Skill;
             if (skill == null || skill.Kind != LegacySkillKind.Attack) return false;
-            return player.AnimationTime < AttackEnd(skill);
+            return player.AnimationTime < AttackEnd(player);
         }
 
-        private float AttackEnd(LegacySkill skill)
+        private float AttackEnd(Actor actor)
         {
             float duration = OriginalClipDuration / slotAnimationSpeed;
-            return duration + (skill.AttackCount - 1) * (duration + slotAttackInterval);
+            return duration + (actor.AttackCount - 1) * (duration + slotAttackInterval);
         }
 
         // The rules keep a finished attack in the exchange: the opponent's later hits
@@ -861,10 +864,11 @@ namespace TurnLimbo.Presentation
         {
             var own = actor.Skill;
             var other = (actor == player ? enemy : player).Skill;
+            Actor otherActor = actor == player ? enemy : player;
             if (actor == player && dodgedThisSlot) return false;
             return own != null && own.Kind == LegacySkillKind.Attack &&
-                other != null && other.Kind == LegacySkillKind.Attack && other.AttackCount > own.AttackCount &&
-                actor.AnimationTime >= AttackEnd(own) && actor.AnimationTime < AttackEnd(other);
+                other != null && other.Kind == LegacySkillKind.Attack && otherActor.AttackCount > actor.AttackCount &&
+                actor.AnimationTime >= AttackEnd(actor) && actor.AnimationTime < AttackEnd(otherActor);
         }
 
         private void ClearPressureAttackTrail()
@@ -1163,6 +1167,7 @@ namespace TurnLimbo.Presentation
             scaledDelta = Mathf.Max(0f, scaledDelta);
             actionDelta = Mathf.Max(0f, actionDelta);
             realDelta = realDelta > 0f && !float.IsInfinity(realDelta) ? realDelta : 0f;
+            TickFastSkillFocus(realDelta);
             if (suspension == null) contactRead.Advance(realDelta);
             stepFocusTime = Mathf.Max(0f, stepFocusTime - realDelta);
             stepSlowTime = Mathf.Max(0f, stepSlowTime - realDelta);
@@ -1395,7 +1400,7 @@ namespace TurnLimbo.Presentation
 
         private void RefreshStepBackdrop(float scaledDelta = 0f)
         {
-            float darkness = settings.StepBackdropDarkening * StepFocusAmount;
+            float darkness = settings.StepBackdropDarkening * SlowMotionBackdropFocus;
             // The tension lighting darkens the scenery too; the two darkenings multiply (neither adds up past black).
             float tension = LightingBackdropDarkening;
             if (tension > 0f) darkness = 1f - (1f - darkness) * (1f - tension);
@@ -1506,6 +1511,7 @@ namespace TurnLimbo.Presentation
         internal void SuspendForCutscene()
         {
             if (disposed || suspension != null) return;
+            ClearFastSkillFocus();
             ClearCombatAccents();
             ClearContrastImpact();
             ClearResistanceImpact();
@@ -1730,8 +1736,9 @@ namespace TurnLimbo.Presentation
             // Only the sampled attack pose changes. Its cycle, hit index, contact and combat clock stay authoritative.
             // Preserve half-cycle contact so a held blade bind still shows the authored contact cel.
             if (active && actor.Skill.Kind == LegacySkillKind.Attack && slotAttackRhythmStrength > 0f)
-                clipTime = OriginalClipDuration * LegacyAttackRhythm.PosePhase(actor.Skill, clipTime / OriginalClipDuration,
-                    slotAttackRhythmStrength);
+                clipTime = OriginalClipDuration * DuelFastSkillSlowMotion.PosePhase(actor.Skill,
+                    clipTime / OriginalClipDuration, slotAttackRhythmStrength,
+                    actor == player ? playerTempoSlowPose : actor == enemy && enemyTempoSlowPose);
             if ((actor == player || actor == enemy && EnemyIsElisa) && mobAnimations.HasRequiredAssets)
             {
                 if (actor.ReactionTime > 0f)
@@ -1885,7 +1892,7 @@ namespace TurnLimbo.Presentation
             float cycleTime = actor.AnimationTime % cycle;
             clipTime = cycleTime * slotAnimationSpeed;
             return actor.Skill != null && !actor.Skill.IsWait &&
-                attackIndex < actor.Skill.AttackCount && cycleTime < duration;
+                attackIndex < actor.AttackCount && cycleTime < duration;
         }
 
         private void TickCamera(float delta, float realDelta)
@@ -2116,6 +2123,7 @@ namespace TurnLimbo.Presentation
         public void Dispose()
         {
             if (disposed) return;
+            ClearFastSkillFocus();
             ClearCombatAccents();
             if (enemyFigures.Count > 0) SelectEnemyContext(0);
             disposed = true;
@@ -2171,6 +2179,7 @@ namespace TurnLimbo.Presentation
             public float GroundDepthBrakeAcceleration;
             public readonly Dictionary<string, AnimationClip> Clips = new Dictionary<string, AnimationClip>(StringComparer.OrdinalIgnoreCase);
             public LegacySkill Skill;
+            public int AttackCount = 1;
             public float AnimationTime, FlashTime, PushTime, ChaseDelay;
             public float ReactionTime;
             public bool ReactionIsBlock;

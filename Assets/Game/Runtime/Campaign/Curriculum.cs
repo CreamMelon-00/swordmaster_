@@ -7,7 +7,7 @@ namespace TurnLimbo.Runtime.Campaign
     /// <summary>The part of the tree a node belongs to; used for grouping and labels. <see cref="Foundation"/> is the
     /// trunk every school opens from; <see cref="Circulation"/>, <see cref="Collapse"/> and <see cref="Retraction"/> are
     /// the three keyword schools (순환, 붕괴, 판짜기); a <see cref="Bridge"/> node joins two neighbouring schools.</summary>
-    public enum CurriculumBranch { Foundation, Circulation, Collapse, Retraction, Bridge, Bleeding }
+    public enum CurriculumBranch { Foundation, Circulation, Collapse, Retraction, Bridge, Bleeding, Tension }
 
     /// <summary>A node's place in the tree. Whether an available node can be paid for now is not a state: it follows
     /// from the 수련 점수 balance (<see cref="CurriculumProgress.IsAffordable"/>).</summary>

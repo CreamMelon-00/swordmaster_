@@ -8,6 +8,7 @@ namespace TurnLimbo.Presentation
     {
         private LegacyCurrentSlot tempoSlot;
         private float playerTempoElapsed, enemyTempoElapsed, tempoLeadIn;
+        private bool playerTempoSlowPose, enemyTempoSlowPose;
 
         /// <summary>The timeline keeps an unfinished swing alive while the opponent starts another technique.</summary>
         internal void BeginTempoSlot(LegacyCurrentSlot slot, LegacySkill playerCounter, float leadIn)
@@ -18,9 +19,17 @@ namespace TurnLimbo.Presentation
             Dictionary<int, int> enemyVariants = timed && !slot.EnemyActionStarts
                 ? new Dictionary<int, int>(enemy.AttackVariants) : null;
             int playerGuard = player.GuardVariant, enemyGuard = enemy.GuardVariant;
-            BeginSlot(slot.PlayerActionSkill ?? playerCounter, slot.EnemyActionSkill ?? slot.EnemySkill);
+            bool playerSlowPose = DuelFastSkillSlowMotion.KeepSlowPose(slot, true,
+                slot.PlayerActionSkill ?? slot.PlayerSkill ?? playerCounter, playerTempoSlowPose);
+            bool enemySlowPose = DuelFastSkillSlowMotion.KeepSlowPose(slot, false,
+                slot.EnemyActionSkill ?? slot.EnemySkill, enemyTempoSlowPose);
+            BeginSlot(slot.PlayerActionSkill ?? playerCounter, slot.EnemyActionSkill ?? slot.EnemySkill,
+                slot.PlayerActionSkill != null ? slot.PlayerActionAttackCount : slot.PlayerAttackCount,
+                slot.EnemyActionSkill != null ? slot.EnemyActionAttackCount : slot.EnemyAttackCount);
             if (!timed) return;
             tempoSlot = slot;
+            playerTempoSlowPose = playerSlowPose;
+            enemyTempoSlowPose = enemySlowPose;
             tempoLeadIn = Mathf.Max(0f, leadIn);
             if (playerVariants != null)
             {
@@ -42,10 +51,12 @@ namespace TurnLimbo.Presentation
              slot.PlayerActionSkill != null && (slot.PlayerActionDurationHalfTicks != 2 || !slot.PlayerActionCompletes || !slot.PlayerActionStarts) ||
              slot.EnemyActionSkill != null && (slot.EnemyActionDurationHalfTicks != 2 || !slot.EnemyActionCompletes || !slot.EnemyActionStarts));
 
-        private void ClearTempoSlot()
+        private void ClearTempoSlot(bool preserveFocus = false)
         {
             tempoSlot = null;
             playerTempoElapsed = enemyTempoElapsed = tempoLeadIn = 0f;
+            playerTempoSlowPose = enemyTempoSlowPose = false;
+            if (!preserveFocus) ClearFastSkillFocus();
         }
 
         private float AdvanceTempoPose(Actor actor, float delta)

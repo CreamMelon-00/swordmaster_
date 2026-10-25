@@ -11,7 +11,7 @@ namespace TurnLimbo.Presentation
         /// <summary>The current exchange's camera engagement, eased on real time and multiplied by its authoring strength.</summary>
         public float CombatShotAmount => combatShotAmount;
         /// <summary>The existing battle letterbox's accent, 0..1. It never creates another overlay or advances combat.</summary>
-        public float CombatLetterboxAccent => combatLetterboxAccent;
+        public float CombatLetterboxAccent => Mathf.Max(combatLetterboxAccent, FastSkillFocusAmount);
 
         /// <summary>Request a camera gesture for this frame's whole skill. Preparation occupies 0..0.2, then the
         /// strike and recovery travel toward 1. Tick consumes the request; omitting it lets the shot settle.</summary>
