@@ -122,16 +122,17 @@ namespace TurnLimbo.Presentation.Tests
             pressure.Begin(target);
             int previous = 0;
             float previousCharge = 0f;
+            float tick = DuelPowerPressure.ChargeSeconds / 50f;
             for (int i = 0; i < 40; i++)
             {
-                pressure.Advance(.01f);
+                pressure.Advance(tick);
                 Assert.That(pressure.Value, Is.InRange(previous, target - 1));
                 Assert.That(pressure.Charge, Is.InRange(previousCharge, 1f));
                 Assert.That(pressure.IsReleasing, Is.False);
                 previous = pressure.Value;
                 previousCharge = pressure.Charge;
             }
-            pressure.Advance(DuelPowerPressure.ChargeSeconds - .4f + .00001f);
+            pressure.Advance(DuelPowerPressure.ChargeSeconds - tick * 40f + .00001f);
             Assert.That(pressure.Value, Is.EqualTo(target));
             Assert.That(pressure.Charge, Is.EqualTo(1f));
         }
@@ -159,7 +160,7 @@ namespace TurnLimbo.Presentation.Tests
             var split = new DuelPowerPressure();
             whole.Begin(24); split.Begin(24);
             whole.Advance(DuelPowerPressure.HoldSeconds);
-            for (int i = 0; i < 57; i++) split.Advance(.01f);
+            for (int i = 0; i < 36; i++) split.Advance(.01f);
             Assert.That(whole.IsHolding, Is.False);
             Assert.That(split.IsHolding, Is.False);
             Assert.That(split.Value, Is.EqualTo(whole.Value));
@@ -241,6 +242,7 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(pressure.Target, Is.Zero);
             Assert.That(pressure.Value, Is.Zero);
             Assert.That(pressure.Charge + pressure.Release + pressure.Stamp, Is.Zero);
+            Assert.That(pressure.MaximumPower + pressure.ChargeDuration + pressure.HoldDuration + pressure.TargetCharge, Is.Zero);
             pressure.Advance(.1f);
             Assert.That(pressure.HasValue, Is.False);
             pressure.Begin(5);
@@ -274,6 +276,147 @@ namespace TurnLimbo.Presentation.Tests
             Assert.That(pressure.IsHolding || pressure.IsVisible || pressure.IsReleasing, Is.False);
             Assert.That(pressure.Charge, Is.EqualTo(1f));
             Assert.That(pressure.Release, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void OneOutOfTenReleasesAtTenPercent_WhileTenOutOfTenFillsTheGauge()
+        {
+            var low = new DuelPowerPressure();
+            var high = new DuelPowerPressure();
+            low.Begin(1, 10); high.Begin(10, 10);
+            Assert.That(low.TargetCharge, Is.EqualTo(.1f).Within(.00001f));
+            Assert.That(low.HoldDuration, Is.LessThan(.1f), "The weak roll should leave almost immediately.");
+            Assert.That(high.HoldDuration, Is.LessThan(.45f), "Even full pressure is faster than the old charge alone.");
+            low.Advance(low.ChargeDuration);
+            high.Advance(low.ChargeDuration);
+            Assert.That(low.Value, Is.EqualTo(1));
+            Assert.That(low.Charge, Is.EqualTo(.1f).Within(.00001f));
+            Assert.That(low.IsReleasing, Is.True);
+            Assert.That(high.IsReleasing, Is.False);
+            low.Advance(DuelPowerPressure.LockSeconds);
+            Assert.That(low.IsHolding, Is.False);
+            Assert.That(high.IsHolding, Is.True);
+            high.Advance(high.ChargeDuration);
+            Assert.That(high.Value, Is.EqualTo(10));
+            Assert.That(high.Charge, Is.EqualTo(1f));
+        }
+
+        [Test]
+        public void HalfPowerStopsAtHalfGauge_AndDoesNotKeepFillingDuringTheSteamTail()
+        {
+            var pressure = new DuelPowerPressure();
+            pressure.Begin(5, 10);
+            Assert.That(pressure.ChargeDuration, Is.EqualTo(DuelPowerPressure.FastHalfSeconds).Within(.00001f));
+            pressure.Advance(pressure.ChargeDuration);
+            Assert.That(pressure.Value, Is.EqualTo(5));
+            Assert.That(pressure.Charge, Is.EqualTo(.5f).Within(.00001f));
+            Assert.That(pressure.IsReleasing, Is.True);
+            pressure.Advance(1f);
+            Assert.That(pressure.Charge, Is.EqualTo(.5f).Within(.00001f));
+            Assert.That(pressure.Value, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void TheFirstHalfIsFast_AndEachLaterQuarterTakesLonger()
+        {
+            float quarter = DuelPowerPressure.DurationFor(25, 100);
+            float half = DuelPowerPressure.DurationFor(50, 100);
+            float threeQuarters = DuelPowerPressure.DurationFor(75, 100);
+            float full = DuelPowerPressure.DurationFor(100, 100);
+            Assert.That(half, Is.LessThan(.08f));
+            Assert.That(half - quarter, Is.EqualTo(quarter).Within(.00001f), "The first half moves briskly.");
+            Assert.That(threeQuarters - half, Is.GreaterThan(half - quarter));
+            Assert.That(full - threeQuarters, Is.GreaterThan(threeQuarters - half));
+            Assert.That(full, Is.EqualTo(DuelPowerPressure.ChargeSeconds).Within(.00001f));
+
+            var pressure = new DuelPowerPressure();
+            pressure.Begin(100, 100);
+            pressure.Advance(half);
+            float first = pressure.Charge;
+            pressure.Advance(.04f);
+            float next = pressure.Charge;
+            pressure.Advance(.04f);
+            Assert.That(first, Is.EqualTo(.5f).Within(.00001f));
+            Assert.That(next - first, Is.GreaterThan(pressure.Charge - next),
+                "Equal later time slices must produce progressively less gauge travel.");
+        }
+
+        [TestCase(1)]
+        [TestCase(2)]
+        [TestCase(5)]
+        [TestCase(8)]
+        [TestCase(10)]
+        public void EveryRollUsesTheSameTrack_AndReleasesAtItsOwnValue(int target)
+        {
+            var pressure = new DuelPowerPressure();
+            pressure.Begin(target, 10);
+            pressure.Advance(pressure.ChargeDuration * .5f);
+            Assert.That(pressure.Value, Is.LessThan(target));
+            Assert.That(pressure.Charge, Is.LessThan(pressure.TargetCharge));
+            pressure.Advance(pressure.ChargeDuration * .5f);
+            Assert.That(pressure.Value, Is.EqualTo(target));
+            Assert.That(pressure.Charge, Is.EqualTo(target / 10f).Within(.00001f));
+            Assert.That(pressure.IsReleasing, Is.True);
+            pressure.Advance(DuelPowerPressure.LockSeconds);
+            Assert.That(pressure.IsHolding, Is.False);
+        }
+
+        [TestCase(0)]
+        [TestCase(-1)]
+        public void ZeroPowerDoesNotWindUpToAFullBar(int target)
+        {
+            var pressure = new DuelPowerPressure();
+            pressure.Begin(target, 10);
+            Assert.That(pressure.ChargeDuration, Is.Zero);
+            Assert.That(pressure.TargetCharge + pressure.Charge, Is.Zero);
+            Assert.That(pressure.IsReleasing, Is.True);
+            pressure.Advance(DuelPowerPressure.LockSeconds);
+            Assert.That(pressure.IsHolding, Is.False);
+        }
+
+        [TestCase(0)]
+        [TestCase(3)]
+        [TestCase(10)]
+        public void AStaleOrMissingMaximumCannotMakeTheActualNumberOverflowTheGauge(int maximum)
+        {
+            var pressure = new DuelPowerPressure();
+            pressure.Begin(10, maximum);
+            Assert.That(pressure.MaximumPower, Is.EqualTo(10));
+            Assert.That(pressure.TargetCharge, Is.EqualTo(1f));
+            pressure.Advance(pressure.HoldDuration);
+            Assert.That(pressure.Value, Is.EqualTo(10));
+            Assert.That(pressure.Charge, Is.EqualTo(1f));
+        }
+
+        [TestCase(30)]
+        [TestCase(60)]
+        [TestCase(120)]
+        public void PartialPressureEndsAtTheSameBoundaryAcrossFrameRates(int fps)
+        {
+            var pressure = new DuelPowerPressure();
+            pressure.Begin(8, 10);
+            float tick = pressure.HoldDuration / fps;
+            for (int frame = 0; frame < fps; frame++) pressure.Advance(tick);
+            Assert.That(pressure.IsHolding, Is.False);
+            Assert.That(pressure.IsReleasing, Is.True);
+            Assert.That(pressure.Value, Is.EqualTo(8));
+            Assert.That(pressure.Charge, Is.EqualTo(.8f).Within(.00001f));
+        }
+
+        [Test]
+        public void SharedVersusHoldKeepsItsOwnPartialGauge_WithoutRechargingTheNumber()
+        {
+            var low = new DuelPowerPressure();
+            var high = new DuelPowerPressure();
+            float shared = DuelPowerPressure.HoldFor(10, 10);
+            low.Begin(1, 10, shared); high.Begin(10, 10, shared);
+            low.Advance(.1f); high.Advance(.1f);
+            Assert.That(low.Value, Is.EqualTo(1));
+            Assert.That(low.Charge, Is.EqualTo(.1f).Within(.00001f));
+            Assert.That(low.IsHolding && high.IsHolding, Is.True);
+            Assert.That(low.HoldDuration, Is.EqualTo(high.HoldDuration).Within(.00001f));
+            low.Advance(shared - .1f); high.Advance(shared - .1f);
+            Assert.That(low.IsHolding || high.IsHolding, Is.False);
         }
     }
 }

@@ -389,6 +389,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int RightAttackCount { get; internal set; }
         public int LeftTotalPower { get; internal set; }
         public int RightTotalPower { get; internal set; }
+        internal int LeftMinimumPerHitPower, LeftMaximumPerHitPower;
+        internal int RightMinimumPerHitPower, RightMaximumPerHitPower;
+        public int LeftMinimumPower => LegacyPowerBreakRules.TotalPower(LeftSkill, LeftMinimumPerHitPower, LeftAttackCount);
+        public int LeftMaximumPower => LegacyPowerBreakRules.TotalPower(LeftSkill, LeftMaximumPerHitPower, LeftAttackCount);
+        public int RightMinimumPower => LegacyPowerBreakRules.TotalPower(RightSkill, RightMinimumPerHitPower, RightAttackCount);
+        public int RightMaximumPower => LegacyPowerBreakRules.TotalPower(RightSkill, RightMaximumPerHitPower, RightAttackCount);
         public bool LeftBroken { get; internal set; }
         public bool RightBroken { get; internal set; }
         public bool LeftBrokenGap { get; internal set; }
@@ -842,12 +848,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // As in the campaign, both fighters spend protection before this slot snapshots received damage.
             int leftProtectionSpend = Left.StatusEffects.SpendProtectionForPower(leftSkill);
             int rightProtectionSpend = Right.StatusEffects.SpendProtectionForPower(rightSkill);
-            int leftPower = RollPower(Left, leftSkill, nextSlot, out int leftBuff, out int leftProtection, leftProtectionSpend);
-            int rightPower = RollPower(Right, rightSkill, nextSlot, out int rightBuff, out int rightProtection, rightProtectionSpend);
+            int leftPower = RollPower(Left, leftSkill, nextSlot, out int leftBuff, out int leftProtection,
+                out int leftMinimumPerHitPower, out int leftMaximumPerHitPower, leftProtectionSpend);
+            int rightPower = RollPower(Right, rightSkill, nextSlot, out int rightBuff, out int rightProtection,
+                out int rightMinimumPerHitPower, out int rightMaximumPerHitPower, rightProtectionSpend);
             double leftReceived = Left.StatusEffects.ReceivedMultiplier;
             double rightReceived = Right.StatusEffects.ReceivedMultiplier;
             var slot = new LocalVersusSlot(nextSlot, leftSkill, rightSkill, leftPower, rightPower,
                 leftReceived, rightReceived, Left, Right);
+            slot.LeftMinimumPerHitPower = leftMinimumPerHitPower;
+            slot.LeftMaximumPerHitPower = leftMaximumPerHitPower;
+            slot.RightMinimumPerHitPower = rightMinimumPerHitPower;
+            slot.RightMaximumPerHitPower = rightMaximumPerHitPower;
             CurrentSlot = slot;
             slot.LeftBrokenGap = Left.State.IsBrokenGap;
             slot.RightBrokenGap = Right.State.IsBrokenGap;
@@ -1069,8 +1081,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         private int RollPower(LocalVersusFighter fighter, LegacySkill skill, int slotIndex,
-            out int powerBuffPercent, out int protectionBuffPercent, int protectionSpendBonus = 0)
+            out int powerBuffPercent, out int protectionBuffPercent,
+            out int minimumPerHitPower, out int maximumPerHitPower, int protectionSpendBonus = 0)
         {
+            minimumPerHitPower = maximumPerHitPower = 0;
             powerBuffPercent = fighter.StatusEffects.PowerPercent;
             protectionBuffPercent = fighter.StatusEffects.ProtectionPercent;
             if (skill == null || skill.IsWait) return 0;
@@ -1081,10 +1095,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
                         (ReferenceEquals(fighter, Left) ? Right : Left).StatusEffects.BleedingCount) ?? 0) +
                       (LegacySkillDefinitions.Find(skill)?.Effect.TensionPowerBonus(fighter.StatusEffects.TensionCount,
                         (ReferenceEquals(fighter, Left) ? Right : Left).StatusEffects.TensionCount) ?? 0) : 0));
+            int minimum = checked(skill.MinPower + bonus), maximum = checked(skill.MaxPower + bonus);
             int roll = averageRolls
-                ? LegacySlotForecast.AveragePower(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus))
-                : random.Next(checked(skill.MinPower + bonus), checked(skill.MaxPower + bonus + 1));
+                ? LegacySlotForecast.AveragePower(minimum, maximum)
+                : random.Next(minimum, checked(maximum + 1));
             double multiplier = (100 + powerBuffPercent) / 100d * fighter.PowerMultiplierForSlot(slotIndex);
+            minimumPerHitPower = Math.Max(1, (int)Math.Floor(minimum * multiplier / skill.AttackCount));
+            maximumPerHitPower = Math.Max(1, (int)Math.Floor(maximum * multiplier / skill.AttackCount));
             return Math.Max(1, (int)Math.Floor(roll * multiplier / skill.AttackCount));
         }
 

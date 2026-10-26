@@ -847,6 +847,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             double enemyReceivedMultiplier = ReceivedMultiplier(enemyStatuses, out int enemyProtectionBuffPercent);
             // 사용 효과 앞 X마다 위력 adds into the roll beside 순환, for the queue's first copy of the skill.
             int playerPower = RollPower(playerSkill, playerAttackMultiplier, out int playerTotalPower,
+                out int playerMinimumPerHitPower, out int playerMaximumPerHitPower,
                 checked(CyclePowerBonus(playerSkill) + LegacyPowerBreakRules.AheadPowerBonus(UsePowerBreak, committedPlayerQueue, playerQueueIndex, playerSkill) +
                     playerProtectionSpendPowerBonus + BleedingPowerBonus(playerSkill, playerStatuses, enemyStatuses) +
                     TensionPowerBonus(playerSkill, playerStatuses, enemyStatuses)));
@@ -856,7 +857,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 playerSkill == null ? CycleUsesRead(pendingCounter) : playerCycleUses, enemyAttackMultiplier,
                 checked(enemyProtectionSpendPowerBonus + BleedingPowerBonus(enemySkill, enemyStatuses, playerStatuses) +
                     TensionPowerBonus(enemySkill, enemyStatuses, playerStatuses) + (enemyCounters ? 0
-                    : LegacyPowerBreakRules.AheadPowerBonus(UsePowerBreak, committedEnemyQueue, enemyQueueIndex, enemySkill))));
+                    : LegacyPowerBreakRules.AheadPowerBonus(UsePowerBreak, committedEnemyQueue, enemyQueueIndex, enemySkill))),
+                out int enemyMinimumPerHitPower, out int enemyMaximumPerHitPower);
 
             playerStatusBoundary = playerStatuses.GrantSerial;
             enemyStatusBoundary = enemyStatuses.GrantSerial;
@@ -864,6 +866,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             CurrentSlot = new LegacyCurrentSlot(nextSlot, playerSkill, enemySkill,
                 playerPower, enemyPower, playerTotalPower,
                 playerReceivedMultiplier, enemyReceivedMultiplier, Player, Enemy);
+            CurrentSlot.PlayerMinimumPerHitPower = playerMinimumPerHitPower;
+            CurrentSlot.PlayerMaximumPerHitPower = playerMaximumPerHitPower;
+            CurrentSlot.EnemyMinimumPerHitPower = enemyMinimumPerHitPower;
+            CurrentSlot.EnemyMaximumPerHitPower = enemyMaximumPerHitPower;
             SetCurrentTiming(CurrentSlot);
             SetTensionTiming(CurrentSlot);
             CurrentSlot.EnemyCountered = enemyCounters;
@@ -1019,6 +1025,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 slot.PlayerCountered = true;
                 PlayerCountersRemaining--;
                 slot.PlayerPower = RollPower(counter, deferredPlayerAttackMultiplier, out int totalPower,
+                    out slot.PlayerMinimumPerHitPower, out slot.PlayerMaximumPerHitPower,
                     checked(CyclePowerBonus(counter) + BleedingPowerBonus(counter, playerStatuses, enemyStatuses) + TensionPowerBonus(counter, playerStatuses, enemyStatuses)));
                 slot.PlayerCycleUses = CycleUsesRead(counter);
                 RecordCycleUse(counter);
@@ -1341,12 +1348,20 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         private int RollPower(LegacySkill skill, double multiplier, out int totalPower, int powerBonus = 0)
+            => RollPower(skill, multiplier, out totalPower, out _, out _, powerBonus);
+
+        private int RollPower(LegacySkill skill, double multiplier, out int totalPower,
+            out int minimumPerHitPower, out int maximumPerHitPower, int powerBonus = 0)
         {
-            totalPower = 0;
+            totalPower = minimumPerHitPower = maximumPerHitPower = 0;
             if (skill == null || skill.IsWait) return 0;
+            // Snapshot the same bounds as the single existing roll, before any use consumes or grants statuses.
+            int minimum = checked(skill.MinPower + powerBonus), maximum = checked(skill.MaxPower + powerBonus);
+            minimumPerHitPower = Math.Max(1, (int)Math.Floor(minimum * multiplier / skill.AttackCount));
+            maximumPerHitPower = Math.Max(1, (int)Math.Floor(maximum * multiplier / skill.AttackCount));
             int rolledPower = averageRolls
-                ? LegacySlotForecast.AveragePower(checked(skill.MinPower + powerBonus), checked(skill.MaxPower + powerBonus))
-                : random.Next(checked(skill.MinPower + powerBonus), checked(skill.MaxPower + powerBonus + 1));
+                ? LegacySlotForecast.AveragePower(minimum, maximum)
+                : random.Next(minimum, checked(maximum + 1));
             totalPower = (int)Math.Floor(rolledPower * multiplier);
             return Math.Max(1, (int)Math.Floor(rolledPower * multiplier / skill.AttackCount));
         }

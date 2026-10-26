@@ -349,6 +349,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
         internal int EnemyPower { get; set; }
         public int PlayerTotalPower { get; internal set; }
         public int EnemyTotalPower { get; internal set; }
+        internal int PlayerMinimumPerHitPower, PlayerMaximumPerHitPower;
+        internal int EnemyMinimumPerHitPower, EnemyMaximumPerHitPower;
+        /// <summary>The original cast's power-break display bounds; later status changes cannot alter the roll range.</summary>
+        public int PlayerMinimumPower => LegacyPowerBreakRules.TotalPower(PlayerSkill, PlayerMinimumPerHitPower, PlayerAttackCount);
+        public int PlayerMaximumPower => LegacyPowerBreakRules.TotalPower(PlayerSkill, PlayerMaximumPerHitPower, PlayerAttackCount);
+        public int EnemyMinimumPower => LegacyPowerBreakRules.TotalPower(EnemySkill, EnemyMinimumPerHitPower, EnemyAttackCount);
+        public int EnemyMaximumPower => LegacyPowerBreakRules.TotalPower(EnemySkill, EnemyMaximumPerHitPower, EnemyAttackCount);
         public bool PlayerBroken { get; internal set; }
         public bool EnemyBroken { get; internal set; }
         public bool PlayerBrokenGap { get; internal set; }

@@ -123,17 +123,21 @@ namespace TurnLimbo.Runtime.LegacyCombat
         }
 
         private int RollIiaEnemyPower(LegacySkill skill, LegacySkill opposingSkill, int opposingCycleUses,
-            double multiplier, int powerBonus)
+            double multiplier, int powerBonus, out int minimumPerHitPower, out int maximumPerHitPower)
         {
             if (!iiaBossPatterns || LegacySkillDefinitions.Find(skill)?.Effect.MirrorOpponentMaxPower != true)
-                return RollPower(skill, multiplier, out _, powerBonus);
+                return RollPower(skill, multiplier, out _, out minimumPerHitPower, out maximumPerHitPower, powerBonus);
             int maximum = IiaMirrorMaximum(opposingSkill, opposingCycleUses);
             // A missing action or a breath has no technique power, including no minimum-one attack roll.
-            if (maximum == 0) return 0;
+            if (maximum == 0)
+            {
+                minimumPerHitPower = maximumPerHitPower = 0;
+                return 0;
+            }
             var mirror = new LegacySkill(skill.Id, skill.Name, skill.Cost, maximum, maximum, skill.Kind,
                 skill.Property, skill.AttackCount, skill.LaneIndex, skill.Description, skill.AnimationName, skill.IconId,
                 skill.DurationHalfUnits);
-            return RollPower(mirror, multiplier, out _, powerBonus);
+            return RollPower(mirror, multiplier, out _, out minimumPerHitPower, out maximumPerHitPower, powerBonus);
         }
 
         private static int IiaMirrorMaximum(LegacySkill opposingSkill, int opposingCycleUses)
@@ -171,7 +175,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         {
             if (iiaBossPatterns && slot.PlayerSkill == null &&
                 LegacySkillDefinitions.Find(slot.EnemySkill)?.Effect.MirrorOpponentMaxPower == true)
+            {
                 slot.EnemyPower = 0;
+                slot.EnemyMinimumPerHitPower = slot.EnemyMaximumPerHitPower = 0;
+            }
         }
 
         private void ApplyIiaHitKeywords(LegacyCurrentSlot slot, bool playerAttacked, bool enemyAttacked,

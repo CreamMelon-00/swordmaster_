@@ -123,6 +123,11 @@ namespace TurnLimbo.Runtime.LegacyCombat
         int EnemyAttackCount { get; }
         int PlayerTotalPower { get; }
         int EnemyTotalPower { get; }
+        /// <summary>Power-break display bounds of the already rolled casts, including their actual executable hits.</summary>
+        int PlayerMinimumPower { get; }
+        int PlayerMaximumPower { get; }
+        int EnemyMinimumPower { get; }
+        int EnemyMaximumPower { get; }
         bool PlayerBroken { get; }
         bool EnemyBroken { get; }
         bool PlayerBrokenGap { get; }

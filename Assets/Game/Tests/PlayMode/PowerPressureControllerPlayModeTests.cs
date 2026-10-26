@@ -41,8 +41,10 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Advance(0f);
                 RectTransform dock = (RectTransform)c.Hud.Root.transform.Find("Input");
                 float deskHeight = dock.rect.height;
+                float hold = c.Hud.PlayerPressureHoldSeconds, held = hold * .5f;
+                Assert.That(hold, Is.LessThan(.57f), "Even a maximum roll uses the faster pressure beat.");
                 Assert.That(c.CanStep, Is.False, "The pressure presentation is not a timing-input window.");
-                scope.Advance(.2f);
+                scope.Advance(held);
                 Assert.That(c.ArenaView.CombatShotAmount, Is.GreaterThan(.8f),
                     "Holding the skill must keep requesting its current shot instead of falling back to the roster overview.");
                 Assert.That(dock.rect.height, Is.LessThan(deskHeight), "The command desk keeps folding during pressure.");
@@ -60,7 +62,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(c.Hud.PlayerPressureCharge, Is.EqualTo(pausedCharge));
                 Assert.That(slot.HitsResolved, Is.Zero);
                 Assert.That(c.ResumeBattle(), Is.True);
-                scope.Advance(DuelPowerPressure.HoldSeconds - .2f - .02f);
+                scope.Advance(hold - held - .02f);
                 Assert.That(c.Hud.IsPlayerPowerPressurizing, Is.True, "The lock beat still holds after the gauge fills.");
                 Assert.That(slot.HitsResolved, Is.Zero);
                 scope.Advance(.03f);
@@ -82,7 +84,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Begin();
                 var c = scope.Controller;
                 LegacyCurrentSlot slot = c.Session.CurrentSlot;
-                scope.Advance(DuelPowerPressure.HoldSeconds + .01f);
+                scope.Advance(c.Hud.PlayerPressureHoldSeconds + .01f);
                 Assert.That(c.Hud.IsPlayerPowerPressurizing, Is.False);
                 Assert.That(slot.HitsResolved, Is.Zero);
                 scope.Until(() => slot.HitsResolved == 1);
@@ -110,10 +112,11 @@ namespace TurnLimbo.Presentation.Tests
                     scope.Begin();
                     LegacyCurrentSlot slot = scope.Controller.Session.CurrentSlot;
                     Assert.That(slot.PlayerAttackCount + slot.EnemyAttackCount, Is.Zero);
-                    scope.Advance(.2f);
+                    float hold = scope.Controller.Hud.PlayerPressureHoldSeconds;
+                    scope.Advance(hold * .5f);
                     Assert.That(scope.Controller.Hud.IsPlayerPowerPressurizing, Is.True);
                     Assert.That(slot.HitsResolved, Is.Zero, "A non-attack skill cannot skip its preparation beat.");
-                    scope.Advance(DuelPowerPressure.HoldSeconds);
+                    scope.Advance(hold);
                     Assert.That(scope.Controller.Hud.IsPlayerPowerPressurizing, Is.False);
                     Assert.That(slot.HitsResolved, Is.Zero);
                     scope.Until(() => slot.IsResolved);
@@ -133,16 +136,17 @@ namespace TurnLimbo.Presentation.Tests
                     scope.Begin();
                     var c = scope.Controller;
                     LocalVersusSlot slot = c.Match.CurrentSlot;
+                    float hold = c.BattleHud.PlayerPressureHoldSeconds, held = hold * .5f;
                     int left = c.Match.Left.State.Health, right = c.Match.Right.State.Health;
                     Sprite playerPose = scope.Arena.PlayerRenderer.sprite, enemyPose = scope.Arena.EnemyRenderer.sprite;
-                    c.Tick(.2f, null);
+                    c.Tick(held, null);
                     Assert.That(c.BattleHud.IsPlayerPowerPressurizing, Is.True);
                     Assert.That(scope.Arena.CombatShotAmount, Is.GreaterThan(.8f));
                     Assert.That(slot.HitsResolved, Is.Zero);
                     Assert.That((c.Match.Left.State.Health, c.Match.Right.State.Health), Is.EqualTo((left, right)));
                     Assert.That(scope.Arena.PlayerRenderer.sprite, Is.SameAs(playerPose));
                     Assert.That(scope.Arena.EnemyRenderer.sprite, Is.SameAs(enemyPose));
-                    c.Tick(DuelPowerPressure.HoldSeconds - .2f - .02f, null);
+                    c.Tick(hold - held - .02f, null);
                     Assert.That(c.BattleHud.IsPlayerPowerPressurizing, Is.True);
                     c.Tick(.03f, null);
                     Assert.That(c.BattleHud.IsPlayerPowerPressurizing, Is.False);
@@ -152,6 +156,56 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That((c.Match.Left.State.Health, c.Match.Right.State.Health), Is.EqualTo(ExpectedVersus(oneSided)),
                         "Both perspectives must resolve one identical authoritative contact.");
                 }
+        }
+
+        [UnityTest]
+        public IEnumerator AMinimumRollStartsItsRealAttackSoonerThanAMaximumRoll()
+        {
+            yield return null;
+            var contactTimes = new float[2];
+            var holdTimes = new float[2];
+            int index = 0;
+            foreach (int target in new[] { 1, 10 })
+                using (var scope = new CampaignScope(RangeDuel(SeedForRangePower(target))))
+                {
+                    scope.Begin();
+                    var c = scope.Controller;
+                    LegacyCurrentSlot slot = c.Session.CurrentSlot;
+                    Assert.That(slot.PlayerTotalPower, Is.EqualTo(target));
+                    holdTimes[index] = c.Hud.PlayerPressureHoldSeconds;
+                    float elapsed = 0f;
+                    while (slot.HitsResolved == 0 && elapsed < 10f)
+                    {
+                        scope.Advance(Frame);
+                        elapsed += Frame;
+                    }
+                    Assert.That(slot.HitsResolved, Is.EqualTo(1));
+                    contactTimes[index++] = elapsed;
+                }
+            Assert.That(holdTimes[0], Is.LessThan(.1f), "A 1/10 roll needs almost no pressure build-up.");
+            Assert.That(holdTimes[1], Is.LessThan(.57f));
+            Assert.That(contactTimes[1] - contactTimes[0], Is.GreaterThan(.1f),
+                "The lower roll must release the actual controller sooner, not merely stop its gauge early.");
+        }
+
+        private static LegacyQueuedDuel RangeDuel(int seed)
+        {
+            var skill = new LegacySkill(99872, "가변 압력", 1, 1, 10, LegacySkillKind.Attack,
+                LegacySkillProperty.Slash, 1, 0, string.Empty, iconId: 1);
+            return new LegacyQueuedDuel(1000, 0, 1000, 0, new[] { skill },
+                new[] { LegacyCommonActions.Breathe }, new[] { 1 }, randomSeed: seed, meshPercent: 0, usePowerBreak: true);
+        }
+
+        private static int SeedForRangePower(int power)
+        {
+            for (int seed = 0; seed < 512; seed++)
+            {
+                LegacyQueuedDuel duel = RangeDuel(seed);
+                Assert.That(duel.TryQueueLane(0), Is.True);
+                duel.Commit();
+                if (duel.BeginNextSlot().PlayerTotalPower == power) return seed;
+            }
+            throw new InvalidOperationException("Missing deterministic range endpoint for pressure test.");
         }
 
         private static LegacySkill Attack(int id, int power, int hits = 1)

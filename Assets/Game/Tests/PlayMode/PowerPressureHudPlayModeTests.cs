@@ -28,17 +28,18 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(fill.fillAmount, Is.Zero);
                 Assert.That(gauge.gameObject.activeSelf, Is.True);
                 int playerHealth = duel.Player.Health, enemyHealth = duel.Enemy.Health;
-                scope.Refresh(duel, true, .15f);
+                float chargeSeconds = scope.Hud.PlayerPressureChargeSeconds, elapsed = chargeSeconds * .5f;
+                scope.Refresh(duel, true, elapsed);
                 Assert.That(int.Parse(scope.Hud.PlayerClashPowerText), Is.InRange(1, slot.PlayerTotalPower - 1));
                 Assert.That(fill.fillAmount, Is.InRange(.01f, .99f));
                 Assert.That(scope.Hud.EnemyClashPowerText, Is.EqualTo(slot.EnemyTotalPower.ToString()));
                 Assert.That(duel.Player.Health, Is.EqualTo(playerHealth));
                 Assert.That(duel.Enemy.Health, Is.EqualTo(enemyHealth), "Compression never resolves a hit or rolls power again.");
-                scope.Refresh(duel, true, DuelPowerPressure.ChargeSeconds - .15f + .00001f);
+                scope.Refresh(duel, true, chargeSeconds - elapsed + .00001f);
                 Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo(slot.PlayerTotalPower.ToString()));
                 Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.True, "The final number has a readable lock.");
                 Assert.That(fill.fillAmount, Is.EqualTo(1f));
-                scope.Refresh(duel, true, DuelPowerPressure.LockSeconds + .00001f);
+                scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds - chargeSeconds + .00001f);
                 Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.False);
                 Assert.That(steam.gameObject.activeSelf, Is.True, "Steam continues briefly while the attack can begin.");
                 scope.AssertSteamAboveSkillNames(steam);
@@ -62,7 +63,7 @@ namespace TurnLimbo.Presentation.Tests
                     enemy: new[] { Attack(99813, 5, hits: 3), Attack(99814, 5) });
                 LegacyCurrentSlot slot = scope.Prepare(duel);
                 Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.True);
-                scope.Refresh(duel, true, .2f);
+                scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds * .5f);
                 float charge = scope.Hud.PlayerPressureCharge;
                 string value = scope.Hud.PlayerClashPowerText;
                 scope.Hud.SetSkillFeedback(slot);
@@ -70,7 +71,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Refresh(duel, true);
                 Assert.That(scope.Hud.PlayerPressureCharge, Is.EqualTo(charge));
                 Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo(value));
-                scope.Refresh(duel, true, DuelPowerPressure.HoldSeconds);
+                scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds);
                 duel.ResolveNextHit();
                 scope.Hud.SetSkillFeedback(slot);
                 Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.False);
@@ -96,9 +97,9 @@ namespace TurnLimbo.Presentation.Tests
                     LegacyCurrentSlot slot = scope.Prepare(duel);
                     Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.True, skill.Name);
                     Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo("0"));
-                    scope.Refresh(duel, true, .2f);
+                    scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds * .5f);
                     Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.True);
-                    scope.Refresh(duel, true, DuelPowerPressure.HoldSeconds);
+                    scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds);
                     Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo(slot.PlayerTotalPower.ToString()));
                     Assert.That(scope.Hud.ActivePowerNumberFragmentCount, Is.Zero,
                         "Displaying any skill's power does not turn a defence into an attack clash.");
@@ -141,14 +142,14 @@ namespace TurnLimbo.Presentation.Tests
                     LegacyCurrentSlot first = scope.Prepare(duel);
                     Assert.That(scope.Hud.BeginPlayerPowerPressure(first), Is.EqualTo(!charge),
                         "Fast unilateral attacks have a roll; a still-preparing charge does not.");
-                    if (!charge) scope.Refresh(duel, true, DuelPowerPressure.HoldSeconds);
+                    if (!charge) scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds);
                     Finish(duel);
                     LegacyCurrentSlot simultaneous = duel.BeginNextSlot();
                     scope.Hud.SetSkillFeedback(simultaneous);
                     scope.Refresh(duel, true);
                     Assert.That(scope.Hud.BeginPlayerPowerPressure(simultaneous), Is.True);
                     Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo("0"));
-                    scope.Refresh(duel, true, DuelPowerPressure.HoldSeconds + .00001f);
+                    scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds + .00001f);
                     Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo(simultaneous.PlayerTotalPower.ToString()));
                     Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.False);
                     Assert.That(scope.Hud.BeginPlayerPowerPressure(simultaneous), Is.False);
@@ -168,7 +169,7 @@ namespace TurnLimbo.Presentation.Tests
                 scope.Refresh(duel, true, .01f);
                 Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.True, "Dodging changes the clash, not the selected player's skill.");
                 Assert.That(scope.Find<Text>("Power Comparison").text, Is.EqualTo("위력"));
-                scope.Refresh(duel, true, DuelPowerPressure.HoldSeconds);
+                scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds);
                 Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo(slot.PlayerTotalPower.ToString()));
                 foreach (int boundary in new[] { 0, 1, 2 })
                 {
@@ -184,17 +185,67 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator MinimumRollReleasesAtPartialFill_WhileMaximumRollKeepsCharging()
+        {
+            yield return null;
+            var skill = new LegacySkill(99851, "가변 압력 게이지", 0, 1, 10, LegacySkillKind.Attack,
+                LegacySkillProperty.Slash, 1, 0, string.Empty);
+            using (var low = new Scope())
+            using (var high = new Scope())
+            {
+                LegacyQueuedDuel lowDuel = Duel(player: new[] { skill }, enemy: new[] { LegacyCommonActions.Breathe },
+                    seed: SeedForRangePower(skill, 1));
+                LegacyQueuedDuel highDuel = Duel(player: new[] { skill }, enemy: new[] { LegacyCommonActions.Breathe },
+                    seed: SeedForRangePower(skill, 10));
+                LegacyCurrentSlot lowSlot = low.Prepare(lowDuel), highSlot = high.Prepare(highDuel);
+                Assert.That(lowSlot.PlayerTotalPower, Is.EqualTo(1));
+                Assert.That(highSlot.PlayerTotalPower, Is.EqualTo(10));
+                Assert.That(low.Hud.BeginPlayerPowerPressure(lowSlot), Is.True);
+                Assert.That(high.Hud.BeginPlayerPowerPressure(highSlot), Is.True);
+                float lowCharge = low.Hud.PlayerPressureChargeSeconds, lowHold = low.Hud.PlayerPressureHoldSeconds;
+                Assert.That(lowHold, Is.LessThan(.1f));
+                Assert.That(high.Hud.PlayerPressureHoldSeconds, Is.LessThan(.57f));
+                Assert.That(lowCharge, Is.LessThan(high.Hud.PlayerPressureChargeSeconds));
+                low.Refresh(lowDuel, true, lowCharge + .00001f);
+                Assert.That(low.Hud.PlayerClashPowerText, Is.EqualTo("1"));
+                Assert.That(low.Find<Image>("Pressure Fill").fillAmount, Is.EqualTo(.1f).Within(.0001f),
+                    "A low roll stops at its actual share of the skill's maximum instead of filling the whole bar.");
+                low.Refresh(lowDuel, true, lowHold - lowCharge + .00001f);
+                high.Refresh(highDuel, true, lowHold + .00002f);
+                Assert.That(low.Hud.IsPlayerPowerPressurizing, Is.False);
+                Assert.That(high.Hud.IsPlayerPowerPressurizing, Is.True);
+                Assert.That(high.Hud.PlayerClashPowerText, Is.Not.EqualTo("10"));
+                high.Refresh(highDuel, true, high.Hud.PlayerPressureHoldSeconds);
+                Assert.That(high.Hud.PlayerClashPowerText, Is.EqualTo("10"));
+                Assert.That(high.Find<Image>("Pressure Fill").fillAmount, Is.EqualTo(1f));
+                Assert.That(lowSlot.HitsResolved + highSlot.HitsResolved, Is.Zero,
+                    "HUD pressure only controls presentation; it never resolves a hit itself.");
+            }
+        }
+
+        private static int SeedForRangePower(LegacySkill skill, int power)
+        {
+            for (int seed = 0; seed < 512; seed++)
+            {
+                LegacyQueuedDuel duel = Duel(player: new[] { skill }, enemy: new[] { LegacyCommonActions.Breathe }, seed: seed);
+                duel.Commit();
+                if (duel.BeginNextSlot().PlayerTotalPower == power) return seed;
+            }
+            throw new InvalidOperationException("Missing deterministic range endpoint for pressure HUD test.");
+        }
+
         private static LegacySkill Attack(int id, int power, int duration = 2, int hits = 1)
             => new LegacySkill(id, "압력 시험", 0, power, power, LegacySkillKind.Attack,
                 LegacySkillProperty.Slash, hits, 0, string.Empty, durationHalfUnits: duration);
 
         private static LegacyQueuedDuel Duel(bool prototype = true, LegacySkill[] player = null, LegacySkill[] enemy = null,
-            LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null)
+            LegacyCounter playerCounter = null, LegacyCounter enemyCounter = null, int seed = 7)
         {
             player = player ?? new[] { Attack(99841, 20), Attack(99842, 5) };
             enemy = enemy ?? new[] { Attack(99843, 5), Attack(99844, 5) };
             var duel = new LegacyQueuedDuel(1000, 50, 1000, 50, player, enemy, new[] { enemy.Length },
-                randomSeed: 7, meshPercent: 0, playerCounter: playerCounter, enemyCounter: enemyCounter, usePowerBreak: prototype);
+                randomSeed: seed, meshPercent: 0, playerCounter: playerCounter, enemyCounter: enemyCounter, usePowerBreak: prototype);
             Assert.That(duel.TrySetFixedQueues(player, enemy), Is.True);
             return duel;
         }

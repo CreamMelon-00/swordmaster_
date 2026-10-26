@@ -181,6 +181,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
         public int EnemyAttackCount => leftIsPlayer ? Source.RightAttackCount : Source.LeftAttackCount;
         public int PlayerTotalPower => leftIsPlayer ? Source.LeftTotalPower : Source.RightTotalPower;
         public int EnemyTotalPower => leftIsPlayer ? Source.RightTotalPower : Source.LeftTotalPower;
+        public int PlayerMinimumPower => leftIsPlayer ? Source.LeftMinimumPower : Source.RightMinimumPower;
+        public int PlayerMaximumPower => leftIsPlayer ? Source.LeftMaximumPower : Source.RightMaximumPower;
+        public int EnemyMinimumPower => leftIsPlayer ? Source.RightMinimumPower : Source.LeftMinimumPower;
+        public int EnemyMaximumPower => leftIsPlayer ? Source.RightMaximumPower : Source.LeftMaximumPower;
         public bool PlayerBroken => leftIsPlayer ? Source.LeftBroken : Source.RightBroken;
         public bool EnemyBroken => leftIsPlayer ? Source.RightBroken : Source.LeftBroken;
         public bool PlayerBrokenGap => leftIsPlayer ? Source.LeftBrokenGap : Source.RightBrokenGap;

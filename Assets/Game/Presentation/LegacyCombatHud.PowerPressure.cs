@@ -17,6 +17,9 @@ namespace TurnLimbo.Presentation
         public bool IsPlayerPowerPressurizing => !disposed && playerPowerPressure.IsHolding;
         public float PlayerPressureCharge => disposed ? 0f : playerPowerPressure.Charge;
         public float PlayerPressureRelease => disposed ? 0f : playerPowerPressure.Release;
+        public float PlayerPressureTargetCharge => disposed ? 0f : playerPowerPressure.TargetCharge;
+        public float PlayerPressureChargeSeconds => disposed ? 0f : playerPowerPressure.ChargeDuration;
+        public float PlayerPressureHoldSeconds => disposed ? 0f : playerPowerPressure.HoldDuration;
 
         private void BuildPowerPressure()
         {
@@ -49,7 +52,10 @@ namespace TurnLimbo.Presentation
             lastPressureQueueIndex = action;
             if (!ReferenceEquals(powerClashSlot, slot)) SetPowerNumbers(slot);
             playerPressureSlot = slot;
-            playerPowerPressure.Begin(slot.PlayerTotalPower);
+            float sharedHold = slot is LocalVersusPerspectiveSlot
+                ? Mathf.Max(DuelPowerPressure.HoldFor(slot.PlayerTotalPower, slot.PlayerMaximumPower),
+                    DuelPowerPressure.HoldFor(slot.EnemyTotalPower, slot.EnemyMaximumPower)) : 0f;
+            playerPowerPressure.Begin(slot.PlayerTotalPower, slot.PlayerMaximumPower, sharedHold);
             shownPressureValue = -1;
             ApplyPlayerPowerPressure();
             return true;
