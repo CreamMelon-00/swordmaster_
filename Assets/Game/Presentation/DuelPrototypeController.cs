@@ -332,6 +332,7 @@ namespace TurnLimbo.Presentation
         }
         // A cut-in holds the battle: no step is judged against its held cue.
         public bool CanStep => session != null && !IsInSkillTavern && !IsPaused && !battlePausedForEvent && !empowermentCues.IsCuttingIn &&
+            (hud == null || !hud.IsPlayerPowerPressurizing) &&
             !bladeBindHitPending && !resistanceImpactLocksStep &&
             StepFeatures.AllowsAnyStep() &&
             session.Phase == LegacyDuelPhase.Resolving &&
@@ -624,6 +625,18 @@ namespace TurnLimbo.Presentation
                 float checkDelta = realDelta - empowermentCues.HoldBattle(realDelta);
                 empowermentCues.Tick(realDelta);
                 AdvanceResistanceImpactPresentation(checkDelta, realDelta);
+                return;
+            }
+            if ((viewPhase == ViewPhase.SkillWindup || viewPhase == ViewPhase.PlayingSlot) &&
+                hud.IsPlayerPowerPressurizing)
+            {
+                // Let the existing signature cut-in finish before the player's pressure builds. Neither the
+                // action clock nor a held opposing normal/charge may move during this presentation-only beat.
+                float pressureDelta = realDelta - empowermentCues.HoldBattle(realDelta);
+                empowermentCues.Tick(realDelta);
+                arena.SetHudFloor(hud.QueuePanelFloor);
+                arena.TickSkillTempo(0f, 0f, realDelta, deferSlowAfterimages: true);
+                RefreshHudClock(0f, pressureDelta);
                 return;
             }
             guideInspectionRemaining = Mathf.Max(0f, guideInspectionRemaining - realDelta);

@@ -1050,10 +1050,11 @@ namespace TurnLimbo.Presentation
         public void SetSkillFeedback(ILegacySlotView slot)
         {
             if (disposed) return;
-            ClearSkillFeedback();
+            bool sameSlot = ReferenceEquals(feedbackSlot, slot);
+            if (!sameSlot) ClearSkillFeedback();
             if (slot == null) return;
             feedbackSlot = slot;
-            SetPowerClash(slot);
+            if (!sameSlot || !ReferenceEquals(powerClashSlot, slot)) SetPowerClash(slot);
             var timedSlot = UsesTempoQueue(displayedSession) ? slot as LegacyCurrentSlot : null;
             playerQueue.SetCurrentFeedback(timedSlot != null ? timedSlot.PlayerQueueIndex : slot.SlotIndex, slot.PlayerFeedback);
             enemyQueue.SetCurrentFeedback(timedSlot != null ? timedSlot.EnemyQueueIndex : slot.SlotIndex, slot.EnemyFeedback);

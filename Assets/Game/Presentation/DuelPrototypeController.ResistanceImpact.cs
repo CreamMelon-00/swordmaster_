@@ -29,6 +29,7 @@ namespace TurnLimbo.Presentation
             bool playerWasBroken, bool enemyWasBroken)
         {
             hud.SetSkillFeedback(slot);
+            hud.BeginPlayerPowerPressure(slot);
             if (!slotStartDeferred) ShowSkillActivationCues(slot);
             if (slot.EnemyCountered) hud.ShowCounterCallout(false, arena.EnemyRenderer.transform.position);
             if (slot.PlayerCountered) hud.ShowCounterCallout(true, arena.PlayerRenderer.transform.position);

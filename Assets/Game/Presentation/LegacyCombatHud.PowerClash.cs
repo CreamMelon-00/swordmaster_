@@ -43,6 +43,7 @@ namespace TurnLimbo.Presentation
                 new Vector2(380f, 20f), 13, TextAnchor.MiddleCenter);
             powerClashCaption.color = MutedText;
             powerClashCaption.supportRichText = false;
+            BuildPowerPressure();
             powerClashNumbers.gameObject.SetActive(false);
         }
 
@@ -119,6 +120,7 @@ namespace TurnLimbo.Presentation
             if (powerClashLayer == null) return;
             if (powerClashSlot != null && !IsPowerClash(powerClashSlot)) ClearPowerClash(false);
             float delta = realDelta > 0f && !float.IsInfinity(realDelta) ? realDelta : 0f;
+            AdvancePlayerPowerPressure(delta);
             // Share the existing readout's safe area rather than putting numbers over the animated fighters.
             powerClashLayer.anchoredPosition = combatReadout.anchoredPosition + Vector2.up * 25f;
             if (powerClashImpacted && PowerClashVisible)
@@ -203,6 +205,7 @@ namespace TurnLimbo.Presentation
 
         private void ClearPowerClash(bool fragments)
         {
+            ClearPlayerPowerPressure(fragments);
             powerClashSlot = null;
             powerClashImpacted = powerNumberShattered = powerPlayerBroken = powerEnemyBroken = false;
             powerClashElapsed = 0f;

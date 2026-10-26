@@ -432,6 +432,15 @@ namespace TurnLimbo.Presentation
                 AdvanceResistanceImpactPresentation(realDelta);
                 return;
             }
+            if (viewPhase == ViewPhase.PlayingSlot && battleHud.IsPlayerPowerPressurizing)
+            {
+                // This screen charges only its player's already-rolled power. The shared match and both attack
+                // clocks wait, while the HUD consumes the real-time pressure beat independently of playback speed.
+                arena.SetHudFloor(battleHud.QueuePanelFloor);
+                arena.Tick(0f, realDelta, deferSlowAfterimages: true);
+                RefreshHud(0f, realDelta);
+                return;
+            }
             inspecting = CanInspect && keyboard != null && keyboard.tabKey.isPressed;
             bool timedOut = AdvanceClock(realDelta);
             if (viewPhase == ViewPhase.Planning && !timedOut && !hud.IsExitConfirming)

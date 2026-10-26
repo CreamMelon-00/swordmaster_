@@ -26,6 +26,7 @@ namespace TurnLimbo.Presentation
             bool playerWasBroken, bool enemyWasBroken)
         {
             battleHud.SetSkillFeedback(slot);
+            battleHud.BeginPlayerPowerPressure(slot);
             activationCue.Show(true, slot.PlayerSkill, slot.PlayerFeedback, KeywordCue(view.PlayerQueue, slot.SlotIndex,
                 view.ForPlayer(slot.Source.LeftPlanningSecondsGained, slot.Source.RightPlanningSecondsGained), view.UsePowerBreak));
             activationCue.Show(false, slot.EnemySkill, slot.EnemyFeedback, KeywordCue(view.EnemyQueue, slot.SlotIndex,
