@@ -239,6 +239,7 @@ namespace TurnLimbo.Presentation
         // Reset: no slide, no seam reserve (the controller asks again every frame).
         private void ResetQueuePanels()
         {
+            RestoreQueueBackdrop();
             queueSlideFrom = queueSlideElapsed = 0f;
             queueConsumed = 0;
             queueSeamReserve = 0f;

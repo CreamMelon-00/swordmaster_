@@ -78,6 +78,11 @@ namespace TurnLimbo.Presentation
         /// the row as it now stands.</summary>
         public void Tick(float realDelta)
         {
+            if (disposed) return;
+            // The queue can cross from the planning overlay to the arena canvas even while this effect is idle.
+            // Follow before reading its anchored positions, so the first resolving frame uses the same coordinates.
+            hud.TryGetEnemyQueueRow(out RectTransform row, out _);
+            if (row != null) KeepAround(row);
             if (!IsPlaying) return;
             elapsed += Mathf.Max(0f, realDelta);
             if (elapsed >= seconds)
@@ -145,11 +150,31 @@ namespace TurnLimbo.Presentation
         // has added or moved since.
         private void KeepAround(RectTransform row)
         {
+            FollowQueueParent(gear.rectTransform, row.parent);
+            FollowQueueParent(glintMask, row.parent);
             Transform gearNode = gear.transform;
             int at = row.GetSiblingIndex();
             if (gearNode.GetSiblingIndex() != at - 1) gearNode.SetSiblingIndex(gearNode.GetSiblingIndex() > at ? at : at - 1);
             at = row.GetSiblingIndex();
             if (glintMask.GetSiblingIndex() != at + 1) glintMask.SetSiblingIndex(glintMask.GetSiblingIndex() > at ? at + 1 : at);
+        }
+
+        // Queue-only effects share the row's logical coordinates and inherit the arena canvas' scale, alpha and layer.
+        // Retain their local pose while changing parents; their next layout continues without a world-space detour.
+        internal static bool FollowQueueParent(RectTransform visual, Transform parent)
+        {
+            if (visual == null || parent == null) return false;
+            bool moved = visual.parent != parent;
+            if (moved) visual.SetParent(parent, false);
+            if (moved || visual.gameObject.layer != parent.gameObject.layer)
+                SetQueueLayer(visual, parent.gameObject.layer);
+            return moved;
+        }
+
+        private static void SetQueueLayer(Transform visual, int layer)
+        {
+            visual.gameObject.layer = layer;
+            for (int index = 0; index < visual.childCount; index++) SetQueueLayer(visual.GetChild(index), layer);
         }
 
         private static Image CreateImage(string name, Transform parent, Sprite sprite, Vector2 size)

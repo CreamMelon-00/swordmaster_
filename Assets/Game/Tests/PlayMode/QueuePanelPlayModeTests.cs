@@ -44,7 +44,7 @@ namespace TurnLimbo.Presentation.Tests
                     Refresh(controller, duel, false, -1, 0f);
                     Assert.That(hud.GetQueuedSkillAnchor(true, slot), Is.Not.Null);
                     Assert.That(hud.GetQueuedSkillAnchor(false, slot), Is.Not.Null);
-                    AssertMirror(Cards(hud.Root.transform, "Player Requests"), Cards(hud.Root.transform, "Enemy Requests"));
+                    AssertMirror(Cards(hud, "Player Requests"), Cards(hud, "Enemy Requests"));
                 }
                 hud.SetInspectedSlot(-1);
                 Refresh(controller, duel, true, 17, 0f);
@@ -65,16 +65,13 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(hud.GetQueuedSkillAnchor(true, 19), Is.Not.Null);
                 Assert.That(hud.GetQueuedSkillAnchor(false, 19), Is.Not.Null);
                 foreach (string row in new[] { "Player Requests", "Enemy Requests" })
-                    foreach (RectTransform card in Cards(root, row))
+                    foreach (RectTransform card in Cards(hud, row))
                     {
-                        var corners = new Vector3[4];
-                        card.GetWorldCorners(corners);
-                        float left = root.InverseTransformPoint(corners[0]).x;
-                        float right = root.InverseTransformPoint(corners[2]).x;
-                        Assert.That(left, Is.GreaterThanOrEqualTo(-root.rect.width * .5f));
-                        Assert.That(right, Is.LessThanOrEqualTo(root.rect.width * .5f));
+                        Rect viewport = ScreenRect(root), bounds = ScreenRect(card);
+                        Assert.That(bounds.xMin, Is.GreaterThanOrEqualTo(viewport.xMin));
+                        Assert.That(bounds.xMax, Is.LessThanOrEqualTo(viewport.xMax));
                     }
-                AssertMirror(Cards(root, "Player Requests"), Cards(root, "Enemy Requests"));
+                AssertMirror(Cards(hud, "Player Requests"), Cards(hud, "Enemy Requests"));
             }
             finally { hud.SetInspectedSlot(-1); hud.SetQueueSeamReserve(0f); controller.RestartMatch(); }
         }
@@ -86,14 +83,13 @@ namespace TurnLimbo.Presentation.Tests
             DuelPrototypeController controller = FindPrototype();
             controller.RestartMatch();
             LegacyCombatHud hud = controller.Hud;
-            Transform root = hud.Root.transform;
             float seconds = controller.PresentationSettings.QueueSlideSeconds;
             Assume.That(seconds, Is.GreaterThan(.05f));
             LegacyQueuedDuel duel = ThreeSlotDuel();
             try
             {
                 Refresh(controller, duel, true, 0, .1f);
-                List<RectTransform> player = Cards(root, "Player Requests"), enemy = Cards(root, "Enemy Requests");
+                List<RectTransform> player = Cards(hud, "Player Requests"), enemy = Cards(hud, "Enemy Requests");
                 Assert.That(player.Count, Is.EqualTo(3));
                 Assert.That(enemy.Count, Is.EqualTo(3));
                 float inner = -player[0].anchoredPosition.x, spacing = hud.QueueSpacing;
@@ -103,8 +99,8 @@ namespace TurnLimbo.Presentation.Tests
 
                 // Slot 1 is resolved: its cards go at once, and the next pair starts where it stood…
                 Refresh(controller, duel, true, 1, 0f);
-                player = Cards(root, "Player Requests");
-                enemy = Cards(root, "Enemy Requests");
+                player = Cards(hud, "Player Requests");
+                enemy = Cards(hud, "Enemy Requests");
                 Assert.That(player.Count, Is.EqualTo(2), "The resolved slot's card is gone…");
                 Assert.That(hud.QueueSlide, Is.EqualTo(1f).Within(.001f));
                 Assert.That(-player[0].anchoredPosition.x, Is.EqualTo(inner + spacing).Within(.01f), "…the next starts one step out…");
@@ -113,12 +109,12 @@ namespace TurnLimbo.Presentation.Tests
                 Refresh(controller, duel, true, 1, 0f);
                 Assert.That(hud.QueueSlide, Is.EqualTo(1f).Within(.001f), "A stopped battle clock holds the slide.");
                 Refresh(controller, duel, true, 1, seconds * .5f);
-                float halfway = -Cards(root, "Player Requests")[0].anchoredPosition.x;
+                float halfway = -Cards(hud, "Player Requests")[0].anchoredPosition.x;
                 Assert.That(halfway, Is.InRange(inner + .01f, inner + spacing - .01f), "…moves toward the seam…");
-                AssertMirror(Cards(root, "Player Requests"), Cards(root, "Enemy Requests"));
+                AssertMirror(Cards(hud, "Player Requests"), Cards(hud, "Enemy Requests"));
                 Refresh(controller, duel, true, 1, seconds);
                 Assert.That(hud.QueueSlide, Is.Zero);
-                Assert.That(-Cards(root, "Player Requests")[0].anchoredPosition.x, Is.EqualTo(inner).Within(.01f),
+                Assert.That(-Cards(hud, "Player Requests")[0].anchoredPosition.x, Is.EqualTo(inner).Within(.01f),
                     "…and the pair being resolved is the innermost again.");
 
                 // Two slots at once (a skipped stretch) never carry the rows further than the cap.
@@ -192,7 +188,7 @@ namespace TurnLimbo.Presentation.Tests
                             RectTransform queued = hud.GetQueuedSkillAnchor(playerSide, slot);
                             if (queued != null) Assert.That(WorldRect(queued).Overlaps(card), Is.False, "…and no card.");
                         }
-                    AssertMirror(Cards(hud.Root.transform, "Player Requests"), Cards(hud.Root.transform, "Enemy Requests"));
+                    AssertMirror(Cards(hud, "Player Requests"), Cards(hud, "Enemy Requests"));
                 }
                 finally { coach.Hide(); }
                 scope.Advance(Frame);
@@ -340,14 +336,30 @@ namespace TurnLimbo.Presentation.Tests
                     "Slot " + (index + 1) + " pairs mirror each other across the seam.");
         }
 
-        private static List<RectTransform> Cards(Transform root, string row)
+        private static List<RectTransform> Cards(LegacyCombatHud hud, string row)
         {
-            Transform queue = root.Find(row);
+            Transform queue = row == "Player Requests" ? hud.PlayerQueueRow : hud.PlayerQueueRow.parent.Find(row);
             Assert.That(queue, Is.Not.Null, "Missing HUD node: " + row);
             var cards = new List<RectTransform>();
             foreach (Transform child in queue)
                 if (child.gameObject.activeSelf && child.name == "Queued Skill") cards.Add((RectTransform)child);
             return cards;
+        }
+
+        private static Rect ScreenRect(RectTransform rect)
+        {
+            Canvas canvas = rect.GetComponentInParent<Canvas>();
+            Camera camera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+            var corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Vector2 min = RectTransformUtility.WorldToScreenPoint(camera, corners[0]), max = min;
+            for (int index = 1; index < corners.Length; index++)
+            {
+                Vector2 point = RectTransformUtility.WorldToScreenPoint(camera, corners[index]);
+                min = Vector2.Min(min, point);
+                max = Vector2.Max(max, point);
+            }
+            return Rect.MinMaxRect(min.x, min.y, max.x, max.y);
         }
 
         private static Rect WorldRect(RectTransform rect)

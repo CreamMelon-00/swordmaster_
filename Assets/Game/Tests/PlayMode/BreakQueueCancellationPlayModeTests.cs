@@ -215,8 +215,7 @@ namespace TurnLimbo.Presentation.Tests
 
         private static void AssertFragmentsOnSide(LegacyCombatHud hud, bool playerSide)
         {
-            Transform layer = hud.Root.transform.Find("Queue Break Fragments");
-            Assert.That(layer, Is.Not.Null);
+            Transform layer = FragmentLayer(hud);
             int count = 0;
             foreach (Transform child in layer)
             {
@@ -231,9 +230,16 @@ namespace TurnLimbo.Presentation.Tests
 
         private static DuelQueueShatterGraphic FirstFragment(LegacyCombatHud hud)
         {
-            DuelQueueShatterGraphic graphic = hud.Root.GetComponentInChildren<DuelQueueShatterGraphic>();
+            DuelQueueShatterGraphic graphic = FragmentLayer(hud).GetComponentInChildren<DuelQueueShatterGraphic>();
             Assert.That(graphic, Is.Not.Null);
             return graphic;
+        }
+
+        private static Transform FragmentLayer(LegacyCombatHud hud)
+        {
+            Transform layer = hud.PlayerQueueRow.parent.Find("Queue Break Fragments");
+            Assert.That(layer, Is.Not.Null, "Fragments stay beside the original queue rows on their current visual canvas.");
+            return layer;
         }
 
         private static void AssertVisibleInside(LegacyCombatHud hud, bool player, int total, Camera camera, Vector2Int size)
@@ -428,8 +434,7 @@ namespace TurnLimbo.Presentation.Tests
 
             public int CaptureFragmentEvidence(LegacyCombatHud hud, string output, string name)
             {
-                Transform layer = hud.Root.transform.Find("Queue Break Fragments");
-                Assert.That(layer, Is.Not.Null);
+                Transform layer = FragmentLayer(hud);
                 bool wasActive = layer.gameObject.activeSelf;
                 Color32[] visible = Capture(string.IsNullOrEmpty(output) ? null : Path.Combine(output, name + "-broken-queue.png"));
                 var nodes = new List<FragmentNodeEvidence>();

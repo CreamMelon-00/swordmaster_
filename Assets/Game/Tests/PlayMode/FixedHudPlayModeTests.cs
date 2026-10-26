@@ -19,7 +19,7 @@ namespace TurnLimbo.Presentation.Tests
         };
 
         // 2026-10-15: the queues left the fighters' heads for two facing panels over the dock (LegacyCombatHud.QueuePanels.cs).
-        // The status panels still ride the heads; the queue rows stay put over the dock, mirrored round the centre seam.
+        // Planning keeps that layout. During combat the original mirrored rows move behind the arena's fighters.
         [UnityTest]
         public IEnumerator QueuePanels_StayOverTheDock_WhileTheCameraAndActorsMove()
         {
@@ -90,8 +90,8 @@ namespace TurnLimbo.Presentation.Tests
                 float deadline = Time.realtimeSinceStartup + 25f;
                 while (controller.IsResolving && Time.realtimeSinceStartup < deadline)
                 {
-                    // Sinking with the folding dock and sliding toward the seam, the rows keep their mirror and order (the
-                    // clash motion's card is read at its place in the row, less the offset the motion draws it with).
+                    // The same rows move onto the arena's backdrop canvas. Their logical mirror/order and original card
+                    // proportions remain intact; the common parent alone changes their screen position and size.
                     AssertPanelLayout(root, false, controller.Hud);
                     yield return null;
                 }
@@ -378,7 +378,7 @@ namespace TurnLimbo.Presentation.Tests
                 foreach (string name in new[] { "Player Requests", "Enemy Requests" })
                 {
                     bool playerSide = name == "Player Requests";
-                    var cards = VisibleQueueCards(root.Find(name));
+                    var cards = VisibleQueueCards(Get<RectTransform>(root, name));
                     Assert.That(cards.Count, Is.EqualTo(Mathf.Min(skillCount, controller.Hud.QueueWindowCapacity)));
                     Assert.That(cards[0].anchoredPosition.x, Is.EqualTo(playerSide ? -inner : inner).Within(.01f),
                         name + ": slot 1 sits at the panel's inner end, by the centre seam.");
@@ -421,6 +421,13 @@ namespace TurnLimbo.Presentation.Tests
         private static T Get<T>(Transform root, string path) where T : Component
         {
             Transform child = root.Find(path);
+            if (child == null && (path == QueueNodes[0] || path == QueueNodes[1]))
+            {
+                Transform backdrop = root.parent.Find(LegacyCombatHud.QueueBackdropName);
+                Assert.That(backdrop, Is.Not.Null, "A moved queue must belong to the battle backdrop canvas.");
+                Assert.That(backdrop.gameObject.activeInHierarchy, Is.True);
+                child = backdrop.Find("Queue Backdrop Content/" + path);
+            }
             Assert.That(child, Is.Not.Null, "Missing HUD node: " + path);
             T component = child.GetComponent<T>();
             Assert.That(component, Is.Not.Null, "Missing " + typeof(T).Name + " at " + path);
@@ -494,7 +501,7 @@ namespace TurnLimbo.Presentation.Tests
             var sizes = new Vector2[QueueNodes.Length];
             for (int index = 0; index < QueueNodes.Length; index++)
             {
-                var cards = VisibleQueueCards(root.Find(QueueNodes[index]));
+                var cards = VisibleQueueCards(Get<RectTransform>(root, QueueNodes[index]));
                 sizes[index] = cards.Count > 0 ? ScreenRect(cards[0]).size : Vector2.zero;
             }
             return sizes;
@@ -504,7 +511,7 @@ namespace TurnLimbo.Presentation.Tests
         {
             for (int index = 0; index < QueueNodes.Length; index++)
             {
-                var cards = VisibleQueueCards(root.Find(QueueNodes[index]));
+                var cards = VisibleQueueCards(Get<RectTransform>(root, QueueNodes[index]));
                 if (sizes[index] == Vector2.zero) Assert.That(cards, Is.Empty);
                 else
                 {
@@ -521,8 +528,8 @@ namespace TurnLimbo.Presentation.Tests
             var positions = new Vector2[QueueNodes.Length];
             for (int index = 0; index < QueueNodes.Length; index++)
             {
-                var cards = VisibleQueueCards(root.Find(QueueNodes[index]));
-                positions[index] = cards.Count > 0 ? (Vector2)cards[0].position : Vector2.zero;
+                var cards = VisibleQueueCards(Get<RectTransform>(root, QueueNodes[index]));
+                positions[index] = cards.Count > 0 ? ScreenRect(cards[0]).center : Vector2.zero;
             }
             return positions;
         }
@@ -569,7 +576,16 @@ namespace TurnLimbo.Presentation.Tests
             {
                 bool playerSide = side == 0;
                 RectTransform queue = Get<RectTransform>(root, QueueNodes[side]);
-                Assert.That(queue.parent, Is.EqualTo(root), "The rows keep their names as the HUD root's children.");
+                bool backdrop = hud != null && hud.QueueIsBackdrop;
+                Transform expectedParent = backdrop ? hud.QueueCues.parent : root;
+                Assert.That(queue.parent, Is.EqualTo(expectedParent), "Both original queue rows share the current visual parent.");
+                if (backdrop)
+                {
+                    Assert.That(expectedParent.parent.name, Is.EqualTo(LegacyCombatHud.QueueBackdropName));
+                    Assert.That(queue.GetComponentInParent<Canvas>().sortingOrder,
+                        Is.EqualTo(LegacyCombatHud.QueueBackdropSortingOrder));
+                    if (playerSide) Assert.That(queue, Is.SameAs(hud.PlayerQueueRow), "The existing row is moved, never copied.");
+                }
                 Assert.That(queue.anchorMin, Is.EqualTo(Vector2.one * .5f));
                 Assert.That(queue.anchorMax, Is.EqualTo(Vector2.one * .5f));
                 Assert.That(queue.localScale, Is.EqualTo(Vector3.one));
@@ -579,7 +595,10 @@ namespace TurnLimbo.Presentation.Tests
                 if (playerSide) Assert.That(trayRect.xMax, Is.LessThanOrEqualTo(centre + .5f), "The player's panel is the left one.");
                 else Assert.That(trayRect.xMin, Is.GreaterThanOrEqualTo(centre - .5f), "The opponent's panel is the right one.");
                 AssertWithin(tray, canvasRect);
-                Assert.That(tray.parent.GetSiblingIndex(), Is.LessThan(queue.GetSiblingIndex()), "The panels draw under the cards.");
+                if (backdrop)
+                    Assert.That(tray.gameObject.activeInHierarchy, Is.False, "The planning trays do not accompany the background icons.");
+                else
+                    Assert.That(tray.parent.GetSiblingIndex(), Is.LessThan(queue.GetSiblingIndex()), "The panels draw under the cards.");
                 var cards = VisibleQueueCards(queue);
                 RectTransform posed = null;
                 Vector2 offset = Vector2.zero;
@@ -657,11 +676,13 @@ namespace TurnLimbo.Presentation.Tests
         {
             var corners = new Vector3[4];
             rect.GetWorldCorners(corners);
-            Vector2 min = RectTransformUtility.WorldToScreenPoint(null, corners[0]);
+            Canvas canvas = rect.GetComponentInParent<Canvas>();
+            Camera camera = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+            Vector2 min = RectTransformUtility.WorldToScreenPoint(camera, corners[0]);
             Vector2 max = min;
             for (int index = 1; index < corners.Length; index++)
             {
-                Vector2 corner = RectTransformUtility.WorldToScreenPoint(null, corners[index]);
+                Vector2 corner = RectTransformUtility.WorldToScreenPoint(camera, corners[index]);
                 min = Vector2.Min(min, corner);
                 max = Vector2.Max(max, corner);
             }

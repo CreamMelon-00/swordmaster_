@@ -207,6 +207,7 @@ namespace TurnLimbo.Presentation
             if (disposed) return;
             fade.alpha = Mathf.Clamp01(amount);
             fade.blocksRaycasts = fade.alpha > 0f;
+            if (queueBackdropGroup != null) queueBackdropGroup.alpha = QueueBackdropAlpha * fade.alpha;
         }
         public int LogCount => logRows.Count;
 
@@ -228,9 +229,7 @@ namespace TurnLimbo.Presentation
                 if (skill == null || skill.IsWait) continue;
                 RectTransform source = playerQueue.GetAnchor(index);
                 if (source == null) continue;
-                Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, source.position);
-                if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(queueCancellationLayer,
-                    screen, null, out Vector2 start)) continue;
+                Vector2 start = queueCancellationLayer.InverseTransformPoint(source.position);
 
                 var card = Panel(mode == LegacyQueueRemovalMode.Return ? "Returned Skill" : "Cancelled Skill",
                     queueCancellationLayer, start, Vector2.one * QueueCardSize, Card,
@@ -487,6 +486,9 @@ namespace TurnLimbo.Presentation
             {
                 ResetQueueInsertions();
                 ClearPowerClash(true);
+                // A sibling canvas does not inherit this HUD's active state. Hide it immediately without
+                // changing the hierarchy while Unity is disabling the HUD; the next planning refresh restores it.
+                if (queueBackdrop != null) queueBackdrop.gameObject.SetActive(false);
             });
             guideEnemyFocus = GuideFocusFrame("Guide Enemy Queue Focus", enemyQueue.Root, Vector2.zero, Vector2.zero);
             BuildQueueSparks();
@@ -844,6 +846,7 @@ namespace TurnLimbo.Presentation
             playerStatus.SetPowerBreakMode(session.UsePowerBreak);
             enemyStatus.SetPowerBreakMode(session.UsePowerBreak);
             worldCamera = camera;
+            PrepareQueueBackdrop(isResolving);
             delta = Mathf.Max(0, delta);
             float actualDelta = realDelta < 0 ? delta : Mathf.Max(0, realDelta);
             transition = Mathf.MoveTowards(transition, targetTransition, delta * 2);
@@ -957,6 +960,7 @@ namespace TurnLimbo.Presentation
             RefreshReservationQueues(session, currentSlot, isResolving, planning, activeScale, actualDelta);
             // Both rows in their panels over the dock, sliding one step toward the seam after each resolved slot.
             LayoutQueuePanels(isResolving, currentSlot, delta);
+            LayoutQueueBackdrop();
             RefreshCombatReadout(session);
             AdvancePowerClash(actualDelta);
             if (QueuePanelKeepsFightersClear && CombatReadoutTop > 0f)
@@ -1602,6 +1606,7 @@ namespace TurnLimbo.Presentation
         public void Dispose()
         {
             if (disposed) return;
+            DisposeQueueBackdrop();
             disposed = true;
             Destroy(root.gameObject);
             ReleaseGearPictures();
@@ -2110,7 +2115,7 @@ namespace TurnLimbo.Presentation
         private static RectTransform Rect(string name, Transform parent, Vector2 position, Vector2 size, Vector2 anchor)
         {
             var transform = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
-            transform.gameObject.layer = 5;
+            transform.gameObject.layer = parent is RectTransform ? parent.gameObject.layer : 5;
             transform.SetParent(parent, false);
             transform.anchorMin = transform.anchorMax = anchor;
             transform.anchoredPosition = position;

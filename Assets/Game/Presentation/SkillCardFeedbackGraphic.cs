@@ -24,6 +24,7 @@ namespace TurnLimbo.Presentation
         public static SkillCardFeedbackGraphic Create(Transform parent, string name, float padding = 0f)
         {
             var rect = new GameObject(name, typeof(RectTransform)).GetComponent<RectTransform>();
+            rect.gameObject.layer = parent.gameObject.layer;
             rect.SetParent(parent, false);
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = Vector2.one;

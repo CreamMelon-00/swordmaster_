@@ -35,6 +35,7 @@ namespace TurnLimbo.Presentation
         private readonly Func<DuelPresentationSettings> settings;
         private readonly RectTransform queueLayer, flashLayer;
         private readonly Canvas canvas;
+        private Canvas queueCanvas;
         private readonly Burst[] bursts = new Burst[BurstCapacity];
         // One reusable visual per queue seam. Unlike the short bursts, links last as long as the visible cards mesh.
         private readonly List<Burst> links = new List<Burst>();
@@ -53,11 +54,11 @@ namespace TurnLimbo.Presentation
             RectTransform row = hud.PlayerQueueRow;
             if (row == null) throw new ArgumentException("The duel HUD has no player queue row.", nameof(hud));
             Transform parent = row.parent;
-            canvas = parent.GetComponentInParent<Canvas>();
+            canvas = hud.Root.GetComponent<Canvas>();
             queueLayer = Layer("Player Queue Mesh", parent, false);
             KeepBefore(row);
             // Over the HUD, as the step cues are: the flash takes their place in a meshed slot.
-            flashLayer = Layer("Player Mesh Flash", parent, true);
+            flashLayer = Layer("Player Mesh Flash", hud.Root.transform, true);
             flashLayer.SetAsLastSibling();
             audio = queueLayer.gameObject.AddComponent<AudioSource>();
             audio.playOnAwake = false;
@@ -120,6 +121,7 @@ namespace TurnLimbo.Presentation
         public bool Queued(LegacyQueuedDuel duel)
         {
             if (disposed || duel == null || duel.Phase != LegacyDuelPhase.Planning || duel.PlayerQueue.Count < 2) return false;
+            KeepBefore(hud.PlayerQueueRow);
             // The queue's last entry, or the skill just before the automatic 숨고르기 (예약 효과 숨고르기 +1) it brought.
             int last = duel.PlayerQueue.Count - 1;
             int slot = last == duel.AutoBreathSlotIndex && duel.LastQueuedSlotIndex == last - 1 ? last - 1 : last;
@@ -143,6 +145,7 @@ namespace TurnLimbo.Presentation
         public void SyncLinks(LegacyQueuedDuel duel)
         {
             if (disposed) return;
+            KeepBefore(hud.PlayerQueueRow);
             int seamCount = duel != null && duel.Phase != LegacyDuelPhase.Finished
                 ? Math.Max(0, duel.PlayerQueue.Count - 1) : 0;
             DuelPresentationSettings tuning = seamCount > 0 ? settings() : null;
@@ -198,6 +201,8 @@ namespace TurnLimbo.Presentation
         public void Tick(float realDelta, Camera arenaCamera = null, Transform player = null)
         {
             if (disposed) return;
+            // The HUD may have moved the row to its battle canvas this frame. Move its cues before PlaceOnSeam.
+            KeepBefore(hud.PlayerQueueRow);
             realDelta = realDelta > 0f && !float.IsNaN(realDelta) && !float.IsInfinity(realDelta) ? realDelta : 0f;
             bool any = false;
             foreach (Burst burst in bursts)
@@ -390,9 +395,29 @@ namespace TurnLimbo.Presentation
         private void KeepBefore(RectTransform row)
         {
             if (row == null) return;
+            bool moved = DuelGearShimmer.FollowQueueParent(queueLayer, row.parent);
+            if (moved || queueCanvas == null)
+            {
+                queueCanvas = row.GetComponentInParent<Canvas>();
+                foreach (Burst burst in bursts)
+                    if (burst != null) ConfigureQueueSpark(burst.SparkCanvas);
+                foreach (Burst link in links) ConfigureQueueSpark(link.SparkCanvas);
+            }
             int at = row.GetSiblingIndex();
             int mine = queueLayer.GetSiblingIndex();
             if (mine != at - 1) queueLayer.SetSiblingIndex(mine > at ? at : at - 1);
+        }
+
+        private void ConfigureQueueSpark(Canvas sparkCanvas)
+        {
+            if (sparkCanvas == null || queueCanvas == null) return;
+            // Overlay sparks keep their existing order over the icons. Arena sparks must inherit the queue canvas'
+            // order instead: an override based on the old HUD order would paint them over the fighters.
+            bool overlay = queueCanvas.renderMode == RenderMode.ScreenSpaceOverlay;
+            sparkCanvas.overrideSorting = overlay;
+            if (!overlay) return;
+            sparkCanvas.sortingLayerID = queueCanvas.sortingLayerID;
+            sparkCanvas.sortingOrder = queueCanvas.sortingOrder + 1;
         }
 
         private Burst CreateBurst(string name, Transform parent)
@@ -417,11 +442,11 @@ namespace TurnLimbo.Presentation
             burst.Sparks = sparks.GetComponent<DuelMeshSparks>();
             burst.Sparks.raycastTarget = false;
             // Only the queue gears sit behind the cards; their sparks still fly visibly over the icons.
-            if (parent == queueLayer && canvas != null)
+            if (parent == queueLayer && queueCanvas != null)
             {
                 Canvas sparkCanvas = sparks.gameObject.AddComponent<Canvas>();
-                sparkCanvas.overrideSorting = true;
-                sparkCanvas.sortingOrder = canvas.sortingOrder + 1;
+                burst.SparkCanvas = sparkCanvas;
+                ConfigureQueueSpark(sparkCanvas);
             }
             return burst;
         }
@@ -461,6 +486,7 @@ namespace TurnLimbo.Presentation
             public RectTransform Node;
             public Image Upper, Lower;
             public DuelMeshSparks Sparks;
+            public Canvas SparkCanvas;
             public float Elapsed, Seconds, Size, Scale = 1f;
             public int Slot = -1, SparkCount;
 
