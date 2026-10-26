@@ -27,6 +27,7 @@ namespace TurnLimbo.Presentation.Tests
                 Vector3 scale = card.localScale;
                 float before = PixelWidth(card);
                 float beforeHeight = PixelHeight(card);
+                float iconBefore = PixelHeight(card.Find("Icon").GetComponent<RectTransform>());
                 Assert.That(row.parent, Is.SameAs(scope.Hud.Root.transform));
                 scope.Refresh(duel, true);
                 Assert.That(scope.Hud.GetQueuedSkillAnchor(true, 0), Is.SameAs(card), "Reuse the existing card, not a second queue.");
@@ -36,10 +37,12 @@ namespace TurnLimbo.Presentation.Tests
                 float enlargement = PixelWidth(card) / before;
                 Assert.That(PixelHeight(card) / beforeHeight, Is.EqualTo(enlargement).Within(.02f),
                     "The original icon is enlarged equally on both axes, never stretched vertically.");
+                Assert.That(PixelHeight(card.Find("Icon").GetComponent<RectTransform>()) / iconBefore,
+                    Is.EqualTo(enlargement).Within(.02f), "The skill artwork grows with its queue card.");
                 Assert.That(enlargement, Is.EqualTo(row.parent.localScale.x).Within(.02f));
                 Assert.That(enlargement, Is.LessThanOrEqualTo(LegacyCombatHud.QueueBackdropScale + .02f));
                 if (((RectTransform)scope.Hud.Root.transform).rect.width >= 1800f)
-                    Assert.That(enlargement, Is.EqualTo(LegacyCombatHud.QueueBackdropScale).Within(.02f));
+                    Assert.That(enlargement, Is.EqualTo(1.35f * 2f).Within(.02f), "Twice the previous battle size.");
                 Assert.That(scope.Hud.QueueIsBackdrop, Is.True);
                 Canvas backdrop = row.GetComponentInParent<Canvas>();
                 Assert.That(backdrop.renderMode, Is.EqualTo(RenderMode.ScreenSpaceCamera));
@@ -60,6 +63,46 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(PixelWidth(card), Is.EqualTo(before).Within(.02f));
                 Assert.That(duel.Player.Health, Is.EqualTo(1000));
             }
+        }
+
+        [UnityTest]
+        public IEnumerator LargerCardsUseAShorterVisibleWindow_InsteadOfShrinkingBackToTheOldSize()
+        {
+            yield return null;
+            using (var scope = new Scope())
+            {
+                yield return null;
+                var player = new LegacySkill[12];
+                var enemy = new LegacySkill[12];
+                for (int i = 0; i < 12; i++) { player[i] = Skill(99741 + i); enemy[i] = Skill(99761 + i); }
+                var duel = Duel(player, enemy);
+                scope.Refresh(duel, false);
+                int planningCount = VisibleCount(scope.Hud, true, 12);
+                scope.Refresh(duel, true);
+                Assert.That(VisibleCount(scope.Hud, true, 12), Is.InRange(1, planningCount - 1));
+                Assert.That(scope.Hud.GetQueuedSkillAnchor(true, 0), Is.Not.Null, "The next skill remains at the front.");
+                Assert.That(scope.Hud.GetQueuedSkillAnchor(false, 0), Is.Not.Null);
+                var corners = new Vector3[4];
+                foreach (bool mine in new[] { true, false })
+                    for (int i = 0; i < 12; i++)
+                    {
+                        RectTransform card = scope.Hud.GetQueuedSkillAnchor(mine, i);
+                        if (card == null) continue;
+                        card.GetWorldCorners(corners);
+                        foreach (Vector3 point in corners)
+                        {
+                            float x = RectTransformUtility.WorldToScreenPoint(scope.Camera, point).x;
+                            Assert.That(x, Is.InRange(-.5f, Screen.width + .5f), "Enlarged visible icons must fit the screen.");
+                        }
+                    }
+            }
+        }
+
+        private static int VisibleCount(LegacyCombatHud hud, bool player, int count)
+        {
+            int visible = 0;
+            for (int i = 0; i < count; i++) if (hud.GetQueuedSkillAnchor(player, i) != null) visible++;
+            return visible;
         }
 
         [UnityTest]
@@ -153,17 +196,19 @@ namespace TurnLimbo.Presentation.Tests
             using (var scope = new Scope())
             {
                 yield return null;
-                var duel = Duel(new[] { Skill(99701, 1), Skill(99702, 1), Skill(99703, 2), Skill(99704, 4) },
-                    new[] { Skill(99711, 2), Skill(99712, 2), Skill(99713, 2), Skill(99714, 2) });
+                var duel = Duel(new[] { Skill(99701, 1), Skill(99702, 1), Skill(99703, 2) },
+                    new[] { Skill(99711, 2), Skill(99712, 2) });
                 scope.Refresh(duel, true);
-                RectTransform fast = scope.Hud.GetQueuedSkillAnchor(true, 0), normal = scope.Hud.GetQueuedSkillAnchor(true, 2),
-                    charge = scope.Hud.GetQueuedSkillAnchor(true, 3);
+                RectTransform fast = scope.Hud.GetQueuedSkillAnchor(true, 0), normal = scope.Hud.GetQueuedSkillAnchor(true, 2);
                 Assert.That(PixelWidth(fast), Is.EqualTo(PixelWidth(normal) * .5f).Within(.03f));
-                Assert.That(PixelWidth(charge), Is.EqualTo(PixelWidth(normal) * 2f).Within(.03f));
                 RectTransform second = scope.Hud.GetQueuedSkillAnchor(true, 1), opposing = scope.Hud.GetQueuedSkillAnchor(false, 0);
                 float mid = Screen.width * .5f;
                 Assert.That(mid - OuterScreen(second, false), Is.EqualTo(OuterScreen(opposing, true) - mid).Within(.05f),
                     "Both fast cards end at the opposing normal card's mirrored endpoint.");
+                // A separate short row checks the charge width without requiring an off-screen tail to be visible.
+                scope.Refresh(Duel(new[] { Skill(99704, 4) }, new[] { Skill(99713, 2) }), true);
+                RectTransform charge = scope.Hud.GetQueuedSkillAnchor(true, 0), opposingNormal = scope.Hud.GetQueuedSkillAnchor(false, 0);
+                Assert.That(PixelWidth(charge), Is.EqualTo(PixelWidth(opposingNormal) * 2f).Within(.03f));
             }
         }
 

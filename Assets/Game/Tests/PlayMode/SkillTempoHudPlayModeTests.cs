@@ -89,6 +89,156 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator CompletedFastPairsSlideTheShortTailForward_ByHalfACardAtATime()
+        {
+            yield return null;
+            using (var scope = new Scope())
+            {
+                var duel = Duel(new[] { Skill(921, 1), Skill(922, 1), Skill(923, 2) },
+                    new[] { Skill(931, 1), Skill(932, 1), Skill(933, 2) });
+                scope.Refresh(duel);
+                duel.Commit();
+                var first = duel.BeginNextSlot();
+                scope.Refresh(duel, true, first.SlotIndex);
+                float inner = Near(scope.Card(true, 0));
+                float before = scope.Card(true, 1).anchoredPosition.x;
+                Finish(duel);
+                scope.Refresh(duel, true, first.SlotIndex + 1);
+                Assert.That(scope.Hud.GetQueuedSkillAnchor(true, 0), Is.Null);
+                Assert.That(scope.Hud.QueueSlide, Is.EqualTo(.5f).Within(.001f));
+                Assert.That(scope.Card(true, 1).anchoredPosition.x, Is.EqualTo(before).Within(.01f),
+                    "The next icon starts where it stood instead of jumping to the seam.");
+                scope.Refresh(duel, true, first.SlotIndex + 1);
+                Assert.That(scope.Hud.QueueSlide, Is.EqualTo(.5f).Within(.001f), "A stopped battle holds the move.");
+                scope.Refresh(duel, true, first.SlotIndex + 1, LegacyQueuePanelLayout.DefaultSlideSeconds * .5f);
+                Assert.That(Near(scope.Card(true, 1)), Is.GreaterThan(inner));
+                Assert.That(scope.Card(true, 1).anchoredPosition.x, Is.GreaterThan(before));
+                scope.Refresh(duel, true, first.SlotIndex + 1, LegacyQueuePanelLayout.DefaultSlideSeconds);
+                Assert.That(scope.Hud.QueueSlide, Is.Zero);
+                Assert.That(Near(scope.Card(true, 1)), Is.EqualTo(inner).Within(.01f),
+                    "A short queue must still bring its next skill to the use position.");
+                Assert.That(scope.Card(true, 1).anchoredPosition.x,
+                    Is.EqualTo(-scope.Card(false, 1).anchoredPosition.x).Within(.01f));
+                scope.Refresh(duel);
+                Assert.That(scope.Hud.QueueSlide, Is.Zero);
+                Assert.That(scope.Hud.GetQueuedSkillAnchor(true, 0), Is.Not.Null, "Planning restores the full queue.");
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator UnmatchedFastPaddingAndTheOpposingNormalStayAligned_UntilThatSharedTimeCompletes()
+        {
+            yield return null;
+            using (var scope = new Scope())
+            {
+                var duel = Duel(new[] { Skill(941, 1), Skill(942, 2) },
+                    new[] { Skill(951, 2), Skill(952, 2) });
+                scope.Refresh(duel);
+                duel.Commit();
+                var first = duel.BeginNextSlot();
+                scope.Refresh(duel, true, first.SlotIndex);
+                float inner = Near(scope.Card(false, 0));
+                float playerNext = scope.Card(true, 1).anchoredPosition.x;
+                float enemyCurrent = scope.Card(false, 0).anchoredPosition.x;
+                float width = scope.Card(false, 0).rect.width;
+                Finish(duel);
+                scope.Refresh(duel, true, first.SlotIndex + 1);
+                Assert.That(scope.Hud.GetQueuedSkillAnchor(true, 0), Is.Null);
+                Assert.That(scope.Card(true, 1).anchoredPosition.x, Is.EqualTo(playerNext).Within(.01f));
+                Assert.That(scope.Card(false, 0).anchoredPosition.x, Is.EqualTo(enemyCurrent).Within(.01f));
+                Assert.That(scope.Card(false, 0).rect.width, Is.EqualTo(width),
+                    "The normal skill remains whole while the fast action's unmatched half-time passes.");
+                var second = duel.BeginNextSlot();
+                scope.Refresh(duel, true, second.SlotIndex);
+                Finish(duel);
+                scope.Refresh(duel, true, second.SlotIndex + 1);
+                Assert.That(scope.Hud.QueueSlide, Is.EqualTo(1f).Within(.001f));
+                scope.Refresh(duel, true, second.SlotIndex + 1, LegacyQueuePanelLayout.DefaultSlideSeconds);
+                Assert.That(Near(scope.Card(true, 1)), Is.EqualTo(inner).Within(.01f));
+                Assert.That(Near(scope.Card(false, 1)), Is.EqualTo(inner).Within(.01f));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator AWholeChargeStaysInPlaceWhilePreparing_ThenTheNextSkillsAdvanceTogether()
+        {
+            yield return null;
+            using (var scope = new Scope())
+            {
+                var duel = Duel(new[] { Skill(961, 4), Skill(962, 2) },
+                    new[] { Skill(971, 2), Skill(972, 2), Skill(973, 2) });
+                scope.Refresh(duel);
+                duel.Commit();
+                var first = duel.BeginNextSlot();
+                scope.Refresh(duel, true, first.SlotIndex);
+                RectTransform charge = scope.Card(true, 0);
+                float inner = Near(charge), chargePosition = charge.anchoredPosition.x, width = charge.rect.width;
+                Finish(duel);
+                scope.Refresh(duel, true, first.SlotIndex + 1);
+                Assert.That(scope.Card(true, 0), Is.SameAs(charge));
+                Assert.That(charge.rect.width, Is.EqualTo(width));
+                Assert.That(charge.anchoredPosition.x, Is.EqualTo(chargePosition).Within(.01f));
+                Assert.That(scope.Hud.QueueSlide, Is.Zero, "A long skill is retained as one complete card while winding up.");
+                var second = duel.BeginNextSlot();
+                scope.Refresh(duel, true, second.SlotIndex);
+                Finish(duel);
+                scope.Refresh(duel, true, second.SlotIndex + 1);
+                Assert.That(scope.Hud.GetQueuedSkillAnchor(true, 0), Is.Null);
+                Assert.That(scope.Hud.QueueSlide, Is.EqualTo(2f).Within(.001f));
+                scope.Refresh(duel, true, second.SlotIndex + 1, LegacyQueuePanelLayout.DefaultSlideSeconds);
+                Assert.That(Near(scope.Card(true, 1)), Is.EqualTo(inner).Within(.01f));
+                Assert.That(Near(scope.Card(false, 2)), Is.EqualTo(inner).Within(.01f));
+                Assert.That(scope.Card(true, 1).anchoredPosition.x,
+                    Is.EqualTo(-scope.Card(false, 2).anchoredPosition.x).Within(.01f));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator TheNextWideChargeRemainsVisibleThroughoutTheEnlargedQueueSlide()
+        {
+            yield return null;
+            foreach (int duration in new[] { 4, 8 })
+                using (var scope = new Scope(duration == 4 ? 80f : 48f, backdrop: true))
+                {
+                    var opponents = new LegacySkill[duration];
+                    for (int i = 0; i < opponents.Length; i++) opponents[i] = Skill(991, 2);
+                    var duel = Duel(new[] { Skill(981, duration), Skill(982, duration) }, opponents);
+                    scope.Refresh(duel);
+                    duel.Commit();
+                    int nextSlot = 0;
+                    for (int segment = 0; segment < duration / 2; segment++)
+                    {
+                        var slot = duel.BeginNextSlot();
+                        scope.Refresh(duel, true, slot.SlotIndex);
+                        nextSlot = slot.SlotIndex + 1;
+                        Finish(duel);
+                        scope.Refresh(duel, true, nextSlot);
+                    }
+                    Assert.That(scope.Hud.QueueIsBackdrop, Is.True);
+                    Assert.That(scope.Hud.GetQueuedSkillAnchor(true, 0), Is.Null);
+                    Assert.That(scope.Hud.QueueSlide, Is.EqualTo(2f).Within(.001f),
+                        "Fitting the displayed move does not change the original logical slide clock.");
+                    for (int frame = 0; frame < 8; frame++)
+                    {
+                        RectTransform next = scope.Card(true, 1);
+                        Assert.That(next.rect.width, Is.EqualTo(next.rect.height * duration * .5f).Within(.01f),
+                            "Keep the next charge whole instead of hiding it until the slide finishes.");
+                        scope.Refresh(duel, true, nextSlot, LegacyQueuePanelLayout.DefaultSlideSeconds / 7f);
+                    }
+                    Assert.That(scope.Hud.QueueSlide, Is.Zero);
+                }
+        }
+
+        private static float Near(RectTransform card)
+            => Mathf.Abs(card.anchoredPosition.x) - card.rect.width * card.localScale.x * .5f;
+
+        private static void Finish(LegacyQueuedDuel duel)
+        {
+            while (!duel.CurrentSlot.IsResolved) duel.ResolveNextHit();
+            duel.CompleteCurrentSlot();
+        }
+
         private static float Outer(RectTransform card)
             => card.anchoredPosition.x + Mathf.Sign(card.anchoredPosition.x) * card.rect.width * card.localScale.x * .5f;
 
@@ -106,15 +256,33 @@ namespace TurnLimbo.Presentation.Tests
         private sealed class Scope : IDisposable
         {
             private readonly GameObject parent = new GameObject("Skill Tempo HUD Test");
+            private readonly DuelPresentationSettings settings;
+            private readonly Camera camera;
             public LegacyCombatHud Hud { get; }
-            public Scope()
+            public Scope(float cardSize = 0f, bool backdrop = false)
             {
-                Hud = new LegacyCombatHud(parent.transform, new LegacyDuelArt(), null, null, null);
+                if (cardSize > 0f)
+                {
+                    settings = ScriptableObject.CreateInstance<DuelPresentationSettings>();
+                    JsonUtility.FromJsonOverwrite("{\"queueCardSize\":" + cardSize.ToString(
+                        System.Globalization.CultureInfo.InvariantCulture) + "}", settings);
+                }
+                if (backdrop)
+                {
+                    var cameraObject = new GameObject("Skill Tempo Backdrop Camera");
+                    cameraObject.transform.SetParent(parent.transform, false);
+                    cameraObject.transform.position = new Vector3(0f, 0f, -10f);
+                    camera = cameraObject.AddComponent<Camera>();
+                    camera.orthographic = true;
+                    camera.orthographicSize = 4f;
+                    camera.cullingMask = 1 << 30;
+                }
+                Hud = new LegacyCombatHud(parent.transform, new LegacyDuelArt(), null, null, null, settings);
                 Canvas.ForceUpdateCanvases();
             }
-            public void Refresh(LegacyQueuedDuel duel, bool resolving = false, int slot = 0)
+            public void Refresh(LegacyQueuedDuel duel, bool resolving = false, int slot = 0, float delta = 0f)
             {
-                Hud.Refresh(duel, 10f, resolving, slot, null, null, null, 0f, 0f);
+                Hud.Refresh(duel, 10f, resolving, slot, camera, null, null, delta, delta);
                 Canvas.ForceUpdateCanvases();
             }
             public RectTransform Card(bool player, int index)
@@ -123,7 +291,7 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(card, Is.Not.Null);
                 return card;
             }
-            public void Dispose() { Hud.Dispose(); Object.Destroy(parent); }
+            public void Dispose() { Hud.Dispose(); Object.Destroy(parent); if (settings != null) Object.Destroy(settings); }
         }
     }
 }

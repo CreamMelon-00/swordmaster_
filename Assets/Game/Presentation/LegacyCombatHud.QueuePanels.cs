@@ -152,8 +152,14 @@ namespace TurnLimbo.Presentation
         {
             if (UsesTempoQueue(displayedSession))
             {
-                LayoutTempoQueuePanels(resolving);
+                LayoutTempoQueuePanels(resolving, delta);
                 return;
+            }
+            if (tempoSlideResolving)
+            {
+                queueSlideFrom = queueSlideElapsed = 0f;
+                queueConsumed = 0;
+                ResetTempoQueueSlide();
             }
             Vector2 size = root.rect.size;
             if (size.x < 1f || size.y < 1f) size = new Vector2(1920f, 1080f);
@@ -163,6 +169,7 @@ namespace TurnLimbo.Presentation
             float fold = OutQuad(Mathf.Clamp01(transition));
             float trayBottom = Mathf.Lerp(DockBottomInset + DockHeight + QueuePanelDockGap, QueuePanelResolvingBottom, fold);
             float seam = Mathf.Max(QueueSeamGap * .5f, queueSeamReserve);
+            float displaySeam = QueueBackdropDisplaySeam(seam);
             float room = QueueCardRoom(), trayWidth = room + pad * 2f;
             // Card size and spacing stay fixed for this turn. A shared window then replaces the unreadable overlap of
             // very long queues; the same logical slot remains opposite itself on both sides.
@@ -175,6 +182,9 @@ namespace TurnLimbo.Presentation
             int smallestSlideCapacity = Mathf.Min(queueWindowCapacity, LegacyQueuePanelLayout.Capacity(
                 viewportRoom - LegacyQueuePanelLayout.MaximumSlide * spacing, card, spacing));
             float rangeHeight = count > smallestSlideCapacity ? QueueRangeHeight : 0f;
+            // The larger backdrop reveals fewer cards rather than shrinking them back to the former size.
+            if (QueueIsBackdrop)
+                viewportRoom = Mathf.Min(viewportRoom, QueueBackdropDisplayRoom(room, displaySeam, pad));
 
             // A consumed slot hides its card at once (as before); the rest start where they stood and slide in.
             int consumed = resolving ? Mathf.Max(0, activeSlot) : 0;
@@ -192,6 +202,10 @@ namespace TurnLimbo.Presentation
                 if (queueSlideElapsed >= seconds) queueSlideFrom = queueSlideElapsed = 0f;
             }
             float slide = LegacyQueuePanelLayout.Slide(queueSlideFrom, queueSlideElapsed, seconds);
+            // A wide coach can leave room for only one enlarged card. Start its visible move inside that
+            // remaining strip, while keeping the common slide clock and reservation indices unchanged.
+            if (QueueIsBackdrop)
+                slide = Mathf.Min(slide, Mathf.Max(0f, (viewportRoom - card) / spacing));
             // Coach cards can leave very narrow panels at a screen edge. Reveal an outer card only once its whole
             // sliding footprint fits the viewport; both rows lose/reveal that same slot, while the current pair stays.
             queueWindowCapacity = Mathf.Min(queueWindowCapacity,
@@ -202,7 +216,7 @@ namespace TurnLimbo.Presentation
             float trayHeight = card + pad * 2f + rangeHeight;
             float cardLine = trayBottom + rangeHeight + pad + card * .5f;
 
-            float inner = seam + pad + card * .5f, lineY = cardLine - half.y;
+            float inner = displaySeam + pad + card * .5f, lineY = cardLine - half.y;
             playerQueue.Root.anchoredPosition = enemyQueue.Root.anchoredPosition = new Vector2(0f, lineY);
             // The resolving pair's clash motion (LegacyCombatHud.Clash.cs) poses its cards for the rows' layout.
             PoseQueueClash(inner, spacing, slide, lineY, consumed, delta);
@@ -242,6 +256,7 @@ namespace TurnLimbo.Presentation
             RestoreQueueBackdrop();
             queueSlideFrom = queueSlideElapsed = 0f;
             queueConsumed = 0;
+            ResetTempoQueueSlide();
             queueSeamReserve = 0f;
             queueWindowStart = queueWindowCapacity = 0;
             if (playerQueueRange != null) playerQueueRange.gameObject.SetActive(false);

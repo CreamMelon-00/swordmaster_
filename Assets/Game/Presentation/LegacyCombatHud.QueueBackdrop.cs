@@ -9,7 +9,8 @@ namespace TurnLimbo.Presentation
         public const string QueueBackdropName = "Combat Queue Backdrop";
         // The current arena draws scenery at -5, and the player/three-enemy roster at 0..-3.
         public const int QueueBackdropSortingOrder = -4;
-        public const float QueueBackdropAlpha = .38f, QueueBackdropScale = 1.35f;
+        public const float QueueBackdropAlpha = .38f, QueueBackdropScale = 2.7f;
+        private const float QueueBackdropEnlargement = 2f;
         private const float QueueBackdropHeight = .53f;
         private RectTransform queueBackdrop, queueBackdropContent;
         private Canvas queueBackdropCanvas;
@@ -87,12 +88,8 @@ namespace TurnLimbo.Presentation
         private void LayoutQueueBackdrop()
         {
             if (!QueueIsBackdrop || queueBackdropContent == null) return;
-            Vector2 size = root.rect.size;
-            if (size.x < 1f || size.y < 1f) size = new Vector2(1920f, 1080f);
-            // Fit using the full panel rather than the shrinking remaining queue: consumption never changes zoom.
-            float extent = Mathf.Min(QueuePanelWidth + Mathf.Max(QueueSeamGap * .5f, queueSeamReserve),
-                size.x * .5f - ScreenMargin) + QueueCardWidth * QueueActiveCardMaxScale;
-            float scale = Mathf.Min(QueueBackdropScale, Mathf.Max(.1f, (size.x * .5f - ScreenMargin) / extent));
+            Vector2 size = QueueBackdropCanvasSize();
+            float scale = QueueBackdropVisualScale(size);
             queueBackdropContent.sizeDelta = size;
             queueBackdropCanvas.scaleFactor = canvas.scaleFactor;
             queueBackdropContent.localScale = Vector3.one * scale;
@@ -111,6 +108,37 @@ namespace TurnLimbo.Presentation
             queueBackdropContent.anchoredPosition = new Vector2(size.x * (viewport.x - .5f),
                 size.y * (viewport.y - .5f) - playerQueue.Root.anchoredPosition.y * scale);
             queueBackdropGroup.alpha = QueueBackdropAlpha * fade.alpha;
+        }
+
+        private Vector2 QueueBackdropCanvasSize()
+        {
+            Vector2 size = root.rect.size;
+            return size.x >= 1f && size.y >= 1f ? size : new Vector2(1920f, 1080f);
+        }
+
+        private float QueueBackdropVisualScale(Vector2 size)
+        {
+            // Double the previous fitted size itself. Raising only its cap would let the old width fit
+            // shrink the icons back down; the display window now fits fewer upcoming skills instead.
+            float extent = Mathf.Min(QueuePanelWidth + Mathf.Max(QueueSeamGap * .5f, queueSeamReserve),
+                size.x * .5f - ScreenMargin) + QueueCardWidth * QueueActiveCardMaxScale;
+            float previous = Mathf.Min(QueueBackdropScale / QueueBackdropEnlargement,
+                Mathf.Max(.1f, (size.x * .5f - ScreenMargin) / extent));
+            return previous * QueueBackdropEnlargement;
+        }
+
+        private float QueueBackdropDisplaySeam(float seam)
+            => QueueIsBackdrop ? Mathf.Max(QueueSeamGap * .5f,
+                queueSeamReserve / QueueBackdropVisualScale(QueueBackdropCanvasSize())) : seam;
+
+        private float QueueBackdropDisplayRoom(float room, float seam, float padding)
+        {
+            if (!QueueIsBackdrop) return room;
+            Vector2 size = QueueBackdropCanvasSize();
+            float localHalfWidth = (size.x * .5f - ScreenMargin) / QueueBackdropVisualScale(size);
+            // Keep the active icon's emphasis and a sliding outer card inside the viewport.
+            float available = localHalfWidth - seam - padding - QueueCardWidth * QueueActiveCardMaxScale;
+            return Mathf.Max(QueueCardWidth, Mathf.Min(room, available));
         }
 
         private void SetQueueVisualLayer(RectTransform visual, int layer)

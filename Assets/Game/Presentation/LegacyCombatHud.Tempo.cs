@@ -8,6 +8,8 @@ namespace TurnLimbo.Presentation
     public sealed partial class LegacyCombatHud
     {
         private int tempoDisplayStartHalfTick;
+        private bool tempoSlideResolving;
+        private int tempoSlideOriginHalfTick;
         private static bool UsesTempoQueue(ILegacyDuelView session)
             => session is LegacyQueuedDuel duel && duel.HasTempoSkills;
 
@@ -85,15 +87,16 @@ namespace TurnLimbo.Presentation
 
         // Both rows use the same half-tick axis. The visible widths are exactly .5 / 1 / 2 ordinary cards;
         // padding after an unmatched fast technique stays empty instead of moving the next technique forward.
-        private void LayoutTempoQueuePanels(bool resolving)
+        private void LayoutTempoQueuePanels(bool resolving, float delta)
         {
             Vector2 size = root.rect.size;
             if (size.x < 1f || size.y < 1f) size = new Vector2(1920f, 1080f);
             float card = QueueCardWidth, pad = LegacyQueuePanelLayout.Padding;
             float room = QueueCardRoom(), trayWidth = room + pad * 2f;
             float seam = Mathf.Max(QueueSeamGap * .5f, queueSeamReserve);
+            float displaySeam = QueueBackdropDisplaySeam(seam);
             int end = Mathf.Max(playerQueue.TempoEnd, enemyQueue.TempoEnd);
-            int capacity = Mathf.Max(2, Mathf.FloorToInt(room / card) * 2);
+            int logicalCapacity = Mathf.Max(2, Mathf.FloorToInt(room / card) * 2);
             int consumed = resolving ? tempoDisplayStartHalfTick : 0;
             // Keep the whole action in view while it winds up across several segments.
             int earliest = consumed;
@@ -102,15 +105,28 @@ namespace TurnLimbo.Presentation
                 earliest = Mathf.Min(earliest, playerQueue.TempoActionStart(consumed));
                 earliest = Mathf.Min(earliest, enemyQueue.TempoActionStart(consumed));
             }
+            float displayRoom = QueueBackdropDisplayRoom(room, displaySeam, pad);
+            int capacity = Mathf.Max(2, Mathf.FloorToInt(displayRoom / card) * 2);
             int focus = inspectedSlot >= 0 ? enemyQueue.TempoFocusEnd(inspectedSlot) : playerQueue.TempoEnd;
-            int start = resolving ? Mathf.Max(0, earliest / 2 * 2)
+            // Resolution follows the consumed time, including a paired fast half-card. Clamping to end-capacity
+            // would pin a short queue at its original positions instead of bringing its next skills to the seam.
+            int start = resolving ? Mathf.Max(0, earliest)
                 : Mathf.Max(0, (focus - capacity + 1) / 2 * 2);
-            start = Mathf.Min(start, Mathf.Max(0, (end - capacity + 1) / 2 * 2));
+            if (!resolving) start = Mathf.Min(start, Mathf.Max(0, (end - capacity + 1) / 2 * 2));
+            AdvanceTempoQueueSlide(resolving, start, delta);
+            float slide = LegacyQueuePanelLayout.Slide(queueSlideFrom, queueSlideElapsed, QueueSlideSeconds);
+            int required = resolving ? Mathf.Max(2,
+                Mathf.Max(playerQueue.TempoLeadingEnd(start), enemyQueue.TempoLeadingEnd(start)) - start) : 2;
+            // Reserve the complete leading actions before spending space on a slide. A wide charge must never
+            // disappear while moving in; with a very large coach reserve, retain it even if the full width cannot fit.
+            float displaySlide = Mathf.Min(slide, Mathf.Max(0f, displayRoom / card - required * .5f));
+            capacity = Mathf.Max(required,
+                Mathf.FloorToInt(Mathf.Max(card, displayRoom - displaySlide * card) / card) * 2);
             queueWindowStart = start / 2;
             queueWindowCapacity = capacity / 2;
-            queueSlideFrom = queueSlideElapsed = 0f;
             queueConsumed = consumed / 2;
-            float range = end > capacity ? QueueRangeHeight : 0f;
+            // The hidden tray still owns the original readout/camera clearance; enlargement only changes its window.
+            float range = end > logicalCapacity ? QueueRangeHeight : 0f;
             float trayBottom = Mathf.Lerp(DockBottomInset + DockHeight + QueuePanelDockGap,
                 QueuePanelResolvingBottom, OutQuad(Mathf.Clamp01(transition)));
             float trayHeight = card + pad * 2f + range;
@@ -119,8 +135,8 @@ namespace TurnLimbo.Presentation
             playerQueue.Root.anchoredPosition = enemyQueue.Root.anchoredPosition = new Vector2(0f, lineY);
             playerQueue.ClearPose();
             enemyQueue.ClearPose();
-            playerQueue.LayoutTempo(seam + pad, card, start, capacity);
-            enemyQueue.LayoutTempo(seam + pad, card, start, capacity);
+            playerQueue.LayoutTempo(displaySeam + pad, card, start, capacity, displaySlide);
+            enemyQueue.LayoutTempo(displaySeam + pad, card, start, capacity, displaySlide);
             queueCues.anchoredPosition = queueSparks.anchoredPosition = new Vector2(0f, lineY);
             float trayY = trayBottom + trayHeight * .5f - size.y * .5f;
             playerQueuePanel.anchoredPosition = new Vector2(-(seam + trayWidth * .5f), trayY);
@@ -134,6 +150,33 @@ namespace TurnLimbo.Presentation
             queueRowTop = cardLine + card * .5f + QueueMarkRise * queueCardScale;
             queuePanelFloor = QueuePanelKeepsFightersClear
                 ? Mathf.Clamp01((queuePanelTop + QueuePanelFighterClearance) / size.y) : 0f;
+        }
+
+        private void AdvanceTempoQueueSlide(bool resolving, int originHalfTick, float delta)
+        {
+            float seconds = QueueSlideSeconds;
+            if (!resolving || !tempoSlideResolving || originHalfTick < tempoSlideOriginHalfTick)
+                queueSlideFrom = queueSlideElapsed = 0f;
+            else if (originHalfTick != tempoSlideOriginHalfTick)
+            {
+                float remaining = LegacyQueuePanelLayout.Slide(queueSlideFrom, queueSlideElapsed, seconds);
+                queueSlideFrom = Mathf.Min(LegacyQueuePanelLayout.MaximumSlide,
+                    remaining + (originHalfTick - tempoSlideOriginHalfTick) * .5f);
+                queueSlideElapsed = 0f;
+            }
+            else if (queueSlideFrom > 0f)
+            {
+                queueSlideElapsed += Mathf.Max(0f, delta);
+                if (queueSlideElapsed >= seconds) queueSlideFrom = queueSlideElapsed = 0f;
+            }
+            tempoSlideResolving = resolving;
+            tempoSlideOriginHalfTick = resolving ? originHalfTick : 0;
+        }
+
+        private void ResetTempoQueueSlide()
+        {
+            tempoSlideResolving = false;
+            tempoSlideOriginHalfTick = 0;
         }
 
         private sealed partial class QueueView
@@ -158,6 +201,14 @@ namespace TurnLimbo.Presentation
                 return halfTick;
             }
 
+            public int TempoLeadingEnd(int originHalfTick)
+            {
+                for (int i = 0; i < tempoEntries.Count; i++)
+                    if (tempoEntries[i].EndHalfTick > tempoConsumed)
+                        return Mathf.Max(originHalfTick, tempoEntries[i].EndHalfTick);
+                return originHalfTick;
+            }
+
             public void PrepareTempo(IReadOnlyList<LegacySkill> queue, bool enabled, bool resolving, int consumed)
             {
                 if (tempoLayout && !enabled) ResetTempo();
@@ -176,7 +227,7 @@ namespace TurnLimbo.Presentation
             private bool TempoUnconsumed(int index) => !tempoResolving ||
                 index < tempoEntries.Count && tempoEntries[index].EndHalfTick > tempoConsumed;
 
-            public void LayoutTempo(float innerEdge, float cardSize, int start, int capacity)
+            public void LayoutTempo(float innerEdge, float cardSize, int start, int capacity, float slide)
             {
                 CurrentPitch = cardSize;
                 DisplaySize = HorizontalSpan = Vector2.zero;
@@ -203,7 +254,7 @@ namespace TurnLimbo.Presentation
                     icons[index].preserveAspect = false;
                     if (player && index < forecastMarks.Count)
                         forecastMarks[index].anchoredPosition = new Vector2(-QueueCardSize * ratio * .5f + 7f, ForecastMarkCenter.y);
-                    float near = innerEdge + (timed.StartHalfTick - start) * cardSize * .5f;
+                    float near = innerEdge + ((timed.StartHalfTick - start) * .5f + slide) * cardSize;
                     float width = ratio * cardSize;
                     LegacyQueueInsertionPose entry = insertion.Pose(index);
                     item.anchoredPosition = new Vector2((player ? -1f : 1f) * (near + width * .5f), entry.Height * cardSize);
