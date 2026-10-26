@@ -63,11 +63,16 @@ namespace TurnLimbo.Presentation
         private void SetPowerClash(ILegacySlotView slot)
         {
             if (displayedSession?.UsePowerBreak != true || slot == null || !IsPowerClash(slot)) return;
+            SetPowerNumbers(slot);
+        }
+
+        private void SetPowerNumbers(ILegacySlotView slot)
+        {
             powerClashSlot = slot;
             powerClashElapsed = 0f;
             powerClashImpacted = powerNumberShattered = powerPlayerBroken = powerEnemyBroken = false;
-            bool playerActs = slot.PlayerSkill != null && !slot.PlayerSkill.IsWait;
-            bool enemyActs = slot.EnemySkill != null && !slot.EnemySkill.IsWait;
+            bool playerActs = slot.PlayerSkill != null;
+            bool enemyActs = slot.EnemySkill != null;
             playerClashPower.gameObject.SetActive(playerActs);
             enemyClashPower.gameObject.SetActive(enemyActs);
             playerClashPower.text = slot.PlayerTotalPower.ToString();
@@ -88,9 +93,10 @@ namespace TurnLimbo.Presentation
             if (disposed || displayedSession?.UsePowerBreak != true || slot == null) return;
             if (!IsPowerClash(slot))
             {
-                // A manual dodge may succeed after the two powers were already shown. The missed attack no longer
-                // forms a clash, so close the previous comparison instead of suggesting a break can still occur.
-                if (ReferenceEquals(powerClashSlot, slot)) ClearPowerClash(false);
+                // A dodge or non-attack has no number collision or shatter. A selected skill's pressure value can
+                // stay readable, but its caption must no longer promise an attack-clash break.
+                if (ReferenceEquals(powerClashSlot, slot)) powerClashCaption.text = "위력";
+                if (ReferenceEquals(powerClashSlot, slot) && !HasPlayerPowerPressureFor(slot)) ClearPowerClash(false);
                 return;
             }
             if (!ReferenceEquals(powerClashSlot, slot)) SetPowerClash(slot);
@@ -118,7 +124,11 @@ namespace TurnLimbo.Presentation
         private void AdvancePowerClash(float realDelta)
         {
             if (powerClashLayer == null) return;
-            if (powerClashSlot != null && !IsPowerClash(powerClashSlot)) ClearPowerClash(false);
+            if (powerClashSlot != null && !IsPowerClash(powerClashSlot))
+            {
+                if (HasPlayerPowerPressureFor(powerClashSlot)) powerClashCaption.text = "위력";
+                else ClearPowerClash(false);
+            }
             float delta = realDelta > 0f && !float.IsInfinity(realDelta) ? realDelta : 0f;
             AdvancePlayerPowerPressure(delta);
             // Share the existing readout's safe area rather than putting numbers over the animated fighters.

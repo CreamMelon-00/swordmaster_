@@ -14,6 +14,8 @@ namespace TurnLimbo.Presentation
         private RectTransform queueBackdrop, queueBackdropContent;
         private Canvas queueBackdropCanvas;
         private CanvasGroup queueBackdropGroup;
+        private Camera queueBackdropAnchorCamera;
+        private float queueBackdropWorldY;
         private RectTransform[] queueBackdropElements;
         private int[] queueBackdropSiblingIndices;
         private readonly List<Transform> queueBackdropLayerNodes = new List<Transform>();
@@ -94,8 +96,20 @@ namespace TurnLimbo.Presentation
             queueBackdropContent.sizeDelta = size;
             queueBackdropCanvas.scaleFactor = canvas.scaleFactor;
             queueBackdropContent.localScale = Vector3.one * scale;
-            queueBackdropContent.anchoredPosition = new Vector2(0f,
-                size.y * (QueueBackdropHeight - .5f) - playerQueue.Root.anchoredPosition.y * scale);
+            // Keep the initial battle height in the arena. The screen-space canvas still preserves icon size,
+            // but its content cancels vertical camera travel instead of riding every camera lift and dip.
+            float distance = queueBackdropCanvas.planeDistance;
+            if (queueBackdropAnchorCamera != worldCamera)
+            {
+                queueBackdropAnchorCamera = worldCamera;
+                queueBackdropWorldY = worldCamera.ViewportToWorldPoint(
+                    new Vector3(.5f, QueueBackdropHeight, distance)).y;
+            }
+            Vector3 anchor = worldCamera.ViewportToWorldPoint(new Vector3(.5f, .5f, distance));
+            anchor.y = queueBackdropWorldY;
+            Vector3 viewport = worldCamera.WorldToViewportPoint(anchor);
+            queueBackdropContent.anchoredPosition = new Vector2(size.x * (viewport.x - .5f),
+                size.y * (viewport.y - .5f) - playerQueue.Root.anchoredPosition.y * scale);
             queueBackdropGroup.alpha = QueueBackdropAlpha * fade.alpha;
         }
 
@@ -122,6 +136,7 @@ namespace TurnLimbo.Presentation
                         queueBackdropElements[i].SetSiblingIndex(queueBackdropSiblingIndices[i]);
             }
             QueueIsBackdrop = false;
+            queueBackdropAnchorCamera = null;
             if (queueBackdrop != null) queueBackdrop.gameObject.SetActive(false);
             if (queuePanels != null) queuePanels.gameObject.SetActive(true);
         }

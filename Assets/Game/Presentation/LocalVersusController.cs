@@ -436,7 +436,11 @@ namespace TurnLimbo.Presentation
             {
                 // This screen charges only its player's already-rolled power. The shared match and both attack
                 // clocks wait, while the HUD consumes the real-time pressure beat independently of playback speed.
+                arena.SetPlanningState(Mathf.Min(10f, shownClock), false);
+                arena.SetTimePressure(0f);
                 arena.SetHudFloor(battleHud.QueuePanelFloor);
+                arena.SetDirectorPush(DirectorCameraPush);
+                RequestCurrentCombatCameraShot();
                 arena.Tick(0f, realDelta, deferSlowAfterimages: true);
                 RefreshHud(0f, realDelta);
                 return;
@@ -483,10 +487,7 @@ namespace TurnLimbo.Presentation
             // 긴장 조명 from this screen's side: either fighter's low health darkens both screens alike, and each screen
             // swells for its own player's turn of the flow. Lighting only: nothing here reaches the match or its timing.
             arena.SetTensionLighting(LegacyHealthReading.Of(view.Player, view.Enemy), settings.TensionLighting);
-            if (!finale.IsRunning && viewPhase == ViewPhase.PlayingSlot && view.CurrentSlot != null)
-                DuelPrototypeController.RequestCombatCameraShot(arena,
-                    .2f + .8f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotDuration)),
-                    view.CurrentSlot.PlayerSkill, view.CurrentSlot.EnemySkill);
+            RequestCurrentCombatCameraShot();
             arena.Tick(delta, realDelta, deferSlowAfterimages: true);
             if (viewPhase == ViewPhase.PlayingSlot && !bladeBindHitPending)
                 PresentBladeExchange(phaseTime + delta);
@@ -881,6 +882,14 @@ namespace TurnLimbo.Presentation
         {
             float clipDuration = LegacyArenaView.OriginalClipDuration / slotPlaybackSpeed;
             return clipDuration * hits + slotAttackInterval * (hits - 1) + .01f;
+        }
+
+        private void RequestCurrentCombatCameraShot()
+        {
+            if (!finale.IsRunning && viewPhase == ViewPhase.PlayingSlot && view.CurrentSlot != null)
+                DuelPrototypeController.RequestCombatCameraShot(arena,
+                    .2f + .8f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotDuration)),
+                    view.CurrentSlot.PlayerSkill, view.CurrentSlot.EnemySkill);
         }
 
         private void BeginSlot()

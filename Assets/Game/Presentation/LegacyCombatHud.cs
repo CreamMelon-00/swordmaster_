@@ -849,7 +849,9 @@ namespace TurnLimbo.Presentation
             PrepareQueueBackdrop(isResolving);
             delta = Mathf.Max(0, delta);
             float actualDelta = realDelta < 0 ? delta : Mathf.Max(0, realDelta);
-            transition = Mathf.MoveTowards(transition, targetTransition, delta * 2);
+            // A pressure beat holds the actions, not the command desk's already-requested closing motion.
+            float dockDelta = IsPlayerPowerPressurizing ? actualDelta : delta;
+            transition = Mathf.MoveTowards(transition, targetTransition, dockDelta * 2);
             inputPanel.sizeDelta = new Vector2(DockWidth, DockHeight * (1 - OutQuad(transition)));
             cinematicElapsed = Mathf.Min(.3f, cinematicElapsed + actualDelta);
             cinematic = Mathf.Lerp(cinematicFrom, cinematicTarget, OutQuad(cinematicElapsed / .3f));

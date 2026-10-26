@@ -18,7 +18,8 @@ namespace TurnLimbo.Presentation.Tests
         private const string Tuning = "{\"animationPlaybackSpeed\":1,\"attackInterval\":0.1,\"skillInterval\":0.1," +
             "\"hitStopDuration\":0,\"showDirectorEnabled\":false,\"combatTempoEnabled\":false," +
             "\"unopposedStreakEnabled\":false,\"bladeExchangeEnabled\":false,\"autoDepthEnabled\":false," +
-            "\"attackRhythmEnabled\":false,\"stepAnticipationDuration\":0}";
+            "\"attackRhythmEnabled\":false,\"stepAnticipationDuration\":0," +
+            "\"combatCameraMotionEnabled\":true,\"combatCameraMotionStrength\":1}";
 
         [UnityTest]
         public IEnumerator CampaignPressureHoldsTheActualHitAndPose_PausesAndThenResumesExactlyOneImpact()
@@ -35,8 +36,16 @@ namespace TurnLimbo.Presentation.Tests
                 Sprite playerPose = mine.sprite, enemyPose = theirs.sprite;
                 Vector3 playerPosition = mine.transform.localPosition, enemyPosition = theirs.transform.localPosition;
                 int act = duel.Act;
+                // Recreate a partially folded desk at the pressure boundary. Its closing clock is UI real time.
+                typeof(LegacyCombatHud).GetField("transition", Private).SetValue(c.Hud, .2f);
+                scope.Advance(0f);
+                RectTransform dock = (RectTransform)c.Hud.Root.transform.Find("Input");
+                float deskHeight = dock.rect.height;
                 Assert.That(c.CanStep, Is.False, "The pressure presentation is not a timing-input window.");
                 scope.Advance(.2f);
+                Assert.That(c.ArenaView.CombatShotAmount, Is.GreaterThan(.8f),
+                    "Holding the skill must keep requesting its current shot instead of falling back to the roster overview.");
+                Assert.That(dock.rect.height, Is.LessThan(deskHeight), "The command desk keeps folding during pressure.");
                 Assert.That(c.Hud.PlayerPressureCharge, Is.GreaterThan(0f).And.LessThan(1f));
                 Assert.That((duel.Player.Health, duel.Enemy.Health, slot.HitsResolved), Is.EqualTo((1000, 1000, 0)));
                 Assert.That(mine.sprite, Is.SameAs(playerPose));
@@ -89,11 +98,37 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator DefenceAndBreathingAlsoHoldTheActualControllerBeforeItsNoDamageContact()
+        {
+            yield return null;
+            var guard = new LegacySkill(99871, "수비 압력", 0, 5, 5, LegacySkillKind.Defence,
+                LegacySkillProperty.Defence, 1, 0, string.Empty, iconId: 1);
+            foreach (LegacySkill skill in new[] { guard, LegacyCommonActions.Breathe })
+                using (var scope = new CampaignScope(new LegacyQueuedDuel(1000, 0, 1000, 0,
+                    new[] { skill }, new[] { LegacyCommonActions.Breathe }, new[] { 1 }, randomSeed: 7, usePowerBreak: true)))
+                {
+                    scope.Begin();
+                    LegacyCurrentSlot slot = scope.Controller.Session.CurrentSlot;
+                    Assert.That(slot.PlayerAttackCount + slot.EnemyAttackCount, Is.Zero);
+                    scope.Advance(.2f);
+                    Assert.That(scope.Controller.Hud.IsPlayerPowerPressurizing, Is.True);
+                    Assert.That(slot.HitsResolved, Is.Zero, "A non-attack skill cannot skip its preparation beat.");
+                    scope.Advance(DuelPowerPressure.HoldSeconds);
+                    Assert.That(scope.Controller.Hud.IsPlayerPowerPressurizing, Is.False);
+                    Assert.That(slot.HitsResolved, Is.Zero);
+                    scope.Until(() => slot.IsResolved);
+                    Assert.That((scope.Controller.Session.Player.Health, scope.Controller.Session.Enemy.Health),
+                        Is.EqualTo((1000, 1000)));
+                }
+        }
+
+        [UnityTest]
         public IEnumerator HostAndGuestViewsHoldTheirOwnPressure_ThenResolveTheSameSingleHit()
         {
             yield return null;
             foreach (int viewer in new[] { 0, 1 })
-                using (var scope = new VersusScope(viewer))
+            foreach (bool oneSided in new[] { false, true })
+                using (var scope = new VersusScope(viewer, oneSided))
                 {
                     scope.Begin();
                     var c = scope.Controller;
@@ -102,6 +137,7 @@ namespace TurnLimbo.Presentation.Tests
                     Sprite playerPose = scope.Arena.PlayerRenderer.sprite, enemyPose = scope.Arena.EnemyRenderer.sprite;
                     c.Tick(.2f, null);
                     Assert.That(c.BattleHud.IsPlayerPowerPressurizing, Is.True);
+                    Assert.That(scope.Arena.CombatShotAmount, Is.GreaterThan(.8f));
                     Assert.That(slot.HitsResolved, Is.Zero);
                     Assert.That((c.Match.Left.State.Health, c.Match.Right.State.Health), Is.EqualTo((left, right)));
                     Assert.That(scope.Arena.PlayerRenderer.sprite, Is.SameAs(playerPose));
@@ -113,7 +149,7 @@ namespace TurnLimbo.Presentation.Tests
                     Assert.That(slot.HitsResolved, Is.Zero);
                     scope.Until(() => slot.HitsResolved > 0);
                     Assert.That(slot.HitsResolved, Is.EqualTo(1));
-                    Assert.That((c.Match.Left.State.Health, c.Match.Right.State.Health), Is.EqualTo(ExpectedVersus()),
+                    Assert.That((c.Match.Left.State.Health, c.Match.Right.State.Health), Is.EqualTo(ExpectedVersus(oneSided)),
                         "Both perspectives must resolve one identical authoritative contact.");
                 }
         }
@@ -136,13 +172,13 @@ namespace TurnLimbo.Presentation.Tests
             return (duel.Player.Health, duel.Enemy.Health);
         }
 
-        private static (int, int) ExpectedVersus()
+        private static (int, int) ExpectedVersus(bool oneSided = false)
         {
             var match = new LocalVersusMatch(new[] { Attack(99851, 6) }, new[] { Attack(99852, 4) },
                 randomSeed: 7, usePowerBreak: true);
             foreach (int player in new[] { 0, 1 })
             {
-                Assert.That(match.TryQueueLane(player, 0), Is.True);
+                if (!oneSided || player == 0) Assert.That(match.TryQueueLane(player, 0), Is.True);
                 Assert.That(match.TryCommit(player), Is.True);
             }
             match.BeginNextSlot();
@@ -158,7 +194,8 @@ namespace TurnLimbo.Presentation.Tests
             private readonly FieldInfo arenaSettings;
             private readonly Action<float, Keyboard> advance;
             public DuelPrototypeController Controller { get; }
-            public CampaignScope(int hits)
+            public CampaignScope(int hits) : this(CampaignDuel(hits)) { }
+            public CampaignScope(LegacyQueuedDuel duel)
             {
                 Controller = Object.FindAnyObjectByType<DuelPrototypeController>();
                 Assert.That(Controller, Is.Not.Null);
@@ -176,7 +213,7 @@ namespace TurnLimbo.Presentation.Tests
                     arenaSettings.SetValue(Controller.ArenaView, settings);
                     Set("mission", null);
                     Set("guide", null);
-                    Set("session", CampaignDuel(hits));
+                    Set("session", duel);
                     advance = (Action<float, Keyboard>)Delegate.CreateDelegate(typeof(Action<float, Keyboard>), Controller,
                         typeof(DuelPrototypeController).GetMethod("AdvancePresentation", Private));
                     typeof(DuelPrototypeController).GetMethod("ResetBattlePresentation", Private)
@@ -188,7 +225,7 @@ namespace TurnLimbo.Presentation.Tests
             }
             public void Begin()
             {
-                Assert.That(Controller.QueueLane(0), Is.True);
+                Assert.That(Controller.Session.GetLane(0)[0].IsWait ? Controller.QueueBreath() : Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
                 Until(() => Controller.Hud.IsPlayerPowerPressurizing);
                 Assert.That(Controller.Session.CurrentSlot, Is.Not.Null);
@@ -221,11 +258,13 @@ namespace TurnLimbo.Presentation.Tests
             private readonly LegacyDuelArt art;
             private readonly DuelPresentationSettings settings;
             private readonly int viewer;
+            private readonly bool oneSided;
             public LegacyArenaView Arena { get; }
             public LocalVersusController Controller { get; }
-            public VersusScope(int viewer)
+            public VersusScope(int viewer, bool oneSided = false)
             {
                 this.viewer = viewer;
+                this.oneSided = oneSided;
                 scene = Object.FindAnyObjectByType<DuelPrototypeController>();
                 if (scene != null) { sceneEnabled = scene.enabled; scene.enabled = false; }
                 root = new GameObject("Power pressure versus " + viewer);
@@ -243,12 +282,13 @@ namespace TurnLimbo.Presentation.Tests
                 {
                     Assert.That(Controller.TryQueueLane(0), Is.True);
                     Assert.That(Controller.TryCommit(), Is.True);
-                    Assert.That(Controller.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
+                    if (!oneSided) Assert.That(Controller.TryApplyOnlinePeerAction(OnlineVersusAction.QueueLane, 0, 1), Is.True);
                     Assert.That(Controller.TryApplyOnlinePeerAction(OnlineVersusAction.Pass, -1, 1), Is.True);
                 }
                 else foreach (int owner in new[] { 0, 1 })
                     {
-                        Assert.That(Controller.ApplyOnlineAcceptedAction(owner, OnlineVersusAction.QueueLane, 0, 1), Is.True);
+                        if (!oneSided || owner == 0)
+                            Assert.That(Controller.ApplyOnlineAcceptedAction(owner, OnlineVersusAction.QueueLane, 0, 1), Is.True);
                         Assert.That(Controller.ApplyOnlineAcceptedAction(owner, OnlineVersusAction.Pass, -1, 1), Is.True);
                     }
                 Until(() => Controller.BattleHud.IsPlayerPowerPressurizing);

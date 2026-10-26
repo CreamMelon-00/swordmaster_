@@ -634,7 +634,12 @@ namespace TurnLimbo.Presentation
                 // action clock nor a held opposing normal/charge may move during this presentation-only beat.
                 float pressureDelta = realDelta - empowermentCues.HoldBattle(realDelta);
                 empowermentCues.Tick(realDelta);
+                arena.SetPlanningState(planningTime, false, false);
+                arena.SetTimePressure(0f);
                 arena.SetHudFloor(hud.QueuePanelFloor);
+                arena.SetDirectorPush(DirectorCameraPush);
+                RequestCurrentCombatCameraShot();
+                arena.SetFastSkillFocus(FastSkillPresentationSpeed < 1f);
                 arena.TickSkillTempo(0f, 0f, realDelta, deferSlowAfterimages: true);
                 RefreshHudClock(0f, pressureDelta);
                 return;
@@ -710,15 +715,7 @@ namespace TurnLimbo.Presentation
             if (!IsTrainingBattle)
                 arena.SetTensionLighting(BattleHealthReading(), presentationSettings.TensionLighting);
             RefreshUpcomingEnemy();
-            if (!finale.IsRunning && session.CurrentSlot != null &&
-                (viewPhase == ViewPhase.SkillWindup || viewPhase == ViewPhase.PlayingSlot))
-            {
-                float progress = viewPhase == ViewPhase.SkillWindup
-                    ? .2f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotAnticipationDuration))
-                    : .2f + .8f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotDuration));
-                RequestCombatCameraShot(arena, progress, session.CurrentSlot.PlayerSkill ?? session.CurrentSlot.PendingPlayerCounter,
-                    session.CurrentSlot.EnemySkill);
-            }
+            RequestCurrentCombatCameraShot();
             arena.SetFastSkillFocus(FastSkillPresentationSpeed < 1f);
             arena.TickSkillTempo(worldDelta, delta, realDelta, deferSlowAfterimages: true);
             if (viewPhase == ViewPhase.PlayingSlot && !bladeBindHitPending)
@@ -1176,6 +1173,17 @@ namespace TurnLimbo.Presentation
                 ? presentationSettings.MajorClashScale : 1f);
 
         // Presentation intent is read from the current exchange only. It never advances a skill or the battle clock.
+        private void RequestCurrentCombatCameraShot()
+        {
+            if (finale.IsRunning || session.CurrentSlot == null ||
+                viewPhase != ViewPhase.SkillWindup && viewPhase != ViewPhase.PlayingSlot) return;
+            float progress = viewPhase == ViewPhase.SkillWindup
+                ? .2f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotAnticipationDuration))
+                : .2f + .8f * Mathf.Clamp01(phaseTime / Mathf.Max(.001f, slotDuration));
+            RequestCombatCameraShot(arena, progress, session.CurrentSlot.PlayerSkill ?? session.CurrentSlot.PendingPlayerCounter,
+                session.CurrentSlot.EnemySkill);
+        }
+
         internal static void RequestCombatCameraShot(LegacyArenaView target, float progress,
             LegacySkill playerSkill, LegacySkill enemySkill)
         {

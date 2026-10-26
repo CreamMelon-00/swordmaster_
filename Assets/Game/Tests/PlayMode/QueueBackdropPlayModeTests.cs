@@ -84,6 +84,40 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
+        public IEnumerator BackdropFollowsCameraX_WhileItsWorldHeightStaysAtBattleEntry()
+        {
+            yield return null;
+            using (var scope = new Scope())
+            {
+                yield return null;
+                var duel = Duel();
+                scope.Refresh(duel, true);
+                RectTransform card = scope.Hud.GetQueuedSkillAnchor(true, 0);
+                Transform row = card.parent;
+                Vector3 before = row.position;
+                float width = PixelWidth(card);
+                scope.Camera.transform.position += new Vector3(3f, 2f, 0f);
+                scope.Refresh(duel, true);
+                Assert.That(row.position.x - before.x, Is.EqualTo(3f).Within(.002f));
+                Assert.That(row.position.y, Is.EqualTo(before.y).Within(.002f),
+                    "Camera lifts must not carry the background queue upward.");
+                Assert.That(PixelWidth(card), Is.EqualTo(width).Within(.03f));
+                scope.Camera.orthographicSize *= .7f;
+                scope.Camera.transform.position += Vector3.down * 4f;
+                scope.Refresh(duel, true);
+                Assert.That(row.position.y, Is.EqualTo(before.y).Within(.002f));
+                Assert.That(PixelWidth(card), Is.EqualTo(width).Within(.03f),
+                    "Keep the existing readable icon size during camera zooms.");
+
+                scope.Refresh(duel, false);
+                scope.Refresh(duel, true);
+                Vector2 screen = RectTransformUtility.WorldToScreenPoint(scope.Camera, card.position);
+                Assert.That(screen.y / Screen.height, Is.EqualTo(.53f).Within(.01f),
+                    "The next battle entry captures its own height rather than retaining a previous camera position.");
+            }
+        }
+
+        [UnityTest]
         public IEnumerator FadeDisableResetAndDisposeLeaveNoIndependentQueueOnScreen()
         {
             yield return null;

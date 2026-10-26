@@ -61,7 +61,8 @@ namespace TurnLimbo.Presentation
                 }
             }
             PresentSlotStartFeedback(slot, playerBefore, enemyBefore, playerWasBroken, enemyWasBroken);
-            return false;
+            // The accepted counter receives its roll only here. Give it the same preparation beat before the real hit.
+            return hud.IsPlayerPowerPressurizing;
         }
 
         private void AdvanceResistanceImpactPresentation(float checkDelta, float realDelta)

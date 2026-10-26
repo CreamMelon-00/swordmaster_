@@ -34,20 +34,20 @@ namespace TurnLimbo.Presentation
             HidePlayerPowerPressure();
         }
 
-        /// <summary>Pressure only accompanies a real attack clash whose immutable roll already exists. No forecasts,
-        /// rerolls, counters or incomplete charge/normal actions are used to invent a number before the resolver has one.</summary>
+        /// <summary>Every real player skill gets pressure once its immutable roll exists, including defence, breathing
+        /// and an accepted counter. Incomplete long actions and empty intervals do not invent a power value.</summary>
         public bool BeginPlayerPowerPressure(ILegacySlotView slot)
         {
-            if (disposed || displayedSession?.UsePowerBreak != true || slot == null || !IsPowerClash(slot) ||
-                IsPressureCounter(slot)) return false;
+            if (disposed || displayedSession?.UsePowerBreak != true || !DuelPowerPressure.ShouldHold(slot)) return false;
             int action = slot is LegacyCurrentSlot current ? current.PlayerQueueIndex : slot.SlotIndex;
-            if (action < 0) return false;
+            // Counter/empty-side presentation beats must not collide with a later real reservation's index.
+            if (action < 0 || slot.PlayerSkill == null) action = -1 - slot.SlotIndex;
             if (ReferenceEquals(lastPressureSession, displayedSession) && lastPressureRound == displayedSession.RoundNumber &&
                 lastPressureQueueIndex == action) return false;
             lastPressureSession = displayedSession;
             lastPressureRound = displayedSession.RoundNumber;
             lastPressureQueueIndex = action;
-            if (!ReferenceEquals(powerClashSlot, slot)) SetPowerClash(slot);
+            if (!ReferenceEquals(powerClashSlot, slot)) SetPowerNumbers(slot);
             playerPressureSlot = slot;
             playerPowerPressure.Begin(slot.PlayerTotalPower);
             shownPressureValue = -1;
@@ -55,9 +55,8 @@ namespace TurnLimbo.Presentation
             return true;
         }
 
-        private static bool IsPressureCounter(ILegacySlotView slot)
-            => slot is LegacyCurrentSlot current && (current.PlayerCountered || current.EnemyCountered ||
-                    current.PendingPlayerCounter != null); // Versus does not support counters.
+        private bool HasPlayerPowerPressureFor(ILegacySlotView slot)
+            => ReferenceEquals(playerPressureSlot, slot) && playerPowerPressure.HasValue;
 
         private void AdvancePlayerPowerPressure(float realDelta)
         {
@@ -70,7 +69,7 @@ namespace TurnLimbo.Presentation
         {
             bool visible = PowerClashVisible && ReferenceEquals(playerPressureSlot, powerClashSlot) &&
                 playerPowerPressure.HasValue;
-            bool emitting = visible && playerPowerPressure.IsVisible;
+            bool emitting = visible && playerPressureSlot.PlayerSkill != null && playerPowerPressure.IsVisible;
             playerPressureTrack.gameObject.SetActive(emitting && !(powerNumberShattered && powerPlayerBroken));
             playerPressureSteam.gameObject.SetActive(emitting);
             if (!visible) return;

@@ -80,7 +80,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator IneligibleLegacyDefenceDodgeAndCounterSlotsNeverStartPressure()
+        public IEnumerator EveryCompletedKindDodgeAndCounterReceivesPressure_ButPendingCountersDoNot()
         {
             yield return null;
             using (var scope = new Scope())
@@ -89,12 +89,20 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.Hud.BeginPlayerPowerPressure(legacy), Is.False);
                 var guard = new LegacySkill(99821, "방어", 0, 5, 5, LegacySkillKind.Defence,
                     LegacySkillProperty.Defence, 1, 0, string.Empty);
-                LegacyCurrentSlot defence = scope.Prepare(Duel(enemy: new[] { guard }));
-                Assert.That(scope.Hud.BeginPlayerPowerPressure(defence), Is.False);
-                var dodge = Duel(player: new[] { LegacySkillDefinitions.Skill(54) });
-                LegacyCurrentSlot dodged = scope.Prepare(dodge);
-                Assert.That(dodged.DodgeSucceeded, Is.True);
-                Assert.That(scope.Hud.BeginPlayerPowerPressure(dodged), Is.False);
+                foreach (LegacySkill skill in new[] { Attack(99824, 5), guard, LegacyCommonActions.Breathe,
+                    LegacySkillDefinitions.Skill(54) })
+                {
+                    var duel = Duel(player: new[] { skill }, enemy: new[] { skill.Id == 54 ? Attack(99825, 5) : guard });
+                    LegacyCurrentSlot slot = scope.Prepare(duel);
+                    Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.True, skill.Name);
+                    Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo("0"));
+                    scope.Refresh(duel, true, .2f);
+                    Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.True);
+                    scope.Refresh(duel, true, DuelPowerPressure.HoldSeconds);
+                    Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo(slot.PlayerTotalPower.ToString()));
+                    Assert.That(scope.Hud.ActivePowerNumberFragmentCount, Is.Zero,
+                        "Displaying any skill's power does not turn a defence into an attack clash.");
+                }
                 foreach (bool playerCounter in new[] { true, false })
                 {
                     LegacySkill attack = Attack(99822, 5);
@@ -105,18 +113,23 @@ namespace TurnLimbo.Presentation.Tests
                     scope.Prepare(duel);
                     Finish(duel);
                     LegacyCurrentSlot slot = duel.BeginNextSlot();
-                    // A player's fallback counter settles only as its first hit begins.
-                    duel.ResolveNextHit();
+                    if (playerCounter)
+                    {
+                        scope.Hud.SetSkillFeedback(slot); scope.Refresh(duel, true);
+                        Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.False, "An unchosen counter has not rolled.");
+                        Assert.That(duel.PrepareCurrentSlotImpact(), Is.True);
+                    }
                     Assert.That(playerCounter ? slot.PlayerCountered : slot.EnemyCountered, Is.True);
                     scope.Hud.SetSkillFeedback(slot);
                     scope.Refresh(duel, true);
-                    Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.False, "A fallback counter does not add another preparation hold.");
+                    Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.True, "An accepted counter has a real rolled value.");
+                    Assert.That(slot.HitsResolved, Is.Zero);
                 }
             }
         }
 
         [UnityTest]
-        public IEnumerator TempoWaitsForAnActualSimultaneousClash_WithoutInventingPendingPower()
+        public IEnumerator TempoShowsEveryCompletedPlayerSkill_WithoutInventingPendingPower()
         {
             yield return null;
             foreach (bool charge in new[] { false, true })
@@ -126,8 +139,9 @@ namespace TurnLimbo.Presentation.Tests
                         : new[] { Attack(99831, 10, 1), Attack(99832, 10, 1), Attack(99833, 10) };
                     var duel = Duel(player: player, enemy: new[] { Attack(99834, 10), Attack(99835, 10), Attack(99836, 10) });
                     LegacyCurrentSlot first = scope.Prepare(duel);
-                    Assert.That(scope.Hud.BeginPlayerPowerPressure(first), Is.False,
-                        "The earlier unilateral completion has no real clash roll to display.");
+                    Assert.That(scope.Hud.BeginPlayerPowerPressure(first), Is.EqualTo(!charge),
+                        "Fast unilateral attacks have a roll; a still-preparing charge does not.");
+                    if (!charge) scope.Refresh(duel, true, DuelPowerPressure.HoldSeconds);
                     Finish(duel);
                     LegacyCurrentSlot simultaneous = duel.BeginNextSlot();
                     scope.Hud.SetSkillFeedback(simultaneous);
@@ -142,7 +156,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator ManualDodgeHidingResetAndTurnEndClearGaugeSteamAndHold()
+        public IEnumerator ManualDodgeKeepsTheSkillPressure_WhileHidingResetAndTurnEndClearIt()
         {
             yield return null;
             using (var scope = new Scope())
@@ -152,7 +166,10 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.True);
                 Assert.That(duel.TryStep(LegacyStepAction.Dodge, true, out bool dodged) && dodged, Is.True);
                 scope.Refresh(duel, true, .01f);
-                scope.AssertPressureHidden();
+                Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.True, "Dodging changes the clash, not the selected player's skill.");
+                Assert.That(scope.Find<Text>("Power Comparison").text, Is.EqualTo("위력"));
+                scope.Refresh(duel, true, DuelPowerPressure.HoldSeconds);
+                Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo(slot.PlayerTotalPower.ToString()));
                 foreach (int boundary in new[] { 0, 1, 2 })
                 {
                     duel = Duel(); slot = scope.Prepare(duel);

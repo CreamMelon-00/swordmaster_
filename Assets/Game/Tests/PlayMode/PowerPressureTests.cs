@@ -1,10 +1,103 @@
 using System;
 using NUnit.Framework;
+using TurnLimbo.Runtime.LegacyCombat;
 
 namespace TurnLimbo.Presentation.Tests
 {
     public sealed class PowerPressureTests
     {
+        [TestCase(LegacySkillKind.Attack)]
+        [TestCase(LegacySkillKind.Defence)]
+        [TestCase(LegacySkillKind.Wait)]
+        public void EveryCompletedPlayerSkillGetsPressure_RegardlessOfTheOpponentKind(LegacySkillKind kind)
+        {
+            var duel = PolicyDuel(new[] { PolicySkill(99861, kind) }, new[] { PolicySkill(99862, LegacySkillKind.Defence) });
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            Assert.That(DuelPowerPressure.CanPresent(slot), Is.True);
+            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.True);
+            duel.ResolveNextHit();
+            Assert.That(DuelPowerPressure.CanPresent(slot), Is.False, "A hit already under way cannot start a new preparation.");
+        }
+
+        [TestCase(false)]
+        [TestCase(true)]
+        public void FastUnilateralCompletionGetsPressure_ChargeWaitsForItsOwnRolledCompletion(bool charge)
+        {
+            LegacySkill first = PolicySkill(99863, LegacySkillKind.Attack, charge ? 4 : 1);
+            var duel = PolicyDuel(charge ? new[] { first } : new[] { first, first },
+                new[] { PolicySkill(99864, LegacySkillKind.Attack), PolicySkill(99864, LegacySkillKind.Attack) });
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            Assert.That(DuelPowerPressure.CanPresent(slot), Is.EqualTo(!charge));
+            FinishPolicySlot(duel);
+            slot = duel.BeginNextSlot();
+            Assert.That(DuelPowerPressure.CanPresent(slot), Is.True);
+            Assert.That(slot.PlayerSkill, Is.Not.Null);
+        }
+
+        [Test]
+        public void PendingCounterWaitsForItsActualRoll_ThenReceivesPressureBeforeTheHit()
+        {
+            LegacySkill attack = PolicySkill(99865, LegacySkillKind.Attack);
+            var duel = PolicyDuel(new[] { attack }, new[] { attack, attack }, new LegacyCounter(attack));
+            duel.BeginNextSlot(); FinishPolicySlot(duel);
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            Assert.That(slot.PendingPlayerCounter, Is.Not.Null);
+            Assert.That(DuelPowerPressure.CanPresent(slot), Is.False);
+            Assert.That(duel.PrepareCurrentSlotImpact(), Is.True);
+            Assert.That(slot.PlayerCountered, Is.True);
+            Assert.That(slot.HitsResolved, Is.Zero);
+            Assert.That(DuelPowerPressure.CanPresent(slot), Is.True);
+        }
+
+        [Test]
+        public void AutomaticEmptyIntervalsDoNotPretendToBePlayerSkills()
+        {
+            LegacySkill attack = PolicySkill(99866, LegacySkillKind.Attack);
+            var duel = PolicyDuel(new[] { attack }, new[] { attack, attack });
+            duel.BeginNextSlot(); FinishPolicySlot(duel);
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            Assert.That(slot.PlayerSkill, Is.Null);
+            Assert.That(DuelPowerPressure.CanPresent(slot), Is.False);
+            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.False);
+            Assert.That(DuelPowerPressure.CanPresent(null), Is.False);
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        public void VersusViewersShareTheHold_WhenOnlyOnePlayerHasARealSkill(int viewer)
+        {
+            LegacySkill attack = PolicySkill(99867, LegacySkillKind.Attack);
+            var match = new LocalVersusMatch(new[] { attack }, new[] { attack }, randomSeed: 7, usePowerBreak: true);
+            Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.TryCommit(1), Is.True);
+            match.BeginNextSlot();
+            var view = new LocalVersusPerspective(match, viewer);
+            Assert.That(DuelPowerPressure.CanPresent(view.CurrentSlot), Is.EqualTo(viewer == 0));
+            Assert.That(DuelPowerPressure.ShouldHold(view.CurrentSlot), Is.True,
+                "The viewer with an empty queue must not advance the shared match sooner.");
+        }
+
+        private static LegacySkill PolicySkill(int id, LegacySkillKind kind, int duration = 2)
+            => new LegacySkill(id, "압력 범위 검사", 0, kind == LegacySkillKind.Wait ? 0 : 5,
+                kind == LegacySkillKind.Wait ? 0 : 5, kind, kind == LegacySkillKind.Defence
+                    ? LegacySkillProperty.Defence : LegacySkillProperty.Slash, 1, 0, string.Empty, durationHalfUnits: duration);
+
+        private static LegacyQueuedDuel PolicyDuel(LegacySkill[] player, LegacySkill[] enemy, LegacyCounter counter = null)
+        {
+            var duel = new LegacyQueuedDuel(1000, 0, 1000, 0, player, enemy, new[] { enemy.Length },
+                randomSeed: 7, playerCounter: counter, usePowerBreak: true);
+            Assert.That(duel.TrySetFixedQueues(player, enemy), Is.True);
+            duel.Commit();
+            return duel;
+        }
+
+        private static void FinishPolicySlot(LegacyQueuedDuel duel)
+        {
+            while (!duel.CurrentSlot.IsResolved) duel.ResolveNextHit();
+            duel.CompleteCurrentSlot();
+        }
+
         [Test]
         public void BeginningUsesZero_WhileRetainingTheAlreadyRolledTarget()
         {
