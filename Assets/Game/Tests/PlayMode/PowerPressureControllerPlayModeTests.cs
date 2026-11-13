@@ -100,7 +100,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator DefenceAndBreathingAlsoHoldTheActualControllerBeforeItsNoDamageContact()
+        public IEnumerator DefenceAndBreathingNeverHoldTheController_TheyResolveWithoutAPressureBeat()
         {
             yield return null;
             var guard = new LegacySkill(99871, "수비 압력", 0, 5, 5, LegacySkillKind.Defence,
@@ -109,17 +109,17 @@ namespace TurnLimbo.Presentation.Tests
                 using (var scope = new CampaignScope(new LegacyQueuedDuel(1000, 0, 1000, 0,
                     new[] { skill }, new[] { LegacyCommonActions.Breathe }, new[] { 1 }, randomSeed: 7, usePowerBreak: true)))
                 {
-                    scope.Begin();
+                    scope.Begin(expectPressure: false);
                     LegacyCurrentSlot slot = scope.Controller.Session.CurrentSlot;
                     Assert.That(slot.PlayerAttackCount + slot.EnemyAttackCount, Is.Zero);
-                    float hold = scope.Controller.Hud.PlayerPressureHoldSeconds;
-                    scope.Advance(hold * .5f);
-                    Assert.That(scope.Controller.Hud.IsPlayerPowerPressurizing, Is.True);
-                    Assert.That(slot.HitsResolved, Is.Zero, "A non-attack skill cannot skip its preparation beat.");
-                    scope.Advance(hold);
-                    Assert.That(scope.Controller.Hud.IsPlayerPowerPressurizing, Is.False);
-                    Assert.That(slot.HitsResolved, Is.Zero);
-                    scope.Until(() => slot.IsResolved);
+                    int frames = 0;
+                    while (!slot.IsResolved && frames++ < 20000)
+                    {
+                        Assert.That(scope.Controller.Hud.IsPlayerPowerPressurizing, Is.False,
+                            "Only an attack-against-attack clash holds for pressure (2026-11-13).");
+                        scope.Advance(Frame);
+                    }
+                    Assert.That(slot.IsResolved, Is.True);
                     Assert.That((scope.Controller.Session.Player.Health, scope.Controller.Session.Enemy.Health),
                         Is.EqualTo((1000, 1000)));
                 }
@@ -136,6 +136,19 @@ namespace TurnLimbo.Presentation.Tests
                     scope.Begin();
                     var c = scope.Controller;
                     LocalVersusSlot slot = c.Match.CurrentSlot;
+                    if (oneSided)
+                    {
+                        // A one-sided slot is no clash: neither screen holds, so both advance the shared match alike.
+                        int frames = 0;
+                        while (slot.HitsResolved == 0 && frames++ < 20000)
+                        {
+                            Assert.That(c.BattleHud.IsPlayerPowerPressurizing, Is.False);
+                            c.Tick(Frame, null);
+                        }
+                        Assert.That(slot.HitsResolved, Is.EqualTo(1));
+                        Assert.That((c.Match.Left.State.Health, c.Match.Right.State.Health), Is.EqualTo(ExpectedVersus(true)));
+                        continue;
+                    }
                     float hold = c.BattleHud.PlayerPressureHoldSeconds, held = hold * .5f;
                     int left = c.Match.Left.State.Health, right = c.Match.Right.State.Health;
                     Sprite playerPose = scope.Arena.PlayerRenderer.sprite, enemyPose = scope.Arena.EnemyRenderer.sprite;
@@ -192,8 +205,9 @@ namespace TurnLimbo.Presentation.Tests
         {
             var skill = new LegacySkill(99872, "가변 압력", 1, 1, 10, LegacySkillKind.Attack,
                 LegacySkillProperty.Slash, 1, 0, string.Empty, iconId: 1);
+            // Pressure needs an attack clash, so the opponent attacks with a fixed power.
             return new LegacyQueuedDuel(1000, 0, 1000, 0, new[] { skill },
-                new[] { LegacyCommonActions.Breathe }, new[] { 1 }, randomSeed: seed, meshPercent: 0, usePowerBreak: true);
+                new[] { Attack(99873, 5) }, new[] { 1 }, randomSeed: seed, meshPercent: 0, usePowerBreak: true);
         }
 
         private static int SeedForRangePower(int power)
@@ -277,11 +291,12 @@ namespace TurnLimbo.Presentation.Tests
                 }
                 catch { Dispose(); throw; }
             }
-            public void Begin()
+            public void Begin(bool expectPressure = true)
             {
                 Assert.That(Controller.Session.GetLane(0)[0].IsWait ? Controller.QueueBreath() : Controller.QueueLane(0), Is.True);
                 Controller.CommitTurn();
-                Until(() => Controller.Hud.IsPlayerPowerPressurizing);
+                if (expectPressure) Until(() => Controller.Hud.IsPlayerPowerPressurizing);
+                else Until(() => Controller.Session.CurrentSlot != null);
                 Assert.That(Controller.Session.CurrentSlot, Is.Not.Null);
             }
             public void Advance(float seconds) => advance(seconds, null);
@@ -345,7 +360,8 @@ namespace TurnLimbo.Presentation.Tests
                             Assert.That(Controller.ApplyOnlineAcceptedAction(owner, OnlineVersusAction.QueueLane, 0, 1), Is.True);
                         Assert.That(Controller.ApplyOnlineAcceptedAction(owner, OnlineVersusAction.Pass, -1, 1), Is.True);
                     }
-                Until(() => Controller.BattleHud.IsPlayerPowerPressurizing);
+                if (oneSided) Until(() => Controller.Match.CurrentSlot != null);
+                else Until(() => Controller.BattleHud.IsPlayerPowerPressurizing);
                 Assert.That(Controller.Match.CurrentSlot, Is.Not.Null);
             }
             public void Until(Func<bool> done)

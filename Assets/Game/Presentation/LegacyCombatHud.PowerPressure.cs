@@ -37,8 +37,9 @@ namespace TurnLimbo.Presentation
             HidePlayerPowerPressure();
         }
 
-        /// <summary>Every real player skill gets pressure once its immutable roll exists, including defence, breathing
-        /// and an accepted counter. Incomplete long actions and empty intervals do not invent a power value.</summary>
+        /// <summary>An attack-against-attack clash gets pressure once both immutable rolls exist, an accepted attacking
+        /// counter included (<see cref="DuelPowerPressure.ShouldHold"/>). Defence, breathing, one-sided slots, incomplete
+        /// long actions and empty intervals get none.</summary>
         public bool BeginPlayerPowerPressure(ILegacySlotView slot)
         {
             if (disposed || displayedSession?.UsePowerBreak != true || !DuelPowerPressure.ShouldHold(slot)) return false;

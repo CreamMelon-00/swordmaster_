@@ -86,6 +86,14 @@ namespace TurnLimbo.Runtime.LegacyCombat
             }
         }
 
+        // 위력 차 붕괴 retires counting the 저항 감소 kinds ahead: LegacyPowerBreakRules gives that power or time bonus 0, so no
+        // preview may promise it (2026-11-13). Other count-ahead targets work under either rule.
+        private static bool AheadPowerLive(LegacySkillEffect effect, ILegacyDuelView view)
+            => effect.HasAheadPower && !(view.UsePowerBreak && effect.AheadPowerTarget == LegacyAheadTarget.ResistanceReduction);
+
+        private static bool AheadTimeLive(LegacySkillEffect effect, ILegacyDuelView view)
+            => effect.HasAheadTime && !(view.UsePowerBreak && effect.AheadTimeTarget == LegacyAheadTarget.ResistanceReduction);
+
         /// <summary>The lane window's line under the front skill of a lane: what reserving <paramref name="skill"/> now would
         /// do. <c>숨 3/4 · +12</c>, <c>감소 2/3 · +10</c> (count-ahead power), <c>앞 순환 2</c> (순환 +1: the kinds ahead it would
         /// still raise), <c>자동 숨 1/1</c> (숨고르기 +1, while 숨고르기 is open), <c>갈아내기 ×3</c> (일회성, while its lane is
@@ -104,7 +112,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.ReserveBreath && view.Features.Has(CombatFeature.Breath))
                 parts.Add(AutoBreathUsed(view) ? UsedThisTurn
                     : "자동 숨 " + LegacyQueuedDuel.MaximumAutoBreathsPerTurn + "/" + LegacyQueuedDuel.MaximumAutoBreathsPerTurn);
-            if (effect.HasAheadPower)
+            if (AheadPowerLive(effect, view))
                 parts.Add(!LegacyKeywordLinks.IsFirstOfKind(queue, slot, skill) ? UsedThisTurn
                     : Unit(effect.AheadPowerTarget) + " " + LegacyKeywordLinks.AheadPowerCount(queue, slot, skill) + "/" +
                       effect.AheadPowerMax + " · +" + LegacyKeywordLinks.AheadPowerBonus(queue, slot, skill));
@@ -124,7 +132,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             LegacySkill spawned = LegacyKeywordLinks.TemporarySpawn(skill, out int copies);
             if (spawned != null && view.Features.HasLane(spawned.LaneIndex))
                 parts.Add(TemporaryUsed(view) ? UsedThisTurn : TemporarySpawnText(spawned, copies));
-            if (effect.HasAheadTime)
+            if (AheadTimeLive(effect, view))
                 parts.Add(!LegacyKeywordLinks.IsFirstOfKind(queue, slot, skill) ? UsedThisTurn
                     : NextTurnTime(LegacyKeywordLinks.AheadTimeBonus(queue, slot, skill)));
             return parts.Count == 0 ? null : string.Join(" · ", Distinct(parts));
@@ -151,7 +159,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (effect.ReserveBreath && view.Features.Has(CombatFeature.Breath))
                 parts.Add(AutoBreathUsed(view) ? Used("숨고르기 +1")
                     : "숨고르기 +1 · 지금 예약하면 바로 뒤에 숨고르기 (자동 1/1)");
-            if (effect.HasAheadPower)
+            if (AheadPowerLive(effect, view))
             {
                 string target = LegacySkillLabels.AheadTarget(effect.AheadPowerTarget);
                 parts.Add(!first ? Used(target + "마다 위력")
@@ -177,7 +185,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (spawned != null && view.Features.HasLane(spawned.LaneIndex))
                 parts.Add(TemporaryUsed(view) ? Used("일회성")
                     : "일회성 · 지금 예약하면 " + "QWE"[spawned.LaneIndex] + " 열 맨 앞에 " + spawned.Name + " " + copies + "개");
-            if (effect.HasAheadTime)
+            if (AheadTimeLive(effect, view))
             {
                 string target = LegacySkillLabels.AheadTarget(effect.AheadTimeTarget);
                 parts.Add(!first ? Used(target + "마다 제한시간")
@@ -311,7 +319,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 int bonus = LegacyKeywordLinks.AheadAttackHitsPowerBonus(queue, slotIndex, skill);
                 return new LegacyKeywordMark(first ? "공격 횟수 +" + bonus : "+0", LegacyKeywordMarkKind.AheadHitPower, bonus == 0);
             }
-            if (effect.HasAheadPower)
+            if (AheadPowerLive(effect, view))
             {
                 int bonus = LegacyKeywordLinks.AheadPowerBonus(queue, slotIndex, skill);
                 return new LegacyKeywordMark(first ? Unit(effect.AheadPowerTarget) + " +" + bonus : "+0",
@@ -325,7 +333,7 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     raised == 0);
             }
             if (effect.AutoDodge) return new LegacyKeywordMark(AutoDodgeTag, LegacyKeywordMarkKind.AutoDodge, false);
-            if (effect.HasAheadTime)
+            if (AheadTimeLive(effect, view))
             {
                 int seconds = LegacyKeywordLinks.AheadTimeBonus(queue, slotIndex, skill);
                 return new LegacyKeywordMark(first ? NextTurnTime(seconds) : "+0초", LegacyKeywordMarkKind.AheadTime, seconds == 0);

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
 
@@ -293,6 +294,95 @@ namespace TurnLimbo.Core.Tests
             Assert.That(match.ResolveNextHit().RightHealthDamage, Is.EqualTo(12));
             match.CompleteCurrentSlot();
             Assert.That(match.BeginNextSlot().RightSkill.Id, Is.EqualTo(99186));
+        }
+
+        // 2026-11-13: a 상대 조건 that gates only 저항 감소/상대 붕괴 (retired by 위력 차 붕괴) neither reports as met nor
+        // reads as 간파; one that gates ACT 회복 still does. The sheet is designer data, so the skills are found by effect.
+        private static LegacySkillDefinition StarterWithOpponentCondition(bool gatesActRecovery)
+            => LegacySkillDefinitions.All.FirstOrDefault(d => d.Effect != null && d.Effect.HasOpponentCondition &&
+                (d.Effect.ActGain > 0) == gatesActRecovery && d.Skill.Kind != LegacySkillKind.Wait &&
+                LegacySkillDefinitions.InitialSkills.Any(s => s.Id == d.Skill.Id));
+
+        private static LegacySkill Matching(LegacySkillEffect effect, int id)
+        {
+            if (!effect.OpponentProperty.HasValue)
+                return effect.OpponentKind == LegacySkillKind.Defence ? Guard(id, 5) : Attack(id, 5);
+            LegacySkillProperty property = effect.OpponentProperty.Value;
+            return new LegacySkill(id, "matching " + id, 0, 5, 5,
+                property == LegacySkillProperty.Defence ? LegacySkillKind.Defence : LegacySkillKind.Attack,
+                property, 1, 0, string.Empty);
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void RetiredResistanceCondition_NeitherReportsAsMetNorReadsAsARead_UnderPowerBreak(bool powerBreak)
+        {
+            LegacySkillDefinition definition = StarterWithOpponentCondition(gatesActRecovery: false);
+            Assume.That(definition, Is.Not.Null, "No starting skill's 상대 조건 gates only resistance effects.");
+            LegacySkill retired = definition.Skill;
+            Assert.That(LegacySkillConditions.HasOpponentCondition(retired, powerBreak), Is.EqualTo(!powerBreak));
+            var player = new[] { retired };
+            var enemy = new[] { Matching(definition.Effect, 99191) };
+            var duel = new LegacyQueuedDuel(10000, 50, 10000, 50, player, enemy, new[] { 1 },
+                meshPercent: 0, usePowerBreak: powerBreak);
+            Assert.That(duel.TrySetFixedQueues(player, enemy), Is.True);
+            duel.Commit();
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            Assert.That(LegacySkillConditions.MatchesOpponent(retired, slot.EnemySkill), Is.True, "The plain match is unchanged.");
+            Assert.That(slot.PlayerFeedback.ConditionMet, Is.EqualTo(!powerBreak));
+            LegacySlotFacts facts = duel.CurrentSlotFacts;
+            Assert.That(facts.PlayerConditionMatched, Is.EqualTo(!powerBreak));
+            Assert.That((LegacySlotImportance.PlayerReads(facts) & LegacyReadEvent.OpponentCondition) != 0,
+                Is.EqualTo(!powerBreak), "간파 only for a condition that still gates something.");
+        }
+
+        [Test]
+        public void ActRecoveryCondition_StaysLiveUnderPowerBreak()
+        {
+            LegacySkillDefinition definition = StarterWithOpponentCondition(gatesActRecovery: true);
+            Assume.That(definition, Is.Not.Null, "No starting skill's 상대 조건 gates ACT 회복.");
+            Assert.That(LegacySkillConditions.HasOpponentCondition(definition.Skill, usePowerBreak: true), Is.True);
+            LegacyQueuedDuel duel = Duel(new[] { definition.Skill }, new[] { Matching(definition.Effect, 99192) });
+            duel.Commit();
+            LegacyCurrentSlot slot = duel.BeginNextSlot();
+            Assert.That(slot.PlayerFeedback.ConditionMet, Is.True);
+            Assert.That(slot.PlayerFeedback.EffectActivated, Is.True);
+            Assert.That(duel.CurrentSlotFacts.PlayerConditionMatched, Is.True);
+        }
+
+        [TestCase(true)]
+        [TestCase(false)]
+        public void VersusReadsARetiredResistanceConditionTheSameWay(bool powerBreak)
+        {
+            LegacySkillDefinition definition = StarterWithOpponentCondition(gatesActRecovery: false);
+            Assume.That(definition, Is.Not.Null, "No starting skill's 상대 조건 gates only resistance effects.");
+            LegacySkill retired = definition.Skill, opposing = Matching(definition.Effect, 99193);
+            var match = new LocalVersusMatch(new[] { retired }, new[] { opposing }, randomSeed: 7, usePowerBreak: powerBreak);
+            Assert.That(match.TryQueueLane(0, retired.LaneIndex), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.TryQueueLane(1, opposing.LaneIndex), Is.True);
+            Assert.That(match.TryCommit(1), Is.True);
+            match.BeginNextSlot();
+            Assert.That(match.CurrentSlot.LeftFeedback.ConditionMet, Is.EqualTo(!powerBreak));
+            Assert.That(match.CurrentSlotFacts(0).PlayerConditionMatched, Is.EqualTo(!powerBreak));
+            Assert.That(match.CurrentSlotFacts(1).EnemyConditionMatched, Is.EqualTo(!powerBreak));
+        }
+
+        [Test]
+        public void StateCondition_GatingOnlyResistanceRecovery_IsRetiredUnderPowerBreak()
+        {
+            LegacySkillDefinition recovery = LegacySkillDefinitions.All.FirstOrDefault(d => d.Effect != null &&
+                d.Effect.HasOpponentStateCondition && d.Effect.ResistanceRecoveryPercent > 0 && d.Effect.ConditionalDamagePercent == 0);
+            LegacySkillDefinition multiplier = LegacySkillDefinitions.All.FirstOrDefault(d => d.Effect != null &&
+                d.Effect.HasOpponentStateCondition && d.Effect.ConditionalDamagePercent > 0);
+            Assume.That(recovery != null || multiplier != null, "The sheet has no 상대 상태 조건 to read.");
+            if (recovery != null)
+            {
+                Assert.That(LegacySkillConditions.HasOpponentStateCondition(recovery.Skill, usePowerBreak: true), Is.False);
+                Assert.That(LegacySkillConditions.HasOpponentStateCondition(recovery.Skill, usePowerBreak: false), Is.True);
+            }
+            if (multiplier != null)
+                Assert.That(LegacySkillConditions.HasOpponentStateCondition(multiplier.Skill, usePowerBreak: true), Is.True);
         }
     }
 }

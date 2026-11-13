@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using NUnit.Framework;
 using TurnLimbo.Runtime.LegacyCombat;
 
@@ -115,6 +116,26 @@ namespace TurnLimbo.Core.Tests
                 Assert.That(LegacyKeywordPreview.AheadPowerCue(duel.PlayerQueue, 2), Is.EqualTo("저항 감소 2종 · 위력 +10"));
                 Assert.That(LegacyKeywordPreview.QueueMark(duel, true, 2, false).Text, Is.EqualTo("감소 +10"),
                     "The count holds through the resolution.");
+            });
+        }
+
+        [Test]
+        public void ReductionPayoff_PromisesNothingUnderPowerBreak_WhichRetiresTheCount()
+        {
+            KeywordSheet.WithKeywords(() =>
+            {
+                int[] ids = { KeywordSheet.ReductionQ, KeywordSheet.ReductionPayoff, KeywordSheet.ReductionMissE };
+                var duel = new LegacyQueuedDuel(1000, 50, 1000, 100, ids.Select(KeywordSheet.Skill).ToArray(),
+                    Array.Empty<LegacySkill>(), new[] { 0 }, randomSeed: 1, playerActGainBonus: 7, meshPercent: 0,
+                    usePowerBreak: true);
+                KeywordLinkTests.Queue(duel, Q, E);
+                LegacySkill payoff = duel.GetLane(W)[0];
+                Assert.That(LegacyKeywordPreview.LaneLine(duel, payoff), Is.Null,
+                    "위력 차 붕괴 gives the 감소 count no power, so the lane window promises none.");
+                Assert.That(LegacyKeywordPreview.Note(duel, payoff), Is.Null);
+                KeywordLinkTests.Queue(duel, W);
+                Assert.That(LegacyKeywordPreview.QueueMark(duel, true, 2, true).IsEmpty, Is.True);
+                Assert.That(LegacyKeywordPreview.QueueMark(duel, true, 2, false).IsEmpty, Is.True);
             });
         }
 

@@ -81,7 +81,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator EveryCompletedKindDodgeAndCounterReceivesPressure_ButPendingCountersDoNot()
+        public IEnumerator OnlyAttackClashesReceivePressure_AcceptedCountersToo_ButPendingCountersDoNot()
         {
             yield return null;
             using (var scope = new Scope())
@@ -90,19 +90,30 @@ namespace TurnLimbo.Presentation.Tests
                 Assert.That(scope.Hud.BeginPlayerPowerPressure(legacy), Is.False);
                 var guard = new LegacySkill(99821, "방어", 0, 5, 5, LegacySkillKind.Defence,
                     LegacySkillProperty.Defence, 1, 0, string.Empty);
-                foreach (LegacySkill skill in new[] { Attack(99824, 5), guard, LegacyCommonActions.Breathe,
-                    LegacySkillDefinitions.Skill(54) })
+                LegacySkill playerAttack = Attack(99824, 5), enemyAttack = Attack(99825, 5);
+                // 2026-11-13: an attack into an attack is the only clash. A guard on either side, breathing and
+                // 에스키브's automatic dodge (54) keep their result readable without a pressure beat.
+                foreach ((LegacySkill skill, LegacySkill opposing, bool clash) in new[]
                 {
-                    var duel = Duel(player: new[] { skill }, enemy: new[] { skill.Id == 54 ? Attack(99825, 5) : guard });
+                    (playerAttack, enemyAttack, true), (playerAttack, guard, false), (guard, enemyAttack, false),
+                    (LegacyCommonActions.Breathe, enemyAttack, false), (LegacySkillDefinitions.Skill(54), enemyAttack, false),
+                })
+                {
+                    var duel = Duel(player: new[] { skill }, enemy: new[] { opposing });
                     LegacyCurrentSlot slot = scope.Prepare(duel);
-                    Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.True, skill.Name);
+                    Assert.That(scope.Hud.BeginPlayerPowerPressure(slot), Is.EqualTo(clash), skill.Name);
+                    if (!clash)
+                    {
+                        Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.False, skill.Name);
+                        continue;
+                    }
                     Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo("0"));
                     scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds * .5f);
                     Assert.That(scope.Hud.IsPlayerPowerPressurizing, Is.True);
                     scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds);
                     Assert.That(scope.Hud.PlayerClashPowerText, Is.EqualTo(slot.PlayerTotalPower.ToString()));
                     Assert.That(scope.Hud.ActivePowerNumberFragmentCount, Is.Zero,
-                        "Displaying any skill's power does not turn a defence into an attack clash.");
+                        "The pressure beat itself never shatters a number before the actual hit.");
                 }
                 foreach (bool playerCounter in new[] { true, false })
                 {
@@ -130,7 +141,7 @@ namespace TurnLimbo.Presentation.Tests
         }
 
         [UnityTest]
-        public IEnumerator TempoShowsEveryCompletedPlayerSkill_WithoutInventingPendingPower()
+        public IEnumerator TempoHoldsOnlyTheSimultaneousClash_WithoutInventingPendingPower()
         {
             yield return null;
             foreach (bool charge in new[] { false, true })
@@ -140,9 +151,9 @@ namespace TurnLimbo.Presentation.Tests
                         : new[] { Attack(99831, 10, 1), Attack(99832, 10, 1), Attack(99833, 10) };
                     var duel = Duel(player: player, enemy: new[] { Attack(99834, 10), Attack(99835, 10), Attack(99836, 10) });
                     LegacyCurrentSlot first = scope.Prepare(duel);
-                    Assert.That(scope.Hud.BeginPlayerPowerPressure(first), Is.EqualTo(!charge),
-                        "Fast unilateral attacks have a roll; a still-preparing charge does not.");
-                    if (!charge) scope.Refresh(duel, true, scope.Hud.PlayerPressureHoldSeconds);
+                    Assert.That(scope.Hud.BeginPlayerPowerPressure(first), Is.False, charge
+                        ? "A still-preparing charge has no roll yet."
+                        : "A fast attack completing alone meets no attack, so it forms no clash.");
                     Finish(duel);
                     LegacyCurrentSlot simultaneous = duel.BeginNextSlot();
                     scope.Hud.SetSkillFeedback(simultaneous);
@@ -191,13 +202,15 @@ namespace TurnLimbo.Presentation.Tests
             yield return null;
             var skill = new LegacySkill(99851, "가변 압력 게이지", 0, 1, 10, LegacySkillKind.Attack,
                 LegacySkillProperty.Slash, 1, 0, string.Empty);
+            // Pressure needs an attack clash, so the opponent attacks with a fixed power.
+            LegacySkill opposing = Attack(99852, 5);
             using (var low = new Scope())
             using (var high = new Scope())
             {
-                LegacyQueuedDuel lowDuel = Duel(player: new[] { skill }, enemy: new[] { LegacyCommonActions.Breathe },
-                    seed: SeedForRangePower(skill, 1));
-                LegacyQueuedDuel highDuel = Duel(player: new[] { skill }, enemy: new[] { LegacyCommonActions.Breathe },
-                    seed: SeedForRangePower(skill, 10));
+                LegacyQueuedDuel lowDuel = Duel(player: new[] { skill }, enemy: new[] { opposing },
+                    seed: SeedForRangePower(skill, 1, opposing));
+                LegacyQueuedDuel highDuel = Duel(player: new[] { skill }, enemy: new[] { opposing },
+                    seed: SeedForRangePower(skill, 10, opposing));
                 LegacyCurrentSlot lowSlot = low.Prepare(lowDuel), highSlot = high.Prepare(highDuel);
                 Assert.That(lowSlot.PlayerTotalPower, Is.EqualTo(1));
                 Assert.That(highSlot.PlayerTotalPower, Is.EqualTo(10));
@@ -224,11 +237,11 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
-        private static int SeedForRangePower(LegacySkill skill, int power)
+        private static int SeedForRangePower(LegacySkill skill, int power, LegacySkill opposing)
         {
             for (int seed = 0; seed < 512; seed++)
             {
-                LegacyQueuedDuel duel = Duel(player: new[] { skill }, enemy: new[] { LegacyCommonActions.Breathe }, seed: seed);
+                LegacyQueuedDuel duel = Duel(player: new[] { skill }, enemy: new[] { opposing }, seed: seed);
                 duel.Commit();
                 if (duel.BeginNextSlot().PlayerTotalPower == power) return seed;
             }

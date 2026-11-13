@@ -344,8 +344,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                     Math.Max(0, slot.PlayerStartingHealth - Player.Health), Math.Max(0, slot.EnemyStartingHealth - Enemy.Health),
                     slot.PlayerLargestHitTaken, slot.EnemyLargestHitTaken,
                     slot.PlayerStartingHealth > 0 && Player.IsDefeated, slot.EnemyStartingHealth > 0 && Enemy.IsDefeated,
-                    LegacySkillConditions.MatchesOpponent(slot.PlayerSkill, slot.EnemySkill),
-                    LegacySkillConditions.MatchesOpponent(slot.EnemySkill, slot.PlayerSkill),
+                    LegacySkillConditions.MatchesOpponent(slot.PlayerSkill, slot.EnemySkill, UsePowerBreak),
+                    LegacySkillConditions.MatchesOpponent(slot.EnemySkill, slot.PlayerSkill, UsePowerBreak),
                     slot.PlayerStateConditionHeld, slot.EnemyStateConditionHeld,
                     mesh.IsMeshed ? mesh.SlotIndex - mesh.ChainStart + 1 : 0,
                     playerResistanceLost: slot.PlayerStartingResistance - Player.Resistance,
@@ -927,11 +927,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             if (slot.PlayerSkill != null && !slot.PlayerSkill.IsWait) playerStatuses.ConsumeTechnique();
             if (slot.EnemySkill != null && !slot.EnemySkill.IsWait) enemyStatuses.ConsumeTechnique();
             // 간파 (presentation only): each side's 상대 상태 조건 as the rules read it, the recovery's gate first of that
-            // side's effects (the player's come first), a damage multiplier's once both sides' effects are in.
-            if (LegacySkillConditions.RecoveryStateHolds(slot.PlayerSkill, Enemy)) slot.PlayerStateConditionHeld = true;
+            // side's effects (the player's come first), a damage multiplier's once both sides' effects are in. 위력 차 붕괴
+            // retires the recovery, so its gate no longer reads as 간파 there.
+            if (!UsePowerBreak && LegacySkillConditions.RecoveryStateHolds(slot.PlayerSkill, Enemy)) slot.PlayerStateConditionHeld = true;
             slot.PlayerFeedback = ApplyInitialSkillEffects(slot.PlayerSkill, slot.EnemySkill, playerStatuses, true,
                 playerPowerBuffPercent, playerProtectionBuffPercent);
-            if (LegacySkillConditions.RecoveryStateHolds(slot.EnemySkill, Player)) slot.EnemyStateConditionHeld = true;
+            if (!UsePowerBreak && LegacySkillConditions.RecoveryStateHolds(slot.EnemySkill, Player)) slot.EnemyStateConditionHeld = true;
             slot.EnemyFeedback = ApplyInitialSkillEffects(slot.EnemySkill, slot.PlayerSkill, enemyStatuses, false,
                 enemyPowerBuffPercent, enemyProtectionBuffPercent);
             slot.PlayerFeedback = WithUsePowerFeedback(slot.PlayerFeedback, slot.PlayerSkill, committedPlayerQueue,
@@ -1413,7 +1414,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
             // The table never pairs this self condition with an opponent condition, so one flag reports either.
             LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect ?? LegacySkillEffect.None;
             bool opponentMatched = LegacySkillConditions.MatchesOpponent(skill, opposingSkill);
-            bool conditionMet = opponentMatched;
+            // A match reports as met only while the condition still gates something under the rules in use; the
+            // effects below still gate by the plain match.
+            bool conditionMet = opponentMatched && LegacySkillConditions.OpponentConditionIsLive(effect, UsePowerBreak);
             bool effectActivated = false, opponentBroken = false;
             int actGainGranted = 0, resistanceRestored = 0, opponentResistanceReduced = 0;
             bool grantedStatus = false;

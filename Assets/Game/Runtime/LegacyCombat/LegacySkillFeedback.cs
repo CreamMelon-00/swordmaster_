@@ -16,6 +16,33 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 : opposingSkill.Kind == effect.OpponentKind.Value;
         }
 
+        /// <summary>Whether a 상대 속성/종류 조건 on <paramref name="effect"/> still gates something under the rules in use. It
+        /// gates ACT 회복, 저항 감소 and 상대 붕괴 (the sheet allows nothing else); 위력 차 붕괴 retires the last two
+        /// (Docs/BreakPresentation.md), so there only ACT 회복 keeps the condition alive. The condition highlights, the
+        /// slot feedback's <see cref="LegacySkillFeedback.ConditionMet"/> and 간파 read this, so a retired condition never
+        /// asks to be matched or reads as a read paying off. The rules themselves still gate by the plain match.</summary>
+        internal static bool OpponentConditionIsLive(LegacySkillEffect effect, bool usePowerBreak)
+            => effect != null && effect.HasOpponentCondition && (!usePowerBreak || effect.ActGain > 0);
+
+        /// <summary><see cref="HasOpponentCondition(LegacySkill)"/> counting only a condition that still gates something under
+        /// the rules in use (<see cref="OpponentConditionIsLive"/>).</summary>
+        public static bool HasOpponentCondition(LegacySkill skill, bool usePowerBreak)
+            => OpponentConditionIsLive(LegacySkillDefinitions.Find(skill)?.Effect, usePowerBreak);
+
+        /// <summary><see cref="MatchesOpponent(LegacySkill, LegacySkill)"/> for a condition that still gates something under
+        /// the rules in use (<see cref="OpponentConditionIsLive"/>).</summary>
+        public static bool MatchesOpponent(LegacySkill skill, LegacySkill opposingSkill, bool usePowerBreak)
+            => HasOpponentCondition(skill, usePowerBreak) && MatchesOpponent(skill, opposingSkill);
+
+        /// <summary><see cref="HasOpponentStateCondition(LegacySkill)"/> counting only a condition that still gates something
+        /// under the rules in use: its 조건 피해 배율 always, its 저항 회복 only under the resistance rules (위력 차 붕괴
+        /// retires the recovery).</summary>
+        public static bool HasOpponentStateCondition(LegacySkill skill, bool usePowerBreak)
+        {
+            LegacySkillEffect effect = LegacySkillDefinitions.Find(skill)?.Effect;
+            return effect != null && effect.HasOpponentStateCondition && (!usePowerBreak || effect.ConditionalDamagePercent > 0);
+        }
+
         /// <summary>Whether the skill has a 상대 상태 조건 (붕괴, 체력 N% 이하) for its recovery or damage multiplier.</summary>
         public static bool HasOpponentStateCondition(LegacySkill skill)
             => LegacySkillDefinitions.Find(skill)?.Effect.HasOpponentStateCondition == true;

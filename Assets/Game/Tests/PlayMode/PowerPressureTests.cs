@@ -6,32 +6,41 @@ namespace TurnLimbo.Presentation.Tests
 {
     public sealed class PowerPressureTests
     {
-        [TestCase(LegacySkillKind.Attack)]
-        [TestCase(LegacySkillKind.Defence)]
-        [TestCase(LegacySkillKind.Wait)]
-        public void EveryCompletedPlayerSkillGetsPressure_RegardlessOfTheOpponentKind(LegacySkillKind kind)
+        [TestCase(LegacySkillKind.Attack, LegacySkillKind.Attack, true)]
+        [TestCase(LegacySkillKind.Attack, LegacySkillKind.Defence, false)]
+        [TestCase(LegacySkillKind.Defence, LegacySkillKind.Attack, false)]
+        [TestCase(LegacySkillKind.Defence, LegacySkillKind.Defence, false)]
+        [TestCase(LegacySkillKind.Wait, LegacySkillKind.Attack, false)]
+        public void OnlyAnAttackClashHoldsForPressure_ThoughEveryRealSkillHasItsRoll(LegacySkillKind player,
+            LegacySkillKind enemy, bool holds)
         {
-            var duel = PolicyDuel(new[] { PolicySkill(99861, kind) }, new[] { PolicySkill(99862, LegacySkillKind.Defence) });
+            var duel = PolicyDuel(new[] { PolicySkill(99861, player) }, new[] { PolicySkill(99862, enemy) });
             LegacyCurrentSlot slot = duel.BeginNextSlot();
             Assert.That(DuelPowerPressure.CanPresent(slot), Is.True);
-            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.True);
+            Assert.That(DuelPowerPressure.IsAttackClash(slot), Is.EqualTo(holds));
+            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.EqualTo(holds),
+                "Only an attack-against-attack clash shows the pressure gauge (2026-11-13).");
             duel.ResolveNextHit();
             Assert.That(DuelPowerPressure.CanPresent(slot), Is.False, "A hit already under way cannot start a new preparation.");
+            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.False);
         }
 
         [TestCase(false)]
         [TestCase(true)]
-        public void FastUnilateralCompletionGetsPressure_ChargeWaitsForItsOwnRolledCompletion(bool charge)
+        public void FastUnilateralCompletionHasItsRoll_ChargeWaitsForItsOwnRolledCompletion(bool charge)
         {
             LegacySkill first = PolicySkill(99863, LegacySkillKind.Attack, charge ? 4 : 1);
             var duel = PolicyDuel(charge ? new[] { first } : new[] { first, first },
                 new[] { PolicySkill(99864, LegacySkillKind.Attack), PolicySkill(99864, LegacySkillKind.Attack) });
             LegacyCurrentSlot slot = duel.BeginNextSlot();
             Assert.That(DuelPowerPressure.CanPresent(slot), Is.EqualTo(!charge));
+            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.False, charge
+                ? "A still-preparing charge has no roll yet." : "A fast attack completing alone forms no clash.");
             FinishPolicySlot(duel);
             slot = duel.BeginNextSlot();
             Assert.That(DuelPowerPressure.CanPresent(slot), Is.True);
             Assert.That(slot.PlayerSkill, Is.Not.Null);
+            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.True, "Completing together with the opposing attack is a clash.");
         }
 
         [Test]
@@ -43,10 +52,12 @@ namespace TurnLimbo.Presentation.Tests
             LegacyCurrentSlot slot = duel.BeginNextSlot();
             Assert.That(slot.PendingPlayerCounter, Is.Not.Null);
             Assert.That(DuelPowerPressure.CanPresent(slot), Is.False);
+            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.False);
             Assert.That(duel.PrepareCurrentSlotImpact(), Is.True);
             Assert.That(slot.PlayerCountered, Is.True);
             Assert.That(slot.HitsResolved, Is.Zero);
             Assert.That(DuelPowerPressure.CanPresent(slot), Is.True);
+            Assert.That(DuelPowerPressure.ShouldHold(slot), Is.True, "An accepted counter attacking into an attack is a clash.");
         }
 
         [Test]
@@ -64,7 +75,7 @@ namespace TurnLimbo.Presentation.Tests
 
         [TestCase(0)]
         [TestCase(1)]
-        public void VersusViewersShareTheHold_WhenOnlyOnePlayerHasARealSkill(int viewer)
+        public void VersusViewersAgree_AOneSidedSlotHoldsNeitherScreen(int viewer)
         {
             LegacySkill attack = PolicySkill(99867, LegacySkillKind.Attack);
             var match = new LocalVersusMatch(new[] { attack }, new[] { attack }, randomSeed: 7, usePowerBreak: true);
@@ -74,8 +85,24 @@ namespace TurnLimbo.Presentation.Tests
             match.BeginNextSlot();
             var view = new LocalVersusPerspective(match, viewer);
             Assert.That(DuelPowerPressure.CanPresent(view.CurrentSlot), Is.EqualTo(viewer == 0));
+            Assert.That(DuelPowerPressure.ShouldHold(view.CurrentSlot), Is.False,
+                "Neither screen holds a one-sided slot, so the shared match advances alike on both.");
+        }
+
+        [TestCase(0)]
+        [TestCase(1)]
+        public void VersusViewersShareTheHold_ForAnAttackClash(int viewer)
+        {
+            LegacySkill attack = PolicySkill(99868, LegacySkillKind.Attack);
+            var match = new LocalVersusMatch(new[] { attack }, new[] { attack }, randomSeed: 7, usePowerBreak: true);
+            Assert.That(match.TryQueueLane(0, 0), Is.True);
+            Assert.That(match.TryCommit(0), Is.True);
+            Assert.That(match.TryQueueLane(1, 0), Is.True);
+            Assert.That(match.TryCommit(1), Is.True);
+            match.BeginNextSlot();
+            var view = new LocalVersusPerspective(match, viewer);
             Assert.That(DuelPowerPressure.ShouldHold(view.CurrentSlot), Is.True,
-                "The viewer with an empty queue must not advance the shared match sooner.");
+                "Both screens hold the clash for the same shared beat.");
         }
 
         private static LegacySkill PolicySkill(int id, LegacySkillKind kind, int duration = 2)

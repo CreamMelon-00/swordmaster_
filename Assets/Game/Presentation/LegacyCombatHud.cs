@@ -1275,7 +1275,10 @@ namespace TurnLimbo.Presentation
         {
             LegacySkill skill = lastPlanning ? conditionPreview : null;
             int nextSlot = displayedSession != null ? displayedSession.PlayerQueue.Count : -1;
-            bool opponentCondition = LegacySkillConditions.HasOpponentCondition(skill);
+            // A condition whose gated effects the rule in use retired (위력 차 붕괴: 저항 감소, 상대 붕괴, 저항 회복) marks
+            // nothing and asks for nothing.
+            bool powerBreak = displayedSession?.UsePowerBreak == true;
+            bool opponentCondition = LegacySkillConditions.HasOpponentCondition(skill, powerBreak);
             enemyQueue.SetConditionPreview(opponentCondition ? skill : null, nextSlot);
             // Past the enemy's queue, an attack may meet the enemy's counter instead of an empty slot.
             LegacySkill opponent = displayedSession == null || !opponentCondition ? null
@@ -1283,7 +1286,7 @@ namespace TurnLimbo.Presentation
                 : displayedSession.EnemyCounterFacing(skill);
             // A 상대 상태 조건 (붕괴, 체력 N% 이하) reads the enemy as it stands, like the self condition reads the player;
             // the sheet never pairs it with an opponent condition, and it marks no enemy card.
-            bool stateCondition = !opponentCondition && LegacySkillConditions.HasOpponentStateCondition(skill);
+            bool stateCondition = !opponentCondition && LegacySkillConditions.HasOpponentStateCondition(skill, powerBreak);
             bool ready = displayedSession != null && (opponentCondition
                 ? opponent != null && LegacySkillConditions.MatchesOpponent(skill, opponent)
                 : stateCondition ? LegacySkillConditions.MatchesOpponentState(skill, displayedSession.Player, displayedSession.Enemy)

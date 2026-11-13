@@ -54,7 +54,8 @@ namespace TurnLimbo.Runtime.Prologue
                         "Q/E 예약 · Shift 넘기기 · Space 확정 · Tab 적 확인\nQ/E 길게 눌러 기술 설명 · Esc 일시정지"),
                 },
                 AfterLaneE, CombatFeature.LaneE, 1, Chapter, "E열 기교 검술이 열렸습니다. 스테이지에서도 E열을 씁니다."),
-            // 6. 숨고르기: skip a slot without ACT so a skill lands where its condition is met. Opens after stage 2.
+            // 6. 숨고르기: skip a slot without ACT so a skill lands where it should (past the guard, into the attack).
+            // Opens after stage 2.
             new PrologueMission(6, "숨 고르기", Corridor,
                 new[] { "숨고르기로 상대가 방어하는 칸을 건너뛴다", "떠돌이 기사를 쓰러뜨린다", "완료하면 숨고르기가 열린다" },
                 new[] { new MissionEnemy("떠돌이 기사", PrologueMissions.EnemySilhouette) },
@@ -66,12 +67,12 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Breathe, "S로 숨을 고르세요",
                         "S를 누르거나 숨고르기 버튼을 눌러 첫 칸에 숨고르기를 예약하세요. 턴마다 세 번까지 쓸 수 있습니다.", "S / 숨고르기 버튼"),
                     new MissionGuideBeat(MissionGuideStepKind.Queue, "다음 칸에 공격하세요",
-                        "숨고르기로 첫 칸을 채웠습니다. E로 {기술:5:를} 두 번째 칸에 예약해 상대 공격에 맞추세요.",
+                        "숨고르기로 첫 칸을 채웠습니다. E로 {기술:5:를} 두 번째 칸에 예약해 상대 공격과 맞붙이세요.",
                         "E 짧게 누르기 / 카드 클릭", lane: 2),
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "숨고르기를 포함해 확정하세요",
                         "숨고르기를 예약한 칸에는 공격이나 방어를 하지 않습니다. 같은 칸에 상대 공격이 있다면 막지 못하고 받습니다.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "기술이 들어갈 칸을 조절합니다",
-                        "숨고르기 뒤에 예약한 기술은 다음 칸에 들어갑니다. 이렇게 상대의 방어를 피하고 공격에 {기술:5:를} 맞출 수 있습니다.", Watch),
+                        "숨고르기 뒤에 예약한 기술은 다음 칸에 들어갑니다. 이렇게 상대의 방어를 피해 공격끼리 맞붙을 수 있습니다.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "칸을 골라 싸우세요",
                         "숨고르기로 기술이 들어갈 칸을 맞추며 떠돌이 기사를 쓰러뜨리세요.",
                         "Q/E 예약 · Shift 넘기기 · S 숨고르기 · Space 확정\nTab 적 확인 · Q/E 길게 설명 · Esc 일시정지"),

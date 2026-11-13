@@ -117,9 +117,7 @@ namespace TurnLimbo.Presentation
                 : slot is LocalVersusPerspectiveSlot versus &&
                     (versus.Source.LeftDestroyedQueueIndex >= 0 || versus.Source.RightDestroyedQueueIndex >= 0);
 
-        private static bool IsPowerClash(ILegacySlotView slot)
-            => slot.PlayerSkill?.Kind == LegacySkillKind.Attack && slot.EnemySkill?.Kind == LegacySkillKind.Attack &&
-                !(slot is LegacyCurrentSlot current && current.DodgeSucceeded);
+        private static bool IsPowerClash(ILegacySlotView slot) => DuelPowerPressure.IsAttackClash(slot);
 
         private void AdvancePowerClash(float realDelta)
         {

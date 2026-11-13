@@ -69,7 +69,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Commit, "예약을 확정하세요",
                         "확정하면 예약한 순서대로 전투가 진행됩니다. 확정한 뒤에는 예약을 바꿀 수 없습니다.", CommitKeys),
                     new MissionGuideBeat(MissionGuideStepKind.WatchTurn, "예약한 순서대로 공격합니다",
-                        "공격끼리 맞붙지 않으면 체력에 피해를 줍니다. 허수아비에게 들어가는 피해를 확인해 보세요.", Watch),
+                        "공격은 상대 체력에 피해를 줍니다. 허수아비에게 들어가는 피해를 확인해 보세요.", Watch),
                     new MissionGuideBeat(MissionGuideStepKind.Free, "끝까지 베어 내세요",
                         "예약하고 확정하기를 반복해 허수아비를 쓰러뜨리세요.", FirstFreeKeys),
                 }, unlocks: CombatFeature.Cycle, unlockText: "넘기기(Shift)가 열렸습니다.", encounter: EncounterKind.Duel),
@@ -101,7 +101,7 @@ namespace TurnLimbo.Runtime.Prologue
                     new MissionGuideBeat(MissionGuideStepKind.Cycle, "Shift로 넘기세요",
                         "Shift를 누르면 열의 맨 앞 기술을 쓰지 않고 맨 뒤로 보냅니다. ACT는 쓰지 않지만, 제한 시간이 있는 전투에서는 쓸 때마다 남은 시간이 1초 줄어듭니다. {기술:2:를} 맨 앞으로 가져오세요.",
                         "Shift / 넘기기 버튼"),
-                    new MissionGuideBeat(MissionGuideStepKind.Free, "무너진 틈을 노리세요",
+                    new MissionGuideBeat(MissionGuideStepKind.Free, LegacyPowerBreakRules.PrototypeEnabled ? "파괴된 빈틈을 노리세요" : "무너진 틈을 노리세요",
                         LegacyPowerBreakRules.PrototypeEnabled ? "넘기기로 쓸 기술을 고르고, 강한 공격 뒤에 후속 공격을 배치해 파괴된 빈틈을 노리세요." : "넘기기로 쓸 기술을 고르고, 저항이 무너진 상대에게 공격을 몰아치세요.", FreeKeys),
                 }, features: QWithCycle, encounter: EncounterKind.Duel),
             // 3. The enemy also guards: defence reduces the same slot's damage; 막기 against a Hit-property attack refunds ACT.

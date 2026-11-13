@@ -11,16 +11,24 @@ namespace TurnLimbo.Presentation
         public const float HoldSeconds = ChargeSeconds + LockSeconds;
 
         /// <summary>Only a real skill completing now has its immutable power roll. A pending long action or an empty
-        /// interval has no value to animate; every completed skill kind, including zero-power breathing, does.</summary>
+        /// interval has no value to animate.</summary>
         public static bool CanPresent(ILegacySlotView slot, bool player = true)
             => slot != null && (player ? slot.PlayerSkill : slot.EnemySkill) != null &&
                 (slot is LegacyCurrentSlot current ? current.HitsResolved == 0
                     : slot is LocalVersusPerspectiveSlot versus && versus.HitsResolved == 0);
 
-        /// <summary>Versus peers share the same beat even when only the other side has a skill. That viewer keeps the
-        /// opponent's value fixed and shows no player gauge; a one-sided completion cannot make its clock run ahead.</summary>
+        /// <summary>Both sides attack and no dodge took the player's side out of it: the 합 whose two powers the 위력 차
+        /// 붕괴 rule compares.</summary>
+        public static bool IsAttackClash(ILegacySlotView slot)
+            => slot?.PlayerSkill?.Kind == LegacySkillKind.Attack && slot.EnemySkill?.Kind == LegacySkillKind.Attack &&
+                !(slot is LegacyCurrentSlot current && current.DodgeSucceeded);
+
+        /// <summary>Pressure accompanies an attack-against-attack clash only, where the power numbers decide a break
+        /// (2026-11-13: defence, breathing and one-sided slots show their result without a gauge). An accepted counter
+        /// that attacks into an attack is such a clash once it has rolled. Both rolls must exist, so the two versus
+        /// perspectives hold the same slots, each for the shared beat.</summary>
         public static bool ShouldHold(ILegacySlotView slot)
-            => CanPresent(slot) || slot is LocalVersusPerspectiveSlot && CanPresent(slot, false);
+            => IsAttackClash(slot) && CanPresent(slot) && CanPresent(slot, false);
         private const double ClockEpsilon = .000001d;
         private double elapsed, targetCharge, chargeDuration, holdDuration;
         private const double FastSlope = FastHalfSeconds * 2d;

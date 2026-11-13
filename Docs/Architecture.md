@@ -6,7 +6,7 @@
 
 ## 의존 방향
 
-현재 전투 가시성(2026-10-18): `LegacyClashReadout`·`LegacyDamageReason`이 실제 합과 피해의 원인을, `LegacyContactReadWindow`·`LegacyContactCamera`가 접촉 판독 시계와 구도를 소유한다. HUD/arena의 `.Readability.cs`가 기존 표시 경로에 연결한다. 다인전은 현재 상대만 판독하고, 접촉 뒤에는 기존 주인공 중심 클로즈업으로 이어진다. 옛 기록의 피격자 중심 확대와 붕괴 순간 `붕괴 ×2` 문구는 현재 각각 주인공 중심 확대와 `저항 붕괴`로 바뀌었다. 최신 계약은 `CombatReadability.md`를 따른다.
+현재 전투 가시성(2026-10-18): `LegacyClashReadout`·`LegacyDamageReason`이 실제 합과 피해의 원인을, `LegacyContactReadWindow`·`LegacyContactCamera`가 접촉 판독 시계와 구도를 소유한다. HUD/arena의 `.Readability.cs`가 기존 표시 경로에 연결한다. 다인전은 현재 상대만 판독하고, 접촉 뒤에는 기존 주인공 중심 클로즈업으로 이어진다. 옛 기록의 피격자 중심 확대와 붕괴 순간 `붕괴 ×2` 문구는 현재 각각 주인공 중심 확대와 `붕괴`로 바뀌었다(위력 차 붕괴 규칙. 이전 저항 규칙에서는 `저항 붕괴`). 최신 계약은 `CombatReadability.md`를 따른다.
 
 ```text
 Presentation  ->  Runtime  ->  Core
@@ -44,13 +44,15 @@ Play 시 `DuelPrototypeBootstrap`이 활성 씬에 컨트롤러가 없으면 생
 
 ## 현재 전투 사이클
 
+전투 규칙(2026-11-13): 위력 차 붕괴가 확정 규칙이다(`BreakPresentation.md`). 이 문서에 남은 저항 게이지·저항 피해·'붕괴 ×2' 상태 설명은 이전 규칙의 기록이다. 코드의 `UsePowerBreak` 갈래와 옛 저항 경로는 다음 정리 단계에서 지운다. 압력 게이지는 공격 합에만 걸고(`DuelPowerPressure.ShouldHold`), 간파·조건 강조는 조건이 거는 효과가 아직 있을 때만 센다(`LegacySkillConditions.OpponentConditionIsLive`).
+
 기술 조건 표시는 `LegacySkillConditions`의 판정을 전투와 공유한다. `LegacyCurrentSlot.PlayerFeedback/EnemyFeedback`는 실제 조건 성립·고유 효과 발동·위력 계산에 사용된 버프와 이번에 실제 부여한 다음 칸 버프의 불변 스냅샷을 제공한다. Controller는 슬롯 시작에 HUD로 전달하고, HUD는 상대 조건 후보와 다음 예약 칸을 밝은 청록 선·이중 테두리·큰 외곽 표식으로 구분한다. `SkillCardFeedbackGraphic`의 재사용 메시 상한은100 vertices/6개 버프 입자다. 양측 `StatusView`는 현재 위력/보호와 새 버프의 수치/초기 지속4개 줄을 재사용하고, 활성 줄만 위로 확장하되 게이지는 아래에 고정한다. HUD가 전투 상태나 난수를 바꾸지 않으며, 키 해제·턴 전환·재시작에 표시만 정리한다. 전투 중 버프만 입자 대상이며 자세한 계약은 `SkillConditionFeedback.md`를 따른다.
 
-기술 이름·수치·효과·조건·역할·문구는 `LegacySkillDefinitions`의 정의 표 하나에서 읽는다. 표의 데이터는 CSV 기술 시트(`Resources/Skills/skills.csv`)이고, 처음 쓸 때 `LegacySkillSheet.Parse`가 모든 문제를 모아 검사한 뒤 읽는다. 시트가 커리큘럼과 코드가 쓰는 ID를 갖췄는지는 `CampaignSheetCheck`가 따로 대조한다. Play마다 Presentation의 `SkillSheetLoader`가 Resources 원본을 설치한다. 코드는 기술을 행 위치가 아니라 ID로 찾고(`LegacySkillDefinitions.Skill(id)`), 기술 이름을 쓰는 문구는 `{기술:ID}` 토큰을 읽을 때 바꾼다(`LegacySkillNames`). 새 기술은 시트에 행을 추가하며 기술 ID 분기를 새로 만들지 않는다(`SkillDefinitions.md`, `SkillSheet.md`). 준비/플레슈의 한 칸 버프는 기존 `SkillBuff` 수명을 사용하고, 르프리즈/쿠페의 직접 저항력 회복·감소는 `LegacyFighterState`만 변경한다. Controller는 슬롯 시작 전후의 실제 변화량을 `DuelResistanceFeedback`의 재사용 Text 2개에 전달한다. 이 표시는 실제 시간으로 갱신하고 피해·넉백을 만들지 않는다. 별도 매니저·씬 연결·체인 상태를 만들지 않는다. 일반 기술 4종 추가와 표시 계약은 `ImportedNonChainSkills.md`를 따른다.
+기술 이름·수치·효과·조건·역할·문구는 `LegacySkillDefinitions`의 정의 표 하나에서 읽는다. 표의 데이터는 CSV 기술 시트(`Resources/Skills/skills.csv`)이고, 처음 쓸 때 `LegacySkillSheet.Parse`가 모든 문제를 모아 검사한 뒤 읽는다. 시트가 커리큘럼과 코드가 쓰는 ID를 갖췄는지는 `CampaignSheetCheck`가 따로 대조한다. Play마다 Presentation의 `SkillSheetLoader`가 Resources 원본을 설치한다. 코드는 기술을 행 위치가 아니라 ID로 찾고(`LegacySkillDefinitions.Skill(id)`), 기술 이름을 쓰는 문구는 `{기술:ID}` 토큰을 읽을 때 바꾼다(`LegacySkillNames`). 새 기술은 시트에 행을 추가하며 기술 ID 분기를 새로 만들지 않는다(`SkillDefinitions.md`, `SkillSheet.md`). 준비/플레슈의 한 칸 버프는 기존 `SkillBuff` 수명을 사용하고, 르프리즈/쿠페의 직접 저항력 회복·감소는 `LegacyFighterState`만 변경하며, 위력 차 붕괴 규칙에서는 `RestoreResistance`/`ReduceResistance`가 0을 돌려줘 적용되지 않는다(아래 `DuelResistanceFeedback` 표시도 나오지 않는다). Controller는 슬롯 시작 전후의 실제 변화량을 `DuelResistanceFeedback`의 재사용 Text 2개에 전달한다. 이 표시는 실제 시간으로 갱신하고 피해·넉백을 만들지 않는다. 별도 매니저·씬 연결·체인 상태를 만들지 않는다. 일반 기술 4종 추가와 표시 계약은 `ImportedNonChainSkills.md`를 따른다.
 
 피해 숫자·이동 연출(2026-09-27)은 기존 HUD/전장/설정에 확장했다. `LegacyCombatHud`는 월드 타격점과 화면 단위 상승·연타 간격, 실시간 등장/정착/유지/퇴장, 붉은 테두리·그림자와 최대32개 재사용 숫자를 소유한다. Controller는 강조 타격(결정타 또는 표시 피해12 이상) 플래그만 넘기고 입력받은 실제 시계를 HUD에 직접 전달한다. `LegacyArenaView`는 거리1.4/속도1.2 배율을 동작 시작 때 고정하며 사거리4/최소간격2.8/미완료밀림상한6/시계 구분을 유지한다. 기존 설정 자산 경로/필드를 보존하고 배율·기본 글자 크기168/강조 크기1.3을 추가한다. 순수 Runtime의 피해/ACT/큐·클립·카메라·파티클/빛은 변경하지 않는다. 아래 기존 거리/속도 설명보다 이 단락을 우선하며 사용법은 `PresentationTuning.md`를 따른다.
 
-붕괴 표시(2026-09-30)는 Runtime을 바꾸지 않고 공개 상태 `IsResistanceBroken`만 읽는다. `LegacyArenaView`가 캐릭터마다 `DuelBreakAura`(별도 렌더러의 붉은 윤곽과 그림자 위 금 간 고리)를 소유하고 Controller가 매 프레임 상태를 넘긴다. Controller는 규칙 호출 전후를 비교해 붕괴 순간("붕괴 ×2")과 턴 시작 자동 회복("저항 회복")을 `LegacyCombatHud`의 별도 `State Callout` 풀로 알리고, 저항 피해만 입힌 타격 숫자를 강철색으로 표시한다. 기존 강조 타격·카메라 규칙은 그대로다. 자세한 내용은 `BreakPresentation.md`를 따른다.
+붕괴 표시(2026-09-30 도입, 2026-10-25부터 위력 차 붕괴)는 판정을 바꾸지 않고 공개 상태만 읽는다. 붕괴 판정은 Runtime `LegacyPowerBreakRules`(기준 `MinimumPowerDifference` 5)와 `LegacyQueuedDuel.PowerBreak.cs`(`ResolvePowerBreak`, `DestroyNextPowerBreakSkill`)·`LocalVersusMatch`가 소유한다. `LegacyFighterState.IsResistanceBroken`은 파괴된 빈틈 동안만 참이다(`IsBrokenGap`). `LegacyArenaView`의 `DuelBreakAura`(붉은 윤곽과 금 간 고리)는 이 상태를 매 프레임 받는다. Controller는 첫 타격의 `EnemyBroken`/`PlayerBroken`으로 붕괴 순간("붕괴")을 `State Callout` 풀과 `DuelBreakImpactCue`로 알린다. 합 위력 숫자·파쇄는 `LegacyCombatHud.PowerClash.cs`, 압력 게이지는 `LegacyCombatHud.PowerPressure.cs`·`DuelPowerPressure`, 다음 카드 파편은 `LegacyCombatHud.BreakQueue.cs`가 그린다. 저항이 없으므로 "저항 회복" 문구와 강철색 저항 피해 숫자는 나오지 않는다. 자세한 내용은 `BreakPresentation.md`를 따른다. 이전 저항 규칙에서는 "붕괴 ×2"(뒤에 "저항 붕괴")·"저항 회복" 문구와 강철색 저항 피해 숫자를 썼다.
 
 교전 카메라는 `LegacyArenaView`가 현재 교전 중심의 가로 데드존과 실제 시간 보간을 소유한다. 기본 구도는 고정 화면 크기와 제한된 방향성 펄스를 사용하며 연타/포즈 변경으로 구도를 재설정하지 않는다. 2026-10-17부터 싱글·로컬/온라인 컨트롤러가 현재 기술의 진행도와 실제 공격 방향을 `SetCombatShot`으로 전달한다. `LegacyArenaView.CombatCamera.cs`가 프레임 요청을 소비해 준비의 반대 움직임·타격 방향 이동·당김·약한 기울기를 보간한다. 3인전은 준비의 전체 구도에서 실행의 교전 구도로 전환하며, 몸·검·HUD 여백을 지킨다. 기존 감독의 확대와는 강한 쪽을 사용하고 스텝·붕괴·수훈 구도를 우선한다. `CombatLetterboxAccent`는 기존 `LegacyCombatHud`의 상하 띠를 최대36 기준 픽셀 더 움직이며 새 오버레이를 만들지 않는다. 카메라와 띠는 실제 시간을 사용하지만 ESC/마무리 정지에서는 갱신하지 않는다. 활성화·강도는 기존 설정 자산에 추가했고 전투 규칙·클립·VFX·네트워크 메시지는 변경하지 않았다. 아래 과거 카메라 설명보다 이 단락을 우선하며 튜닝은 `PresentationTuning.md`를 따른다.
 
@@ -66,7 +68,7 @@ Play 시 `DuelPrototypeBootstrap`이 활성 씬에 컨트롤러가 없으면 생
 
 - `Planning`: 적 큐가 공개된다. 기술 예약은 ACT 소비와 기술열 회전만 수행한다. 10초 또는 Space 입력으로 편성을 확정한다.
 - `Resolving`: 확정한 큐를 변경할 수 없다. 같은 순번의 기술 한 쌍씩 준비한 뒤 실제 타격마다 해결한다. 각 타격 순번에서 양쪽 공격을 모두 처리한 다음 승패를 확인한다. 짧은 쪽의 남은 슬롯은 빈 행동으로 처리한다.
-- 전체 슬롯 완료: 턴을 올리고 저항력 회복, 잔여 ACT + 기본/기술 보상, 적 패턴 진행을 처리한 뒤 다시 편성한다.
+- 전체 슬롯 완료: 턴을 올리고 파괴된 빈틈 표식을 지운 뒤(위력 차 붕괴 규칙에는 저항력 회복이 없다) 잔여 ACT + 기본/기술 보상, 적 패턴 진행을 처리하고 다시 편성한다.
 - `Finished`: 어느 타격에서든 승패가 나면 같은 순번의 양쪽 공격까지 처리하고 현재 슬롯의 남은 타격과 이후 슬롯·턴을 중단한다. 해당 타격의 동작을 마무리한 뒤 결과를 표시한다. 재대결은 기술열, 적 패턴, 상태와 타이머를 초기화한다.
 
 `LegacyQueuedDuel`이 규칙과 상태를 소유하고 `DuelPrototypeController`는 입력·10초 제한·접근·재생·턴 마무리 흐름을 조정한다. 공통 `숨고르기`는 `TryQueueBreath()`로 준비 큐에 한 칸을 추가하며 ACT 없이 턴당3회만 허용한다. QWE 기술열을 회전하지 않는 Wait 행동이고 상대 공격은 무방비 체력 피해로 처리한다. HUD의 남은 횟수와 S/버튼 입력은 같은 세션 상태를 읽으며, 전투의 `Features`에 숨고르기가 없으면(서막, 수련 6 임무 전의 스테이지) 버튼을 숨기고 입력을 거부한다. 커리큘럼으로 얻는 방어 기술 호흡(ID17)과는 별개다. 상세는 `BreathingAction.md`를 따른다. 넘기기(Shift)는 `TryCycleLanes()`로 열린 모든 열의 맨 앞 기술을 쓰지 않고 뒤로 보낸다(ACT 대신 편성 시간 1초, 시계가 멈춰 있으면 무료, 횟수 제한 없음, 준비 단계만, `LaneCycle.md`). Windows에서는 `StickyKeysShortcutGuard`가 게임에 포커스가 있는 동안 Shift 다섯 번의 고정 키 단축키를 끈다. 슬롯 처리는 다음 API로 나눈다.
@@ -83,7 +85,7 @@ Play 시 `DuelPrototypeBootstrap`이 활성 씬에 컨트롤러가 없으면 생
 
 싸움은 안에서만 결투(서막)와 전투(그 밖의 임무·스테이지)로 나뉜다(`EncounterKind`, 2026-10-01). 규칙·수치·시간은 같고, 전투의 편성만 불릿타임이다. 컨트롤러가 편성 프레임마다 `SetPlanningState`로 요청하면 전장이 두 사람을 (가까이 붙어 있으면 먼저 물러서게 한 뒤) 천천히 다가가게 하고 대기 자세를 붙잡고 색을 가라앉힌다. 확정하면 바로 풀린다. 상세는 `DuelAndBattle.md`를 따른다.
 
-화면의 기본 시계는 `Time.unscaledDeltaTime`이다. 컨트롤러가 Tab 검사 중 0.2배, 편성 중 길게 눌러 연 기술 설명을 읽는 동안 0.3배(`LegacyLaneHold`, 튜닝), 치명타 집중(결정타: 저항 붕괴·마무리 일격·대상 최대 체력 25% 이상의 체력 피해, `LegacyDecisiveHit`) 중 0.15배를 적용해 편성 시간·접근·클립·타격·파티클·HUD 전환을 진행한다. 치명타 집중의 지속 시간은 원본처럼 실제 시간 0.75초이며, 카메라 보간도 실제 시간을 사용한다. 전투를 끝낸 타격은 그 대신 실제 1.6초 동안 0.12배로 흐른 뒤 0.5초 멈추고(마무리 일격, Runtime `LegacyFinishingBlow` + Presentation `DuelFinale`·`DuelLetterbox`), 서막 4 임무의 수훈 기술 컷인은 칸 시작에서 전투 시계를 0.6초 붙잡는다(`DuelEmpowermentCues`, `PresentationTuning.md`). 전역 `Time.timeScale`을 변경하지 않아 활성 씬의 다른 시스템에 속도 변경을 전달하지 않는다.
+화면의 기본 시계는 `Time.unscaledDeltaTime`이다. 컨트롤러가 Tab 검사 중 0.2배, 편성 중 길게 눌러 연 기술 설명을 읽는 동안 0.3배(`LegacyLaneHold`, 튜닝), 치명타 집중(결정타: 위력 차 붕괴·마무리 일격·대상 최대 체력 25% 이상의 체력 피해, `LegacyDecisiveHit`) 중 0.15배를 적용해 편성 시간·접근·클립·타격·파티클·HUD 전환을 진행한다. 치명타 집중의 지속 시간은 원본처럼 실제 시간 0.75초이며, 카메라 보간도 실제 시간을 사용한다. 전투를 끝낸 타격은 그 대신 실제 1.6초 동안 0.12배로 흐른 뒤 0.5초 멈추고(마무리 일격, Runtime `LegacyFinishingBlow` + Presentation `DuelFinale`·`DuelLetterbox`), 서막 4 임무의 수훈 기술 컷인은 칸 시작에서 전투 시계를 0.6초 붙잡는다(`DuelEmpowermentCues`, `PresentationTuning.md`). 전역 `Time.timeScale`을 변경하지 않아 활성 씬의 다른 시스템에 속도 변경을 전달하지 않는다.
 
 첫 접근은 최소 0.18초와 속도 32로, 이후 추격은 속도 54로 간격 4까지 진행한다. 공격 동작의 원본 길이는1/6초이며 원본 임팩트는1/12초다. `DuelPresentationSettings`의 재생 배율로 두 시간을 함께 나눠 타격 프레임을 유지한다. 스킬 시작에 배율/연타 간격을 함께 고정하며, 기본은 원본 속도1/연타 사이0.1초/다음 스킬 사이0.28초다. 연타 간격은 대기 동작으로 표현하고 마지막 큐 뒤에는 스킬 간격을 넣지 않는다. 타격 후 실제0.04초의 히트 스톱을 기본으로 적용하며 동시에 양쪽이 공격해도 중첩하지 않는다. 사거리 밖에서는 슬롯 시계를 임팩트에 고정하고 추격해 접촉한 뒤 처리한다. 긴 프레임이 공격 동작 끝까지 넘어가면 실제 임팩트 포즈로 되돌려 한 타만 처리한다. 재생 배율과 간격 조정은 피해·ACT 규칙을 바꾸지 않으며, 승패가 난 뒤 남은 타격은 위의 타격별 종료 규칙에 따라 중단한다.
 

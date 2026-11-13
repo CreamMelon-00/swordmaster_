@@ -767,8 +767,8 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 Math.Max(0, slot.LeftStartingHealth - Left.State.Health), Math.Max(0, slot.RightStartingHealth - Right.State.Health),
                 slot.LeftLargestHitTaken, slot.RightLargestHitTaken,
                 slot.LeftStartingHealth > 0 && Left.State.IsDefeated, slot.RightStartingHealth > 0 && Right.State.IsDefeated,
-                LegacySkillConditions.MatchesOpponent(slot.LeftSkill, slot.RightSkill),
-                LegacySkillConditions.MatchesOpponent(slot.RightSkill, slot.LeftSkill),
+                LegacySkillConditions.MatchesOpponent(slot.LeftSkill, slot.RightSkill, UsePowerBreak),
+                LegacySkillConditions.MatchesOpponent(slot.RightSkill, slot.LeftSkill, UsePowerBreak),
                 slot.LeftStateConditionHeld, slot.RightStateConditionHeld,
                 playerResistanceLost: slot.LeftStartingResistance - Left.State.Resistance,
                 enemyResistanceLost: slot.RightStartingResistance - Right.State.Resistance);
@@ -1174,10 +1174,10 @@ namespace TurnLimbo.Runtime.LegacyCombat
             Left.StatusEffects.GrantTension(rightEffect.OpponentTensionCount);
             slot.LeftFeedback = Feedback(slot.LeftSkill, leftEffect, leftPowerBuff, leftProtectionBuff,
                 leftRestored, rightReduced + rightBrokenAmount, rightBrokenAmount > 0, leftOpponent, leftState,
-                leftStolen, leftReceived, leftRecoveryStolen);
+                leftStolen, leftReceived, leftRecoveryStolen, UsePowerBreak);
             slot.RightFeedback = Feedback(slot.RightSkill, rightEffect, rightPowerBuff, rightProtectionBuff,
                 rightRestored, leftReduced + leftBrokenAmount, leftBrokenAmount > 0, rightOpponent, rightState,
-                rightStolen, rightReceived, rightRecoveryStolen);
+                rightStolen, rightReceived, rightRecoveryStolen, UsePowerBreak);
             slot.LeftFeedback = slot.LeftFeedback.WithUsePowerBonuses(leftProtectionSpend,
                 LegacyKeywordLinks.AheadAttackHitsPowerBonus(Left.ExecutionQueue, slot.SlotIndex, slot.LeftSkill),
                 leftEffect.HasAheadHitPower ? LegacyKeywordLinks.CountAheadAttackHits(Left.ExecutionQueue, slot.SlotIndex, slot.LeftSkill) : 0);
@@ -1201,11 +1201,12 @@ namespace TurnLimbo.Runtime.LegacyCombat
             slot.RightFeedback = slot.RightFeedback.WithConditionalDamage(
                 ArmedConditionalDamage(slot.RightSkill, slot.LeftSkill, slot.RightPower, slot.LeftPower, Left.State));
             // 간파 (presentation only, outside the state hash): each side's 상대 상태 조건 as the rules read it here, the
-            // recovery's gate before any effect, a damage multiplier's once both sides' effects are in.
-            slot.LeftStateConditionHeld = leftEffect.ResistanceRecoveryPercent > 0 && leftEffect.HasOpponentStateCondition && leftState ||
-                LegacySkillConditions.DamageStateHolds(slot.LeftSkill, Right.State);
-            slot.RightStateConditionHeld = rightEffect.ResistanceRecoveryPercent > 0 && rightEffect.HasOpponentStateCondition && rightState ||
-                LegacySkillConditions.DamageStateHolds(slot.RightSkill, Left.State);
+            // recovery's gate before any effect (not under 위력 차 붕괴, which retires the recovery), a damage multiplier's
+            // once both sides' effects are in.
+            slot.LeftStateConditionHeld = !UsePowerBreak && leftEffect.ResistanceRecoveryPercent > 0 &&
+                leftEffect.HasOpponentStateCondition && leftState || LegacySkillConditions.DamageStateHolds(slot.LeftSkill, Right.State);
+            slot.RightStateConditionHeld = !UsePowerBreak && rightEffect.ResistanceRecoveryPercent > 0 &&
+                rightEffect.HasOpponentStateCondition && rightState || LegacySkillConditions.DamageStateHolds(slot.RightSkill, Left.State);
         }
 
         private static int ActToSteal(LegacySkill skill, LegacyFighterState owner, LegacySkillEffect effect, int targetAct)
@@ -1220,11 +1221,13 @@ namespace TurnLimbo.Runtime.LegacyCombat
 
         private static LegacySkillFeedback Feedback(LegacySkill skill, LegacySkillEffect effect, int powerBuff,
             int protectionBuff, int restored, int reduced, bool broken, bool opponentMatched, bool stateMatched,
-            int actStolen, int actReceived, int actRecoveryStolen)
+            int actStolen, int actReceived, int actRecoveryStolen, bool usePowerBreak)
         {
             if (skill == null || skill.IsWait)
                 return new LegacySkillFeedback(skill, false, false, powerBuff, protectionBuff);
-            bool condition = actStolen > 0 || actRecoveryStolen > 0 || restored > 0 || effect.HasOpponentCondition && opponentMatched ||
+            // As in the campaign, a match reports as met only while the condition still gates something under the rules.
+            bool condition = actStolen > 0 || actRecoveryStolen > 0 || restored > 0 ||
+                LegacySkillConditions.OpponentConditionIsLive(effect, usePowerBreak) && opponentMatched ||
                 effect.ConditionalDamagePercent > 0 && stateMatched;
             bool activated = actStolen > 0 || actRecoveryStolen > 0 || restored > 0 || reduced > 0 || opponentMatched && effect.ActGain > 0 || effect.HasBuff;
             return new LegacySkillFeedback(skill, condition, activated, powerBuff, protectionBuff,
