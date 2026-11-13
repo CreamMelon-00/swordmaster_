@@ -1258,7 +1258,7 @@ namespace TurnLimbo.Presentation
         private bool TryBeginBladeBind(int slotIndex, float attackTime)
         {
             if (!showDirector.Enabled || !showDirector.IsBladeBindCandidate || missionEventPending ||
-                !session.CanBindCurrentHit()) return false;
+                !session.CanBindCurrentHit(presentationSettings.DecisiveHealthDamagePercent)) return false;
             // Allocate the contact's emphasis before its bind, as for an ordinary hit. A refused bind still gets the
             // normal impact below; releasing an accepted bind must not add another stop to the turn's budget.
             PresentMajorMoment(false);

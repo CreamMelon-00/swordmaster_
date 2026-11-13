@@ -1038,16 +1038,24 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 deferredEnemyPowerBuffPercent, deferredEnemyProtectionBuffPercent);
         }
 
-        /// <summary>Whether this slot's first hit can wait for the blades to separate: both attacks meet only resistance,
-        /// without health loss or a new break. Uses the powers already rolled on copied fighters, never the live state or
-        /// random generator. The presentation director still decides the power gap and whether a bind can be afforded.
-        /// A pending player counter has not rolled or applied its initial effects yet, so cannot be previewed here.</summary>
-        public bool CanBindCurrentHit()
+        /// <summary>Whether this slot's first hit can wait for the blades to separate (팽팽한 합). Under the resistance rules
+        /// both attacks must meet only resistance, without health loss or a new break. Under 위력 차 붕괴 every attack reaches
+        /// health, so the 합 must instead break nobody (final powers less than
+        /// <see cref="LegacyPowerBreakRules.MinimumPowerDifference"/> apart, 2026-11-13) and its first hit must not be a
+        /// moment of its own: no successful pressure, nobody felled, no heavy hit (<paramref name="heavyHealthPercent"/> of
+        /// the target's maximum health, as <see cref="LegacyDecisiveHit.IsHeavy"/>), no mission threshold crossed. Uses the
+        /// powers already rolled on copied fighters, never the live state or random generator. The presentation director
+        /// still decides the power gap and whether a bind can be afforded. A pending player counter has not rolled or applied
+        /// its initial effects yet, so cannot be previewed here.</summary>
+        public bool CanBindCurrentHit(int heavyHealthPercent = LegacyDecisiveHit.DefaultHealthDamagePercent)
         {
             LegacyCurrentSlot slot = CurrentSlot;
             if (Phase != LegacyDuelPhase.Resolving || slot == null || slot.HitsResolved != 0 || slot.IsResolved ||
                 slot.PendingPlayerCounter != null || slot.DodgeSucceeded ||
                 !HasAttackHit(slot.PlayerSkill, 0) || !HasAttackHit(slot.EnemySkill, 0)) return false;
+            if (UsePowerBreak && (LegacyPowerBreakRules.Overwhelms(slot.PlayerTotalPower, slot.EnemyTotalPower) ||
+                LegacyPowerBreakRules.Overwhelms(slot.EnemyTotalPower, slot.PlayerTotalPower) ||
+                slot.PressureSucceeded && PressureBonus(slot, 0) > 0)) return false;
             LegacyFighterState player = Player.Copy(), enemy = Enemy.Copy();
             LegacyHitImpact enemyImpact = ResolveSingleHit(slot.PlayerSkill, slot.EnemySkill, slot.PlayerPower,
                 slot.EnemyPower, enemy, slot.EnemyReceivedMultiplier, false, out _);
@@ -1062,12 +1070,26 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 slot.PlayerPower, player, slot.PlayerReceivedMultiplier, false, out _);
             player.ReceiveBleedingDamage(slot.PlayerBleedingDamagePerHit);
             enemy.ReceiveBleedingDamage(slot.EnemyBleedingDamagePerHit);
-            return IsResistanceOnlyHit(Player, player, playerImpact) && IsResistanceOnlyHit(Enemy, enemy, enemyImpact);
+            if (!UsePowerBreak)
+                return IsResistanceOnlyHit(Player, player, playerImpact) && IsResistanceOnlyHit(Enemy, enemy, enemyImpact);
+            // The hit that opens a mission event belongs to its scene (LegacyHitResult.EnemyReachedHealthThreshold).
+            bool reachesThreshold = enemyHealthThresholdPercent > 0 && !EnemyHealthThresholdReached &&
+                (long)enemy.Health * 100 <= (long)enemyHealthThresholdPercent * enemy.MaxHealth;
+            return !reachesThreshold && IsEvenPowerBreakHit(Player, player, heavyHealthPercent) &&
+                IsEvenPowerBreakHit(Enemy, enemy, heavyHealthPercent);
         }
 
         internal static bool IsResistanceOnlyHit(LegacyFighterState before, LegacyFighterState after, LegacyHitImpact impact)
             => after.Health == before.Health && !(before.Resistance > 0 && after.Resistance <= 0) &&
                 impact.DisplayedDamage <= Math.Max(0, before.Resistance - after.Resistance);
+
+        /// <summary>Under 위력 차 붕괴, whether one side's first hit of an unbroken 합 still leaves the bind its moment: the side
+        /// stands after it and lost less than <paramref name="heavyHealthPercent"/> of its maximum health on it, its own
+        /// bleeding included. That covers both the decisive close-up (attack damage alone) and the director's heavy hit
+        /// (the slot's largest hit, bleeding included), so the finishing blow and a heavy hit keep their own moments and a
+        /// released bind never turns Major.</summary>
+        internal static bool IsEvenPowerBreakHit(LegacyFighterState before, LegacyFighterState after, int heavyHealthPercent)
+            => !after.IsDefeated && !LegacyDecisiveHit.IsHeavy(before.Health - after.Health, before.MaxHealth, heavyHealthPercent);
 
         public LegacyHitResult ResolveNextHit()
         {

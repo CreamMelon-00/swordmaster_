@@ -885,14 +885,18 @@ namespace TurnLimbo.Runtime.LegacyCombat
             return slot;
         }
 
-        /// <summary>Whether the first hit of the current slot reaches only both blades, without health loss or a new
-        /// break. Uses stored powers on copied fighters, leaving match state and random rolls untouched. It is identical
-        /// from either player's perspective; the director separately checks the power gap and time allowance.</summary>
-        public bool CanBindCurrentHit()
+        /// <summary>Whether the first hit of the current slot can wait for the blades to separate (팽팽한 합). Under the
+        /// resistance rules it must reach only both blades, without health loss or a new break; under 위력 차 붕괴 the 합 must
+        /// break nobody and its first hit fell nobody nor be heavy (<see cref="LegacyQueuedDuel.CanBindCurrentHit"/>). Uses
+        /// stored powers on copied fighters, leaving match state and random rolls untouched. It is identical from either
+        /// player's perspective; the director separately checks the power gap and time allowance.</summary>
+        public bool CanBindCurrentHit(int heavyHealthPercent = LegacyDecisiveHit.DefaultHealthDamagePercent)
         {
             LocalVersusSlot slot = CurrentSlot;
             if (Phase != LegacyDuelPhase.Resolving || slot == null || slot.HitsResolved != 0 || slot.IsResolved ||
                 !HasAttackHit(slot.LeftSkill, 0) || !HasAttackHit(slot.RightSkill, 0)) return false;
+            if (UsePowerBreak && (LegacyPowerBreakRules.Overwhelms(slot.LeftTotalPower, slot.RightTotalPower) ||
+                LegacyPowerBreakRules.Overwhelms(slot.RightTotalPower, slot.LeftTotalPower))) return false;
             LegacyFighterState left = Left.State.Copy(), right = Right.State.Copy();
             LegacyHitImpact rightImpact = ResolveHit(slot.LeftSkill, slot.RightSkill, slot.LeftPower, slot.RightPower,
                 right, slot.RightReceivedMultiplier, out _);
@@ -900,6 +904,9 @@ namespace TurnLimbo.Runtime.LegacyCombat
                 left, slot.LeftReceivedMultiplier, out _);
             left.ReceiveBleedingDamage(slot.LeftBleedingDamagePerHit);
             right.ReceiveBleedingDamage(slot.RightBleedingDamagePerHit);
+            if (UsePowerBreak)
+                return LegacyQueuedDuel.IsEvenPowerBreakHit(Left.State, left, heavyHealthPercent) &&
+                    LegacyQueuedDuel.IsEvenPowerBreakHit(Right.State, right, heavyHealthPercent);
             return LegacyQueuedDuel.IsResistanceOnlyHit(Left.State, left, leftImpact) &&
                 LegacyQueuedDuel.IsResistanceOnlyHit(Right.State, right, rightImpact);
         }

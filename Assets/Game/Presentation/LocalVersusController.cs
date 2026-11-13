@@ -1119,7 +1119,8 @@ namespace TurnLimbo.Presentation
 
         private bool TryBeginBladeBind(int slotIndex, float attackTime)
         {
-            if (!showDirector.Enabled || !showDirector.IsBladeBindCandidate || !match.CanBindCurrentHit()) return false;
+            if (!showDirector.Enabled || !showDirector.IsBladeBindCandidate ||
+                !match.CanBindCurrentHit(settings.DecisiveHealthDamagePercent)) return false;
             PresentMajorMoment(false);
             float seconds = showDirector.BladeBind();
             if (!(seconds > 0f)) return false;

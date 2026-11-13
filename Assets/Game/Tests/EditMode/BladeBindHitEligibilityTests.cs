@@ -1,3 +1,4 @@
+using System.Reflection;
 using NUnit.Framework;
 using TurnLimbo.Runtime.Combat;
 using TurnLimbo.Runtime.LegacyCombat;
@@ -180,6 +181,125 @@ namespace TurnLimbo.Core.Tests
             Assert.That(mirrored.CanBindCurrentHit(), Is.EqualTo(eligible));
             Assert.That(match.CurrentSlot.HitsResolved, Is.Zero);
             Assert.That(mirrored.CurrentSlot.HitsResolved, Is.Zero);
+        }
+
+        // 2026-11-13: under 위력 차 붕괴 every attack reaches health, so the bind takes an unbroken 합 (final powers less than
+        // LegacyPowerBreakRules.MinimumPowerDifference apart) whose first hit fells nobody, is not heavy, carries no
+        // successful pressure and opens no mission event.
+        [TestCase(10, 10, true)]
+        [TestCase(10, 14, true)]
+        [TestCase(14, 10, true)]
+        [TestCase(10, 15, false)]
+        [TestCase(15, 10, false)]
+        public void PowerBreak_BindsAnUnbrokenClash_AndNeverOneThatBreaks(int playerPower, int enemyPower, bool bind)
+        {
+            LegacyQueuedDuel duel = PowerBreakCampaign(Attack(-30230, playerPower), Attack(-30231, enemyPower));
+            duel.Commit();
+            duel.BeginNextSlot();
+            Assert.That(duel.CanBindCurrentHit(), Is.EqualTo(bind));
+            LegacyHitResult hit = duel.ResolveNextHit();
+            Assert.That(hit.PlayerBroken || hit.EnemyBroken, Is.EqualTo(!bind), "The actual hit confirms the break gap.");
+            Assert.That(hit.PlayerHealthDamage > 0 && hit.EnemyHealthDamage > 0, Is.True,
+                "Under 위력 차 붕괴 a bound 합 still reaches health.");
+        }
+
+        [Test]
+        public void PowerBreak_LeavesTheFinishingBlowAndAHeavyHitTheirOwnMoment()
+        {
+            LegacyQueuedDuel felling = PowerBreakCampaign(Attack(-30232, 10), Attack(-30233, 10), health: 10);
+            felling.Commit();
+            felling.BeginNextSlot();
+            Assert.That(felling.CanBindCurrentHit(), Is.False, "A hit that fells a fighter is the finishing blow's.");
+
+            LegacyQueuedDuel heavy = PowerBreakCampaign(Attack(-30234, 30), Attack(-30235, 30), health: 100);
+            heavy.Commit();
+            heavy.BeginNextSlot();
+            Assert.That(heavy.CanBindCurrentHit(), Is.False, "30 of 100 health is a heavy hit (25% or more).");
+            Assert.That(heavy.CanBindCurrentHit(heavyHealthPercent: 31), Is.True);
+            Assert.That(heavy.CanBindCurrentHit(heavyHealthPercent: 0), Is.True, "With the heavy trigger off only the gap counts.");
+        }
+
+        [Test]
+        public void PowerBreak_CountsBleedingTowardAHeavyHit_AsTheDirectorDoes()
+        {
+            LegacyQueuedDuel clean = PowerBreakCampaign(Attack(-30244, 24), Attack(-30245, 24), health: 100);
+            clean.Commit();
+            clean.BeginNextSlot();
+            Assert.That(clean.CanBindCurrentHit(), Is.True, "24 of 100 health is under the 25% heavy share.");
+
+            LegacyQueuedDuel bleeding = PowerBreakCampaign(Attack(-30246, 24), Attack(-30247, 24), health: 100);
+            ((LegacyStatusCollection)typeof(LegacyQueuedDuel).GetField("playerStatuses",
+                BindingFlags.Instance | BindingFlags.NonPublic).GetValue(bleeding)).GrantBleeding(1);
+            bleeding.Commit();
+            bleeding.BeginNextSlot();
+            Assert.That(bleeding.CanBindCurrentHit(), Is.False,
+                "The blade's 24 and the bleeding's 2 make a heavy hit, which the director would lift to Major.");
+            LegacyHitResult hit = bleeding.ResolveNextHit();
+            Assert.That((hit.PlayerHealthDamage, hit.PlayerBleedingHealthDamage), Is.EqualTo((26, 2)));
+        }
+
+        [Test]
+        public void PowerBreak_ExcludesSuccessfulPressure_ButNotAMissedDodge()
+        {
+            LegacyQueuedDuel pressured = PowerBreakCampaign(Attack(-30236, 10), Attack(-30237, 10));
+            pressured.Commit();
+            pressured.BeginNextSlot();
+            Assert.That(pressured.TryStep(LegacyStepAction.Pressure, true, out bool pressure) && pressure, Is.True);
+            Assert.That(pressured.CanBindCurrentHit(), Is.False);
+
+            LegacyQueuedDuel missed = PowerBreakCampaign(Attack(-30238, 10), Attack(-30239, 10));
+            missed.Commit();
+            missed.BeginNextSlot();
+            Assert.That(missed.TryStep(LegacyStepAction.Dodge, false, out bool success), Is.True);
+            Assert.That(success, Is.False);
+            Assert.That(missed.CanBindCurrentHit(), Is.True, "A failed attempt does not change how the attacks land.");
+        }
+
+        [TestCase(95, false)]
+        [TestCase(50, true)]
+        public void PowerBreak_ExcludesTheHitThatOpensAMissionEvent(int thresholdPercent, bool bind)
+        {
+            LegacyQueuedDuel duel = PowerBreakCampaign(Attack(-30240, 10), Attack(-30241, 10), health: 100,
+                enemyHealthThresholdPercent: thresholdPercent);
+            duel.Commit();
+            duel.BeginNextSlot();
+            Assert.That(duel.CanBindCurrentHit(), Is.EqualTo(bind));
+            Assert.That(duel.ResolveNextHit().EnemyReachedHealthThreshold, Is.EqualTo(!bind));
+        }
+
+        [TestCase(10, 14, true)]
+        [TestCase(10, 15, false)]
+        [TestCase(15, 10, false)]
+        public void Versus_PowerBreakBindIsTheSameFromBothSides(int leftPower, int rightPower, bool bind)
+        {
+            LegacySkill left = Attack(-30242, leftPower), right = Attack(-30243, rightPower);
+            LocalVersusMatch match = PowerBreakVersus(left, right), mirrored = PowerBreakVersus(right, left);
+            match.BeginNextSlot();
+            mirrored.BeginNextSlot();
+            Assert.That(match.CanBindCurrentHit(), Is.EqualTo(bind));
+            Assert.That(mirrored.CanBindCurrentHit(), Is.EqualTo(bind));
+            Assert.That(match.CurrentSlot.HitsResolved + mirrored.CurrentSlot.HitsResolved, Is.Zero);
+        }
+
+        private static LegacyQueuedDuel PowerBreakCampaign(LegacySkill player, LegacySkill enemy, int health = 1000,
+            int enemyHealthThresholdPercent = 0)
+        {
+            var duel = new LegacyQueuedDuel(health, 0, health, 0, new[] { player }, new[] { enemy }, new[] { 1 },
+                randomSeed: 17, enemyHealthThresholdPercent: enemyHealthThresholdPercent, meshPercent: 0, usePowerBreak: true);
+            Assert.That(duel.TryQueueLane(0), Is.True);
+            return duel;
+        }
+
+        private static LocalVersusMatch PowerBreakVersus(LegacySkill left, LegacySkill right)
+        {
+            var match = new LocalVersusMatch(new[] { left }, new[] { right }, 1000, 0, 1000, 0, randomSeed: 17, usePowerBreak: true);
+            while (match.Phase == LegacyDuelPhase.Planning)
+            {
+                int planner = match.CurrentPlanner;
+                if (match.GetFighter(planner).Queue.Count < 1) Assert.That(match.TryQueueLane(planner, 0), Is.True);
+                else Assert.That(match.TryPass(planner), Is.True);
+            }
+            return match;
         }
 
         private static (int health, int resistance, int floor) State(LegacyFighterState state)

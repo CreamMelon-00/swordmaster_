@@ -129,7 +129,10 @@ namespace TurnLimbo.Presentation.Tests
         public IEnumerator LocalHostAndMirroredGuest_DeferTheSameDamage_ThenReleaseOnceAndFinishTheMultihitSlot()
         {
             yield return null;
-            LocalVersusMatch expected = new LocalVersusMatch(new[] { Attack(88211, 30, 3) }, new[] { Attack(88212, 27, 3) }, randomSeed: 7);
+            // Versus plays the 위력 차 붕괴 rule (StartOnline builds the match with LegacyPowerBreakRules.PrototypeEnabled):
+            // 30 against 27 breaks nobody and each hit takes 10% of health, so the first hit binds and lands on health.
+            LocalVersusMatch expected = new LocalVersusMatch(new[] { Attack(88211, 30, 3) }, new[] { Attack(88212, 27, 3) }, randomSeed: 7,
+                usePowerBreak: LegacyPowerBreakRules.PrototypeEnabled);
             Assert.That(expected.TryQueueLane(0, 0), Is.True);
             Assert.That(expected.TryCommit(0), Is.True);
             Assert.That(expected.TryQueueLane(1, 0), Is.True);
@@ -180,8 +183,10 @@ namespace TurnLimbo.Presentation.Tests
             }
         }
 
+        // The campaign half runs an injected old-rule duel (its release reaches only resistance); the versus half runs the real
+        // 위력 차 붕괴 match, where the released 15 against 15 reaches health. Both keep the attack poses of an even 합.
         [UnityTest]
-        public IEnumerator AnEmphasisedResistanceOnlyRelease_KeepsBothAttackPoses_InCampaignAndVersus()
+        public IEnumerator AnEmphasisedEvenRelease_KeepsBothAttackPoses_InCampaignAndVersus()
         {
             yield return null;
             using (var scope = new CampaignScope(Duel(15, 15, 1)))
@@ -218,8 +223,9 @@ namespace TurnLimbo.Presentation.Tests
                 AssertAttackContact(enemyContact, false);
                 versus.Tick(versus.HitStopTimeRemaining + versus.BladeBindTimeRemaining + .5f, null);
                 Assert.That(versus.Match.CurrentSlot.HitsResolved, Is.EqualTo(1));
-                Assert.That((versus.Match.Left.State.Health, versus.Match.Right.State.Health), Is.EqualTo((100, 100)));
-                Assert.That((versus.Match.Left.State.Resistance, versus.Match.Right.State.Resistance), Is.EqualTo((35, 35)));
+                Assert.That((versus.Match.Left.State.Health, versus.Match.Right.State.Health), Is.EqualTo((85, 85)),
+                    "Under 위력 차 붕괴 the released 합 reaches health once.");
+                Assert.That((versus.Match.Left.State.Resistance, versus.Match.Right.State.Resistance), Is.EqualTo((0, 0)));
                 Assert.That(scope.Arena.PlayerRenderer.sprite, Is.SameAs(playerContact));
                 Assert.That(scope.Arena.EnemyRenderer.sprite, Is.SameAs(enemyContact));
                 Assert.That(versus.HitStopTimeRemaining, Is.Zero);
